@@ -14,13 +14,13 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 |---|---|---|
 | Build | Vite | latest |
 | UI | React + TypeScript | React 19 |
-| Canvas | Fabric.js | v6 |
+| Canvas | Fabric.js | v7 |
 | State | Zustand | v5+ |
 | Styling | Tailwind CSS | v4 (CSS-first config) |
 | Storage | IndexedDB via `idb` | — |
 | Fonts | Google Fonts API | on-demand |
 | Icons | Lucide React | — |
-| Export | Fabric.js `toDataURL({ multiplier })` + JSZip | — |
+| Export | Fabric.js `toDataURL({ multiplier })` / `toBlob()` + JSZip | — |
 
 ## Commands
 
@@ -123,6 +123,20 @@ src/
 - One primary CTA per screen/dialog, secondary actions visually subordinate.
 - Spacing: 4px/8px incremental scale.
 
+### Fabric.js v7
+
+- **Named imports only** — no `fabric.*` namespace: `import { Canvas, Rect, Textbox, FabricImage } from 'fabric'`
+- `fabric.Image` → `FabricImage`, `fabric.Text` → `FabricText`
+- SVG loading is async: `const { objects } = await loadSVGFromURL(url)` — no callbacks
+- Shadows: `obj.set('shadow', new Shadow({ ... }))` — no `setShadow()`
+- Gradients: `obj.set('fill', new Gradient({ ... }))` — no `setGradient()` / `setGradientFill()`
+- `colorStops` is an array of `{ offset, color }` objects, not an object map
+- Use `new Point(x, y)` for `zoomToPoint()` — plain `{x, y}` won't work in TypeScript
+- Prefer `canvas.toBlob()` over `toDataURL()` for large exports (avoids base64 overhead)
+- Use `canvas.requestRenderAll()` over `renderAll()` for programmatic changes (batches to next frame)
+- `StaticCanvas` for export rendering (no event overhead, no retina scaling)
+- Multi-selection: use `ActiveSelection`, not `Group`
+
 ### Performance (Vercel Rules)
 
 - **Bundle**: import directly from modules, avoid barrel files. Dynamic import heavy components.
@@ -133,7 +147,7 @@ src/
 
 ### Export (Critical Path)
 
-- Render at exact target resolution via `fabric.Canvas.toDataURL({ multiplier })` — zero upscaling.
+- Render at exact target resolution via `canvas.toBlob({ multiplier })` (preferred) or `toDataURL({ multiplier })` — zero upscaling.
 - sRGB color space, PNG-24 (8-bit RGBA).
 - Target < 5 MB per file.
 - Dimensions MUST be pixel-exact — validate against `lib/dimensions.ts` constants.

@@ -39,6 +39,7 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 | **6.9"** | **1320 x 2868** | **2868 x 1320** | iPhone 16 Pro Max |
 | **6.7"** | **1290 x 2796** | **2796 x 1290** | iPhone 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max |
 | 6.5" | 1284 x 2778 | 2778 x 1284 | iPhone 13 Pro Max, 12 Pro Max, 11 Pro Max, XS Max |
+| 6.3" | 1206 x 2622 | 2622 x 1206 | iPhone 16e |
 | 6.1" | 1179 x 2556 | 2556 x 1179 | iPhone 16, 15, 14, 13, 12 |
 | 5.8" | 1125 x 2436 | 2436 x 1125 | iPhone X, XS, 11 Pro, 12 mini, 13 mini |
 | 5.5" | 1242 x 2208 | 2208 x 1242 | iPhone 8 Plus, 7 Plus, 6s Plus (legacy) |
@@ -188,6 +189,7 @@ Fully editable after applying.
   - **6.9" (1320 x 2868)** — checked by default (App Store submission)
   - 6.7" (1290 x 2796)
   - 6.5" (1284 x 2778)
+  - 6.3" (1206 x 2622)
   - 6.1" (1179 x 2556)
   - 5.8" (1125 x 2436)
   - 5.5" (1242 x 2208) — legacy
@@ -209,7 +211,7 @@ export/
 ```
 
 **Quality guarantees:**
-- Renders at exact target resolution via Fabric.js `multiplier` — zero upscaling
+- Renders at exact target resolution via Fabric.js `multiplier` / `toBlob()` — zero upscaling
 - sRGB color space
 - PNG-24 (8-bit RGBA)
 - Optimized to < 5 MB per file
@@ -223,13 +225,13 @@ export/
 |---|---|---|
 | **Build** | Vite | Fast HMR, zero config |
 | **UI** | React 19 + TypeScript | Best ecosystem for canvas editors |
-| **Canvas** | Fabric.js v6 | IText, drag/resize/rotate, groups, high-DPI export |
+| **Canvas** | Fabric.js v7 | IText, drag/resize/rotate, groups, high-DPI export, `toBlob()` for large exports |
 | **State** | Zustand | Lightweight, undo/redo via history middleware |
 | **Styling** | Tailwind CSS v4 | Rapid UI for editor panels |
 | **Storage** | IndexedDB (via idb) | Local-first, no backend |
 | **Fonts** | Google Fonts API | On-demand font loading |
 | **Icons** | Lucide React | Clean icon set |
-| **Export** | Fabric.js `toDataURL({ multiplier })` | Pixel-perfect at any resolution |
+| **Export** | Fabric.js `toDataURL({ multiplier })` / `toBlob()` | Pixel-perfect at any resolution, `toBlob()` preferred for large exports |
 | **ZIP** | JSZip | Client-side ZIP for batch export |
 
 ### Not Angular

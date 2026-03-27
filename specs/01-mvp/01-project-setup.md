@@ -29,7 +29,7 @@ Foundation for the entire app. Every other task depends on this. Must match PRD 
 {
   "react": "^19",
   "react-dom": "^19",
-  "fabric": "^6",
+  "fabric": "^7",
   "zustand": "^5",
   "lucide-react": "latest",
   "idb": "latest",

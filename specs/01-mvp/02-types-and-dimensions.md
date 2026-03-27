@@ -88,6 +88,7 @@ interface DisplayClass {
 // 6.9" = 1320x2868 (primary)
 // 6.7" = 1290x2796 (primary)
 // 6.5" = 1284x2778
+// 6.3" = 1206x2622 (iPhone 16e)
 // 6.1" = 1179x2556
 // 5.8" = 1125x2436
 // 5.5" = 1242x2208 (legacy)
@@ -97,7 +98,7 @@ interface DisplayClass {
 
 ## Success Criteria
 - [ ] All types compile with zero errors
-- [ ] Dimension constants match PRD table exactly (all 8 display classes)
+- [ ] Dimension constants match PRD table exactly (all 9 display classes)
 - [ ] Layer type is a proper discriminated union (narrowing works with `layer.type`)
 - [ ] Types are exported and importable from `@/types`
 - [ ] Dimension constants are the ONLY place dimensions are defined (no hardcoding elsewhere)
