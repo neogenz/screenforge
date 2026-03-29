@@ -47,7 +47,7 @@ export function ScreenThumbnail({
       <div
         onClick={onClick}
         className={cn(
-          'h-24 w-14 cursor-pointer overflow-hidden rounded-lg transition-all',
+          'h-24 aspect-[440/956] cursor-pointer overflow-hidden rounded-lg transition-all',
           isActive
             ? 'ring-2 ring-primary shadow-[0_0_12px_rgba(99,102,241,0.25)]'
             : 'ring-1 ring-white/[0.08] hover:ring-white/20',

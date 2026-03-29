@@ -57,7 +57,88 @@ export function useCanvas() {
   const syncing = useRef(false)
   const panning = useRef(false)
   const panPt = useRef<{ x: number; y: number } | null>(null)
+  const thumbTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setZoom = useUIStore(s => s.setZoom)
+
+  /** Generate thumbnails by cropping each screen region directly from the
+   *  already-rendered lowerCanvasEl. No viewport swapping, no Fabric re-renders.
+   *  Uses native drawImage with the current viewport transform to map screen
+   *  coordinates to canvas element pixels. Pre-fills with background color to
+   *  cover any areas outside the current viewport. */
+  const generateThumbnails = useCallback((_canvas: Canvas, screens: Screen[]) => {
+    if (thumbTimer.current) clearTimeout(thumbTimer.current)
+    thumbTimer.current = setTimeout(() => {
+      const proj = useProjectStore.getState().project
+      if (!proj) return
+
+      const canvas = fabricRef.current
+      if (!canvas) return
+      const sourceEl = canvas.lowerCanvasEl
+      if (!sourceEl) return
+
+      const thumbs: Record<string, string> = {}
+      const dpr = canvas.getRetinaScaling()
+      const zoom = canvas.getZoom()
+      const vpt = canvas.viewportTransform
+      const thumbW = Math.round(SCREEN_WIDTH * 0.2)
+      const thumbH = Math.round(SCREEN_HEIGHT * 0.2)
+
+      for (let i = 0; i < screens.length; i++) {
+        const sc = screens[i]
+        const off = getScreenOffset(i)
+        try {
+          // Map screen region from Fabric coords → canvas element pixels
+          const srcX = (off * zoom + vpt[4]) * dpr
+          const srcY = (0 * zoom + vpt[5]) * dpr
+          const srcW = SCREEN_WIDTH * zoom * dpr
+          const srcH = SCREEN_HEIGHT * zoom * dpr
+
+          // Clamp to canvas element bounds (screen may be partially off-viewport)
+          const cx = Math.max(0, srcX)
+          const cy = Math.max(0, srcY)
+          const cw = Math.max(0, Math.min(srcW - (cx - srcX), sourceEl.width - cx))
+          const ch = Math.max(0, Math.min(srcH - (cy - srcY), sourceEl.height - cy))
+
+          // Corresponding destination region in the thumbnail
+          const dx = ((cx - srcX) / srcW) * thumbW
+          const dy = ((cy - srcY) / srcH) * thumbH
+          const dw = (cw / srcW) * thumbW
+          const dh = (ch / srcH) * thumbH
+
+          const crop = document.createElement('canvas')
+          crop.width = thumbW
+          crop.height = thumbH
+          const ctx = crop.getContext('2d')!
+
+          // Pre-fill with background color so off-viewport areas aren't transparent
+          if (sc.background.type === 'solid') {
+            ctx.fillStyle = sc.background.color
+            ctx.fillRect(0, 0, thumbW, thumbH)
+          }
+
+          if (cw > 0 && ch > 0) {
+            ctx.drawImage(sourceEl, cx, cy, cw, ch, dx, dy, dw, dh)
+          }
+
+          thumbs[sc.id] = crop.toDataURL('image/png')
+        } catch { /* skip */ }
+      }
+
+      const p = useProjectStore.getState().project
+      if (p) {
+        let changed = false
+        for (const sc of p.screens) {
+          if (thumbs[sc.id] && sc.thumbnail !== thumbs[sc.id]) {
+            sc.thumbnail = thumbs[sc.id]
+            changed = true
+          }
+        }
+        if (changed) {
+          useProjectStore.setState({ project: { ...p } })
+        }
+      }
+    }, 600)
+  }, [])
 
   const fitAll = useCallback((c: Canvas, n: number) => {
     const tw = getTotalWidth(n), pad = 80
@@ -152,7 +233,8 @@ export function useCanvas() {
     for (const o of canvas.getObjects() as D[]) { if (o.data?.type === 'bg') canvas.sendObjectToBack(o) }
     canvas.requestRenderAll()
     requestAnimationFrame(() => { syncing.current = false })
-  }, [])
+    generateThumbnails(canvas, screens)
+  }, [generateThumbnails])
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
