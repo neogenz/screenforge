@@ -55,86 +55,101 @@ export function useCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const fabricRef = useRef<Canvas | null>(null)
   const syncing = useRef(false)
+  const syncVersion = useRef(0)
   const panning = useRef(false)
   const panPt = useRef<{ x: number; y: number } | null>(null)
   const thumbTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const thumbGen = useRef(0)
   const setZoom = useUIStore(s => s.setZoom)
 
-  /** Generate thumbnails by cropping each screen region directly from the
-   *  already-rendered lowerCanvasEl. No viewport swapping, no Fabric re-renders.
-   *  Uses native drawImage with the current viewport transform to map screen
-   *  coordinates to canvas element pixels. Pre-fills with background color to
-   *  cover any areas outside the current viewport. */
-  const generateThumbnails = useCallback((_canvas: Canvas, screens: Screen[]) => {
+  /** Generate thumbnails by cropping each screen from the rendered lowerCanvasEl.
+   *  Uses getBoundingRect() on background rects to get EXACT pixel coordinates —
+   *  no manual DPR/viewport math needed. */
+  const generateThumbnails = useCallback((screens: Screen[]) => {
     if (thumbTimer.current) clearTimeout(thumbTimer.current)
+    const gen = ++thumbGen.current
     thumbTimer.current = setTimeout(() => {
-      const proj = useProjectStore.getState().project
-      if (!proj) return
-
       const canvas = fabricRef.current
-      if (!canvas) return
+      if (!canvas || gen !== thumbGen.current) return
+
       const sourceEl = canvas.lowerCanvasEl
       if (!sourceEl) return
 
-      const thumbs: Record<string, string> = {}
+      // Save viewport, fit all screens, render — then crop — then restore.
+      // renderAll() is synchronous so the browser never repaints the fitAll state.
+      const savedVpt = [...canvas.viewportTransform] as typeof canvas.viewportTransform
+
+      // Compute a viewport that shows ALL screens with margin
+      type D = FabricObject & { data?: Record<string, unknown> }
+      const bgs = (canvas.getObjects() as D[]).filter(o => o.data?.type === 'bg')
+      if (bgs.length === 0) return
+
+      // Find the bounding box of ALL bg rects (using aCoords for correct corners)
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const bg of bgs) {
+        const tl = bg.aCoords.tl, br = bg.aCoords.br
+        minX = Math.min(minX, tl.x); minY = Math.min(minY, tl.y)
+        maxX = Math.max(maxX, br.x); maxY = Math.max(maxY, br.y)
+      }
+      const contentW = maxX - minX, contentH = maxY - minY
+      const pad = 20
+      const cw = canvas.width, ch = canvas.height
+      const fitZoom = Math.min((cw - pad * 2) / contentW, (ch - pad * 2) / contentH, 1)
+      const fitPanX = (cw - contentW * fitZoom) / 2 - minX * fitZoom
+      const fitPanY = (ch - contentH * fitZoom) / 2 - minY * fitZoom
+
+      canvas.viewportTransform = [fitZoom, 0, 0, fitZoom, fitPanX, fitPanY]
+      canvas.calcViewportBoundaries()
+      canvas.renderAll()
+
       const dpr = canvas.getRetinaScaling()
-      const zoom = canvas.getZoom()
-      const vpt = canvas.viewportTransform
       const thumbW = Math.round(SCREEN_WIDTH * 0.2)
       const thumbH = Math.round(SCREEN_HEIGHT * 0.2)
+      const thumbs: Record<string, string> = {}
 
       for (let i = 0; i < screens.length; i++) {
+        if (gen !== thumbGen.current) break
         const sc = screens[i]
-        const off = getScreenOffset(i)
         try {
-          // Map screen region from Fabric coords → canvas element pixels
-          const srcX = (off * zoom + vpt[4]) * dpr
-          const srcY = (0 * zoom + vpt[5]) * dpr
-          const srcW = SCREEN_WIDTH * zoom * dpr
-          const srcH = SCREEN_HEIGHT * zoom * dpr
+          const bgObj = bgs.find(o => o.data?.uid === `bg-${sc.id}`)
+          if (!bgObj) continue
 
-          // Clamp to canvas element bounds (screen may be partially off-viewport)
-          const cx = Math.max(0, srcX)
-          const cy = Math.max(0, srcY)
-          const cw = Math.max(0, Math.min(srcW - (cx - srcX), sourceEl.width - cx))
-          const ch = Math.max(0, Math.min(srcH - (cy - srcY), sourceEl.height - cy))
+          const tl = bgObj.aCoords.tl
+          const br = bgObj.aCoords.br
+          const zoom = fitZoom
 
-          // Corresponding destination region in the thumbnail
-          const dx = ((cx - srcX) / srcW) * thumbW
-          const dy = ((cy - srcY) / srcH) * thumbH
-          const dw = (cw / srcW) * thumbW
-          const dh = (ch / srcH) * thumbH
+          const srcX = (tl.x * zoom + fitPanX) * dpr
+          const srcY = (tl.y * zoom + fitPanY) * dpr
+          const srcW = (br.x - tl.x) * zoom * dpr
+          const srcH = (br.y - tl.y) * zoom * dpr
+
+          if (srcW <= 0 || srcH <= 0) continue
 
           const crop = document.createElement('canvas')
           crop.width = thumbW
           crop.height = thumbH
           const ctx = crop.getContext('2d')!
-
-          // Pre-fill with background color so off-viewport areas aren't transparent
-          if (sc.background.type === 'solid') {
-            ctx.fillStyle = sc.background.color
-            ctx.fillRect(0, 0, thumbW, thumbH)
-          }
-
-          if (cw > 0 && ch > 0) {
-            ctx.drawImage(sourceEl, cx, cy, cw, ch, dx, dy, dw, dh)
-          }
-
+          ctx.drawImage(sourceEl, srcX, srcY, srcW, srcH, 0, 0, thumbW, thumbH)
           thumbs[sc.id] = crop.toDataURL('image/png')
         } catch { /* skip */ }
       }
 
+      // Restore original viewport immediately — no visual flicker
+      canvas.viewportTransform = savedVpt
+      canvas.calcViewportBoundaries()
+      canvas.renderAll()
+
+      if (gen !== thumbGen.current) return
+
       const p = useProjectStore.getState().project
       if (p) {
-        let changed = false
-        for (const sc of p.screens) {
-          if (thumbs[sc.id] && sc.thumbnail !== thumbs[sc.id]) {
-            sc.thumbnail = thumbs[sc.id]
-            changed = true
-          }
-        }
-        if (changed) {
-          useProjectStore.setState({ project: { ...p } })
+        const updatedScreens = p.screens.map(s =>
+          thumbs[s.id] && s.thumbnail !== thumbs[s.id]
+            ? { ...s, thumbnail: thumbs[s.id] }
+            : s
+        )
+        if (updatedScreens.some((s, i) => s !== p.screens[i])) {
+          useProjectStore.setState({ project: { ...p, screens: updatedScreens } })
         }
       }
     }, 600)
@@ -151,11 +166,19 @@ export function useCanvas() {
   const sync = useCallback(async (screens: Screen[]) => {
     const canvas = fabricRef.current
     if (!canvas) return
+    const ver = ++syncVersion.current
     syncing.current = true
 
+    try {
     const objs = canvas.getObjects() as D[]
     const map = new Map<string, D>()
-    for (const o of objs) { const u = o.data?.uid as string; if (u) map.set(u, o) }
+    for (const o of objs) {
+      const u = o.data?.uid as string
+      if (u) {
+        if (map.has(u)) canvas.remove(o)
+        else map.set(u, o)
+      }
+    }
 
     const want = new Set<string>()
     for (const sc of screens) {
@@ -200,9 +223,10 @@ export function useCanvas() {
             const dfl = layer as DeviceFrameLayer, prev = ex.data as Record<string, unknown> | undefined
             if (prev?.deviceModel !== dfl.deviceModel || prev?.deviceColor !== dfl.deviceColor ||
                 prev?.orientation !== dfl.orientation || prev?.screenshotUrl !== dfl.screenshotUrl) {
-              canvas.remove(ex)
               try {
                 const o = await layerToFabricObject(layer)
+                if (syncVersion.current !== ver) return
+                canvas.remove(ex)
                 o.set({ left: layer.x + off }); o.clipPath = clip
                 o.set('data', { ...(o as D).data, uid: layer.id, screenId: sc.id })
                 canvas.add(o)
@@ -222,6 +246,7 @@ export function useCanvas() {
         } else {
           try {
             const o = await layerToFabricObject(layer)
+            if (syncVersion.current !== ver) return
             o.set({ left: layer.x + off }); o.clipPath = clip
             o.set('data', { ...(o as D).data, uid: layer.id, screenId: sc.id })
             canvas.add(o)
@@ -232,8 +257,12 @@ export function useCanvas() {
 
     for (const o of canvas.getObjects() as D[]) { if (o.data?.type === 'bg') canvas.sendObjectToBack(o) }
     canvas.requestRenderAll()
-    requestAnimationFrame(() => { syncing.current = false })
-    generateThumbnails(canvas, screens)
+    generateThumbnails(screens)
+    } finally {
+      if (syncVersion.current === ver) {
+        requestAnimationFrame(() => { syncing.current = false })
+      }
+    }
   }, [generateThumbnails])
 
   useEffect(() => {
@@ -280,6 +309,9 @@ export function useCanvas() {
         let z = canvas.getZoom() * (0.999 ** e.deltaY)
         z = Math.min(4, Math.max(0.1, z)); canvas.zoomToPoint(new Point(e.offsetX, e.offsetY), z); setZoom(z)
       } else canvas.relativePan(new Point(-e.deltaX, -e.deltaY))
+      // Regenerate thumbnails after viewport change
+      const pr = useProjectStore.getState().project
+      if (pr) generateThumbnails(pr.screens)
     })
     canvas.on('mouse:down', opt => {
       const e = opt.e as MouseEvent | TouchEvent; if (!('button' in e)) return
@@ -296,6 +328,8 @@ export function useCanvas() {
     const obs = new ResizeObserver(entries => {
       const r = entries[0]?.contentRect; if (!r || r.width < 1) return
       canvas.setDimensions({ width: r.width, height: r.height }); canvas.requestRenderAll()
+      const pr = useProjectStore.getState().project
+      if (pr) generateThumbnails(pr.screens)
     })
     obs.observe(container)
 
@@ -312,10 +346,13 @@ export function useCanvas() {
     const c = fabricRef.current; if (!c) return
     if (s.zoom !== p.zoom && Math.abs(c.getZoom() - s.zoom) > 0.0001) {
       s.zoom === 1 ? c.setViewportTransform([1,0,0,1,0,0]) : c.zoomToPoint(c.getVpCenter(), s.zoom); c.requestRenderAll()
+      const pr = useProjectStore.getState().project
+      if (pr) generateThumbnails(pr.screens)
     } else if (s.viewportResetKey !== p.viewportResetKey) {
-      const pr = useProjectStore.getState().project; if (pr) fitAll(c, pr.screens.length); c.requestRenderAll()
+      const pr = useProjectStore.getState().project
+      if (pr) { fitAll(c, pr.screens.length); c.requestRenderAll(); generateThumbnails(pr.screens) }
     }
-  }), [fitAll])
+  }), [fitAll, generateThumbnails])
 
   return { canvasRef, containerRef }
 }

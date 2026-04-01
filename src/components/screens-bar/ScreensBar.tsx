@@ -71,7 +71,7 @@ export function ScreensBar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full items-center gap-4 overflow-x-auto bg-panel px-8 py-3">
+    <div className="flex h-full min-h-0 w-full items-center gap-3 overflow-x-auto bg-panel px-6 py-3">
       {screens.map((screen, index) => (
         <div
           key={screen.id}
@@ -96,7 +96,7 @@ export function ScreensBar() {
         aria-label="Add new screen"
         onClick={handleAddScreen}
         disabled={screens.length >= MAX_SCREENS}
-        className="flex h-24 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-white/10 transition-colors hover:border-primary/50 disabled:pointer-events-none disabled:opacity-30"
+        className="flex h-[120px] aspect-[9/19.5] shrink-0 items-center justify-center rounded-xl border border-dashed border-white/[0.08] transition-colors hover:border-primary/40 disabled:pointer-events-none disabled:opacity-30"
       >
         <Plus size={18} className="text-muted" />
       </button>

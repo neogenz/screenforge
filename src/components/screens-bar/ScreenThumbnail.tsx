@@ -47,10 +47,10 @@ export function ScreenThumbnail({
       <div
         onClick={onClick}
         className={cn(
-          'h-24 aspect-[440/956] cursor-pointer overflow-hidden rounded-lg transition-all',
+          'h-[120px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-xl transition-all',
           isActive
-            ? 'ring-2 ring-primary shadow-[0_0_12px_rgba(99,102,241,0.25)]'
-            : 'ring-1 ring-white/[0.08] hover:ring-white/20',
+            ? 'ring-2 ring-primary shadow-[0_0_16px_rgba(99,102,241,0.3)]'
+            : 'ring-1 ring-white/[0.06] hover:ring-white/15',
         )}
       >
         {screen.thumbnail ? (
@@ -64,7 +64,7 @@ export function ScreenThumbnail({
         )}
       </div>
 
-      <div className="pointer-events-none absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-white/10 text-[9px] font-semibold text-foreground/80 backdrop-blur-sm">
+      <div className="pointer-events-none absolute top-1.5 left-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-black/25 px-1 text-[10px] font-medium text-white/90 backdrop-blur-md">
         {index + 1}
       </div>
 
