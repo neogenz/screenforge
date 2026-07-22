@@ -1,191 +1,306 @@
 import {
-  Rect,
   Circle,
-  Textbox,
   FabricImage,
-  Shadow,
+  FabricObject,
   Gradient,
-  type FabricObject,
+  Rect,
+  Shadow,
+  Textbox,
+  util,
 } from 'fabric'
-import type { Layer, BaseLayer, TextLayer, ShapeLayer, ImageLayer, DeviceFrameLayer } from '@/types'
-import { getDeviceFrame, generateDeviceFrameSVG } from '@/assets/device-frames'
+import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
+import type {
+  Background,
+  BaseLayer,
+  DeviceFrameLayer,
+  GradientFill,
+  Layer,
+  TextLayer,
+  TextShadow,
+} from '@/types'
 
-export function generateLayerId(): string {
-  return crypto.randomUUID()
+export const SCREEN_WIDTH = 440
+export const SCREEN_HEIGHT = 956
+export const SCREEN_GAP = 40
+
+FabricObject.ownDefaults.originX = 'left'
+FabricObject.ownDefaults.originY = 'top'
+
+export type RenderedObject = FabricObject & {
+  data?: {
+    uid?: string
+    screenId?: string
+    rendererType?: Layer['type'] | 'background' | 'label'
+    resourceKey?: string
+    objectUrl?: string
+  }
 }
 
-export async function layerToFabricObject(layer: Layer): Promise<FabricObject> {
-  const base = {
-    left: layer.x,
+export function getScreenOffset(index: number): number {
+  return index * (SCREEN_WIDTH + SCREEN_GAP)
+}
+
+export function getTotalWidth(screenCount: number): number {
+  return screenCount < 1
+    ? SCREEN_WIDTH
+    : screenCount * SCREEN_WIDTH + (screenCount - 1) * SCREEN_GAP
+}
+
+function createShadow(shadow?: TextShadow): Shadow | null {
+  return shadow
+    ? new Shadow({
+        offsetX: shadow.offsetX,
+        offsetY: shadow.offsetY,
+        blur: shadow.blur,
+        color: shadow.color,
+      })
+    : null
+}
+
+function createGradient(fill: GradientFill): Gradient<'linear'> | Gradient<'radial'> {
+  if (fill.type === 'radial') {
+    const centerX = (fill.centerX ?? 50) / 100
+    const centerY = (fill.centerY ?? 50) / 100
+    return new Gradient<'radial'>({
+      type: 'radial',
+      gradientUnits: 'percentage',
+      coords: {
+        x1: centerX,
+        y1: centerY,
+        r1: 0,
+        x2: centerX,
+        y2: centerY,
+        r2: 0.5,
+      },
+      colorStops: fill.stops,
+    })
+  }
+
+  const radians = ((fill.angle ?? 90) * Math.PI) / 180
+  const dx = Math.sin(radians) / 2
+  const dy = -Math.cos(radians) / 2
+  return new Gradient<'linear'>({
+    type: 'linear',
+    gradientUnits: 'percentage',
+    coords: {
+      x1: 0.5 - dx,
+      y1: 0.5 - dy,
+      x2: 0.5 + dx,
+      y2: 0.5 + dy,
+    },
+    colorStops: fill.stops,
+  })
+}
+
+export function backgroundToFabricFill(background: Background) {
+  if (background.type === 'solid') return background.color
+  return createGradient({
+    type: background.type === 'linear-gradient' ? 'linear' : 'radial',
+    angle: background.type === 'linear-gradient' ? background.angle : undefined,
+    centerX: background.type === 'radial-gradient' ? background.centerX : undefined,
+    centerY: background.type === 'radial-gradient' ? background.centerY : undefined,
+    stops: background.stops,
+  })
+}
+
+function transformText(layer: TextLayer): string {
+  if (layer.textTransform === 'uppercase') return layer.content.toUpperCase()
+  if (layer.textTransform === 'lowercase') return layer.content.toLowerCase()
+  if (layer.textTransform === 'capitalize') {
+    return layer.content.replace(/(^|\s)\p{L}/gu, (letter) => letter.toUpperCase())
+  }
+  return layer.content
+}
+
+function orientedDeviceSvg(layer: DeviceFrameLayer): {
+  svg: string
+  width: number
+  height: number
+} {
+  const config = getDeviceFrame(layer.deviceModel)
+  const portraitSvg = generateDeviceFrameSVG(config, layer.deviceColor, layer.screenshotUrl)
+  if (layer.orientation === 'portrait') {
+    return { svg: portraitSvg, width: config.width, height: config.height }
+  }
+
+  const contentStart = portraitSvg.indexOf('>') + 1
+  const contentEnd = portraitSvg.lastIndexOf('</svg>')
+  const content = portraitSvg.slice(contentStart, contentEnd)
+  return {
+    width: config.height,
+    height: config.width,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${config.height} ${config.width}" width="${config.height}" height="${config.width}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
+  }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error(`Could not load image resource: ${src.slice(0, 80)}`))
+    image.src = src
+  })
+}
+
+function getResourceKey(layer: Layer): string {
+  if (layer.type === 'image') return `image:${layer.src}`
+  if (layer.type === 'device-frame') {
+    return [
+      'device',
+      layer.deviceModel,
+      layer.deviceColor,
+      layer.orientation,
+      layer.screenshotUrl ?? '',
+    ].join(':')
+  }
+  if (layer.type === 'shape') return `shape:${layer.shapeType}`
+  return layer.type
+}
+
+export function disposeFabricObjectResource(object: RenderedObject): void {
+  const objectUrl = object.data?.objectUrl
+  if (objectUrl) URL.revokeObjectURL(objectUrl)
+}
+
+export function needsFabricObjectRecreation(object: RenderedObject, layer: Layer): boolean {
+  return object.data?.rendererType !== layer.type
+    || object.data?.resourceKey !== getResourceKey(layer)
+}
+
+export async function layerToFabricObject(layer: Layer): Promise<RenderedObject> {
+  let object: RenderedObject
+  let objectUrl: string | undefined
+
+  if (layer.type === 'text') {
+    object = new Textbox('', { width: Math.max(1, layer.width) })
+  } else if (layer.type === 'shape') {
+    object = layer.shapeType === 'circle'
+      ? new Circle({ radius: 1 })
+      : new Rect()
+  } else if (layer.type === 'image') {
+    const image = await loadImage(layer.src)
+    object = new FabricImage(image)
+  } else {
+    const device = orientedDeviceSvg(layer)
+    const blob = new Blob([device.svg], { type: 'image/svg+xml' })
+    objectUrl = URL.createObjectURL(blob)
+    try {
+      const image = await loadImage(objectUrl)
+      object = new FabricImage(image)
+    } catch (error) {
+      URL.revokeObjectURL(objectUrl)
+      throw error
+    }
+  }
+
+  object.set('data', {
+    uid: layer.id,
+    rendererType: layer.type,
+    resourceKey: getResourceKey(layer),
+    ...(objectUrl ? { objectUrl } : {}),
+  })
+  applyLayerToFabricObject(object, layer)
+  return object
+}
+
+export function applyLayerToFabricObject(
+  object: RenderedObject,
+  layer: Layer,
+  screenOffset = 0,
+): void {
+  object.set({
+    originX: 'left',
+    originY: 'top',
+    left: layer.x + screenOffset,
     top: layer.y,
     angle: layer.rotation,
     opacity: layer.opacity,
     visible: layer.visible,
     selectable: !layer.locked,
     evented: !layer.locked,
-  }
-
-  let obj: FabricObject
-
-  switch (layer.type) {
-    case 'text': {
-      const tl = layer as TextLayer
-      const textbox = new Textbox(tl.content, {
-        ...base,
-        width: tl.width,
-        fontSize: tl.fontSize,
-        fontFamily: tl.fontFamily,
-        fontWeight: tl.fontWeight.toString(),
-        fill: tl.color,
-        textAlign: tl.textAlign,
-        lineHeight: tl.lineHeight,
-        charSpacing: tl.letterSpacing,
-      })
-      if (tl.shadow) {
-        textbox.set(
-          'shadow',
-          new Shadow({
-            offsetX: tl.shadow.offsetX,
-            offsetY: tl.shadow.offsetY,
-            blur: tl.shadow.blur,
-            color: tl.shadow.color,
-          }),
-        )
-      }
-      if (tl.gradientFill) {
-        textbox.set(
-          'fill',
-          tl.gradientFill.type === 'linear'
-            ? new Gradient<'linear'>({
-                type: 'linear',
-                gradientUnits: 'percentage',
-                coords: { x1: 0, y1: 0, x2: 1, y2: 0 },
-                colorStops: tl.gradientFill.stops,
-              })
-            : new Gradient<'radial'>({
-                type: 'radial',
-                gradientUnits: 'percentage',
-                coords: { r1: 0, r2: 0.5, x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5 },
-                colorStops: tl.gradientFill.stops,
-              }),
-        )
-      }
-      obj = textbox
-      break
-    }
-
-    case 'shape': {
-      const sl = layer as ShapeLayer
-      const fill =
-        typeof sl.fill === 'string'
-          ? sl.fill
-          : sl.fill.type === 'linear'
-            ? new Gradient<'linear'>({
-                type: 'linear',
-                gradientUnits: 'percentage',
-                coords: { x1: 0, y1: 0, x2: 1, y2: 0 },
-                colorStops: sl.fill.stops,
-              })
-            : new Gradient<'radial'>({
-                type: 'radial',
-                gradientUnits: 'percentage',
-                coords: { r1: 0, r2: 0.5, x1: 0.5, y1: 0.5, x2: 0.5, y2: 0.5 },
-                colorStops: sl.fill.stops,
-              })
-
-      if (sl.shapeType === 'circle') {
-        obj = new Circle({
-          ...base,
-          radius: Math.min(sl.width, sl.height) / 2,
-          fill,
-          stroke: sl.stroke,
-          strokeWidth: sl.strokeWidth,
-        })
-      } else {
-        obj = new Rect({
-          ...base,
-          width: sl.width,
-          height: sl.height,
-          rx: sl.shapeType === 'rounded-rect' ? (sl.borderRadius ?? 8) : 0,
-          ry: sl.shapeType === 'rounded-rect' ? (sl.borderRadius ?? 8) : 0,
-          fill,
-          stroke: sl.stroke,
-          strokeWidth: sl.strokeWidth,
-        })
-      }
-
-      if (sl.shadow) {
-        obj.set(
-          'shadow',
-          new Shadow({
-            offsetX: sl.shadow.offsetX,
-            offsetY: sl.shadow.offsetY,
-            blur: sl.shadow.blur,
-            color: sl.shadow.color,
-          }),
-        )
-      }
-      break
-    }
-
-    case 'image': {
-      const il = layer as ImageLayer
-      const imgEl = await loadImage(il.src)
-      obj = new FabricImage(imgEl, {
-        ...base,
-        scaleX: il.width / imgEl.naturalWidth,
-        scaleY: il.height / imgEl.naturalHeight,
-      })
-      break
-    }
-
-    case 'device-frame': {
-      const dfl = layer as DeviceFrameLayer
-      const config = getDeviceFrame(dfl.deviceModel)
-      const svgString = generateDeviceFrameSVG(config, dfl.deviceColor, dfl.screenshotUrl)
-      // Keep blob URL alive so Fabric's clone()/toObject() can re-use it.
-      // Revoking it would break overflow clone creation.
-      const blob = new Blob([svgString], { type: 'image/svg+xml' })
-      const blobUrl = URL.createObjectURL(blob)
-      const imgEl = await loadImage(blobUrl)
-
-      obj = new FabricImage(imgEl, {
-        ...base,
-        scaleX: layer.width / config.width,
-        scaleY: layer.height / config.height,
-      })
-      break
-    }
-  }
-
-  const data: Record<string, unknown> = { id: layer.id }
-  if (layer.type === 'device-frame') {
-    const dfl = layer as DeviceFrameLayer
-    data.deviceModel = dfl.deviceModel
-    data.deviceColor = dfl.deviceColor
-    data.orientation = dfl.orientation
-    data.screenshotUrl = dfl.screenshotUrl
-  }
-  obj.set('data', data)
-  return obj
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
+    hasControls: !layer.locked,
+    hoverCursor: layer.locked ? 'not-allowed' : 'move',
   })
+
+  if (layer.type === 'text' && object instanceof Textbox) {
+    object.set({
+      text: transformText(layer),
+      width: Math.max(1, layer.width),
+      scaleX: 1,
+      fontSize: layer.fontSize,
+      fontFamily: layer.fontFamily,
+      fontWeight: layer.fontWeight.toString(),
+      fill: layer.gradientFill ? createGradient(layer.gradientFill) : layer.color,
+      textAlign: layer.textAlign,
+      lineHeight: layer.lineHeight,
+      charSpacing: layer.letterSpacing,
+      shadow: createShadow(layer.shadow),
+    })
+    object.initDimensions()
+    object.set({ scaleY: layer.height / Math.max(1, object.height) })
+  } else if (layer.type === 'shape') {
+    const fill = typeof layer.fill === 'string' ? layer.fill : createGradient(layer.fill)
+    object.set({
+      fill,
+      stroke: layer.stroke ?? null,
+      strokeWidth: layer.strokeWidth ?? 0,
+      shadow: createShadow(layer.shadow),
+    })
+    if (object instanceof Circle) {
+      const diameter = Math.max(1, Math.min(layer.width, layer.height))
+      object.set({
+        radius: diameter / 2,
+        scaleX: layer.width / diameter,
+        scaleY: layer.height / diameter,
+      })
+    } else if (object instanceof Rect) {
+      const radius = layer.shapeType === 'rounded-rect' ? layer.borderRadius ?? 8 : 0
+      object.set({
+        width: Math.max(1, layer.width),
+        height: Math.max(1, layer.height),
+        scaleX: 1,
+        scaleY: 1,
+        rx: radius,
+        ry: radius,
+      })
+    }
+  } else if (layer.type === 'image' && object instanceof FabricImage) {
+    object.set({
+      scaleX: layer.width / Math.max(1, object.width),
+      scaleY: layer.height / Math.max(1, object.height),
+      shadow: createShadow(layer.shadow),
+    })
+  } else if (layer.type === 'device-frame' && object instanceof FabricImage) {
+    object.set({
+      scaleX: layer.width / Math.max(1, object.width),
+      scaleY: layer.height / Math.max(1, object.height),
+      shadow: layer.shadowEnabled
+        ? new Shadow({
+            blur: layer.shadowBlur ?? 20,
+            color: layer.shadowColor ?? 'rgba(0,0,0,0.35)',
+            offsetX: layer.shadowOffsetX ?? 0,
+            offsetY: layer.shadowOffsetY ?? 12,
+          })
+        : null,
+    })
+  }
+
+  object.setCoords()
 }
 
-export function fabricObjectToLayerUpdate(obj: FabricObject): Partial<BaseLayer> {
+export function fabricObjectToLayerUpdate(
+  object: RenderedObject,
+  screenOffset = 0,
+): Partial<BaseLayer> {
+  const matrix = object.calcTransformMatrix()
+  const decomposition = util.qrDecompose(matrix)
+  const topLeft = object.getCoords()[0]
   return {
-    x: obj.left,
-    y: obj.top,
-    width: obj.getScaledWidth(),
-    height: obj.getScaledHeight(),
-    rotation: obj.angle,
-    opacity: obj.opacity,
+    x: topLeft.x - screenOffset,
+    y: topLeft.y,
+    width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
+    height: Math.max(1, object.height * Math.abs(decomposition.scaleY)),
+    rotation: decomposition.angle,
+    opacity: object.opacity,
   }
 }

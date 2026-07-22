@@ -205,7 +205,16 @@ export async function saveCurrentProject(): Promise<void> {
 
 export function initAutoSave(): () => void {
   const unsubscribe = useProjectStore.subscribe((state, previous) => {
-    if (state.project && state.project !== previous.project) scheduleSave(state.project)
+    if (
+      state.project
+      && (
+        !previous.project
+        || state.project.id !== previous.project.id
+        || state.project.updatedAt !== previous.project.updatedAt
+      )
+    ) {
+      scheduleSave(state.project)
+    }
   })
 
   return () => {

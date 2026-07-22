@@ -26,7 +26,11 @@ export function createDefaultScreen(name: string, globals: GlobalSettings): Scre
 }
 
 function withTimestamp(project: Project, updates: Partial<Project>): Project {
-  return { ...project, ...updates, updatedAt: Date.now() }
+  return {
+    ...project,
+    ...updates,
+    updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+  }
 }
 
 interface ProjectState {
