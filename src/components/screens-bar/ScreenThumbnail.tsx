@@ -47,10 +47,11 @@ export function ScreenThumbnail({
       <div
         onClick={onClick}
         className={cn(
-          'h-[120px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-xl transition-all',
+          'h-[104px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
+          'border transition-colors duration-100 ease-out',
           isActive
-            ? 'ring-2 ring-primary shadow-[0_0_16px_rgba(99,102,241,0.3)]'
-            : 'ring-1 ring-white/[0.06] hover:ring-white/15',
+            ? 'border-foreground'
+            : 'border-border hover:border-border-strong',
         )}
       >
         {screen.thumbnail ? (
@@ -60,31 +61,41 @@ export function ScreenThumbnail({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-surface to-canvas-bg" />
+          <div className="h-full w-full bg-panel-muted" />
         )}
       </div>
 
-      <div className="pointer-events-none absolute top-1.5 left-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-black/25 px-1 text-[10px] font-medium text-white/90 backdrop-blur-md">
-        {index + 1}
+      {/* Index label — Space Mono */}
+      <div
+        className={cn(
+          'pointer-events-none absolute top-1.5 left-1.5 flex h-[16px] min-w-[22px] items-center justify-center px-1',
+          'mono-label rounded-sm border border-border',
+          isActive ? 'bg-foreground text-panel border-foreground' : 'bg-panel text-foreground-muted',
+        )}
+      >
+        {String(index + 1).padStart(2, '0')}
       </div>
 
       {menuOpen && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 min-w-[140px] rounded-lg border border-white/[0.08] bg-panel py-1.5 shadow-xl backdrop-blur-xl"
+          className={cn(
+            'absolute bottom-full left-0 z-50 mb-2 min-w-[140px] rounded-md border border-border bg-panel p-1',
+            'animate-[fade-in_0.14s_ease-out]',
+          )}
           onMouseDown={(e) => e.preventDefault()}
         >
           <button
             onClick={() => handleMenuAction(onDuplicate)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-surface-hover"
           >
-            <Copy size={13} />
+            <Copy size={11} strokeWidth={1.5} />
             Dupliquer
           </button>
           <button
             onClick={() => handleMenuAction(onDelete)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-danger transition-colors hover:bg-surface-hover"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-danger transition-colors hover:bg-danger-soft"
           >
-            <Trash2 size={13} />
+            <Trash2 size={11} strokeWidth={1.5} />
             Supprimer
           </button>
         </div>

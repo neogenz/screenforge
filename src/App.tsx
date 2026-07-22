@@ -28,27 +28,19 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      Promise.all([
-        loadGoogleFont('Inter', ['400', '500', '600', '700']),
-        loadGoogleFont('DM Sans', ['400', '500', '600', '700']),
-      ]).catch(() => {})
-
-      const stored = await loadLatestProject()
+      const [stored] = await Promise.all([
+        loadLatestProject(),
+        Promise.all([
+          loadGoogleFont('Space Grotesk', ['400', '500', '600', '700']),
+          loadGoogleFont('Space Mono', ['400', '700']),
+        ]).catch((error) => {
+          console.warn('Could not preload editor fonts.', error)
+        }),
+      ])
 
       if (stored) {
-        // Migrate orphaned layoutLayers back into the first screen
-        if (stored.layoutLayers?.length) {
-          const first = stored.screens[0]
-          if (first) {
-            const migrated = stored.layoutLayers.map((l) => {
-              const { scope: _, ...rest } = l as typeof l & { scope?: string }
-              return rest
-            })
-            first.layers = [...migrated, ...first.layers]
-          }
-          stored.layoutLayers = []
-        }
         useProjectStore.getState().loadProject(stored)
+        useUIStore.getState().setSaveStatus('saved')
         const firstScreen = stored.screens[0]
         if (firstScreen) {
           useCanvasStore.getState().setActiveScreenId(firstScreen.id)
@@ -63,7 +55,9 @@ export default function App() {
       }
     }
 
-    init().catch(console.error)
+    void init().catch((error) => {
+      console.error('Could not initialize ScreenForge.', error)
+    })
 
     const unsubscribe = initAutoSave()
     return unsubscribe
@@ -93,7 +87,7 @@ export default function App() {
         )}
       </div>
 
-      <footer className="relative z-20 box-border h-32 shrink-0 overflow-x-auto overflow-y-visible border-t border-border">
+      <footer className="relative z-20 box-border h-32 shrink-0 overflow-x-auto overflow-y-visible">
         <ScreensBar />
       </footer>
 

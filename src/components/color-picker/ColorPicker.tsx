@@ -116,10 +116,13 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-2">
       {/* Swatch + hex input */}
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          className="h-7 w-7 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border bg-surface transition hover:ring-1 hover:ring-primary/25"
+          className={cn(
+            'h-7 w-7 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border',
+            'transition-colors duration-100 ease-out hover:border-foreground',
+          )}
           style={{ backgroundColor: hex6 }}
           onClick={() => nativeRef.current?.click()}
           aria-label="Open color picker"
@@ -140,45 +143,40 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           onBlur={handleHexBlur}
           maxLength={7}
           placeholder="#000000"
-          className={cn(
-            'h-7 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 font-mono text-xs text-foreground',
-            'focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20',
-          )}
+          className="input"
           aria-label="Hex color value"
         />
       </div>
 
       {/* Opacity slider */}
       {showOpacity && (
-        <div className="flex w-full min-w-0 items-center gap-1.5">
-          <span className="w-10 shrink-0 text-[10px] font-medium text-muted">
-            Opacité
-          </span>
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <span className="mono-label w-10 shrink-0">Alpha</span>
           <input
             type="range"
             min={0}
             max={100}
             value={opacityInput}
             onChange={handleOpacityChange}
-            className="h-2 min-w-0 flex-1 cursor-pointer accent-primary"
-            aria-label="Opacité couleur"
+            className="min-w-0 flex-1 cursor-pointer"
+            aria-label="Alpha channel"
           />
-          <span className="w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-muted">
-            {opacityInput}%
+          <span className="mono-value w-8 shrink-0 text-right text-[10px] text-foreground-muted">
+            {opacityInput}
           </span>
         </div>
       )}
 
       {/* Recent colors */}
       {recentColors.length > 0 && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-muted/60">Récent</span>
-          <div className="flex flex-wrap gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="mono-label">Recent</span>
+          <div className="flex flex-wrap gap-1">
             {recentColors.map((c, i) => (
               <button
                 key={i}
                 type="button"
-                className="w-5 h-5 rounded border border-border/60 cursor-pointer hover:scale-110 transition-transform"
+                className="h-4 w-4 rounded-sm border border-border cursor-pointer hover:border-foreground transition-colors"
                 style={{ backgroundColor: c }}
                 onClick={() => onChange(c)}
                 aria-label={`Recent color ${c}`}

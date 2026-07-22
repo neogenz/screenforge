@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { GripVertical, Type, Smartphone, ImageIcon, Square, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
+import { Type, Smartphone, ImageIcon, Square, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
 
@@ -16,13 +16,13 @@ interface LayerItemProps {
 }
 
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
-  const cls = 'shrink-0 text-muted/80'
+  const cls = 'shrink-0'
   switch (type) {
-    case 'text': return <Type size={13} strokeWidth={1.75} className={cls} />
-    case 'device-frame': return <Smartphone size={13} strokeWidth={1.75} className={cls} />
-    case 'image': return <ImageIcon size={13} strokeWidth={1.75} className={cls} />
-    case 'shape': return <Square size={13} strokeWidth={1.75} className={cls} />
-    default: return <Square size={13} strokeWidth={1.75} className={cls} />
+    case 'text': return <Type size={12} strokeWidth={1.5} className={cls} />
+    case 'device-frame': return <Smartphone size={12} strokeWidth={1.5} className={cls} />
+    case 'image': return <ImageIcon size={12} strokeWidth={1.5} className={cls} />
+    case 'shape': return <Square size={12} strokeWidth={1.5} className={cls} />
+    default: return <Square size={12} strokeWidth={1.5} className={cls} />
   }
 }
 
@@ -68,13 +68,14 @@ export function LayerItem({
       onDrop={onDrop}
       onClick={onSelect}
       className={cn(
-        'group flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-1.5 select-none',
+        'group flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 select-none',
+        'transition-colors duration-100 ease-out',
+        // Nothing: selection = border hairline, not color fill
         isSelected
-          ? 'bg-primary/10 text-foreground'
-          : 'text-foreground/90 hover:bg-surface-hover/70',
+          ? 'bg-surface-active text-foreground'
+          : 'text-foreground-muted hover:bg-surface-hover hover:text-foreground',
       )}
     >
-      <GripVertical size={12} strokeWidth={1.75} className="shrink-0 cursor-grab text-muted/50 opacity-0 group-hover:opacity-100 active:cursor-grabbing" />
       <LayerTypeIcon type={layer.type} />
 
       {editing ? (
@@ -85,11 +86,14 @@ export function LayerItem({
           onBlur={commitRename}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
-          className="min-w-0 flex-1 rounded border border-primary bg-panel px-1.5 py-0.5 text-[11px] outline-none ring-1 ring-primary/20"
+          className={cn(
+            'min-w-0 flex-1 rounded-sm border border-border bg-panel px-1.5 py-0.5 text-[12px] outline-none',
+            'focus:border-foreground-muted',
+          )}
         />
       ) : (
         <span
-          className="flex-1 truncate text-[11px] font-medium"
+          className="flex-1 truncate text-[12px]"
           onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick() }}
         >
           {layer.name}
@@ -102,30 +106,32 @@ export function LayerItem({
           title={layer.visible ? 'Hide' : 'Show'}
           onClick={(e) => { e.stopPropagation(); onToggleVisibility() }}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-surface hover:text-foreground',
-            !layer.visible && 'opacity-100 text-muted/50',
+            'flex h-6 w-6 items-center justify-center rounded-sm text-muted transition-colors',
+            'hover:bg-surface-hover hover:text-foreground',
+            !layer.visible && 'text-faint',
           )}
         >
-          {layer.visible ? <Eye size={12} strokeWidth={1.75} /> : <EyeOff size={12} strokeWidth={1.75} />}
+          {layer.visible ? <Eye size={11} strokeWidth={1.5} /> : <EyeOff size={11} strokeWidth={1.5} />}
         </button>
         <button
           aria-label={layer.locked ? 'Unlock layer' : 'Lock layer'}
           title={layer.locked ? 'Unlock' : 'Lock'}
           onClick={(e) => { e.stopPropagation(); onToggleLock() }}
           className={cn(
-            'flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-surface hover:text-foreground',
-            layer.locked && 'opacity-100 text-primary/70',
+            'flex h-6 w-6 items-center justify-center rounded-sm text-muted transition-colors',
+            'hover:bg-surface-hover hover:text-foreground',
+            layer.locked && 'text-foreground',
           )}
         >
-          {layer.locked ? <Lock size={12} strokeWidth={1.75} /> : <Unlock size={12} strokeWidth={1.75} />}
+          {layer.locked ? <Lock size={11} strokeWidth={1.5} /> : <Unlock size={11} strokeWidth={1.5} />}
         </button>
       </div>
 
       {/* Always-visible indicators when toggled */}
       {(!layer.visible || layer.locked) && (
         <div className="flex shrink-0 items-center gap-0.5 group-hover:hidden">
-          {!layer.visible && <EyeOff size={11} strokeWidth={1.75} className="text-muted/40" />}
-          {layer.locked && <Lock size={11} strokeWidth={1.75} className="text-primary/50" />}
+          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-faint" />}
+          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-faint" />}
         </div>
       )}
     </div>

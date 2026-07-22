@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
+import { cn } from '@/lib/utils'
 
 const MAX_SCREENS = 10
 
@@ -71,7 +72,7 @@ export function ScreensBar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full items-center gap-3 overflow-x-auto bg-panel px-6 py-3">
+    <div className="flex h-full min-h-0 w-full items-center gap-3 overflow-x-auto border-t border-border bg-panel px-5 py-3">
       {screens.map((screen, index) => (
         <div
           key={screen.id}
@@ -96,9 +97,16 @@ export function ScreensBar() {
         aria-label="Add new screen"
         onClick={handleAddScreen}
         disabled={screens.length >= MAX_SCREENS}
-        className="flex h-[120px] aspect-[9/19.5] shrink-0 items-center justify-center rounded-xl border border-dashed border-white/[0.08] transition-colors hover:border-primary/40 disabled:pointer-events-none disabled:opacity-30"
+        className={cn(
+          'flex h-[104px] aspect-[9/19.5] shrink-0 items-center justify-center',
+          'rounded-md border border-dashed border-border-strong bg-panel-sub',
+          'text-muted transition-colors duration-100 ease-out',
+          'hover:border-foreground hover:text-foreground',
+          'disabled:pointer-events-none disabled:opacity-30',
+          'focus-visible:outline-none focus-visible:border-foreground',
+        )}
       >
-        <Plus size={18} className="text-muted" />
+        <Plus size={14} strokeWidth={1.5} />
       </button>
     </div>
   )

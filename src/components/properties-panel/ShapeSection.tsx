@@ -49,9 +49,9 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Remplissage</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-muted">Dégradé</span>
+          <span className="mono-label-strong">Fill</span>
+          <div className="flex items-center gap-2">
+            <span className="mono-label">Gradient</span>
             <Toggle active={fillIsGradient} onToggle={handleGradientToggle} />
           </div>
         </div>
@@ -69,18 +69,18 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         )}
       </div>
 
-      <div className="h-px bg-border/60" />
+      <div className="hairline" />
 
       {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-medium text-foreground">Contour</span>
-        <Field label="Couleur">
+        <span className="mono-label-strong">Stroke</span>
+        <Field label="Color">
           <ColorPicker
             value={layer.stroke ?? '#000000'}
             onChange={(stroke) => update({ stroke })}
           />
         </Field>
-        <Field label="Épaisseur">
+        <Field label="Width">
           <input
             type="number"
             min={0}
@@ -95,8 +95,8 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Border radius */}
       {layer.shapeType === 'rounded-rect' && (
         <>
-          <div className="h-px bg-border/60" />
-          <Field label="Rayon">
+          <div className="hairline" />
+          <Field label="Radius">
             <input
               type="number"
               min={0}
@@ -109,16 +109,16 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         </>
       )}
 
-      <div className="h-px bg-border/60" />
+      <div className="hairline" />
 
       {/* Shadow */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Ombre</span>
+          <span className="mono-label-strong">Shadow</span>
           <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3">
+          <div className="flex flex-col gap-2 pl-3">
             <div className="grid grid-cols-2 gap-2">
               <Field label="X">
                 <input
@@ -155,7 +155,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                 aria-label="Shadow blur"
               />
             </Field>
-            <Field label="Couleur">
+            <Field label="Color">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) => update({ shadow: { ...layer.shadow!, color } })}

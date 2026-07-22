@@ -2,16 +2,12 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { inputCls } from '@/components/properties-panel/TransformSection'
 
 interface GradientEditorProps {
   value: GradientFill
   onChange: (gradient: GradientFill) => void
 }
-
-const inputCls = cn(
-  'h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground shadow-sm',
-  'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20',
-)
 
 function buildCssGradient(gradient: GradientFill): string {
   const stops = gradient.stops
@@ -65,124 +61,127 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
   const sortedStops = value.stops
     .map((s: ColorStop, originalIndex: number) => ({ ...s, originalIndex }))
-    .sort((a: ColorStop & { originalIndex: number }, b: ColorStop & { originalIndex: number }) => a.offset - b.offset)
+    .sort(
+      (
+        a: ColorStop & { originalIndex: number },
+        b: ColorStop & { originalIndex: number },
+      ) => a.offset - b.offset,
+    )
 
   return (
-    <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
+      {/* Type — flat segmented */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Forme</span>
-        <div className="flex gap-2">
+        <span className="mono-label">Type</span>
+        <div className="seg w-full">
           {(['linear', 'radial'] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setType(t)}
-              className={cn(
-                'h-10 min-w-0 flex-1 rounded-xl border px-4 text-sm font-medium capitalize transition-colors',
-                value.type === t
-                  ? 'border-primary bg-primary text-white shadow-sm'
-                  : 'border-border bg-surface text-foreground hover:border-muted hover:bg-surface-hover',
-              )}
+              data-active={value.type === t}
+              className="seg-btn flex-1"
             >
-              {t === 'linear' ? 'Linéaire' : 'Radial'}
+              {t}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Angle (linear only) */}
       {value.type === 'linear' && (
         <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Angle</span>
-          <div className="flex items-center gap-3">
+          <span className="mono-label">Angle</span>
+          <div className="flex items-center gap-2">
             <input
               type="number"
               min={0}
               max={359}
               value={value.angle ?? 90}
               onChange={(e) => setAngle(parseInt(e.target.value, 10) || 0)}
-              className={cn(inputCls, 'w-24 tabular-nums')}
-              aria-label="Angle du dégradé en degrés"
+              className={cn(inputCls, 'w-20')}
+              aria-label="Gradient angle in degrees"
             />
-            <span className="text-sm text-muted">degrés</span>
+            <span className="mono-label">deg</span>
           </div>
         </div>
       )}
 
+      {/* Preview */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Aperçu</span>
+        <span className="mono-label">Preview</span>
         <div
-          className="h-10 w-full rounded-xl border border-border shadow-inner"
+          className="h-10 w-full rounded-md border border-border"
           style={{ background: buildCssGradient(value) }}
           aria-hidden="true"
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wider text-muted">
-            Points de couleur ({value.stops.length}/10)
+      {/* Stops */}
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="mono-label">
+            Stops <span className="mono-value">{value.stops.length}/10</span>
           </span>
           <button
             type="button"
             onClick={addStop}
             disabled={value.stops.length >= 10}
             className={cn(
-              'inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors sm:w-auto sm:justify-center',
-              'border-border bg-surface text-foreground hover:border-muted hover:bg-surface-hover',
-              'disabled:cursor-not-allowed disabled:opacity-40',
+              'flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted',
+              'transition-colors duration-100 ease-out',
+              'hover:bg-surface-hover hover:text-foreground',
+              'disabled:pointer-events-none disabled:opacity-40',
             )}
-            aria-label="Ajouter un point de couleur"
+            aria-label="Add color stop"
           >
-            <Plus size={16} strokeWidth={2} />
-            Ajouter
+            <Plus size={12} strokeWidth={1.75} />
           </button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           {sortedStops.map((stop) => (
             <div
               key={stop.originalIndex}
-              className="min-w-0 max-w-full rounded-xl border border-border/80 bg-background/40 p-3 shadow-sm sm:p-4"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-panel-sub p-2.5"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color })}
                 showOpacity
               />
-              <div className="mt-5 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Position</span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={stop.offset}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value)
-                        if (!isNaN(v)) {
-                          updateStop(stop.originalIndex, { offset: Math.max(0, Math.min(1, v)) })
-                        }
-                      }}
-                      className={cn(inputCls, 'w-28 tabular-nums')}
-                      aria-label="Position du point sur le dégradé"
-                    />
-                    <span className="text-xs text-muted">(0–1)</span>
-                  </div>
+              <div className="flex min-w-0 items-end gap-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <span className="mono-label">Pos</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={stop.offset}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value)
+                      if (!isNaN(v)) {
+                        updateStop(stop.originalIndex, { offset: Math.max(0, Math.min(1, v)) })
+                      }
+                    }}
+                    className={cn(inputCls, 'w-full')}
+                    aria-label="Stop position"
+                  />
                 </div>
                 <button
                   type="button"
                   onClick={() => removeStop(stop.originalIndex)}
                   disabled={value.stops.length <= 2}
                   className={cn(
-                    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
-                    'border-border bg-surface text-muted hover:border-danger hover:text-danger',
-                    'disabled:cursor-not-allowed disabled:opacity-40',
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-foreground-muted',
+                    'transition-colors duration-100 ease-out',
+                    'hover:border-danger hover:text-danger',
+                    'disabled:pointer-events-none disabled:opacity-40',
                   )}
-                  aria-label="Supprimer ce point"
+                  aria-label="Remove stop"
                 >
-                  <Trash2 size={18} strokeWidth={1.75} />
+                  <Trash2 size={12} strokeWidth={1.5} />
                 </button>
               </div>
             </div>

@@ -13,7 +13,7 @@ export default function CanvasEditor() {
       <canvas ref={canvasRef} />
 
       <div className="pointer-events-none absolute bottom-3 right-3">
-        <div className="pointer-events-none rounded-md border border-border bg-panel/90 px-2 py-1 text-[10px] font-medium tabular-nums text-muted shadow-sm backdrop-blur-md select-none">
+        <div className="mono-value pointer-events-none rounded-sm border border-border bg-panel px-2 py-1 text-[10px] text-foreground-muted select-none">
           {Math.round(zoom * 100)}%
         </div>
       </div>

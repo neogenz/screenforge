@@ -87,19 +87,15 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Type</span>
-        <div className="flex flex-wrap gap-2">
+        <span className="mono-label">Type</span>
+        <div className="seg w-full">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'min-h-10 flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none sm:px-5',
-                activeTab === tab.id
-                  ? 'border-primary bg-primary text-white shadow-sm'
-                  : 'border-border bg-surface text-foreground hover:border-muted hover:bg-surface-hover',
-              )}
+              data-active={activeTab === tab.id}
+              className="seg-btn flex-1"
             >
               {tab.label}
             </button>
@@ -109,7 +105,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
       {activeTab === 'solid' && (
         <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Couleur</span>
+          <span className="mono-label">Color</span>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </div>
       )}
@@ -117,25 +113,26 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
       {activeTab === 'gradient' && <GradientEditor value={gradientFill} onChange={handleGradientChange} />}
 
       {activeTab === 'presets' && (
-        <div className="flex flex-col gap-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Galerie</span>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="flex flex-col gap-2">
+          <span className="mono-label">Presets</span>
+          <div className="grid grid-cols-3 gap-2">
             {PRESET_GRADIENTS.map((preset) => (
               <button
                 key={preset.name}
                 type="button"
                 onClick={() => handlePresetClick(preset.background)}
                 className={cn(
-                  'flex flex-col items-center gap-2 rounded-xl border border-border bg-surface p-3',
-                  'transition-colors hover:border-primary hover:shadow-sm',
+                  'flex flex-col items-center gap-1.5 rounded-md border border-border bg-panel p-2',
+                  'transition-colors duration-100 ease-out',
+                  'hover:border-foreground',
                 )}
                 aria-label={`Appliquer le dégradé ${preset.name}`}
               >
                 <div
-                  className="aspect-square w-full max-w-[4.5rem] rounded-lg border border-border/80 shadow-inner"
+                  className="aspect-square w-full rounded-sm border border-border"
                   style={buildPreviewStyle(preset.background)}
                 />
-                <span className="w-full truncate text-center text-[11px] font-medium text-muted">
+                <span className="w-full truncate text-center text-[10px] text-foreground-muted">
                   {preset.name}
                 </span>
               </button>

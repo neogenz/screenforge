@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 type ActiveTool = 'select' | 'text' | 'shape' | 'image'
 type Theme = 'light' | 'dark'
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UIState {
   zoom: number
@@ -13,6 +14,7 @@ interface UIState {
   showTemplatesPicker: boolean
   showGlobalsEditor: boolean
   theme: Theme
+  saveStatus: SaveStatus
 
   setZoom: (zoom: number) => void
   zoomIn: () => void
@@ -25,6 +27,7 @@ interface UIState {
   setShowTemplatesPicker: (show: boolean) => void
   setShowGlobalsEditor: (show: boolean) => void
   toggleTheme: () => void
+  setSaveStatus: (status: SaveStatus) => void
 }
 
 const ZOOM_STEP = 0.25
@@ -39,8 +42,10 @@ function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem('screenforge-theme') as Theme | null
     if (saved === 'light' || saved === 'dark') return saved
-  } catch {}
-  return 'dark'
+  } catch (error) {
+    console.warn('Could not read the saved theme.', error)
+  }
+  return 'light'
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -53,6 +58,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showTemplatesPicker: false,
   showGlobalsEditor: false,
   theme: getInitialTheme(),
+  saveStatus: 'idle',
 
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
 
@@ -80,7 +86,13 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleTheme: () =>
     set((state) => {
       const next = state.theme === 'dark' ? 'light' : 'dark'
-      try { localStorage.setItem('screenforge-theme', next) } catch {}
+      try {
+        localStorage.setItem('screenforge-theme', next)
+      } catch (error) {
+        console.warn('Could not persist the theme.', error)
+      }
       return { theme: next }
     }),
+
+  setSaveStatus: (saveStatus) => set({ saveStatus }),
 }))

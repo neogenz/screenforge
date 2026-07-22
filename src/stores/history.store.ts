@@ -1,57 +1,51 @@
 import { create } from 'zustand'
 
 interface HistoryState {
-  undoStack: string[]
-  redoStack: string[]
+  past: string[]
+  future: string[]
   maxHistory: number
 
-  pushSnapshot: (snapshot: string) => void
-  undo: () => string | null
-  redo: () => string | null
-  canUndo: () => boolean
-  canRedo: () => boolean
+  record: (snapshot: string) => void
+  undo: (currentSnapshot: string) => string | null
+  redo: (currentSnapshot: string) => string | null
   clear: () => void
 }
 
 export const useHistoryStore = create<HistoryState>()((set, get) => ({
-  undoStack: [],
-  redoStack: [],
+  past: [],
+  future: [],
   maxHistory: 50,
 
-  pushSnapshot: (snapshot) =>
+  record: (snapshot) =>
     set((state) => {
-      const stack = [...state.undoStack, snapshot]
-      // Cap at maxHistory
-      if (stack.length > state.maxHistory) {
-        stack.shift()
+      if (state.past[state.past.length - 1] === snapshot) return { future: [] }
+      return {
+        past: [...state.past, snapshot].slice(-state.maxHistory),
+        future: [],
       }
-      return { undoStack: stack, redoStack: [] }
     }),
 
-  undo: () => {
-    const { undoStack, redoStack } = get()
-    if (undoStack.length === 0) return null
-    const snapshot = undoStack[undoStack.length - 1]
+  undo: (currentSnapshot) => {
+    const { past, future } = get()
+    const previous = past[past.length - 1]
+    if (!previous) return null
     set({
-      undoStack: undoStack.slice(0, -1),
-      redoStack: [...redoStack, snapshot],
+      past: past.slice(0, -1),
+      future: [...future, currentSnapshot],
     })
-    return snapshot
+    return previous
   },
 
-  redo: () => {
-    const { undoStack, redoStack } = get()
-    if (redoStack.length === 0) return null
-    const snapshot = redoStack[redoStack.length - 1]
+  redo: (currentSnapshot) => {
+    const { past, future, maxHistory } = get()
+    const next = future[future.length - 1]
+    if (!next) return null
     set({
-      undoStack: [...undoStack, snapshot],
-      redoStack: redoStack.slice(0, -1),
+      past: [...past, currentSnapshot].slice(-maxHistory),
+      future: future.slice(0, -1),
     })
-    return snapshot
+    return next
   },
 
-  canUndo: () => get().undoStack.length > 0,
-  canRedo: () => get().redoStack.length > 0,
-
-  clear: () => set({ undoStack: [], redoStack: [] }),
+  clear: () => set({ past: [], future: [] }),
 }))

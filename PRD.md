@@ -16,7 +16,7 @@ None respect indie devs' time or budget.
 
 ## Solution
 
-A **local web app** (Vite + React + Fabric.js) running in the browser. Projects stored locally. Exports pixel-perfect PNGs at all Apple-accepted iPhone dimensions.
+A **local web app** (Vite + React + Fabric.js) running in the browser. Projects are stored locally. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
 
 ---
 
@@ -32,21 +32,13 @@ A **local web app** (Vite + React + Fabric.js) running in the browser. Projects 
 
 Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9" class), and Apple auto-scales to all smaller iPhone display classes. No need to upload separate sets per device.
 
-### Accepted Dimensions
+### Production profile
 
-| Display Class | Portrait (W x H) | Landscape (W x H) | Devices |
+| Display Class | Orientation | Dimensions | Project limit |
 |---|---|---|---|
-| **6.9"** | **1320 x 2868** | **2868 x 1320** | iPhone 16 Pro Max |
-| **6.7"** | **1290 x 2796** | **2796 x 1290** | iPhone 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max |
-| 6.5" | 1284 x 2778 | 2778 x 1284 | iPhone 13 Pro Max, 12 Pro Max, 11 Pro Max, XS Max |
-| 6.3" | 1206 x 2622 | 2622 x 1206 | iPhone 16e |
-| 6.1" | 1179 x 2556 | 2556 x 1179 | iPhone 16, 15, 14, 13, 12 |
-| 5.8" | 1125 x 2436 | 2436 x 1125 | iPhone X, XS, 11 Pro, 12 mini, 13 mini |
-| 5.5" | 1242 x 2208 | 2208 x 1242 | iPhone 8 Plus, 7 Plus, 6s Plus (legacy) |
-| 4.7" | 750 x 1334 | 1334 x 750 | iPhone SE 2nd/3rd, 8, 7, 6s (legacy) |
-| 4.0" | 640 x 1136 | 1136 x 640 | iPhone SE 1st, 5s (legacy) |
+| **iPhone 6.9"** | **Portrait** | **1320 × 2868 px** | **10 screenshots** |
 
-**Bold = primary targets.** Submit 6.9" (1320 x 2868), Apple auto-scales the rest.
+ScreenForge deliberately omits smaller and legacy output choices. App Store Connect accepts the highest-resolution 6.9" set and scales it for smaller iPhone display classes.
 
 ### File Requirements
 
@@ -54,8 +46,8 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 |---|---|
 | **Format** | PNG (recommended) or JPEG |
 | **Color space** | sRGB (recommended) or Display P3 |
-| **Bit depth** | 8-bit RGB or RGBA |
-| **Transparency** | Allowed (PNG only) |
+| **Bit depth** | 8-bit RGB |
+| **Transparency** | Forbidden; every exported PNG is opaque |
 | **Max file size** | 50 MB per screenshot (aim for < 5 MB) |
 | **Min screenshots** | 1 |
 | **Max screenshots** | 10 per device class |
@@ -181,39 +173,28 @@ Fully editable after applying.
 ### 7. Export
 
 **Single export:**
-- Current screen as PNG at selected dimension
+- Current screen as an opaque portrait PNG at 1320 × 2868
 
 **Batch export (the killer feature):**
 - Select screens (checkboxes, default: all)
-- Select target dimensions:
-  - **6.9" (1320 x 2868)** — checked by default (App Store submission)
-  - 6.7" (1290 x 2796)
-  - 6.5" (1284 x 2778)
-  - 6.3" (1206 x 2622)
-  - 6.1" (1179 x 2556)
-  - 5.8" (1125 x 2436)
-  - 5.5" (1242 x 2208) — legacy
+- Fixed target: **iPhone 6.9" portrait (1320 × 2868)**
 - Format: PNG (default)
 - Output: ZIP with organized folders
 
 **Output structure:**
 ```
-export/
-  6.9/
-    01_hero.png
-    02_feature_budget.png
-    03_feature_year.png
-    04_feature_templates.png
-    05_feature_expense.png
-  6.7/
-    01_hero.png
-    ...
+iphone-6.9-portrait/
+  01_hero.png
+  02_feature_budget.png
+  03_feature_year.png
+  04_feature_templates.png
+  05_feature_expense.png
 ```
 
 **Quality guarantees:**
 - Renders at exact target resolution via Fabric.js `multiplier` / `toBlob()` — zero upscaling
 - sRGB color space
-- PNG-24 (8-bit RGBA)
+- PNG-24 (8-bit RGB, no alpha channel)
 - Optimized to < 5 MB per file
 - Dimensions are pixel-exact — tested against Apple's accepted values
 
@@ -276,7 +257,7 @@ src/
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
-    dimensions.ts        # All Apple dimension constants
+    dimensions.ts        # Single iPhone 6.9" App Store target
     storage.ts           # IndexedDB read/write
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation
@@ -318,7 +299,7 @@ src/
 - Background designer (solid + gradients + presets)
 - 3 iPhone frames (16 Pro Max, 16 Pro, 16) with color variants
 - 5 pre-built templates
-- Batch export at all iPhone dimensions (PNG, ZIP)
+- Batch export at 1320 × 2868 (opaque PNG, ZIP)
 - Project save/load (IndexedDB)
 - Globals (shared font, background, device across screens)
 - Undo/redo + keyboard shortcuts

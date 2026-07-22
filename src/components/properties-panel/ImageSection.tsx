@@ -62,23 +62,23 @@ export function ImageSection({ layer }: ImageSectionProps) {
           type="button"
           onClick={() => fileRef.current?.click()}
           className={cn(
-            'w-full h-7 flex items-center justify-center gap-1.5 text-xs',
-            'rounded-md border border-border bg-surface text-foreground',
-            'hover:bg-surface-hover transition-colors',
+            'flex h-8 w-full items-center justify-center gap-2 rounded-md border border-border bg-panel',
+            'mono-label-strong transition-colors duration-100 ease-out',
+            'hover:border-border-strong hover:text-foreground',
           )}
         >
-          <Upload size={12} />
-          Remplacer
+          <Upload size={11} strokeWidth={1.5} />
+          Replace
         </button>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Ombre</span>
+          <span className="mono-label-strong">Shadow</span>
           <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3">
+          <div className="flex flex-col gap-2 pl-3">
             <div className="grid grid-cols-2 gap-2">
               <Field label="X">
                 <input
@@ -115,7 +115,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
                 aria-label="Shadow blur"
               />
             </Field>
-            <Field label="Couleur">
+            <Field label="Color">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) => update({ shadow: { ...layer.shadow!, color } })}

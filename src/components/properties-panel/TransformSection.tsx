@@ -37,7 +37,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {/* X / Y */}
       <div className="grid grid-cols-2 gap-2">
         <Field label="X">
@@ -62,7 +62,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
       {/* W / Lock / H */}
       <div className="flex items-end gap-1.5">
-        <Field label="L" className="min-w-0 flex-1">
+        <Field label="W" className="min-w-0 flex-1">
           <input
             type="number"
             min={1}
@@ -76,15 +76,16 @@ export function TransformSection({ layer }: TransformSectionProps) {
           type="button"
           onClick={() => setLockAspect((v) => !v)}
           className={cn(
-            'mb-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface transition-colors',
-            'hover:border-muted hover:bg-surface-hover',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-            lockAspect ? 'border-primary/30 bg-primary/8 text-primary' : 'text-muted',
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-100 ease-out',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
+            lockAspect
+              ? 'border-foreground-muted bg-surface-active text-foreground'
+              : 'border-border bg-panel text-muted hover:border-border-strong hover:text-foreground',
           )}
           aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
           aria-pressed={lockAspect}
         >
-          {lockAspect ? <Link2 size={13} strokeWidth={1.75} /> : <Unlink2 size={13} strokeWidth={1.75} />}
+          {lockAspect ? <Link2 size={12} strokeWidth={1.5} /> : <Unlink2 size={12} strokeWidth={1.5} />}
         </button>
         <Field label="H" className="min-w-0 flex-1">
           <input
@@ -100,7 +101,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
       {/* Rotation / Opacity */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Rotation">
+        <Field label="Rot">
           <div className="relative">
             <input
               type="number"
@@ -111,13 +112,13 @@ export function TransformSection({ layer }: TransformSectionProps) {
               className={cn(inputCls, 'pr-6')}
               aria-label="Rotation in degrees"
             />
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted">
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[10px] text-muted">
               °
             </span>
           </div>
         </Field>
-        <Field label="Opacité">
-          <div className="flex h-7 items-center gap-1.5">
+        <Field label="Opacity">
+          <div className="flex h-7 items-center gap-2">
             <input
               type="range"
               min={0}
@@ -128,7 +129,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
               className="min-h-5 flex-1 cursor-pointer"
               aria-label="Opacity"
             />
-            <span className="w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-muted">
+            <span className="mono-value w-8 shrink-0 text-right text-[10px] text-foreground-muted">
               {Math.round(layer.opacity * 100)}
             </span>
           </div>
@@ -138,17 +139,15 @@ export function TransformSection({ layer }: TransformSectionProps) {
   )
 }
 
+// Shared input class — flat, hairline border, mono numerics
 export const inputCls = cn(
-  'h-7 w-full rounded-md border border-white/[0.08] bg-surface px-2 text-xs tabular-nums text-foreground',
-  'transition-[box-shadow,border-color,background-color]',
-  'hover:border-white/15',
-  'focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20',
+  'input',
 )
 
 export function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-[10px] font-medium text-muted">{label}</span>
+    <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
+      <span className="mono-label">{label}</span>
       {children}
     </div>
   )

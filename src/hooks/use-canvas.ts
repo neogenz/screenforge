@@ -282,7 +282,7 @@ export function useCanvas() {
       const proj = useProjectStore.getState().project; if (!proj) return
       const si = proj.screens.findIndex(s => s.id === sid); if (si === -1) return
       const aid = useCanvasStore.getState().activeScreenId
-      if (sid === aid) useHistoryStore.getState().pushSnapshot(JSON.stringify(useCanvasStore.getState().layers))
+      if (sid === aid) useHistoryStore.getState().record(JSON.stringify(useCanvasStore.getState().layers))
       const upd = fabricObjectToLayerUpdate(obj); upd.x = (upd.x ?? 0) - getScreenOffset(si)
       useProjectStore.getState().updateScreenLayer(sid, lid, upd as Partial<Layer>)
       if (sid === aid) useCanvasStore.getState().syncLayersFromProject()
@@ -336,7 +336,7 @@ export function useCanvas() {
     const proj = useProjectStore.getState().project
     if (proj?.screens.length) sync(proj.screens).then(() => fitAll(canvas, proj.screens.length))
     return () => { obs.disconnect(); canvas.dispose(); fabricRef.current = null }
-  }, [setZoom, sync, fitAll])
+  }, [setZoom, sync, fitAll, generateThumbnails])
 
   useEffect(() => useProjectStore.subscribe((s, p) => {
     if (s.project && s.project.screens !== p.project?.screens) sync(s.project.screens)
@@ -345,7 +345,9 @@ export function useCanvas() {
   useEffect(() => useUIStore.subscribe((s, p) => {
     const c = fabricRef.current; if (!c) return
     if (s.zoom !== p.zoom && Math.abs(c.getZoom() - s.zoom) > 0.0001) {
-      s.zoom === 1 ? c.setViewportTransform([1,0,0,1,0,0]) : c.zoomToPoint(c.getVpCenter(), s.zoom); c.requestRenderAll()
+      if (s.zoom === 1) c.setViewportTransform([1,0,0,1,0,0])
+      else c.zoomToPoint(c.getVpCenter(), s.zoom)
+      c.requestRenderAll()
       const pr = useProjectStore.getState().project
       if (pr) generateThumbnails(pr.screens)
     } else if (s.viewportResetKey !== p.viewportResetKey) {

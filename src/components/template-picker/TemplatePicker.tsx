@@ -43,7 +43,6 @@ function applyTemplate(template: TemplateDefinition, mode: ApplyMode) {
     saveScreenLayers(activeId, newLayers)
   } else {
     addScreen()
-    // The new screen is appended — grab its id after creation
     const updatedProject = useProjectStore.getState().project
     if (!updatedProject) return
     const newScreen = updatedProject.screens[updatedProject.screens.length - 1]
@@ -74,91 +73,111 @@ export function TemplatePicker() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] animate-[fade-in_0.14s_ease-out]"
       role="dialog"
       aria-modal="true"
       aria-label="Template picker"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setShowTemplatesPicker(false)
+      }}
     >
-      <div className="relative bg-background rounded-xl shadow-2xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden">
+      <div
+        className={cn(
+          'relative flex w-[560px] max-w-[calc(100vw-40px)] max-h-[80vh] flex-col overflow-hidden',
+          'surface-modal',
+        )}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">Choose a Template</h2>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="mono-label">Library</span>
+            <h2 className="text-[15px] font-medium text-foreground">Templates</h2>
+          </div>
           <button
             type="button"
             onClick={() => setShowTemplatesPicker(false)}
-            className="p-1 rounded hover:bg-surface-hover transition-colors text-muted"
             aria-label="Close template picker"
+            className="icon-btn"
           >
-            <X size={16} />
+            <X size={14} strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Grid */}
-        <div className="overflow-y-auto p-5 grid grid-cols-2 gap-4">
+        <div className="grid min-h-0 grid-cols-2 gap-2 overflow-y-auto p-3">
           {TEMPLATES.map((template) => (
             <button
               key={template.id}
               type="button"
               onClick={() => handleCardClick(template)}
               className={cn(
-                'flex flex-col rounded-lg border border-border overflow-hidden text-left',
-                'hover:border-primary hover:shadow-md transition-all cursor-pointer',
+                'group flex flex-col overflow-hidden rounded-md border border-border bg-panel text-left',
+                'transition-[border-color,transform] duration-100 ease-out',
+                'hover:border-foreground active:scale-[0.99]',
+                'focus-visible:outline-none focus-visible:border-foreground',
               )}
               aria-label={`Apply ${template.name} template`}
             >
-              {/* Preview */}
               <div
-                className="w-full aspect-[9/16]"
+                className="w-full aspect-[9/16] border-b border-border"
                 style={buildPreviewGradient(template)}
               />
-              {/* Info */}
-              <div className="p-3 bg-surface">
-                <p className="text-sm font-semibold text-foreground">{template.name}</p>
-                <p className="text-xs text-muted mt-0.5 leading-tight">{template.description}</p>
+              <div className="flex flex-col gap-0.5 px-3 py-2.5">
+                <p className="text-[13px] font-medium text-foreground">{template.name}</p>
+                <p className="mono-label line-clamp-2 leading-relaxed" style={{ textTransform: 'none', letterSpacing: '0' }}>
+                  {template.description}
+                </p>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Confirm dialog */}
+      {/* Confirm sub-dialog */}
       {confirm && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/30"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 animate-[fade-in_0.12s_ease-out]"
           role="dialog"
           aria-modal="true"
           aria-label="Confirm template application"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirm(null)
+          }}
         >
-          <div className="bg-background rounded-xl shadow-2xl w-80 p-6 flex flex-col gap-4">
+          <div
+            className={cn(
+              'flex w-[380px] flex-col gap-4 p-5',
+              'surface-modal',
+            )}
+          >
             <div>
-              <p className="text-sm font-semibold text-foreground">Apply "{confirm.template.name}"</p>
-              <p className="text-xs text-muted mt-1">Where would you like to apply this template?</p>
+              <span className="mono-label">Apply</span>
+              <p className="mt-1 text-[14px] font-medium text-foreground">
+                {confirm.template.name}
+              </p>
+              <p className="mt-2 text-[12px] text-foreground-muted">
+                Où souhaitez-vous appliquer ce template ?
+              </p>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <button
                 type="button"
                 onClick={() => handleApply('current')}
-                className={cn(
-                  'h-9 px-4 rounded bg-primary text-white text-sm font-medium',
-                  'hover:bg-primary-hover transition-colors',
-                )}
+                className="btn-primary w-full"
               >
                 Apply to current screen
               </button>
               <button
                 type="button"
                 onClick={() => handleApply('new')}
-                className={cn(
-                  'h-9 px-4 rounded border border-border text-sm text-foreground',
-                  'hover:bg-surface-hover transition-colors',
-                )}
+                className="btn-secondary w-full"
               >
                 Create new screen
               </button>
               <button
                 type="button"
                 onClick={() => setConfirm(null)}
-                className="h-9 px-4 rounded text-sm text-muted hover:text-foreground transition-colors"
+                className="mono-label h-8 transition-colors hover:text-foreground"
               >
                 Cancel
               </button>

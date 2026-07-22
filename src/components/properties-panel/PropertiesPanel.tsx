@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { cn } from '@/lib/utils'
@@ -22,26 +22,42 @@ export function PropertiesPanel() {
 
   const selectedLayer = selectedLayers.length === 1 ? selectedLayers[0] : null
 
+  let headerLabel = 'Background'
+  if (selectedLayers.length === 1) headerLabel = 'Properties'
+  else if (selectedLayers.length > 1) headerLabel = 'Multi-select'
+
   return (
     <aside
       className={cn(
-        'panel-chrome sidebar-shell--properties flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden overflow-y-auto border-l border-border',
+        'panel-chrome sidebar-shell--properties flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden overflow-y-auto',
+        'border-l border-border',
       )}
     >
+      {/* Header */}
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
+        <span className="mono-label-strong">{headerLabel}</span>
+        {selectedLayers.length > 1 && (
+          <span className="mono-label tabular-nums">
+            {String(selectedLayers.length).padStart(2, '0')}
+          </span>
+        )}
+      </div>
+
       {selectedLayers.length === 0 && (
-        <Section title="Arrière-plan" defaultOpen>
+        <div className="px-3 pt-4 pb-6">
           <BackgroundSection />
-        </Section>
+        </div>
       )}
 
       {selectedLayers.length > 1 && (
-        <div className="px-3 py-4">
-          <div className="rounded-md border border-border bg-surface/30 px-4 py-5 text-center">
-            <p className="text-xs font-medium text-foreground">
-              {selectedLayers.length} calques sélectionnés
+        <div className="p-3">
+          <div className="surface-inner px-4 py-6 text-center">
+            <p className="mono-label mb-2">Selection</p>
+            <p className="text-[12px] leading-relaxed text-foreground-muted">
+              {selectedLayers.length} calques sélectionnés.
             </p>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted">
-              Sélectionnez un seul calque.
+            <p className="mt-1 text-[11px] text-muted">
+              Sélectionnez un seul calque pour éditer.
             </p>
           </div>
         </div>
@@ -49,18 +65,18 @@ export function PropertiesPanel() {
 
       {selectedLayer && (
         <>
-          <Section title="Transformation" defaultOpen>
+          <Section title="Transform" defaultOpen>
             <TransformSection layer={selectedLayer} />
           </Section>
 
           {selectedLayer.type === 'text' && (
-            <Section title="Texte" defaultOpen>
+            <Section title="Text" defaultOpen>
               <TextSection layer={selectedLayer as TextLayer} />
             </Section>
           )}
 
           {selectedLayer.type === 'device-frame' && (
-            <Section title="Appareil" defaultOpen>
+            <Section title="Device" defaultOpen>
               <DeviceSection layer={selectedLayer as DeviceFrameLayer} />
             </Section>
           )}
@@ -72,7 +88,7 @@ export function PropertiesPanel() {
           )}
 
           {selectedLayer.type === 'shape' && (
-            <Section title="Forme" defaultOpen>
+            <Section title="Shape" defaultOpen>
               <ShapeSection layer={selectedLayer as ShapeLayer} />
             </Section>
           )}
@@ -92,28 +108,24 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="border-b border-white/[0.04]">
+    <div className="border-b border-border">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-8 w-full items-center gap-1.5 px-3',
-          'text-[10px] font-semibold uppercase tracking-[0.15em] text-muted',
-          'transition-colors hover:bg-surface-hover/30',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25',
+          'flex h-10 w-full items-center justify-between gap-1.5 px-3',
+          'mono-label-strong',
+          'transition-colors duration-100 ease-out hover:text-foreground',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         )}
         aria-expanded={open}
       >
-        <ChevronRight
-          size={12}
-          strokeWidth={2.5}
-          className={cn(
-            'shrink-0 text-muted/50 transition-transform duration-150',
-            open && 'rotate-90',
-          )}
-          aria-hidden
-        />
-        {title}
+        <span>{title}</span>
+        {open ? (
+          <Minus size={12} strokeWidth={1.5} className="text-muted" aria-hidden />
+        ) : (
+          <Plus size={12} strokeWidth={1.5} className="text-muted" aria-hidden />
+        )}
       </button>
 
       {open && children && (

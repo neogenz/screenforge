@@ -55,13 +55,13 @@ export function TextEditor({ layer }: TextEditorProps) {
   return (
     <div className="flex flex-col gap-2.5">
       {/* Font family */}
-      <Field label="Police">
+      <Field label="Font">
         <FontPicker value={layer.fontFamily} onChange={handleFontFamily} />
       </Field>
 
       {/* Size + Weight */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Taille">
+        <Field label="Size">
           <input
             type="number"
             min={8}
@@ -72,7 +72,7 @@ export function TextEditor({ layer }: TextEditorProps) {
             aria-label="Font size"
           />
         </Field>
-        <Field label="Graisse">
+        <Field label="Weight">
           <select
             value={layer.fontWeight}
             onChange={(e) => update({ fontWeight: parseInt(e.target.value, 10) })}
@@ -87,7 +87,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </div>
 
       {/* Color */}
-      <Field label="Couleur">
+      <Field label="Color">
         <ColorPicker
           value={layer.color}
           onChange={(color) => update({ color })}
@@ -95,13 +95,9 @@ export function TextEditor({ layer }: TextEditorProps) {
         />
       </Field>
 
-      {/* Alignment */}
-      <Field label="Alignement">
-        <div
-          className="inline-flex gap-0.5 rounded-md border border-border bg-surface p-0.5"
-          role="group"
-          aria-label="Alignement du texte"
-        >
+      {/* Alignment — flat segmented, monochrome */}
+      <Field label="Align">
+        <div className="seg" role="group" aria-label="Alignement du texte">
           {(
             [
               { align: 'left', Icon: AlignLeft },
@@ -113,17 +109,12 @@ export function TextEditor({ layer }: TextEditorProps) {
               key={align}
               type="button"
               onClick={() => update({ textAlign: align })}
-              className={cn(
-                'flex h-7 w-8 items-center justify-center rounded transition-all',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35',
-                layer.textAlign === align
-                  ? 'bg-panel text-primary shadow-sm ring-1 ring-border/60'
-                  : 'text-muted hover:bg-surface-hover hover:text-foreground',
-              )}
-              aria-label={`Aligner ${align}`}
+              data-active={layer.textAlign === align}
+              className="seg-btn"
+              aria-label={`Align ${align}`}
               aria-pressed={layer.textAlign === align}
             >
-              <Icon size={14} strokeWidth={1.75} />
+              <Icon size={12} strokeWidth={1.5} />
             </button>
           ))}
         </div>
@@ -131,7 +122,7 @@ export function TextEditor({ layer }: TextEditorProps) {
 
       {/* Line height + Letter spacing */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Interligne">
+        <Field label="Leading">
           <input
             type="number"
             min={0.5}
@@ -143,7 +134,7 @@ export function TextEditor({ layer }: TextEditorProps) {
             aria-label="Line height"
           />
         </Field>
-        <Field label="Approche">
+        <Field label="Tracking">
           <input
             type="number"
             min={-5}
@@ -158,7 +149,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </div>
 
       {/* Text transform */}
-      <Field label="Casse">
+      <Field label="Case">
         <select
           value={layer.textTransform}
           onChange={(e) => update({ textTransform: e.target.value as TextLayer['textTransform'] })}
@@ -172,7 +163,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </Field>
 
       {/* Opacity */}
-      <Field label="Opacité">
+      <Field label="Opacity">
         <div className="flex h-7 items-center gap-2">
           <input
             type="range"
@@ -181,25 +172,25 @@ export function TextEditor({ layer }: TextEditorProps) {
             step={0.01}
             value={layer.opacity}
             onChange={(e) => update({ opacity: parseFloat(e.target.value) })}
-            className="min-h-5 flex-1 cursor-pointer accent-primary"
-            aria-label="Opacité du calque"
+            className="min-h-5 flex-1 cursor-pointer"
+            aria-label="Opacity"
           />
-          <span className="w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-muted">
-            {Math.round(layer.opacity * 100)}%
+          <span className="mono-value w-8 shrink-0 text-right text-[10px] text-foreground-muted">
+            {Math.round(layer.opacity * 100)}
           </span>
         </div>
       </Field>
 
-      <div className="my-0.5 h-px bg-border/60" />
+      <div className="hairline my-1" />
 
       {/* Text shadow */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Ombre</span>
+          <span className="mono-label-strong">Shadow</span>
           <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3">
+          <div className="flex flex-col gap-2 pl-3">
             <div className="grid grid-cols-2 gap-2">
               <Field label="X">
                 <input
@@ -236,7 +227,7 @@ export function TextEditor({ layer }: TextEditorProps) {
                 aria-label="Shadow blur"
               />
             </Field>
-            <Field label="Couleur">
+            <Field label="Color">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) =>
@@ -249,12 +240,12 @@ export function TextEditor({ layer }: TextEditorProps) {
         )}
       </div>
 
-      <div className="my-0.5 h-px bg-border/60" />
+      <div className="hairline my-1" />
 
       {/* Gradient fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Dégradé</span>
+          <span className="mono-label-strong">Gradient</span>
           <Toggle active={!!layer.gradientFill} onToggle={handleGradientToggle} />
         </div>
         {layer.gradientFill && (
@@ -283,15 +274,15 @@ export function Toggle({ active, onToggle }: ToggleProps) {
       aria-checked={active}
       onClick={onToggle}
       className={cn(
-        'relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-        active ? 'bg-primary' : 'bg-border',
+        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-100 ease-out',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
+        active ? 'bg-foreground' : 'bg-border',
       )}
     >
       <span
         className={cn(
-          'absolute left-[2px] top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform duration-150',
-          active ? 'translate-x-[18px]' : 'translate-x-0',
+          'absolute left-[2px] top-[2px] h-[14px] w-[14px] rounded-full bg-panel transition-transform duration-100 ease-out',
+          active ? 'translate-x-[12px]' : 'translate-x-0',
         )}
       />
     </button>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
+import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
 
 let clipboard: Layer[] = []
@@ -34,10 +34,10 @@ export function useKeyboard(): void {
         selectLayers,
         clearSelection,
         updateLayer,
-        setLayers,
+        undo,
+        redo,
       } = useCanvasStore.getState()
 
-      const { undo, redo, canUndo, canRedo } = useHistoryStore.getState()
       const {
         zoomIn,
         zoomOut,
@@ -47,37 +47,23 @@ export function useKeyboard(): void {
         setShowExportDialog,
       } = useUIStore.getState()
 
+      if (meta && !shift && key === 's') {
+        e.preventDefault()
+        void saveCurrentProject().catch(() => undefined)
+        return
+      }
+
       // Undo
       if (meta && !shift && key === 'z') {
         e.preventDefault()
-        if (canUndo()) {
-          const snapshot = undo()
-          if (snapshot) {
-            try {
-              const parsed = JSON.parse(snapshot) as Layer[]
-              setLayers(parsed)
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        undo()
         return
       }
 
       // Redo
       if (meta && shift && key === 'z') {
         e.preventDefault()
-        if (canRedo()) {
-          const snapshot = redo()
-          if (snapshot) {
-            try {
-              const parsed = JSON.parse(snapshot) as Layer[]
-              setLayers(parsed)
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        redo()
         return
       }
 

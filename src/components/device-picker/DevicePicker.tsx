@@ -45,7 +45,7 @@ export function DevicePicker({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       {/* Model */}
       <Field label="Model">
         <select
@@ -64,20 +64,20 @@ export function DevicePicker({
       </Field>
 
       {/* Color */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-medium text-muted shrink-0">Color</span>
-        <div className="flex gap-1">
+      <Field label="Color">
+        <div className="flex flex-wrap gap-1.5">
           {config.colors.map((c) => (
             <button
               key={c.name}
               onClick={() => onUpdate({ deviceColor: c.name })}
               title={c.label}
               aria-label={c.label}
+              aria-pressed={deviceColor === c.name}
               className={cn(
-                'relative w-6 h-6 rounded-full border-[1.5px] transition-all',
+                'relative h-6 w-6 rounded-full border transition-[border-color,transform] duration-100 ease-out',
                 deviceColor === c.name
-                  ? 'border-primary scale-110'
-                  : 'border-border/60 hover:border-border',
+                  ? 'border-foreground scale-110'
+                  : 'border-border hover:border-border-strong',
               )}
               style={{ backgroundColor: c.frame }}
             >
@@ -86,65 +86,62 @@ export function DevicePicker({
                   size={10}
                   className="absolute inset-0 m-auto"
                   style={{ color: isLightColor(c.frame) ? '#000' : '#fff' }}
-                  strokeWidth={3}
+                  strokeWidth={2.5}
                 />
               )}
             </button>
           ))}
         </div>
-      </div>
+      </Field>
 
-      {/* Orientation */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-medium text-muted shrink-0">Orient.</span>
-        <div className="flex flex-1 rounded-md bg-surface border border-border p-[2px] gap-[2px]">
+      {/* Orientation — flat segmented, monochrome */}
+      <Field label="Orient">
+        <div className="seg w-full" role="group" aria-label="Orientation">
           {(['portrait', 'landscape'] as const).map((v) => (
             <button
               key={v}
               onClick={() => onUpdate({ orientation: v })}
-              className={cn(
-                'flex-1 h-7 text-xs font-medium capitalize rounded transition-all',
-                orientation === v
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-muted hover:text-foreground',
-              )}
+              data-active={orientation === v}
+              className="seg-btn flex-1"
+              aria-pressed={orientation === v}
             >
               {v}
             </button>
           ))}
         </div>
-      </div>
+      </Field>
 
       {/* Screenshot */}
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium text-muted">Screenshot</span>
+      <Field label="Screenshot">
         {screenshotUrl ? (
-          <div className="flex items-center gap-2 rounded-md bg-surface border border-border p-1.5 group">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-panel p-1.5">
             <img
               src={screenshotUrl}
               alt="Screenshot"
-              className="w-8 h-8 rounded object-cover shrink-0"
+              className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
             />
-            <div className="flex-1 min-w-0">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] text-muted hover:text-primary transition-colors"
-              >
-                Replace
-              </button>
-            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="mono-label-strong flex-1 text-left hover:text-foreground transition-colors"
+            >
+              Replace
+            </button>
             <button
               onClick={() => onUpdate({ screenshotUrl: undefined })}
-              className="w-5 h-5 flex items-center justify-center rounded text-muted/40 hover:text-danger hover:bg-danger/10 transition-colors"
+              className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted hover:bg-surface-hover hover:text-danger transition-colors"
               aria-label="Remove screenshot"
             >
-              <X size={10} />
+              <X size={11} strokeWidth={1.5} />
             </button>
           </div>
         ) : (
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="h-7 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-xs text-muted transition-colors hover:border-primary hover:text-primary"
+            className={cn(
+              'flex h-8 items-center justify-center gap-2 rounded-md border border-dashed border-border',
+              'mono-label transition-colors duration-100 ease-out',
+              'hover:border-border-strong hover:text-foreground',
+            )}
           >
             Upload image
           </button>
@@ -156,40 +153,44 @@ export function DevicePicker({
           className="hidden"
           onChange={handleScreenshotChange}
         />
-      </div>
+      </Field>
 
       {/* Shadow */}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Shadow</span>
-          <div className="flex items-center gap-1.5">
+          <span className="mono-label-strong">Shadow</span>
+          <div className="flex items-center gap-1">
             <Toggle active={shadowEnabled} onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })} />
             <button
               onClick={() => setShadowOpen((v) => !v)}
-              className="text-muted/40 hover:text-muted transition-colors"
+              className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+              aria-label={shadowOpen ? 'Collapse shadow' : 'Expand shadow'}
+              aria-expanded={shadowOpen}
             >
-              <ChevronDown size={11} className={cn('transition-transform', shadowOpen && 'rotate-180')} />
+              <ChevronDown size={12} strokeWidth={1.75} className={cn('transition-transform duration-150', shadowOpen && 'rotate-180')} />
             </button>
           </div>
         </div>
 
         {shadowOpen && shadowEnabled && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3 animate-fade-in">
-            <div className="flex items-center gap-1.5">
-              <span className="w-8 text-[10px] text-muted">Blur</span>
+          <div className="flex flex-col gap-2 pl-3">
+            <div className="flex items-center gap-2">
+              <span className="mono-label w-8">Blur</span>
               <input
                 type="range" min={0} max={60} value={shadowBlur}
                 onChange={(e) => onUpdate({ shadowBlur: Number(e.target.value) })}
                 className="flex-1 cursor-pointer"
+                aria-label="Shadow blur"
               />
-              <span className="w-5 text-right text-[10px] text-muted tabular-nums">{shadowBlur}</span>
+              <span className="mono-value w-6 text-right text-[10px] text-foreground-muted">{shadowBlur}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-8 text-[10px] text-muted">Color</span>
+            <div className="flex items-center gap-2">
+              <span className="mono-label w-8">Color</span>
               <input
                 type="color" value={shadowColor}
                 onChange={(e) => onUpdate({ shadowColor: e.target.value })}
-                className="h-5 w-7 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                className="h-6 w-8 cursor-pointer rounded-sm border border-border bg-transparent p-0.5"
+                aria-label="Shadow color"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">

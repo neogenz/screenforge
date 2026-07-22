@@ -7,6 +7,7 @@ import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
 import { DEVICE_FRAMES } from '@/assets/device-frames'
 import { cn } from '@/lib/utils'
+import { inputCls } from '@/components/properties-panel/TransformSection'
 import type { GlobalSettings, DeviceModel, DeviceColor } from '@/types'
 
 const FONT_WEIGHTS: { value: number; label: string }[] = [
@@ -25,51 +26,66 @@ export function GlobalsEditor() {
   const globals = useProjectStore((s) => s.project?.globals)
   const updateGlobals = useProjectStore((s) => s.updateGlobals)
 
-  const [draft, setDraft] = useState<GlobalSettings | null>(globals ?? null)
+  const [draftOverride, setDraftOverride] = useState<GlobalSettings | null>(null)
+  const draft = draftOverride ?? globals ?? null
 
   if (!showGlobalsEditor || !draft) return null
 
   function update(partial: Partial<GlobalSettings>) {
-    setDraft((prev) => prev ? { ...prev, ...partial } : prev)
+    setDraftOverride((previous) => ({ ...(previous ?? draft), ...partial } as GlobalSettings))
+  }
+
+  function handleClose() {
+    setDraftOverride(null)
+    setShowGlobalsEditor(false)
   }
 
   function handleSave() {
     if (!draft) return
     updateGlobals(draft)
-    setShowGlobalsEditor(false)
+    handleClose()
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] animate-[fade-in_0.14s_ease-out]"
       role="dialog"
       aria-modal="true"
       aria-label="Global settings editor"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose()
+      }}
     >
-      <div className="relative bg-background rounded-xl shadow-2xl w-[400px] max-h-[85vh] flex flex-col overflow-hidden">
+      <div
+        className={cn(
+          'relative flex w-[440px] max-w-[calc(100vw-40px)] max-h-[80vh] flex-col overflow-hidden',
+          'surface-modal',
+        )}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">Global Defaults</h2>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="mono-label">Defaults</span>
+            <h2 className="text-[15px] font-medium text-foreground">Globals</h2>
+          </div>
           <button
             type="button"
-            onClick={() => setShowGlobalsEditor(false)}
-            className="p-1 rounded hover:bg-surface-hover transition-colors text-muted"
+            onClick={handleClose}
             aria-label="Close globals editor"
+            className="icon-btn"
           >
-            <X size={16} />
+            <X size={14} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-6">
-          {/* Typography section */}
+        {/* Scroll content */}
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
+          {/* Typography */}
           <section>
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-              Typography
-            </h3>
+            <h3 className="mono-label-strong mb-3 block">Typography</h3>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-muted block mb-1">Font Family</label>
+                <label className="mono-label mb-1.5 block">Family</label>
                 <FontPicker
                   value={draft.fontFamily}
                   onChange={(fontFamily) => update({ fontFamily })}
@@ -77,22 +93,19 @@ export function GlobalsEditor() {
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-muted block mb-1">Weight</label>
+                  <label className="mono-label mb-1.5 block">Weight</label>
                   <select
                     value={draft.fontWeight}
                     onChange={(e) => update({ fontWeight: parseInt(e.target.value, 10) })}
-                    className={cn(
-                      'w-full h-8 px-2 text-xs rounded border border-border',
-                      'bg-surface text-foreground focus:outline-none focus:border-primary',
-                    )}
+                    className={inputCls}
                   >
                     {FONT_WEIGHTS.map((w) => (
                       <option key={w.value} value={w.value}>{w.label}</option>
                     ))}
                   </select>
                 </div>
-                <div className="w-20">
-                  <label className="text-xs text-muted block mb-1">Size</label>
+                <div className="w-24">
+                  <label className="mono-label mb-1.5 block">Size</label>
                   <input
                     type="number"
                     min={8}
@@ -102,16 +115,13 @@ export function GlobalsEditor() {
                       const v = parseInt(e.target.value, 10)
                       if (!isNaN(v) && v >= 8) update({ fontSize: v })
                     }}
-                    className={cn(
-                      'w-full h-8 px-2 text-xs rounded border border-border',
-                      'bg-surface text-foreground focus:outline-none focus:border-primary',
-                    )}
+                    className={inputCls}
                     aria-label="Font size"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted block mb-1">Text Color</label>
+                <label className="mono-label mb-1.5 block">Color</label>
                 <ColorPicker
                   value={draft.fontColor}
                   onChange={(fontColor) => update({ fontColor })}
@@ -120,25 +130,25 @@ export function GlobalsEditor() {
             </div>
           </section>
 
-          {/* Background section */}
+          <div className="hairline" />
+
+          {/* Background */}
           <section>
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-              Background
-            </h3>
+            <h3 className="mono-label-strong mb-3 block">Background</h3>
             <BackgroundEditor
               background={draft.background}
               onChange={(background) => update({ background })}
             />
           </section>
 
-          {/* Device section */}
+          <div className="hairline" />
+
+          {/* Device */}
           <section>
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
-              Device
-            </h3>
+            <h3 className="mono-label-strong mb-3 block">Device</h3>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-muted block mb-1">Model</label>
+                <label className="mono-label mb-1.5 block">Model</label>
                 <select
                   value={draft.deviceModel}
                   onChange={(e) => {
@@ -147,10 +157,7 @@ export function GlobalsEditor() {
                     const firstColor = frame?.colors[0]?.name ?? draft.deviceColor
                     update({ deviceModel: model, deviceColor: firstColor })
                   }}
-                  className={cn(
-                    'w-full h-8 px-2 text-xs rounded border border-border',
-                    'bg-surface text-foreground focus:outline-none focus:border-primary',
-                  )}
+                  className={inputCls}
                 >
                   {DEVICE_FRAMES.map((f) => (
                     <option key={f.model} value={f.model}>{f.modelName}</option>
@@ -158,25 +165,28 @@ export function GlobalsEditor() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-muted block mb-2">Color</label>
+                <label className="mono-label mb-2 block">Color</label>
                 <div className="flex flex-wrap gap-2">
-                  {(DEVICE_FRAMES.find((f) => f.model === draft.deviceModel)?.colors ?? []).map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      title={c.label}
-                      onClick={() => update({ deviceColor: c.name as DeviceColor })}
-                      className={cn(
-                        'w-7 h-7 rounded-full border-2 transition-all',
-                        draft.deviceColor === c.name
-                          ? 'border-primary scale-110'
-                          : 'border-border hover:scale-105',
-                      )}
-                      style={{ backgroundColor: c.frame }}
-                      aria-label={c.label}
-                      aria-pressed={draft.deviceColor === c.name}
-                    />
-                  ))}
+                  {(DEVICE_FRAMES.find((f) => f.model === draft.deviceModel)?.colors ?? []).map((c) => {
+                    const selected = draft.deviceColor === c.name
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        title={c.label}
+                        onClick={() => update({ deviceColor: c.name as DeviceColor })}
+                        className={cn(
+                          'h-6 w-6 rounded-full border transition-[border-color,transform] duration-100 ease-out',
+                          selected
+                            ? 'border-foreground scale-110'
+                            : 'border-border hover:border-border-strong',
+                        )}
+                        style={{ backgroundColor: c.frame }}
+                        aria-label={c.label}
+                        aria-pressed={selected}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -184,26 +194,20 @@ export function GlobalsEditor() {
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 px-5 py-4 border-t border-border flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
           <button
             type="button"
-            onClick={() => setShowGlobalsEditor(false)}
-            className={cn(
-              'h-8 px-4 text-xs rounded border border-border',
-              'text-foreground hover:bg-surface-hover transition-colors',
-            )}
+            onClick={handleClose}
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className={cn(
-              'h-8 px-4 text-xs rounded bg-primary text-white font-medium',
-              'hover:bg-primary-hover transition-colors',
-            )}
+            className="btn-primary"
           >
-            Save Defaults
+            Save defaults
           </button>
         </div>
       </div>
