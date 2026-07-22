@@ -227,6 +227,8 @@ export function applyLayerToFabricObject(
       text: transformText(layer),
       width: Math.max(1, layer.width),
       scaleX: 1,
+      scaleY: 1,
+      lockScalingY: true,
       fontSize: layer.fontSize,
       fontFamily: layer.fontFamily,
       fontWeight: layer.fontWeight.toString(),
@@ -237,7 +239,6 @@ export function applyLayerToFabricObject(
       shadow: createShadow(layer.shadow),
     })
     object.initDimensions()
-    object.set({ scaleY: layer.height / Math.max(1, object.height) })
   } else if (layer.type === 'shape') {
     const fill = typeof layer.fill === 'string' ? layer.fill : createGradient(layer.fill)
     object.set({
@@ -295,11 +296,20 @@ export function fabricObjectToLayerUpdate(
   const matrix = object.calcTransformMatrix()
   const decomposition = util.qrDecompose(matrix)
   const topLeft = object.getCoords()[0]
+  const dimensions = object instanceof Textbox
+    ? {
+        width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
+        height: Math.max(1, object.height),
+      }
+    : {
+        width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
+        height: Math.max(1, object.height * Math.abs(decomposition.scaleY)),
+      }
+
   return {
     x: topLeft.x - screenOffset,
     y: topLeft.y,
-    width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
-    height: Math.max(1, object.height * Math.abs(decomposition.scaleY)),
+    ...dimensions,
     rotation: decomposition.angle,
     opacity: object.opacity,
   }

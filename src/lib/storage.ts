@@ -120,12 +120,17 @@ export function normalizeProject(value: unknown): Project {
   }
 
   const now = Date.now()
+  const activeScreenId = typeof candidate.activeScreenId === 'string'
+    && screens.some((screen) => screen.id === candidate.activeScreenId)
+    ? candidate.activeScreenId
+    : screens[0].id
   return {
     id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
     name: typeof candidate.name === 'string' && candidate.name.trim()
       ? candidate.name
       : 'Untitled Project',
     screens,
+    activeScreenId,
     globals,
     layoutLayers: [],
     createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,

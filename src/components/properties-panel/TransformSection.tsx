@@ -25,7 +25,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
   function handleWidth(raw: string) {
     const w = Math.max(1, finiteNumber(raw, layer.width))
-    if (lockAspect && layer.height > 0) {
+    if (layer.type !== 'text' && lockAspect && layer.height > 0) {
       const ratio = layer.width / layer.height
       update({ width: w, height: Math.round(w / ratio) })
     } else {
@@ -34,6 +34,8 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   function handleHeight(raw: string) {
+    if (layer.type === 'text') return
+
     const h = Math.max(1, finiteNumber(raw, layer.height))
     if (lockAspect && layer.width > 0) {
       const ratio = layer.width / layer.height
@@ -82,27 +84,39 @@ export function TransformSection({ layer }: TransformSectionProps) {
         <button
           type="button"
           onClick={() => setLockAspect((v) => !v)}
+          disabled={layer.type === 'text'}
           className={cn(
             'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-100 ease-out',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
+            layer.type === 'text' && 'cursor-not-allowed opacity-40',
             lockAspect
               ? 'border-foreground-muted bg-surface-active text-foreground'
               : 'border-border bg-panel text-muted hover:border-border-strong hover:text-foreground',
           )}
-          aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+          aria-label={layer.type === 'text' ? 'Text height is automatic' : lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
           aria-pressed={lockAspect}
         >
           {lockAspect ? <Link2 size={12} strokeWidth={1.5} /> : <Unlink2 size={12} strokeWidth={1.5} />}
         </button>
         <Field label="H" className="min-w-0 flex-1">
-          <input
-            type="number"
-            min={1}
-            value={Math.round(layer.height)}
-            onChange={(e) => handleHeight(e.target.value)}
-            className={inputCls}
-            aria-label="Height"
-          />
+          {layer.type === 'text' ? (
+            <input
+              type="text"
+              value="Auto"
+              disabled
+              className={cn(inputCls, 'cursor-not-allowed text-muted')}
+              aria-label="Text height (automatic)"
+            />
+          ) : (
+            <input
+              type="number"
+              min={1}
+              value={Math.round(layer.height)}
+              onChange={(e) => handleHeight(e.target.value)}
+              className={inputCls}
+              aria-label="Height"
+            />
+          )}
         </Field>
       </div>
 

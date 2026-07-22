@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
-import { Copy, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Screen } from '@/types'
 
@@ -7,30 +8,48 @@ interface ScreenThumbnailProps {
   screen: Screen
   isActive: boolean
   index: number
+  canDelete: boolean
+  canMoveLeft: boolean
+  canMoveRight: boolean
   onClick: () => void
   onDuplicate: () => void
   onDelete: () => void
+  onMoveLeft: () => void
+  onMoveRight: () => void
 }
 
 export function ScreenThumbnail({
   screen,
   isActive,
   index,
+  canDelete,
+  canMoveLeft,
+  canMoveRight,
   onClick,
   onDuplicate,
   onDelete,
+  onMoveLeft,
+  onMoveRight,
 }: ScreenThumbnailProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLButtonElement>(null)
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
+    setMenuPosition({ left: e.clientX, top: Math.max(8, e.clientY - 150) })
     setMenuOpen(true)
   }
 
-  function handleMenuAction(action: () => void) {
-    action()
-    setMenuOpen(false)
+  function toggleMenu() {
+    if (!menuOpen) {
+      const bounds = actionsRef.current?.getBoundingClientRect()
+      if (bounds) {
+        setMenuPosition({ left: bounds.right - 8, top: Math.max(8, bounds.top - 150) })
+      }
+    }
+    setMenuOpen((open) => !open)
   }
 
   return (
@@ -38,14 +57,15 @@ export function ScreenThumbnail({
       ref={containerRef}
       className="relative shrink-0"
       onContextMenu={handleContextMenu}
-      onBlur={(e) => {
-        if (!containerRef.current?.contains(e.relatedTarget as Node)) {
-          setMenuOpen(false)
-        }
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setMenuOpen(false)
       }}
     >
-      <div
+      <button
+        type="button"
         onClick={onClick}
+        aria-label={`Activate ${screen.name}`}
+        aria-pressed={isActive}
         className={cn(
           'h-[104px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
           'border transition-colors duration-100 ease-out',
@@ -63,7 +83,7 @@ export function ScreenThumbnail({
         ) : (
           <div className="h-full w-full bg-panel-muted" />
         )}
-      </div>
+      </button>
 
       {/* Index label — Space Mono */}
       <div
@@ -76,29 +96,84 @@ export function ScreenThumbnail({
         {String(index + 1).padStart(2, '0')}
       </div>
 
-      {menuOpen && (
+      <button
+        ref={actionsRef}
+        type="button"
+        onClick={toggleMenu}
+        className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-sm border border-border bg-panel/90 text-foreground-muted transition-colors hover:text-foreground"
+        aria-label={`${screen.name} actions`}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+      >
+        <MoreHorizontal size={12} strokeWidth={1.5} aria-hidden />
+      </button>
+
+      {menuOpen && createPortal(
         <div
           className={cn(
-            'absolute bottom-full left-0 z-50 mb-2 min-w-[140px] rounded-md border border-border bg-panel p-1',
+            'fixed z-[100] min-w-[170px] -translate-x-full rounded-md border border-border bg-panel p-1',
             'animate-[fade-in_0.14s_ease-out]',
           )}
-          onMouseDown={(e) => e.preventDefault()}
+          role="menu"
+          style={{ left: menuPosition.left, top: menuPosition.top }}
         >
           <button
-            onClick={() => handleMenuAction(onDuplicate)}
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation()
+              onDuplicate()
+              setMenuOpen(false)
+            }}
             className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-surface-hover"
           >
             <Copy size={11} strokeWidth={1.5} />
             Dupliquer
           </button>
           <button
-            onClick={() => handleMenuAction(onDelete)}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-danger transition-colors hover:bg-danger-soft"
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation()
+              onMoveLeft()
+              setMenuOpen(false)
+            }}
+            disabled={!canMoveLeft}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />
+            Déplacer à gauche
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation()
+              onMoveRight()
+              setMenuOpen(false)
+            }}
+            disabled={!canMoveRight}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronRight size={11} strokeWidth={1.5} aria-hidden />
+            Déplacer à droite
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete()
+              setMenuOpen(false)
+            }}
+            disabled={!canDelete}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] text-danger transition-colors hover:bg-danger-soft disabled:pointer-events-none disabled:opacity-40"
           >
             <Trash2 size={11} strokeWidth={1.5} />
             Supprimer
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

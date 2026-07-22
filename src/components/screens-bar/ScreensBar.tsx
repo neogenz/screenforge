@@ -5,8 +5,7 @@ import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { cn } from '@/lib/utils'
-
-const MAX_SCREENS = 10
+import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 
 export function ScreensBar() {
   const { project, addScreen, removeScreen, duplicateScreen, reorderScreens } =
@@ -20,10 +19,11 @@ export function ScreensBar() {
       })),
     )
 
-  const { activeScreenId, setActiveScreenId } = useCanvasStore(
+  const { activeScreenId, setActiveScreenId, recordProjectHistory } = useCanvasStore(
     useShallow((s) => ({
       activeScreenId: s.activeScreenId,
       setActiveScreenId: s.setActiveScreenId,
+      recordProjectHistory: s.recordProjectHistory,
     })),
   )
 
@@ -37,17 +37,24 @@ export function ScreensBar() {
   }
 
   function handleAddScreen() {
-    if (screens.length >= MAX_SCREENS) return
-    addScreen()
+    if (screens.length >= MAX_PROJECT_SCREENS) return
+    recordProjectHistory()
+    const screenId = addScreen()
+    if (screenId) setActiveScreenId(screenId)
   }
 
   function handleDeleteScreen(id: string) {
     if (screens.length <= 1) return
-    if (id === activeScreenId) {
-      const other = screens.find((s) => s.id !== id)
-      if (other) setActiveScreenId(other.id)
-    }
-    removeScreen(id)
+    recordProjectHistory()
+    const nextActiveId = removeScreen(id)
+    if (nextActiveId) setActiveScreenId(nextActiveId)
+  }
+
+  function handleDuplicateScreen(id: string) {
+    if (screens.length >= MAX_PROJECT_SCREENS) return
+    recordProjectHistory()
+    const duplicateId = duplicateScreen(id)
+    if (duplicateId) setActiveScreenId(duplicateId)
   }
 
   function handleDragStart(e: React.DragEvent, index: number) {
@@ -67,8 +74,19 @@ export function ScreensBar() {
     const reordered = [...screens]
     const [moved] = reordered.splice(sourceIndex, 1)
     reordered.splice(targetIndex, 0, moved)
+    recordProjectHistory()
     reorderScreens(reordered.map((s) => s.id))
     dragSourceIndex.current = null
+  }
+
+  function handleMoveScreen(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= screens.length) return
+    const reordered = [...screens]
+    const [moved] = reordered.splice(index, 1)
+    reordered.splice(targetIndex, 0, moved)
+    recordProjectHistory()
+    reorderScreens(reordered.map((screen) => screen.id))
   }
 
   return (
@@ -86,8 +104,13 @@ export function ScreensBar() {
             isActive={screen.id === activeScreenId}
             index={index}
             onClick={() => handleClick(screen.id)}
-            onDuplicate={() => duplicateScreen(screen.id)}
+            canDelete={screens.length > 1}
+            canMoveLeft={index > 0}
+            canMoveRight={index < screens.length - 1}
+            onDuplicate={() => handleDuplicateScreen(screen.id)}
             onDelete={() => handleDeleteScreen(screen.id)}
+            onMoveLeft={() => handleMoveScreen(index, -1)}
+            onMoveRight={() => handleMoveScreen(index, 1)}
           />
         </div>
       ))}
@@ -96,7 +119,8 @@ export function ScreensBar() {
         title="Add screen"
         aria-label="Add new screen"
         onClick={handleAddScreen}
-        disabled={screens.length >= MAX_SCREENS}
+        disabled={screens.length >= MAX_PROJECT_SCREENS}
+        type="button"
         className={cn(
           'flex h-[104px] aspect-[9/19.5] shrink-0 items-center justify-center',
           'rounded-md border border-dashed border-border-strong bg-panel-sub',

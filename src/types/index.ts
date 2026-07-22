@@ -119,6 +119,7 @@ export interface Project {
   id: string
   name: string
   screens: Screen[]
+  activeScreenId: string
   globals: GlobalSettings
   /** Layers shared across all screens */
   layoutLayers: Layer[]

@@ -45,16 +45,18 @@ export default function App() {
       if (stored) {
         useProjectStore.getState().loadProject(stored)
         useUIStore.getState().setSaveStatus('saved')
-        const firstScreen = stored.screens[0]
-        if (firstScreen) {
-          useCanvasStore.getState().setActiveScreenId(firstScreen.id)
+        const activeScreen = stored.screens.find((screen) => screen.id === stored.activeScreenId)
+          ?? stored.screens[0]
+        if (activeScreen) {
+          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       } else {
         useProjectStore.getState().createProject('Untitled Project')
         const project = useProjectStore.getState().project
-        const firstScreen = project?.screens[0]
-        if (firstScreen) {
-          useCanvasStore.getState().setActiveScreenId(firstScreen.id)
+        const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
+          ?? project?.screens[0]
+        if (activeScreen) {
+          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       }
     }

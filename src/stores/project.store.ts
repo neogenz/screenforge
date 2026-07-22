@@ -39,9 +39,9 @@ interface ProjectState {
   createProject: (name: string) => void
   loadProject: (project: Project) => void
   updateProjectName: (name: string) => void
-  addScreen: () => void
-  removeScreen: (id: string) => void
-  duplicateScreen: (id: string) => void
+  addScreen: (content?: Pick<Screen, 'name' | 'layers' | 'background'>) => string | null
+  removeScreen: (id: string) => string | null
+  duplicateScreen: (id: string) => string | null
   reorderScreens: (ids: string[]) => void
   updateGlobals: (globals: Partial<GlobalSettings>) => void
   updateScreenBackground: (screenId: string, background: Screen['background']) => void
@@ -52,19 +52,22 @@ interface ProjectState {
   updateScreenLayer: (screenId: string, layerId: string, updates: Partial<Layer>) => void
   reorderScreenLayer: (screenId: string, layerId: string, newIndex: number) => void
   duplicateScreenLayer: (screenId: string, layerId: string) => void
+  replaceScreenContent: (screenId: string, background: Screen['background'], layers: Layer[]) => void
 }
 
-export const useProjectStore = create<ProjectState>()((set) => ({
+export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: null,
 
   createProject: (name) => {
     const now = Date.now()
     const globals = cloneValue(DEFAULT_GLOBALS)
+    const screen = createDefaultScreen('Screen 1', globals)
     set({
       project: {
         id: crypto.randomUUID(),
         name,
-        screens: [createDefaultScreen('Screen 1', globals)],
+        screens: [screen],
+        activeScreenId: screen.id,
         globals,
         layoutLayers: [],
         createdAt: now,
@@ -80,34 +83,46 @@ export const useProjectStore = create<ProjectState>()((set) => ({
       ? { project: withTimestamp(state.project, { name }) }
       : state),
 
-  addScreen: () =>
-    set((state) => {
-      if (!state.project || state.project.screens.length >= MAX_PROJECT_SCREENS) return state
-      const screen = createDefaultScreen(
-        `Screen ${state.project.screens.length + 1}`,
-        state.project.globals,
-      )
-      return {
-        project: withTimestamp(state.project, {
-          screens: [...state.project.screens, screen],
-        }),
-      }
-    }),
+  addScreen: (content) => {
+    const project = get().project
+    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
+    const screen = content
+      ? {
+          id: crypto.randomUUID(),
+          name: content.name,
+          layers: cloneValue(content.layers),
+          background: cloneValue(content.background),
+        }
+      : createDefaultScreen(`Screen ${project.screens.length + 1}`, project.globals)
+    set({
+      project: withTimestamp(project, {
+        screens: [...project.screens, screen],
+        activeScreenId: screen.id,
+      }),
+    })
+    return screen.id
+  },
 
-  removeScreen: (id) =>
-    set((state) => {
-      if (!state.project || state.project.screens.length <= 1) return state
-      const screens = state.project.screens.filter((screen) => screen.id !== id)
-      if (screens.length === state.project.screens.length) return state
-      return { project: withTimestamp(state.project, { screens }) }
-    }),
+  removeScreen: (id) => {
+    const project = get().project
+    if (!project || project.screens.length <= 1) return null
+    const index = project.screens.findIndex((screen) => screen.id === id)
+    if (index === -1) return null
+    const screens = project.screens.filter((screen) => screen.id !== id)
+    const activeScreenId = project.activeScreenId !== id
+      && screens.some((screen) => screen.id === project.activeScreenId)
+      ? project.activeScreenId
+      : screens[Math.min(index, screens.length - 1)].id
+    set({ project: withTimestamp(project, { screens, activeScreenId }) })
+    return activeScreenId
+  },
 
-  duplicateScreen: (id) =>
-    set((state) => {
-      if (!state.project || state.project.screens.length >= MAX_PROJECT_SCREENS) return state
-      const sourceIndex = state.project.screens.findIndex((screen) => screen.id === id)
-      if (sourceIndex === -1) return state
-      const source = state.project.screens[sourceIndex]
+  duplicateScreen: (id) => {
+      const project = get().project
+      if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
+      const sourceIndex = project.screens.findIndex((screen) => screen.id === id)
+      if (sourceIndex === -1) return null
+      const source = project.screens[sourceIndex]
       const duplicate: Screen = {
         ...cloneValue(source),
         id: crypto.randomUUID(),
@@ -118,10 +133,16 @@ export const useProjectStore = create<ProjectState>()((set) => ({
         })),
         thumbnail: undefined,
       }
-      const screens = [...state.project.screens]
+      const screens = [...project.screens]
       screens.splice(sourceIndex + 1, 0, duplicate)
-      return { project: withTimestamp(state.project, { screens }) }
-    }),
+      set({
+        project: withTimestamp(project, {
+          screens,
+          activeScreenId: duplicate.id,
+        }),
+      })
+      return duplicate.id
+  },
 
   reorderScreens: (ids) =>
     set((state) => {
@@ -134,7 +155,8 @@ export const useProjectStore = create<ProjectState>()((set) => ({
         return [screen]
       })
       screens.push(...byId.values())
-      return { project: withTimestamp(state.project, { screens }) }
+      const unchanged = screens.every((screen, index) => screen === state.project?.screens[index])
+      return unchanged ? state : { project: withTimestamp(state.project, { screens }) }
     }),
 
   updateGlobals: (globals) =>
@@ -248,5 +270,25 @@ export const useProjectStore = create<ProjectState>()((set) => ({
         return { ...screen, layers: [...screen.layers, duplicate] }
       })
       return { project: withTimestamp(state.project, { screens }) }
+    }),
+
+  replaceScreenContent: (screenId, background, layers) =>
+    set((state) => {
+      if (!state.project || !state.project.screens.some((screen) => screen.id === screenId)) {
+        return state
+      }
+      return {
+        project: withTimestamp(state.project, {
+          activeScreenId: screenId,
+          screens: state.project.screens.map((screen) => screen.id === screenId
+            ? {
+                ...screen,
+                background: cloneValue(background),
+                layers: cloneValue(layers),
+                thumbnail: undefined,
+              }
+            : screen),
+        }),
+      }
     }),
 }))
