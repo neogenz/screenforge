@@ -2,7 +2,6 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
-import { inputCls } from '@/components/properties-panel/TransformSection'
 
 interface GradientEditorProps {
   value: GradientFill
@@ -17,7 +16,7 @@ function buildCssGradient(gradient: GradientFill): string {
     .join(', ')
 
   if (gradient.type === 'radial') {
-    return `radial-gradient(circle, ${stops})`
+    return `radial-gradient(circle at ${gradient.centerX ?? 50}% ${gradient.centerY ?? 50}%, ${stops})`
   }
   const angle = gradient.angle ?? 90
   return `linear-gradient(${angle}deg, ${stops})`
@@ -29,7 +28,16 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
   }
 
   function setAngle(angle: number) {
-    onChange({ ...value, angle: ((angle % 360) + 360) % 360 })
+    const finiteAngle = Number.isFinite(angle) ? angle : 0
+    onChange({ ...value, angle: ((finiteAngle % 360) + 360) % 360 })
+  }
+
+  function setCenter(axis: 'centerX' | 'centerY', percentage: number) {
+    const finitePercentage = Number.isFinite(percentage) ? percentage : 50
+    onChange({
+      ...value,
+      [axis]: Math.min(100, Math.max(0, finitePercentage)),
+    })
   }
 
   function updateStop(index: number, partial: Partial<ColorStop>) {
@@ -73,7 +81,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Type — flat segmented */}
       <div className="flex flex-col gap-2">
         <span className="mono-label">Type</span>
-        <div className="seg w-full">
+        <div className="seg w-full" role="group" aria-label="Gradient type">
           {(['linear', 'radial'] as const).map((t) => (
             <button
               key={t}
@@ -81,6 +89,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
               onClick={() => setType(t)}
               data-active={value.type === t}
               className="seg-btn flex-1"
+              aria-pressed={value.type === t}
             >
               {t}
             </button>
@@ -99,11 +108,38 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
               max={359}
               value={value.angle ?? 90}
               onChange={(e) => setAngle(parseInt(e.target.value, 10) || 0)}
-              className={cn(inputCls, 'w-20')}
+              className={cn('input', 'w-20')}
               aria-label="Gradient angle in degrees"
             />
             <span className="mono-label">deg</span>
           </div>
+        </div>
+      )}
+
+      {value.type === 'radial' && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-2">
+            <span className="mono-label">Center X</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={Math.round(value.centerX ?? 50)}
+              onChange={(event) => setCenter('centerX', Number(event.target.value))}
+              className="input"
+            />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="mono-label">Center Y</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={Math.round(value.centerY ?? 50)}
+              onChange={(event) => setCenter('centerY', Number(event.target.value))}
+              className="input"
+            />
+          </label>
         </div>
       )}
 
@@ -128,14 +164,14 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
             onClick={addStop}
             disabled={value.stops.length >= 10}
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted',
+              'flex h-11 w-11 items-center justify-center rounded-sm text-foreground-muted',
               'transition-colors duration-100 ease-out',
               'hover:bg-surface-hover hover:text-foreground',
               'disabled:pointer-events-none disabled:opacity-40',
             )}
             aria-label="Add color stop"
           >
-            <Plus size={12} strokeWidth={1.75} />
+            <Plus size={14} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
 
@@ -165,7 +201,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
                         updateStop(stop.originalIndex, { offset: Math.max(0, Math.min(1, v)) })
                       }
                     }}
-                    className={cn(inputCls, 'w-full')}
+                    className={cn('input', 'w-full')}
                     aria-label="Stop position"
                   />
                 </div>

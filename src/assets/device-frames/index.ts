@@ -123,7 +123,7 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   <rect x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" rx="${cornerRadius - 4}" ry="${cornerRadius - 4}" fill="#1A1A1A"/>
 
   ${screenshotUrl ? `<!-- Screenshot -->
-  <image x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${screenshotUrl}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}
+  <image x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${escapeSvgAttribute(screenshotUrl)}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}
 
   <!-- Dynamic island pill -->
   ${dynamicIsland ? `<rect x="${pillX}" y="${pillY}" width="${pillWidth}" height="${pillHeight}" rx="${pillRadius}" ry="${pillRadius}" fill="#000000"/>` : `<circle cx="${width / 2}" cy="${screenY + 12}" r="5" fill="${color.bezel}"/>`}
@@ -140,4 +140,12 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   <!-- Volume down (left) -->
   <rect x="${-btnWidth + 1}" y="${volDownY}" width="${btnWidth}" height="${volDownH}" rx="${btnRadius}" ry="${btnRadius}" fill="${color.bezel}"/>
 </svg>`
+}
+
+function escapeSvgAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }

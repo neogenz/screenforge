@@ -1,7 +1,12 @@
 import { create } from 'zustand'
 import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
-import type { Layer } from '@/types'
+import type { Background, Layer, Screen } from '@/types'
+
+interface ScreenHistorySnapshot {
+  layers: Layer[]
+  background: Background
+}
 
 interface CanvasState {
   /** Mirror of the active screen's layers for panels and keyboard commands. */
@@ -12,6 +17,7 @@ interface CanvasState {
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
   updateLayer: (id: string, updates: Partial<Layer>) => void
+  updateBackground: (background: Background) => void
   selectLayer: (id: string) => void
   selectLayers: (ids: string[]) => void
   clearSelection: () => void
@@ -20,26 +26,38 @@ interface CanvasState {
   setLayers: (layers: Layer[]) => void
   setActiveScreenId: (id: string) => void
   syncLayersFromProject: () => void
+  recordHistory: () => void
   undo: () => void
   redo: () => void
 }
 
-function syncFromProject(screenId: string): Layer[] {
+function activeScreen(screenId: string): Screen | undefined {
   return useProjectStore
     .getState()
-    .project?.screens.find((screen) => screen.id === screenId)?.layers ?? []
+    .project?.screens.find((screen) => screen.id === screenId)
 }
 
-function serializeLayers(layers: Layer[]): string {
-  return JSON.stringify(layers)
+function syncFromProject(screenId: string): Layer[] {
+  return activeScreen(screenId)?.layers ?? []
 }
 
-function restoreLayers(snapshot: string): Layer[] | null {
+function serializeScreen(screenId: string): string | null {
+  const screen = activeScreen(screenId)
+  return screen
+    ? JSON.stringify({ layers: screen.layers, background: screen.background })
+    : null
+}
+
+function restoreScreen(snapshot: string): ScreenHistorySnapshot | null {
   try {
     const parsed: unknown = JSON.parse(snapshot)
-    return Array.isArray(parsed) ? parsed as Layer[] : null
+    if (!parsed || typeof parsed !== 'object') return null
+    const candidate = parsed as Partial<ScreenHistorySnapshot>
+    return Array.isArray(candidate.layers) && candidate.background
+      ? candidate as ScreenHistorySnapshot
+      : null
   } catch (error) {
-    console.error('Could not restore layer history.', error)
+    console.error('Could not restore screen history.', error)
     return null
   }
 }
@@ -71,23 +89,34 @@ function applyGlobalsToNewLayer(layer: Layer): Layer {
 
 export const useCanvasStore = create<CanvasState>()((set, get) => {
   function recordCurrent() {
-    useHistoryStore.getState().record(serializeLayers(get().layers))
+    const snapshot = serializeScreen(get().activeScreenId)
+    if (snapshot) useHistoryStore.getState().record(snapshot)
   }
 
-  function persistLayers(layers: Layer[]) {
+  function persistScreen(snapshot: ScreenHistorySnapshot) {
     const screenId = get().activeScreenId
-    if (!screenId) return
-    useProjectStore.getState().saveScreenLayers(screenId, layers)
+    const project = useProjectStore.getState().project
+    if (!screenId || !project) return
+    useProjectStore.setState({
+      project: {
+        ...project,
+        screens: project.screens.map((screen) => screen.id === screenId
+          ? { ...screen, layers: snapshot.layers, background: snapshot.background }
+          : screen),
+        updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+      },
+    })
     set({ layers: syncFromProject(screenId) })
   }
 
   function travel(direction: 'undo' | 'redo') {
-    const { layers } = get()
-    const history = useHistoryStore.getState()
-    const snapshot = history[direction](serializeLayers(layers))
+    const snapshot = serializeScreen(get().activeScreenId)
     if (!snapshot) return
-    const restored = restoreLayers(snapshot)
-    if (restored) persistLayers(restored)
+    const history = useHistoryStore.getState()
+    const target = history[direction](snapshot)
+    if (!target) return
+    const restored = restoreScreen(target)
+    if (restored) persistScreen(restored)
   }
 
   return {
@@ -99,8 +128,9 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       const screenId = get().activeScreenId
       if (!screenId) return
       recordCurrent()
-      useProjectStore.getState().addScreenLayer(screenId, applyGlobalsToNewLayer(layer))
-      set({ layers: syncFromProject(screenId) })
+      const nextLayer = applyGlobalsToNewLayer(layer)
+      useProjectStore.getState().addScreenLayer(screenId, nextLayer)
+      set({ layers: syncFromProject(screenId), selectedLayerIds: [nextLayer.id] })
     },
 
     removeLayer: (id) => {
@@ -116,10 +146,22 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
 
     updateLayer: (id, updates) => {
       const screenId = get().activeScreenId
-      if (!screenId || !get().layers.some((layer) => layer.id === id)) return
+      const layer = get().layers.find((candidate) => candidate.id === id)
+      if (!screenId || !layer) return
+      const changed = Object.entries(updates).some(
+        ([key, value]) => !Object.is(layer[key as keyof Layer], value),
+      )
+      if (!changed) return
       recordCurrent()
       useProjectStore.getState().updateScreenLayer(screenId, id, updates)
       set({ layers: syncFromProject(screenId) })
+    },
+
+    updateBackground: (background) => {
+      const screen = activeScreen(get().activeScreenId)
+      if (!screen || JSON.stringify(screen.background) === JSON.stringify(background)) return
+      recordCurrent()
+      persistScreen({ layers: screen.layers, background })
     },
 
     selectLayer: (id) => set({ selectedLayerIds: [id] }),
@@ -128,23 +170,32 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
 
     reorderLayer: (id, newIndex) => {
       const screenId = get().activeScreenId
-      if (!screenId) return
+      const currentIndex = get().layers.findIndex((layer) => layer.id === id)
+      if (!screenId || currentIndex === -1 || currentIndex === newIndex) return
       recordCurrent()
       useProjectStore.getState().reorderScreenLayer(screenId, id, newIndex)
-      set({ layers: syncFromProject(screenId) })
+      set({ layers: syncFromProject(screenId), selectedLayerIds: [id] })
     },
 
     duplicateLayer: (id) => {
       const screenId = get().activeScreenId
       if (!screenId) return
+      const previousIds = new Set(get().layers.map((layer) => layer.id))
       recordCurrent()
       useProjectStore.getState().duplicateScreenLayer(screenId, id)
-      set({ layers: syncFromProject(screenId) })
+      const layers = syncFromProject(screenId)
+      const duplicate = layers.find((layer) => !previousIds.has(layer.id))
+      set({
+        layers,
+        selectedLayerIds: duplicate ? [duplicate.id] : get().selectedLayerIds,
+      })
     },
 
     setLayers: (layers) => {
+      const screen = activeScreen(get().activeScreenId)
+      if (!screen) return
       recordCurrent()
-      persistLayers(layers)
+      persistScreen({ layers, background: screen.background })
     },
 
     setActiveScreenId: (id) => {
@@ -165,6 +216,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       set({ layers: syncFromProject(screenId) })
     },
 
+    recordHistory: recordCurrent,
     undo: () => travel('undo'),
     redo: () => travel('redo'),
   }

@@ -49,7 +49,9 @@ function buildPreviewStyle(bg: Background): React.CSSProperties {
     .join(', ')
 
   if (bg.type === 'radial-gradient') {
-    return { background: `radial-gradient(circle, ${stops})` }
+    return {
+      background: `radial-gradient(circle at ${bg.centerX ?? 50}% ${bg.centerY ?? 50}%, ${stops})`,
+    }
   }
   return { background: `linear-gradient(${bg.angle}deg, ${stops})` }
 }
@@ -66,7 +68,8 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export function BackgroundEditor({ background, onChange }: BackgroundEditorProps) {
-  const [activeTab, setActiveTab] = useState<Tab>(tabFromBackground(background))
+  const [showPresets, setShowPresets] = useState(false)
+  const activeTab: Tab = showPresets ? 'presets' : tabFromBackground(background)
 
   function handleSolidColor(color: string) {
     onChange({ type: 'solid', color })
@@ -78,7 +81,21 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
   function handlePresetClick(preset: Background) {
     onChange(preset)
-    setActiveTab('gradient')
+    setShowPresets(false)
+  }
+
+  function handleTabClick(tab: Tab) {
+    if (tab === 'presets') {
+      setShowPresets(true)
+      return
+    }
+    setShowPresets(false)
+    if (tab === 'solid' && background.type !== 'solid') {
+      onChange({ type: 'solid', color: '#6366f1' })
+    }
+    if (tab === 'gradient' && background.type === 'solid') {
+      onChange(gradientFillToBackground(DEFAULT_GRADIENT))
+    }
   }
 
   const solidColor = background.type === 'solid' ? background.color : '#6366f1'
@@ -88,14 +105,15 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
     <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
       <div className="flex flex-col gap-2">
         <span className="mono-label">Type</span>
-        <div className="seg w-full">
+        <div className="seg w-full" role="group" aria-label="Background type">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               data-active={activeTab === tab.id}
               className="seg-btn flex-1"
+              aria-pressed={activeTab === tab.id}
             >
               {tab.label}
             </button>

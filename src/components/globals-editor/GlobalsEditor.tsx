@@ -7,7 +7,6 @@ import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
 import { DEVICE_FRAMES } from '@/assets/device-frames'
 import { cn } from '@/lib/utils'
-import { inputCls } from '@/components/properties-panel/TransformSection'
 import type { GlobalSettings, DeviceModel, DeviceColor } from '@/types'
 
 const FONT_WEIGHTS: { value: number; label: string }[] = [
@@ -97,7 +96,7 @@ export function GlobalsEditor() {
                   <select
                     value={draft.fontWeight}
                     onChange={(e) => update({ fontWeight: parseInt(e.target.value, 10) })}
-                    className={inputCls}
+                    className="input"
                   >
                     {FONT_WEIGHTS.map((w) => (
                       <option key={w.value} value={w.value}>{w.label}</option>
@@ -115,7 +114,7 @@ export function GlobalsEditor() {
                       const v = parseInt(e.target.value, 10)
                       if (!isNaN(v) && v >= 8) update({ fontSize: v })
                     }}
-                    className={inputCls}
+                    className="input"
                     aria-label="Font size"
                   />
                 </div>
@@ -157,7 +156,7 @@ export function GlobalsEditor() {
                     const firstColor = frame?.colors[0]?.name ?? draft.deviceColor
                     update({ deviceModel: model, deviceColor: firstColor })
                   }}
-                  className={inputCls}
+                  className="input"
                 >
                   {DEVICE_FRAMES.map((f) => (
                     <option key={f.model} value={f.model}>{f.modelName}</option>

@@ -1,7 +1,7 @@
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
-import { inputCls, Field } from './TransformSection'
+import { Field } from './TransformSection'
 import { Toggle } from '@/components/text-editor/TextEditor'
 import type { ShapeLayer, GradientFill, TextShadow } from '@/types'
 
@@ -14,6 +14,11 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
 
   function update(patch: Partial<ShapeLayer>) {
     updateLayer(layer.id, patch as Partial<import('@/types').Layer>)
+  }
+
+  function numberInRange(raw: string, minimum: number, maximum: number, fallback: number) {
+    const value = Number(raw)
+    return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback
   }
 
   const fillIsGradient = typeof layer.fill !== 'string'
@@ -46,13 +51,26 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
 
   return (
     <div className="flex flex-col gap-2.5">
+      <Field label="Type">
+        <select
+          value={layer.shapeType}
+          onChange={(event) => update({ shapeType: event.target.value as ShapeLayer['shapeType'] })}
+          className="input"
+          aria-label="Shape type"
+        >
+          <option value="rectangle">Rectangle</option>
+          <option value="rounded-rect">Rounded rectangle</option>
+          <option value="circle">Circle</option>
+        </select>
+      </Field>
+
       {/* Fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Fill</span>
           <div className="flex items-center gap-2">
             <span className="mono-label">Gradient</span>
-            <Toggle active={fillIsGradient} onToggle={handleGradientToggle} />
+            <Toggle label="Toggle shape gradient" active={fillIsGradient} onToggle={handleGradientToggle} />
           </div>
         </div>
         {fillIsGradient ? (
@@ -85,8 +103,10 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
             type="number"
             min={0}
             value={layer.strokeWidth ?? 0}
-            onChange={(e) => update({ strokeWidth: parseInt(e.target.value, 10) || 0 })}
-            className={inputCls}
+            onChange={(e) => update({
+              strokeWidth: numberInRange(e.target.value, 0, 100, layer.strokeWidth ?? 0),
+            })}
+            className="input"
             aria-label="Stroke width"
           />
         </Field>
@@ -101,8 +121,10 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
               type="number"
               min={0}
               value={layer.borderRadius ?? 8}
-              onChange={(e) => update({ borderRadius: parseInt(e.target.value, 10) || 0 })}
-              className={inputCls}
+              onChange={(e) => update({
+                borderRadius: numberInRange(e.target.value, 0, 1000, layer.borderRadius ?? 8),
+              })}
+              className="input"
               aria-label="Border radius"
             />
           </Field>
@@ -115,7 +137,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Shadow</span>
-          <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
+          <Toggle label="Toggle shape shadow" active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
           <div className="flex flex-col gap-2 pl-3">
@@ -125,9 +147,12 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                   type="number"
                   value={layer.shadow.offsetX}
                   onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetX: parseInt(e.target.value, 10) || 0 } })
+                    update({ shadow: {
+                      ...layer.shadow!,
+                      offsetX: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetX),
+                    } })
                   }
-                  className={inputCls}
+                  className="input"
                   aria-label="Shadow X offset"
                 />
               </Field>
@@ -136,9 +161,12 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                   type="number"
                   value={layer.shadow.offsetY}
                   onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetY: parseInt(e.target.value, 10) || 0 } })
+                    update({ shadow: {
+                      ...layer.shadow!,
+                      offsetY: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetY),
+                    } })
                   }
-                  className={inputCls}
+                  className="input"
                   aria-label="Shadow Y offset"
                 />
               </Field>
@@ -149,9 +177,12 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                 min={0}
                 value={layer.shadow.blur}
                 onChange={(e) =>
-                  update({ shadow: { ...layer.shadow!, blur: parseInt(e.target.value, 10) || 0 } })
+                  update({ shadow: {
+                    ...layer.shadow!,
+                    blur: numberInRange(e.target.value, 0, 200, layer.shadow!.blur),
+                  } })
                 }
-                className={inputCls}
+                className="input"
                 aria-label="Shadow blur"
               />
             </Field>

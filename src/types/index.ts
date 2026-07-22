@@ -27,8 +27,8 @@ export interface ColorStop {
 export interface GradientFill {
   type: 'linear' | 'radial'
   angle?: number     // degrees, linear only
-  centerX?: number   // radial only
-  centerY?: number   // radial only
+  centerX?: number   // 0–100 percentage, radial only
+  centerY?: number   // 0–100 percentage, radial only
   stops: ColorStop[]
 }
 

@@ -3,8 +3,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { FontPicker } from './FontPicker'
-import { loadGoogleFont } from '@/hooks/use-fonts'
-import { inputCls, Field } from '@/components/properties-panel/TransformSection'
+import { Field } from '@/components/properties-panel/TransformSection'
 import { cn } from '@/lib/utils'
 import type { TextLayer, GradientFill, TextShadow } from '@/types'
 
@@ -22,9 +21,13 @@ export function TextEditor({ layer }: TextEditorProps) {
     updateLayer(layer.id, patch as Partial<import('@/types').Layer>)
   }
 
-  async function handleFontFamily(family: string) {
-    await loadGoogleFont(family)
+  function handleFontFamily(family: string) {
     update({ fontFamily: family })
+  }
+
+  function numberInRange(raw: string, minimum: number, maximum: number, fallback: number) {
+    const value = Number(raw)
+    return Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback
   }
 
   function handleShadowToggle() {
@@ -54,6 +57,15 @@ export function TextEditor({ layer }: TextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2.5">
+      <Field label="Content">
+        <textarea
+          value={layer.content}
+          onChange={(event) => update({ content: event.target.value })}
+          className="input h-20 resize-y py-2 leading-snug"
+          aria-label="Text content"
+        />
+      </Field>
+
       {/* Font family */}
       <Field label="Font">
         <FontPicker value={layer.fontFamily} onChange={handleFontFamily} />
@@ -67,16 +79,16 @@ export function TextEditor({ layer }: TextEditorProps) {
             min={8}
             max={200}
             value={layer.fontSize}
-            onChange={(e) => update({ fontSize: parseInt(e.target.value, 10) || 16 })}
-            className={inputCls}
+            onChange={(e) => update({ fontSize: numberInRange(e.target.value, 8, 300, layer.fontSize) })}
+            className="input"
             aria-label="Font size"
           />
         </Field>
         <Field label="Weight">
           <select
             value={layer.fontWeight}
-            onChange={(e) => update({ fontWeight: parseInt(e.target.value, 10) })}
-            className={inputCls}
+            onChange={(e) => update({ fontWeight: numberInRange(e.target.value, 100, 900, layer.fontWeight) })}
+            className="input"
             aria-label="Font weight"
           >
             {FONT_WEIGHTS.map((w) => (
@@ -129,8 +141,8 @@ export function TextEditor({ layer }: TextEditorProps) {
             max={3}
             step={0.1}
             value={layer.lineHeight}
-            onChange={(e) => update({ lineHeight: parseFloat(e.target.value) || 1.2 })}
-            className={inputCls}
+            onChange={(e) => update({ lineHeight: numberInRange(e.target.value, 0.5, 3, layer.lineHeight) })}
+            className="input"
             aria-label="Line height"
           />
         </Field>
@@ -141,8 +153,8 @@ export function TextEditor({ layer }: TextEditorProps) {
             max={20}
             step={0.5}
             value={layer.letterSpacing}
-            onChange={(e) => update({ letterSpacing: parseFloat(e.target.value) || 0 })}
-            className={inputCls}
+            onChange={(e) => update({ letterSpacing: numberInRange(e.target.value, -5, 20, layer.letterSpacing) })}
+            className="input"
             aria-label="Letter spacing"
           />
         </Field>
@@ -153,7 +165,7 @@ export function TextEditor({ layer }: TextEditorProps) {
         <select
           value={layer.textTransform}
           onChange={(e) => update({ textTransform: e.target.value as TextLayer['textTransform'] })}
-          className={inputCls}
+          className="input"
           aria-label="Text transform"
         >
           {TEXT_TRANSFORMS.map((t) => (
@@ -187,7 +199,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Shadow</span>
-          <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
+          <Toggle label="Toggle text shadow" active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
           <div className="flex flex-col gap-2 pl-3">
@@ -197,9 +209,9 @@ export function TextEditor({ layer }: TextEditorProps) {
                   type="number"
                   value={layer.shadow.offsetX}
                   onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetX: parseInt(e.target.value, 10) || 0 } })
+                    update({ shadow: { ...layer.shadow!, offsetX: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetX) } })
                   }
-                  className={inputCls}
+                  className="input"
                   aria-label="Shadow offset X"
                 />
               </Field>
@@ -208,9 +220,9 @@ export function TextEditor({ layer }: TextEditorProps) {
                   type="number"
                   value={layer.shadow.offsetY}
                   onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetY: parseInt(e.target.value, 10) || 0 } })
+                    update({ shadow: { ...layer.shadow!, offsetY: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetY) } })
                   }
-                  className={inputCls}
+                  className="input"
                   aria-label="Shadow offset Y"
                 />
               </Field>
@@ -221,9 +233,9 @@ export function TextEditor({ layer }: TextEditorProps) {
                 min={0}
                 value={layer.shadow.blur}
                 onChange={(e) =>
-                  update({ shadow: { ...layer.shadow!, blur: parseInt(e.target.value, 10) || 0 } })
+                  update({ shadow: { ...layer.shadow!, blur: numberInRange(e.target.value, 0, 200, layer.shadow!.blur) } })
                 }
-                className={inputCls}
+                className="input"
                 aria-label="Shadow blur"
               />
             </Field>
@@ -246,7 +258,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Gradient</span>
-          <Toggle active={!!layer.gradientFill} onToggle={handleGradientToggle} />
+          <Toggle label="Toggle text gradient" active={!!layer.gradientFill} onToggle={handleGradientToggle} />
         </div>
         {layer.gradientFill && (
           <GradientEditor
@@ -262,27 +274,29 @@ export function TextEditor({ layer }: TextEditorProps) {
 // ─── Shared sub-components ──────────────────────────────────────────────────
 
 interface ToggleProps {
+  label: string
   active: boolean
   onToggle: () => void
 }
 
-export function Toggle({ active, onToggle }: ToggleProps) {
+export function Toggle({ label, active, onToggle }: ToggleProps) {
   return (
     <button
       type="button"
       role="switch"
+      aria-label={label}
       aria-checked={active}
       onClick={onToggle}
       className={cn(
-        'relative h-[18px] w-[30px] shrink-0 rounded-full transition-colors duration-100 ease-out',
+        'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-100 ease-out',
         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         active ? 'bg-foreground' : 'bg-border',
       )}
     >
       <span
         className={cn(
-          'absolute left-[2px] top-[2px] h-[14px] w-[14px] rounded-full bg-panel transition-transform duration-100 ease-out',
-          active ? 'translate-x-[12px]' : 'translate-x-0',
+          'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-panel transition-transform duration-100 ease-out',
+          active ? 'translate-x-5' : 'translate-x-0',
         )}
       />
     </button>

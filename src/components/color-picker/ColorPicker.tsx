@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ColorPickerProps {
@@ -47,6 +47,13 @@ function colorToHex6(color: string): string {
     if (c.length === 3) return '#' + c.split('').map(x => x + x).join('')
     return '#' + c.slice(0, 6)
   }
+  const rgb = color.match(/rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i)
+  if (rgb) {
+    const channels = rgb.slice(1, 4).map((channel) =>
+      Math.min(255, Math.max(0, Math.round(Number(channel)))).toString(16).padStart(2, '0'),
+    )
+    return `#${channels.join('')}`
+  }
   return '#000000'
 }
 
@@ -60,7 +67,9 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
 
   const [hexInput, setHexInput] = useState(hex6)
   const [opacityInput, setOpacityInput] = useState(Math.round(opacity * 100))
+  const [colorError, setColorError] = useState<string | null>(null)
   const nativeRef = useRef<HTMLInputElement>(null)
+  const errorId = useId()
 
   // Sync hex6 from parent value if it changes externally
   const [prevValue, setPrevValue] = useState(value)
@@ -68,6 +77,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     setPrevValue(value)
     setHexInput(colorToHex6(value))
     setOpacityInput(Math.round(extractOpacity(value) * 100))
+    setColorError(null)
   }
 
   function emitColor(hex: string, alpha: number) {
@@ -85,6 +95,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
   function handleNativeChange(e: React.ChangeEvent<HTMLInputElement>) {
     const h = e.target.value
     setHexInput(h)
+    setColorError(null)
     emitColor(h, opacityInput / 100)
   }
 
@@ -93,6 +104,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     setHexInput(raw)
     const normalized = raw.startsWith('#') ? raw : '#' + raw
     if (isValidHex(normalized)) {
+      setColorError(null)
       emitColor(normalized, opacityInput / 100)
     }
   }
@@ -101,9 +113,10 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     const normalized = hexInput.startsWith('#') ? hexInput : '#' + hexInput
     if (isValidHex(normalized)) {
       setHexInput(normalized)
+      setColorError(null)
       emitColor(normalized, opacityInput / 100)
     } else {
-      setHexInput(hex6)
+      setColorError('Enter a six-digit hex color, for example #141413.')
     }
   }
 
@@ -120,22 +133,22 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         <button
           type="button"
           className={cn(
-            'h-7 w-7 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border',
+            'h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border',
             'transition-colors duration-100 ease-out hover:border-foreground',
           )}
           style={{ backgroundColor: hex6 }}
           onClick={() => nativeRef.current?.click()}
           aria-label="Open color picker"
-        >
-          <input
-            ref={nativeRef}
-            type="color"
-            value={hex6}
-            onChange={handleNativeChange}
-            className="sr-only"
-            tabIndex={-1}
-          />
-        </button>
+        />
+        <input
+          ref={nativeRef}
+          type="color"
+          value={hex6}
+          onChange={handleNativeChange}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <input
           type="text"
           value={hexInput}
@@ -145,8 +158,15 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           placeholder="#000000"
           className="input"
           aria-label="Hex color value"
+          aria-invalid={Boolean(colorError)}
+          aria-describedby={colorError ? errorId : undefined}
         />
       </div>
+      {colorError && (
+        <p id={errorId} role="alert" className="text-[11px] leading-relaxed text-danger">
+          {colorError}
+        </p>
+      )}
 
       {/* Opacity slider */}
       {showOpacity && (
@@ -172,14 +192,17 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         <div className="flex items-center gap-2">
           <span className="mono-label">Recent</span>
           <div className="flex flex-wrap gap-1">
-            {recentColors.map((c, i) => (
+            {recentColors.map((color) => (
               <button
-                key={i}
+                key={color}
                 type="button"
                 className="h-4 w-4 rounded-sm border border-border cursor-pointer hover:border-foreground transition-colors"
-                style={{ backgroundColor: c }}
-                onClick={() => onChange(c)}
-                aria-label={`Recent color ${c}`}
+                style={{ backgroundColor: color }}
+                onClick={() => {
+                  addRecentColor(color)
+                  onChange(color)
+                }}
+                aria-label={`Recent color ${color}`}
               />
             ))}
           </div>

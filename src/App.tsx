@@ -28,15 +28,19 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      const [stored] = await Promise.all([
-        loadLatestProject(),
-        Promise.all([
-          loadGoogleFont('Space Grotesk', ['400', '500', '600', '700']),
-          loadGoogleFont('Space Mono', ['400', '700']),
-        ]).catch((error) => {
-          console.warn('Could not preload editor fonts.', error)
-        }),
+      const editorFonts = Promise.all([
+        loadGoogleFont('Space Grotesk', ['400', '500', '600', '700']),
+        loadGoogleFont('Space Mono', ['400', '700']),
       ])
+      void editorFonts.then((results) => {
+        for (const result of results) {
+          if (result.status === 'fallback') {
+            console.warn(`Could not preload ${result.family}. ${result.message ?? ''}`.trim())
+          }
+        }
+      })
+
+      const stored = await loadLatestProject()
 
       if (stored) {
         useProjectStore.getState().loadProject(stored)

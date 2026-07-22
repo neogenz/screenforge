@@ -1,15 +1,18 @@
-import { useState, useRef } from 'react'
-import { ChevronDown, X, Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useRef, useState } from 'react'
+import { Check, ChevronDown, X } from 'lucide-react'
 import { DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
-import { inputCls, Field } from '@/components/properties-panel/TransformSection'
+import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { Field } from '@/components/properties-panel/TransformSection'
 import { Toggle } from '@/components/text-editor/TextEditor'
-import type { DeviceFrameLayer, DeviceModel, DeviceColor, Orientation } from '@/types'
+import { cn } from '@/lib/utils'
+import type { DeviceColor, DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
 interface DevicePickerProps {
   deviceModel: DeviceModel
   deviceColor: DeviceColor
   orientation: Orientation
+  width: number
+  height: number
   screenshotUrl?: string
   shadowEnabled: boolean
   shadowBlur: number
@@ -23,6 +26,8 @@ export function DevicePicker({
   deviceModel,
   deviceColor,
   orientation,
+  width,
+  height,
   screenshotUrl,
   shadowEnabled,
   shadowBlur,
@@ -32,60 +37,89 @@ export function DevicePicker({
   onUpdate,
 }: DevicePickerProps) {
   const [shadowOpen, setShadowOpen] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const config = getDeviceFrame(deviceModel)
 
-  function handleScreenshotChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onUpdate({ screenshotUrl: reader.result as string })
-    reader.readAsDataURL(file)
-    e.target.value = ''
+
+    setFileError(null)
+    event.target.value = ''
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      setFileError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
+      return
+    }
+
+    try {
+      const screenshot = await readAsDataUrl(file)
+      await decodeImage(screenshot)
+      onUpdate({ screenshotUrl: screenshot })
+    } catch {
+      setFileError("La capture est illisible ou endommagée.")
+    }
+  }
+
+  function handleModelChange(model: DeviceModel) {
+    const next = getDeviceFrame(model)
+    const ratio = next.width / next.height
+    const size = orientation === 'portrait'
+      ? { width: Math.max(1, height * ratio), height }
+      : { width, height: Math.max(1, width * ratio) }
+    onUpdate({ deviceModel: model, deviceColor: next.colors[0].name, ...size })
+  }
+
+  function handleOrientationChange(next: Orientation) {
+    if (next === orientation) return
+    const shortSide = Math.min(width, height)
+    const longSide = Math.max(width, height)
+    onUpdate({
+      orientation: next,
+      width: next === 'portrait' ? shortSide : longSide,
+      height: next === 'portrait' ? longSide : shortSide,
+    })
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Model */}
       <Field label="Model">
         <select
           value={deviceModel}
-          onChange={(e) => {
-            const m = e.target.value as DeviceModel
-            const c = getDeviceFrame(m).colors[0].name
-            onUpdate({ deviceModel: m, deviceColor: c })
-          }}
-          className={inputCls}
+          onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
+          className="input"
+          aria-label="Device model"
         >
-          {DEVICE_FRAMES.map((f) => (
-            <option key={f.model} value={f.model}>{f.modelName}</option>
+          {DEVICE_FRAMES.map((frame) => (
+            <option key={frame.model} value={frame.model}>{frame.modelName}</option>
           ))}
         </select>
       </Field>
 
-      {/* Color */}
       <Field label="Color">
-        <div className="flex flex-wrap gap-1.5">
-          {config.colors.map((c) => (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Device color">
+          {config.colors.map((color) => (
             <button
-              key={c.name}
-              onClick={() => onUpdate({ deviceColor: c.name })}
-              title={c.label}
-              aria-label={c.label}
-              aria-pressed={deviceColor === c.name}
+              key={color.name}
+              type="button"
+              onClick={() => onUpdate({ deviceColor: color.name })}
+              title={color.label}
+              aria-label={color.label}
+              aria-pressed={deviceColor === color.name}
               className={cn(
-                'relative h-6 w-6 rounded-full border transition-[border-color,transform] duration-100 ease-out',
-                deviceColor === c.name
-                  ? 'border-foreground scale-110'
+                'relative h-7 w-7 rounded-full border transition-[border-color,transform] duration-100 ease-out',
+                deviceColor === color.name
+                  ? 'scale-110 border-foreground'
                   : 'border-border hover:border-border-strong',
               )}
-              style={{ backgroundColor: c.frame }}
+              style={{ backgroundColor: color.frame }}
             >
-              {deviceColor === c.name && (
+              {deviceColor === color.name && (
                 <Check
                   size={10}
+                  aria-hidden
                   className="absolute inset-0 m-auto"
-                  style={{ color: isLightColor(c.frame) ? '#000' : '#fff' }}
+                  style={{ color: isLightColor(color.frame) ? '#000' : '#fff' }}
                   strokeWidth={2.5}
                 />
               )}
@@ -94,80 +128,97 @@ export function DevicePicker({
         </div>
       </Field>
 
-      {/* Orientation — flat segmented, monochrome */}
       <Field label="Orient">
         <div className="seg w-full" role="group" aria-label="Orientation">
-          {(['portrait', 'landscape'] as const).map((v) => (
+          {(['portrait', 'landscape'] as const).map((value) => (
             <button
-              key={v}
-              onClick={() => onUpdate({ orientation: v })}
-              data-active={orientation === v}
+              key={value}
+              type="button"
+              onClick={() => handleOrientationChange(value)}
+              data-active={orientation === value}
               className="seg-btn flex-1"
-              aria-pressed={orientation === v}
+              aria-pressed={orientation === value}
             >
-              {v}
+              {value}
             </button>
           ))}
         </div>
       </Field>
 
-      {/* Screenshot */}
       <Field label="Screenshot">
         {screenshotUrl ? (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
             <img
               src={screenshotUrl}
-              alt="Screenshot"
+              alt="Imported app screenshot"
               className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
             />
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="mono-label-strong flex-1 text-left hover:text-foreground transition-colors"
+              className="mono-label-strong min-h-8 flex-1 text-left transition-colors hover:text-foreground"
             >
-              Replace
+              Replace PNG/JPEG
             </button>
             <button
+              type="button"
               onClick={() => onUpdate({ screenshotUrl: undefined })}
-              className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted hover:bg-surface-hover hover:text-danger transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-danger"
               aria-label="Remove screenshot"
             >
-              <X size={11} strokeWidth={1.5} />
+              <X size={13} strokeWidth={1.5} aria-hidden />
             </button>
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              'flex h-8 items-center justify-center gap-2 rounded-md border border-dashed border-border',
+              'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
               'mono-label transition-colors duration-100 ease-out',
               'hover:border-border-strong hover:text-foreground',
             )}
           >
-            Upload image
+            No screenshot · Upload PNG/JPEG
           </button>
         )}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/jpg"
-          className="hidden"
-          onChange={handleScreenshotChange}
+          accept="image/png,image/jpeg"
+          className="sr-only"
+          aria-label="Upload device screenshot"
+          onChange={(event) => void handleScreenshotChange(event)}
         />
+        {fileError && (
+          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
+            {fileError}
+          </p>
+        )}
       </Field>
 
-      {/* Shadow */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Shadow</span>
           <div className="flex items-center gap-1">
-            <Toggle active={shadowEnabled} onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })} />
+            <Toggle
+              active={shadowEnabled}
+              label="Toggle device shadow"
+              onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })}
+            />
             <button
-              onClick={() => setShadowOpen((v) => !v)}
-              className="flex h-6 w-6 items-center justify-center rounded-sm text-foreground-muted hover:bg-surface-hover hover:text-foreground transition-colors"
+              type="button"
+              onClick={() => setShadowOpen((value) => !value)}
+              className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-foreground"
               aria-label={shadowOpen ? 'Collapse shadow' : 'Expand shadow'}
               aria-expanded={shadowOpen}
             >
-              <ChevronDown size={12} strokeWidth={1.75} className={cn('transition-transform duration-150', shadowOpen && 'rotate-180')} />
+              <ChevronDown
+                size={13}
+                strokeWidth={1.75}
+                aria-hidden
+                className={cn('transition-transform duration-150', shadowOpen && 'rotate-180')}
+              />
             </button>
           </div>
         </div>
@@ -177,33 +228,36 @@ export function DevicePicker({
             <div className="flex items-center gap-2">
               <span className="mono-label w-8">Blur</span>
               <input
-                type="range" min={0} max={60} value={shadowBlur}
-                onChange={(e) => onUpdate({ shadowBlur: Number(e.target.value) })}
+                type="range"
+                min={0}
+                max={60}
+                value={shadowBlur}
+                onChange={(event) => onUpdate({ shadowBlur: Number(event.target.value) })}
                 className="flex-1 cursor-pointer"
                 aria-label="Shadow blur"
               />
               <span className="mono-value w-6 text-right text-[10px] text-foreground-muted">{shadowBlur}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="mono-label w-8">Color</span>
-              <input
-                type="color" value={shadowColor}
-                onChange={(e) => onUpdate({ shadowColor: e.target.value })}
-                className="h-6 w-8 cursor-pointer rounded-sm border border-border bg-transparent p-0.5"
-                aria-label="Shadow color"
-              />
-            </div>
+            <Field label="Color">
+              <ColorPicker value={shadowColor} showOpacity onChange={(color) => onUpdate({ shadowColor: color })} />
+            </Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="X">
-                <input type="number" value={shadowOffsetX}
-                  onChange={(e) => onUpdate({ shadowOffsetX: Number(e.target.value) })}
-                  className={inputCls}
+                <input
+                  type="number"
+                  value={shadowOffsetX}
+                  onChange={(event) => onUpdate({ shadowOffsetX: clampNumber(event.target.value, -500, 500) })}
+                  className="input"
+                  aria-label="Device shadow X offset"
                 />
               </Field>
               <Field label="Y">
-                <input type="number" value={shadowOffsetY}
-                  onChange={(e) => onUpdate({ shadowOffsetY: Number(e.target.value) })}
-                  className={inputCls}
+                <input
+                  type="number"
+                  value={shadowOffsetY}
+                  onChange={(event) => onUpdate({ shadowOffsetY: clampNumber(event.target.value, -500, 500) })}
+                  className="input"
+                  aria-label="Device shadow Y offset"
                 />
               </Field>
             </div>
@@ -214,9 +268,33 @@ export function DevicePicker({
   )
 }
 
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () =>
+      typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid file'))
+    reader.onerror = () => reject(reader.error ?? new Error('Unable to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function decodeImage(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('Unable to decode image'))
+    image.src = src
+  })
+}
+
+function clampNumber(value: string, min: number, max: number): number {
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : min
+}
+
 function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return (r * 299 + g * 587 + b * 114) / 1000 > 155
+  const red = parseInt(hex.slice(1, 3), 16)
+  const green = parseInt(hex.slice(3, 5), 16)
+  const blue = parseInt(hex.slice(5, 7), 16)
+  return (red * 299 + green * 587 + blue * 114) / 1000 > 155
 }

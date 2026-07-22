@@ -8,6 +8,13 @@ interface TransformSectionProps {
   layer: Layer
 }
 
+const inputCls = 'input'
+
+function finiteNumber(raw: string, fallback: number): number {
+  const value = Number(raw)
+  return Number.isFinite(value) ? value : fallback
+}
+
 export function TransformSection({ layer }: TransformSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
   const [lockAspect, setLockAspect] = useState(false)
@@ -17,7 +24,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   function handleWidth(raw: string) {
-    const w = parseFloat(raw) || 0
+    const w = Math.max(1, finiteNumber(raw, layer.width))
     if (lockAspect && layer.height > 0) {
       const ratio = layer.width / layer.height
       update({ width: w, height: Math.round(w / ratio) })
@@ -27,7 +34,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   function handleHeight(raw: string) {
-    const h = parseFloat(raw) || 0
+    const h = Math.max(1, finiteNumber(raw, layer.height))
     if (lockAspect && layer.width > 0) {
       const ratio = layer.width / layer.height
       update({ width: Math.round(h * ratio), height: h })
@@ -44,7 +51,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
           <input
             type="number"
             value={Math.round(layer.x)}
-            onChange={(e) => update({ x: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => update({ x: finiteNumber(e.target.value, layer.x) })}
             className={inputCls}
             aria-label="X position"
           />
@@ -53,7 +60,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
           <input
             type="number"
             value={Math.round(layer.y)}
-            onChange={(e) => update({ y: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => update({ y: finiteNumber(e.target.value, layer.y) })}
             className={inputCls}
             aria-label="Y position"
           />
@@ -108,7 +115,10 @@ export function TransformSection({ layer }: TransformSectionProps) {
               min={0}
               max={360}
               value={Math.round(layer.rotation)}
-              onChange={(e) => update({ rotation: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const rotation = finiteNumber(e.target.value, layer.rotation)
+                update({ rotation: ((rotation % 360) + 360) % 360 })
+              }}
               className={cn(inputCls, 'pr-6')}
               aria-label="Rotation in degrees"
             />
@@ -125,7 +135,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
               max={1}
               step={0.01}
               value={layer.opacity}
-              onChange={(e) => update({ opacity: parseFloat(e.target.value) })}
+              onChange={(e) => update({ opacity: Math.min(1, Math.max(0, finiteNumber(e.target.value, layer.opacity))) })}
               className="min-h-5 flex-1 cursor-pointer"
               aria-label="Opacity"
             />
@@ -140,10 +150,6 @@ export function TransformSection({ layer }: TransformSectionProps) {
 }
 
 // Shared input class — flat, hairline border, mono numerics
-export const inputCls = cn(
-  'input',
-)
-
 export function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>

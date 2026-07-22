@@ -23,9 +23,9 @@ import {
   type RenderedObject,
 } from '@/components/canvas/canvas-utils'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
+import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
@@ -70,6 +70,7 @@ export function useCanvas() {
   const panPoint = useRef<{ x: number; y: number } | null>(null)
   const thumbnailTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thumbnailGeneration = useRef(0)
+  const fontLoadRequests = useRef(new Set<string>())
   const setZoom = useUIStore((state) => state.setZoom)
 
   const generateThumbnails = useCallback((screens: Screen[]) => {
@@ -278,6 +279,23 @@ export function useCanvas() {
         label.setCoords()
 
         for (const layer of screen.layers) {
+          if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) {
+            const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
+            if (!fontLoadRequests.current.has(fontKey)) {
+              fontLoadRequests.current.add(fontKey)
+              void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
+                if (result.status !== 'loaded') return
+                const latestCanvas = fabricRef.current
+                if (!latestCanvas) return
+                const textObject = (latestCanvas.getObjects() as RenderedObject[]).find(
+                  (candidate) => candidate.data?.uid === layer.id,
+                )
+                if (textObject instanceof Textbox) textObject.initDimensions()
+                textObject?.setCoords()
+                latestCanvas.requestRenderAll()
+              })
+            }
+          }
           let object = objectsById.get(layer.id)
           if (object && needsFabricObjectRecreation(object, layer)) {
             const replacement = await layerToFabricObject(layer)
@@ -379,7 +397,7 @@ export function useCanvas() {
 
       const activeScreenId = useCanvasStore.getState().activeScreenId
       if (objects.some((object) => object.data?.screenId === activeScreenId)) {
-        useHistoryStore.getState().record(JSON.stringify(useCanvasStore.getState().layers))
+        useCanvasStore.getState().recordHistory()
       }
 
       const updates = new Map<string, Map<string, Partial<Layer>>>()

@@ -15,6 +15,8 @@ export function DeviceSection({ layer }: DeviceSectionProps) {
         deviceModel={layer.deviceModel}
         deviceColor={layer.deviceColor}
         orientation={layer.orientation}
+        width={layer.width}
+        height={layer.height}
         screenshotUrl={layer.screenshotUrl}
         shadowEnabled={layer.shadowEnabled ?? false}
         shadowBlur={layer.shadowBlur ?? 0}
