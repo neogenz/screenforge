@@ -67,8 +67,12 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
   await document.fonts.ready
 }
 
-function sortedLayers(screen: Screen, layoutLayers: Layer[]): Layer[] {
-  return [...screen.layers, ...layoutLayers]
+function sortedLayers(screen: Screen, layoutLayers: Layer[], screenIndex: number): Layer[] {
+  const panoramaOffset = screenIndex * SCREEN_WIDTH
+  return [
+    ...screen.layers,
+    ...layoutLayers.map((layer) => ({ ...layer, x: layer.x - panoramaOffset })),
+  ]
     .filter((layer) => layer.visible)
     .sort((left, right) => left.zIndex - right.zIndex)
 }
@@ -106,6 +110,7 @@ export async function exportScreenToBlob(
   layoutLayers: Layer[],
   targetWidth: number,
   targetHeight: number,
+  screenIndex = 0,
 ): Promise<Blob> {
   const scaleX = targetWidth / SCREEN_WIDTH
   const scaleY = targetHeight / SCREEN_HEIGHT
@@ -113,7 +118,7 @@ export async function exportScreenToBlob(
     throw new Error(`Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`)
   }
 
-  const layers = sortedLayers(screen, layoutLayers)
+  const layers = sortedLayers(screen, layoutLayers, screenIndex)
   await ensureFonts(layers)
 
   const exportCanvas = new StaticCanvas(undefined, {

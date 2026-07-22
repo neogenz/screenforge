@@ -29,7 +29,10 @@ FabricObject.ownDefaults.originY = 'top'
 export type RenderedObject = FabricObject & {
   data?: {
     uid?: string
+    layerId?: string
     screenId?: string
+    screenIndex?: number
+    layout?: boolean
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
     objectUrl?: string

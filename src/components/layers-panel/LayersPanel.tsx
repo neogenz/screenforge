@@ -39,7 +39,20 @@ export function LayersPanel() {
   const dragSourceId = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileError, setFileError] = useState<string | null>(null)
-  const sortedLayers = [...layers].sort((first, second) => second.zIndex - first.zIndex)
+  const layerGroups = [
+    {
+      label: 'Panorama',
+      layers: layers
+        .filter((layer) => layer.scope === 'layout')
+        .sort((first, second) => second.zIndex - first.zIndex),
+    },
+    {
+      label: 'Écran',
+      layers: layers
+        .filter((layer) => layer.scope !== 'layout')
+        .sort((first, second) => second.zIndex - first.zIndex),
+    },
+  ].filter((group) => group.layers.length > 0)
 
   function handleDragStart(event: React.DragEvent, id: string) {
     dragSourceId.current = id
@@ -49,7 +62,10 @@ export function LayersPanel() {
   function handleDrop(event: React.DragEvent, target: Layer) {
     event.preventDefault()
     const sourceId = dragSourceId.current
-    if (sourceId && sourceId !== target.id) reorderLayer(sourceId, target.zIndex)
+    const source = layers.find((layer) => layer.id === sourceId)
+    if (source && source.id !== target.id && source.scope === target.scope) {
+      reorderLayer(source.id, target.zIndex)
+    }
     dragSourceId.current = null
   }
 
@@ -172,32 +188,42 @@ export function LayersPanel() {
         aria-label="Layers"
         aria-multiselectable="true"
       >
-        {sortedLayers.length === 0 && (
+        {layers.length === 0 && (
           <div className="mt-4 px-3 py-6 text-center">
             <p className="mono-label mb-2">Empty</p>
             <p className="text-[11px] leading-relaxed text-muted">Ajoutez du texte, une forme ou une image.</p>
           </div>
         )}
-        {sortedLayers.map((layer) => (
-          <LayerItem
-            key={layer.id}
-            layer={layer}
-            isSelected={selectedLayerIds.includes(layer.id)}
-            onSelect={() => selectLayer(layer.id)}
-            onToggleVisibility={() => updateLayer(layer.id, { visible: !layer.visible })}
-            onToggleLock={() => updateLayer(layer.id, { locked: !layer.locked })}
-            onRename={(name) => updateLayer(layer.id, { name })}
-            onDuplicate={() => duplicateLayer(layer.id)}
-            onDelete={() => removeLayer(layer.id)}
-            onMoveForward={() => reorderLayer(layer.id, Math.min(layers.length - 1, layer.zIndex + 1))}
-            onMoveBackward={() => reorderLayer(layer.id, Math.max(0, layer.zIndex - 1))}
-            onDragStart={(event) => handleDragStart(event, layer.id)}
-            onDragOver={(event) => {
-              event.preventDefault()
-              event.dataTransfer.dropEffect = 'move'
-            }}
-            onDrop={(event) => handleDrop(event, layer)}
-          />
+        {layerGroups.map((group) => (
+          <div key={group.label}>
+            {layerGroups.length > 1 && (
+              <p className="mono-label px-2 pb-1 pt-2">{group.label}</p>
+            )}
+            {group.layers.map((layer) => (
+              <LayerItem
+                key={layer.id}
+                layer={layer}
+                isSelected={selectedLayerIds.includes(layer.id)}
+                onSelect={() => selectLayer(layer.id)}
+                onToggleVisibility={() => updateLayer(layer.id, { visible: !layer.visible })}
+                onToggleLock={() => updateLayer(layer.id, { locked: !layer.locked })}
+                onRename={(name) => updateLayer(layer.id, { name })}
+                onDuplicate={() => duplicateLayer(layer.id)}
+                onDelete={() => removeLayer(layer.id)}
+                onMoveForward={() => reorderLayer(
+                  layer.id,
+                  Math.min(group.layers.length - 1, layer.zIndex + 1),
+                )}
+                onMoveBackward={() => reorderLayer(layer.id, Math.max(0, layer.zIndex - 1))}
+                onDragStart={(event) => handleDragStart(event, layer.id)}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  event.dataTransfer.dropEffect = 'move'
+                }}
+                onDrop={(event) => handleDrop(event, layer)}
+              />
+            ))}
+          </div>
         ))}
       </div>
 

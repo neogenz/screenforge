@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge permet de composer, sauvegarder et exporter jusqu’à dix captures iPhone conformes à App Store Connect, sans compte ni backend."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Reprise fonctionnelle de ScreenForge

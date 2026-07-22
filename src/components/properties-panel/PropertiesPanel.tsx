@@ -12,8 +12,12 @@ import { BackgroundSection } from './BackgroundSection'
 import type { Layer, TextLayer, DeviceFrameLayer, ImageLayer, ShapeLayer } from '@/types'
 
 export function PropertiesPanel() {
-  const { layers, selectedLayerIds } = useCanvasStore(
-    useShallow((s) => ({ layers: s.layers, selectedLayerIds: s.selectedLayerIds })),
+  const { layers, selectedLayerIds, setLayerScope } = useCanvasStore(
+    useShallow((s) => ({
+      layers: s.layers,
+      selectedLayerIds: s.selectedLayerIds,
+      setLayerScope: s.setLayerScope,
+    })),
   )
 
   const selectedLayers = selectedLayerIds
@@ -65,6 +69,30 @@ export function PropertiesPanel() {
 
       {selectedLayer && (
         <>
+          <div className="border-b border-border px-3 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="mono-label-strong">Portée</p>
+                <p className="mt-1 text-[10px] leading-relaxed text-muted">
+                  {selectedLayer.scope === 'layout'
+                    ? 'Continu sur toutes les captures.'
+                    : 'Limité à la capture active.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-pressed={selectedLayer.scope === 'layout'}
+                onClick={() => setLayerScope(
+                  selectedLayer.id,
+                  selectedLayer.scope === 'layout' ? 'screen' : 'layout',
+                )}
+                className="btn-secondary shrink-0"
+              >
+                {selectedLayer.scope === 'layout' ? 'Vers cet écran' : 'Panorama'}
+              </button>
+            </div>
+          </div>
+
           <Section title="Transform" defaultOpen>
             <TransformSection layer={selectedLayer} />
           </Section>

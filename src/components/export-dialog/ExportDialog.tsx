@@ -28,7 +28,9 @@ function ExportDialogContent({ project }: { project: Project }) {
   }, [])
 
   const selectedScreens = useMemo(
-    () => project.screens.filter((screen) => selectedScreenIds.includes(screen.id)),
+    () => project.screens.flatMap((screen, screenIndex) =>
+      selectedScreenIds.includes(screen.id) ? [{ screen, screenIndex }] : [],
+    ),
     [project.screens, selectedScreenIds],
   )
   const allScreensSelected = selectedScreenIds.length === project.screens.length

@@ -29,11 +29,9 @@ export function useKeyboard(): void {
       const {
         layers,
         selectedLayerIds,
-        removeLayer,
-        duplicateLayer,
+        setLayers,
         selectLayers,
         clearSelection,
-        updateLayer,
         undo,
         redo,
       } = useCanvasStore.getState()
@@ -81,18 +79,22 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'v') {
         if (clipboard.length === 0) return
         e.preventDefault()
+        let screenZ = layers.filter((layer) => layer.scope !== 'layout').length
+        let layoutZ = layers.length - screenZ
         const newIds: string[] = []
-        for (const layer of clipboard) {
+        const pastedLayers = clipboard.map((layer) => {
           const newLayer: Layer = {
             ...layer,
             id: crypto.randomUUID(),
             name: `${layer.name} copy`,
             x: layer.x + 20,
             y: layer.y + 20,
+            zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,
           }
-          useCanvasStore.getState().addLayer(newLayer)
           newIds.push(newLayer.id)
-        }
+          return newLayer
+        })
+        setLayers([...layers, ...pastedLayers])
         selectLayers(newIds)
         return
       }
@@ -101,9 +103,25 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'd') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        for (const id of selectedLayerIds) {
-          duplicateLayer(id)
-        }
+        let screenZ = layers.filter((layer) => layer.scope !== 'layout').length
+        let layoutZ = layers.length - screenZ
+        const newIds: string[] = []
+        const duplicates = layers
+          .filter((layer) => selectedLayerIds.includes(layer.id))
+          .map((layer) => {
+            const duplicate: Layer = {
+              ...layer,
+              id: crypto.randomUUID(),
+              name: `${layer.name} copy`,
+              x: layer.x + 16,
+              y: layer.y + 16,
+              zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,
+            }
+            newIds.push(duplicate.id)
+            return duplicate
+          })
+        setLayers([...layers, ...duplicates])
+        selectLayers(newIds)
         return
       }
 
@@ -111,9 +129,7 @@ export function useKeyboard(): void {
       if (key === 'Delete' || key === 'Backspace') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        for (const id of selectedLayerIds) {
-          removeLayer(id)
-        }
+        setLayers(layers.filter((layer) => !selectedLayerIds.includes(layer.id)))
         clearSelection()
         return
       }
@@ -155,11 +171,13 @@ export function useKeyboard(): void {
           key === 'ArrowLeft' ? -delta : key === 'ArrowRight' ? delta : 0
         const dy =
           key === 'ArrowUp' ? -delta : key === 'ArrowDown' ? delta : 0
-        for (const id of selectedLayerIds) {
-          const layer = layers.find((l) => l.id === id)
-          if (!layer) continue
-          updateLayer(id, { x: layer.x + dx, y: layer.y + dy })
-        }
+        setLayers(
+          layers.map((layer) =>
+            selectedLayerIds.includes(layer.id)
+              ? { ...layer, x: layer.x + dx, y: layer.y + dy }
+              : layer,
+          ),
+        )
         return
       }
 

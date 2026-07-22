@@ -38,16 +38,24 @@ function uniqueId(candidate: unknown, seen: Set<string>): string {
   return id
 }
 
-function normalizeLayer(value: unknown, seenIds: Set<string>, zIndex: number): Layer | null {
+function normalizeLayer(
+  value: unknown,
+  seenIds: Set<string>,
+  zIndex: number,
+  scope?: 'layout',
+): Layer | null {
   if (!value || typeof value !== 'object') return null
   const candidate = cloneValue(value) as Partial<Layer>
   if (!['text', 'device-frame', 'image', 'shape'].includes(candidate.type ?? '')) return null
   const normalized = {
     ...candidate,
     id: uniqueId(candidate.id, seenIds),
-    zIndex,
-  } as Layer & { scope?: 'layout' }
-  delete normalized.scope
+    zIndex: scope && typeof candidate.zIndex === 'number' && Number.isFinite(candidate.zIndex)
+      ? candidate.zIndex
+      : zIndex,
+    ...(scope ? { scope } : {}),
+  } as Layer
+  if (!scope) delete normalized.scope
   return normalized
 }
 
@@ -103,21 +111,12 @@ export function normalizeProject(value: unknown): Project {
     screens.push(screen)
   }
 
-  const legacyLayoutLayers = Array.isArray(candidate.layoutLayers)
+  const layoutLayers = Array.isArray(candidate.layoutLayers)
     ? candidate.layoutLayers.flatMap((layer, index) => {
-        const normalized = normalizeLayer(layer, layerIds, index)
+        const normalized = normalizeLayer(layer, layerIds, index, 'layout')
         return normalized ? [normalized] : []
       })
     : []
-  if (legacyLayoutLayers.length > 0) {
-    screens[0] = {
-      ...screens[0],
-      layers: [...legacyLayoutLayers, ...screens[0].layers].map((layer, index) => ({
-        ...layer,
-        zIndex: index,
-      })),
-    }
-  }
 
   const now = Date.now()
   const activeScreenId = typeof candidate.activeScreenId === 'string'
@@ -132,7 +131,7 @@ export function normalizeProject(value: unknown): Project {
     screens,
     activeScreenId,
     globals,
-    layoutLayers: [],
+    layoutLayers,
     createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
   }

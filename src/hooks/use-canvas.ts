@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import {
   ActiveSelection,
   Canvas,
-  Group,
   Point,
   Rect,
   Shadow,
@@ -30,23 +29,23 @@ import type { Layer, Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
 
-function createScreensClipPath(screenCount: number): Group {
-  return new Group(
-    Array.from({ length: screenCount }, (_, index) => new Rect({
-      originX: 'left',
-      originY: 'top',
-      left: getScreenOffset(index),
-      top: 0,
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-      fill: '#000000',
-    })),
-    { originX: 'left', originY: 'top', absolutePositioned: true },
-  )
+function createScreenClipPath(screenIndex: number): Rect {
+  return new Rect({
+    originX: 'left',
+    originY: 'top',
+    left: getScreenOffset(screenIndex),
+    top: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    fill: '#000000',
+    absolutePositioned: true,
+  })
 }
 
 function screensHaveVisualChanges(current: Project, previous: Project | null): boolean {
   if (!previous || current.screens.length !== previous.screens.length) return true
+  if (current.layoutLayers !== previous.layoutLayers
+    || current.activeScreenId !== previous.activeScreenId) return true
   return current.screens.some((screen, index) => {
     const previousScreen = previous.screens[index]
     return screen.id !== previousScreen.id
@@ -187,9 +186,10 @@ export function useCanvas() {
     setZoom(zoom)
   }, [setZoom])
 
-  const sync = useCallback(async (screens: Screen[]) => {
+  const sync = useCallback(async (project: Project) => {
     const canvas = fabricRef.current
     if (!canvas) return
+    const { screens, layoutLayers, activeScreenId } = project
     const version = ++syncVersion.current
     syncing.current = true
 
@@ -213,6 +213,7 @@ export function useCanvas() {
         wantedIds.add(`background:${screen.id}`)
         wantedIds.add(`label:${screen.id}`)
         for (const layer of screen.layers) wantedIds.add(layer.id)
+        for (const layer of layoutLayers) wantedIds.add(`layout:${layer.id}:${screen.id}`)
       }
       for (const [id, object] of objectsById) {
         if (wantedIds.has(id)) continue
@@ -221,7 +222,6 @@ export function useCanvas() {
         objectsById.delete(id)
       }
 
-      const clipPath = createScreensClipPath(screens.length)
       for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
         const screen = screens[screenIndex]
         const offset = getScreenOffset(screenIndex)
@@ -321,11 +321,80 @@ export function useCanvas() {
           object.set('data', {
             ...object.data,
             uid: layer.id,
+            layerId: layer.id,
             screenId: screen.id,
+            screenIndex,
+            layout: false,
             rendererType: layer.type,
           })
           applyLayerToFabricObject(object, layer, offset)
-          object.clipPath = clipPath
+          object.clipPath = createScreenClipPath(screenIndex)
+        }
+      }
+
+      for (const layer of layoutLayers) {
+        if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) {
+          const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
+          if (!fontLoadRequests.current.has(fontKey)) {
+            fontLoadRequests.current.add(fontKey)
+            void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
+              if (result.status !== 'loaded') return
+              const latestCanvas = fabricRef.current
+              if (!latestCanvas) return
+              for (const textObject of latestCanvas.getObjects() as RenderedObject[]) {
+                if (textObject.data?.layerId !== layer.id) continue
+                if (textObject instanceof Textbox) textObject.initDimensions()
+                textObject.setCoords()
+              }
+              latestCanvas.requestRenderAll()
+            })
+          }
+        }
+
+        for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
+          const screen = screens[screenIndex]
+          const objectId = `layout:${layer.id}:${screen.id}`
+          let object = objectsById.get(objectId)
+          if (object && needsFabricObjectRecreation(object, layer)) {
+            const replacement = await layerToFabricObject(layer)
+            if (syncVersion.current !== version) {
+              disposeFabricObjectResource(replacement)
+              return
+            }
+            canvas.remove(object)
+            disposeFabricObjectResource(object)
+            object = replacement
+            canvas.add(object)
+            objectsById.set(objectId, object)
+          } else if (!object) {
+            object = await layerToFabricObject(layer)
+            if (syncVersion.current !== version) {
+              disposeFabricObjectResource(object)
+              return
+            }
+            canvas.add(object)
+            objectsById.set(objectId, object)
+          }
+
+          object.set('data', {
+            ...object.data,
+            uid: objectId,
+            layerId: layer.id,
+            screenId: screen.id,
+            screenIndex,
+            layout: true,
+            rendererType: layer.type,
+          })
+          applyLayerToFabricObject(
+            object,
+            layer,
+            getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
+          )
+          object.clipPath = createScreenClipPath(screenIndex)
+          object.set({
+            selectable: !layer.locked && screen.id === activeScreenId,
+            evented: !layer.locked && screen.id === activeScreenId,
+          })
         }
       }
 
@@ -335,8 +404,12 @@ export function useCanvas() {
         if (background) orderedObjects.push(background)
       }
       for (const screen of screens) {
-        for (const layer of [...screen.layers].sort((left, right) => left.zIndex - right.zIndex)) {
-          const object = objectsById.get(layer.id)
+        const layers = [...screen.layers, ...layoutLayers]
+          .sort((left, right) => left.zIndex - right.zIndex)
+        for (const layer of layers) {
+          const object = layer.scope === 'layout'
+            ? objectsById.get(`layout:${layer.id}:${screen.id}`)
+            : objectsById.get(layer.id)
           if (object) orderedObjects.push(object)
         }
       }
@@ -348,11 +421,15 @@ export function useCanvas() {
 
       const selectedIds = useCanvasStore.getState().selectedLayerIds
       const currentSelectionIds = canvas.getActiveObjects()
-        .map((object) => (object as RenderedObject).data?.uid)
+        .map((object) => {
+          const data = (object as RenderedObject).data
+          return data?.layerId ?? data?.uid
+        })
         .filter((id): id is string => Boolean(id))
       if (!sameIds(currentSelectionIds, selectedIds)) {
         const selectedObjects = selectedIds.flatMap((id) => {
           const object = objectsById.get(id)
+            ?? objectsById.get(`layout:${id}:${activeScreenId}`)
           return object ? [object] : []
         })
         if (selectedObjects.length === 0) canvas.discardActiveObject()
@@ -395,18 +472,32 @@ export function useCanvas() {
       const project = useProjectStore.getState().project
       if (!project) return
 
-      const activeScreenId = useCanvasStore.getState().activeScreenId
-      if (objects.some((object) => object.data?.screenId === activeScreenId)) {
-        useCanvasStore.getState().recordHistory()
-      }
+      const affectedScreenIds = new Set(objects.flatMap((object) =>
+        object.data?.screenId ? [object.data.screenId] : [],
+      ))
+      const changesProjectLayout = objects.some((object) => object.data?.layout)
+        || affectedScreenIds.size > 1
+      if (changesProjectLayout) useCanvasStore.getState().recordProjectHistory()
+      else useCanvasStore.getState().recordHistory()
 
       const updates = new Map<string, Map<string, Partial<Layer>>>()
+      const layoutUpdates = new Map<string, Partial<Layer>>()
       for (const object of objects) {
-        const layerId = object.data?.uid
+        const layerId = object.data?.layerId ?? object.data?.uid
         const screenId = object.data?.screenId
         if (!layerId || !screenId) continue
         const screenIndex = project.screens.findIndex((screen) => screen.id === screenId)
         if (screenIndex === -1) continue
+        if (object.data?.layout) {
+          layoutUpdates.set(
+            layerId,
+            fabricObjectToLayerUpdate(
+              object,
+              getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
+            ) as Partial<Layer>,
+          )
+          continue
+        }
         const screenUpdates = updates.get(screenId) ?? new Map<string, Partial<Layer>>()
         screenUpdates.set(
           layerId,
@@ -414,7 +505,7 @@ export function useCanvas() {
         )
         updates.set(screenId, screenUpdates)
       }
-      if (updates.size === 0) return
+      if (updates.size === 0 && layoutUpdates.size === 0) return
 
       if (target instanceof ActiveSelection) canvas.discardActiveObject()
       const screens = project.screens.map((screen) => {
@@ -432,6 +523,11 @@ export function useCanvas() {
         project: {
           ...project,
           screens,
+          layoutLayers: project.layoutLayers.map((layer) => ({
+            ...layer,
+            ...layoutUpdates.get(layer.id),
+            scope: 'layout',
+          }) as Layer),
           updatedAt: Math.max(Date.now(), project.updatedAt + 1),
         },
       })
@@ -441,7 +537,10 @@ export function useCanvas() {
     function handleSelection(objects: FabricObject[]) {
       if (syncing.current) return
       const renderedObjects = objects as RenderedObject[]
-      const ids = renderedObjects.flatMap((object) => object.data?.uid ? [object.data.uid] : [])
+      const ids = renderedObjects.flatMap((object) => {
+        const id = object.data?.layerId ?? object.data?.uid
+        return id ? [id] : []
+      })
       const screenId = renderedObjects.find((object) => object.data?.screenId)?.data?.screenId
       if (screenId && screenId !== useCanvasStore.getState().activeScreenId) {
         useCanvasStore.getState().setActiveScreenId(screenId)
@@ -506,7 +605,7 @@ export function useCanvas() {
 
     const project = useProjectStore.getState().project
     if (project) {
-      void sync(project.screens).then(() => fitAll(canvas, project.screens.length))
+      void sync(project).then(() => fitAll(canvas, project.screens.length))
     }
 
     return () => {
@@ -524,7 +623,7 @@ export function useCanvas() {
     const canvas = fabricRef.current
     if (!canvas || !state.project || !screensHaveVisualChanges(state.project, previous.project)) return
     const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
-    void sync(state.project.screens).then(() => {
+    void sync(state.project).then(() => {
       if (screenCountChanged) fitAll(canvas, state.project?.screens.length ?? 1)
     })
   }), [fitAll, sync])

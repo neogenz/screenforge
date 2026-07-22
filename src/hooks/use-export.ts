@@ -14,6 +14,11 @@ export interface ExportedFileSummary {
   size: number
 }
 
+export interface ExportScreen {
+  screen: Screen
+  screenIndex: number
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Échec inattendu de l’export.'
 }
@@ -26,7 +31,7 @@ export function useExport() {
 
   const exportBatch = useCallback(async (
     projectName: string,
-    screens: Screen[],
+    screens: ExportScreen[],
     layoutLayers: Layer[],
     dimensions: DisplayClass[],
   ) => {
@@ -41,7 +46,7 @@ export function useExport() {
     try {
       for (const dimension of dimensions) {
         for (let index = 0; index < screens.length; index += 1) {
-          const screen = screens[index]
+          const { screen, screenIndex } = screens[index]
           current += 1
           setProgress({
             current,
@@ -55,6 +60,7 @@ export function useExport() {
               layoutLayers,
               dimension.portrait.width,
               dimension.portrait.height,
+              screenIndex,
             )
           } catch (cause) {
             throw new Error(`${screen.name} : ${errorMessage(cause)}`)
