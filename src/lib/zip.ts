@@ -13,7 +13,7 @@ export async function createExportZip(entries: ExportEntry[]): Promise<Blob> {
     const filename = `${String(entry.index).padStart(2, '0')}_${entry.name}.png`
     zip.file(`${entry.dimension}/${filename}`, entry.blob)
   }
-  return zip.generateAsync({ type: 'blob' })
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/zip' })
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -24,9 +24,14 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'screen'
 }

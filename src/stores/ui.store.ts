@@ -77,11 +77,20 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
-  setShowExportDialog: (show) => set({ showExportDialog: show }),
+  setShowExportDialog: (show) => set({
+    showExportDialog: show,
+    ...(show ? { showTemplatesPicker: false, showGlobalsEditor: false } : {}),
+  }),
 
-  setShowTemplatesPicker: (show) => set({ showTemplatesPicker: show }),
+  setShowTemplatesPicker: (show) => set({
+    showTemplatesPicker: show,
+    ...(show ? { showExportDialog: false, showGlobalsEditor: false } : {}),
+  }),
 
-  setShowGlobalsEditor: (show) => set({ showGlobalsEditor: show }),
+  setShowGlobalsEditor: (show) => set({
+    showGlobalsEditor: show,
+    ...(show ? { showExportDialog: false, showTemplatesPicker: false } : {}),
+  }),
 
   toggleTheme: () =>
     set((state) => {

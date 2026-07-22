@@ -1,13 +1,10 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Toolbar } from '@/components/toolbar/Toolbar'
 import { LayersPanel } from '@/components/layers-panel/LayersPanel'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
 import { PropertiesPanel } from '@/components/properties-panel/PropertiesPanel'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
-import { ExportDialog } from '@/components/export-dialog/ExportDialog'
-import { TemplatePicker } from '@/components/template-picker/TemplatePicker'
-import { GlobalsEditor } from '@/components/globals-editor/GlobalsEditor'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { loadGoogleFont } from '@/hooks/use-fonts'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
@@ -15,13 +12,33 @@ import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
+const ExportDialog = lazy(() =>
+  import('@/components/export-dialog/ExportDialog').then((module) => ({ default: module.ExportDialog })),
+)
+const TemplatePicker = lazy(() =>
+  import('@/components/template-picker/TemplatePicker').then((module) => ({ default: module.TemplatePicker })),
+)
+const GlobalsEditor = lazy(() =>
+  import('@/components/globals-editor/GlobalsEditor').then((module) => ({ default: module.GlobalsEditor })),
+)
+
 export default function App() {
   useKeyboard()
 
-  const { showLayersPanel, showPropertiesPanel, theme } = useUIStore(
+  const {
+    showLayersPanel,
+    showPropertiesPanel,
+    showExportDialog,
+    showTemplatesPicker,
+    showGlobalsEditor,
+    theme,
+  } = useUIStore(
     useShallow((s) => ({
       showLayersPanel: s.showLayersPanel,
       showPropertiesPanel: s.showPropertiesPanel,
+      showExportDialog: s.showExportDialog,
+      showTemplatesPicker: s.showTemplatesPicker,
+      showGlobalsEditor: s.showGlobalsEditor,
       theme: s.theme,
     })),
   )
@@ -97,9 +114,11 @@ export default function App() {
         <ScreensBar />
       </footer>
 
-      <ExportDialog />
-      <TemplatePicker />
-      <GlobalsEditor />
+      <Suspense fallback={null}>
+        {showExportDialog && <ExportDialog />}
+        {showTemplatesPicker && <TemplatePicker />}
+        {showGlobalsEditor && <GlobalsEditor />}
+      </Suspense>
     </div>
   )
 }

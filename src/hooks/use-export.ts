@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
-import { exportScreenToBlob } from '@/lib/export'
+import { useCallback, useState } from 'react'
+import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
-import type { DisplayClass } from '@/types'
+import type { DisplayClass, Layer, Screen } from '@/types'
 
 interface ExportProgress {
   current: number
@@ -9,54 +9,90 @@ interface ExportProgress {
   label: string
 }
 
+export interface ExportedFileSummary {
+  path: string
+  size: number
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Échec inattendu de l’export.'
+}
+
 export function useExport() {
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [isExporting, setIsExporting] = useState(false)
-
-  const exportSingle = useCallback(async (
-    canvasJSON: object,
-    screenName: string,
-    dimension: DisplayClass
-  ) => {
-    setIsExporting(true)
-    try {
-      const blob = await exportScreenToBlob(canvasJSON, dimension.portrait.width, dimension.portrait.height)
-      downloadBlob(blob, `${slugify(screenName)}_${dimension.size.replace('"', 'in')}.png`)
-    } finally {
-      setIsExporting(false)
-    }
-  }, [])
+  const [error, setError] = useState<string | null>(null)
+  const [completedFiles, setCompletedFiles] = useState<ExportedFileSummary[]>([])
 
   const exportBatch = useCallback(async (
-    screens: { canvasJSON: object; name: string }[],
-    dimensions: DisplayClass[]
+    projectName: string,
+    screens: Screen[],
+    layoutLayers: Layer[],
+    dimensions: DisplayClass[],
   ) => {
     setIsExporting(true)
+    setError(null)
+    setCompletedFiles([])
     const total = screens.length * dimensions.length
     const entries: ExportEntry[] = []
+    const summaries: ExportedFileSummary[] = []
     let current = 0
 
     try {
-      for (const dim of dimensions) {
-        for (let i = 0; i < screens.length; i++) {
-          current++
-          setProgress({ current, total, label: `Exporting ${screens[i].name} at ${dim.size}...` })
-          const blob = await exportScreenToBlob(screens[i].canvasJSON, dim.portrait.width, dim.portrait.height)
+      for (const dimension of dimensions) {
+        for (let index = 0; index < screens.length; index += 1) {
+          const screen = screens[index]
+          current += 1
+          setProgress({
+            current,
+            total,
+            label: `Rendu ${String(index + 1).padStart(2, '0')} · ${screen.name}`,
+          })
+          let blob: Blob
+          try {
+            blob = await exportScreenToBlob(
+              screen,
+              layoutLayers,
+              dimension.portrait.width,
+              dimension.portrait.height,
+            )
+          } catch (cause) {
+            throw new Error(`${screen.name} : ${errorMessage(cause)}`)
+          }
+
+          const name = slugify(screen.name)
+          const dimensionName = dimension.size.replace('"', '')
+          const path = `${dimensionName}/${String(index + 1).padStart(2, '0')}_${name}.png`
+          const metadata = await inspectPng(blob)
           entries.push({
-            dimension: dim.size.replace('"', ''),
-            index: i + 1,
-            name: slugify(screens[i].name),
+            dimension: dimensionName,
+            index: index + 1,
+            name,
             blob,
           })
+          summaries.push({ path, size: metadata.byteLength })
         }
       }
+
+      setProgress({ current: total, total, label: 'Validation et création du ZIP' })
       const zipBlob = await createExportZip(entries)
-      downloadBlob(zipBlob, 'screenforge-export.zip')
+      downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
+      setCompletedFiles(summaries)
+    } catch (cause) {
+      setError(errorMessage(cause))
+      throw cause
     } finally {
       setIsExporting(false)
       setProgress(null)
     }
   }, [])
 
-  return { exportSingle, exportBatch, isExporting, progress }
+  return {
+    exportBatch,
+    isExporting,
+    progress,
+    error,
+    completedFiles,
+    clearError: () => setError(null),
+  }
 }
