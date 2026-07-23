@@ -1,16 +1,30 @@
-import { Save, Undo2, Redo2, ZoomOut, ZoomIn, Settings, LayoutTemplate, Download, Sun, Moon, LoaderCircle } from 'lucide-react'
+import { useRef, useState } from 'react'
+import {
+  Check,
+  Download,
+  LayoutTemplate,
+  LoaderCircle,
+  Moon,
+  Redo2,
+  Settings,
+  Sun,
+  TriangleAlert,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
-import { saveCurrentProject } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 
 const SAVE_LABELS = {
-  idle: 'Unsaved',
-  saving: 'Saving',
-  saved: 'Saved',
-  error: 'Save failed',
+  idle: 'Modifications non enregistrées',
+  saving: 'Enregistrement…',
+  saved: 'Enregistré',
+  error: 'Échec de l’enregistrement',
 } as const
 
 export function Toolbar() {
@@ -52,103 +66,90 @@ export function Toolbar() {
   )
 
   return (
-    <div className="relative z-10 flex h-12 w-full items-center justify-between border-b border-border bg-panel px-3">
-      {/* Left — file + history */}
-      <div className="flex items-center gap-0.5">
-        <button
-          title="Save (Cmd+S)"
-          aria-label="Save project"
-          disabled={saveStatus === 'saving'}
-          onClick={() => void saveCurrentProject().catch(() => undefined)}
-          className="icon-btn"
-        >
-          {saveStatus === 'saving'
-            ? <LoaderCircle className="animate-spin" size={15} strokeWidth={1.75} />
-            : <Save size={15} strokeWidth={1.75} />}
-        </button>
-
-        <span className="sr-only" role="status" aria-live="polite">
-          {saveStatus === 'saving' && 'Saving project'}
-          {saveStatus === 'saved' && 'Project saved'}
-          {saveStatus === 'error' && 'Project save failed'}
-        </span>
+    <div className="relative z-10 flex h-12 w-full items-center gap-2 border-b border-border bg-panel px-3">
+      {/* Left — identity + history */}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <ProjectName />
 
         <span
+          role="status"
+          aria-live="polite"
           className={cn(
-            'mono-label ml-1 hidden sm:inline',
-            saveStatus === 'error' && 'text-red-600',
+            'mono-label ml-2 hidden shrink-0 items-center gap-1.5 md:flex',
+            saveStatus === 'error' ? 'text-danger' : 'text-muted',
           )}
-          aria-hidden="true"
         >
+          {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
+          {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
+          {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
           {SAVE_LABELS[saveStatus]}
         </span>
+      </div>
 
-        <div className="mx-1.5 h-4 w-px bg-border" />
-
+      {/* Center — history + zoom */}
+      <div className="flex shrink-0 items-center gap-0.5">
         <button
-          title="Undo (Cmd+Z)"
-          aria-label="Undo"
+          type="button"
+          title="Annuler (⌘Z)"
+          aria-label="Annuler"
           disabled={!canUndo}
           onClick={() => undo()}
           className="icon-btn"
-          {...(!canUndo && { disabled: true })}
         >
           <Undo2 size={15} strokeWidth={1.75} />
         </button>
-
         <button
-          title="Redo (Cmd+Shift+Z)"
-          aria-label="Redo"
+          type="button"
+          title="Rétablir (⌘⇧Z)"
+          aria-label="Rétablir"
           disabled={!canRedo}
           onClick={() => redo()}
           className="icon-btn"
         >
           <Redo2 size={15} strokeWidth={1.75} />
         </button>
-      </div>
 
-      {/* Center — flat segmented zoom with mono digits */}
-      <div className="flex items-center">
+        <div className="mx-1.5 h-4 w-px bg-border" />
+
         <div
           role="group"
-          aria-label="Zoom controls"
+          aria-label="Contrôles de zoom"
           className="flex h-8 items-center rounded-md border border-border bg-panel"
         >
           <button
-            title="Zoom out"
-            aria-label="Zoom out"
+            type="button"
+            title="Zoom arrière (⌘-)"
+            aria-label="Zoom arrière"
             onClick={zoomOut}
             className={cn(
               'flex h-8 w-8 items-center justify-center rounded-l-md text-muted',
-              'hover:bg-surface-hover hover:text-foreground transition-colors',
+              'transition-colors hover:bg-surface-hover hover:text-foreground',
             )}
           >
             <ZoomOut size={14} strokeWidth={1.75} />
           </button>
-
           <div className="h-4 w-px bg-border" />
-
           <button
-            title="Reset zoom"
-            aria-label="Reset zoom"
+            type="button"
+            title="Ajuster aux écrans (⌘0)"
+            aria-label="Ajuster le zoom aux écrans"
             onClick={resetZoom}
             className={cn(
               'mono-value min-w-[3.75rem] px-2 text-center text-[11px] text-foreground-muted',
-              'hover:text-foreground transition-colors',
+              'transition-colors hover:text-foreground',
             )}
           >
             {Math.round(zoom * 100)}%
           </button>
-
           <div className="h-4 w-px bg-border" />
-
           <button
-            title="Zoom in"
-            aria-label="Zoom in"
+            type="button"
+            title="Zoom avant (⌘+)"
+            aria-label="Zoom avant"
             onClick={zoomIn}
             className={cn(
               'flex h-8 w-8 items-center justify-center rounded-r-md text-muted',
-              'hover:bg-surface-hover hover:text-foreground transition-colors',
+              'transition-colors hover:bg-surface-hover hover:text-foreground',
             )}
           >
             <ZoomIn size={14} strokeWidth={1.75} />
@@ -156,50 +157,98 @@ export function Toolbar() {
         </div>
       </div>
 
-      {/* Right — theme + project actions */}
-      <div className="flex items-center gap-0.5">
+      {/* Right — workspace actions */}
+      <div className="flex flex-1 items-center justify-end gap-0.5">
         <button
-          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          aria-label="Toggle theme"
-          onClick={toggleTheme}
-          className="icon-btn"
-        >
-          {theme === 'dark' ? <Sun size={15} strokeWidth={1.75} /> : <Moon size={15} strokeWidth={1.75} />}
-        </button>
-
-        <div className="mx-1.5 h-4 w-px bg-border" />
-
-        <button
-          title="Globals"
-          aria-label="Open globals editor"
-          onClick={() => setShowGlobalsEditor(!showGlobalsEditor)}
-          data-active={showGlobalsEditor || undefined}
-          className="icon-btn"
-        >
-          <Settings size={15} strokeWidth={1.75} />
-        </button>
-
-        <button
-          title="Templates"
-          aria-label="Open template picker"
+          type="button"
+          title="Modèles de mise en page"
+          aria-label="Ouvrir les modèles"
           onClick={() => setShowTemplatesPicker(!showTemplatesPicker)}
           data-active={showTemplatesPicker || undefined}
           className="icon-btn"
         >
           <LayoutTemplate size={15} strokeWidth={1.75} />
         </button>
-
-        {/* Export is the ONE accent moment per Nothing philosophy */}
         <button
-          title="Export"
-          aria-label="Open export dialog"
+          type="button"
+          title="Réglages globaux du projet"
+          aria-label="Ouvrir les réglages globaux"
+          onClick={() => setShowGlobalsEditor(!showGlobalsEditor)}
+          data-active={showGlobalsEditor || undefined}
+          className="icon-btn"
+        >
+          <Settings size={15} strokeWidth={1.75} />
+        </button>
+        <button
+          type="button"
+          title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+          aria-label="Changer de thème"
+          onClick={toggleTheme}
+          className="icon-btn"
+        >
+          {theme === 'dark' ? <Sun size={15} strokeWidth={1.75} /> : <Moon size={15} strokeWidth={1.75} />}
+        </button>
+
+        <button
+          type="button"
+          title="Exporter les captures App Store"
+          aria-label="Ouvrir l’export"
           onClick={() => setShowExportDialog(!showExportDialog)}
-          className={cn('btn-primary btn-primary-sm ml-1.5')}
+          className="btn-accent ml-1.5 h-9 px-3.5"
         >
           <Download size={12} strokeWidth={2} />
-          Export
+          Exporter
         </button>
       </div>
     </div>
+  )
+}
+
+function ProjectName() {
+  const name = useProjectStore((s) => s.project?.name ?? '')
+  const updateProjectName = useProjectStore((s) => s.updateProjectName)
+  const [draft, setDraft] = useState(name)
+  const [editing, setEditing] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const [prevName, setPrevName] = useState(name)
+  if (name !== prevName) {
+    setPrevName(name)
+    if (!editing) setDraft(name)
+  }
+
+  function commit() {
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== name) updateProjectName(trimmed)
+    setEditing(false)
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onFocus={() => setEditing(true)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          commit()
+          inputRef.current?.blur()
+        }
+        if (event.key === 'Escape') {
+          setDraft(name)
+          setEditing(false)
+          inputRef.current?.blur()
+        }
+      }}
+      aria-label="Nom du projet"
+      spellCheck={false}
+      className={cn(
+        'h-8 w-44 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
+        'text-[13px] font-medium text-foreground transition-colors',
+        'hover:border-border focus:border-border-strong focus:bg-panel-sub focus:outline-none',
+      )}
+    />
   )
 }

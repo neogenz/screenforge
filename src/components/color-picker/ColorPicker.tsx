@@ -116,7 +116,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       setColorError(null)
       emitColor(normalized, opacityInput / 100)
     } else {
-      setColorError('Enter a six-digit hex color, for example #141413.')
+      setColorError('Couleur hexadécimale à six chiffres attendue, ex. #141413.')
     }
   }
 
@@ -138,7 +138,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           )}
           style={{ backgroundColor: hex6 }}
           onClick={() => nativeRef.current?.click()}
-          aria-label="Open color picker"
+          aria-label="Ouvrir le sélecteur de couleur"
         />
         <input
           ref={nativeRef}
@@ -157,7 +157,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           maxLength={7}
           placeholder="#000000"
           className="input"
-          aria-label="Hex color value"
+          aria-label="Valeur hexadécimale"
           aria-invalid={Boolean(colorError)}
           aria-describedby={colorError ? errorId : undefined}
         />
@@ -179,7 +179,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
             value={opacityInput}
             onChange={handleOpacityChange}
             className="min-w-0 flex-1 cursor-pointer"
-            aria-label="Alpha channel"
+            aria-label="Opacité"
           />
           <span className="mono-value w-8 shrink-0 text-right text-[10px] text-foreground-muted">
             {opacityInput}
@@ -190,7 +190,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       {/* Recent colors */}
       {recentColors.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="mono-label">Recent</span>
+          <span className="mono-label">Récents</span>
           <div className="flex flex-wrap gap-1">
             {recentColors.map((color) => (
               <button
@@ -202,7 +202,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
                   addRecentColor(color)
                   onChange(color)
                 }}
-                aria-label={`Recent color ${color}`}
+                aria-label={`Couleur récente ${color}`}
               />
             ))}
           </div>

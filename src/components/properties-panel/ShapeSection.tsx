@@ -56,21 +56,21 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
           value={layer.shapeType}
           onChange={(event) => update({ shapeType: event.target.value as ShapeLayer['shapeType'] })}
           className="input"
-          aria-label="Shape type"
+          aria-label="Type de forme"
         >
           <option value="rectangle">Rectangle</option>
-          <option value="rounded-rect">Rounded rectangle</option>
-          <option value="circle">Circle</option>
+          <option value="rounded-rect">Rectangle arrondi</option>
+          <option value="circle">Cercle</option>
         </select>
       </Field>
 
       {/* Fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Fill</span>
+          <span className="mono-label-strong">Remplissage</span>
           <div className="flex items-center gap-2">
-            <span className="mono-label">Gradient</span>
-            <Toggle label="Toggle shape gradient" active={fillIsGradient} onToggle={handleGradientToggle} />
+            <span className="mono-label">Dégradé</span>
+            <Toggle label="Activer le dégradé" active={fillIsGradient} onToggle={handleGradientToggle} />
           </div>
         </div>
         {fillIsGradient ? (
@@ -91,14 +91,14 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
 
       {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <span className="mono-label-strong">Stroke</span>
-        <Field label="Color">
+        <span className="mono-label-strong">Contour</span>
+        <Field label="Couleur">
           <ColorPicker
             value={layer.stroke ?? '#000000'}
             onChange={(stroke) => update({ stroke })}
           />
         </Field>
-        <Field label="Width">
+        <Field label="Épaisseur">
           <input
             type="number"
             min={0}
@@ -107,7 +107,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
               strokeWidth: numberInRange(e.target.value, 0, 100, layer.strokeWidth ?? 0),
             })}
             className="input"
-            aria-label="Stroke width"
+            aria-label="Épaisseur du contour"
           />
         </Field>
       </div>
@@ -116,7 +116,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {layer.shapeType === 'rounded-rect' && (
         <>
           <div className="hairline" />
-          <Field label="Radius">
+          <Field label="Rayon">
             <input
               type="number"
               min={0}
@@ -125,7 +125,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                 borderRadius: numberInRange(e.target.value, 0, 1000, layer.borderRadius ?? 8),
               })}
               className="input"
-              aria-label="Border radius"
+              aria-label="Rayon des coins"
             />
           </Field>
         </>
@@ -136,8 +136,8 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Shadow */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Shadow</span>
-          <Toggle label="Toggle shape shadow" active={!!layer.shadow} onToggle={handleShadowToggle} />
+          <span className="mono-label-strong">Ombre</span>
+          <Toggle label="Activer l’ombre" active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
           <div className="flex flex-col gap-2 pl-3">
@@ -153,7 +153,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                     } })
                   }
                   className="input"
-                  aria-label="Shadow X offset"
+                  aria-label="Décalage X de l’ombre"
                 />
               </Field>
               <Field label="Y">
@@ -167,7 +167,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                     } })
                   }
                   className="input"
-                  aria-label="Shadow Y offset"
+                  aria-label="Décalage Y de l’ombre"
                 />
               </Field>
             </div>
@@ -183,10 +183,10 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
                   } })
                 }
                 className="input"
-                aria-label="Shadow blur"
+                aria-label="Flou de l’ombre"
               />
             </Field>
-            <Field label="Color">
+            <Field label="Couleur">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) => update({ shadow: { ...layer.shadow!, color } })}

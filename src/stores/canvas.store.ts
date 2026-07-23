@@ -137,14 +137,6 @@ function applyGlobalsToNewLayer(layer: Layer): Layer {
     }
   }
 
-  if (layer.type === 'device-frame') {
-    return {
-      ...layer,
-      deviceModel: globals.deviceModel,
-      deviceColor: globals.deviceColor,
-    }
-  }
-
   return layer
 }
 

@@ -46,7 +46,7 @@ export function TemplatePicker() {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] animate-[fade-in_0.14s_ease-out]"
       role="dialog"
       aria-modal="true"
-      aria-label="Template picker"
+      aria-label="Sélecteur de modèles"
       onClick={(e) => {
         if (e.target === e.currentTarget) setShowTemplatesPicker(false)
       }}
@@ -60,13 +60,13 @@ export function TemplatePicker() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex flex-col gap-0.5">
-            <span className="mono-label">Library</span>
-            <h2 className="text-[15px] font-medium text-foreground">Templates</h2>
+            <span className="mono-label">Bibliothèque</span>
+            <h2 className="text-[15px] font-medium text-foreground">Modèles</h2>
           </div>
           <button
             type="button"
             onClick={() => setShowTemplatesPicker(false)}
-            aria-label="Close template picker"
+            aria-label="Fermer les modèles"
             className="icon-btn"
           >
             <X size={14} strokeWidth={1.5} />
@@ -86,7 +86,7 @@ export function TemplatePicker() {
                 'hover:border-foreground active:scale-[0.99]',
                 'focus-visible:outline-none focus-visible:border-foreground',
               )}
-              aria-label={`Apply ${template.name} template`}
+              aria-label={`Appliquer le modèle ${template.name}`}
             >
               <div className="h-60 w-full shrink-0 overflow-hidden border-b border-border bg-panel-muted">
                 <TemplatePreview template={template} />
@@ -108,7 +108,7 @@ export function TemplatePicker() {
           className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 animate-[fade-in_0.12s_ease-out]"
           role="dialog"
           aria-modal="true"
-          aria-label="Confirm template application"
+          aria-label="Confirmer l’application du modèle"
           onClick={(e) => {
             if (e.target === e.currentTarget) setConfirm(null)
           }}
@@ -120,7 +120,7 @@ export function TemplatePicker() {
             )}
           >
             <div>
-              <span className="mono-label">Apply</span>
+              <span className="mono-label">Appliquer</span>
               <p className="mt-1 text-[14px] font-medium text-foreground">
                 {confirm.template.name}
               </p>
@@ -134,7 +134,7 @@ export function TemplatePicker() {
                 onClick={() => handleApply('current')}
                 className="btn-primary w-full"
               >
-                Apply to current screen
+                Appliquer à l’écran courant
               </button>
               <button
                 type="button"
@@ -142,14 +142,14 @@ export function TemplatePicker() {
                 disabled={(project?.screens.length ?? 0) >= MAX_PROJECT_SCREENS}
                 className="btn-secondary w-full"
               >
-                Create new screen
+                Créer un nouvel écran
               </button>
               <button
                 type="button"
                 onClick={() => setConfirm(null)}
                 className="mono-label h-8 transition-colors hover:text-foreground"
               >
-                Cancel
+                Annuler
               </button>
             </div>
             {applyError && <p role="alert" className="text-[11px] text-danger">{applyError}</p>}

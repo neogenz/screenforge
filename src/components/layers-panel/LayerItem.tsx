@@ -132,7 +132,7 @@ export function LayerItem({
           onBlur={commitRename}
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
-          aria-label="Layer name"
+          aria-label="Nom du calque"
           className="min-w-0 flex-1 rounded-sm border border-border bg-panel px-1.5 py-1 text-[12px] outline-none focus:border-foreground-muted"
         />
       ) : (
@@ -149,7 +149,7 @@ export function LayerItem({
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <LayerAction
-          label={layer.visible ? 'Hide layer' : 'Show layer'}
+          label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
           onClick={onToggleVisibility}
         >
           {layer.visible
@@ -157,17 +157,17 @@ export function LayerItem({
             : <EyeOff size={11} strokeWidth={1.5} aria-hidden />}
         </LayerAction>
         <LayerAction
-          label={layer.locked ? 'Unlock layer' : 'Lock layer'}
+          label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
           onClick={onToggleLock}
         >
           {layer.locked
             ? <Lock size={11} strokeWidth={1.5} aria-hidden />
             : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
         </LayerAction>
-        <LayerAction label="Duplicate layer" onClick={onDuplicate}>
+        <LayerAction label="Dupliquer le calque" onClick={onDuplicate}>
           <Copy size={11} strokeWidth={1.5} aria-hidden />
         </LayerAction>
-        <LayerAction label="Delete layer" danger onClick={onDelete}>
+        <LayerAction label="Supprimer le calque" danger onClick={onDelete}>
           <Trash2 size={11} strokeWidth={1.5} aria-hidden />
         </LayerAction>
       </div>

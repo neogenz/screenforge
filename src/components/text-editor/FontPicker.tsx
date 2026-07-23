@@ -25,7 +25,7 @@ export function FontPicker({ value, onChange }: FontPickerProps) {
     void loadGoogleFont(value).then((result) => {
       if (cancelled) return
       setFontError(result.status === 'fallback'
-        ? `${value} unavailable. System fallback is displayed.`
+        ? `${value} indisponible. Police système de secours affichée.`
         : null)
     })
     return () => {
@@ -51,7 +51,7 @@ export function FontPicker({ value, onChange }: FontPickerProps) {
   async function handleSelect(family: string) {
     const result = await loadGoogleFont(family)
     setFontError(result.status === 'fallback'
-      ? `${family} unavailable. System fallback is displayed.`
+      ? `${family} indisponible. Police système de secours affichée.`
       : null)
     onChange(family)
     setOpen(false)
@@ -69,7 +69,7 @@ export function FontPicker({ value, onChange }: FontPickerProps) {
           'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground-muted',
         )}
         style={{ fontFamily: `"${value}", system-ui` }}
-        aria-label={`Font family: ${value}`}
+        aria-label={`Police : ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -91,14 +91,14 @@ export function FontPicker({ value, onChange }: FontPickerProps) {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search fonts…"
-              aria-label="Search fonts"
+              placeholder="Rechercher une police…"
+              aria-label="Rechercher une police"
               className="input h-8 text-[11px]"
               style={{ fontFamily: 'var(--font-sans)' }}
             />
           </div>
 
-          <ul role="listbox" aria-label="Font families" className="max-h-60 overflow-y-auto">
+          <ul role="listbox" aria-label="Polices" className="max-h-60 overflow-y-auto">
             {filteredFonts.map((family, index) => (
               <FontOption
                 key={family}
@@ -109,7 +109,7 @@ export function FontPicker({ value, onChange }: FontPickerProps) {
               />
             ))}
             {filteredFonts.length === 0 && (
-              <li className="mono-label px-3 py-3">No fonts found</li>
+              <li className="mono-label px-3 py-3">Aucune police trouvée</li>
             )}
           </ul>
         </div>
@@ -160,7 +160,7 @@ function FontOption({ family, selected, isPinned, onSelect }: FontOptionProps) {
       >
         <span className="truncate">{family}</span>
         <span className="flex shrink-0 items-center gap-2">
-          {isPinned && <span className="mono-label">Popular</span>}
+          {isPinned && <span className="mono-label">Populaire</span>}
           {selected && <Check size={11} strokeWidth={2} className="text-foreground" />}
         </span>
       </button>

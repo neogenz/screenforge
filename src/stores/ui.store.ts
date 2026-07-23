@@ -45,7 +45,7 @@ function getInitialTheme(): Theme {
   } catch (error) {
     console.warn('Could not read the saved theme.', error)
   }
-  return 'light'
+  return 'dark'
 }
 
 export const useUIStore = create<UIState>()((set) => ({

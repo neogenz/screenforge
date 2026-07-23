@@ -276,6 +276,8 @@ export function applyLayerToFabricObject(
     })
   } else if (layer.type === 'device-frame' && object instanceof FabricImage) {
     object.set({
+      // Official device aspect ratio — canvas scaling stays proportional.
+      lockUniScaling: true,
       scaleX: layer.width / Math.max(1, object.width),
       scaleY: layer.height / Math.max(1, object.height),
       shadow: layer.shadowEnabled

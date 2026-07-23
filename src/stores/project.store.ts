@@ -3,13 +3,13 @@ import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import type { GlobalSettings, Layer, Project, Screen } from '@/types'
 
 export const DEFAULT_GLOBALS: GlobalSettings = {
-  fontFamily: 'Barlow',
+  fontFamily: 'Space Grotesk',
   fontWeight: 700,
   fontSize: 48,
   fontColor: '#1a1a1a',
   background: { type: 'solid', color: '#ffffff' },
-  deviceModel: 'iphone-16-pro-max',
-  deviceColor: 'black-titanium',
+  deviceModel: 'iphone-17-pro-max',
+  deviceColor: 'cosmic-orange',
 }
 
 function cloneValue<T>(value: T): T {
@@ -42,6 +42,7 @@ interface ProjectState {
   addScreen: (content?: Pick<Screen, 'name' | 'layers' | 'background'>) => string | null
   removeScreen: (id: string) => string | null
   duplicateScreen: (id: string) => string | null
+  renameScreen: (id: string, name: string) => void
   reorderScreens: (ids: string[]) => void
   updateGlobals: (globals: Partial<GlobalSettings>) => void
   updateScreenBackground: (screenId: string, background: Screen['background']) => void
@@ -77,6 +78,19 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   },
 
   loadProject: (project) => set({ project }),
+
+  renameScreen: (id, name) =>
+    set((state) => {
+      const trimmed = name.trim()
+      if (!state.project || !trimmed) return state
+      return {
+        project: withTimestamp(state.project, {
+          screens: state.project.screens.map((screen) =>
+            screen.id === id ? { ...screen, name: trimmed } : screen,
+          ),
+        }),
+      }
+    }),
 
   updateProjectName: (name) =>
     set((state) => state.project

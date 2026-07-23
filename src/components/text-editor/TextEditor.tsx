@@ -13,6 +13,12 @@ interface TextEditorProps {
 
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900]
 const TEXT_TRANSFORMS = ['none', 'uppercase', 'lowercase', 'capitalize'] as const
+const TEXT_TRANSFORM_LABELS: Record<(typeof TEXT_TRANSFORMS)[number], string> = {
+  none: 'Aucune',
+  uppercase: 'MAJUSCULES',
+  lowercase: 'minuscules',
+  capitalize: 'Initiales',
+}
 
 export function TextEditor({ layer }: TextEditorProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
@@ -57,23 +63,23 @@ export function TextEditor({ layer }: TextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <Field label="Content">
+      <Field label="Contenu">
         <textarea
           value={layer.content}
           onChange={(event) => update({ content: event.target.value })}
           className="input h-20 resize-y py-2 leading-snug"
-          aria-label="Text content"
+          aria-label="Contenu du texte"
         />
       </Field>
 
       {/* Font family */}
-      <Field label="Font">
+      <Field label="Police">
         <FontPicker value={layer.fontFamily} onChange={handleFontFamily} />
       </Field>
 
       {/* Size + Weight */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Size">
+        <Field label="Taille">
           <input
             type="number"
             min={8}
@@ -81,15 +87,15 @@ export function TextEditor({ layer }: TextEditorProps) {
             value={layer.fontSize}
             onChange={(e) => update({ fontSize: numberInRange(e.target.value, 8, 300, layer.fontSize) })}
             className="input"
-            aria-label="Font size"
+            aria-label="Taille de police"
           />
         </Field>
-        <Field label="Weight">
+        <Field label="Graisse">
           <select
             value={layer.fontWeight}
             onChange={(e) => update({ fontWeight: numberInRange(e.target.value, 100, 900, layer.fontWeight) })}
             className="input"
-            aria-label="Font weight"
+            aria-label="Graisse de police"
           >
             {FONT_WEIGHTS.map((w) => (
               <option key={w} value={w}>{w}</option>
@@ -99,7 +105,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </div>
 
       {/* Color */}
-      <Field label="Color">
+      <Field label="Couleur">
         <ColorPicker
           value={layer.color}
           onChange={(color) => update({ color })}
@@ -108,7 +114,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </Field>
 
       {/* Alignment — flat segmented, monochrome */}
-      <Field label="Align">
+      <Field label="Alignement">
         <div className="seg" role="group" aria-label="Alignement du texte">
           {(
             [
@@ -134,7 +140,7 @@ export function TextEditor({ layer }: TextEditorProps) {
 
       {/* Line height + Letter spacing */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Leading">
+        <Field label="Interligne">
           <input
             type="number"
             min={0.5}
@@ -143,10 +149,10 @@ export function TextEditor({ layer }: TextEditorProps) {
             value={layer.lineHeight}
             onChange={(e) => update({ lineHeight: numberInRange(e.target.value, 0.5, 3, layer.lineHeight) })}
             className="input"
-            aria-label="Line height"
+            aria-label="Interligne"
           />
         </Field>
-        <Field label="Tracking">
+        <Field label="Espacement">
           <input
             type="number"
             min={-5}
@@ -155,27 +161,27 @@ export function TextEditor({ layer }: TextEditorProps) {
             value={layer.letterSpacing}
             onChange={(e) => update({ letterSpacing: numberInRange(e.target.value, -5, 20, layer.letterSpacing) })}
             className="input"
-            aria-label="Letter spacing"
+            aria-label="Espacement des lettres"
           />
         </Field>
       </div>
 
       {/* Text transform */}
-      <Field label="Case">
+      <Field label="Casse">
         <select
           value={layer.textTransform}
           onChange={(e) => update({ textTransform: e.target.value as TextLayer['textTransform'] })}
           className="input"
-          aria-label="Text transform"
+          aria-label="Transformation du texte"
         >
           {TEXT_TRANSFORMS.map((t) => (
-            <option key={t} value={t}>{t}</option>
+            <option key={t} value={t}>{TEXT_TRANSFORM_LABELS[t]}</option>
           ))}
         </select>
       </Field>
 
       {/* Opacity */}
-      <Field label="Opacity">
+      <Field label="Opacité">
         <div className="flex h-7 items-center gap-2">
           <input
             type="range"
@@ -198,8 +204,8 @@ export function TextEditor({ layer }: TextEditorProps) {
       {/* Text shadow */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Shadow</span>
-          <Toggle label="Toggle text shadow" active={!!layer.shadow} onToggle={handleShadowToggle} />
+          <span className="mono-label-strong">Ombre</span>
+          <Toggle label="Activer l’ombre du texte" active={!!layer.shadow} onToggle={handleShadowToggle} />
         </div>
         {layer.shadow && (
           <div className="flex flex-col gap-2 pl-3">
@@ -212,7 +218,7 @@ export function TextEditor({ layer }: TextEditorProps) {
                     update({ shadow: { ...layer.shadow!, offsetX: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetX) } })
                   }
                   className="input"
-                  aria-label="Shadow offset X"
+                  aria-label="Décalage X de l’ombre"
                 />
               </Field>
               <Field label="Y">
@@ -223,7 +229,7 @@ export function TextEditor({ layer }: TextEditorProps) {
                     update({ shadow: { ...layer.shadow!, offsetY: numberInRange(e.target.value, -200, 200, layer.shadow!.offsetY) } })
                   }
                   className="input"
-                  aria-label="Shadow offset Y"
+                  aria-label="Décalage Y de l’ombre"
                 />
               </Field>
             </div>
@@ -236,10 +242,10 @@ export function TextEditor({ layer }: TextEditorProps) {
                   update({ shadow: { ...layer.shadow!, blur: numberInRange(e.target.value, 0, 200, layer.shadow!.blur) } })
                 }
                 className="input"
-                aria-label="Shadow blur"
+                aria-label="Flou de l’ombre"
               />
             </Field>
-            <Field label="Color">
+            <Field label="Couleur">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) =>
@@ -257,8 +263,8 @@ export function TextEditor({ layer }: TextEditorProps) {
       {/* Gradient fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Gradient</span>
-          <Toggle label="Toggle text gradient" active={!!layer.gradientFill} onToggle={handleGradientToggle} />
+          <span className="mono-label-strong">Dégradé</span>
+          <Toggle label="Activer le dégradé du texte" active={!!layer.gradientFill} onToggle={handleGradientToggle} />
         </div>
         {layer.gradientFill && (
           <GradientEditor

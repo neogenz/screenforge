@@ -105,7 +105,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
     <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
       <div className="flex flex-col gap-2">
         <span className="mono-label">Type</span>
-        <div className="seg w-full" role="group" aria-label="Background type">
+        <div className="seg w-full" role="group" aria-label="Type d’arrière-plan">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -123,7 +123,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
       {activeTab === 'solid' && (
         <div className="flex flex-col gap-2">
-          <span className="mono-label">Color</span>
+          <span className="mono-label">Couleur</span>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </div>
       )}
@@ -132,7 +132,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
       {activeTab === 'presets' && (
         <div className="flex flex-col gap-2">
-          <span className="mono-label">Presets</span>
+          <span className="mono-label">Préréglages</span>
           <div className="grid grid-cols-3 gap-2">
             {PRESET_GRADIENTS.map((preset) => (
               <button

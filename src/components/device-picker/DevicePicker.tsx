@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
-import { DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
+import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Field } from '@/components/properties-panel/TransformSection'
 import { Toggle } from '@/components/text-editor/TextEditor'
@@ -40,6 +40,9 @@ export function DevicePicker({
   const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const config = getDeviceFrame(deviceModel)
+  const modelOptions = config.current
+    ? CURRENT_DEVICE_FRAMES
+    : [config, ...CURRENT_DEVICE_FRAMES]
 
   async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -63,10 +66,10 @@ export function DevicePicker({
 
   function handleModelChange(model: DeviceModel) {
     const next = getDeviceFrame(model)
-    const ratio = next.width / next.height
+    const canonical = getDefaultDeviceSize(model)
     const size = orientation === 'portrait'
-      ? { width: Math.max(1, height * ratio), height }
-      : { width, height: Math.max(1, width * ratio) }
+      ? canonical
+      : { width: canonical.height, height: canonical.width }
     onUpdate({ deviceModel: model, deviceColor: next.colors[0].name, ...size })
   }
 
@@ -83,21 +86,23 @@ export function DevicePicker({
 
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Model">
+      <Field label="Modèle">
         <select
           value={deviceModel}
           onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
           className="input"
-          aria-label="Device model"
+          aria-label="Modèle d’appareil"
         >
-          {DEVICE_FRAMES.map((frame) => (
-            <option key={frame.model} value={frame.model}>{frame.modelName}</option>
+          {modelOptions.map((frame) => (
+            <option key={frame.model} value={frame.model}>
+              {frame.modelName} · {frame.screenSize}
+            </option>
           ))}
         </select>
       </Field>
 
-      <Field label="Color">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Device color">
+      <Field label="Couleur">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
           {config.colors.map((color) => (
             <button
               key={color.name}
@@ -128,7 +133,7 @@ export function DevicePicker({
         </div>
       </Field>
 
-      <Field label="Orient">
+      <Field label="Orientation">
         <div className="seg w-full" role="group" aria-label="Orientation">
           {(['portrait', 'landscape'] as const).map((value) => (
             <button
@@ -145,12 +150,12 @@ export function DevicePicker({
         </div>
       </Field>
 
-      <Field label="Screenshot">
+      <Field label="Capture d’écran">
         {screenshotUrl ? (
           <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
             <img
               src={screenshotUrl}
-              alt="Imported app screenshot"
+              alt="Capture importée"
               className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
             />
             <button
@@ -158,13 +163,13 @@ export function DevicePicker({
               onClick={() => fileInputRef.current?.click()}
               className="mono-label-strong min-h-8 flex-1 text-left transition-colors hover:text-foreground"
             >
-              Replace PNG/JPEG
+              Remplacer
             </button>
             <button
               type="button"
               onClick={() => onUpdate({ screenshotUrl: undefined })}
               className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-danger"
-              aria-label="Remove screenshot"
+              aria-label="Supprimer la capture"
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
             </button>
@@ -179,7 +184,7 @@ export function DevicePicker({
               'hover:border-border-strong hover:text-foreground',
             )}
           >
-            No screenshot · Upload PNG/JPEG
+            Aucune capture · importer un PNG/JPEG
           </button>
         )}
         <input
@@ -187,7 +192,7 @@ export function DevicePicker({
           type="file"
           accept="image/png,image/jpeg"
           className="sr-only"
-          aria-label="Upload device screenshot"
+          aria-label="Importer la capture de l’app"
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {fileError && (
@@ -199,18 +204,18 @@ export function DevicePicker({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Shadow</span>
+          <span className="mono-label-strong">Ombre</span>
           <div className="flex items-center gap-1">
             <Toggle
               active={shadowEnabled}
-              label="Toggle device shadow"
+              label="Activer l’ombre de l’appareil"
               onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })}
             />
             <button
               type="button"
               onClick={() => setShadowOpen((value) => !value)}
               className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-              aria-label={shadowOpen ? 'Collapse shadow' : 'Expand shadow'}
+              aria-label={shadowOpen ? 'Replier l’ombre' : 'Déplier l’ombre'}
               aria-expanded={shadowOpen}
             >
               <ChevronDown
@@ -226,7 +231,7 @@ export function DevicePicker({
         {shadowOpen && shadowEnabled && (
           <div className="flex flex-col gap-2 pl-3">
             <div className="flex items-center gap-2">
-              <span className="mono-label w-8">Blur</span>
+              <span className="mono-label w-8">Flou</span>
               <input
                 type="range"
                 min={0}
@@ -234,11 +239,11 @@ export function DevicePicker({
                 value={shadowBlur}
                 onChange={(event) => onUpdate({ shadowBlur: Number(event.target.value) })}
                 className="flex-1 cursor-pointer"
-                aria-label="Shadow blur"
+                aria-label="Flou de l’ombre"
               />
               <span className="mono-value w-6 text-right text-[10px] text-foreground-muted">{shadowBlur}</span>
             </div>
-            <Field label="Color">
+            <Field label="Couleur">
               <ColorPicker value={shadowColor} showOpacity onChange={(color) => onUpdate({ shadowColor: color })} />
             </Field>
             <div className="grid grid-cols-2 gap-2">
@@ -248,7 +253,7 @@ export function DevicePicker({
                   value={shadowOffsetX}
                   onChange={(event) => onUpdate({ shadowOffsetX: clampNumber(event.target.value, -500, 500) })}
                   className="input"
-                  aria-label="Device shadow X offset"
+                  aria-label="Décalage X de l’ombre"
                 />
               </Field>
               <Field label="Y">
@@ -257,7 +262,7 @@ export function DevicePicker({
                   value={shadowOffsetY}
                   onChange={(event) => onUpdate({ shadowOffsetY: clampNumber(event.target.value, -500, 500) })}
                   className="input"
-                  aria-label="Device shadow Y offset"
+                  aria-label="Décalage Y de l’ombre"
                 />
               </Field>
             </div>

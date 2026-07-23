@@ -78,7 +78,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Export App Store screenshots"
+        aria-label="Export des captures App Store"
         className={cn(
           'flex max-h-[84vh] w-[720px] max-w-[calc(100vw-40px)] flex-col overflow-hidden',
           'surface-modal',
@@ -94,7 +94,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             type="button"
             onClick={handleClose}
             disabled={isExporting}
-            aria-label="Close export dialog"
+            aria-label="Fermer l’export"
             className="icon-btn"
           >
             <X size={14} strokeWidth={1.5} />
@@ -134,7 +134,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             </div>
           </section>
 
-          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4" aria-label="Export profile">
+          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4" aria-label="Profil d’export">
             <div className="surface-inner p-3.5">
               <span className="mono-label">Profil</span>
               <p className="mt-1.5 text-[13px] font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>

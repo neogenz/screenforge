@@ -8,13 +8,14 @@ import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 
 export function ScreensBar() {
-  const { project, addScreen, removeScreen, duplicateScreen, reorderScreens } =
+  const { project, addScreen, removeScreen, duplicateScreen, renameScreen, reorderScreens } =
     useProjectStore(
       useShallow((s) => ({
         project: s.project,
         addScreen: s.addScreen,
         removeScreen: s.removeScreen,
         duplicateScreen: s.duplicateScreen,
+        renameScreen: s.renameScreen,
         reorderScreens: s.reorderScreens,
       })),
     )
@@ -90,7 +91,10 @@ export function ScreensBar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full items-center gap-3 overflow-x-auto border-t border-border bg-panel px-5 py-3">
+    <div className="flex h-full min-h-0 w-full items-center gap-4 overflow-x-auto border-t border-border bg-panel px-5">
+      <span className="mono-value shrink-0 text-[10px] text-muted tabular-nums">
+        {screens.length}/{MAX_PROJECT_SCREENS}
+      </span>
       {screens.map((screen, index) => (
         <div
           key={screen.id}
@@ -107,6 +111,7 @@ export function ScreensBar() {
             canDelete={screens.length > 1}
             canMoveLeft={index > 0}
             canMoveRight={index < screens.length - 1}
+            onRename={(name) => renameScreen(screen.id, name)}
             onDuplicate={() => handleDuplicateScreen(screen.id)}
             onDelete={() => handleDeleteScreen(screen.id)}
             onMoveLeft={() => handleMoveScreen(index, -1)}
@@ -116,14 +121,14 @@ export function ScreensBar() {
       ))}
 
       <button
-        title="Add screen"
-        aria-label="Add new screen"
+        title="Ajouter un écran"
+        aria-label="Ajouter un écran"
         onClick={handleAddScreen}
         disabled={screens.length >= MAX_PROJECT_SCREENS}
         type="button"
         className={cn(
-          'flex h-[104px] aspect-[9/19.5] shrink-0 items-center justify-center',
-          'rounded-md border border-dashed border-border-strong bg-panel-sub',
+          'flex h-[96px] aspect-[9/19.5] shrink-0 items-center justify-center self-center',
+          'rounded-sm border border-dashed border-border-strong bg-panel-sub',
           'text-muted transition-colors duration-100 ease-out',
           'hover:border-foreground hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',

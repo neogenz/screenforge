@@ -81,7 +81,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Type — flat segmented */}
       <div className="flex flex-col gap-2">
         <span className="mono-label">Type</span>
-        <div className="seg w-full" role="group" aria-label="Gradient type">
+        <div className="seg w-full" role="group" aria-label="Type de dégradé">
           {(['linear', 'radial'] as const).map((t) => (
             <button
               key={t}
@@ -91,7 +91,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
               className="seg-btn flex-1"
               aria-pressed={value.type === t}
             >
-              {t}
+              {t === 'linear' ? 'Linéaire' : 'Radial'}
             </button>
           ))}
         </div>
@@ -111,7 +111,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
               className={cn('input', 'w-20')}
               aria-label="Gradient angle in degrees"
             />
-            <span className="mono-label">deg</span>
+            <span className="mono-label">°</span>
           </div>
         </div>
       )}
@@ -119,7 +119,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {value.type === 'radial' && (
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-2">
-            <span className="mono-label">Center X</span>
+            <span className="mono-label">Centre X</span>
             <input
               type="number"
               min={0}
@@ -130,7 +130,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
             />
           </label>
           <label className="flex flex-col gap-2">
-            <span className="mono-label">Center Y</span>
+            <span className="mono-label">Centre Y</span>
             <input
               type="number"
               min={0}
@@ -145,7 +145,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
       {/* Preview */}
       <div className="flex flex-col gap-2">
-        <span className="mono-label">Preview</span>
+        <span className="mono-label">Aperçu</span>
         <div
           className="h-10 w-full rounded-md border border-border"
           style={{ background: buildCssGradient(value) }}
@@ -157,7 +157,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label">
-            Stops <span className="mono-value">{value.stops.length}/10</span>
+            Arrêts <span className="mono-value">{value.stops.length}/10</span>
           </span>
           <button
             type="button"
@@ -169,7 +169,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
               'hover:bg-surface-hover hover:text-foreground',
               'disabled:pointer-events-none disabled:opacity-40',
             )}
-            aria-label="Add color stop"
+            aria-label="Ajouter un arrêt de couleur"
           >
             <Plus size={14} strokeWidth={1.75} aria-hidden />
           </button>
@@ -215,7 +215,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
                     'hover:border-danger hover:text-danger',
                     'disabled:pointer-events-none disabled:opacity-40',
                   )}
-                  aria-label="Remove stop"
+                    aria-label="Supprimer l’arrêt"
                 >
                   <Trash2 size={12} strokeWidth={1.5} />
                 </button>

@@ -29,6 +29,22 @@ import type { Layer, Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
 
+interface ChromeColors {
+  label: string
+  artboardRing: string
+  activeRing: string
+}
+
+function readChromeColors(): ChromeColors {
+  const themed = document.getElementById('root')?.firstElementChild ?? document.documentElement
+  const styles = getComputedStyle(themed as Element)
+  return {
+    label: styles.getPropertyValue('--color-muted').trim() || '#74746e',
+    artboardRing: styles.getPropertyValue('--color-artboard-ring').trim() || 'rgba(255,255,255,0.14)',
+    activeRing: styles.getPropertyValue('--color-primary').trim() || '#d71921',
+  }
+}
+
 function createScreenClipPath(screenIndex: number): Rect {
   return new Rect({
     originX: 'left',
@@ -59,14 +75,50 @@ function sameIds(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index])
 }
 
+function layerTouchesScreen(layer: Layer, screenIndex: number): boolean {
+  return layer.x < (screenIndex + 1) * SCREEN_WIDTH
+    && layer.x + layer.width > screenIndex * SCREEN_WIDTH
+}
+
+/**
+ * Single shared layer selected: return every screen instance it touches (plus
+ * always the interactive active-screen instance) so the control box wraps the
+ * full panorama span — selected render == deselected render.
+ */
+function resolveSelectionObjects(
+  project: Project,
+  objectsById: Map<string, RenderedObject>,
+  selectedIds: string[],
+): RenderedObject[] {
+  if (selectedIds.length === 1) {
+    const layer = project.layoutLayers.find((candidate) => candidate.id === selectedIds[0])
+    if (layer) {
+      const instances = project.screens.flatMap((screen, index) => {
+        if (screen.id !== project.activeScreenId && !layerTouchesScreen(layer, index)) return []
+        const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
+        return object ? [object] : []
+      })
+      if (instances.length > 0) return instances
+    }
+  }
+  return selectedIds.flatMap((id) => {
+    const object = objectsById.get(id)
+      ?? objectsById.get(`layout:${id}:${project.activeScreenId}`)
+    return object ? [object] : []
+  })
+}
+
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const fabricRef = useRef<Canvas | null>(null)
   const syncing = useRef(false)
   const syncVersion = useRef(0)
+  const ignoreSelectionCleared = useRef(false)
   const panning = useRef(false)
+  const interacting = useRef(false)
   const panPoint = useRef<{ x: number; y: number } | null>(null)
+  const selectionFromCanvas = useRef(false)
   const thumbnailTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thumbnailGeneration = useRef(0)
   const fontLoadRequests = useRef(new Set<string>())
@@ -190,6 +242,7 @@ export function useCanvas() {
     const canvas = fabricRef.current
     if (!canvas) return
     const { screens, layoutLayers, activeScreenId } = project
+    const chrome = readChromeColors()
     const version = ++syncVersion.current
     syncing.current = true
 
@@ -233,11 +286,10 @@ export function useCanvas() {
             originY: 'top',
             width: SCREEN_WIDTH,
             height: SCREEN_HEIGHT,
-            rx: 4,
-            ry: 4,
             selectable: false,
             evented: false,
-            shadow: new Shadow({ color: 'rgba(0,0,0,0.22)', blur: 16, offsetY: 3 }),
+            strokeUniform: true,
+            shadow: new Shadow({ color: 'rgba(0,0,0,0.35)', blur: 24, offsetY: 4 }),
           })
           background.set('data', {
             uid: backgroundId,
@@ -251,6 +303,8 @@ export function useCanvas() {
           left: offset,
           top: 0,
           fill: backgroundToFabricFill(screen.background),
+          stroke: screen.id === activeScreenId ? chrome.activeRing : chrome.artboardRing,
+          strokeWidth: screen.id === activeScreenId ? 2 : 1,
         })
         background.setCoords()
 
@@ -261,9 +315,8 @@ export function useCanvas() {
             originX: 'left',
             originY: 'top',
             width: SCREEN_WIDTH,
-            fontSize: 11,
-            fontFamily: 'Inter, system-ui, sans-serif',
-            fill: 'rgba(255,255,255,0.55)',
+            fontSize: 12,
+            fontFamily: '"Space Grotesk", system-ui, sans-serif',
             selectable: false,
             evented: false,
           })
@@ -275,7 +328,7 @@ export function useCanvas() {
           canvas.add(label)
           objectsById.set(labelId, label)
         }
-        label.set({ left: offset, top: -24, text: screen.name })
+        label.set({ left: offset, top: -26, text: screen.name, fill: chrome.label })
         label.setCoords()
 
         for (const layer of screen.layers) {
@@ -390,10 +443,11 @@ export function useCanvas() {
             layer,
             getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
           )
+          const isActiveInstance = screen.id === activeScreenId
           object.clipPath = createScreenClipPath(screenIndex)
           object.set({
-            selectable: !layer.locked && screen.id === activeScreenId,
-            evented: !layer.locked && screen.id === activeScreenId,
+            selectable: !layer.locked && isActiveInstance,
+            evented: !layer.locked && isActiveInstance,
           })
         }
       }
@@ -426,12 +480,9 @@ export function useCanvas() {
           return data?.layerId ?? data?.uid
         })
         .filter((id): id is string => Boolean(id))
-      if (!sameIds(currentSelectionIds, selectedIds)) {
-        const selectedObjects = selectedIds.flatMap((id) => {
-          const object = objectsById.get(id)
-            ?? objectsById.get(`layout:${id}:${activeScreenId}`)
-          return object ? [object] : []
-        })
+      const uniqueCurrentIds = [...new Set(currentSelectionIds)]
+      if (!sameIds(uniqueCurrentIds, selectedIds)) {
+        const selectedObjects = resolveSelectionObjects(project, objectsById, selectedIds)
         if (selectedObjects.length === 0) canvas.discardActiveObject()
         else if (selectedObjects.length === 1) canvas.setActiveObject(selectedObjects[0])
         else canvas.setActiveObject(new ActiveSelection(selectedObjects, { canvas }))
@@ -456,8 +507,8 @@ export function useCanvas() {
     const bounds = container.getBoundingClientRect()
     const canvas = new Canvas(canvasRef.current, {
       backgroundColor: 'transparent',
-      width: bounds.width,
-      height: bounds.height,
+      width: Math.max(1, Math.floor(bounds.width)),
+      height: Math.max(1, Math.floor(bounds.height)),
       selection: true,
       preserveObjectStacking: true,
     })
@@ -471,6 +522,11 @@ export function useCanvas() {
         : [target as RenderedObject]
       const project = useProjectStore.getState().project
       if (!project) return
+      // On group transforms of a shared layer, every instance writes the same
+      // layerId — the active screen's instance is authoritative (processed last).
+      objects.sort((a, b) =>
+        Number(a.data?.screenId === project.activeScreenId)
+        - Number(b.data?.screenId === project.activeScreenId))
 
       const affectedScreenIds = new Set(objects.flatMap((object) =>
         object.data?.screenId ? [object.data.screenId] : [],
@@ -507,7 +563,15 @@ export function useCanvas() {
       }
       if (updates.size === 0 && layoutUpdates.size === 0) return
 
-      if (target instanceof ActiveSelection) canvas.discardActiveObject()
+      if (target instanceof ActiveSelection) {
+        // The discard fires selection:cleared synchronously — the store must
+        // keep the selection so the upcoming sync can re-apply it.
+        ignoreSelectionCleared.current = true
+        canvas.discardActiveObject()
+        queueMicrotask(() => {
+          ignoreSelectionCleared.current = false
+        })
+      }
       const screens = project.screens.map((screen) => {
         const screenUpdates = updates.get(screen.id)
         if (!screenUpdates) return screen
@@ -537,21 +601,106 @@ export function useCanvas() {
     function handleSelection(objects: FabricObject[]) {
       if (syncing.current) return
       const renderedObjects = objects as RenderedObject[]
-      const ids = renderedObjects.flatMap((object) => {
+      const ids = [...new Set(renderedObjects.flatMap((object) => {
         const id = object.data?.layerId ?? object.data?.uid
         return id ? [id] : []
-      })
+      }))]
       const screenId = renderedObjects.find((object) => object.data?.screenId)?.data?.screenId
       if (screenId && screenId !== useCanvasStore.getState().activeScreenId) {
+        selectionFromCanvas.current = true
         useCanvasStore.getState().setActiveScreenId(screenId)
       }
-      if (ids.length === 1) useCanvasStore.getState().selectLayer(ids[0])
-      else if (ids.length > 1) useCanvasStore.getState().selectLayers(ids)
+      if (ids.length === 1) {
+        useCanvasStore.getState().selectLayer(ids[0])
+      } else if (ids.length > 1) {
+        useCanvasStore.getState().selectLayers(ids)
+      }
     }
+
+    // Store → canvas selection. A single shared layer resolves to every screen
+    // instance it spans, so the control box matches the clipped panorama
+    // rendering exactly. Never called mid-gesture (would break Fabric's drag
+    // setup): canvas interactions apply it on mouse:up instead.
+    function applyStoreSelection() {
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const ids = useCanvasStore.getState().selectedLayerIds
+      const objectsById = new Map<string, RenderedObject>()
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        if (object.data?.uid) objectsById.set(object.data.uid, object)
+      }
+      const targets = resolveSelectionObjects(project, objectsById, ids)
+      const activeObjects = canvas.getActiveObjects() as RenderedObject[]
+      if (activeObjects.length === targets.length
+        && targets.every((target) => activeObjects.includes(target))) return
+      if (targets.length === 0) canvas.discardActiveObject()
+      else if (targets.length === 1) canvas.setActiveObject(targets[0])
+      else canvas.setActiveObject(new ActiveSelection(targets, { canvas }))
+      canvas.requestRenderAll()
+    }
+
+    const unsubscribeStoreSelection = useCanvasStore.subscribe((state, previous) => {
+      if (sameIds(state.selectedLayerIds, previous.selectedLayerIds)) return
+      if (interacting.current || syncing.current) return
+      applyStoreSelection()
+    })
+
+    // Fabric emits its canvas mouse:down AFTER selection events, which is too
+    // late to flag an ongoing gesture — DOM capture phase runs before both.
+    const handleDomMouseDown = () => {
+      interacting.current = true
+    }
+    const handleDomMouseUp = () => {
+      interacting.current = false
+    }
+    canvas.upperCanvasEl.addEventListener('mousedown', handleDomMouseDown, true)
+    window.addEventListener('mouseup', handleDomMouseUp, true)
+
+    // Swapping to the union selection on mousedown would break Fabric's drag
+    // setup, so it happens on mouse:up. During a first-gesture drag of one
+    // instance, mirror the delta to its echoes to keep the panorama coherent.
+    const mirrorLast = new Map<string, { left: number; top: number }>()
+    canvas.on('object:moving', (event) => {
+      const target = event.target as RenderedObject | undefined
+      if (!target || target instanceof ActiveSelection || !target.data?.layout) return
+      const layerId = target.data.layerId
+      if (!layerId) return
+      const last = mirrorLast.get(layerId) ?? { left: target.left, top: target.top }
+      const dx = target.left - last.left
+      const dy = target.top - last.top
+      mirrorLast.set(layerId, { left: target.left, top: target.top })
+      if (dx === 0 && dy === 0) return
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        if (object === target || object.data?.layerId !== layerId) continue
+        object.set({ left: object.left + dx, top: object.top + dy })
+        object.setCoords()
+      }
+      canvas.requestRenderAll()
+    })
+    canvas.on('mouse:up', () => {
+      mirrorLast.clear()
+      interacting.current = false
+      applyStoreSelection()
+    })
+
+    // Persist direct on-canvas text edits (double-click → type) back to the store.
+    canvas.on('text:editing:exited', (event) => {
+      const target = event.target as RenderedObject | undefined
+      if (!target || !(target instanceof Textbox)) return
+      const data = (target as RenderedObject).data
+      const layerId = data?.layerId ?? data?.uid
+      if (!layerId) return
+      const layers = useCanvasStore.getState().layers
+      const layer = layers.find((candidate) => candidate.id === layerId)
+      if (layer?.type === 'text' && layer.content !== target.text) {
+        useCanvasStore.getState().updateLayer(layerId, { content: target.text })
+      }
+    })
 
     canvas.on('selection:created', (event) => handleSelection(event.selected ?? []))
     canvas.on('selection:updated', (event) => handleSelection(event.selected ?? []))
     canvas.on('selection:cleared', () => {
+      if (ignoreSelectionCleared.current) return
       if (!syncing.current) useCanvasStore.getState().clearSelection()
     })
 
@@ -598,7 +747,7 @@ export function useCanvas() {
     const resizeObserver = new ResizeObserver((entries) => {
       const size = entries[0]?.contentRect
       if (!size || size.width < 1 || size.height < 1) return
-      canvas.setDimensions({ width: size.width, height: size.height })
+      canvas.setDimensions({ width: Math.floor(size.width), height: Math.floor(size.height) })
       canvas.requestRenderAll()
     })
     resizeObserver.observe(container)
@@ -609,6 +758,9 @@ export function useCanvas() {
     }
 
     return () => {
+      unsubscribeStoreSelection()
+      canvas.upperCanvasEl.removeEventListener('mousedown', handleDomMouseDown, true)
+      window.removeEventListener('mouseup', handleDomMouseUp, true)
       resizeObserver.disconnect()
       if (thumbnailTimer.current) clearTimeout(thumbnailTimer.current)
       for (const object of canvas.getObjects() as RenderedObject[]) {
@@ -627,6 +779,59 @@ export function useCanvas() {
       if (screenCountChanged) fitAll(canvas, state.project?.screens.length ?? 1)
     })
   }), [fitAll, sync])
+
+  // Theme change: re-render chrome colors (labels, artboard rings).
+  useEffect(() => useUIStore.subscribe((state, previous) => {
+    if (state.theme === previous.theme) return
+    const canvas = fabricRef.current
+    const project = useProjectStore.getState().project
+    if (!canvas || !project) return
+    const chrome = readChromeColors()
+    for (const object of canvas.getObjects() as RenderedObject[]) {
+      const data = object.data
+      if (data?.rendererType === 'label') {
+        object.set('fill', chrome.label)
+      } else if (data?.rendererType === 'background') {
+        const isActive = data.screenId === project.activeScreenId
+        object.set({
+          stroke: isActive ? chrome.activeRing : chrome.artboardRing,
+          strokeWidth: isActive ? 2 : 1,
+        })
+      }
+    }
+    canvas.requestRenderAll()
+  }), [])
+
+  // Clicking a screen thumbnail centers the viewport on that artboard.
+  useEffect(() => useCanvasStore.subscribe((state, previous) => {
+    if (state.activeScreenId === previous.activeScreenId) return
+    if (selectionFromCanvas.current) {
+      selectionFromCanvas.current = false
+      return
+    }
+    const canvas = fabricRef.current
+    const project = useProjectStore.getState().project
+    if (!canvas || !project) return
+    const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
+    if (screenIndex === -1) return
+    const padding = 90
+    const zoom = Math.min(
+      (canvas.width - padding * 2) / SCREEN_WIDTH,
+      (canvas.height - padding * 2) / SCREEN_HEIGHT,
+      1,
+    )
+    const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
+    canvas.setViewportTransform([
+      zoom,
+      0,
+      0,
+      zoom,
+      canvas.width / 2 - screenCenterX * zoom,
+      (canvas.height - SCREEN_HEIGHT * zoom) / 2,
+    ])
+    useUIStore.getState().setZoom(zoom)
+    canvas.requestRenderAll()
+  }), [])
 
   useEffect(() => useUIStore.subscribe((state, previous) => {
     const canvas = fabricRef.current

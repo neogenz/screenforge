@@ -62,7 +62,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           accept="image/png,image/jpeg,image/svg+xml"
           onChange={(event) => void handleFileChange(event)}
           className="sr-only"
-          aria-label="Replace image file"
+          aria-label="Remplacer le fichier image"
         />
         <button
           type="button"
@@ -74,7 +74,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           )}
         >
           <Upload size={11} strokeWidth={1.5} />
-          Replace
+          Remplacer
         </button>
         {fileError && (
           <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
@@ -85,10 +85,10 @@ export function ImageSection({ layer }: ImageSectionProps) {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Shadow</span>
+          <span className="mono-label-strong">Ombre</span>
           <Toggle
             active={!!layer.shadow}
-            label="Toggle image shadow"
+            label="Activer l’ombre"
             onToggle={handleShadowToggle}
           />
         </div>
@@ -103,7 +103,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
                     update({ shadow: { ...layer.shadow!, offsetX: clampNumber(e.target.value, -500, 500) } })
                   }
                   className="input"
-                  aria-label="Shadow X offset"
+                  aria-label="Décalage X de l’ombre"
                 />
               </Field>
               <Field label="Y">
@@ -114,11 +114,11 @@ export function ImageSection({ layer }: ImageSectionProps) {
                     update({ shadow: { ...layer.shadow!, offsetY: clampNumber(e.target.value, -500, 500) } })
                   }
                   className="input"
-                  aria-label="Shadow Y offset"
+                  aria-label="Décalage Y de l’ombre"
                 />
               </Field>
             </div>
-            <Field label="Blur">
+            <Field label="Flou">
               <input
                 type="number"
                 min={0}
@@ -127,10 +127,10 @@ export function ImageSection({ layer }: ImageSectionProps) {
                   update({ shadow: { ...layer.shadow!, blur: clampNumber(e.target.value, 0, 500) } })
                 }
                 className="input"
-                aria-label="Shadow blur"
+                aria-label="Flou de l’ombre"
               />
             </Field>
-            <Field label="Color">
+            <Field label="Couleur">
               <ColorPicker
                 value={layer.shadow.color}
                 onChange={(color) => update({ shadow: { ...layer.shadow!, color } })}

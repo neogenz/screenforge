@@ -68,7 +68,7 @@ export default function App() {
           useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       } else {
-        useProjectStore.getState().createProject('Untitled Project')
+        useProjectStore.getState().createProject('Projet sans titre')
         const project = useProjectStore.getState().project
         const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
           ?? project?.screens[0]
@@ -110,7 +110,7 @@ export default function App() {
         )}
       </div>
 
-      <footer className="relative z-20 box-border h-32 shrink-0 overflow-x-auto overflow-y-visible">
+      <footer className="relative z-20 box-border h-36 shrink-0 overflow-x-auto overflow-y-visible">
         <ScreensBar />
       </footer>
 

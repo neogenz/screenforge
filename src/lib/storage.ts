@@ -127,7 +127,7 @@ export function normalizeProject(value: unknown): Project {
     id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
     name: typeof candidate.name === 'string' && candidate.name.trim()
       ? candidate.name
-      : 'Untitled Project',
+      : 'Projet sans titre',
     screens,
     activeScreenId,
     globals,

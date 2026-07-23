@@ -137,9 +137,29 @@ export interface ExportConfig {
 
 // ─── Device & Orientation ────────────────────────────────────────────────────
 
-export type DeviceModel = 'iphone-16-pro-max' | 'iphone-16-pro' | 'iphone-16'
+export type DeviceModel =
+  | 'iphone-17-pro-max'
+  | 'iphone-17-pro'
+  | 'iphone-17'
+  | 'iphone-air'
+  | 'iphone-16-plus'
+  | 'iphone-16'
+  | 'iphone-16e'
+  // Legacy — kept so older projects still render
+  | 'iphone-16-pro-max'
+  | 'iphone-16-pro'
 
 export type DeviceColor =
+  | 'cosmic-orange'
+  | 'deep-blue'
+  | 'silver'
+  | 'lavender'
+  | 'sage'
+  | 'mist-blue'
+  | 'sky-blue'
+  | 'light-gold'
+  | 'cloud-white'
+  | 'space-black'
   | 'black-titanium'
   | 'white-titanium'
   | 'natural-titanium'

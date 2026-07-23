@@ -26,9 +26,9 @@ export function PropertiesPanel() {
 
   const selectedLayer = selectedLayers.length === 1 ? selectedLayers[0] : null
 
-  let headerLabel = 'Background'
-  if (selectedLayers.length === 1) headerLabel = 'Properties'
-  else if (selectedLayers.length > 1) headerLabel = 'Multi-select'
+  let headerLabel = 'Arrière-plan'
+  if (selectedLayers.length === 1) headerLabel = 'Propriétés'
+  else if (selectedLayers.length > 1) headerLabel = 'Sélection'
 
   return (
     <aside
@@ -56,7 +56,6 @@ export function PropertiesPanel() {
       {selectedLayers.length > 1 && (
         <div className="p-3">
           <div className="surface-inner px-4 py-6 text-center">
-            <p className="mono-label mb-2">Selection</p>
             <p className="text-[12px] leading-relaxed text-foreground-muted">
               {selectedLayers.length} calques sélectionnés.
             </p>
@@ -75,8 +74,8 @@ export function PropertiesPanel() {
                 <p className="mono-label-strong">Portée</p>
                 <p className="mt-1 text-[10px] leading-relaxed text-muted">
                   {selectedLayer.scope === 'layout'
-                    ? 'Continu sur toutes les captures.'
-                    : 'Limité à la capture active.'}
+                    ? 'Partagé — visible sur tous les écrans.'
+                    : 'Visible sur cet écran uniquement.'}
                 </p>
               </div>
               <button
@@ -88,23 +87,23 @@ export function PropertiesPanel() {
                 )}
                 className="btn-secondary shrink-0"
               >
-                {selectedLayer.scope === 'layout' ? 'Vers cet écran' : 'Panorama'}
+                {selectedLayer.scope === 'layout' ? 'Limiter à cet écran' : 'Partager partout'}
               </button>
             </div>
           </div>
 
-          <Section title="Transform" defaultOpen>
+          <Section title="Transformation" defaultOpen>
             <TransformSection layer={selectedLayer} />
           </Section>
 
           {selectedLayer.type === 'text' && (
-            <Section title="Text" defaultOpen>
+            <Section title="Texte" defaultOpen>
               <TextSection layer={selectedLayer as TextLayer} />
             </Section>
           )}
 
           {selectedLayer.type === 'device-frame' && (
-            <Section title="Device" defaultOpen>
+            <Section title="Appareil" defaultOpen>
               <DeviceSection layer={selectedLayer as DeviceFrameLayer} />
             </Section>
           )}
@@ -116,7 +115,7 @@ export function PropertiesPanel() {
           )}
 
           {selectedLayer.type === 'shape' && (
-            <Section title="Shape" defaultOpen>
+            <Section title="Forme" defaultOpen>
               <ShapeSection layer={selectedLayer as ShapeLayer} />
             </Section>
           )}

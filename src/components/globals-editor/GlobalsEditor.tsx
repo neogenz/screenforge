@@ -5,7 +5,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
-import { DEVICE_FRAMES } from '@/assets/device-frames'
+import { CURRENT_DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
 import { cn } from '@/lib/utils'
 import type { GlobalSettings, DeviceModel, DeviceColor } from '@/types'
 
@@ -50,7 +50,7 @@ export function GlobalsEditor() {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] animate-[fade-in_0.14s_ease-out]"
       role="dialog"
       aria-modal="true"
-      aria-label="Global settings editor"
+      aria-label="Réglages globaux du projet"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose()
       }}
@@ -64,13 +64,13 @@ export function GlobalsEditor() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex flex-col gap-0.5">
-            <span className="mono-label">Defaults</span>
-            <h2 className="text-[15px] font-medium text-foreground">Globals</h2>
+            <span className="mono-label">Défauts</span>
+            <h2 className="text-[15px] font-medium text-foreground">Réglages globaux</h2>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Close globals editor"
+            aria-label="Fermer les réglages globaux"
             className="icon-btn"
           >
             <X size={14} strokeWidth={1.5} />
@@ -81,10 +81,10 @@ export function GlobalsEditor() {
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
           {/* Typography */}
           <section>
-            <h3 className="mono-label-strong mb-3 block">Typography</h3>
+            <h3 className="mono-label-strong mb-3 block">Typographie</h3>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mono-label mb-1.5 block">Family</label>
+                <label className="mono-label mb-1.5 block">Police</label>
                 <FontPicker
                   value={draft.fontFamily}
                   onChange={(fontFamily) => update({ fontFamily })}
@@ -92,7 +92,7 @@ export function GlobalsEditor() {
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="mono-label mb-1.5 block">Weight</label>
+                  <label className="mono-label mb-1.5 block">Graisse</label>
                   <select
                     value={draft.fontWeight}
                     onChange={(e) => update({ fontWeight: parseInt(e.target.value, 10) })}
@@ -104,7 +104,7 @@ export function GlobalsEditor() {
                   </select>
                 </div>
                 <div className="w-24">
-                  <label className="mono-label mb-1.5 block">Size</label>
+                  <label className="mono-label mb-1.5 block">Taille</label>
                   <input
                     type="number"
                     min={8}
@@ -115,12 +115,12 @@ export function GlobalsEditor() {
                       if (!isNaN(v) && v >= 8) update({ fontSize: v })
                     }}
                     className="input"
-                    aria-label="Font size"
+                    aria-label="Taille de police"
                   />
                 </div>
               </div>
               <div>
-                <label className="mono-label mb-1.5 block">Color</label>
+                <label className="mono-label mb-1.5 block">Couleur</label>
                 <ColorPicker
                   value={draft.fontColor}
                   onChange={(fontColor) => update({ fontColor })}
@@ -133,7 +133,7 @@ export function GlobalsEditor() {
 
           {/* Background */}
           <section>
-            <h3 className="mono-label-strong mb-3 block">Background</h3>
+            <h3 className="mono-label-strong mb-3 block">Arrière-plan</h3>
             <BackgroundEditor
               background={draft.background}
               onChange={(background) => update({ background })}
@@ -144,29 +144,32 @@ export function GlobalsEditor() {
 
           {/* Device */}
           <section>
-            <h3 className="mono-label-strong mb-3 block">Device</h3>
+            <h3 className="mono-label-strong mb-3 block">Appareil</h3>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mono-label mb-1.5 block">Model</label>
+                <label className="mono-label mb-1.5 block">Modèle</label>
                 <select
                   value={draft.deviceModel}
                   onChange={(e) => {
                     const model = e.target.value as DeviceModel
-                    const frame = DEVICE_FRAMES.find((f) => f.model === model)
+                    const frame = getDeviceFrame(model)
                     const firstColor = frame?.colors[0]?.name ?? draft.deviceColor
                     update({ deviceModel: model, deviceColor: firstColor })
                   }}
                   className="input"
                 >
-                  {DEVICE_FRAMES.map((f) => (
-                    <option key={f.model} value={f.model}>{f.modelName}</option>
+                  {(getDeviceFrame(draft.deviceModel).current
+                    ? CURRENT_DEVICE_FRAMES
+                    : [getDeviceFrame(draft.deviceModel), ...CURRENT_DEVICE_FRAMES]
+                  ).map((f) => (
+                    <option key={f.model} value={f.model}>{f.modelName} · {f.screenSize}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mono-label mb-2 block">Color</label>
+                <label className="mono-label mb-2 block">Couleur</label>
                 <div className="flex flex-wrap gap-2">
-                  {(DEVICE_FRAMES.find((f) => f.model === draft.deviceModel)?.colors ?? []).map((c) => {
+                  {getDeviceFrame(draft.deviceModel).colors.map((c) => {
                     const selected = draft.deviceColor === c.name
                     return (
                       <button
@@ -199,14 +202,14 @@ export function GlobalsEditor() {
             onClick={handleClose}
             className="btn-secondary"
           >
-            Cancel
+            Annuler
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="btn-primary"
           >
-            Save defaults
+            Enregistrer les défauts
           </button>
         </div>
       </div>
