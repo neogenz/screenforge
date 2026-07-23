@@ -14,21 +14,17 @@ export function LayersPanel() {
     layers,
     selectedLayerIds,
     addLayer,
-    removeLayer,
-    updateLayer,
     selectLayer,
+    selectLayers,
     reorderLayer,
-    duplicateLayer,
   } = useCanvasStore(
     useShallow((state) => ({
       layers: state.layers,
       selectedLayerIds: state.selectedLayerIds,
       addLayer: state.addLayer,
-      removeLayer: state.removeLayer,
-      updateLayer: state.updateLayer,
       selectLayer: state.selectLayer,
+      selectLayers: state.selectLayers,
       reorderLayer: state.reorderLayer,
-      duplicateLayer: state.duplicateLayer,
     })),
   )
 
@@ -49,6 +45,18 @@ export function LayersPanel() {
         .sort((first, second) => second.zIndex - first.zIndex),
     },
   ].filter((group) => group.layers.length > 0)
+
+  function handleSelect(event: React.MouseEvent, layer: Layer) {
+    if (event.metaKey || event.ctrlKey) {
+      selectLayers(
+        selectedLayerIds.includes(layer.id)
+          ? selectedLayerIds.filter((id) => id !== layer.id)
+          : [...selectedLayerIds, layer.id],
+      )
+    } else {
+      selectLayer(layer.id)
+    }
+  }
 
   function handleDragStart(event: React.DragEvent, id: string) {
     dragSourceId.current = id
@@ -226,17 +234,8 @@ export function LayersPanel() {
                 key={layer.id}
                 layer={layer}
                 isSelected={selectedLayerIds.includes(layer.id)}
-                onSelect={() => selectLayer(layer.id)}
-                onToggleVisibility={() => updateLayer(layer.id, { visible: !layer.visible })}
-                onToggleLock={() => updateLayer(layer.id, { locked: !layer.locked })}
-                onRename={(name) => updateLayer(layer.id, { name })}
-                onDuplicate={() => duplicateLayer(layer.id)}
-                onDelete={() => removeLayer(layer.id)}
-                onMoveForward={() => reorderLayer(
-                  layer.id,
-                  Math.min(group.layers.length - 1, layer.zIndex + 1),
-                )}
-                onMoveBackward={() => reorderLayer(layer.id, Math.max(0, layer.zIndex - 1))}
+                onSelect={(event) => handleSelect(event, layer)}
+                onSelectExclusive={() => selectLayer(layer.id)}
                 onDragStart={(event) => handleDragStart(event, layer.id)}
                 onDragOver={(event) => {
                   event.preventDefault()
@@ -280,7 +279,7 @@ function DeviceAddButton({ onSelect }: { onSelect: (model: DeviceModel) => void 
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'flex h-14 w-full flex-col items-center justify-center gap-1.5 rounded-md',
+          'flex h-12 w-full flex-col items-center justify-center gap-1 rounded-md',
           'border border-border bg-panel-sub text-foreground-muted',
           'transition-colors duration-100 ease-out',
           'hover:border-border-strong hover:bg-surface-hover hover:text-foreground',
@@ -299,8 +298,8 @@ function DeviceAddButton({ onSelect }: { onSelect: (model: DeviceModel) => void 
           role="menu"
           aria-label="Modèle d’iPhone"
           className={cn(
-            'absolute left-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-md border border-border bg-panel p-1',
-            'animate-[fade-in_0.12s_ease-out]',
+            'menu-shadow absolute left-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-panel p-1',
+            'animate-menu-in origin-top',
           )}
         >
           {models.map((frame) => (
@@ -339,7 +338,7 @@ function AddButton({ label, onClick, children }: {
       aria-label={`Ajouter ${label}`}
       onClick={onClick}
       className={cn(
-        'flex h-14 flex-col items-center justify-center gap-1.5 rounded-md',
+        'flex h-12 flex-col items-center justify-center gap-1 rounded-md',
         'border border-border bg-panel-sub text-foreground-muted',
         'transition-colors duration-100 ease-out',
         'hover:border-border-strong hover:bg-surface-hover hover:text-foreground',

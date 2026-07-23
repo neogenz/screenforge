@@ -140,7 +140,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const duplicate: Screen = {
         ...cloneValue(source),
         id: crypto.randomUUID(),
-        name: `${source.name} copy`,
+        name: `${source.name} copie`,
         layers: source.layers.map((layer) => ({
           ...cloneValue(layer),
           id: crypto.randomUUID(),
@@ -276,7 +276,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         const duplicate: Layer = {
           ...cloneValue(layer),
           id: crypto.randomUUID(),
-          name: `${layer.name} copy`,
+          name: `${layer.name} copie`,
           x: layer.x + 16,
           y: layer.y + 16,
           zIndex: screen.layers.length,

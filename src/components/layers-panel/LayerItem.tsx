@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Copy,
   Eye,
@@ -11,20 +11,17 @@ import {
   Type,
   Unlock,
 } from 'lucide-react'
+import { ContextMenu } from '@/components/ui/ContextMenu'
+import { buildLayerMenuItems } from '@/components/ui/layer-menu'
+import { useLayerActions } from '@/hooks/use-layer-actions'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
 
 interface LayerItemProps {
   layer: Layer
   isSelected: boolean
-  onSelect: () => void
-  onToggleVisibility: () => void
-  onToggleLock: () => void
-  onRename: (name: string) => void
-  onDuplicate: () => void
-  onDelete: () => void
-  onMoveForward: () => void
-  onMoveBackward: () => void
+  onSelect: (event: React.MouseEvent) => void
+  onSelectExclusive: () => void
   onDragStart: (event: React.DragEvent) => void
   onDragOver: (event: React.DragEvent) => void
   onDrop: (event: React.DragEvent) => void
@@ -44,30 +41,31 @@ export function LayerItem({
   layer,
   isSelected,
   onSelect,
-  onToggleVisibility,
-  onToggleLock,
-  onRename,
-  onDuplicate,
-  onDelete,
-  onMoveForward,
-  onMoveBackward,
+  onSelectExclusive,
   onDragStart,
   onDragOver,
   onDrop,
 }: LayerItemProps) {
+  const actions = useLayerActions()
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(layer.name)
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!editing) return
+    const frame = requestAnimationFrame(() => inputRef.current?.select())
+    return () => cancelAnimationFrame(frame)
+  }, [editing])
 
   function startRename() {
     setEditName(layer.name)
     setEditing(true)
-    requestAnimationFrame(() => inputRef.current?.select())
   }
 
   function commitRename() {
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== layer.name) onRename(trimmed)
+    if (trimmed && trimmed !== layer.name) actions.rename(layer, trimmed)
     setEditing(false)
   }
 
@@ -76,29 +74,42 @@ export function LayerItem({
     if (event.key === 'Escape') setEditing(false)
   }
 
+  function handleContextMenu(event: React.MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!isSelected) onSelectExclusive()
+    setMenuPosition({ left: event.clientX, top: event.clientY })
+  }
+
   function handleItemKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onSelect()
+      onSelectExclusive()
     } else if (event.key === 'F2') {
       event.preventDefault()
       startRename()
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault()
       event.stopPropagation()
-      onDelete()
+      actions.remove(layer)
     } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
       event.preventDefault()
       event.stopPropagation()
-      onDuplicate()
+      actions.duplicate(layer)
     } else if (event.altKey && event.key === 'ArrowUp') {
       event.preventDefault()
-      onMoveForward()
+      actions.moveForward(layer)
     } else if (event.altKey && event.key === 'ArrowDown') {
       event.preventDefault()
-      onMoveBackward()
+      actions.moveBackward(layer)
     }
+  }
+
+  function handleDoubleClick(event: React.MouseEvent) {
+    if ((event.target as HTMLElement).closest('button, input')) return
+    event.stopPropagation()
+    startRename()
   }
 
   return (
@@ -113,9 +124,11 @@ export function LayerItem({
       onDragOver={onDragOver}
       onDrop={onDrop}
       onClick={onSelect}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-sm px-2',
+        'group flex h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-2',
         'transition-colors duration-100 ease-out focus-visible:ring-1 focus-visible:ring-border-strong',
         isSelected
           ? 'bg-surface-active text-foreground'
@@ -133,16 +146,10 @@ export function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-sm border border-border bg-panel px-1.5 py-1 text-[12px] outline-none focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-sm border border-border bg-panel px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
         />
       ) : (
-        <span
-          className="flex-1 truncate text-[12px]"
-          onDoubleClick={(event) => {
-            event.stopPropagation()
-            startRename()
-          }}
-        >
+        <span className="flex-1 truncate text-[12px]">
           {layer.name}
         </span>
       )}
@@ -150,7 +157,7 @@ export function LayerItem({
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <LayerAction
           label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
-          onClick={onToggleVisibility}
+          onClick={() => actions.setVisibility(layer, !layer.visible)}
         >
           {layer.visible
             ? <Eye size={11} strokeWidth={1.5} aria-hidden />
@@ -158,16 +165,16 @@ export function LayerItem({
         </LayerAction>
         <LayerAction
           label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
-          onClick={onToggleLock}
+          onClick={() => actions.setLocked(layer, !layer.locked)}
         >
           {layer.locked
             ? <Lock size={11} strokeWidth={1.5} aria-hidden />
             : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
         </LayerAction>
-        <LayerAction label="Dupliquer le calque" onClick={onDuplicate}>
+        <LayerAction label="Dupliquer le calque" onClick={() => actions.duplicate(layer)}>
           <Copy size={11} strokeWidth={1.5} aria-hidden />
         </LayerAction>
-        <LayerAction label="Supprimer le calque" danger onClick={onDelete}>
+        <LayerAction label="Supprimer le calque" danger onClick={() => actions.remove(layer)}>
           <Trash2 size={11} strokeWidth={1.5} aria-hidden />
         </LayerAction>
       </div>
@@ -177,6 +184,15 @@ export function LayerItem({
           {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-faint" />}
           {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-faint" />}
         </div>
+      )}
+
+      {menuPosition && (
+        <ContextMenu
+          position={menuPosition}
+          label={`Actions de ${layer.name}`}
+          onClose={() => setMenuPosition(null)}
+          items={buildLayerMenuItems(layer, actions, { onRename: startRename })}
+        />
       )}
     </div>
   )

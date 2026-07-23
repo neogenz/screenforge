@@ -6,7 +6,7 @@ import {
   Rect,
   Shadow,
   Textbox,
-  type FabricObject,
+  util,
 } from 'fabric'
 import {
   SCREEN_HEIGHT,
@@ -75,32 +75,17 @@ function sameIds(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index])
 }
 
-function layerTouchesScreen(layer: Layer, screenIndex: number): boolean {
-  return layer.x < (screenIndex + 1) * SCREEN_WIDTH
-    && layer.x + layer.width > screenIndex * SCREEN_WIDTH
-}
-
 /**
- * Single shared layer selected: return every screen instance it touches (plus
- * always the interactive active-screen instance) so the control box wraps the
- * full panorama span — selected render == deselected render.
+ * Maps store selection to canvas objects. A shared (layout) layer resolves to
+ * its active-screen instance only: each instance is a full clipped clone, so
+ * wrapping the panorama union in one ActiveSelection produced a giant
+ * misaligned control box — and rotating/scaling that union wrote back garbage.
  */
 function resolveSelectionObjects(
   project: Project,
   objectsById: Map<string, RenderedObject>,
   selectedIds: string[],
 ): RenderedObject[] {
-  if (selectedIds.length === 1) {
-    const layer = project.layoutLayers.find((candidate) => candidate.id === selectedIds[0])
-    if (layer) {
-      const instances = project.screens.flatMap((screen, index) => {
-        if (screen.id !== project.activeScreenId && !layerTouchesScreen(layer, index)) return []
-        const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
-        return object ? [object] : []
-      })
-      if (instances.length > 0) return instances
-    }
-  }
   return selectedIds.flatMap((id) => {
     const object = objectsById.get(id)
       ?? objectsById.get(`layout:${id}:${project.activeScreenId}`)
@@ -117,6 +102,7 @@ export function useCanvas() {
   const ignoreSelectionCleared = useRef(false)
   const panning = useRef(false)
   const interacting = useRef(false)
+  const applyingStoreSelection = useRef(false)
   const panPoint = useRef<{ x: number; y: number } | null>(null)
   const selectionFromCanvas = useRef(false)
   const thumbnailTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -237,6 +223,26 @@ export function useCanvas() {
     ])
     setZoom(zoom)
   }, [setZoom])
+
+  /**
+   * Resolves the store layer under a native pointer event, for the on-canvas
+   * context menu. Layout instances expose their shared `layerId`; chrome
+   * objects (background, label) are not evented and never match.
+   */
+  const getLayerIdAtPoint = useCallback((event: MouseEvent): string | null => {
+    const canvas = fabricRef.current
+    if (!canvas) return null
+    const target = canvas.findTarget(event)?.target as RenderedObject | undefined
+    const data = target?.data
+    if (data) {
+      const id = data.layerId ?? data.uid
+      if (id) return id
+    }
+    // Click inside an active multi-selection: keep it and target any member.
+    const selected = useCanvasStore.getState().selectedLayerIds
+    if (target instanceof ActiveSelection) return selected[0] ?? null
+    return null
+  }, [])
 
   const sync = useCallback(async (project: Project) => {
     const canvas = fabricRef.current
@@ -511,8 +517,15 @@ export function useCanvas() {
       height: Math.max(1, Math.floor(bounds.height)),
       selection: true,
       preserveObjectStacking: true,
+      // Let contextmenu events bubble to React — CanvasEditor renders its own menu.
+      stopContextMenu: false,
     })
     fabricRef.current = canvas
+    if (import.meta.env.DEV) {
+      const dbg = window as unknown as { __sfCanvas?: Canvas; __sfFabric?: unknown }
+      dbg.__sfCanvas = canvas
+      dbg.__sfFabric = { Rect, ActiveSelection, Point, util }
+    }
 
     canvas.on('object:modified', (event) => {
       if (syncing.current || !event.target) return
@@ -598,9 +611,10 @@ export function useCanvas() {
       useCanvasStore.getState().syncLayersFromProject()
     })
 
-    function handleSelection(objects: FabricObject[]) {
-      if (syncing.current) return
-      const renderedObjects = objects as RenderedObject[]
+    function handleSelection() {
+      if (syncing.current || applyingStoreSelection.current) return
+      // `selection:updated` only reports the delta — read the full selection.
+      const renderedObjects = canvas.getActiveObjects() as RenderedObject[]
       const ids = [...new Set(renderedObjects.flatMap((object) => {
         const id = object.data?.layerId ?? object.data?.uid
         return id ? [id] : []
@@ -633,10 +647,15 @@ export function useCanvas() {
       const activeObjects = canvas.getActiveObjects() as RenderedObject[]
       if (activeObjects.length === targets.length
         && targets.every((target) => activeObjects.includes(target))) return
+      // Swallow the echo selection events fired by these mutations.
+      applyingStoreSelection.current = true
       if (targets.length === 0) canvas.discardActiveObject()
       else if (targets.length === 1) canvas.setActiveObject(targets[0])
       else canvas.setActiveObject(new ActiveSelection(targets, { canvas }))
       canvas.requestRenderAll()
+      queueMicrotask(() => {
+        applyingStoreSelection.current = false
+      })
     }
 
     const unsubscribeStoreSelection = useCanvasStore.subscribe((state, previous) => {
@@ -697,10 +716,10 @@ export function useCanvas() {
       }
     })
 
-    canvas.on('selection:created', (event) => handleSelection(event.selected ?? []))
-    canvas.on('selection:updated', (event) => handleSelection(event.selected ?? []))
+    canvas.on('selection:created', () => handleSelection())
+    canvas.on('selection:updated', () => handleSelection())
     canvas.on('selection:cleared', () => {
-      if (ignoreSelectionCleared.current) return
+      if (ignoreSelectionCleared.current || applyingStoreSelection.current) return
       if (!syncing.current) useCanvasStore.getState().clearSelection()
     })
 
@@ -849,5 +868,5 @@ export function useCanvas() {
     canvas.requestRenderAll()
   }), [fitAll])
 
-  return { canvasRef, containerRef }
+  return { canvasRef, containerRef, getLayerIdAtPoint }
 }

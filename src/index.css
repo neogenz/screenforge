@@ -79,6 +79,7 @@
 
   --animate-fade-in: fade-in 0.14s var(--ease-out);
   --animate-slide-up: slide-up 0.16s var(--ease-out);
+  --animate-menu-in: menu-in 0.12s var(--ease-out);
 
   @keyframes fade-in {
     from {
@@ -86,6 +87,16 @@
     }
     to {
       opacity: 1;
+    }
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-2px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
   @keyframes slide-up {
@@ -227,14 +238,15 @@
   }
 
   /* ── Action buttons: mono ALL CAPS in all cases, distinguished by fill ── */
+  /* Dense desktop chrome: 30px secondary, 36px primary, 40px hit via padding */
   /* Secondary: outlined pill */
   .btn-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: 44px;
-    padding: 0 14px;
+    height: 30px;
+    padding: 0 12px;
     background: transparent;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
@@ -261,7 +273,7 @@
     border-color: var(--color-foreground);
   }
   .btn-secondary:active {
-    transform: scale(0.97);
+    transform: scale(0.96);
   }
   .btn-secondary[disabled] {
     pointer-events: none;
@@ -274,7 +286,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: 44px;
+    height: 36px;
     padding: 0 14px;
     background: var(--color-foreground);
     border: 1px solid var(--color-foreground);
@@ -299,7 +311,7 @@
     box-shadow: 0 0 0 2px var(--color-panel), 0 0 0 3px var(--color-foreground);
   }
   .btn-primary:active {
-    transform: scale(0.97);
+    transform: scale(0.96);
   }
   .btn-primary[disabled] {
     pointer-events: none;
@@ -308,7 +320,7 @@
 
   /* Tighter primary variant for inline toolbar use */
   .btn-primary-sm {
-    height: 44px;
+    height: 30px;
     padding: 0 12px;
   }
 
@@ -410,6 +422,31 @@
   .light .surface-modal {
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
   }
+  .menu-shadow {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .light .menu-shadow {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Images: subtle depth outline (pure black/white per theme, never tinted) */
+  .img-outline {
+    outline: 1px solid rgba(255, 255, 255, 0.1);
+    outline-offset: -1px;
+  }
+  .light .img-outline {
+    outline: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  /* Extend small icon buttons to a 40px hit area without resizing them */
+  .hit-40 {
+    position: relative;
+  }
+  .hit-40::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
 
   /* Accent: red — the ONE event per screen (export, active artboard) */
   .btn-accent {
@@ -417,7 +454,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: 44px;
+    height: 36px;
     padding: 0 14px;
     background: var(--color-primary);
     border: 1px solid var(--color-primary);
@@ -442,7 +479,7 @@
     box-shadow: 0 0 0 2px var(--color-panel), 0 0 0 3px var(--color-primary);
   }
   .btn-accent:active {
-    transform: scale(0.97);
+    transform: scale(0.96);
   }
   .btn-accent[disabled] {
     pointer-events: none;
@@ -474,13 +511,13 @@
     border-color: var(--color-foreground-muted);
   }
 
-  /* ── Icon button (toolbar-style) ── */
+  /* ── Icon button (toolbar-style) — 32px visual, dense desktop chrome ── */
   .icon-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--radius-md);

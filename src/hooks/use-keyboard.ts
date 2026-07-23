@@ -86,7 +86,7 @@ export function useKeyboard(): void {
           const newLayer: Layer = {
             ...layer,
             id: crypto.randomUUID(),
-            name: `${layer.name} copy`,
+            name: `${layer.name} copie`,
             x: layer.x + 20,
             y: layer.y + 20,
             zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,
@@ -112,7 +112,7 @@ export function useKeyboard(): void {
             const duplicate: Layer = {
               ...layer,
               id: crypto.randomUUID(),
-              name: `${layer.name} copy`,
+              name: `${layer.name} copie`,
               x: layer.x + 16,
               y: layer.y + 16,
               zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,

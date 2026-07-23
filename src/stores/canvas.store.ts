@@ -334,7 +334,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           {
             ...cloneValue(source),
             id: crypto.randomUUID(),
-            name: `${source.name} copy`,
+            name: `${source.name} copie`,
             x: source.x + 16,
             y: source.y + 16,
             zIndex: project.layoutLayers.length,

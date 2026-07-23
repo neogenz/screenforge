@@ -39,7 +39,19 @@ npm run lint
 
 # Type check
 npm run typecheck
+
+# E2E tests (Playwright, requires chromium — `npx playwright install chromium` once)
+npm run test:e2e
+
+# Validate an exported ZIP against App Store rules
+npm run validate:export -- <file.zip>
 ```
+
+## Testing
+
+- E2E specs live in `e2e/`, driven through the real UI (aria labels) plus a dev-only debug handle `window.__sfCanvas` (exposed by `use-canvas` only when `import.meta.env.DEV`) for state assertions.
+- Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class.
+- `e2e/export.spec.ts` verifies the exported ZIP is pixel-exact (1320×2868, PNG-24 opaque) — the critical path.
 
 ## Architecture
 
@@ -116,7 +128,7 @@ src/
 ### UI/UX
 
 - **Accessibility first**: contrast 4.5:1, visible focus rings, keyboard navigation, `aria-label` on icon-only buttons.
-- Touch targets: min 44x44px, 8px+ spacing between interactive elements.
+- Dense desktop chrome: controls 28-36px visual height (toolbar icon buttons 32px, panel buttons 30px, primary CTAs 36px); extend hit areas with pseudo-elements where feasible.
 - Loading feedback: disable buttons during async ops, show spinner.
 - Animations: 150-300ms duration, respect `prefers-reduced-motion`.
 - Use Lucide React icons consistently — never emoji as icons.

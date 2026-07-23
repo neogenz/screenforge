@@ -38,7 +38,7 @@ export function PropertiesPanel() {
       )}
     >
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
         <span className="mono-label-strong">{headerLabel}</span>
         {selectedLayers.length > 1 && (
           <span className="mono-label tabular-nums">
@@ -140,7 +140,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-10 w-full items-center justify-between gap-1.5 px-3',
+          'flex h-9 w-full items-center justify-between gap-1.5 px-3',
           'mono-label-strong',
           'transition-colors duration-100 ease-out hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',

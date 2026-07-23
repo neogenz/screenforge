@@ -122,7 +122,7 @@ export function Toolbar() {
             aria-label="Zoom arrière"
             onClick={zoomOut}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-l-md text-muted',
+              'flex h-8 w-8 items-center justify-center rounded-l-[5px] text-muted',
               'transition-colors hover:bg-surface-hover hover:text-foreground',
             )}
           >
@@ -148,7 +148,7 @@ export function Toolbar() {
             aria-label="Zoom avant"
             onClick={zoomIn}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-r-md text-muted',
+              'flex h-8 w-8 items-center justify-center rounded-r-[5px] text-muted',
               'transition-colors hover:bg-surface-hover hover:text-foreground',
             )}
           >
@@ -194,7 +194,7 @@ export function Toolbar() {
           title="Exporter les captures App Store"
           aria-label="Ouvrir l’export"
           onClick={() => setShowExportDialog(!showExportDialog)}
-          className="btn-accent ml-1.5 h-9 px-3.5"
+          className="btn-accent ml-1.5"
         >
           <Download size={12} strokeWidth={2} />
           Exporter
