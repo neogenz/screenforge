@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge arbore une UI v3 monochrome ultra-sobre (classe Linear/Vercel) : une seule barre fine en haut, panneaux rétractables, stage maximal, typographie Geist unique, rouge réservé à l'export."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Refonte totale UI v3 — monochrome premium, réduction maximale
