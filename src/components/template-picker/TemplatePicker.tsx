@@ -47,7 +47,7 @@ function TemplatePickerContent() {
           <div className="flex w-full items-center justify-between gap-3">
             <p className="min-w-0 truncate text-[12px] text-foreground-muted">{selected.name}</p>
             <div className="flex shrink-0 items-center gap-2">
-              <Button variant="secondary" onClick={() => handleApply('current')}>
+              <Button variant="default" onClick={() => handleApply('current')}>
                 Appliquer à l’écran actuel
               </Button>
               <Button variant="primary" onClick={() => handleApply('new')}>

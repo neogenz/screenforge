@@ -56,7 +56,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           aria-label="Remplacer le fichier image"
         />
         <Button
-          variant="secondary"
+          variant="default"
           className="w-full"
           onClick={() => fileRef.current?.click()}
         >

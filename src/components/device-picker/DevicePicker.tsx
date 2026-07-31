@@ -89,7 +89,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <Field label="Modèle">
         <Button
           ref={modelButtonRef}
-          variant="secondary"
+          variant="default"
           className="w-full justify-between"
           onClick={() => setModelOpen((open) => !open)}
           aria-label="Modèle d’appareil"

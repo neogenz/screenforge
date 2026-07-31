@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Primitives UI — réécriture du design system `components/ui`

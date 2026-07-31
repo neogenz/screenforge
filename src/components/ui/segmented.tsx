@@ -44,7 +44,7 @@ export function Segmented<T extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               'inline-flex h-6 items-center justify-center gap-1 rounded-md px-2 outline-none',
-              'font-mono text-[10px] font-medium uppercase tracking-[0.06em]',
+              'font-sans text-[11px] font-medium',
               'transition-[background,color] duration-150 ease-out',
               active
                 ? 'border border-border bg-raised text-foreground'

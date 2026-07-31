@@ -139,7 +139,7 @@ export function LayersPanel() {
             <p className="max-w-[190px] text-[11px] leading-relaxed text-faint">
               Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
             </p>
-            <Button variant="secondary" size="sm" className="mt-2" onClick={handleAddDevice}>
+            <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
               Ajouter un cadre iPhone
             </Button>
           </div>

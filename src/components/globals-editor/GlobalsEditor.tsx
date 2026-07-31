@@ -65,7 +65,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
       size="md"
       footer={
         <>
-          <Button variant="secondary" onClick={handleClose}>
+          <Button variant="default" onClick={handleClose}>
             Annuler
           </Button>
           <Button variant="primary" onClick={handleSave}>

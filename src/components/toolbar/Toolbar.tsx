@@ -119,7 +119,7 @@ export function Toolbar() {
       </IconButton>
 
       <Button
-        variant="accent"
+        variant="export"
         size="md"
         aria-label="Ouvrir l’export"
         title="Exporter les captures App Store"

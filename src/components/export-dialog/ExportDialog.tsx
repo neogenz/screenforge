@@ -73,11 +73,11 @@ function ExportDialogContent({ project }: { project: Project }) {
             Aucun téléchargement partiel en cas d’échec.
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <Button variant="secondary" onClick={handleClose} disabled={isExporting}>
+            <Button variant="default" onClick={handleClose} disabled={isExporting}>
               Annuler
             </Button>
             <Button
-              variant="accent"
+              variant="export"
               onClick={() => void handleExport()}
               disabled={isExporting || selectedScreens.length === 0}
             >

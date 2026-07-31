@@ -96,7 +96,7 @@ export function Dialog({
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 id={titleId} className="caps-label-strong">
+          <h2 id={titleId} className="text-[13px] font-semibold text-foreground">
             {title}
           </h2>
           <div className="flex items-center gap-1">

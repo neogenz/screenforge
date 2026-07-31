@@ -189,7 +189,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
         </div>
 
         <Button
-          variant="secondary"
+          variant="default"
           size="sm"
           onClick={addStop}
           disabled={value.stops.length >= 10}
