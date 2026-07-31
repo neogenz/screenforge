@@ -6,6 +6,11 @@ import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
+import {
+  DEFAULT_GRADIENT_FROM,
+  DEFAULT_GRADIENT_TO_ALT,
+  DEFAULT_SOLID_COLOR,
+} from '@/lib/content-defaults'
 
 interface BackgroundEditorProps {
   background: Background
@@ -18,8 +23,8 @@ const DEFAULT_GRADIENT: GradientFill = {
   type: 'linear',
   angle: 135,
   stops: [
-    { offset: 0, color: '#6366f1' },
-    { offset: 1, color: '#a855f7' },
+    { offset: 0, color: DEFAULT_GRADIENT_FROM },
+    { offset: 1, color: DEFAULT_GRADIENT_TO_ALT },
   ],
 }
 
@@ -107,14 +112,14 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
     }
     setShowPresets(false)
     if (tab === 'solid' && background.type !== 'solid') {
-      onChange({ type: 'solid', color: '#6366f1' })
+      onChange({ type: 'solid', color: DEFAULT_SOLID_COLOR })
     }
     if (tab === 'gradient' && background.type === 'solid') {
       onChange(gradientFillToBackground(DEFAULT_GRADIENT))
     }
   }
 
-  const solidColor = background.type === 'solid' ? background.color : '#6366f1'
+  const solidColor = background.type === 'solid' ? background.color : DEFAULT_SOLID_COLOR
   const gradientFill = backgroundToGradientFill(background)
 
   return (
@@ -152,7 +157,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
                   selected
-                    ? 'border-export ring-1 ring-export'
+                    ? 'border-foreground-muted'
                     : 'border-border hover:border-border-strong',
                 )}
               />

@@ -6,6 +6,7 @@ import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
+import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
   value: GradientFill
@@ -62,7 +63,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     if (value.stops.length >= 10) return
     const sorted = value.stops.slice().sort((a: ColorStop, b: ColorStop) => a.offset - b.offset)
     if (sorted.length < 2) {
-      onChange({ ...value, stops: [...value.stops, { offset: 1, color: '#ffffff' }] })
+      onChange({ ...value, stops: [...value.stops, { offset: 1, color: DEFAULT_STOP_COLOR }] })
       return
     }
     const last = sorted[sorted.length - 1]

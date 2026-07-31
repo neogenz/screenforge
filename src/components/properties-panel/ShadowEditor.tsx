@@ -1,9 +1,10 @@
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { NumberField } from '@/components/ui/number-field'
 import { Switch } from '@/components/ui/switch'
+import { DEFAULT_SHADOW_COLOR } from '@/lib/content-defaults'
 import type { TextShadow } from '@/types'
 
-const DEFAULT_SHADOW: TextShadow = { offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.4)' }
+const DEFAULT_SHADOW: TextShadow = { offsetX: 4, offsetY: 4, blur: 8, color: DEFAULT_SHADOW_COLOR }
 
 export interface ShadowEditorProps {
   shadow: TextShadow | undefined

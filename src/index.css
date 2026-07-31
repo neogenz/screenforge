@@ -305,31 +305,6 @@
     inset: -8px;
   }
 
-  /* ── Input (legacy — migré vers la primitive Input, phases 2/4) ── */
-  .input {
-    height: 28px;
-    width: 100%;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 0 8px;
-    font-family: var(--font-sans);
-    font-size: 12px;
-    color: var(--color-foreground);
-    transition: border-color 0.12s var(--ease-out),
-      background 0.12s var(--ease-out);
-    outline: none;
-  }
-  .input:hover {
-    border-color: var(--color-border-strong);
-  }
-  .input:focus {
-    border-color: var(--color-foreground-muted);
-  }
-  .input:focus-visible {
-    border-color: var(--color-foreground-muted);
-  }
-
   .hairline {
     height: 1px;
     background: var(--color-border);
@@ -393,19 +368,6 @@ input[type="range"]::-moz-range-track {
   height: 2px;
   border-radius: 999px;
   background: transparent;
-}
-
-/* Select — caret neutre (remplacé par le wrapper Select en phase 4) */
-select {
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2374746e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 1.75rem;
-}
-.light select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238a8a85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* Scrollbar — fine */

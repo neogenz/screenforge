@@ -1,9 +1,10 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/components/canvas/canvas-utils'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
 
-const WIDTH = 440
-const HEIGHT = 956
+const WIDTH = SCREEN_WIDTH
+const HEIGHT = SCREEN_HEIGHT
 
 interface TemplatePreviewProps {
   template: TemplateDefinition

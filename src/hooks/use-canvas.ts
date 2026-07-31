@@ -25,6 +25,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { stageInsets } from '@/lib/stage'
+import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
 
@@ -401,7 +402,7 @@ export function useCanvas() {
             selectable: false,
             evented: false,
             strokeUniform: true,
-            shadow: new Shadow({ color: 'rgba(0,0,0,0.35)', blur: 24, offsetY: 4 }),
+            shadow: new Shadow({ color: DEFAULT_CANVAS_SHADOW_COLOR, blur: 24, offsetY: 4 }),
           })
           background.set('data', {
             uid: backgroundId,

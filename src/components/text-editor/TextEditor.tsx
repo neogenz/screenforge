@@ -7,7 +7,10 @@ import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
+import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
 import { FontPicker } from './FontPicker'
 import type { GradientFill, Layer, TextLayer } from '@/types'
 
@@ -21,8 +24,8 @@ const DEFAULT_GRADIENT: GradientFill = {
   type: 'linear',
   angle: 90,
   stops: [
-    { offset: 0, color: '#6366f1' },
-    { offset: 1, color: '#8b5cf6' },
+    { offset: 0, color: DEFAULT_GRADIENT_FROM },
+    { offset: 1, color: DEFAULT_GRADIENT_TO },
   ],
 }
 
@@ -64,12 +67,12 @@ export function TextEditor({ layer }: TextEditorProps) {
   return (
     <div className="flex flex-col gap-3">
       <Field label="Contenu">
-        <textarea
+        <Textarea
           value={layer.content}
           onChange={(event) =>
             update({ content: event.target.value }, { coalesceKey: `layer:${layer.id}:content` })
           }
-          className="input h-20 resize-y py-2 leading-snug"
+          className="h-20 resize-y"
           aria-label="Contenu du texte"
         />
       </Field>
@@ -87,10 +90,9 @@ export function TextEditor({ layer }: TextEditorProps) {
       />
 
       <Field label="Graisse">
-        <select
+        <Select
           value={layer.fontWeight}
           onChange={(event) => update({ fontWeight: Number(event.target.value) })}
-          className="input"
           aria-label="Graisse de la police"
         >
           {weights.map((weight) => (
@@ -98,7 +100,7 @@ export function TextEditor({ layer }: TextEditorProps) {
               {weight}
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
 
       <Field label="Couleur">

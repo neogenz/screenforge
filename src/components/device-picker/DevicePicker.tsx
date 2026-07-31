@@ -9,8 +9,10 @@ import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
+import { SwatchButton } from '@/components/ui/swatch-button'
 import { Switch } from '@/components/ui/switch'
 import { registerAsset, resolveAsset } from '@/lib/assets'
+import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
 import { decodeImage, readAsDataUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
@@ -29,7 +31,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
   const shadowEnabled = layer.shadowEnabled ?? false
   const shadowBlur = layer.shadowBlur ?? 0
-  const shadowColor = layer.shadowColor ?? 'rgba(0,0,0,0.3)'
+  const shadowColor = layer.shadowColor ?? DEFAULT_DEVICE_SHADOW_COLOR
   const shadowOffsetX = layer.shadowOffsetX ?? 0
   const shadowOffsetY = layer.shadowOffsetY ?? 0
   const shadowCoalesceKey = `layer:${layer.id}:shadow`
@@ -122,26 +124,16 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       <Field label="Couleur">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
-          {config.colors.map((color) => {
-            const selected = deviceColor === color.name
-            return (
-              <button
-                key={color.name}
-                type="button"
-                onClick={() => onUpdate({ deviceColor: color.name })}
-                title={color.label}
-                aria-label={color.label}
-                aria-pressed={selected}
-                className={cn(
-                  'h-7 w-7 rounded-full border-2 transition-[border-color] duration-150 ease-out',
-                  selected
-                    ? 'border-export'
-                    : 'border-transparent hover:border-border-strong',
-                )}
-                style={{ backgroundColor: color.frame }}
-              />
-            )
-          })}
+          {config.colors.map((color) => (
+            <SwatchButton
+              key={color.name}
+              color={color.frame}
+              selected={deviceColor === color.name}
+              onClick={() => onUpdate({ deviceColor: color.name })}
+              title={color.label}
+              aria-label={color.label}
+            />
+          ))}
         </div>
       </Field>
 

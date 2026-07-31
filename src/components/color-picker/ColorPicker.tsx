@@ -64,9 +64,10 @@ function isValidHex(hex: string): boolean {
 }
 
 /** Functional alpha cue: neutral checkerboard painted under translucent swatches. */
+const CHECKER_COLOR = 'color-mix(in oklch, var(--color-foreground-muted) 55%, transparent)'
 const CHECKER_IMAGE = [
-  'linear-gradient(45deg, oklch(0.55 0 0) 25%, transparent 25%, transparent 75%, oklch(0.55 0 0) 75%)',
-  'linear-gradient(45deg, oklch(0.55 0 0) 25%, transparent 25%, transparent 75%, oklch(0.55 0 0) 75%)',
+  `linear-gradient(45deg, ${CHECKER_COLOR} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR} 75%)`,
+  `linear-gradient(45deg, ${CHECKER_COLOR} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR} 75%)`,
 ].join(', ')
 
 export function ColorPicker({ value, onChange, showOpacity = false }: ColorPickerProps) {
@@ -148,7 +149,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               aria-hidden="true"
               className="absolute inset-0"
               style={{
-                backgroundColor: 'oklch(0.92 0 0)',
+                backgroundColor: 'var(--color-panel)',
                 backgroundImage: CHECKER_IMAGE,
                 backgroundSize: '8px 8px',
                 backgroundPosition: '0 0, 4px 4px',

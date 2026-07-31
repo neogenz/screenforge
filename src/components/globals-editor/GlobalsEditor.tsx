@@ -9,7 +9,8 @@ import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
-import { cn } from '@/lib/utils'
+import { Select } from '@/components/ui/select'
+import { SwatchButton } from '@/components/ui/swatch-button'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
 const FONT_WEIGHTS: { value: number; label: string }[] = [
@@ -87,16 +88,15 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
             </Field>
             <div className="flex gap-3">
               <Field label="Graisse" className="flex-1">
-                <select
+                <Select
                   value={draft.fontWeight}
                   onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
-                  className="input"
                   aria-label="Graisse de police par défaut"
                 >
                   {FONT_WEIGHTS.map((weight) => (
                     <option key={weight.value} value={weight.value}>{weight.label}</option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <Field label="Taille" className="w-28">
                 <NumberField
@@ -136,10 +136,9 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
           <h3 className="caps-label-strong mb-3">Appareil</h3>
           <div className="flex flex-col gap-3">
             <Field label="Modèle">
-              <select
+              <Select
                 value={draft.deviceModel}
                 onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
-                className="input"
                 aria-label="Modèle d’appareil par défaut"
               >
                 {modelOptions.map((option) => (
@@ -147,30 +146,20 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                     {option.modelName} · {option.screenSize}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Couleur">
               <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil par défaut">
-                {frame.colors.map((color) => {
-                  const selected = draft.deviceColor === color.name
-                  return (
-                    <button
-                      key={color.name}
-                      type="button"
-                      title={color.label}
-                      onClick={() => update({ deviceColor: color.name })}
-                      className={cn(
-                        'h-7 w-7 rounded-full border transition-[border-color,transform] duration-100 ease-out',
-                        selected
-                          ? 'scale-110 border-foreground'
-                          : 'border-border hover:border-border-strong',
-                      )}
-                      style={{ backgroundColor: color.frame }}
-                      aria-label={color.label}
-                      aria-pressed={selected}
-                    />
-                  )
-                })}
+                {frame.colors.map((color) => (
+                  <SwatchButton
+                    key={color.name}
+                    color={color.frame}
+                    selected={draft.deviceColor === color.name}
+                    onClick={() => update({ deviceColor: color.name })}
+                    title={color.label}
+                    aria-label={color.label}
+                  />
+                ))}
               </div>
             </Field>
           </div>

@@ -7,6 +7,7 @@ import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { Switch } from '@/components/ui/switch'
+import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO, DEFAULT_STROKE_COLOR } from '@/lib/content-defaults'
 import type { GradientFill, Layer, ShapeLayer } from '@/types'
 
 interface ShapeSectionProps {
@@ -27,7 +28,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
   }
 
   const fillIsGradient = typeof layer.fill !== 'string'
-  const fillColor = typeof layer.fill === 'string' ? layer.fill : '#6366f1'
+  const fillColor = typeof layer.fill === 'string' ? layer.fill : DEFAULT_GRADIENT_FROM
 
   function handleGradientToggle(gradientOn: boolean) {
     if (gradientOn) {
@@ -35,8 +36,8 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         type: 'linear',
         angle: 90,
         stops: [
-          { offset: 0, color: '#6366f1' },
-          { offset: 1, color: '#8b5cf6' },
+          { offset: 0, color: DEFAULT_GRADIENT_FROM },
+          { offset: 1, color: DEFAULT_GRADIENT_TO },
         ],
       }
       update({ fill: gradient })
@@ -101,7 +102,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         <span className="caps-label-strong">Contour</span>
         <Field label="Couleur">
           <ColorPicker
-            value={layer.stroke ?? '#000000'}
+            value={layer.stroke ?? DEFAULT_STROKE_COLOR}
             onChange={(stroke) => update({ stroke }, { coalesceKey: `layer:${layer.id}:stroke` })}
           />
         </Field>

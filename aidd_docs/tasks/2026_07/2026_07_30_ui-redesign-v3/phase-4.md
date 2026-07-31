@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Panneaux & éditeurs — restyle complet des composants feature

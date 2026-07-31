@@ -92,7 +92,7 @@ function ExportDialogContent({ project }: { project: Project }) {
     >
       {/* -m-4 cancels the Dialog body padding so the columns stay flush. */}
       <div className="-m-4 flex flex-col">
-        <div className="grid grid-cols-[minmax(0,1fr)_240px]">
+        <div className="grid grid-cols-[minmax(0,1fr)_220px]">
           <section
             className="max-h-[52dvh] overflow-y-auto border-r border-border px-5 py-4"
             aria-labelledby="export-screens-title"

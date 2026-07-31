@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { POPULAR_FONTS, isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
@@ -48,24 +49,20 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
 
   return (
     <>
-      <button
+      <Button
         ref={triggerRef}
         id={id}
-        type="button"
+        variant="default"
+        size="sm"
         onClick={() => setOpen((current) => !current)}
-        className={cn(
-          'flex h-7 w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-2',
-          'font-sans text-[12px] text-foreground',
-          'transition-[border-color] duration-150 ease-out hover:border-border-strong',
-          'focus-visible:outline-none focus-visible:border-foreground-muted',
-        )}
+        className="h-7 w-full justify-between font-normal normal-case"
         aria-label={`Police : ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="truncate">{value}</span>
         <ChevronDown size={11} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
-      </button>
+      </Button>
 
       <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
         <div className="border-b border-border p-1.5">

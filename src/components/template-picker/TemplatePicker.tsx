@@ -73,7 +73,7 @@ function TemplatePickerContent() {
                 'transition-[border-color,box-shadow] duration-150 ease-out',
                 'focus-visible:outline-none focus-visible:border-foreground-muted',
                 isSelected
-                  ? 'border-export ring-1 ring-export'
+                  ? 'border-foreground-muted'
                   : 'border-border hover:border-border-strong',
               )}
             >
@@ -82,7 +82,7 @@ function TemplatePickerContent() {
               </div>
               <div className="flex flex-col gap-1 px-3 py-2.5">
                 <p className="text-[12px] font-medium text-foreground">{template.name}</p>
-                <p className="line-clamp-2 text-[11px] leading-relaxed text-faint">
+                <p className="line-clamp-2 text-[12px] leading-relaxed text-foreground-muted">
                   {template.description}
                 </p>
               </div>

@@ -13,6 +13,7 @@ import {
   Unlock,
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
+import { IconButton } from '@/components/ui/icon-button'
 import { buildLayerMenuItems } from '@/components/ui/layer-menu'
 import { useLayerActions } from '@/hooks/use-layer-actions'
 import { cn } from '@/lib/utils'
@@ -134,7 +135,7 @@ export const LayerItem = memo(function LayerItem({
       onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-1.5',
+        'group flex h-[30px] cursor-pointer select-none items-center gap-2 rounded-md px-1.5',
         'transition-colors duration-100 ease-out focus-visible:ring-1 focus-visible:ring-border-strong',
         isSelected
           ? 'bg-surface-active text-foreground'
@@ -168,28 +169,55 @@ export const LayerItem = memo(function LayerItem({
       )}
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <LayerAction
-          label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
-          onClick={() => actions.setVisibility(layer, !layer.visible)}
+        <IconButton
+          size="sm"
+          aria-label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
+          title={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.setVisibility(layer, !layer.visible)
+          }}
         >
           {layer.visible
             ? <Eye size={11} strokeWidth={1.5} aria-hidden />
             : <EyeOff size={11} strokeWidth={1.5} aria-hidden />}
-        </LayerAction>
-        <LayerAction
-          label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
-          onClick={() => actions.setLocked(layer, !layer.locked)}
+        </IconButton>
+        <IconButton
+          size="sm"
+          aria-label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
+          title={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.setLocked(layer, !layer.locked)
+          }}
         >
           {layer.locked
             ? <Lock size={11} strokeWidth={1.5} aria-hidden />
             : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
-        </LayerAction>
-        <LayerAction label="Dupliquer le calque" onClick={() => actions.duplicate(layer)}>
+        </IconButton>
+        <IconButton
+          size="sm"
+          aria-label="Dupliquer le calque"
+          title="Dupliquer le calque"
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.duplicate(layer)
+          }}
+        >
           <Copy size={11} strokeWidth={1.5} aria-hidden />
-        </LayerAction>
-        <LayerAction label="Supprimer le calque" danger onClick={() => actions.remove(layer)}>
+        </IconButton>
+        <IconButton
+          size="sm"
+          aria-label="Supprimer le calque"
+          title="Supprimer le calque"
+          className="hover:text-danger"
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.remove(layer)
+          }}
+        >
           <Trash2 size={11} strokeWidth={1.5} aria-hidden />
-        </LayerAction>
+        </IconButton>
       </div>
 
       {(!layer.visible || layer.locked) && (
@@ -210,33 +238,3 @@ export const LayerItem = memo(function LayerItem({
     </div>
   )
 })
-
-function LayerAction({
-  label,
-  danger = false,
-  onClick,
-  children,
-}: {
-  label: string
-  danger?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={(event) => {
-        event.stopPropagation()
-        onClick()
-      }}
-      className={cn(
-        'flex h-6 w-6 items-center justify-center rounded-sm text-faint transition-colors',
-        danger ? 'hover:bg-surface-hover hover:text-danger' : 'hover:bg-surface-hover hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
-  )
-}

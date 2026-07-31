@@ -10,6 +10,7 @@ import {
 } from 'fabric'
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
+import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import type {
   Background,
   BaseLayer,
@@ -291,7 +292,7 @@ export function applyLayerToFabricObject(
       shadow: layer.shadowEnabled
         ? new Shadow({
             blur: layer.shadowBlur ?? 20,
-            color: layer.shadowColor ?? 'rgba(0,0,0,0.35)',
+            color: layer.shadowColor ?? DEFAULT_CANVAS_SHADOW_COLOR,
             offsetX: layer.shadowOffsetX ?? 0,
             offsetY: layer.shadowOffsetY ?? 12,
           })
