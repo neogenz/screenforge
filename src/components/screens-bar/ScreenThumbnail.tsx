@@ -69,10 +69,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-label={`Activer ${screen.name}`}
         aria-pressed={isActive}
         className={cn(
-          'h-[92px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
+          'h-14 aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
           'border transition-[border-color,transform] duration-150 ease-out active:scale-[0.96]',
           isActive
-            ? 'border-export ring-1 ring-export'
+            ? 'border-foreground-muted bg-surface'
             : 'border-border hover:border-border-strong',
         )}
       >
@@ -122,7 +122,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           'pointer-events-none absolute left-1 top-1 flex h-[15px] min-w-[20px] items-center justify-center px-1',
           'caps-label rounded-[4px] border',
           isActive
-            ? 'border-export bg-export text-on-export'
+            ? 'border-border-strong bg-surface-active text-foreground'
             : 'border-border bg-panel/90 text-foreground-muted',
         )}
       >
@@ -140,15 +140,16 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }
         }}
         className={cn(
-          'hit-40 absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md',
+          'hit-40 absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-sm',
           'border border-border bg-panel/90 text-foreground-muted transition-colors hover:text-foreground',
-          !menuPosition && 'opacity-0 focus:opacity-100 [div:hover>&]:opacity-100',
+          !menuPosition &&
+            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 [div:hover>&]:pointer-events-auto [div:hover>&]:opacity-100',
         )}
         aria-label={`Actions de ${screen.name}`}
         aria-expanded={menuPosition !== null}
         aria-haspopup="menu"
       >
-        <MoreHorizontal size={12} strokeWidth={1.5} aria-hidden />
+        <MoreHorizontal size={10} strokeWidth={1.5} aria-hidden />
       </button>
 
       {menuPosition && (

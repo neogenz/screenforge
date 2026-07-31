@@ -2,7 +2,7 @@ import { Minus, Plus } from 'lucide-react'
 import { useUIStore } from '@/stores/ui.store'
 import { IconButton } from '@/components/ui/icon-button'
 
-/** Floating bottom-right zoom HUD. */
+/** Minimal bottom-right zoom HUD: transparent until hovered. */
 export function ZoomHud() {
   const zoom = useUIStore((s) => s.zoom)
   const zoomIn = useUIStore((s) => s.zoomIn)
@@ -10,7 +10,7 @@ export function ZoomHud() {
   const resetZoom = useUIStore((s) => s.resetZoom)
 
   return (
-    <div className="island flex h-9 items-center gap-0.5 px-1">
+    <div className="flex h-8 items-center gap-0.5 rounded-lg border border-transparent px-1 transition-[background,border-color,box-shadow] duration-150 ease-out hover:border-border hover:bg-panel hover:shadow-island">
       <IconButton size="sm" aria-label="Zoom arrière" title="Zoom arrière (⌘−)" onClick={zoomOut}>
         <Minus size={13} strokeWidth={1.75} />
       </IconButton>

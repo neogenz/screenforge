@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
+import { useUIStore } from '@/stores/ui.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import type { Background, Layer, Project, Screen, TemplateDefinition } from '@/types'
@@ -312,8 +313,14 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       })
     },
 
-    selectLayer: (id) => set({ selectedLayerIds: [id] }),
-    selectLayers: (ids) => set({ selectedLayerIds: ids }),
+    selectLayer: (id) => {
+      set({ selectedLayerIds: [id] })
+      useUIStore.getState().openProps()
+    },
+    selectLayers: (ids) => {
+      set({ selectedLayerIds: ids })
+      if (ids.length > 0) useUIStore.getState().openProps()
+    },
     clearSelection: () => set({ selectedLayerIds: [] }),
 
     reorderLayer: (id, newIndex) => {

@@ -1,11 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { useShallow } from 'zustand/react/shallow'
-import { Toolbar } from '@/components/toolbar/Toolbar'
-import { ProjectIsland } from '@/components/toolbar/ProjectIsland'
+import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
-import { LayersPanel } from '@/components/layers-panel/LayersPanel'
+import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
-import { PropertiesPanel } from '@/components/properties-panel/PropertiesPanel'
+import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
@@ -16,7 +14,6 @@ import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { clearAssets } from '@/lib/assets'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
-import { LAYERS_PANEL_WIDTH, PROPERTIES_PANEL_WIDTH } from '@/lib/stage'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -34,27 +31,7 @@ const GlobalsEditor = lazy(() =>
 export default function App() {
   useKeyboard()
 
-  const {
-    showLayersPanel,
-    showPropertiesPanel,
-    showExportDialog,
-    showTemplatesPicker,
-    showGlobalsEditor,
-    showCommandPalette,
-    showShortcuts,
-    theme,
-  } = useUIStore(
-    useShallow((s) => ({
-      showLayersPanel: s.showLayersPanel,
-      showPropertiesPanel: s.showPropertiesPanel,
-      showExportDialog: s.showExportDialog,
-      showTemplatesPicker: s.showTemplatesPicker,
-      showGlobalsEditor: s.showGlobalsEditor,
-      showCommandPalette: s.showCommandPalette,
-      showShortcuts: s.showShortcuts,
-      theme: s.theme,
-    })),
-  )
+  const theme = useUIStore((s) => s.theme)
 
   useEffect(() => {
     async function init() {
@@ -107,30 +84,11 @@ export default function App() {
       <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-chrome)" />
 
       {/* Floating chrome */}
-      <div className="absolute left-3 top-3 z-(--z-chrome)">
-        <ProjectIsland />
+      <div className="absolute left-3 right-3 top-3 z-(--z-chrome)">
+        <TopBar />
       </div>
-      <div className="absolute left-1/2 top-3 z-(--z-chrome) -translate-x-1/2">
-        <Toolbar />
-      </div>
-
-      {showLayersPanel && (
-        <div
-          className="absolute bottom-[168px] left-3 top-[60px] z-(--z-chrome)"
-          style={{ width: LAYERS_PANEL_WIDTH }}
-        >
-          <LayersPanel />
-        </div>
-      )}
-      {showPropertiesPanel && (
-        <div
-          className="absolute bottom-[168px] right-3 top-[60px] z-(--z-chrome)"
-          style={{ width: PROPERTIES_PANEL_WIDTH }}
-        >
-          <PropertiesPanel />
-        </div>
-      )}
-
+      <LayersDrawer />
+      <PropertiesDrawer />
       <div className="absolute bottom-3 left-1/2 z-(--z-chrome) -translate-x-1/2">
         <ScreensBar />
       </div>
@@ -147,6 +105,20 @@ export default function App() {
         onChange={(event) => void handleImageImport(event)}
       />
 
+      <Overlays />
+    </div>
+  )
+}
+
+function Overlays() {
+  const showCommandPalette = useUIStore((s) => s.showCommandPalette)
+  const showShortcuts = useUIStore((s) => s.showShortcuts)
+  const showExportDialog = useUIStore((s) => s.showExportDialog)
+  const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
+  const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
+
+  return (
+    <>
       <CommandPalette
         open={showCommandPalette}
         onClose={() => useUIStore.getState().setShowCommandPalette(false)}
@@ -162,6 +134,6 @@ export default function App() {
         {showTemplatesPicker && <TemplatePicker />}
         {showGlobalsEditor && <GlobalsEditor />}
       </Suspense>
-    </div>
+    </>
   )
 }

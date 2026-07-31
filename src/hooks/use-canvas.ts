@@ -309,8 +309,7 @@ export function useCanvas() {
   }, [])
 
   const fitAll = useCallback((canvas: Canvas, screenCount: number) => {
-    const { showLayersPanel, showPropertiesPanel } = useUIStore.getState()
-    const insets = stageInsets(showLayersPanel, showPropertiesPanel)
+    const insets = stageInsets()
     const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
     const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
     const totalWidth = getTotalWidth(screenCount)
@@ -1038,8 +1037,7 @@ export function useCanvas() {
     if (!canvas || !project) return
     const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
     if (screenIndex === -1) return
-    const { showLayersPanel, showPropertiesPanel } = useUIStore.getState()
-    const insets = stageInsets(showLayersPanel, showPropertiesPanel)
+    const insets = stageInsets()
     const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
     const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
     const padding = 48
@@ -1064,9 +1062,7 @@ export function useCanvas() {
   useEffect(() => useUIStore.subscribe((state, previous) => {
     const canvas = fabricRef.current
     if (!canvas) return
-    const panelsChanged = state.showLayersPanel !== previous.showLayersPanel
-      || state.showPropertiesPanel !== previous.showPropertiesPanel
-    if (state.viewportResetKey !== previous.viewportResetKey || panelsChanged) {
+    if (state.viewportResetKey !== previous.viewportResetKey) {
       const project = useProjectStore.getState().project
       if (project) {
         fitAll(canvas, project.screens.length)

@@ -7,8 +7,8 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 interface UIState {
   zoom: number
   viewportResetKey: number
-  showLayersPanel: boolean
-  showPropertiesPanel: boolean
+  layersOpen: boolean
+  propsOpen: boolean
   activeTool: ActiveTool
   showExportDialog: boolean
   showTemplatesPicker: boolean
@@ -22,8 +22,10 @@ interface UIState {
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
-  toggleLayersPanel: () => void
-  togglePropertiesPanel: () => void
+  toggleLayers: () => void
+  toggleProps: () => void
+  openProps: () => void
+  closeDrawers: () => void
   setActiveTool: (tool: ActiveTool) => void
   setShowExportDialog: (show: boolean) => void
   setShowTemplatesPicker: (show: boolean) => void
@@ -55,8 +57,8 @@ function getInitialTheme(): Theme {
 export const useUIStore = create<UIState>()((set) => ({
   zoom: 1,
   viewportResetKey: 0,
-  showLayersPanel: true,
-  showPropertiesPanel: true,
+  layersOpen: true,
+  propsOpen: true,
   activeTool: 'select',
   showExportDialog: false,
   showTemplatesPicker: false,
@@ -75,11 +77,15 @@ export const useUIStore = create<UIState>()((set) => ({
   resetZoom: () =>
     set((s) => ({ zoom: 1, viewportResetKey: s.viewportResetKey + 1 })),
 
-  toggleLayersPanel: () =>
-    set((state) => ({ showLayersPanel: !state.showLayersPanel })),
+  toggleLayers: () =>
+    set((state) => ({ layersOpen: !state.layersOpen })),
 
-  togglePropertiesPanel: () =>
-    set((state) => ({ showPropertiesPanel: !state.showPropertiesPanel })),
+  toggleProps: () =>
+    set((state) => ({ propsOpen: !state.propsOpen })),
+
+  openProps: () => set({ propsOpen: true }),
+
+  closeDrawers: () => set({ layersOpen: false, propsOpen: false }),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 

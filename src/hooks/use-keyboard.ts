@@ -48,11 +48,26 @@ export function useKeyboard(): void {
         zoomIn,
         zoomOut,
         resetZoom,
+        toggleLayers,
+        toggleProps,
+        closeDrawers,
         setShowTemplatesPicker,
         setShowGlobalsEditor,
         setShowExportDialog,
         setShowShortcuts,
       } = useUIStore.getState()
+
+      // Drawers
+      if (meta && shift && key.toLowerCase() === 'l') {
+        e.preventDefault()
+        toggleLayers()
+        return
+      }
+      if (meta && shift && key.toLowerCase() === 'p') {
+        e.preventDefault()
+        toggleProps()
+        return
+      }
 
       // Shortcuts overlay
       if (key === '?') {
@@ -170,6 +185,10 @@ export function useKeyboard(): void {
         }
         if (ui.showGlobalsEditor) {
           setShowGlobalsEditor(false)
+          return
+        }
+        if (ui.layersOpen || ui.propsOpen) {
+          closeDrawers()
           return
         }
         clearSelection()

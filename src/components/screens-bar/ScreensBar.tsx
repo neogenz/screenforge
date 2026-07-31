@@ -86,7 +86,7 @@ export function ScreensBar() {
     <div
       role="listbox"
       aria-label="Écrans"
-      className="island flex h-[132px] max-w-[min(760px,58vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2.5"
+      className="island flex h-20 max-w-[min(640px,50vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2"
     >
       <span className="mono-value shrink-0 px-1 text-[10px] text-faint tabular-nums">
         {list.length}/{MAX_PROJECT_SCREENS}
@@ -122,7 +122,7 @@ export function ScreensBar() {
         disabled={list.length >= MAX_PROJECT_SCREENS}
         type="button"
         className={cn(
-          'flex aspect-[9/19.5] h-[92px] shrink-0 items-center justify-center self-center',
+          'flex aspect-[9/19.5] h-14 shrink-0 items-center justify-center self-center',
           'rounded-md border border-dashed border-border-strong bg-panel-sub',
           'text-faint transition-colors duration-150 ease-out',
           'hover:border-foreground hover:text-foreground',

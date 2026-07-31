@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Shell — barre unique, drawers rétractables, stage maximal

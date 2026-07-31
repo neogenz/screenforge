@@ -154,13 +154,15 @@ export function getCommands(): Command[] {
       id: 'toggle-layers',
       title: 'Basculer le panneau Calques',
       section: 'Affichage',
-      run: () => ui().toggleLayersPanel(),
+      shortcut: '⌘⇧L',
+      run: () => ui().toggleLayers(),
     },
     {
       id: 'toggle-properties',
       title: 'Basculer le panneau Propriétés',
       section: 'Affichage',
-      run: () => ui().togglePropertiesPanel(),
+      shortcut: '⌘⇧P',
+      run: () => ui().toggleProps(),
     },
     {
       id: 'zoom-in',
