@@ -61,13 +61,15 @@ npm run validate:export -- <file.zip>
 src/
   components/
     ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
-                         # NumberField (scrub), Slider, Segmented, Switch, Field, Dialog,
-                         # Popover, Dropdown, Tooltip, Kbd, CommandPalette, ToastViewport
+                         # NumberField (scrub), Slider, Segmented, Switch, Field, Select,
+                         # Textarea, SwatchButton, Dialog, Popover, Dropdown, Tooltip,
+                         # Kbd, CommandPalette, ToastViewport
     canvas/              # Fabric.js canvas wrapper + interactions
-    toolbar/             # Floating chrome: Toolbar (tools + export), ProjectIsland, ZoomHud
-    layers-panel/        # Layer list (search, groups, DnD), memoized LayerItem
-    properties-panel/    # Properties shell + sections (Transform, Text, Device, Image,
-                         # Shape, Background) + shared ShadowEditor
+    toolbar/             # TopBar (project + tools + export), ZoomHud
+    layers-panel/        # LayersDrawer (overlay) + layer list (search, groups, DnD),
+                         # memoized LayerItem
+    properties-panel/    # PropertiesDrawer (overlay) + sections (Transform, Text, Device,
+                         # Image, Shape, Background) + shared ShadowEditor
     screens-bar/         # Floating screens strip, memoized ScreenThumbnail
     background-editor/   # Solid + gradient + preset backgrounds
     device-picker/       # iPhone frame selection + config
@@ -116,12 +118,13 @@ src/
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
 
-## Design language (v2)
+## Design language (v3)
 
-- **Floating islands**: the canvas is full-bleed; toolbar, panels, screens strip and zoom HUD float above it as `.island` surfaces (12px radius, 1px border, soft shadow). `lib/stage.ts` computes the fit insets.
-- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). Warm graphite; red `#d71921` (`primary`, `primary-strong` for filled buttons) reserved for export + active states; restrained blue for focus only.
-- **Type**: Archivo (UI) + Chivo Mono (labels ALL CAPS 10px, tabular values), loaded via `index.html`. Content fonts (text layers) still load on demand.
-- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants). Legacy recipe classes were removed; only `.island`, `.surface-inner`, `.surface-modal`, `.menu-shadow`, `.mono-*`, `.input`, `.hairline`, `.img-outline`, `.hit-40` remain as global classes.
+- **Réduction maximale**: the canvas is full-bleed; a single top bar (`TopBar`, h-11) holds project identity, tools and the Export CTA. Layers/Properties are overlay **drawers** (⌘⇧L / ⌘⇧P, Escape closes them before deselecting) — `lib/stage.ts` is the single source for chrome geometry; `stageInsets()` reserves only bar, filmstrip and margins (drawers never move the artboard).
+- **Monochrome**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). Warm graphite near-neutral; accent is white (`foreground`); red `#d71921` (`export` tokens) is reserved for the Export CTA only — active/selected states are always neutral (`border-foreground-muted`, `bg-surface-active`). Focus ring is neutral, no blue anywhere.
+- **Type**: Geist (UI) + Geist Mono (tabular values), loaded via `index.html`. Labels are `.caps-label` (Geist Sans caps 10px); content fonts (text layers) still load on demand.
+- **Elevation & z**: islands/modals 8px radius, controls 6px; shadows only on floating surfaces; z-index only via the 5 named levels `--z-chrome/overlay/modal/popover/toast` (used as `z-(--z-*)`).
+- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (Button variants: `default`/`primary`/`export`/`ghost`/`danger`; plus Select, Textarea, SwatchButton, IconButton…). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
 - Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)

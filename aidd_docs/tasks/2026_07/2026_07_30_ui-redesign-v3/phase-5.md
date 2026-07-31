@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Nettoyage & vérification — mort du legacy, parité thèmes, tests
