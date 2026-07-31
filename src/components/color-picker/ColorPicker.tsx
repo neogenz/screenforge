@@ -205,7 +205,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       {/* Recent colors */}
       {recentColors.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="mono-label">Récents</span>
+          <span className="caps-label">Récents</span>
           <div className="flex flex-wrap gap-1">
             {recentColors.map((color) => (
               <button

@@ -92,10 +92,10 @@ export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'sta
               item.danger ? 'text-danger' : 'text-foreground',
             )}
           >
-            {item.icon && <span className="shrink-0 text-muted" aria-hidden>{item.icon}</span>}
+            {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
             <span className="min-w-0 flex-1 truncate text-[12px]">{item.label}</span>
             {item.meta && (
-              <span className="mono-value shrink-0 text-[10px] text-muted">{item.meta}</span>
+              <span className="mono-value shrink-0 text-[10px] text-faint">{item.meta}</span>
             )}
             {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
           </button>

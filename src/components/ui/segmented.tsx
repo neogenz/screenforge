@@ -48,7 +48,7 @@ export function Segmented<T extends string>({
               'transition-[background,color] duration-150 ease-out',
               active
                 ? 'border border-border bg-raised text-foreground'
-                : 'border border-transparent text-muted hover:text-foreground',
+                : 'border border-transparent text-faint hover:text-foreground',
             )}
           >
             {option.icon}

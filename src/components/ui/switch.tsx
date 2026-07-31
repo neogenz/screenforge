@@ -19,7 +19,7 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
       className={cn(
         'inline-flex h-4 w-7 shrink-0 items-center rounded-full border px-0.5 outline-none',
         'transition-[background,border-color] duration-150 ease-out',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground-muted',
         checked ? 'border-foreground bg-foreground' : 'border-border-strong bg-surface',
         disabled && 'pointer-events-none opacity-40',
       )}
@@ -28,7 +28,7 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
         aria-hidden
         className={cn(
           'h-2.5 w-2.5 rounded-full transition-transform duration-150 ease-out',
-          checked ? 'translate-x-3 bg-panel' : 'translate-x-0 bg-muted',
+          checked ? 'translate-x-3 bg-panel' : 'translate-x-0 bg-faint',
         )}
       />
     </button>

@@ -73,16 +73,16 @@ function TemplatePickerContent() {
                 'transition-[border-color,box-shadow] duration-150 ease-out',
                 'focus-visible:outline-none focus-visible:border-foreground-muted',
                 isSelected
-                  ? 'border-primary ring-1 ring-primary'
+                  ? 'border-export ring-1 ring-export'
                   : 'border-border hover:border-border-strong',
               )}
             >
-              <div className="h-60 w-full shrink-0 overflow-hidden border-b border-border bg-panel-muted">
+              <div className="h-60 w-full shrink-0 overflow-hidden border-b border-border bg-stage">
                 <TemplatePreview template={template} />
               </div>
               <div className="flex flex-col gap-1 px-3 py-2.5">
                 <p className="text-[12px] font-medium text-foreground">{template.name}</p>
-                <p className="line-clamp-2 text-[11px] leading-relaxed text-muted">
+                <p className="line-clamp-2 text-[11px] leading-relaxed text-faint">
                   {template.description}
                 </p>
               </div>

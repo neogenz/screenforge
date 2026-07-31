@@ -129,7 +129,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
       {activeTab === 'solid' && (
         <div className="flex flex-col gap-1.5">
-          <span className="mono-label">Couleur</span>
+          <span className="caps-label">Couleur</span>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </div>
       )}
@@ -152,7 +152,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
                   selected
-                    ? 'border-primary ring-1 ring-primary'
+                    ? 'border-export ring-1 ring-export'
                     : 'border-border hover:border-border-strong',
                 )}
               />

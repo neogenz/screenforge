@@ -79,7 +79,7 @@ export function Dialog({
   if (!open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-(--z-modal) flex items-center justify-center p-4">
       <div
         aria-hidden
         onClick={onClose}
@@ -96,7 +96,7 @@ export function Dialog({
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 id={titleId} className="mono-label-strong">
+          <h2 id={titleId} className="caps-label-strong">
             {title}
           </h2>
           <div className="flex items-center gap-1">

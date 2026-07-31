@@ -104,19 +104,19 @@ export default function App() {
       <main className="absolute inset-0">
         <CanvasEditor />
       </main>
-      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-10" />
+      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-chrome)" />
 
       {/* Floating chrome */}
-      <div className="absolute left-3 top-3 z-20">
+      <div className="absolute left-3 top-3 z-(--z-chrome)">
         <ProjectIsland />
       </div>
-      <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2">
+      <div className="absolute left-1/2 top-3 z-(--z-chrome) -translate-x-1/2">
         <Toolbar />
       </div>
 
       {showLayersPanel && (
         <div
-          className="absolute bottom-[168px] left-3 top-[60px] z-20"
+          className="absolute bottom-[168px] left-3 top-[60px] z-(--z-chrome)"
           style={{ width: LAYERS_PANEL_WIDTH }}
         >
           <LayersPanel />
@@ -124,17 +124,17 @@ export default function App() {
       )}
       {showPropertiesPanel && (
         <div
-          className="absolute bottom-[168px] right-3 top-[60px] z-20"
+          className="absolute bottom-[168px] right-3 top-[60px] z-(--z-chrome)"
           style={{ width: PROPERTIES_PANEL_WIDTH }}
         >
           <PropertiesPanel />
         </div>
       )}
 
-      <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2">
+      <div className="absolute bottom-3 left-1/2 z-(--z-chrome) -translate-x-1/2">
         <ScreensBar />
       </div>
-      <div className="absolute bottom-3 right-3 z-20">
+      <div className="absolute bottom-3 right-3 z-(--z-chrome)">
         <ZoomHud />
       </div>
 

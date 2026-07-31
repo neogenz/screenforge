@@ -18,14 +18,14 @@ export function ProjectIsland() {
 
   return (
     <div className="island flex h-11 items-center gap-2.5 pl-3.5 pr-1.5">
-      <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-primary" />
+      <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-export" />
       <ProjectName />
       <span
         role="status"
         aria-live="polite"
         className={cn(
-          'mono-label hidden shrink-0 items-center gap-1.5 md:flex',
-          saveStatus === 'error' ? 'text-danger' : 'text-muted',
+          'caps-label hidden shrink-0 items-center gap-1.5 md:flex',
+          saveStatus === 'error' ? 'text-danger' : 'text-faint',
         )}
       >
         {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
@@ -39,7 +39,7 @@ export function ProjectIsland() {
         title="Palette de commandes (⌘K)"
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
-          'flex h-8 items-center gap-1 rounded-lg border border-transparent px-2 text-muted outline-none',
+          'flex h-8 items-center gap-1 rounded-lg border border-transparent px-2 text-faint outline-none',
           'transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-foreground',
           'focus-visible:border-border-strong',
         )}

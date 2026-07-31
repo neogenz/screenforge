@@ -72,7 +72,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           'h-[92px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
           'border transition-[border-color,transform] duration-150 ease-out active:scale-[0.96]',
           isActive
-            ? 'border-primary ring-1 ring-primary'
+            ? 'border-export ring-1 ring-export'
             : 'border-border hover:border-border-strong',
         )}
       >
@@ -109,7 +109,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           title={`${screen.name} — double-clic pour renommer`}
           className={cn(
             'h-4 max-w-24 truncate px-1 text-[10px] leading-4 transition-colors',
-            isActive ? 'text-foreground' : 'text-muted hover:text-foreground',
+            isActive ? 'text-foreground' : 'text-faint hover:text-foreground',
           )}
         >
           {screen.name}
@@ -120,9 +120,9 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-hidden
         className={cn(
           'pointer-events-none absolute left-1 top-1 flex h-[15px] min-w-[20px] items-center justify-center px-1',
-          'mono-label rounded-[4px] border',
+          'caps-label rounded-[4px] border',
           isActive
-            ? 'border-primary bg-primary text-on-primary'
+            ? 'border-export bg-export text-on-export'
             : 'border-border bg-panel/90 text-foreground-muted',
         )}
       >

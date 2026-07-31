@@ -64,7 +64,7 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
         aria-expanded={open}
       >
         <span className="truncate">{value}</span>
-        <ChevronDown size={11} strokeWidth={1.5} className="shrink-0 text-muted" aria-hidden />
+        <ChevronDown size={11} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
       </button>
 
       <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
@@ -83,7 +83,7 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
         <div role="listbox" aria-label="Polices" className="max-h-60 overflow-y-auto p-1">
           {pinned.length > 0 && (
             <>
-              <div role="presentation" className="mono-label px-2 pb-1 pt-1.5">
+              <div role="presentation" className="caps-label px-2 pb-1 pt-1.5">
                 Populaires
               </div>
               {pinned.map((family) => (
@@ -106,7 +106,7 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="mono-label px-2 py-3 text-center">Aucune police trouvée</div>
+            <div className="caps-label px-2 py-3 text-center">Aucune police trouvée</div>
           )}
         </div>
       </Popover>

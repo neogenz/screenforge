@@ -41,7 +41,7 @@ export function ShortcutsOverlay({ open, onClose }: { open: boolean; onClose: ()
       <div className="flex flex-col gap-4">
         {SHORTCUT_GROUPS.map((group) => (
           <section key={group.title}>
-            <h3 className="mono-label pb-2">{group.title}</h3>
+            <h3 className="caps-label pb-2">{group.title}</h3>
             <ul className="flex flex-col gap-1.5">
               {group.entries.map((entry) => (
                 <li key={entry.keys} className="flex items-center justify-between gap-4">

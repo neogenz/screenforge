@@ -108,7 +108,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[16vh]">
+    <div className="fixed inset-0 z-(--z-popover) flex items-start justify-center px-4 pt-[16vh]">
       <div aria-hidden onClick={onClose} className="absolute inset-0 animate-fade-in bg-scrim" />
       <div
         role="dialog"
@@ -117,7 +117,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         className="surface-modal relative w-[min(560px,92vw)] animate-palette-in overflow-hidden"
       >
         <div className="flex items-center gap-2 border-b border-border px-3">
-          <Search size={14} strokeWidth={1.75} className="shrink-0 text-muted" aria-hidden />
+          <Search size={14} strokeWidth={1.75} className="shrink-0 text-faint" aria-hidden />
           <input
             ref={inputRef}
             value={query}
@@ -133,13 +133,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
         <div ref={listRef} role="listbox" aria-label="Commandes" className="max-h-80 overflow-y-auto p-1.5">
           {results.length === 0 && (
-            <p className="px-3 py-6 text-center text-[12px] text-muted">
+            <p className="px-3 py-6 text-center text-[12px] text-faint">
               Aucune commande pour « {query} »
             </p>
           )}
           {grouped.map((group) => (
             <div key={group.section}>
-              <p className="mono-label px-2 pb-1 pt-2.5">{group.section}</p>
+              <p className="caps-label px-2 pb-1 pt-2.5">{group.section}</p>
               {group.commands.map(({ command, index }) => (
                 <button
                   key={command.id}
@@ -164,8 +164,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         <div className="flex items-center gap-3 border-t border-border px-3 py-2">
-          <span className="mono-label flex items-center gap-1"><Kbd>↑↓</Kbd> naviguer</span>
-          <span className="mono-label flex items-center gap-1"><Kbd>↵</Kbd> exécuter</span>
+          <span className="caps-label flex items-center gap-1"><Kbd>↑↓</Kbd> naviguer</span>
+          <span className="caps-label flex items-center gap-1"><Kbd>↵</Kbd> exécuter</span>
         </div>
       </div>
     </div>,

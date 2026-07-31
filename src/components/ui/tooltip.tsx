@@ -56,7 +56,7 @@ export function Tooltip({ label, children, side = 'top', delay = 350 }: TooltipP
           role="tooltip"
           style={{ left: position.left, top: position.top }}
           className={cn(
-            'menu-shadow pointer-events-none fixed z-[100] -translate-x-1/2 animate-fade-in',
+            'menu-shadow pointer-events-none fixed z-(--z-popover) -translate-x-1/2 animate-fade-in',
             'whitespace-nowrap rounded-md border border-border bg-raised px-1.5 py-1',
             'font-mono text-[10px] text-foreground-muted',
             side === 'top' ? '-translate-y-full' : 'translate-y-0',

@@ -232,7 +232,7 @@ function LayerAction({
         onClick()
       }}
       className={cn(
-        'flex h-6 w-6 items-center justify-center rounded-sm text-muted transition-colors',
+        'flex h-6 w-6 items-center justify-center rounded-sm text-faint transition-colors',
         danger ? 'hover:bg-surface-hover hover:text-danger' : 'hover:bg-surface-hover hover:text-foreground',
       )}
     >

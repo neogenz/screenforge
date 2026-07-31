@@ -44,9 +44,9 @@ export function PropertiesPanel() {
     <aside className="island flex h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="mono-label-strong">{headerLabel}</span>
+        <span className="caps-label-strong">{headerLabel}</span>
         {selectedLayers.length > 1 && (
-          <span className="mono-value text-[10px] text-muted">
+          <span className="mono-value text-[10px] text-faint">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
@@ -65,7 +65,7 @@ export function PropertiesPanel() {
               <p className="text-[12px] leading-relaxed text-foreground-muted">
                 {selectedLayers.length} calques sélectionnés.
               </p>
-              <p className="mt-1 text-[11px] text-muted">
+              <p className="mt-1 text-[11px] text-faint">
                 Sélectionnez un seul calque pour éditer.
               </p>
             </div>
@@ -135,7 +135,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex h-8 w-full items-center gap-1.5 px-3',
-          'mono-label-strong',
+          'caps-label-strong',
           'transition-colors duration-150 ease-out hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         )}
@@ -146,7 +146,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
           strokeWidth={1.5}
           aria-hidden
           className={cn(
-            'shrink-0 text-muted transition-transform duration-150 ease-out',
+            'shrink-0 text-faint transition-transform duration-150 ease-out',
             open && 'rotate-90',
           )}
         />

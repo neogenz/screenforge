@@ -88,7 +88,7 @@ export function Popover({
         visibility: position ? 'visible' : 'hidden',
       }}
       className={cn(
-        'menu-shadow z-[90] animate-menu-in overflow-hidden rounded-xl border border-border bg-raised',
+        'menu-shadow z-(--z-popover) animate-menu-in overflow-hidden rounded-xl border border-border bg-raised',
         side === 'bottom' ? 'origin-top' : 'origin-bottom',
         className,
       )}

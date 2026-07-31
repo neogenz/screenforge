@@ -61,7 +61,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
       role="menu"
       aria-label={label}
       className={cn(
-        'menu-shadow fixed z-[100] min-w-[180px] rounded-lg border border-border bg-panel p-1',
+        'menu-shadow fixed z-(--z-popover) min-w-[180px] rounded-lg border border-border bg-panel p-1',
         'animate-menu-in origin-top',
       )}
       style={{ left, top }}
@@ -89,7 +89,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
             {item.icon}
             <span className="truncate">{item.label}</span>
             {item.shortcut && (
-              <span className="mono-value ml-auto pl-4 text-[10px] text-muted">{item.shortcut}</span>
+              <span className="mono-value ml-auto pl-4 text-[10px] text-faint">{item.shortcut}</span>
             )}
           </button>
         ),

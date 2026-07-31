@@ -101,10 +101,10 @@ export function LayersPanel() {
 
   return (
     <div className="island flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border-faint px-3 pb-2.5 pt-3">
+      <div className="shrink-0 border-b border-border px-3 pb-2.5 pt-3">
         <div className="flex items-center justify-between">
-          <span className="mono-label-strong">Calques</span>
-          <span className="mono-value text-[10px] text-muted">
+          <span className="caps-label-strong">Calques</span>
+          <span className="mono-value text-[10px] text-faint">
             {String(layers.length).padStart(2, '0')}
           </span>
         </div>
@@ -113,7 +113,7 @@ export function LayersPanel() {
             size={13}
             strokeWidth={1.5}
             aria-hidden
-            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted"
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint"
           />
           <Input
             font="sans"
@@ -136,7 +136,7 @@ export function LayersPanel() {
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <Smartphone size={20} strokeWidth={1.5} className="text-faint" aria-hidden />
             <p className="text-[12px] text-foreground-muted">Écran vide.</p>
-            <p className="max-w-[190px] text-[11px] leading-relaxed text-muted">
+            <p className="max-w-[190px] text-[11px] leading-relaxed text-faint">
               Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
             </p>
             <Button variant="secondary" size="sm" className="mt-2" onClick={handleAddDevice}>
@@ -146,14 +146,14 @@ export function LayersPanel() {
         )}
 
         {layers.length > 0 && layerGroups.length === 0 && (
-          <p className="py-6 text-center text-[11px] text-muted">
+          <p className="py-6 text-center text-[11px] text-faint">
             Aucun calque pour « {query.trim()} »
           </p>
         )}
 
         {layerGroups.map((group) => (
           <div key={group.label} role="group" aria-label={group.label}>
-            <p className="mono-label px-2 pb-1 pt-3">{group.label}</p>
+            <p className="caps-label px-2 pb-1 pt-3">{group.label}</p>
             {group.layers.map((layer) => (
               <LayerItem
                 key={layer.id}

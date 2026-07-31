@@ -40,9 +40,9 @@ function readChromeColors(): ChromeColors {
   const themed = document.getElementById('root')?.firstElementChild ?? document.documentElement
   const styles = getComputedStyle(themed as Element)
   return {
-    label: styles.getPropertyValue('--color-muted').trim() || '#74746e',
+    label: styles.getPropertyValue('--color-faint').trim() || '#74746e',
     artboardRing: styles.getPropertyValue('--color-artboard-ring').trim() || 'rgba(255,255,255,0.14)',
-    activeRing: styles.getPropertyValue('--color-primary').trim() || '#d71921',
+    activeRing: styles.getPropertyValue('--color-export').trim() || '#d71921',
   }
 }
 

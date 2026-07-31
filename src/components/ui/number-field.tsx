@@ -103,7 +103,7 @@ export function NumberField({
         onPointerMove={handleScrubMove}
         onPointerUp={handleScrubUp}
         onPointerCancel={handleScrubUp}
-        className="mono-label shrink-0 cursor-ew-resize touch-none select-none py-1"
+        className="caps-label shrink-0 cursor-ew-resize touch-none select-none py-1"
         title={`${ariaLabel} — glisser pour ajuster`}
       >
         {label}

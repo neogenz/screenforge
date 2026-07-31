@@ -31,7 +31,7 @@ export function ShadowEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="mono-label-strong">{title}</span>
+        <span className="caps-label-strong">{title}</span>
         <Switch
           ariaLabel={ariaLabel}
           checked={!!shadow}
@@ -67,7 +67,7 @@ export function ShadowEditor({
             max={500}
           />
           <div className="flex flex-col gap-1.5">
-            <span className="mono-label">Couleur</span>
+            <span className="caps-label">Couleur</span>
             <ColorPicker
               value={shadow.color}
               onChange={(color) => patch({ color })}

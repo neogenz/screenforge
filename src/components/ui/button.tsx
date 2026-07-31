@@ -15,11 +15,11 @@ const buttonVariants = cva(
         primary:
           'border border-foreground bg-foreground text-panel hover:bg-foreground-muted hover:border-foreground-muted',
         accent:
-          'border border-primary-strong bg-primary-strong text-on-primary hover:bg-primary-strong-hover hover:border-primary-strong-hover',
+          'border border-export-strong bg-export-strong text-on-export hover:bg-export-strong-hover hover:border-export-strong-hover',
         secondary:
           'border border-border bg-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground hover:border-border-strong',
         ghost:
-          'border border-transparent bg-transparent text-muted hover:bg-surface-hover hover:text-foreground',
+          'border border-transparent bg-transparent text-faint hover:bg-surface-hover hover:text-foreground',
         danger:
           'border border-border bg-transparent text-danger hover:bg-danger-soft hover:border-danger',
       },

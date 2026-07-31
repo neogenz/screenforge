@@ -3,7 +3,7 @@ import { useToastStore, type ToastTone } from '@/stores/toast.store'
 import { cn } from '@/lib/utils'
 
 const TONE_ICON: Record<ToastTone, React.ReactNode> = {
-  info: <Info size={13} strokeWidth={1.75} className="text-muted" aria-hidden />,
+  info: <Info size={13} strokeWidth={1.75} className="text-faint" aria-hidden />,
   success: <CircleCheck size={13} strokeWidth={1.75} className="text-success" aria-hidden />,
   error: <TriangleAlert size={13} strokeWidth={1.75} className="text-danger" aria-hidden />,
 }
@@ -13,7 +13,7 @@ export function ToastViewport() {
   const dismiss = useToastStore((s) => s.dismiss)
   if (toasts.length === 0) return null
   return (
-    <div className="pointer-events-none fixed bottom-4 left-4 z-[110] flex flex-col gap-2">
+    <div className="pointer-events-none fixed bottom-4 left-4 z-(--z-toast) flex flex-col gap-2">
       {toasts.map((item) => (
         <button
           key={item.id}

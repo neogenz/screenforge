@@ -88,7 +88,7 @@ export function ScreensBar() {
       aria-label="Écrans"
       className="island flex h-[132px] max-w-[min(760px,58vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2.5"
     >
-      <span className="mono-value shrink-0 px-1 text-[10px] text-muted tabular-nums">
+      <span className="mono-value shrink-0 px-1 text-[10px] text-faint tabular-nums">
         {list.length}/{MAX_PROJECT_SCREENS}
       </span>
       {list.map((screen, index) => (
@@ -124,7 +124,7 @@ export function ScreensBar() {
         className={cn(
           'flex aspect-[9/19.5] h-[92px] shrink-0 items-center justify-center self-center',
           'rounded-md border border-dashed border-border-strong bg-panel-sub',
-          'text-muted transition-colors duration-150 ease-out',
+          'text-faint transition-colors duration-150 ease-out',
           'hover:border-foreground hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
           'focus-visible:outline-none focus-visible:border-foreground',
