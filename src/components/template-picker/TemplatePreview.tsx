@@ -1,4 +1,5 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
+import { resolveAsset } from '@/lib/assets'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
 
 const WIDTH = 440
@@ -17,7 +18,7 @@ export function TemplatePreview({ template }: TemplatePreviewProps) {
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="block h-full w-full"
       role="img"
-      aria-label={`${template.name} template preview`}
+      aria-label={`Aperçu du modèle ${template.name}`}
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>
@@ -107,7 +108,11 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
 
   if (layer.type === 'device-frame') {
     const config = getDeviceFrame(layer.deviceModel)
-    const svg = generateDeviceFrameSVG(config, layer.deviceColor, layer.screenshotUrl)
+    const svg = generateDeviceFrameSVG(
+      config,
+      layer.deviceColor,
+      resolveAsset(layer.screenshotAssetId),
+    )
     return (
       <image
         transform={transform}
@@ -122,10 +127,12 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
     )
   }
 
+  const imageSrc = resolveAsset(layer.assetId)
+  if (!imageSrc) return null
   return (
     <image
       transform={transform}
-      href={layer.src}
+      href={imageSrc}
       x={layer.x}
       y={layer.y}
       width={layer.width}

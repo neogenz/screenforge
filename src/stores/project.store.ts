@@ -3,7 +3,7 @@ import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import type { GlobalSettings, Layer, Project, Screen } from '@/types'
 
 export const DEFAULT_GLOBALS: GlobalSettings = {
-  fontFamily: 'Space Grotesk',
+  fontFamily: 'Archivo',
   fontWeight: 700,
   fontSize: 48,
   fontColor: '#1a1a1a',
@@ -62,7 +62,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   createProject: (name) => {
     const now = Date.now()
     const globals = cloneValue(DEFAULT_GLOBALS)
-    const screen = createDefaultScreen('Screen 1', globals)
+    const screen = createDefaultScreen('Écran 1', globals)
     set({
       project: {
         id: crypto.randomUUID(),
@@ -107,7 +107,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           layers: cloneValue(content.layers),
           background: cloneValue(content.background),
         }
-      : createDefaultScreen(`Screen ${project.screens.length + 1}`, project.globals)
+      : createDefaultScreen(`Écran ${project.screens.length + 1}`, project.globals)
     set({
       project: withTimestamp(project, {
         screens: [...project.screens, screen],

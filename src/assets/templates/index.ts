@@ -18,7 +18,7 @@ function textLayer(
     opacity: 1,
     locked: false,
     visible: true,
-    fontFamily: 'Space Grotesk',
+    fontFamily: 'Archivo',
     fontSize: 48,
     fontWeight: 700,
     color: '#0b6b32',

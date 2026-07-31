@@ -1,0 +1,81 @@
+import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { NumberField } from '@/components/ui/number-field'
+import { Switch } from '@/components/ui/switch'
+import type { TextShadow } from '@/types'
+
+const DEFAULT_SHADOW: TextShadow = { offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.4)' }
+
+export interface ShadowEditorProps {
+  shadow: TextShadow | undefined
+  onChange: (shadow: TextShadow | undefined, options?: { coalesceKey?: string }) => void
+  /** Switch accessible name, e.g. "Activer l’ombre". */
+  ariaLabel: string
+  /** Burst key forwarded on every continuous edit. */
+  coalesceKey: string
+  title?: string
+}
+
+/** Unified shadow editor (was copy-pasted across four feature editors). */
+export function ShadowEditor({
+  shadow,
+  onChange,
+  ariaLabel,
+  coalesceKey,
+  title = 'Ombre',
+}: ShadowEditorProps) {
+  function patch(updates: Partial<TextShadow>) {
+    if (!shadow) return
+    onChange({ ...shadow, ...updates }, { coalesceKey })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="mono-label-strong">{title}</span>
+        <Switch
+          ariaLabel={ariaLabel}
+          checked={!!shadow}
+          onChange={(checked) => onChange(checked ? { ...DEFAULT_SHADOW } : undefined)}
+        />
+      </div>
+      {shadow && (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="X"
+              ariaLabel="Décalage X de l’ombre"
+              value={shadow.offsetX}
+              onChange={(offsetX) => patch({ offsetX })}
+              min={-500}
+              max={500}
+            />
+            <NumberField
+              label="Y"
+              ariaLabel="Décalage Y de l’ombre"
+              value={shadow.offsetY}
+              onChange={(offsetY) => patch({ offsetY })}
+              min={-500}
+              max={500}
+            />
+          </div>
+          <NumberField
+            label="Flou"
+            ariaLabel="Flou de l’ombre"
+            value={shadow.blur}
+            onChange={(blur) => patch({ blur })}
+            min={0}
+            max={500}
+          />
+          <div className="flex flex-col gap-1.5">
+            <span className="mono-label">Couleur</span>
+            <ColorPicker
+              value={shadow.color}
+              onChange={(color) => patch({ color })}
+              showOpacity
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

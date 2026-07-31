@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import type { Background, GradientFill, ColorStop } from '@/types'
+import type { Background, ColorStop, GradientFill } from '@/types'
 import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
 
 interface BackgroundEditorProps {
@@ -20,6 +22,12 @@ const DEFAULT_GRADIENT: GradientFill = {
     { offset: 1, color: '#a855f7' },
   ],
 }
+
+const TAB_OPTIONS: SegmentedOption<Tab>[] = [
+  { value: 'solid', label: 'Uni' },
+  { value: 'gradient', label: 'Dégradé' },
+  { value: 'presets', label: 'Préréglages' },
+]
 
 function backgroundToGradientFill(bg: Background): GradientFill {
   if (bg.type === 'linear-gradient') {
@@ -61,11 +69,20 @@ function tabFromBackground(bg: Background): Tab {
   return 'gradient'
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'solid', label: 'Uni' },
-  { id: 'gradient', label: 'Dégradé' },
-  { id: 'presets', label: 'Préréglages' },
-]
+function stopsEqual(a: ColorStop[], b: ColorStop[]): boolean {
+  return a.length === b.length
+    && a.every((stop, index) => stop.offset === b[index].offset && stop.color === b[index].color)
+}
+
+function isPresetActive(preset: Background, current: Background): boolean {
+  if (preset.type === 'linear-gradient' && current.type === 'linear-gradient') {
+    return preset.angle === current.angle && stopsEqual(preset.stops, current.stops)
+  }
+  if (preset.type === 'radial-gradient' && current.type === 'radial-gradient') {
+    return stopsEqual(preset.stops, current.stops)
+  }
+  return false
+}
 
 export function BackgroundEditor({ background, onChange }: BackgroundEditorProps) {
   const [showPresets, setShowPresets] = useState(false)
@@ -81,10 +98,9 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
   function handlePresetClick(preset: Background) {
     onChange(preset)
-    setShowPresets(false)
   }
 
-  function handleTabClick(tab: Tab) {
+  function handleTabChange(tab: Tab) {
     if (tab === 'presets') {
       setShowPresets(true)
       return
@@ -102,27 +118,17 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
   const gradientFill = backgroundToGradientFill(background)
 
   return (
-    <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="mono-label">Type</span>
-        <div className="seg w-full" role="group" aria-label="Type d’arrière-plan">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabClick(tab.id)}
-              data-active={activeTab === tab.id}
-              className="seg-btn flex-1"
-              aria-pressed={activeTab === tab.id}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-3">
+      <Segmented
+        options={TAB_OPTIONS}
+        value={activeTab}
+        onChange={handleTabChange}
+        ariaLabel="Type d’arrière-plan"
+        className="w-full"
+      />
 
       {activeTab === 'solid' && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <span className="mono-label">Couleur</span>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </div>
@@ -131,31 +137,27 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
       {activeTab === 'gradient' && <GradientEditor value={gradientFill} onChange={handleGradientChange} />}
 
       {activeTab === 'presets' && (
-        <div className="flex flex-col gap-2">
-          <span className="mono-label">Préréglages</span>
-          <div className="grid grid-cols-3 gap-2">
-            {PRESET_GRADIENTS.map((preset) => (
+        <div className="grid grid-cols-4 gap-1.5">
+          {PRESET_GRADIENTS.map((preset) => {
+            const selected = isPresetActive(preset.background, background)
+            return (
               <button
                 key={preset.name}
                 type="button"
                 onClick={() => handlePresetClick(preset.background)}
-                className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-md border border-border bg-panel p-2',
-                  'transition-colors duration-100 ease-out',
-                  'hover:border-foreground',
-                )}
                 aria-label={`Appliquer le dégradé ${preset.name}`}
-              >
-                <div
-                  className="aspect-square w-full rounded-sm border border-border"
-                  style={buildPreviewStyle(preset.background)}
-                />
-                <span className="w-full truncate text-center text-[10px] text-foreground-muted">
-                  {preset.name}
-                </span>
-              </button>
-            ))}
-          </div>
+                aria-pressed={selected}
+                title={preset.name}
+                style={buildPreviewStyle(preset.background)}
+                className={cn(
+                  'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
+                  selected
+                    ? 'border-primary ring-1 ring-primary'
+                    : 'border-border hover:border-border-strong',
+                )}
+              />
+            )
+          })}
         </div>
       )}
     </div>

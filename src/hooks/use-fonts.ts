@@ -8,6 +8,7 @@ export interface FontLoadResult {
 }
 
 export const POPULAR_FONTS = [
+  'Archivo',
   'Inter',
   'Roboto',
   'Open Sans',

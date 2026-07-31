@@ -1,13 +1,22 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Toolbar } from '@/components/toolbar/Toolbar'
+import { ProjectIsland } from '@/components/toolbar/ProjectIsland'
+import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersPanel } from '@/components/layers-panel/LayersPanel'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
 import { PropertiesPanel } from '@/components/properties-panel/PropertiesPanel'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
+import { CommandPalette } from '@/components/ui/command-palette'
+import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
+import { ToastViewport } from '@/components/ui/toast'
+import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
-import { loadGoogleFont } from '@/hooks/use-fonts'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
+import { clearAssets } from '@/lib/assets'
+import { createImageLayerFromFile } from '@/lib/layer-factories'
+import { IMAGE_ACCEPT } from '@/lib/image'
+import { LAYERS_PANEL_WIDTH, PROPERTIES_PANEL_WIDTH } from '@/lib/stage'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -31,6 +40,8 @@ export default function App() {
     showExportDialog,
     showTemplatesPicker,
     showGlobalsEditor,
+    showCommandPalette,
+    showShortcuts,
     theme,
   } = useUIStore(
     useShallow((s) => ({
@@ -39,24 +50,14 @@ export default function App() {
       showExportDialog: s.showExportDialog,
       showTemplatesPicker: s.showTemplatesPicker,
       showGlobalsEditor: s.showGlobalsEditor,
+      showCommandPalette: s.showCommandPalette,
+      showShortcuts: s.showShortcuts,
       theme: s.theme,
     })),
   )
 
   useEffect(() => {
     async function init() {
-      const editorFonts = Promise.all([
-        loadGoogleFont('Space Grotesk', ['400', '500', '600', '700']),
-        loadGoogleFont('Space Mono', ['400', '700']),
-      ])
-      void editorFonts.then((results) => {
-        for (const result of results) {
-          if (result.status === 'fallback') {
-            console.warn(`Could not preload ${result.family}. ${result.message ?? ''}`.trim())
-          }
-        }
-      })
-
       const stored = await loadLatestProject()
 
       if (stored) {
@@ -68,6 +69,7 @@ export default function App() {
           useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       } else {
+        clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
         const project = useProjectStore.getState().project
         const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
@@ -86,33 +88,74 @@ export default function App() {
     return unsubscribe
   }, [])
 
+  async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const { layers, addLayer } = useCanvasStore.getState()
+    const result = await createImageLayerFromFile(file, layers.length)
+    if (result.ok) addLayer(result.layer)
+    else toast(result.error, 'error')
+  }
+
   return (
-    <div className={`flex h-full min-h-0 w-full flex-col overflow-hidden bg-background ${theme}`}>
-      <header className="shrink-0">
+    <div className={`relative h-full w-full overflow-hidden bg-stage ${theme}`}>
+      {/* Stage: full-bleed canvas */}
+      <main className="absolute inset-0">
+        <CanvasEditor />
+      </main>
+      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-10" />
+
+      {/* Floating chrome */}
+      <div className="absolute left-3 top-3 z-20">
+        <ProjectIsland />
+      </div>
+      <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2">
         <Toolbar />
-      </header>
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-        {showLayersPanel && (
-          <div className="box-border flex max-h-full min-h-0 w-60 shrink-0 flex-col overflow-hidden">
-            <LayersPanel />
-          </div>
-        )}
-
-        <main className="relative z-0 min-h-0 min-w-0 flex-1 overflow-hidden">
-          <CanvasEditor />
-        </main>
-
-        {showPropertiesPanel && (
-          <div className="box-border flex max-h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden">
-            <PropertiesPanel />
-          </div>
-        )}
       </div>
 
-      <footer className="relative z-20 box-border h-36 shrink-0 overflow-x-auto overflow-y-visible">
+      {showLayersPanel && (
+        <div
+          className="absolute bottom-[168px] left-3 top-[60px] z-20"
+          style={{ width: LAYERS_PANEL_WIDTH }}
+        >
+          <LayersPanel />
+        </div>
+      )}
+      {showPropertiesPanel && (
+        <div
+          className="absolute bottom-[168px] right-3 top-[60px] z-20"
+          style={{ width: PROPERTIES_PANEL_WIDTH }}
+        >
+          <PropertiesPanel />
+        </div>
+      )}
+
+      <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2">
         <ScreensBar />
-      </footer>
+      </div>
+      <div className="absolute bottom-3 right-3 z-20">
+        <ZoomHud />
+      </div>
+
+      <input
+        id="sf-image-import-input"
+        type="file"
+        accept={IMAGE_ACCEPT}
+        aria-label="Importer une image"
+        className="sr-only"
+        onChange={(event) => void handleImageImport(event)}
+      />
+
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => useUIStore.getState().setShowCommandPalette(false)}
+      />
+      <ShortcutsOverlay
+        open={showShortcuts}
+        onClose={() => useUIStore.getState().setShowShortcuts(false)}
+      />
+      <ToastViewport />
 
       <Suspense fallback={null}>
         {showExportDialog && <ExportDialog />}

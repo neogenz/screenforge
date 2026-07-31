@@ -59,7 +59,8 @@ export interface DeviceFrameLayer extends BaseLayer {
   deviceModel: DeviceModel
   deviceColor: DeviceColor
   orientation: Orientation
-  screenshotUrl?: string  // data URL of inserted app screenshot
+  /** Asset id of the inserted app screenshot (see lib/assets.ts). */
+  screenshotAssetId?: string
   shadowEnabled?: boolean
   shadowBlur?: number
   shadowColor?: string
@@ -69,7 +70,8 @@ export interface DeviceFrameLayer extends BaseLayer {
 
 export interface ImageLayer extends BaseLayer {
   type: 'image'
-  src: string  // base64 or URL
+  /** Asset id of the image payload (see lib/assets.ts). */
+  assetId: string
   originalWidth: number
   originalHeight: number
   shadow?: TextShadow

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Check, Download, FileCheck2, Loader, X } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { AlertCircle, Check, Download, FileCheck2, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import type { Project, Screen } from '@/types'
 
 export function ExportDialog() {
@@ -16,16 +18,12 @@ export function ExportDialog() {
 }
 
 function ExportDialogContent({ project }: { project: Project }) {
+  const showExportDialog = useUIStore((state) => state.showExportDialog)
   const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
     project.screens.map((screen) => screen.id),
   )
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const { exportBatch, isExporting, progress, error, completedFiles, clearError } = useExport()
-
-  useEffect(() => {
-    closeButtonRef.current?.focus()
-  }, [])
 
   const selectedScreens = useMemo(
     () => project.screens.flatMap((screen, screenIndex) =>
@@ -63,46 +61,42 @@ function ExportDialogContent({ project }: { project: Project }) {
   }, [exportBatch, project.layoutLayers, project.name, selectedScreens])
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh] animate-[fade-in_0.14s_ease-out]"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) handleClose()
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          event.stopPropagation()
-          handleClose()
-        }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Export des captures App Store"
-        className={cn(
-          'flex max-h-[84vh] w-[720px] max-w-[calc(100vw-40px)] flex-col overflow-hidden',
-          'surface-modal',
-        )}
-      >
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <div className="flex flex-col gap-0.5">
-            <span className="mono-label">App Store</span>
-            <h2 className="text-[15px] font-medium text-foreground">Export officiel</h2>
+    <Dialog
+      open={showExportDialog}
+      onClose={handleClose}
+      title="Export officiel"
+      size="lg"
+      headerActions={<span className="mono-label px-1">App Store</span>}
+      footer={
+        <div className="flex w-full items-center justify-between gap-3">
+          <p className="text-[10px] text-foreground-muted">
+            Aucun téléchargement partiel en cas d’échec.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="secondary" onClick={handleClose} disabled={isExporting}>
+              Annuler
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => void handleExport()}
+              disabled={isExporting || selectedScreens.length === 0}
+            >
+              {isExporting
+                ? <Loader size={12} className="animate-spin" aria-hidden />
+                : <Download size={12} aria-hidden />}
+              {isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
+            </Button>
           </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={handleClose}
-            disabled={isExporting}
-            aria-label="Fermer l’export"
-            className="icon-btn"
-          >
-            <X size={14} strokeWidth={1.5} />
-          </button>
         </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_240px] overflow-hidden">
-          <section className="min-h-0 overflow-y-auto border-r border-border px-5 py-4" aria-labelledby="export-screens-title">
+      }
+    >
+      {/* -m-4 cancels the Dialog body padding so the columns stay flush. */}
+      <div className="-m-4 flex flex-col">
+        <div className="grid grid-cols-[minmax(0,1fr)_240px]">
+          <section
+            className="max-h-[52dvh] overflow-y-auto border-r border-border px-5 py-4"
+            aria-labelledby="export-screens-title"
+          >
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h3 id="export-screens-title" className="mono-label-strong">Captures</h3>
@@ -134,7 +128,10 @@ function ExportDialogContent({ project }: { project: Project }) {
             </div>
           </section>
 
-          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4" aria-label="Profil d’export">
+          <aside
+            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-4 py-4"
+            aria-label="Profil d’export"
+          >
             <div className="surface-inner p-3.5">
               <span className="mono-label">Profil</span>
               <p className="mt-1.5 text-[13px] font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
@@ -143,9 +140,9 @@ function ExportDialogContent({ project }: { project: Project }) {
               </p>
               <div className="hairline my-3" />
               <ul className="flex flex-col gap-2 text-[11px] text-foreground-muted">
-                <li className="flex items-center gap-2"><Check size={12} /> PNG · 8 bits</li>
-                <li className="flex items-center gap-2"><Check size={12} /> RGB opaque · sans alpha</li>
-                <li className="flex items-center gap-2"><Check size={12} /> Cible interne &lt; 5 MB</li>
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> PNG · 8 bits</li>
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> RGB opaque · sans alpha</li>
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> Cible interne &lt; 5 MB</li>
               </ul>
             </div>
 
@@ -166,7 +163,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             {progress && (
               <div>
                 <div className="mb-2 flex items-center gap-2">
-                  <Loader size={13} className="animate-spin text-foreground" />
+                  <Loader size={13} className="animate-spin text-foreground" aria-hidden />
                   <span className="text-[11px] text-foreground">{progress.label}</span>
                   <span className="mono-value ml-auto text-[10px] text-foreground-muted">
                     {progress.current}/{progress.total}
@@ -182,46 +179,39 @@ function ExportDialogContent({ project }: { project: Project }) {
             )}
             {error && (
               <div role="alert" className="flex items-start gap-2 text-[11px] text-danger">
-                <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
                 <span>{error}</span>
               </div>
             )}
             {!isExporting && !error && completedFiles.length > 0 && (
-              <div className="flex items-center gap-2 text-[11px] text-foreground">
-                <FileCheck2 size={13} />
-                ZIP validé et téléchargé · {completedFiles.length} fichier{completedFiles.length > 1 ? 's' : ''}
+              <div>
+                <div className="flex items-center gap-2 text-[11px] text-foreground">
+                  <FileCheck2 size={13} aria-hidden />
+                  ZIP validé et téléchargé · {completedFiles.length} fichier{completedFiles.length > 1 ? 's' : ''}
+                </div>
+                <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
+                  {completedFiles.map((file) => (
+                    <li key={file.path} className="flex items-baseline justify-between gap-3">
+                      <span className="mono-value min-w-0 truncate text-[10px] text-foreground-muted">
+                        {file.path}
+                      </span>
+                      <span className="mono-value shrink-0 text-[10px] text-muted">
+                        {formatMegabytes(file.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
         )}
-
-        <div className="flex items-center justify-between border-t border-border px-5 py-3">
-          <p className="text-[10px] text-foreground-muted">
-            Aucun téléchargement partiel en cas d’échec.
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isExporting}
-              className="btn-secondary"
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleExport()}
-              disabled={isExporting || selectedScreens.length === 0}
-              className="btn-primary"
-            >
-              {isExporting ? <Loader size={12} className="animate-spin" /> : <Download size={12} />}
-              {isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(2)} MB`
 }
 
 function ScreenChoice({
@@ -254,7 +244,7 @@ function ScreenChoice({
         'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
         checked ? 'border-foreground bg-foreground text-panel' : 'border-border-strong bg-panel',
       )}>
-        {checked && <Check size={10} strokeWidth={2.5} />}
+        {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
       </span>
       {screen.thumbnail ? (
         <img

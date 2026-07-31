@@ -1,121 +1,116 @@
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { Plus } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 
+/** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const { project, addScreen, removeScreen, duplicateScreen, renameScreen, reorderScreens } =
-    useProjectStore(
-      useShallow((s) => ({
-        project: s.project,
-        addScreen: s.addScreen,
-        removeScreen: s.removeScreen,
-        duplicateScreen: s.duplicateScreen,
-        renameScreen: s.renameScreen,
-        reorderScreens: s.reorderScreens,
-      })),
-    )
-
-  const { activeScreenId, setActiveScreenId, recordProjectHistory } = useCanvasStore(
-    useShallow((s) => ({
-      activeScreenId: s.activeScreenId,
-      setActiveScreenId: s.setActiveScreenId,
-      recordProjectHistory: s.recordProjectHistory,
-    })),
-  )
-
+  const screens = useProjectStore((s) => s.project?.screens)
+  const activeScreenId = useCanvasStore((s) => s.activeScreenId)
+  const list = screens ?? []
   const dragSourceIndex = useRef<number | null>(null)
-  const screens = project?.screens ?? []
 
-  function handleClick(screenId: string) {
-    if (screenId !== activeScreenId) {
-      setActiveScreenId(screenId)
-    }
-  }
+  const handleSelect = useCallback((id: string) => {
+    const { activeScreenId: current, setActiveScreenId } = useCanvasStore.getState()
+    if (id !== current) setActiveScreenId(id)
+  }, [])
 
-  function handleAddScreen() {
-    if (screens.length >= MAX_PROJECT_SCREENS) return
-    recordProjectHistory()
-    const screenId = addScreen()
-    if (screenId) setActiveScreenId(screenId)
-  }
+  const handleAdd = useCallback(() => {
+    const project = useProjectStore.getState().project
+    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
+    useCanvasStore.getState().recordProjectHistory()
+    const screenId = useProjectStore.getState().addScreen()
+    if (screenId) useCanvasStore.getState().setActiveScreenId(screenId)
+  }, [])
 
-  function handleDeleteScreen(id: string) {
-    if (screens.length <= 1) return
-    recordProjectHistory()
-    const nextActiveId = removeScreen(id)
-    if (nextActiveId) setActiveScreenId(nextActiveId)
-  }
+  const handleRename = useCallback((id: string, name: string) => {
+    useProjectStore.getState().renameScreen(id, name)
+  }, [])
 
-  function handleDuplicateScreen(id: string) {
-    if (screens.length >= MAX_PROJECT_SCREENS) return
-    recordProjectHistory()
-    const duplicateId = duplicateScreen(id)
-    if (duplicateId) setActiveScreenId(duplicateId)
-  }
+  const handleDuplicate = useCallback((id: string) => {
+    const project = useProjectStore.getState().project
+    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
+    useCanvasStore.getState().recordProjectHistory()
+    const duplicateId = useProjectStore.getState().duplicateScreen(id)
+    if (duplicateId) useCanvasStore.getState().setActiveScreenId(duplicateId)
+  }, [])
 
-  function handleDragStart(e: React.DragEvent, index: number) {
-    dragSourceIndex.current = index
-    e.dataTransfer.effectAllowed = 'move'
-  }
+  const handleDelete = useCallback((id: string) => {
+    const project = useProjectStore.getState().project
+    if (!project || project.screens.length <= 1) return
+    useCanvasStore.getState().recordProjectHistory()
+    const nextActiveId = useProjectStore.getState().removeScreen(id)
+    if (nextActiveId) useCanvasStore.getState().setActiveScreenId(nextActiveId)
+  }, [])
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  function handleDrop(e: React.DragEvent, targetIndex: number) {
-    e.preventDefault()
-    const sourceIndex = dragSourceIndex.current
-    if (sourceIndex === null || sourceIndex === targetIndex) return
-    const reordered = [...screens]
-    const [moved] = reordered.splice(sourceIndex, 1)
-    reordered.splice(targetIndex, 0, moved)
-    recordProjectHistory()
-    reorderScreens(reordered.map((s) => s.id))
-    dragSourceIndex.current = null
-  }
-
-  function handleMoveScreen(index: number, direction: -1 | 1) {
+  const handleMove = useCallback((index: number, direction: -1 | 1) => {
+    const project = useProjectStore.getState().project
+    if (!project) return
     const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= screens.length) return
-    const reordered = [...screens]
+    if (targetIndex < 0 || targetIndex >= project.screens.length) return
+    const reordered = [...project.screens]
     const [moved] = reordered.splice(index, 1)
     reordered.splice(targetIndex, 0, moved)
-    recordProjectHistory()
-    reorderScreens(reordered.map((screen) => screen.id))
-  }
+    useCanvasStore.getState().recordProjectHistory()
+    useProjectStore.getState().reorderScreens(reordered.map((screen) => screen.id))
+  }, [])
+
+  const handleDragStart = useCallback((index: number, event: React.DragEvent) => {
+    dragSourceIndex.current = index
+    event.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleDrop = useCallback((index: number, event: React.DragEvent) => {
+    event.preventDefault()
+    const sourceIndex = dragSourceIndex.current
+    dragSourceIndex.current = null
+    if (sourceIndex === null || sourceIndex === index) return
+    const project = useProjectStore.getState().project
+    if (!project) return
+    const reordered = [...project.screens]
+    const [moved] = reordered.splice(sourceIndex, 1)
+    reordered.splice(index, 0, moved)
+    useCanvasStore.getState().recordProjectHistory()
+    useProjectStore.getState().reorderScreens(reordered.map((screen) => screen.id))
+  }, [])
 
   return (
-    <div className="flex h-full min-h-0 w-full items-center gap-4 overflow-x-auto border-t border-border bg-panel px-5">
-      <span className="mono-value shrink-0 text-[10px] text-muted tabular-nums">
-        {screens.length}/{MAX_PROJECT_SCREENS}
+    <div
+      role="listbox"
+      aria-label="Écrans"
+      className="island flex h-[132px] max-w-[min(760px,58vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2.5"
+    >
+      <span className="mono-value shrink-0 px-1 text-[10px] text-muted tabular-nums">
+        {list.length}/{MAX_PROJECT_SCREENS}
       </span>
-      {screens.map((screen, index) => (
+      {list.map((screen, index) => (
         <div
           key={screen.id}
           draggable
-          onDragStart={(e) => handleDragStart(e, index)}
+          onDragStart={(event) => handleDragStart(index, event)}
           onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, index)}
+          onDrop={(event) => handleDrop(index, event)}
         >
           <ScreenThumbnail
             screen={screen}
             isActive={screen.id === activeScreenId}
             index={index}
-            onClick={() => handleClick(screen.id)}
-            canDelete={screens.length > 1}
+            canDelete={list.length > 1}
             canMoveLeft={index > 0}
-            canMoveRight={index < screens.length - 1}
-            onRename={(name) => renameScreen(screen.id, name)}
-            onDuplicate={() => handleDuplicateScreen(screen.id)}
-            onDelete={() => handleDeleteScreen(screen.id)}
-            onMoveLeft={() => handleMoveScreen(index, -1)}
-            onMoveRight={() => handleMoveScreen(index, 1)}
+            canMoveRight={index < list.length - 1}
+            onSelect={handleSelect}
+            onRename={handleRename}
+            onDuplicate={handleDuplicate}
+            onDelete={handleDelete}
+            onMove={handleMove}
           />
         </div>
       ))}
@@ -123,13 +118,13 @@ export function ScreensBar() {
       <button
         title="Ajouter un écran"
         aria-label="Ajouter un écran"
-        onClick={handleAddScreen}
-        disabled={screens.length >= MAX_PROJECT_SCREENS}
+        onClick={handleAdd}
+        disabled={list.length >= MAX_PROJECT_SCREENS}
         type="button"
         className={cn(
-          'flex h-[96px] aspect-[9/19.5] shrink-0 items-center justify-center self-center',
-          'rounded-sm border border-dashed border-border-strong bg-panel-sub',
-          'text-muted transition-colors duration-100 ease-out',
+          'flex aspect-[9/19.5] h-[92px] shrink-0 items-center justify-center self-center',
+          'rounded-md border border-dashed border-border-strong bg-panel-sub',
+          'text-muted transition-colors duration-150 ease-out',
           'hover:border-foreground hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
           'focus-visible:outline-none focus-visible:border-foreground',

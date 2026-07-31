@@ -20,11 +20,19 @@ function isEditingInput(): boolean {
 export function useKeyboard(): void {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
-      if (isEditingInput()) return
-
       const meta = e.metaKey || e.ctrlKey
       const shift = e.shiftKey
       const key = e.key
+
+      // Command palette: global, even from inside inputs.
+      if (meta && key === 'k') {
+        e.preventDefault()
+        const ui = useUIStore.getState()
+        ui.setShowCommandPalette(!ui.showCommandPalette)
+        return
+      }
+
+      if (isEditingInput()) return
 
       const {
         layers,
@@ -43,7 +51,15 @@ export function useKeyboard(): void {
         setShowTemplatesPicker,
         setShowGlobalsEditor,
         setShowExportDialog,
+        setShowShortcuts,
       } = useUIStore.getState()
+
+      // Shortcuts overlay
+      if (key === '?') {
+        e.preventDefault()
+        setShowShortcuts(true)
+        return
+      }
 
       if (meta && !shift && key === 's') {
         e.preventDefault()
@@ -160,7 +176,7 @@ export function useKeyboard(): void {
         return
       }
 
-      // Arrow nudge
+      // Arrow nudge — burst-coalesced so holding a key is one undo step.
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)
       ) {
@@ -177,6 +193,7 @@ export function useKeyboard(): void {
               ? { ...layer, x: layer.x + dx, y: layer.y + dy }
               : layer,
           ),
+          { coalesceKey: `nudge:${[...selectedLayerIds].sort().join(',')}` },
         )
         return
       }

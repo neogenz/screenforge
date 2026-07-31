@@ -39,6 +39,10 @@ export interface DebugObject {
 declare global {
   interface Window {
     __sfCanvas?: Canvas
+    __sfStores?: {
+      useHistoryStore: { getState: () => { past: string[]; future: string[] } }
+      useCanvasStore: { getState: () => { layers: { x: number }[] } }
+    }
   }
 }
 
@@ -191,7 +195,9 @@ export function expectClose(actual: number, expected: number, tolerance = 1): vo
   expect(Math.abs(actual - expected), `${actual} ≉ ${expected} (±${tolerance})`).toBeLessThanOrEqual(tolerance)
 }
 
-/** Number input of the transformation section by index: X Y W H ROT. */
+/** Number field of the transformation section by index: X Y W H ROT. */
+const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur', 'Rotation'] as const
+
 export function transformInput(page: Page, index: number) {
-  return page.locator('.panel-section-inset').first().locator('input[type="number"]').nth(index)
+  return page.getByLabel(TRANSFORM_LABELS[index])
 }

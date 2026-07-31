@@ -1,45 +1,45 @@
 import { useRef, useState } from 'react'
-import { Check, ChevronDown, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
-import { Field } from '@/components/properties-panel/TransformSection'
-import { Toggle } from '@/components/text-editor/TextEditor'
+import { Button } from '@/components/ui/button'
+import { Dropdown } from '@/components/ui/dropdown'
+import { Field } from '@/components/ui/field'
+import { IconButton } from '@/components/ui/icon-button'
+import { NumberField } from '@/components/ui/number-field'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
+import { Switch } from '@/components/ui/switch'
+import { registerAsset, resolveAsset } from '@/lib/assets'
+import { decodeImage, readAsDataUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
-import type { DeviceColor, DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
+import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
 interface DevicePickerProps {
-  deviceModel: DeviceModel
-  deviceColor: DeviceColor
-  orientation: Orientation
-  width: number
-  height: number
-  screenshotUrl?: string
-  shadowEnabled: boolean
-  shadowBlur: number
-  shadowColor: string
-  shadowOffsetX: number
-  shadowOffsetY: number
-  onUpdate: (updates: Partial<DeviceFrameLayer>) => void
+  layer: DeviceFrameLayer
+  onUpdate: (updates: Partial<DeviceFrameLayer>, options?: { coalesceKey?: string }) => void
 }
 
-export function DevicePicker({
-  deviceModel,
-  deviceColor,
-  orientation,
-  width,
-  height,
-  screenshotUrl,
-  shadowEnabled,
-  shadowBlur,
-  shadowColor,
-  shadowOffsetX,
-  shadowOffsetY,
-  onUpdate,
-}: DevicePickerProps) {
-  const [shadowOpen, setShadowOpen] = useState(false)
+const ORIENTATION_OPTIONS: SegmentedOption<Orientation>[] = [
+  { value: 'portrait', label: 'Portrait' },
+  { value: 'landscape', label: 'Paysage' },
+]
+
+export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
+  const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
+  const shadowEnabled = layer.shadowEnabled ?? false
+  const shadowBlur = layer.shadowBlur ?? 0
+  const shadowColor = layer.shadowColor ?? 'rgba(0,0,0,0.3)'
+  const shadowOffsetX = layer.shadowOffsetX ?? 0
+  const shadowOffsetY = layer.shadowOffsetY ?? 0
+  const shadowCoalesceKey = `layer:${layer.id}:shadow`
+
+  const [modelOpen, setModelOpen] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+  const modelButtonRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const config = getDeviceFrame(deviceModel)
+  const screenshotUrl = resolveAsset(screenshotAssetId)
   const modelOptions = config.current
     ? CURRENT_DEVICE_FRAMES
     : [config, ...CURRENT_DEVICE_FRAMES]
@@ -56,9 +56,9 @@ export function DevicePicker({
     }
 
     try {
-      const screenshot = await readAsDataUrl(file)
-      await decodeImage(screenshot)
-      onUpdate({ screenshotUrl: screenshot })
+      const dataUrl = await readAsDataUrl(file)
+      await decodeImage(dataUrl)
+      onUpdate({ screenshotAssetId: registerAsset(dataUrl) })
     } catch {
       setFileError("La capture est illisible ou endommagée.")
     }
@@ -87,67 +87,72 @@ export function DevicePicker({
   return (
     <div className="flex flex-col gap-3">
       <Field label="Modèle">
-        <select
-          value={deviceModel}
-          onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
-          className="input"
+        <Button
+          ref={modelButtonRef}
+          variant="secondary"
+          className="w-full justify-between"
+          onClick={() => setModelOpen((open) => !open)}
           aria-label="Modèle d’appareil"
+          aria-expanded={modelOpen}
         >
-          {modelOptions.map((frame) => (
-            <option key={frame.model} value={frame.model}>
-              {frame.modelName} · {frame.screenSize}
-            </option>
-          ))}
-        </select>
+          <span className="truncate">{config.modelName}</span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <span className="mono-value text-[10px] text-muted">{config.screenSize}</span>
+            <ChevronDown
+              size={12}
+              strokeWidth={1.5}
+              aria-hidden
+              className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
+            />
+          </span>
+        </Button>
       </Field>
+      <Dropdown
+        open={modelOpen}
+        anchor={modelButtonRef}
+        onClose={() => setModelOpen(false)}
+        items={modelOptions.map((frame) => ({
+          id: frame.model,
+          label: frame.modelName,
+          meta: frame.screenSize,
+          onSelect: () => handleModelChange(frame.model),
+        }))}
+        ariaLabel="Modèle d’appareil"
+      />
 
       <Field label="Couleur">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
-          {config.colors.map((color) => (
-            <button
-              key={color.name}
-              type="button"
-              onClick={() => onUpdate({ deviceColor: color.name })}
-              title={color.label}
-              aria-label={color.label}
-              aria-pressed={deviceColor === color.name}
-              className={cn(
-                'relative h-7 w-7 rounded-full border transition-[border-color,transform] duration-100 ease-out',
-                deviceColor === color.name
-                  ? 'scale-110 border-foreground'
-                  : 'border-border hover:border-border-strong',
-              )}
-              style={{ backgroundColor: color.frame }}
-            >
-              {deviceColor === color.name && (
-                <Check
-                  size={10}
-                  aria-hidden
-                  className="absolute inset-0 m-auto"
-                  style={{ color: isLightColor(color.frame) ? '#000' : '#fff' }}
-                  strokeWidth={2.5}
-                />
-              )}
-            </button>
-          ))}
+          {config.colors.map((color) => {
+            const selected = deviceColor === color.name
+            return (
+              <button
+                key={color.name}
+                type="button"
+                onClick={() => onUpdate({ deviceColor: color.name })}
+                title={color.label}
+                aria-label={color.label}
+                aria-pressed={selected}
+                className={cn(
+                  'h-7 w-7 rounded-full border-2 transition-[border-color] duration-150 ease-out',
+                  selected
+                    ? 'border-primary'
+                    : 'border-transparent hover:border-border-strong',
+                )}
+                style={{ backgroundColor: color.frame }}
+              />
+            )
+          })}
         </div>
       </Field>
 
       <Field label="Orientation">
-        <div className="seg w-full" role="group" aria-label="Orientation">
-          {(['portrait', 'landscape'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleOrientationChange(value)}
-              data-active={orientation === value}
-              className="seg-btn flex-1"
-              aria-pressed={orientation === value}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          options={ORIENTATION_OPTIONS}
+          value={orientation}
+          onChange={handleOrientationChange}
+          ariaLabel="Orientation"
+          className="w-full"
+        />
       </Field>
 
       <Field label="Capture d’écran">
@@ -158,21 +163,22 @@ export function DevicePicker({
               alt="Capture importée"
               className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
             />
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 justify-start"
               onClick={() => fileInputRef.current?.click()}
-              className="mono-label-strong min-h-8 flex-1 text-left transition-colors hover:text-foreground"
             >
               Remplacer
-            </button>
-            <button
-              type="button"
-              onClick={() => onUpdate({ screenshotUrl: undefined })}
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-danger"
+            </Button>
+            <IconButton
+              size="sm"
               aria-label="Supprimer la capture"
+              className="hover:text-danger"
+              onClick={() => onUpdate({ screenshotAssetId: undefined })}
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
-            </button>
+            </IconButton>
           </div>
         ) : (
           <button
@@ -180,7 +186,7 @@ export function DevicePicker({
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
-              'mono-label transition-colors duration-100 ease-out',
+              'mono-label transition-colors duration-150 ease-out',
               'hover:border-border-strong hover:text-foreground',
             )}
           >
@@ -205,101 +211,52 @@ export function DevicePicker({
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="mono-label-strong">Ombre</span>
-          <div className="flex items-center gap-1">
-            <Toggle
-              active={shadowEnabled}
-              label="Activer l’ombre de l’appareil"
-              onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })}
-            />
-            <button
-              type="button"
-              onClick={() => setShadowOpen((value) => !value)}
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-              aria-label={shadowOpen ? 'Replier l’ombre' : 'Déplier l’ombre'}
-              aria-expanded={shadowOpen}
-            >
-              <ChevronDown
-                size={13}
-                strokeWidth={1.75}
-                aria-hidden
-                className={cn('transition-transform duration-150', shadowOpen && 'rotate-180')}
-              />
-            </button>
-          </div>
+          <Switch
+            checked={shadowEnabled}
+            ariaLabel="Activer l’ombre de l’appareil"
+            onChange={(checked) => onUpdate({ shadowEnabled: checked })}
+          />
         </div>
 
-        {shadowOpen && shadowEnabled && (
-          <div className="flex flex-col gap-2 pl-3">
-            <div className="flex items-center gap-2">
-              <span className="mono-label w-8">Flou</span>
-              <input
-                type="range"
-                min={0}
-                max={60}
-                value={shadowBlur}
-                onChange={(event) => onUpdate({ shadowBlur: Number(event.target.value) })}
-                className="flex-1 cursor-pointer"
-                aria-label="Flou de l’ombre"
-              />
-              <span className="mono-value w-6 text-right text-[10px] text-foreground-muted">{shadowBlur}</span>
-            </div>
-            <Field label="Couleur">
-              <ColorPicker value={shadowColor} showOpacity onChange={(color) => onUpdate({ shadowColor: color })} />
-            </Field>
+        {shadowEnabled && (
+          <div className="flex flex-col gap-2">
+            <NumberField
+              label="Flou"
+              ariaLabel="Flou de l’ombre"
+              value={shadowBlur}
+              onChange={(value) => onUpdate({ shadowBlur: value }, { coalesceKey: shadowCoalesceKey })}
+              min={0}
+              max={100}
+            />
             <div className="grid grid-cols-2 gap-2">
-              <Field label="X">
-                <input
-                  type="number"
-                  value={shadowOffsetX}
-                  onChange={(event) => onUpdate({ shadowOffsetX: clampNumber(event.target.value, -500, 500) })}
-                  className="input"
-                  aria-label="Décalage X de l’ombre"
-                />
-              </Field>
-              <Field label="Y">
-                <input
-                  type="number"
-                  value={shadowOffsetY}
-                  onChange={(event) => onUpdate({ shadowOffsetY: clampNumber(event.target.value, -500, 500) })}
-                  className="input"
-                  aria-label="Décalage Y de l’ombre"
-                />
-              </Field>
+              <NumberField
+                label="X"
+                ariaLabel="Décalage X de l’ombre"
+                value={shadowOffsetX}
+                onChange={(value) => onUpdate({ shadowOffsetX: value }, { coalesceKey: shadowCoalesceKey })}
+                min={-500}
+                max={500}
+              />
+              <NumberField
+                label="Y"
+                ariaLabel="Décalage Y de l’ombre"
+                value={shadowOffsetY}
+                onChange={(value) => onUpdate({ shadowOffsetY: value }, { coalesceKey: shadowCoalesceKey })}
+                min={-500}
+                max={500}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="mono-label">Couleur</span>
+              <ColorPicker
+                value={shadowColor}
+                showOpacity
+                onChange={(color) => onUpdate({ shadowColor: color }, { coalesceKey: shadowCoalesceKey })}
+              />
             </div>
           </div>
         )}
       </div>
     </div>
   )
-}
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () =>
-      typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid file'))
-    reader.onerror = () => reject(reader.error ?? new Error('Unable to read file'))
-    reader.readAsDataURL(file)
-  })
-}
-
-function decodeImage(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve()
-    image.onerror = () => reject(new Error('Unable to decode image'))
-    image.src = src
-  })
-}
-
-function clampNumber(value: string, min: number, max: number): number {
-  const number = Number(value)
-  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : min
-}
-
-function isLightColor(hex: string): boolean {
-  const red = parseInt(hex.slice(1, 3), 16)
-  const green = parseInt(hex.slice(3, 5), 16)
-  const blue = parseInt(hex.slice(5, 7), 16)
-  return (red * 299 + green * 587 + blue * 114) / 1000 > 155
 }

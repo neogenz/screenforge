@@ -9,6 +9,7 @@ import {
   util,
 } from 'fabric'
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
+import { resolveAsset } from '@/lib/assets'
 import type {
   Background,
   BaseLayer,
@@ -32,6 +33,7 @@ export type RenderedObject = FabricObject & {
     layerId?: string
     screenId?: string
     screenIndex?: number
+    clipScreenIndex?: number
     layout?: boolean
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
@@ -121,7 +123,11 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
   height: number
 } {
   const config = getDeviceFrame(layer.deviceModel)
-  const portraitSvg = generateDeviceFrameSVG(config, layer.deviceColor, layer.screenshotUrl)
+  const portraitSvg = generateDeviceFrameSVG(
+    config,
+    layer.deviceColor,
+    resolveAsset(layer.screenshotAssetId),
+  )
   if (layer.orientation === 'portrait') {
     return { svg: portraitSvg, width: config.width, height: config.height }
   }
@@ -146,14 +152,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 function getResourceKey(layer: Layer): string {
-  if (layer.type === 'image') return `image:${layer.src}`
+  if (layer.type === 'image') return `image:${layer.assetId}`
   if (layer.type === 'device-frame') {
     return [
       'device',
       layer.deviceModel,
       layer.deviceColor,
       layer.orientation,
-      layer.screenshotUrl ?? '',
+      layer.screenshotAssetId ?? '',
     ].join(':')
   }
   if (layer.type === 'shape') return `shape:${layer.shapeType}`
@@ -181,7 +187,9 @@ export async function layerToFabricObject(layer: Layer): Promise<RenderedObject>
       ? new Circle({ radius: 1 })
       : new Rect()
   } else if (layer.type === 'image') {
-    const image = await loadImage(layer.src)
+    const src = resolveAsset(layer.assetId)
+    if (!src) throw new Error('Image introuvable : asset manquant dans le registre.')
+    const image = await loadImage(src)
     object = new FabricImage(image)
   } else {
     const device = orientedDeviceSvg(layer)

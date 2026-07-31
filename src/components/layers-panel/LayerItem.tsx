@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import {
   Copy,
   Eye,
   EyeOff,
+  GripVertical,
   ImageIcon,
   Lock,
   Smartphone,
@@ -20,11 +21,11 @@ import type { Layer } from '@/types'
 interface LayerItemProps {
   layer: Layer
   isSelected: boolean
-  onSelect: (event: React.MouseEvent) => void
-  onSelectExclusive: () => void
-  onDragStart: (event: React.DragEvent) => void
+  onSelect: (layer: Layer, event: React.MouseEvent) => void
+  onSelectExclusive: (layer: Layer) => void
+  onDragStart: (layer: Layer, event: React.DragEvent) => void
   onDragOver: (event: React.DragEvent) => void
-  onDrop: (event: React.DragEvent) => void
+  onDrop: (layer: Layer, event: React.DragEvent) => void
 }
 
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
@@ -37,7 +38,12 @@ function LayerTypeIcon({ type }: { type: Layer['type'] }) {
   }
 }
 
-export function LayerItem({
+/**
+ * A single layer row. Memoized: the parent passes stable callbacks (the layer
+ * is handed back as an argument), so rows skip re-renders unless their own
+ * layer or selection state changes.
+ */
+export const LayerItem = memo(function LayerItem({
   layer,
   isSelected,
   onSelect,
@@ -77,7 +83,7 @@ export function LayerItem({
   function handleContextMenu(event: React.MouseEvent) {
     event.preventDefault()
     event.stopPropagation()
-    if (!isSelected) onSelectExclusive()
+    if (!isSelected) onSelectExclusive(layer)
     setMenuPosition({ left: event.clientX, top: event.clientY })
   }
 
@@ -85,7 +91,7 @@ export function LayerItem({
     if (event.target !== event.currentTarget) return
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onSelectExclusive()
+      onSelectExclusive(layer)
     } else if (event.key === 'F2') {
       event.preventDefault()
       startRename()
@@ -120,21 +126,28 @@ export function LayerItem({
       aria-label={`${layer.name}, ${layer.type}`}
       data-layer-id={layer.id}
       draggable
-      onDragStart={onDragStart}
+      onDragStart={(event) => onDragStart(layer, event)}
       onDragOver={onDragOver}
-      onDrop={onDrop}
-      onClick={onSelect}
+      onDrop={(event) => onDrop(layer, event)}
+      onClick={(event) => onSelect(layer, event)}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex h-8 cursor-pointer select-none items-center gap-2 rounded-sm px-2',
+        'group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-1.5',
         'transition-colors duration-100 ease-out focus-visible:ring-1 focus-visible:ring-border-strong',
         isSelected
           ? 'bg-surface-active text-foreground'
           : 'text-foreground-muted hover:bg-surface-hover hover:text-foreground',
       )}
     >
+      <GripVertical
+        size={11}
+        strokeWidth={1.5}
+        aria-hidden
+        className="shrink-0 cursor-grab text-faint opacity-0 transition-opacity group-hover:opacity-100"
+      />
+
       <LayerTypeIcon type={layer.type} />
 
       {editing ? (
@@ -146,7 +159,7 @@ export function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-sm border border-border bg-panel px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
         />
       ) : (
         <span className="flex-1 truncate text-[12px]">
@@ -196,7 +209,7 @@ export function LayerItem({
       )}
     </div>
   )
-}
+})
 
 function LayerAction({
   label,

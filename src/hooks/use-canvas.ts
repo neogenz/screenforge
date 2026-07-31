@@ -24,6 +24,7 @@ import {
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
+import { stageInsets } from '@/lib/stage'
 import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
 
@@ -58,6 +59,16 @@ function createScreenClipPath(screenIndex: number): Rect {
   })
 }
 
+/**
+ * Clip paths only depend on the screen index — reuse the existing Rect
+ * instead of allocating a fresh one for every object on every sync.
+ */
+function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void {
+  if (object.data?.clipScreenIndex === screenIndex && object.clipPath) return
+  object.clipPath = createScreenClipPath(screenIndex)
+  object.set('data', { ...object.data, clipScreenIndex: screenIndex })
+}
+
 function screensHaveVisualChanges(current: Project, previous: Project | null): boolean {
   if (!previous || current.screens.length !== previous.screens.length) return true
   if (current.layoutLayers !== previous.layoutLayers
@@ -73,6 +84,88 @@ function screensHaveVisualChanges(current: Project, previous: Project | null): b
 
 function sameIds(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index])
+}
+
+type ProjectChange =
+  | { type: 'none' }
+  | { type: 'full' }
+  | {
+      type: 'patch'
+      screenId: string
+      layerIds: string[]
+      layoutLayerIds: string[]
+      backgroundChanged: boolean
+    }
+
+function layerOrderKey(layers: Layer[]): string {
+  return layers.map((layer) => `${layer.id}:${layer.zIndex}`).join('|')
+}
+
+function changedLayerIds(current: Layer[], previous: Layer[]): string[] | null {
+  if (current.length !== previous.length) return null
+  if (layerOrderKey(current) !== layerOrderKey(previous)) return null
+  const ids: string[] = []
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index] !== previous[index]) ids.push(current[index].id)
+  }
+  return ids
+}
+
+/**
+ * Reference-level diff between two project states. 'patch' means: one
+ * screen, same object set and stacking order — only some layer objects and/or
+ * the background changed, so the canvas can be patched in place instead of
+ * running a full reconciliation pass.
+ */
+function diffProjectChange(current: Project, previous: Project | null): ProjectChange {
+  if (!previous) return { type: 'full' }
+  if (!screensHaveVisualChanges(current, previous)) return { type: 'none' }
+  if (current.screens.length !== previous.screens.length) return { type: 'full' }
+  if (current.activeScreenId !== previous.activeScreenId) return { type: 'full' }
+
+  let layoutLayerIds: string[] = []
+  if (current.layoutLayers !== previous.layoutLayers) {
+    const changed = changedLayerIds(current.layoutLayers, previous.layoutLayers)
+    if (!changed) return { type: 'full' }
+    layoutLayerIds = changed
+  }
+
+  const changedScreens: { screen: Screen; previousScreen: Screen }[] = []
+  for (let index = 0; index < current.screens.length; index += 1) {
+    const screen = current.screens[index]
+    const previousScreen = previous.screens[index]
+    if (screen.id !== previousScreen.id) return { type: 'full' }
+    if (screen === previousScreen) continue
+    if (screen.name !== previousScreen.name) return { type: 'full' }
+    if (screen.layers !== previousScreen.layers || screen.background !== previousScreen.background) {
+      changedScreens.push({ screen, previousScreen })
+    }
+  }
+
+  if (changedScreens.length > 1) return { type: 'full' }
+  if (changedScreens.length === 0) {
+    return layoutLayerIds.length > 0
+      ? {
+          type: 'patch',
+          screenId: current.activeScreenId,
+          layerIds: [],
+          layoutLayerIds,
+          backgroundChanged: false,
+        }
+      : { type: 'none' }
+  }
+
+  const { screen, previousScreen } = changedScreens[0]
+  const layerIds = screen.layers === previousScreen.layers
+    ? []
+    : changedLayerIds(screen.layers, previousScreen.layers)
+  if (!layerIds) return { type: 'full' }
+  const backgroundChanged = screen.background !== previousScreen.background
+
+  if (layerIds.length === 0 && layoutLayerIds.length === 0 && !backgroundChanged) {
+    return { type: 'none' }
+  }
+  return { type: 'patch', screenId: screen.id, layerIds, layoutLayerIds, backgroundChanged }
 }
 
 /**
@@ -108,6 +201,8 @@ export function useCanvas() {
   const thumbnailTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const thumbnailGeneration = useRef(0)
   const fontLoadRequests = useRef(new Set<string>())
+  const layoutInstances = useRef(new Map<string, RenderedObject[]>())
+  const wheelRenderQueued = useRef(false)
   const setZoom = useUIStore((state) => state.setZoom)
 
   const generateThumbnails = useCallback((screens: Screen[]) => {
@@ -115,6 +210,13 @@ export function useCanvas() {
     const generation = ++thumbnailGeneration.current
 
     thumbnailTimer.current = setTimeout(() => {
+      // The capture pass mutates the viewport and forces two renders — keep
+      // it off the interaction critical path.
+      const scheduleIdle: (task: () => void) => void =
+        typeof requestIdleCallback === 'function'
+          ? (task) => requestIdleCallback(() => task(), { timeout: 1200 })
+          : (task) => setTimeout(task, 0)
+      scheduleIdle(() => {
       const canvas = fabricRef.current
       if (!canvas || generation !== thumbnailGeneration.current) return
       const backgrounds = (canvas.getObjects() as RenderedObject[]).filter(
@@ -202,15 +304,20 @@ export function useCanvas() {
           project: { ...project, screens: updatedScreens },
         })
       }
+      })
     }, 300)
   }, [])
 
   const fitAll = useCallback((canvas: Canvas, screenCount: number) => {
+    const { showLayersPanel, showPropertiesPanel } = useUIStore.getState()
+    const insets = stageInsets(showLayersPanel, showPropertiesPanel)
+    const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
+    const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
     const totalWidth = getTotalWidth(screenCount)
-    const padding = 80
+    const padding = 48
     const zoom = Math.min(
-      (canvas.width - padding * 2) / totalWidth,
-      (canvas.height - padding * 2) / SCREEN_HEIGHT,
+      (availableWidth - padding * 2) / totalWidth,
+      (availableHeight - padding * 2) / SCREEN_HEIGHT,
       1,
     )
     canvas.setViewportTransform([
@@ -218,8 +325,8 @@ export function useCanvas() {
       0,
       0,
       zoom,
-      (canvas.width - totalWidth * zoom) / 2,
-      (canvas.height - SCREEN_HEIGHT * zoom) / 2,
+      insets.left + (availableWidth - totalWidth * zoom) / 2,
+      insets.top + (availableHeight - SCREEN_HEIGHT * zoom) / 2,
     ])
     setZoom(zoom)
   }, [setZoom])
@@ -322,7 +429,7 @@ export function useCanvas() {
             originY: 'top',
             width: SCREEN_WIDTH,
             fontSize: 12,
-            fontFamily: '"Space Grotesk", system-ui, sans-serif',
+            fontFamily: '"Archivo", system-ui, sans-serif',
             selectable: false,
             evented: false,
           })
@@ -387,7 +494,7 @@ export function useCanvas() {
             rendererType: layer.type,
           })
           applyLayerToFabricObject(object, layer, offset)
-          object.clipPath = createScreenClipPath(screenIndex)
+          ensureScreenClipPath(object, screenIndex)
         }
       }
 
@@ -450,7 +557,7 @@ export function useCanvas() {
             getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
           )
           const isActiveInstance = screen.id === activeScreenId
-          object.clipPath = createScreenClipPath(screenIndex)
+          ensureScreenClipPath(object, screenIndex)
           object.set({
             selectable: !layer.locked && isActiveInstance,
             evented: !layer.locked && isActiveInstance,
@@ -477,7 +584,23 @@ export function useCanvas() {
         const label = objectsById.get(`label:${screen.id}`)
         if (label) orderedObjects.push(label)
       }
-      orderedObjects.forEach((object, index) => canvas.moveObjectTo(object, index))
+      // Z-order: only pay the moveObjectTo pass when the order actually changed.
+      const wantedOrder = orderedObjects.map((object) => object.data?.uid ?? '')
+      const currentOrder = (canvas.getObjects() as RenderedObject[])
+        .map((object) => object.data?.uid ?? '')
+      if (!sameIds(currentOrder, wantedOrder)) {
+        orderedObjects.forEach((object, index) => canvas.moveObjectTo(object, index))
+      }
+
+      // Precomputed layout echoes for the object:moving mirror (no per-move scan).
+      const instances = new Map<string, RenderedObject[]>()
+      for (const layer of layoutLayers) {
+        instances.set(layer.id, screens.flatMap((screen) => {
+          const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
+          return object ? [object] : []
+        }))
+      }
+      layoutInstances.current = instances
 
       const selectedIds = useCanvasStore.getState().selectedLayerIds
       const currentSelectionIds = canvas.getActiveObjects()
@@ -505,6 +628,67 @@ export function useCanvas() {
         })
       }
     }
+  }, [generateThumbnails])
+
+  /**
+   * In-place patch path for single-screen, same-stacking-order changes
+   * (the hot path: panel edits, keyboard nudges, canvas transform commits).
+   * Returns false when the change cannot be patched — caller falls back to
+   * a full sync.
+   */
+  const syncPatch = useCallback(async (
+    project: Project,
+    change: {
+      screenId: string
+      layerIds: string[]
+      layoutLayerIds: string[]
+      backgroundChanged: boolean
+    },
+  ): Promise<boolean> => {
+    const canvas = fabricRef.current
+    if (!canvas) return false
+    const objectsById = new Map<string, RenderedObject>()
+    for (const object of canvas.getObjects() as RenderedObject[]) {
+      const id = object.data?.uid
+      if (id) objectsById.set(id, object)
+    }
+
+    if (change.backgroundChanged) {
+      const screen = project.screens.find((candidate) => candidate.id === change.screenId)
+      const background = objectsById.get(`background:${change.screenId}`)
+      if (!screen || !background) return false
+      background.set({ fill: backgroundToFabricFill(screen.background) })
+      background.setCoords()
+    }
+
+    const screenIndex = project.screens.findIndex((screen) => screen.id === change.screenId)
+    if (screenIndex === -1 && change.layerIds.length > 0) return false
+    const screen = project.screens[screenIndex]
+
+    for (const layerId of change.layerIds) {
+      const layer = screen.layers.find((candidate) => candidate.id === layerId)
+      const object = objectsById.get(layerId)
+      if (!layer || !object) return false
+      if (needsFabricObjectRecreation(object, layer)) return false
+      if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+      applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
+    }
+
+    for (const layerId of change.layoutLayerIds) {
+      const layer = project.layoutLayers.find((candidate) => candidate.id === layerId)
+      if (!layer) return false
+      if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+      for (let index = 0; index < project.screens.length; index += 1) {
+        const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
+        if (!object) return false
+        if (needsFabricObjectRecreation(object, layer)) return false
+        applyLayerToFabricObject(object, layer, getScreenOffset(index) - index * SCREEN_WIDTH)
+      }
+    }
+
+    canvas.requestRenderAll()
+    generateThumbnails(project.screens)
+    return true
   }, [generateThumbnails])
 
   useEffect(() => {
@@ -689,8 +873,8 @@ export function useCanvas() {
       const dy = target.top - last.top
       mirrorLast.set(layerId, { left: target.left, top: target.top })
       if (dx === 0 && dy === 0) return
-      for (const object of canvas.getObjects() as RenderedObject[]) {
-        if (object === target || object.data?.layerId !== layerId) continue
+      for (const object of layoutInstances.current.get(layerId) ?? []) {
+        if (object === target) continue
         object.set({ left: object.left + dx, top: object.top + dy })
         object.setCoords()
       }
@@ -732,7 +916,14 @@ export function useCanvas() {
       } else {
         canvas.relativePan(new Point(-e.deltaX, -e.deltaY))
       }
-      canvas.requestRenderAll()
+      // Batch wheel bursts into one render per frame.
+      if (!wheelRenderQueued.current) {
+        wheelRenderQueued.current = true
+        requestAnimationFrame(() => {
+          wheelRenderQueued.current = false
+          canvas.requestRenderAll()
+        })
+      }
     })
 
     canvas.on('mouse:down', (event) => {
@@ -763,11 +954,15 @@ export function useCanvas() {
       canvas.setCursor('default')
     })
 
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
     const resizeObserver = new ResizeObserver((entries) => {
       const size = entries[0]?.contentRect
       if (!size || size.width < 1 || size.height < 1) return
-      canvas.setDimensions({ width: Math.floor(size.width), height: Math.floor(size.height) })
-      canvas.requestRenderAll()
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        canvas.setDimensions({ width: Math.floor(size.width), height: Math.floor(size.height) })
+        canvas.requestRenderAll()
+      }, 80)
     })
     resizeObserver.observe(container)
 
@@ -781,6 +976,7 @@ export function useCanvas() {
       canvas.upperCanvasEl.removeEventListener('mousedown', handleDomMouseDown, true)
       window.removeEventListener('mouseup', handleDomMouseUp, true)
       resizeObserver.disconnect()
+      if (resizeTimer) clearTimeout(resizeTimer)
       if (thumbnailTimer.current) clearTimeout(thumbnailTimer.current)
       for (const object of canvas.getObjects() as RenderedObject[]) {
         disposeFabricObjectResource(object)
@@ -792,12 +988,21 @@ export function useCanvas() {
 
   useEffect(() => useProjectStore.subscribe((state, previous) => {
     const canvas = fabricRef.current
-    if (!canvas || !state.project || !screensHaveVisualChanges(state.project, previous.project)) return
+    if (!canvas || !state.project) return
+    const change = diffProjectChange(state.project, previous.project)
+    if (change.type === 'none') return
+    if (change.type === 'patch') {
+      const project = state.project
+      void syncPatch(project, change).then((patched) => {
+        if (!patched) void sync(project)
+      })
+      return
+    }
     const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
     void sync(state.project).then(() => {
       if (screenCountChanged) fitAll(canvas, state.project?.screens.length ?? 1)
     })
-  }), [fitAll, sync])
+  }), [fitAll, sync, syncPatch])
 
   // Theme change: re-render chrome colors (labels, artboard rings).
   useEffect(() => useUIStore.subscribe((state, previous) => {
@@ -833,10 +1038,14 @@ export function useCanvas() {
     if (!canvas || !project) return
     const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
     if (screenIndex === -1) return
-    const padding = 90
+    const { showLayersPanel, showPropertiesPanel } = useUIStore.getState()
+    const insets = stageInsets(showLayersPanel, showPropertiesPanel)
+    const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
+    const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
+    const padding = 48
     const zoom = Math.min(
-      (canvas.width - padding * 2) / SCREEN_WIDTH,
-      (canvas.height - padding * 2) / SCREEN_HEIGHT,
+      (availableWidth - padding * 2) / SCREEN_WIDTH,
+      (availableHeight - padding * 2) / SCREEN_HEIGHT,
       1,
     )
     const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
@@ -845,8 +1054,8 @@ export function useCanvas() {
       0,
       0,
       zoom,
-      canvas.width / 2 - screenCenterX * zoom,
-      (canvas.height - SCREEN_HEIGHT * zoom) / 2,
+      insets.left + availableWidth / 2 - screenCenterX * zoom,
+      insets.top + (availableHeight - SCREEN_HEIGHT * zoom) / 2,
     ])
     useUIStore.getState().setZoom(zoom)
     canvas.requestRenderAll()
@@ -855,7 +1064,9 @@ export function useCanvas() {
   useEffect(() => useUIStore.subscribe((state, previous) => {
     const canvas = fabricRef.current
     if (!canvas) return
-    if (state.viewportResetKey !== previous.viewportResetKey) {
+    const panelsChanged = state.showLayersPanel !== previous.showLayersPanel
+      || state.showPropertiesPanel !== previous.showPropertiesPanel
+    if (state.viewportResetKey !== previous.viewportResetKey || panelsChanged) {
       const project = useProjectStore.getState().project
       if (project) {
         fitAll(canvas, project.screens.length)

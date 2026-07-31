@@ -1,11 +1,21 @@
 import { create } from 'zustand'
 
+/**
+ * Coalescing rule: snapshots are PRE-state. When a burst of edits shares a
+ * coalesce key (e.g. `layer:abc:opacity` during a slider drag), the FIRST
+ * pre-state is kept and only the timestamp refreshes — the whole burst then
+ * collapses into a single undo step restoring the state from before the drag.
+ */
+const COALESCE_WINDOW_MS = 1200
+
 interface HistoryState {
   past: string[]
   future: string[]
   maxHistory: number
+  lastCoalesceKey: string | null
+  lastRecordedAt: number
 
-  record: (snapshot: string) => void
+  record: (snapshot: string, coalesceKey?: string) => void
   undo: (currentSnapshot: string) => string | null
   redo: (currentSnapshot: string) => string | null
   clear: () => void
@@ -15,13 +25,28 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
   past: [],
   future: [],
   maxHistory: 50,
+  lastCoalesceKey: null,
+  lastRecordedAt: 0,
 
-  record: (snapshot) =>
+  record: (snapshot, coalesceKey) =>
     set((state) => {
-      if (state.past[state.past.length - 1] === snapshot) return { future: [] }
+      const now = Date.now()
+      if (
+        coalesceKey
+        && coalesceKey === state.lastCoalesceKey
+        && now - state.lastRecordedAt < COALESCE_WINDOW_MS
+      ) {
+        // Same burst: keep the first pre-state, just refresh the timer.
+        return { lastRecordedAt: now, future: [] }
+      }
+      if (state.past[state.past.length - 1] === snapshot) {
+        return { future: [], lastCoalesceKey: coalesceKey ?? null, lastRecordedAt: now }
+      }
       return {
         past: [...state.past, snapshot].slice(-state.maxHistory),
         future: [],
+        lastCoalesceKey: coalesceKey ?? null,
+        lastRecordedAt: now,
       }
     }),
 
@@ -32,6 +57,7 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     set({
       past: past.slice(0, -1),
       future: [...future, currentSnapshot],
+      lastCoalesceKey: null,
     })
     return previous
   },
@@ -43,9 +69,10 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     set({
       past: [...past, currentSnapshot].slice(-maxHistory),
       future: future.slice(0, -1),
+      lastCoalesceKey: null,
     })
     return next
   },
 
-  clear: () => set({ past: [], future: [] }),
+  clear: () => set({ past: [], future: [], lastCoalesceKey: null, lastRecordedAt: 0 }),
 }))

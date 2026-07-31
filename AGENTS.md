@@ -49,52 +49,80 @@ npm run validate:export -- <file.zip>
 
 ## Testing
 
-- E2E specs live in `e2e/`, driven through the real UI (aria labels) plus a dev-only debug handle `window.__sfCanvas` (exposed by `use-canvas` only when `import.meta.env.DEV`) for state assertions.
-- Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class.
+- E2E specs live in `e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
+- Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class. Panel inputs are located by aria-label ("Position X", "Largeur", "Rotation"…), never positionally.
 - `e2e/export.spec.ts` verifies the exported ZIP is pixel-exact (1320×2868, PNG-24 opaque) — the critical path.
+- `e2e/command-palette.spec.ts` covers the ⌘K palette and history coalescing (nudge burst = one undo step).
+- `scripts/visual-probe.mjs` screenshots the app for design review; `scripts/export-probe.mjs` drives a real export end-to-end and validates the ZIP (requires the dev server on :5199).
 
 ## Architecture
 
 ```
 src/
   components/
+    ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
+                         # NumberField (scrub), Slider, Segmented, Switch, Field, Dialog,
+                         # Popover, Dropdown, Tooltip, Kbd, CommandPalette, ToastViewport
     canvas/              # Fabric.js canvas wrapper + interactions
-    toolbar/             # Save, undo, redo, zoom, export
-    layers-panel/        # Layer list, reorder, visibility
-    properties-panel/    # Selected layer properties editor
-    screens-bar/         # Screen thumbnails (bottom bar)
+    toolbar/             # Floating chrome: Toolbar (tools + export), ProjectIsland, ZoomHud
+    layers-panel/        # Layer list (search, groups, DnD), memoized LayerItem
+    properties-panel/    # Properties shell + sections (Transform, Text, Device, Image,
+                         # Shape, Background) + shared ShadowEditor
+    screens-bar/         # Floating screens strip, memoized ScreenThumbnail
     background-editor/   # Solid + gradient + preset backgrounds
     device-picker/       # iPhone frame selection + config
-    text-editor/         # Typography controls
-    template-picker/     # Template gallery modal
+    text-editor/         # Typography controls + FontPicker
+    template-picker/     # Template gallery dialog
+    globals-editor/      # Project defaults dialog
     export-dialog/       # Export config + batch export
-    color-picker/        # Reusable color + gradient picker
+    color-picker/        # Color + alpha picker (recent colors)
     gradient-editor/     # Color stop editor
   stores/
-    canvas.store.ts      # Layers, selection, active screen
-    project.store.ts     # Project metadata, screens, globals
-    history.store.ts     # Undo/redo command stack
-    ui.store.ts          # Panel states, zoom, active tool
+    canvas.store.ts      # Layers, selection, active screen — facade over project.store
+    project.store.ts     # Project metadata, screens, globals — source of truth
+    history.store.ts     # Undo/redo snapshots with burst coalescing
+    ui.store.ts          # Panel/dialog flags, zoom, theme
+    toast.store.ts       # Toast queue (module-level, no React subscription needed)
   hooks/
-    use-canvas.ts        # Fabric.js lifecycle + events
-    use-keyboard.ts      # Shortcut handling
-    use-export.ts        # Export + batch logic
-    use-fonts.ts         # Google Fonts loader
+    use-canvas.ts        # Fabric lifecycle + granular sync (diff → patch | full)
+    use-keyboard.ts      # Shortcuts (⌘K palette, nudges coalesced, clipboard)
+    use-export.ts        # Batch export, bounded parallelism (2 workers)
+    use-fonts.ts         # Google Fonts loader (content fonts, on-demand)
+    use-layer-actions.ts # Shared layer actions (imperative getState, stable refs)
   assets/
     device-frames/       # iPhone SVG mockups (per model + color)
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
     dimensions.ts        # Apple dimension constants — MUST match PRD table exactly
-    storage.ts           # IndexedDB read/write via idb
+    assets.ts            # Binary asset registry (data URLs OUT of the layer graph)
+    storage.ts           # IndexedDB v2 (projects + assets tables), migration, autosave
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation via JSZip
+    commands.ts          # ⌘K command registry
+    layer-factories.ts   # Add-layer defaults (single source)
+    stage.ts             # Floating-chrome insets for canvas fit
+    image.ts / number.ts # Shared image + numeric helpers
     utils.ts             # cn() helper (clsx + tailwind-merge)
   types/
     index.ts             # Layer, Screen, Project, ExportConfig types
 ```
 
 **Key data flow**: Zustand stores are the single source of truth. The Fabric.js canvas syncs bidirectionally with `canvas.store.ts`. User edits on canvas -> store update -> properties panel reflects. Properties panel edit -> store update -> canvas re-renders.
+
+**Binary assets (v2)**: image layers and device screenshots hold a short `assetId`, never a data URL. Payloads live in `lib/assets.ts` (in-memory registry, hash-deduped) and persist in the IDB `assets` table; `storage.ts` migrates v1 inline data URLs on load. History snapshots, autosave and sync diffs stay tiny as a result.
+
+**Granular sync (v2)**: `use-canvas.ts` diffs project references (`diffProjectChange`) — single-screen, same-stacking-order changes take the in-place `syncPatch` path (no clipPath/z-order rebuild); structural changes fall back to full reconciliation.
+
+**History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
+
+## Design language (v2)
+
+- **Floating islands**: the canvas is full-bleed; toolbar, panels, screens strip and zoom HUD float above it as `.island` surfaces (12px radius, 1px border, soft shadow). `lib/stage.ts` computes the fit insets.
+- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). Warm graphite; red `#d71921` (`primary`, `primary-strong` for filled buttons) reserved for export + active states; restrained blue for focus only.
+- **Type**: Archivo (UI) + Chivo Mono (labels ALL CAPS 10px, tabular values), loaded via `index.html`. Content fonts (text layers) still load on demand.
+- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants). Legacy recipe classes were removed; only `.island`, `.surface-inner`, `.surface-modal`, `.menu-shadow`, `.mono-*`, `.input`, `.hairline`, `.img-outline`, `.hit-40` remain as global classes.
+- Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)
 

@@ -1,8 +1,19 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import {
+  hydrateAssets,
+  registerAsset,
+  takeDirtyAssets,
+} from '@/lib/assets'
 import { createDefaultScreen, DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { GlobalSettings, Layer, Project, Screen } from '@/types'
+
+interface AssetRecord {
+  id: string
+  projectId: string
+  dataUrl: string
+}
 
 interface ScreenForgeDB extends DBSchema {
   projects: {
@@ -10,16 +21,27 @@ interface ScreenForgeDB extends DBSchema {
     value: Project
     indexes: { 'by-updated': number }
   }
+  assets: {
+    key: string
+    value: AssetRecord
+    indexes: { 'by-project': string }
+  }
 }
 
 let dbPromise: Promise<IDBPDatabase<ScreenForgeDB>> | null = null
 
 function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<ScreenForgeDB>('screenforge', 1, {
+    dbPromise = openDB<ScreenForgeDB>('screenforge', 2, {
       upgrade(db) {
-        const store = db.createObjectStore('projects', { keyPath: 'id' })
-        store.createIndex('by-updated', 'updatedAt')
+        if (!db.objectStoreNames.contains('projects')) {
+          const store = db.createObjectStore('projects', { keyPath: 'id' })
+          store.createIndex('by-updated', 'updatedAt')
+        }
+        if (!db.objectStoreNames.contains('assets')) {
+          const store = db.createObjectStore('assets', { keyPath: 'id' })
+          store.createIndex('by-project', 'projectId')
+        }
       },
     })
   }
@@ -45,7 +67,10 @@ function normalizeLayer(
   scope?: 'layout',
 ): Layer | null {
   if (!value || typeof value !== 'object') return null
-  const candidate = cloneValue(value) as Partial<Layer>
+  const candidate = cloneValue(value) as Partial<Layer> & {
+    src?: string
+    screenshotUrl?: string
+  }
   if (!['text', 'device-frame', 'image', 'shape'].includes(candidate.type ?? '')) return null
   const normalized = {
     ...candidate,
@@ -56,6 +81,23 @@ function normalizeLayer(
     ...(scope ? { scope } : {}),
   } as Layer
   if (!scope) delete normalized.scope
+
+  // Migration: inline data URLs move out of the layer graph into the asset
+  // registry (v1 → v2). Layers keep only a short asset id.
+  if (normalized.type === 'image') {
+    const imageLayer = normalized as typeof normalized & { assetId?: string }
+    if (typeof candidate.src === 'string' && candidate.src) {
+      imageLayer.assetId = registerAsset(candidate.src)
+    }
+    delete (imageLayer as { src?: string }).src
+  }
+  if (normalized.type === 'device-frame') {
+    const deviceLayer = normalized as typeof normalized & { screenshotAssetId?: string }
+    if (typeof candidate.screenshotUrl === 'string' && candidate.screenshotUrl) {
+      deviceLayer.screenshotAssetId = registerAsset(candidate.screenshotUrl)
+    }
+    delete (deviceLayer as { screenshotUrl?: string }).screenshotUrl
+  }
   return normalized
 }
 
@@ -96,7 +138,7 @@ export function normalizeProject(value: unknown): Project {
       id: uniqueId(screen.id, screenIds),
       name: typeof screen.name === 'string' && screen.name.trim()
         ? screen.name
-        : `Screen ${screenIndex + 1}`,
+        : `Écran ${screenIndex + 1}`,
       layers,
       background: screen.background
         ? cloneValue(screen.background)
@@ -106,7 +148,7 @@ export function normalizeProject(value: unknown): Project {
   })
 
   if (screens.length === 0) {
-    const screen = createDefaultScreen('Screen 1', globals)
+    const screen = createDefaultScreen('Écran 1', globals)
     screenIds.add(screen.id)
     screens.push(screen)
   }
@@ -137,22 +179,48 @@ export function normalizeProject(value: unknown): Project {
   }
 }
 
+/** Persists newly registered assets for this project (no-op when clean). */
+async function flushDirtyAssets(
+  db: IDBPDatabase<ScreenForgeDB>,
+  projectId: string,
+): Promise<void> {
+  const dirty = takeDirtyAssets()
+  if (dirty.length === 0) return
+  const tx = db.transaction('assets', 'readwrite')
+  await Promise.all(
+    dirty.map((asset) => tx.store.put({ id: asset.id, projectId, dataUrl: asset.dataUrl })),
+  )
+  await tx.done
+}
+
 export async function saveProject(project: Project): Promise<void> {
   const db = await getDB()
   await db.put('projects', normalizeProject(project))
+  await flushDirtyAssets(db, project.id)
+}
+
+/** Loads a project and its binary assets; migrates v1 inline payloads. */
+async function loadProjectRecord(record: Project | undefined): Promise<Project | undefined> {
+  if (!record) return undefined
+  const db = await getDB()
+  const assets = await db.getAllFromIndex('assets', 'by-project', record.id)
+  hydrateAssets(assets)
+  const project = normalizeProject(record)
+  // Inline data URLs found during normalization were registered as new
+  // assets — persist them now so the migration is durable.
+  await flushDirtyAssets(db, project.id)
+  return project
 }
 
 export async function loadProject(id: string): Promise<Project | undefined> {
   const db = await getDB()
-  const project = await db.get('projects', id)
-  return project ? normalizeProject(project) : undefined
+  return loadProjectRecord(await db.get('projects', id))
 }
 
 export async function loadLatestProject(): Promise<Project | undefined> {
   const db = await getDB()
   const all = await db.getAllFromIndex('projects', 'by-updated')
-  const project = all[all.length - 1]
-  return project ? normalizeProject(project) : undefined
+  return loadProjectRecord(all[all.length - 1])
 }
 
 export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]> {

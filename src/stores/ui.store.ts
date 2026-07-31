@@ -13,6 +13,8 @@ interface UIState {
   showExportDialog: boolean
   showTemplatesPicker: boolean
   showGlobalsEditor: boolean
+  showCommandPalette: boolean
+  showShortcuts: boolean
   theme: Theme
   saveStatus: SaveStatus
 
@@ -26,6 +28,8 @@ interface UIState {
   setShowExportDialog: (show: boolean) => void
   setShowTemplatesPicker: (show: boolean) => void
   setShowGlobalsEditor: (show: boolean) => void
+  setShowCommandPalette: (show: boolean) => void
+  setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
   setSaveStatus: (status: SaveStatus) => void
 }
@@ -57,6 +61,8 @@ export const useUIStore = create<UIState>()((set) => ({
   showExportDialog: false,
   showTemplatesPicker: false,
   showGlobalsEditor: false,
+  showCommandPalette: false,
+  showShortcuts: false,
   theme: getInitialTheme(),
   saveStatus: 'idle',
 
@@ -79,17 +85,24 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setShowExportDialog: (show) => set({
     showExportDialog: show,
-    ...(show ? { showTemplatesPicker: false, showGlobalsEditor: false } : {}),
+    ...(show ? { showTemplatesPicker: false, showGlobalsEditor: false, showShortcuts: false } : {}),
   }),
 
   setShowTemplatesPicker: (show) => set({
     showTemplatesPicker: show,
-    ...(show ? { showExportDialog: false, showGlobalsEditor: false } : {}),
+    ...(show ? { showExportDialog: false, showGlobalsEditor: false, showShortcuts: false } : {}),
   }),
 
   setShowGlobalsEditor: (show) => set({
     showGlobalsEditor: show,
-    ...(show ? { showExportDialog: false, showTemplatesPicker: false } : {}),
+    ...(show ? { showExportDialog: false, showTemplatesPicker: false, showShortcuts: false } : {}),
+  }),
+
+  setShowCommandPalette: (show) => set({ showCommandPalette: show }),
+
+  setShowShortcuts: (show) => set({
+    showShortcuts: show,
+    ...(show ? { showExportDialog: false, showTemplatesPicker: false, showGlobalsEditor: false } : {}),
   }),
 
   toggleTheme: () =>

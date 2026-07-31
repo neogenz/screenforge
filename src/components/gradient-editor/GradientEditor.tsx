@@ -1,12 +1,23 @@
 import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
-import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { NumberField } from '@/components/ui/number-field'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
 
 interface GradientEditorProps {
   value: GradientFill
   onChange: (gradient: GradientFill) => void
 }
+
+type GradientType = GradientFill['type']
+
+const TYPE_OPTIONS: SegmentedOption<GradientType>[] = [
+  { value: 'linear', label: 'Linéaire' },
+  { value: 'radial', label: 'Radial' },
+]
 
 function buildCssGradient(gradient: GradientFill): string {
   const stops = gradient.stops
@@ -23,7 +34,7 @@ function buildCssGradient(gradient: GradientFill): string {
 }
 
 export function GradientEditor({ value, onChange }: GradientEditorProps) {
-  function setType(type: 'linear' | 'radial') {
+  function setType(type: GradientType) {
     onChange({ ...value, type })
   }
 
@@ -78,68 +89,50 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
-      {/* Type — flat segmented */}
+      {/* Type */}
       <div className="flex flex-col gap-2">
         <span className="mono-label">Type</span>
-        <div className="seg w-full" role="group" aria-label="Type de dégradé">
-          {(['linear', 'radial'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              data-active={value.type === t}
-              className="seg-btn flex-1"
-              aria-pressed={value.type === t}
-            >
-              {t === 'linear' ? 'Linéaire' : 'Radial'}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          options={TYPE_OPTIONS}
+          value={value.type}
+          onChange={setType}
+          ariaLabel="Type de dégradé"
+          className="w-full [&>button]:flex-1"
+        />
       </div>
 
       {/* Angle (linear only) */}
       {value.type === 'linear' && (
-        <div className="flex flex-col gap-2">
-          <span className="mono-label">Angle</span>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={359}
-              value={value.angle ?? 90}
-              onChange={(e) => setAngle(parseInt(e.target.value, 10) || 0)}
-              className={cn('input', 'w-20')}
-              aria-label="Gradient angle in degrees"
-            />
-            <span className="mono-label">°</span>
-          </div>
-        </div>
+        <NumberField
+          label="Angle"
+          ariaLabel="Angle du dégradé"
+          min={0}
+          max={360}
+          step={1}
+          value={value.angle ?? 90}
+          onChange={setAngle}
+        />
       )}
 
+      {/* Center (radial only) */}
       {value.type === 'radial' && (
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex flex-col gap-2">
-            <span className="mono-label">Centre X</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={Math.round(value.centerX ?? 50)}
-              onChange={(event) => setCenter('centerX', Number(event.target.value))}
-              className="input"
-            />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="mono-label">Centre Y</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={Math.round(value.centerY ?? 50)}
-              onChange={(event) => setCenter('centerY', Number(event.target.value))}
-              className="input"
-            />
-          </label>
+        <div className="flex gap-2">
+          <NumberField
+            label="X"
+            ariaLabel="Centre X du dégradé"
+            min={0}
+            max={100}
+            value={Math.round(value.centerX ?? 50)}
+            onChange={(v) => setCenter('centerX', v)}
+          />
+          <NumberField
+            label="Y"
+            ariaLabel="Centre Y du dégradé"
+            min={0}
+            max={100}
+            value={Math.round(value.centerY ?? 50)}
+            onChange={(v) => setCenter('centerY', v)}
+          />
         </div>
       )}
 
@@ -147,7 +140,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       <div className="flex flex-col gap-2">
         <span className="mono-label">Aperçu</span>
         <div
-          className="h-10 w-full rounded-md border border-border"
+          className="h-8 w-full rounded-md border border-border"
           style={{ background: buildCssGradient(value) }}
           aria-hidden="true"
         />
@@ -159,70 +152,52 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           <span className="mono-label">
             Arrêts <span className="mono-value">{value.stops.length}/10</span>
           </span>
-          <button
-            type="button"
-            onClick={addStop}
-            disabled={value.stops.length >= 10}
-            className={cn(
-              'flex h-11 w-11 items-center justify-center rounded-sm text-foreground-muted',
-              'transition-colors duration-100 ease-out',
-              'hover:bg-surface-hover hover:text-foreground',
-              'disabled:pointer-events-none disabled:opacity-40',
-            )}
-            aria-label="Ajouter un arrêt de couleur"
-          >
-            <Plus size={14} strokeWidth={1.75} aria-hidden />
-          </button>
         </div>
 
         <div className="flex flex-col gap-2">
-          {sortedStops.map((stop) => (
+          {sortedStops.map((stop, displayIndex) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-panel-sub p-2.5"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-panel-sub p-2"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color })}
                 showOpacity
               />
-              <div className="flex min-w-0 items-end gap-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <span className="mono-label">Pos</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={stop.offset}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value)
-                      if (!isNaN(v)) {
-                        updateStop(stop.originalIndex, { offset: Math.max(0, Math.min(1, v)) })
-                      }
-                    }}
-                    className={cn('input', 'w-full')}
-                    aria-label="Stop position"
-                  />
-                </div>
-                <button
-                  type="button"
+              <div className="flex min-w-0 items-center gap-2">
+                <NumberField
+                  label="Pos"
+                  ariaLabel={`Position du stop ${displayIndex + 1}`}
+                  min={0}
+                  max={100}
+                  value={Math.round(stop.offset * 100)}
+                  onChange={(v) => updateStop(stop.originalIndex, { offset: v / 100 })}
+                />
+                <IconButton
+                  size="sm"
                   onClick={() => removeStop(stop.originalIndex)}
                   disabled={value.stops.length <= 2}
-                  className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-foreground-muted',
-                    'transition-colors duration-100 ease-out',
-                    'hover:border-danger hover:text-danger',
-                    'disabled:pointer-events-none disabled:opacity-40',
-                  )}
-                    aria-label="Supprimer l’arrêt"
+                  aria-label="Supprimer le stop"
+                  className="shrink-0 hover:bg-danger-soft hover:text-danger"
                 >
-                  <Trash2 size={12} strokeWidth={1.5} />
-                </button>
+                  <Trash2 size={12} strokeWidth={1.5} aria-hidden />
+                </IconButton>
               </div>
             </div>
           ))}
         </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={addStop}
+          disabled={value.stops.length >= 10}
+          className="w-full"
+        >
+          <Plus size={12} strokeWidth={1.75} aria-hidden />
+          Ajouter un stop
+        </Button>
       </div>
     </div>
   )

@@ -19,6 +19,11 @@ interface ProjectHistorySnapshot {
 
 type HistorySnapshot = ScreenHistorySnapshot | ProjectHistorySnapshot
 
+interface EditOptions {
+  /** Burst key: rapid edits with the same key collapse into one undo step. */
+  coalesceKey?: string
+}
+
 interface CanvasState {
   /** Mirror of the active screen's layers for panels and keyboard commands. */
   layers: Layer[]
@@ -27,7 +32,7 @@ interface CanvasState {
 
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
-  updateLayer: (id: string, updates: Partial<Layer>) => void
+  updateLayer: (id: string, updates: Partial<Layer>, options?: EditOptions) => void
   updateBackground: (background: Background) => void
   selectLayer: (id: string) => void
   selectLayers: (ids: string[]) => void
@@ -35,7 +40,7 @@ interface CanvasState {
   reorderLayer: (id: string, newIndex: number) => void
   duplicateLayer: (id: string) => void
   setLayerScope: (id: string, scope: 'screen' | 'layout') => void
-  setLayers: (layers: Layer[]) => void
+  setLayers: (layers: Layer[], options?: EditOptions) => void
   setActiveScreenId: (id: string) => void
   syncLayersFromProject: () => void
   recordHistory: () => void
@@ -67,6 +72,21 @@ function syncFromProject(screenId: string): Layer[] {
     ...(project?.screens.find((screen) => screen.id === screenId)?.layers ?? []),
     ...(project?.layoutLayers ?? []),
   ]
+}
+
+/**
+ * Identity-preserving mirror update: keeps the previous array (and lets
+ * useShallow selectors skip the render) when every layer ref is unchanged.
+ */
+function syncLayersPreservingIdentity(previous: Layer[], screenId: string): Layer[] {
+  const next = syncFromProject(screenId)
+  if (
+    previous.length === next.length
+    && previous.every((layer, index) => layer === next[index])
+  ) {
+    return previous
+  }
+  return next
 }
 
 function serializeScreen(screenId: string): string | null {
@@ -141,14 +161,14 @@ function applyGlobalsToNewLayer(layer: Layer): Layer {
 }
 
 export const useCanvasStore = create<CanvasState>()((set, get) => {
-  function recordCurrent() {
+  function recordCurrent(coalesceKey?: string) {
     const snapshot = serializeScreen(get().activeScreenId)
-    if (snapshot) useHistoryStore.getState().record(snapshot)
+    if (snapshot) useHistoryStore.getState().record(snapshot, coalesceKey)
   }
 
-  function recordProject() {
+  function recordProject(coalesceKey?: string) {
     const snapshot = serializeProject()
-    if (snapshot) useHistoryStore.getState().record(snapshot)
+    if (snapshot) useHistoryStore.getState().record(snapshot, coalesceKey)
   }
 
   function persistScreen(snapshot: ScreenHistorySnapshot) {
@@ -258,7 +278,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       }))
     },
 
-    updateLayer: (id, updates) => {
+    updateLayer: (id, updates, options) => {
       const screenId = get().activeScreenId
       const layer = get().layers.find((candidate) => candidate.id === id)
       if (!screenId || !layer) return
@@ -267,17 +287,17 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       )
       if (!changed) return
       if (layer.scope === 'layout') {
-        recordProject()
+        recordProject(options?.coalesceKey)
         const project = useProjectStore.getState().project
         if (!project) return
         useProjectStore.getState().saveLayoutLayers(project.layoutLayers.map((candidate) =>
           candidate.id === id ? { ...candidate, ...updates, scope: 'layout' } as Layer : candidate,
         ))
       } else {
-        recordCurrent()
+        recordCurrent(options?.coalesceKey)
         useProjectStore.getState().updateScreenLayer(screenId, id, updates)
       }
-      set({ layers: syncFromProject(screenId) })
+      set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screenId) }))
     },
 
     updateBackground: (background) => {
@@ -403,10 +423,10 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       set({ layers: syncFromProject(screenId), selectedLayerIds: [id] })
     },
 
-    setLayers: (layers) => {
+    setLayers: (layers, options) => {
       const screen = activeScreen(get().activeScreenId)
       if (!screen) return
-      recordProject()
+      recordProject(options?.coalesceKey)
       const project = useProjectStore.getState().project
       if (!project) return
       useProjectStore.setState({
@@ -419,7 +439,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           updatedAt: Math.max(Date.now(), project.updatedAt + 1),
         },
       })
-      set({ layers: syncFromProject(screen.id) })
+      set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screen.id) }))
     },
 
     setActiveScreenId: (id) => {
@@ -451,7 +471,10 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       const screenId = project?.screens.some((screen) => screen.id === currentId)
         ? currentId
         : project?.activeScreenId ?? project?.screens[0]?.id ?? ''
-      set({ activeScreenId: screenId, layers: syncFromProject(screenId) })
+      set((state) => ({
+        activeScreenId: screenId,
+        layers: syncLayersPreservingIdentity(state.layers, screenId),
+      }))
     },
 
     recordHistory: recordCurrent,
