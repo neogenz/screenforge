@@ -12,6 +12,7 @@ import {
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
   applyLayerToFabricObject,
+  applySelectionStyle,
   backgroundToFabricFill,
   disposeFabricObjectResource,
   fabricObjectToLayerUpdate,
@@ -19,6 +20,7 @@ import {
   getTotalWidth,
   layerToFabricObject,
   needsFabricObjectRecreation,
+  setSelectionColors,
   type RenderedObject,
 } from '@/components/canvas/canvas-utils'
 import { useCanvasStore } from '@/stores/canvas.store'
@@ -35,16 +37,36 @@ interface ChromeColors {
   label: string
   artboardRing: string
   activeRing: string
+  selection: string
+  selectionSoft: string
+  stage: string
 }
 
 function readChromeColors(): ChromeColors {
-  const themed = document.getElementById('root')?.firstElementChild ?? document.documentElement
-  const styles = getComputedStyle(themed as Element)
+  const styles = getComputedStyle(document.documentElement)
+  const read = (token: string, fallback: string) =>
+    styles.getPropertyValue(token).trim() || fallback
   return {
-    label: styles.getPropertyValue('--color-faint').trim() || '#74746e',
-    artboardRing: styles.getPropertyValue('--color-artboard-ring').trim() || 'rgba(255,255,255,0.12)',
-    activeRing: styles.getPropertyValue('--color-artboard-ring-active').trim() || 'rgba(255,255,255,0.5)',
+    // Le libellé d'écran est posé sur le stage : `faint` y est trop faible.
+    label: read('--color-foreground-muted', '#b8b8b8'),
+    artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
+    activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
+    selection: read('--color-selection', '#f7f7f7'),
+    selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
+    stage: read('--color-stage', '#252525'),
   }
+}
+
+/** Poignées, cadre de sélection et lasso : une seule couleur, celle du thème. */
+function applyCanvasSelectionColors(canvas: Canvas, chrome: ChromeColors): void {
+  setSelectionColors({
+    border: chrome.selection,
+    corner: chrome.selection,
+    cornerStroke: chrome.stage,
+  })
+  canvas.selectionColor = chrome.selectionSoft
+  canvas.selectionBorderColor = chrome.selection
+  canvas.selectionLineWidth = 1
 }
 
 function createScreenClipPath(screenIndex: number): Rect {
@@ -356,6 +378,7 @@ export function useCanvas() {
     if (!canvas) return
     const { screens, layoutLayers, activeScreenId } = project
     const chrome = readChromeColors()
+    applyCanvasSelectionColors(canvas, chrome)
     const version = ++syncVersion.current
     syncing.current = true
 
@@ -429,7 +452,9 @@ export function useCanvas() {
             originY: 'top',
             width: SCREEN_WIDTH,
             fontSize: 12,
-            fontFamily: '"Archivo", system-ui, sans-serif',
+            // Même famille que l'interface. Archivo n'est plus chargée depuis la v3 :
+            // le libellé retombait sur system-ui et détonnait avec le reste.
+            fontFamily: 'Inter, system-ui, sans-serif',
             selectable: false,
             evented: false,
           })
@@ -551,11 +576,11 @@ export function useCanvas() {
             layout: true,
             rendererType: layer.type,
           })
-          applyLayerToFabricObject(
-            object,
-            layer,
-            getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
-          )
+          // Un calque partagé occupe la même place sur chaque planche : il suit
+          // donc le pas complet des écrans. Retrancher `SCREEN_WIDTH` le laissait
+          // à un intervalle de la première planche, hors de sa propre fenêtre de
+          // découpe — invisible, mais ses poignées, elles, restaient dessinées.
+          applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
           const isActiveInstance = screen.id === activeScreenId
           ensureScreenClipPath(object, screenIndex)
           object.set({
@@ -682,7 +707,7 @@ export function useCanvas() {
         const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
         if (!object) return false
         if (needsFabricObjectRecreation(object, layer)) return false
-        applyLayerToFabricObject(object, layer, getScreenOffset(index) - index * SCREEN_WIDTH)
+        applyLayerToFabricObject(object, layer, getScreenOffset(index))
       }
     }
 
@@ -744,10 +769,7 @@ export function useCanvas() {
         if (object.data?.layout) {
           layoutUpdates.set(
             layerId,
-            fabricObjectToLayerUpdate(
-              object,
-              getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
-            ) as Partial<Layer>,
+            fabricObjectToLayerUpdate(object, getScreenOffset(screenIndex)) as Partial<Layer>,
           )
           continue
         }
@@ -1004,13 +1026,12 @@ export function useCanvas() {
     })
   }), [fitAll, sync, syncPatch])
 
-  // Theme change: re-render chrome colors (labels, artboard rings).
-  useEffect(() => useUIStore.subscribe((state, previous) => {
-    if (state.theme === previous.theme) return
+  const applyThemeToCanvas = useCallback(() => {
     const canvas = fabricRef.current
     const project = useProjectStore.getState().project
     if (!canvas || !project) return
     const chrome = readChromeColors()
+    applyCanvasSelectionColors(canvas, chrome)
     for (const object of canvas.getObjects() as RenderedObject[]) {
       const data = object.data
       if (data?.rendererType === 'label') {
@@ -1021,10 +1042,20 @@ export function useCanvas() {
           stroke: isActive ? chrome.activeRing : chrome.artboardRing,
           strokeWidth: isActive ? 2 : 1,
         })
+      } else {
+        applySelectionStyle(object)
       }
     }
     canvas.requestRenderAll()
-  }), [])
+  }, [])
+
+  // Theme change: re-render chrome colors (labels, artboard rings, handles).
+  // Différé d'une frame : la classe de thème est posée sur <html> par un effet
+  // React, qui n'a pas encore tourné quand l'abonné Zustand est appelé.
+  useEffect(() => useUIStore.subscribe((state, previous) => {
+    if (state.theme === previous.theme) return
+    requestAnimationFrame(applyThemeToCanvas)
+  }), [applyThemeToCanvas])
 
   // Clicking a screen thumbnail centers the viewport on that artboard.
   useEffect(() => useCanvasStore.subscribe((state, previous) => {

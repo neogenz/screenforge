@@ -8,7 +8,13 @@ import {
   Textbox,
   util,
 } from 'fabric'
-import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
+import {
+  DEVICE_BLEED,
+  DEVICE_RASTER_SCALE,
+  generateDeviceFrameSVG,
+  getDeviceFrame,
+  getDeviceRenderSize,
+} from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import type {
@@ -27,6 +33,37 @@ export const SCREEN_GAP = 40
 
 FabricObject.ownDefaults.originX = 'left'
 FabricObject.ownDefaults.originY = 'top'
+
+/**
+ * Habillage de la sélection : géométrie fixe, couleurs pilotées par le thème.
+ * Rien de tout ceci n'atteint l'export — `lib/export.ts` reconstruit un
+ * `StaticCanvas` distinct à partir des données de calque, sans contrôles.
+ */
+const SELECTION_GEOMETRY = {
+  cornerSize: 8,
+  cornerStyle: 'circle',
+  transparentCorners: false,
+  cornerStrokeColor: '#000000',
+  borderScaleFactor: 1.5,
+  borderOpacityWhenMoving: 0.5,
+  padding: 0,
+} as const
+
+let selectionColors = { border: '#f7f7f7', corner: '#f7f7f7', cornerStroke: '#252525' }
+
+/** Relu au changement de thème : les poignées suivent `--color-selection`. */
+export function setSelectionColors(next: typeof selectionColors): void {
+  selectionColors = next
+}
+
+export function applySelectionStyle(object: FabricObject): void {
+  object.set({
+    ...SELECTION_GEOMETRY,
+    borderColor: selectionColors.border,
+    cornerColor: selectionColors.corner,
+    cornerStrokeColor: selectionColors.cornerStroke,
+  })
+}
 
 export type RenderedObject = FabricObject & {
   data?: {
@@ -129,17 +166,23 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
     layer.deviceColor,
     resolveAsset(layer.screenshotAssetId),
   )
+  const rendered = getDeviceRenderSize(config)
   if (layer.orientation === 'portrait') {
-    return { svg: portraitSvg, width: config.width, height: config.height }
+    return { svg: portraitSvg, width: rendered.width, height: rendered.height }
   }
 
   const contentStart = portraitSvg.indexOf('>') + 1
   const contentEnd = portraitSvg.lastIndexOf('</svg>')
   const content = portraitSvg.slice(contentStart, contentEnd)
+  // Rotation de 90° autour de l'origine puis translation : (x, y) → (height - y, x).
+  // Le contenu portrait s'étend de -DEVICE_BLEED à width + DEVICE_BLEED en x,
+  // ce débordement se retrouve donc en y une fois couché.
   return {
-    width: config.height,
-    height: config.width,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${config.height} ${config.width}" width="${config.height}" height="${config.width}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
+    width: rendered.height,
+    height: rendered.width,
+    // Même facteur de rastérisation que le portrait : sinon un appareil couché
+    // serait quatre fois moins net que le même appareil debout.
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-DEVICE_BLEED} ${config.height} ${rendered.width}" width="${config.height * DEVICE_RASTER_SCALE}" height="${rendered.width * DEVICE_RASTER_SCALE}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
   }
 }
 
@@ -221,10 +264,11 @@ export function applyLayerToFabricObject(
   screenOffset = 0,
 ): void {
   object.set({
-    originX: 'left',
-    originY: 'top',
-    left: layer.x + screenOffset,
-    top: layer.y,
+    // Origine au centre : une rotation pivote le calque sur lui-même au lieu de
+    // le faire tourner autour de son coin, ce qui l'éjectait de l'artboard.
+    // `layer.x` / `layer.y` restent le coin haut-gauche de la boîte non pivotée.
+    originX: 'center',
+    originY: 'center',
     angle: layer.rotation,
     opacity: layer.opacity,
     visible: layer.visible,
@@ -300,7 +344,31 @@ export function applyLayerToFabricObject(
     })
   }
 
+  applySelectionStyle(object)
+
+  // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
+  const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))
+  object.set({
+    left: layer.x + screenOffset + size.width / 2,
+    top: layer.y + size.height / 2,
+  })
+
   object.setCoords()
+}
+
+/**
+ * Taille occupée par l'objet, hors rotation. Un Textbox garde sa hauteur
+ * intrinsèque : elle découle du texte, pas d'une mise à l'échelle verticale.
+ */
+function scaledSize(
+  object: RenderedObject,
+  scaleX: number,
+  scaleY: number,
+): { width: number; height: number } {
+  return {
+    width: Math.max(1, object.width * scaleX),
+    height: Math.max(1, object.height * (object instanceof Textbox ? 1 : scaleY)),
+  }
 }
 
 export function fabricObjectToLayerUpdate(
@@ -309,21 +377,15 @@ export function fabricObjectToLayerUpdate(
 ): Partial<BaseLayer> {
   const matrix = object.calcTransformMatrix()
   const decomposition = util.qrDecompose(matrix)
-  const topLeft = object.getCoords()[0]
-  const dimensions = object instanceof Textbox
-    ? {
-        width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
-        height: Math.max(1, object.height),
-      }
-    : {
-        width: Math.max(1, object.width * Math.abs(decomposition.scaleX)),
-        height: Math.max(1, object.height * Math.abs(decomposition.scaleY)),
-      }
+  const size = scaledSize(object, Math.abs(decomposition.scaleX), Math.abs(decomposition.scaleY))
+  // La translation d'une matrice Fabric est toujours le centre de l'objet,
+  // y compris à l'intérieur d'une ActiveSelection.
+  const [centerX, centerY] = [matrix[4], matrix[5]]
 
   return {
-    x: topLeft.x - screenOffset,
-    y: topLeft.y,
-    ...dimensions,
+    x: centerX - size.width / 2 - screenOffset,
+    y: centerY - size.height / 2,
+    ...size,
     rotation: decomposition.angle,
     opacity: object.opacity,
   }

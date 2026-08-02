@@ -39,6 +39,8 @@
 
   /* Sélection : une seule couleur pour le chrome et pour les poignées Fabric. */
   --color-selection: oklch(0.97 0 0);
+  /* Remplissage du lasso, dérivé de la même couleur. */
+  --color-selection-soft: oklch(0.97 0 0 / 0.14);
 
   /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
   --color-danger: oklch(0.62 0.18 25);
@@ -164,6 +166,7 @@
   --color-border-strong: oklch(0.8 0 0);
 
   --color-selection: oklch(0.18 0 0);
+  --color-selection-soft: oklch(0.18 0 0 / 0.1);
 
   --color-danger: oklch(0.55 0.19 25);
   --color-danger-soft: oklch(0.55 0.19 25 / 0.1);

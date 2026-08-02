@@ -7,7 +7,10 @@ export interface FontLoadResult {
   message?: string
 }
 
+// `POPULAR_FONTS[0]` sert de police à tout texte neuf : une grotesque au dessin
+// affirmé plutôt qu'un neutre de gabarit.
 export const POPULAR_FONTS = [
+  'Space Grotesk',
   'Archivo',
   'Inter',
   'Roboto',
@@ -28,7 +31,6 @@ export const POPULAR_FONTS = [
   'Quicksand',
   'Barlow',
   'DM Sans',
-  'Space Grotesk',
   'Noto Sans',
   'Fira Sans',
   'Mulish',

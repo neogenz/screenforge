@@ -1,7 +1,9 @@
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
+import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
+import { POPULAR_FONTS } from '@/hooks/use-fonts'
 import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
 
 /**
@@ -24,10 +26,10 @@ export function createTextLayer(zIndex: number): TextLayer {
     visible: true,
     zIndex,
     content: 'Titre accrocheur',
-    fontFamily: 'Archivo',
+    fontFamily: POPULAR_FONTS[0],
     fontSize: 48,
     fontWeight: 700,
-    color: '#141413',
+    color: DEFAULT_INK_COLOR,
     textAlign: 'center',
     lineHeight: 1.2,
     letterSpacing: 0,
@@ -50,7 +52,7 @@ export function createShapeLayer(zIndex: number): ShapeLayer {
     visible: true,
     zIndex,
     shapeType: 'rectangle',
-    fill: '#141413',
+    fill: DEFAULT_INK_COLOR,
   }
 }
 

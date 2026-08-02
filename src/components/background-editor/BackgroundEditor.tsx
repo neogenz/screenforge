@@ -7,8 +7,8 @@ import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
 import {
-  DEFAULT_GRADIENT_FROM,
-  DEFAULT_GRADIENT_TO_ALT,
+  DEFAULT_BACKGROUND_FROM,
+  DEFAULT_BACKGROUND_TO,
   DEFAULT_SOLID_COLOR,
 } from '@/lib/content-defaults'
 
@@ -23,8 +23,8 @@ const DEFAULT_GRADIENT: GradientFill = {
   type: 'linear',
   angle: 135,
   stops: [
-    { offset: 0, color: DEFAULT_GRADIENT_FROM },
-    { offset: 1, color: DEFAULT_GRADIENT_TO_ALT },
+    { offset: 0, color: DEFAULT_BACKGROUND_FROM },
+    { offset: 1, color: DEFAULT_BACKGROUND_TO },
   ],
 }
 

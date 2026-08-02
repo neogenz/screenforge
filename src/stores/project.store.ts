@@ -1,15 +1,23 @@
 import { create } from 'zustand'
+import { getDeviceFrame } from '@/assets/device-frames'
+import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import type { GlobalSettings, Layer, Project, Screen } from '@/types'
+import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
 
+const DEFAULT_DEVICE_MODEL: DeviceModel = 'iphone-17-pro-max'
+
+// Les réglages globaux l'emportent sur les fabriques de calques : tout défaut
+// posé ici est ce que l'utilisateur voit réellement en ajoutant un calque.
+// Ils dérivent donc des mêmes sources uniques, jamais de valeurs recopiées.
 export const DEFAULT_GLOBALS: GlobalSettings = {
-  fontFamily: 'Archivo',
+  fontFamily: POPULAR_FONTS[0],
   fontWeight: 700,
   fontSize: 48,
-  fontColor: '#1a1a1a',
-  background: { type: 'solid', color: '#ffffff' },
-  deviceModel: 'iphone-17-pro-max',
-  deviceColor: 'cosmic-orange',
+  fontColor: DEFAULT_INK_COLOR,
+  background: { type: 'solid', color: DEFAULT_SOLID_COLOR },
+  deviceModel: DEFAULT_DEVICE_MODEL,
+  deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
 }
 
 function cloneValue<T>(value: T): T {

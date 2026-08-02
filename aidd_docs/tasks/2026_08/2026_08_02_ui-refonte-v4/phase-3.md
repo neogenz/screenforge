@@ -1,6 +1,45 @@
 ---
-status: pending
+status: done
 ---
+
+## Écarts constatés à l'implémentation
+
+Quatre points du plan reposaient sur des hypothèses que la mesure a démenties.
+
+1. **Tâche 1.6 — la netteté était le vrai sujet.** Le SVG était rastérisé à sa taille
+   naturelle (~184 unités de large) puis agrandi par Fabric : à l'export 1320×2868 un
+   appareil de taille par défaut occupe ~740 px, soit quatre fois la source. D'où
+   `DEVICE_RASTER_SCALE = 4`. C'est la cause principale de l'aspect « cheap », avant
+   toute question de dessin.
+
+2. **Proportions fausses, non prévues au plan.** L'encadrement valait `width × 0,055` et
+   `height × 0,047`, soit près du double du réel, et le partage métal/noir était inversé
+   (7,5 unités de tranche pour 2,5 de bezel). Les bordures viennent désormais des cotes
+   physiques de chaque modèle, contrôlées par recoupement : `hauteur mm × échelle` retombe
+   sur la hauteur en unités du gabarit à moins de 1,5 % près.
+
+3. **Coins en superellipse.** Un `rx` de SVG donne un arc de cercle ; Apple utilise des
+   coins continus. Invisible tant que la bordure était épaisse, flagrant une fois amincie.
+
+4. **Tâche 3 — l'hypothèse du plan était fausse.** Le cadre n'est pas parsé par
+   `loadSVGFromURL` mais rastérisé via `<img>` : le hors-`viewBox` est écrêté par le
+   navigateur, la marge transparente mesurée est nulle. Deux causes réelles, distinctes :
+   - l'origine de rotation en coin haut-gauche, qui éjectait le calque hors de l'artboard ;
+   - un calque partagé (« Partager partout ») placé à `getScreenOffset(i) − i × SCREEN_WIDTH`,
+     soit un simple intervalle au lieu du pas complet des écrans. Toutes les instances au-delà
+     de la première atterrissaient sur la première planche, hors de leur propre fenêtre de
+     découpe : invisibles, mais leurs poignées restaient dessinées. C'est ce que montrait la
+     capture de l'utilisateur.
+
+5. **Tâche 6 — les défauts ne venaient pas des fabriques.** `DEFAULT_GLOBALS` écrase les
+   fabriques de calques via `applyGlobalsToNewLayer` : c'est là que vivaient `Archivo`,
+   `cosmic-orange` et le fond blanc. Les réglages globaux dérivent maintenant des mêmes
+   sources uniques que les fabriques, et `DEFAULT_INK_COLOR` réconcilie l'encre, qui valait
+   `#1a1a1a` d'un côté et `#141413` de l'autre.
+
+**Reste ouvert :** la bordure de sélection reprend la couleur du thème alors que l'artboard,
+lui, n'en dépend pas — blanc sur blanc en thème sombre, donc invisible. Seules les poignées
+restent lisibles, grâce à leur anneau sombre. À traiter en phase 4 avec la manipulation directe.
 
 # Instruction: Rendu canvas & mockups appareil
 
