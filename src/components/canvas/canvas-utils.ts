@@ -40,29 +40,46 @@ FabricObject.ownDefaults.originY = 'top'
  * `StaticCanvas` distinct à partir des données de calque, sans contrôles.
  */
 const SELECTION_GEOMETRY = {
-  cornerSize: 8,
+  cornerSize: 9,
+  touchCornerSize: 22,
   cornerStyle: 'circle',
   transparentCorners: false,
   cornerStrokeColor: '#000000',
   borderScaleFactor: 1.5,
-  borderOpacityWhenMoving: 0.5,
+  borderOpacityWhenMoving: 0.4,
   padding: 0,
 } as const
 
-let selectionColors = { border: '#f7f7f7', corner: '#f7f7f7', cornerStroke: '#252525' }
+let selectionColors = {
+  border: '#f7f7f7',
+  corner: '#f7f7f7',
+  cornerStroke: '#252525',
+  ghost: 'rgba(247,247,247,0.4)',
+}
 
 /** Relu au changement de thème : les poignées suivent `--color-selection`. */
 export function setSelectionColors(next: typeof selectionColors): void {
   selectionColors = next
 }
 
-export function applySelectionStyle(object: FabricObject): void {
+/**
+ * Une poignée ne s'affiche que si elle fait quelque chose. Les milieux d'arête
+ * étirent hors ratio : sur un cadre d'appareil le ratio est officiel, sur un
+ * texte la hauteur découle du contenu. Les montrer promettait un geste que
+ * l'objet refuse, et encombrait la sélection de huit points au lieu de quatre.
+ */
+const EDGE_HANDLES = { ml: false, mr: false, mt: false, mb: false }
+
+export function applySelectionStyle(object: FabricObject, layerType?: Layer['type']): void {
   object.set({
     ...SELECTION_GEOMETRY,
     borderColor: selectionColors.border,
     cornerColor: selectionColors.corner,
     cornerStrokeColor: selectionColors.cornerStroke,
   })
+  if (layerType === 'device-frame') object.setControlsVisibility(EDGE_HANDLES)
+  // Un texte se laisse élargir, jamais étirer en hauteur.
+  else if (layerType === 'text') object.setControlsVisibility({ mt: false, mb: false })
 }
 
 export type RenderedObject = FabricObject & {
@@ -81,6 +98,73 @@ export type RenderedObject = FabricObject & {
 
 export function getScreenOffset(index: number): number {
   return index * (SCREEN_WIDTH + SCREEN_GAP)
+}
+
+// ─── Sélection écrêtée à la planche ──────────────────────────────────────────
+
+type ControlRenderer = (
+  ctx: CanvasRenderingContext2D,
+  styleOverride?: Record<string, unknown>,
+) => void
+
+const renderControlsUnclipped =
+  (FabricObject.prototype as unknown as { _renderControls: ControlRenderer })._renderControls
+
+/** Restreint le tracé à la fenêtre d'une planche, en coordonnées canvas. */
+function clipToScreen(
+  ctx: CanvasRenderingContext2D,
+  object: FabricObject,
+  screenIndex: number,
+): void {
+  const [a, b, c, d, e, f] = object.getViewportTransform()
+  const transform = ctx.getTransform()
+  ctx.transform(a, b, c, d, e, f)
+  ctx.beginPath()
+  ctx.rect(getScreenOffset(screenIndex), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+  ctx.clip()
+  // Le tracé de Fabric applique lui-même le transform de vue : on lui rend le
+  // contexte tel qu'il l'attend. L'écrêtage, lui, est figé en espace device.
+  ctx.setTransform(transform)
+}
+
+/**
+ * Écrête les poignées et le cadre de sélection à la planche de l'objet.
+ *
+ * Le contenu est déjà écrêté par `clipPath` : sans le même traitement ici, un
+ * calque qui déborde de sa planche recevait un cadre plus grand que ce qui est
+ * dessiné. Le cas limite est le calque partagé (« Partager partout ») : il vit
+ * dans un espace continu qui saute les gouttières, donc ses instances sont
+ * décalées les unes des autres d'une gouttière. Aucun rectangle unique ne
+ * coïncide alors avec les tranches visibles, et le cadre pleine largeur se lit
+ * comme un sélecteur cassé — c'est ce que montrait la capture de l'utilisateur.
+ *
+ * Les autres tranches du même calque reçoivent un liseré atténué : elles disent
+ * que l'objet continue sur la planche voisine, sans prétendre être saisissables.
+ */
+export function clipControlsToScreen(object: RenderedObject, screenIndex: number): void {
+  const target = object as RenderedObject & { _renderControls: ControlRenderer }
+  target._renderControls = function renderClippedControls(ctx, styleOverride) {
+    ctx.save()
+    clipToScreen(ctx, this, screenIndex)
+    renderControlsUnclipped.call(this, ctx, styleOverride)
+    ctx.restore()
+
+    const layerId = this.data?.layerId
+    if (!this.data?.layout || !layerId || !this.canvas) return
+    for (const sibling of this.canvas.getObjects() as RenderedObject[]) {
+      if (sibling === this || sibling.data?.layerId !== layerId) continue
+      const siblingScreen = sibling.data?.screenIndex
+      if (siblingScreen === undefined) continue
+      ctx.save()
+      clipToScreen(ctx, sibling, siblingScreen)
+      // La couleur, pas `globalAlpha` : le tracé de Fabric remet l'alpha à 1.
+      renderControlsUnclipped.call(sibling, ctx, {
+        hasControls: false,
+        borderColor: selectionColors.ghost,
+      })
+      ctx.restore()
+    }
+  }
 }
 
 export function getTotalWidth(screenCount: number): number {
@@ -347,7 +431,7 @@ export function applyLayerToFabricObject(
     })
   }
 
-  applySelectionStyle(object)
+  applySelectionStyle(object, layer.type)
 
   // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
   const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))

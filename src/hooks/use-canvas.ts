@@ -14,6 +14,7 @@ import {
   applyLayerToFabricObject,
   applySelectionStyle,
   backgroundToFabricFill,
+  clipControlsToScreen,
   disposeFabricObjectResource,
   fabricObjectToLayerUpdate,
   getScreenOffset,
@@ -39,6 +40,7 @@ interface ChromeColors {
   activeRing: string
   selection: string
   selectionSoft: string
+  selectionGhost: string
   stage: string
 }
 
@@ -53,6 +55,7 @@ function readChromeColors(): ChromeColors {
     activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
     selection: read('--color-selection', '#f7f7f7'),
     selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
+    selectionGhost: read('--color-selection-ghost', 'rgba(255,255,255,0.4)'),
     stage: read('--color-stage', '#252525'),
   }
 }
@@ -63,6 +66,7 @@ function applyCanvasSelectionColors(canvas: Canvas, chrome: ChromeColors): void 
     border: chrome.selection,
     corner: chrome.selection,
     cornerStroke: chrome.stage,
+    ghost: chrome.selectionGhost,
   })
   canvas.selectionColor = chrome.selectionSoft
   canvas.selectionBorderColor = chrome.selection
@@ -100,12 +104,17 @@ function intersectsScreen(object: RenderedObject, screenIndex: number): boolean 
 }
 
 /**
- * Clip paths only depend on the screen index — reuse the existing Rect
- * instead of allocating a fresh one for every object on every sync.
+ * Rattache un objet à la fenêtre de sa planche : le contenu par `clipPath`, la
+ * sélection par le même écrêtage. Les deux vont ensemble — un cadre plus large
+ * que ce qui est dessiné se lit comme un sélecteur cassé.
+ *
+ * Le chemin d'écrêtage ne dépend que de l'indice : on réutilise le Rect existant
+ * plutôt que d'en allouer un par objet à chaque synchronisation.
  */
 function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void {
   if (object.data?.clipScreenIndex === screenIndex && object.clipPath) return
   object.clipPath = createScreenClipPath(screenIndex)
+  clipControlsToScreen(object, screenIndex)
   object.set('data', { ...object.data, clipScreenIndex: screenIndex })
 }
 

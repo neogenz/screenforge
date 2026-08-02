@@ -41,6 +41,20 @@ Quatre points du plan reposaient sur des hypothèses que la mesure a démenties.
    sources uniques que les fabriques, et `DEFAULT_INK_COLOR` réconcilie l'encre, qui valait
    `#1a1a1a` d'un côté et `#141413` de l'autre.
 
+6. **Reprise après retour utilisateur : la sélection est écrêtée à sa planche.** Le point 4
+   ci-dessus réglait la prise, pas le tracé. Le contenu est écrêté par `clipPath`, le cadre
+   ne l'était pas : un calque qui déborde de sa planche recevait une boîte plus grande que
+   ce qui est dessiné. Sur un calque partagé, où chaque instance est décalée d'une gouttière,
+   aucun rectangle ne coïncide alors avec les tranches visibles. `clipControlsToScreen`
+   applique aux contrôles la fenêtre de leur planche, et trace un liseré atténué
+   (`--color-selection-ghost`) sur les tranches voisines pour dire que l'objet continue.
+   Mesuré : 396 pixels de sélection, aucun dans la gouttière.
+
+7. **Les poignées d'arête promettaient un geste refusé.** Un cadre d'appareil a un ratio
+   officiel (`lockUniScaling`) et un texte tire sa hauteur de son contenu : les quatre
+   milieux d'arête ne pouvaient rien faire. Retirés, la sélection passe de huit points à
+   quatre plus la rotation.
+
 **Reste ouvert :** la bordure de sélection reprend la couleur du thème alors que l'artboard,
 lui, n'en dépend pas — blanc sur blanc en thème sombre, donc invisible. Seules les poignées
 restent lisibles, grâce à leur anneau sombre. À traiter en phase 4 avec la manipulation directe.

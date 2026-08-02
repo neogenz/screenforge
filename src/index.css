@@ -41,6 +41,8 @@
   --color-selection: oklch(0.97 0 0);
   /* Remplissage du lasso, dérivé de la même couleur. */
   --color-selection-soft: oklch(0.97 0 0 / 0.14);
+  /* Tranche voisine d'un calque partagé : présente, jamais saisissable. */
+  --color-selection-ghost: oklch(0.97 0 0 / 0.4);
 
   /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
   --color-danger: oklch(0.62 0.18 25);
@@ -170,6 +172,7 @@
 
   --color-selection: oklch(0.18 0 0);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
+  --color-selection-ghost: oklch(0.18 0 0 / 0.35);
 
   --color-danger: oklch(0.55 0.19 25);
   --color-danger-soft: oklch(0.55 0.19 25 / 0.1);
