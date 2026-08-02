@@ -123,7 +123,7 @@ export function ScreensBar() {
         type="button"
         className={cn(
           'flex aspect-[9/19.5] h-14 shrink-0 items-center justify-center self-center',
-          'rounded-md border border-dashed border-border-strong bg-panel-sub',
+          'rounded-md border border-dashed border-border-strong bg-inset',
           'text-faint transition-colors duration-150 ease-out',
           'hover:border-foreground hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',

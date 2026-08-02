@@ -13,13 +13,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'border border-border bg-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground hover:border-border-strong',
+          'border border-border bg-transparent text-foreground-muted hover:bg-raised-hover hover:text-foreground hover:border-border-strong',
         primary:
           'border border-foreground bg-foreground text-panel hover:bg-foreground-muted hover:border-foreground-muted',
         export:
           'border border-export-strong bg-export-strong text-on-export hover:bg-export-strong-hover hover:border-export-strong-hover',
         ghost:
-          'border border-transparent bg-transparent text-faint hover:bg-surface-hover hover:text-foreground',
+          'border border-transparent bg-transparent text-faint hover:bg-raised-hover hover:text-foreground',
         danger:
           'border border-border bg-transparent text-danger hover:bg-danger-soft hover:border-danger',
       },

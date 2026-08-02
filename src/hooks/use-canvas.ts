@@ -42,8 +42,8 @@ function readChromeColors(): ChromeColors {
   const styles = getComputedStyle(themed as Element)
   return {
     label: styles.getPropertyValue('--color-faint').trim() || '#74746e',
-    artboardRing: styles.getPropertyValue('--color-artboard-ring').trim() || 'rgba(255,255,255,0.14)',
-    activeRing: styles.getPropertyValue('--color-export').trim() || '#d71921',
+    artboardRing: styles.getPropertyValue('--color-artboard-ring').trim() || 'rgba(255,255,255,0.12)',
+    activeRing: styles.getPropertyValue('--color-artboard-ring-active').trim() || 'rgba(255,255,255,0.5)',
   }
 }
 

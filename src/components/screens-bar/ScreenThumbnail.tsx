@@ -72,7 +72,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           'h-14 aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
           'border transition-[border-color,transform] duration-150 ease-out active:scale-[0.96]',
           isActive
-            ? 'border-foreground-muted bg-surface'
+            ? 'border-foreground-muted bg-raised'
             : 'border-border hover:border-border-strong',
         )}
       >
@@ -83,7 +83,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             className="img-outline h-full w-full object-cover"
           />
         ) : (
-          <div className="h-full w-full bg-surface" />
+          <div className="h-full w-full bg-raised" />
         )}
       </button>
 
@@ -122,7 +122,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           'pointer-events-none absolute left-1 top-1 flex h-[15px] min-w-[20px] items-center justify-center px-1',
           'caps-label rounded-[4px] border',
           isActive
-            ? 'border-border-strong bg-surface-active text-foreground'
+            ? 'border-border-strong bg-raised-active text-foreground'
             : 'border-border bg-panel/90 text-foreground-muted',
         )}
       >

@@ -7,10 +7,10 @@ const iconButtonVariants = cva(
     'inline-flex select-none items-center justify-center outline-none',
     'border border-transparent bg-transparent text-faint',
     'transition-[background,color,border-color] duration-150 ease-out',
-    'hover:bg-surface-hover hover:text-foreground',
+    'hover:bg-raised-hover hover:text-foreground',
     'focus-visible:border-border-strong',
     'disabled:pointer-events-none disabled:opacity-35',
-    'data-[active=true]:bg-surface-active data-[active=true]:text-foreground',
+    'data-[active=true]:bg-raised-active data-[active=true]:text-foreground',
   ],
   {
     variants: {

@@ -83,7 +83,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
             className={cn(
               'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] outline-none transition-colors',
               'disabled:pointer-events-none disabled:opacity-40',
-              item.danger ? 'text-danger hover:bg-danger-soft' : 'text-foreground hover:bg-surface-hover',
+              item.danger ? 'text-danger hover:bg-danger-soft' : 'text-foreground hover:bg-raised-hover',
             )}
           >
             {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}

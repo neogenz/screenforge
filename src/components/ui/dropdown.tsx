@@ -88,7 +88,7 @@ export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'sta
               'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none',
               'transition-colors duration-100 ease-out',
               'disabled:pointer-events-none disabled:opacity-40',
-              index === activeIndex && (item.danger ? 'bg-danger-soft' : 'bg-surface-hover'),
+              index === activeIndex && (item.danger ? 'bg-danger-soft' : 'bg-raised-hover'),
               item.danger ? 'text-danger' : 'text-foreground',
             )}
           >

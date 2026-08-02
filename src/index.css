@@ -5,61 +5,65 @@
 @source "./**/*.ts";
 
 /*
- * ScreenForge v3 — design system.
+ * ScreenForge v4 — design system.
  *
- * Monochrome ultra-sobre, classe Linear : graphite chaud quasi neutre,
- * accent blanc, rouge #d71921 réservé au seul bouton Export.
- * Barre unique + drawers rétractables, stage maximal.
- * Typographie : Geist (UI) + Geist Mono (valeurs tabulaires).
+ * Monochrome intégral : aucune couleur chromatique dans le chrome, la seule
+ * couleur à l'écran vient des artboards de l'utilisateur. Le rouge a disparu ;
+ * l'action primaire est un blanc plein, la sélection un contraste de valeur.
+ * Rampe de neutres à chroma 0, paliers d'au moins 0.04 de luminance.
+ * Deux directions d'élévation : les îlots montent, les champs descendent.
+ * Typographie : Inter variable, une seule famille, chiffres tabulaires natifs.
  * Motion : ease-out expo, 120–200ms, transform/opacity uniquement.
  */
 @theme {
   --spacing: 0.25rem;
 
-  /* ── Neutres monochrome (dark, défaut) ── */
-  --color-stage: oklch(0.13 0.003 60);
-  --color-background: oklch(0.15 0.003 60);
-  --color-panel: oklch(0.19 0.004 60);
-  --color-panel-sub: oklch(0.17 0.003 60);
-  --color-raised: oklch(0.23 0.004 60);
-  --color-surface: oklch(0.24 0.004 60);
-  --color-surface-hover: oklch(0.28 0.004 60);
-  --color-surface-active: oklch(0.315 0.004 60);
+  /* ── Neutres (dark, défaut) — chroma 0, le stage est le point le plus sombre ── */
+  --color-stage: oklch(0.145 0 0);
+  --color-background: oklch(0.175 0 0);
+  --color-panel: oklch(0.205 0 0);
+  /* En creux : plus sombre que le panneau qui le porte. C'est ce qui fait lire un champ. */
+  --color-inset: oklch(0.155 0 0);
+  /* En relief : au-dessus du panneau. Boutons, options actives, vignettes. */
+  --color-raised: oklch(0.245 0 0);
+  --color-raised-hover: oklch(0.285 0 0);
+  --color-raised-active: oklch(0.325 0 0);
 
-  --color-foreground: oklch(0.95 0.004 70);
-  --color-foreground-muted: oklch(0.68 0.005 65);
-  --color-faint: oklch(0.52 0.005 60);
+  /* Luminances choisies pour tenir 4.5:1 sur stage, background, panel, inset et raised. */
+  --color-foreground: oklch(0.97 0 0);
+  --color-foreground-muted: oklch(0.78 0 0);
+  --color-faint: oklch(0.64 0 0);
 
-  --color-border: oklch(0.28 0.004 60);
-  --color-border-strong: oklch(0.36 0.004 60);
+  --color-border: oklch(0.27 0 0);
+  --color-border-strong: oklch(0.36 0 0);
 
-  /* Rouge marque — un seul usage : le bouton Export */
-  --color-export: oklch(0.545 0.215 27);
-  --color-export-hover: oklch(0.6 0.205 27);
-  --color-export-strong: oklch(0.5 0.2 27);
-  --color-export-strong-hover: oklch(0.44 0.19 27);
-  --color-on-export: oklch(0.98 0.008 30);
+  /* Sélection : une seule couleur pour le chrome et pour les poignées Fabric. */
+  --color-selection: oklch(0.97 0 0);
 
+  /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
   --color-danger: oklch(0.62 0.18 25);
   --color-danger-soft: oklch(0.62 0.18 25 / 0.14);
   --color-success: oklch(0.65 0.12 155);
   --color-warning: oklch(0.72 0.11 75);
 
-  --color-artboard-ring: oklch(1 0 0 / 0.14);
-  --color-scrim: oklch(0.1 0.003 60 / 0.55);
+  --color-artboard-ring: oklch(1 0 0 / 0.12);
+  --color-artboard-ring-active: oklch(1 0 0 / 0.5);
+  /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS. */
+  --color-artboard-shadow: oklch(0 0 0 / 0.45);
+  --color-scrim: oklch(0.1 0 0 / 0.6);
 
-  /* ── Élévation : ombres discrètes, réservées aux îlots et overlays ── */
-  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.3),
-    0 8px 24px -8px oklch(0 0 0 / 0.35);
-  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.22),
-    0 12px 36px -12px oklch(0 0 0 / 0.38);
-  --shadow-modal: 0 20px 64px -12px oklch(0 0 0 / 0.5);
+  /* ── Élévation ── */
+  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -8px oklch(0 0 0 / 0.45);
+  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.28), 0 12px 36px -12px oklch(0 0 0 / 0.45);
+  --shadow-modal: 0 24px 72px -12px oklch(0 0 0 / 0.6);
+  /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
+  /* Lumière rasante sur l'arête haute d'un îlot. */
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.04);
 
-  /* ── Type ── */
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+  /* ── Type — une seule famille ── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Menlo", "Consolas",
-    monospace;
 
   /* ── Radius ── */
   --radius-xs: 2px;
@@ -139,43 +143,41 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 
-/* ── Light — même structure, blanc cassé chaud, accent noir ── */
+/* ── Light — même structure, neutre vrai (chroma 0), accent noir ── */
 .light {
-  --color-stage: oklch(0.9 0.004 70);
-  --color-background: oklch(0.93 0.004 70);
-  --color-panel: oklch(0.975 0.003 75);
-  --color-panel-sub: oklch(0.95 0.003 75);
-  --color-raised: oklch(0.99 0.002 75);
-  --color-surface: oklch(0.995 0.002 80);
-  --color-surface-hover: oklch(0.94 0.004 75);
-  --color-surface-active: oklch(0.91 0.005 75);
+  --color-stage: oklch(0.88 0 0);
+  --color-background: oklch(0.94 0 0);
+  --color-panel: oklch(1 0 0);
+  --color-inset: oklch(0.965 0 0);
+  --color-raised: oklch(0.97 0 0);
+  --color-raised-hover: oklch(0.94 0 0);
+  --color-raised-active: oklch(0.91 0 0);
 
-  --color-foreground: oklch(0.2 0.006 55);
-  --color-foreground-muted: oklch(0.44 0.008 60);
-  --color-faint: oklch(0.58 0.007 65);
+  --color-foreground: oklch(0.18 0 0);
+  /* Le stage clair (0.88) est le fond le plus exigeant : ces deux valeurs y tiennent 4.5:1. */
+  --color-foreground-muted: oklch(0.38 0 0);
+  --color-faint: oklch(0.47 0 0);
 
-  --color-border: oklch(0.87 0.005 70);
-  --color-border-strong: oklch(0.79 0.006 70);
+  --color-border: oklch(0.9 0 0);
+  --color-border-strong: oklch(0.8 0 0);
 
-  --color-export: oklch(0.545 0.215 27);
-  --color-export-hover: oklch(0.48 0.2 27);
-  --color-export-strong: oklch(0.5 0.2 27);
-  --color-export-strong-hover: oklch(0.44 0.19 27);
-  --color-on-export: oklch(0.98 0.008 30);
+  --color-selection: oklch(0.18 0 0);
 
   --color-danger: oklch(0.55 0.19 25);
   --color-danger-soft: oklch(0.55 0.19 25 / 0.1);
   --color-success: oklch(0.5 0.11 155);
   --color-warning: oklch(0.55 0.1 70);
 
-  --color-artboard-ring: oklch(0 0 0 / 0.14);
-  --color-scrim: oklch(0.3 0.008 60 / 0.35);
+  --color-artboard-ring: oklch(0 0 0 / 0.12);
+  --color-artboard-ring-active: oklch(0 0 0 / 0.45);
+  --color-artboard-shadow: oklch(0 0 0 / 0.18);
+  --color-scrim: oklch(0.3 0 0 / 0.35);
 
-  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.04),
-    0 8px 24px -8px oklch(0 0 0 / 0.1);
-  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.05),
-    0 12px 36px -12px oklch(0 0 0 / 0.12);
-  --shadow-modal: 0 20px 64px -12px oklch(0 0 0 / 0.16);
+  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px -8px oklch(0 0 0 / 0.12);
+  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.06), 0 12px 36px -12px oklch(0 0 0 / 0.14);
+  --shadow-modal: 0 24px 72px -12px oklch(0 0 0 / 0.2);
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
 
 @layer base {
@@ -193,9 +195,13 @@
     font-family: var(--font-sans);
     background: var(--color-background);
     color: var(--color-foreground);
-    font-size: 13px;
+    font-size: 13.5px;
     line-height: 1.5;
-    letter-spacing: -0.005em;
+    /* Inter est déjà réglée pour le petit corps : pas de tracking correctif. */
+    letter-spacing: 0;
+    font-optical-sizing: auto;
+    /* cv05 l à empattement, cv08 majuscule I à empattement, ss03 esperluette simplifiée. */
+    font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -225,7 +231,7 @@
     background: var(--color-panel);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-island);
+    box-shadow: var(--shadow-island), var(--hairline-top);
   }
 
   /* ── Scène : vignette discrète, les artboards portent la lumière ── */
@@ -234,46 +240,40 @@
     background: radial-gradient(
       120% 90% at 50% 42%,
       transparent 60%,
-      oklch(0.08 0.003 60 / 0.35) 100%
+      oklch(0.08 0 0 / 0.35) 100%
     );
   }
   .light .stage-vignette {
     background: radial-gradient(
       120% 90% at 50% 42%,
       transparent 62%,
-      oklch(0.3 0.008 60 / 0.12) 100%
+      oklch(0.3 0 0 / 0.1) 100%
     );
   }
 
-  /* ── Labels : Geist Sans caps 10px discrètes ── */
-  .caps-label {
-    font-family: var(--font-sans);
-    font-size: 10px;
+  /* ── Libellés : casse normale, jamais de capitales trackées ── */
+  .field-label {
+    font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0;
     color: var(--color-foreground-muted);
-    line-height: 1;
+    line-height: 1.2;
   }
-  .caps-label-strong {
-    font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+  .section-title {
+    font-size: 12px;
+    font-weight: 550;
+    letter-spacing: 0;
     color: var(--color-foreground);
-    line-height: 1;
+    line-height: 1.2;
   }
-  /* Valeurs numériques : Geist Mono tabulaire */
-  .mono-value {
-    font-family: var(--font-mono);
+  /* Valeurs numériques : Inter a des chiffres tabulaires, pas besoin d'une mono. */
+  .tabular {
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
   }
 
   /* ── Surfaces ── */
   .surface-inner {
-    background: var(--color-panel-sub);
+    background: var(--color-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
   }
@@ -281,10 +281,17 @@
     background: var(--color-panel);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-modal);
+    box-shadow: var(--shadow-modal), var(--hairline-top);
   }
   .menu-shadow {
-    box-shadow: var(--shadow-menu);
+    box-shadow: var(--shadow-menu), var(--hairline-top);
+  }
+  /* Un champ se lit en creux : fond plus sombre que son panneau, ombre interne d'un pixel. */
+  .field-surface {
+    background: var(--color-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
   }
 
   .img-outline {
@@ -326,7 +333,7 @@ input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   min-width: 0;
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
   background: linear-gradient(
     to right,
@@ -339,33 +346,33 @@ input[type="range"] {
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--color-foreground);
   cursor: pointer;
   border: 2px solid var(--color-panel);
-  margin-top: -5px;
+  margin-top: -4px;
   transition: transform 0.12s var(--ease-out);
 }
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
 }
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
   background: transparent;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--color-foreground);
   cursor: pointer;
   border: 2px solid var(--color-panel);
 }
 input[type="range"]::-moz-range-track {
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
   background: transparent;
 }

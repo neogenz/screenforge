@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 const inputVariants = cva(
   [
-    'h-7 w-full rounded-md border border-border bg-surface px-2 outline-none',
+    'h-7 w-full rounded-md border border-border bg-raised px-2 outline-none',
     'text-foreground placeholder:text-faint',
     'transition-[border-color,background] duration-150 ease-out',
     'hover:border-border-strong focus:border-foreground-muted',

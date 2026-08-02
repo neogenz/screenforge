@@ -148,10 +148,10 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
       className={cn(
         'flex h-7 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-[12px] outline-none',
         'transition-colors duration-100 ease-out',
-        'focus-visible:bg-surface-hover',
+        'focus-visible:bg-raised-hover',
         selected
-          ? 'bg-surface-active text-foreground'
-          : 'text-foreground-muted hover:bg-surface-hover hover:text-foreground',
+          ? 'bg-raised-active text-foreground'
+          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
       )}
       style={fontLoaded ? { fontFamily: `"${family}", system-ui` } : undefined}
     >

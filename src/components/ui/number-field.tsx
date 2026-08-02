@@ -89,7 +89,7 @@ export function NumberField({
   return (
     <div
       className={cn(
-        'flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-border bg-surface px-1.5',
+        'flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-border bg-raised px-1.5',
         'transition-[border-color] duration-150 ease-out hover:border-border-strong',
         'focus-within:border-foreground-muted',
         disabled && 'pointer-events-none opacity-40',

@@ -19,7 +19,7 @@ export function ZoomHud() {
         aria-label="Ajuster le zoom aux écrans"
         title="Ajuster aux écrans (⌘0)"
         onClick={resetZoom}
-        className="mono-value h-7 min-w-12 rounded-md px-1.5 text-center text-[11px] text-foreground-muted transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-foreground"
+        className="mono-value h-7 min-w-12 rounded-md px-1.5 text-center text-[11px] text-foreground-muted transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground"
       >
         {Math.round(zoom * 100)}%
       </button>

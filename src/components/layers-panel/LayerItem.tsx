@@ -138,8 +138,8 @@ export const LayerItem = memo(function LayerItem({
         'group flex h-[30px] cursor-pointer select-none items-center gap-2 rounded-md px-1.5',
         'transition-colors duration-100 ease-out focus-visible:ring-1 focus-visible:ring-border-strong',
         isSelected
-          ? 'bg-surface-active text-foreground'
-          : 'text-foreground-muted hover:bg-surface-hover hover:text-foreground',
+          ? 'bg-raised-active text-foreground'
+          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
       )}
     >
       <GripVertical
@@ -160,7 +160,7 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
         />
       ) : (
         <span className="flex-1 truncate text-[12px]">

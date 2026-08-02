@@ -124,7 +124,7 @@ function ProjectName() {
       className={cn(
         'h-8 w-36 min-w-0 truncate rounded-md border border-transparent bg-transparent px-1.5',
         'text-[13px] font-medium tracking-[-0.01em] text-foreground transition-colors',
-        'hover:border-border focus:border-border-strong focus:bg-surface focus:outline-none',
+        'hover:border-border focus:border-border-strong focus:bg-raised focus:outline-none',
       )}
     />
   )
@@ -249,7 +249,7 @@ function ActionsSegment() {
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
           'flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-faint outline-none',
-          'transition-colors duration-150 ease-out hover:bg-surface-hover hover:text-foreground',
+          'transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground',
         )}
       >
         <Kbd>⌘K</Kbd>

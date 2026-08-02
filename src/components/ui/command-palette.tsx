@@ -152,7 +152,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   className={cn(
                     'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left',
                     'transition-colors duration-75 ease-out',
-                    index === activeIndex ? 'bg-surface-hover text-foreground' : 'text-foreground-muted',
+                    index === activeIndex ? 'bg-raised-hover text-foreground' : 'text-foreground-muted',
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate text-[12px]">{command.title}</span>

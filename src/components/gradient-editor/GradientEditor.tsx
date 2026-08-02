@@ -159,7 +159,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           {sortedStops.map((stop, displayIndex) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-panel-sub p-2"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-inset p-2"
             >
               <ColorPicker
                 value={stop.color}

@@ -20,7 +20,7 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
         'inline-flex h-4 w-7 shrink-0 items-center rounded-full border px-0.5 outline-none',
         'transition-[background,border-color] duration-150 ease-out',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground-muted',
-        checked ? 'border-foreground bg-foreground' : 'border-border-strong bg-surface',
+        checked ? 'border-foreground bg-foreground' : 'border-border-strong bg-raised',
         disabled && 'pointer-events-none opacity-40',
       )}
     >

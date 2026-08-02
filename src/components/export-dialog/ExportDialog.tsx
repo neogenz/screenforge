@@ -237,7 +237,7 @@ function ScreenChoice({
       className={cn(
         'flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2 text-left',
         'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
-        checked ? 'border-foreground bg-panel-sub' : 'border-border hover:border-border-strong',
+        checked ? 'border-foreground bg-inset' : 'border-border hover:border-border-strong',
       )}
     >
       <span className={cn(
