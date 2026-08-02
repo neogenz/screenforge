@@ -2,7 +2,11 @@ import { Minus, Plus } from 'lucide-react'
 import { useUIStore } from '@/stores/ui.store'
 import { IconButton } from '@/components/ui/icon-button'
 
-/** Minimal bottom-right zoom HUD: transparent until hovered. */
+/**
+ * Îlot de zoom, bas-droite. Îlot permanent au même titre que la barre et la
+ * filmstrip : à ne s'afficher qu'au survol il était le seul élément du shell
+ * à ne pas exister au repos.
+ */
 export function ZoomHud() {
   const zoom = useUIStore((s) => s.zoom)
   const zoomIn = useUIStore((s) => s.zoomIn)
@@ -10,7 +14,7 @@ export function ZoomHud() {
   const resetZoom = useUIStore((s) => s.resetZoom)
 
   return (
-    <div className="flex h-8 items-center gap-0.5 rounded-lg border border-transparent px-1 transition-[background,border-color,box-shadow] duration-150 ease-out hover:border-border hover:bg-panel hover:shadow-island">
+    <div className="island flex h-9 items-center gap-0.5 px-1">
       <IconButton size="sm" aria-label="Zoom arrière" title="Zoom arrière (⌘−)" onClick={zoomOut}>
         <Minus size={13} strokeWidth={1.75} />
       </IconButton>
@@ -19,7 +23,7 @@ export function ZoomHud() {
         aria-label="Ajuster le zoom aux écrans"
         title="Ajuster aux écrans (⌘0)"
         onClick={resetZoom}
-        className="mono-value h-7 min-w-12 rounded-md px-1.5 text-center text-[11px] text-foreground-muted transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground"
+        className="tabular h-7 min-w-12 rounded-md px-1.5 text-center text-[11px] text-foreground-muted transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground"
       >
         {Math.round(zoom * 100)}%
       </button>

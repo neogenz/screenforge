@@ -5,12 +5,14 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { FILMSTRIP_HEIGHT, THUMBNAIL_HEIGHT } from '@/lib/stage'
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
   const screens = useProjectStore((s) => s.project?.screens)
   const activeScreenId = useCanvasStore((s) => s.activeScreenId)
   const list = screens ?? []
+  const atCapacity = list.length >= MAX_PROJECT_SCREENS
   const dragSourceIndex = useRef<number | null>(null)
 
   const handleSelect = useCallback((id: string) => {
@@ -86,11 +88,9 @@ export function ScreensBar() {
     <div
       role="listbox"
       aria-label="Écrans"
-      className="island flex h-20 max-w-[min(640px,50vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2"
+      style={{ height: FILMSTRIP_HEIGHT }}
+      className="island flex max-w-[min(720px,56vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2"
     >
-      <span className="mono-value shrink-0 px-1 text-[10px] text-faint tabular-nums">
-        {list.length}/{MAX_PROJECT_SCREENS}
-      </span>
       {list.map((screen, index) => (
         <div
           key={screen.id}
@@ -115,23 +115,33 @@ export function ScreensBar() {
         </div>
       ))}
 
+      {/* Le bouton d'ajout prend la surface des vignettes : un contour en tirets
+          le faisait lire comme un emplacement vide, pas comme une action. */}
       <button
-        title="Ajouter un écran"
+        title={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
         aria-label="Ajouter un écran"
         onClick={handleAdd}
-        disabled={list.length >= MAX_PROJECT_SCREENS}
+        disabled={atCapacity}
         type="button"
+        style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'flex aspect-[9/19.5] h-14 shrink-0 items-center justify-center self-center',
-          'rounded-md border border-dashed border-border-strong bg-inset',
-          'text-faint transition-colors duration-150 ease-out',
-          'hover:border-foreground hover:text-foreground',
+          'mb-[22px] flex aspect-[1320/2868] shrink-0 items-center justify-center self-center',
+          'rounded-md border border-border bg-raised',
+          'text-foreground-muted transition-colors duration-150 ease-out',
+          'hover:border-border-strong hover:bg-raised-hover hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
-          'focus-visible:outline-none focus-visible:border-foreground',
         )}
       >
-        <Plus size={14} strokeWidth={1.5} />
+        <Plus size={15} strokeWidth={1.75} />
       </button>
+
+      {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
+          n'informe de rien que la rangée ne montre déjà. */}
+      {list.length >= MAX_PROJECT_SCREENS - 1 && (
+        <span className="tabular mb-[22px] shrink-0 self-center px-1 text-[10px] text-faint">
+          {list.length}/{MAX_PROJECT_SCREENS}
+        </span>
+      )}
     </div>
   )
 }

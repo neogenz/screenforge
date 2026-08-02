@@ -169,15 +169,32 @@ function round(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
-/** Quart de superellipse, de (r, 0) à (0, r) dans le repère local du coin. */
-function squircleQuarter(radius: number): Point[] {
+/**
+ * Quart de superellipse, de (r, 0) à (0, r) dans le repère local du coin.
+ *
+ * `outer` donne la courbe de référence : le quart renvoyé est sa parallèle
+ * intérieure, à la distance `outer − radius`. Se contenter de réduire le rayon
+ * épaissit la bordure dans les angles — mesuré à 3,5 unités contre 2,25 sur les
+ * flancs, soit +56 % — et ce biseau est exactement ce qui fait lire des formes
+ * empilées au lieu d'un objet.
+ */
+function squircleQuarter(radius: number, outer: number = radius): Point[] {
+  const distance = outer - radius
+  const exponent = 2 / SQUIRCLE_EXPONENT
   const points: Point[] = []
   for (let step = 0; step <= SQUIRCLE_STEPS; step += 1) {
     const t = (step / SQUIRCLE_STEPS) * (Math.PI / 2)
-    points.push({
-      x: radius * Math.cos(t) ** (2 / SQUIRCLE_EXPONENT),
-      y: radius * Math.sin(t) ** (2 / SQUIRCLE_EXPONENT),
-    })
+    const x = outer * Math.cos(t) ** exponent
+    const y = outer * Math.sin(t) ** exponent
+    if (distance === 0) {
+      points.push({ x, y })
+      continue
+    }
+    // Normale sortante de |x/r|^n + |y/r|^n = 1, soit le gradient ∝ (x^(n-1), y^(n-1)).
+    const nx = x ** (SQUIRCLE_EXPONENT - 1)
+    const ny = y ** (SQUIRCLE_EXPONENT - 1)
+    const length = Math.hypot(nx, ny) || 1
+    points.push({ x: x - (nx / length) * distance, y: y - (ny / length) * distance })
   }
   return points
 }
@@ -202,10 +219,18 @@ function smoothThrough(points: Point[]): string {
  * partagent la même construction : leurs coins restent concentriques, ce qu'un
  * œil lit immédiatement comme « vrai objet » plutôt que « formes empilées ».
  */
-export function squircleRect(x: number, y: number, width: number, height: number, radius: number): string {
+export function squircleRect(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  /** Rayon de la silhouette dont ce rectangle est la parallèle intérieure. */
+  outerRadius: number = radius,
+): string {
   const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2))
   if (r === 0) return `M ${round(x)} ${round(y)} h ${round(width)} v ${round(height)} h ${round(-width)} Z`
-  const quarter = squircleQuarter(r)
+  const quarter = squircleQuarter(r, r + (outerRadius - radius))
   // Chaque coin : centre, axe vers le point tangent « en x », axe « en y ».
   const corners: { cx: number; cy: number; ux: number; uy: number; reverse: boolean }[] = [
     { cx: x + width - r, cy: y + r, ux: 1, uy: -1, reverse: true },
@@ -321,10 +346,14 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   const screenRadius = cornerRadius - screenX
   const bezelRadius = cornerRadius - railWidth
 
-  const railPath = squircleRect(0.5, 0.5, width - 1, height - 1, cornerRadius - 0.5)
-  const bezelPath = squircleRect(railWidth, railWidth, width - railWidth * 2, height - railWidth * 2, bezelRadius)
-  const screenPath = squircleRect(screenX, screenY, screenWidth, screenHeight, screenRadius)
-  const innerPath = squircleRect(screenX + 0.4, screenY + 0.4, screenWidth - 0.8, screenHeight - 0.8, screenRadius - 0.4)
+  // Les quatre contours sont les parallèles intérieures d'une seule silhouette,
+  // d'où `cornerRadius` passé partout : sans cette référence commune, chaque
+  // rectangle imbriqué creusait son propre coin et la bordure s'épaississait
+  // dans les angles.
+  const railPath = squircleRect(0.5, 0.5, width - 1, height - 1, cornerRadius - 0.5, cornerRadius)
+  const bezelPath = squircleRect(railWidth, railWidth, width - railWidth * 2, height - railWidth * 2, bezelRadius, cornerRadius)
+  const screenPath = squircleRect(screenX, screenY, screenWidth, screenHeight, screenRadius, cornerRadius)
+  const innerPath = squircleRect(screenX + 0.4, screenY + 0.4, screenWidth - 0.8, screenHeight - 0.8, screenRadius - 0.4, cornerRadius)
 
   const sideButton = (y: number, h: number, side: 'left' | 'right') =>
     `<rect x="${round(side === 'left' ? -BUTTON_PROTRUSION : width - BUTTON_PROTRUSION)}" y="${round(y)}" width="${round(btnWidth)}" height="${round(h)}" rx="${btnRadius}" ry="${btnRadius}" fill="url(#${buttonId})"/>`

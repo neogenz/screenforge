@@ -100,11 +100,13 @@ export function LayersPanel() {
   }, [defaultDeviceModel])
 
   return (
-    <div className="island flex h-full min-h-0 flex-col overflow-hidden">
+    // `max-h-full` sans `h-full` : l'îlot s'arrête sous sa dernière ligne et ne
+    // défile qu'une fois le plafond du drawer atteint.
+    <div className="island flex max-h-full min-h-0 flex-col overflow-hidden">
       <div className="shrink-0 border-b border-border px-3 pb-2.5 pt-3">
         <div className="flex items-center justify-between">
-          <span className="caps-label-strong">Calques</span>
-          <span className="mono-value text-[10px] text-faint">
+          <span className="section-title">Calques</span>
+          <span className="tabular text-[10px] text-faint">
             {String(layers.length).padStart(2, '0')}
           </span>
         </div>
@@ -127,13 +129,16 @@ export function LayersPanel() {
       </div>
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5"
+        // Pas de `flex-1` : sa base de 0 effondre la liste dans un conteneur à
+        // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
+        // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
+        className="min-h-0 overflow-y-auto px-1.5 pb-1.5"
         role="listbox"
         aria-label="Calques"
         aria-multiselectable="true"
       >
         {layers.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+          <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
             <Smartphone size={20} strokeWidth={1.5} className="text-faint" aria-hidden />
             <p className="text-[12px] text-foreground-muted">Écran vide.</p>
             <p className="max-w-[190px] text-[11px] leading-relaxed text-faint">
@@ -153,7 +158,7 @@ export function LayersPanel() {
 
         {layerGroups.map((group) => (
           <div key={group.label} role="group" aria-label={group.label}>
-            <p className="caps-label px-2 pb-1 pt-3">{group.label}</p>
+            <p className="field-label px-2 pb-1 pt-3">{group.label}</p>
             {group.layers.map((layer) => (
               <LayerItem
                 key={layer.id}

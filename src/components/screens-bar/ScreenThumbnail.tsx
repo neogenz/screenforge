@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { cn } from '@/lib/utils'
+import { THUMBNAIL_HEIGHT } from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ScreenThumbnailProps {
@@ -56,7 +57,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
-      className="relative flex shrink-0 flex-col items-center gap-1"
+      className="group/thumb relative flex shrink-0 flex-col gap-1"
       onContextMenu={(event) => {
         event.preventDefault()
         setMenuPosition({ left: event.clientX, top: event.clientY })
@@ -68,11 +69,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         onDoubleClick={startRename}
         aria-label={`Activer ${screen.name}`}
         aria-pressed={isActive}
+        style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'h-14 aspect-[9/19.5] cursor-pointer overflow-hidden rounded-md',
-          'border transition-[border-color,transform] duration-150 ease-out active:scale-[0.96]',
+          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-md bg-inset',
+          'border transition-[border-color,box-shadow,transform] duration-150 ease-out',
+          'active:scale-[0.97]',
+          // L'écran actif se signale par un contraste de valeur : bordure claire
+          // doublée d'un anneau, jamais par une couleur.
           isActive
-            ? 'border-foreground-muted bg-raised'
+            ? 'border-foreground shadow-[0_0_0_2px_var(--color-raised-active)]'
             : 'border-border hover:border-border-strong',
         )}
       >
@@ -87,6 +92,8 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         )}
       </button>
 
+      {/* Le numéro vit sous la vignette, pas dessus : à cette largeur une pastille
+          posée sur l'image en masquait le quart. */}
       {editing ? (
         <input
           ref={inputRef}
@@ -99,7 +106,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          className="h-5 w-20 rounded-md border border-border-strong bg-panel px-1 text-center text-[10px] text-foreground"
+          className="field-surface h-[18px] w-full px-1 text-center text-[10px] text-foreground outline-none"
         />
       ) : (
         <button
@@ -108,26 +115,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           onDoubleClick={startRename}
           title={`${screen.name} — double-clic pour renommer`}
           className={cn(
-            'h-4 max-w-24 truncate px-1 text-[10px] leading-4 transition-colors',
-            isActive ? 'text-foreground' : 'text-faint hover:text-foreground',
+            'flex h-[18px] w-full items-center justify-center gap-1 rounded-[4px] px-0.5',
+            'text-[10px] leading-none transition-colors',
+            isActive ? 'text-foreground' : 'text-faint hover:text-foreground-muted',
           )}
         >
-          {screen.name}
+          <span className="tabular shrink-0 opacity-60">{String(index + 1).padStart(2, '0')}</span>
+          <span className="truncate">{screen.name}</span>
         </button>
       )}
-
-      <div
-        aria-hidden
-        className={cn(
-          'pointer-events-none absolute left-1 top-1 flex h-[15px] min-w-[20px] items-center justify-center px-1',
-          'caps-label rounded-[4px] border',
-          isActive
-            ? 'border-border-strong bg-raised-active text-foreground'
-            : 'border-border bg-panel/90 text-foreground-muted',
-        )}
-      >
-        {String(index + 1).padStart(2, '0')}
-      </div>
 
       <button
         ref={actionsRef}
@@ -140,16 +136,16 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }
         }}
         className={cn(
-          'hit-40 absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-sm',
-          'border border-border bg-panel/90 text-foreground-muted transition-colors hover:text-foreground',
+          'hit-40 absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-[4px]',
+          'border border-border bg-panel/95 text-foreground-muted transition-opacity hover:text-foreground',
           !menuPosition &&
-            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 [div:hover>&]:pointer-events-auto [div:hover>&]:opacity-100',
+            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
         )}
         aria-label={`Actions de ${screen.name}`}
         aria-expanded={menuPosition !== null}
         aria-haspopup="menu"
       >
-        <MoreHorizontal size={10} strokeWidth={1.5} aria-hidden />
+        <MoreHorizontal size={11} strokeWidth={1.75} aria-hidden />
       </button>
 
       {menuPosition && (

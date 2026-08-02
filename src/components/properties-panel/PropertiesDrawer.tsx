@@ -16,14 +16,16 @@ export function PropertiesDrawer() {
     <div
       aria-hidden={!open}
       className={cn(
-        'fixed z-(--z-chrome) transition-transform duration-200 ease-out-expo',
+        // Voir `LayersDrawer` : la colonne flex est ce qui fait tenir le plafond.
+        'fixed flex flex-col z-(--z-chrome) transition-transform duration-200 ease-out-expo',
         open ? 'translate-x-0' : 'translate-x-[calc(100%+24px)]',
         !open && 'pointer-events-none',
       )}
+      // Voir `LayersDrawer` : le plafond remplace l'étirement.
       style={{
         right: ISLAND_MARGIN,
         top: STAGE_TOP_INSET,
-        bottom: STAGE_BOTTOM_INSET,
+        maxHeight: `calc(100dvh - ${STAGE_TOP_INSET + STAGE_BOTTOM_INSET}px)`,
         width: DRAWER_WIDTH_PROPS,
       }}
     >

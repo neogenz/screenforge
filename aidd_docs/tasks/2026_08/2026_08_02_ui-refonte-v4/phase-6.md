@@ -1,6 +1,40 @@
 ---
-status: pending
+status: done
 ---
+
+## Écarts constatés à l'implémentation
+
+Phase prise avant les phases 4 et 5 : l'utilisateur signalait toujours une interface
+« laide et cheap », et c'est cette phase qui possède le chrome visible en permanence.
+
+1. **Quarante-six classes utilitaires mortes, hors plan.** `caps-label`,
+   `caps-label-strong` et `mono-value` sont référencées dans dix-huit composants mais
+   n'existent plus dans `index.css` depuis la v4 : les libellés tombaient sur la taille
+   héritée, sans graisse ni teinte. C'est le premier facteur d'aspect inachevé, avant
+   toute question de mise en page. Renommées en `field-label`, `section-title` et
+   `tabular` ; `bg-export` suit le retrait du token rouge.
+
+2. **Tâche 1 — deux pièges CSS, pas un.** Passer les drawers en `max-height` ne suffisait
+   pas : `max-h-full` sur l'îlot se résout à `none` sous un parent de hauteur automatique,
+   et `flex-1` pose une base de 0 qui effondre la liste dans ce même contexte. Le drawer
+   est devenu une colonne flex — c'est le rétrécissement qui applique le plafond — et la
+   zone défilante a repris `flex: 0 1 auto`. Mesuré : 171 px à deux calques, 731 px et
+   défilement à trente.
+
+3. **L'ajustement ignorait les drawers, hors plan.** `stageInsets` ne réservait aucune
+   largeur, au motif que les drawers se superposent au stage. Vrai pour la mise en page,
+   faux pour l'ajustement : à quatre écrans, la première et la dernière planche
+   atterrissaient sous un panneau. Les insets réservent désormais la largeur des seuls
+   drawers ouverts. Les drawers, eux, ne repoussent toujours pas le canvas.
+
+4. **Espacement des lettres inopérant, hors plan.** `charSpacing` de Fabric se compte en
+   millièmes de cadratin, le champ de l'interface en pixels au pas de 0,5. La valeur brute
+   était passée telle quelle : un réglage de 2 px donnait 0,002 em. Converti au seul point
+   de contact entre calque et Fabric, `canvas-utils.ts`. `TemplatePreview` traitait déjà la
+   valeur en pixels — aperçu et canvas divergeaient donc aussi.
+
+5. **Tâche 4 — la pastille de numéro est passée sous la vignette.** À 39 px de large elle
+   en masquait le quart. Le numéro rejoint le libellé, en chiffres tabulaires.
 
 # Instruction: Shell — barre, drawers, filmstrip, zoom
 

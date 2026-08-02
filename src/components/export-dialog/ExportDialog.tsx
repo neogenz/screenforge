@@ -66,7 +66,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       onClose={handleClose}
       title="Export officiel"
       size="lg"
-      headerActions={<span className="caps-label px-1">App Store</span>}
+      headerActions={<span className="field-label px-1">App Store</span>}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
           <p className="text-[10px] text-foreground-muted">
@@ -98,7 +98,7 @@ function ExportDialogContent({ project }: { project: Project }) {
           >
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h3 id="export-screens-title" className="caps-label-strong">Captures</h3>
+                <h3 id="export-screens-title" className="section-title">Captures</h3>
                 <p className="mt-1 text-[11px] text-foreground-muted">
                   L’ordre du projet sera conservé dans le ZIP.
                 </p>
@@ -107,7 +107,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 type="button"
                 onClick={toggleAllScreens}
                 disabled={isExporting}
-                className="caps-label transition-colors hover:text-foreground"
+                className="field-label transition-colors hover:text-foreground"
               >
                 {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
               </button>
@@ -132,9 +132,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             aria-label="Profil d’export"
           >
             <div className="surface-inner p-3.5">
-              <span className="caps-label">Profil</span>
+              <span className="field-label">Profil</span>
               <p className="mt-1.5 text-[13px] font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
-              <p className="mono-value mt-1 text-[12px] text-foreground-muted">
+              <p className="tabular mt-1 text-[12px] text-foreground-muted">
                 {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
               </p>
               <div className="hairline my-3" />
@@ -146,7 +146,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             </div>
 
             <div className="surface-inner p-3.5">
-              <span className="caps-label">Lot final</span>
+              <span className="field-label">Lot final</span>
               <p className="mt-1.5 text-[22px] font-medium tabular-nums text-foreground">
                 {selectedScreens.length}
               </p>
@@ -164,7 +164,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <div className="mb-2 flex items-center gap-2">
                   <Loader size={13} className="animate-spin text-foreground" aria-hidden />
                   <span className="text-[11px] text-foreground">{progress.label}</span>
-                  <span className="mono-value ml-auto text-[10px] text-foreground-muted">
+                  <span className="tabular ml-auto text-[10px] text-foreground-muted">
                     {progress.current}/{progress.total}
                   </span>
                 </div>
@@ -191,10 +191,10 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
                   {completedFiles.map((file) => (
                     <li key={file.path} className="flex items-baseline justify-between gap-3">
-                      <span className="mono-value min-w-0 truncate text-[10px] text-foreground-muted">
+                      <span className="tabular min-w-0 truncate text-[10px] text-foreground-muted">
                         {file.path}
                       </span>
-                      <span className="mono-value shrink-0 text-[10px] text-faint">
+                      <span className="tabular shrink-0 text-[10px] text-faint">
                         {formatMegabytes(file.size)}
                       </span>
                     </li>
@@ -254,7 +254,7 @@ function ScreenChoice({
       ) : (
         <span className="h-10 w-[18px] shrink-0 rounded-[2px] border border-border bg-stage" />
       )}
-      <span className="mono-value w-5 shrink-0 text-[10px] text-faint">
+      <span className="tabular w-5 shrink-0 text-[10px] text-faint">
         {String(index + 1).padStart(2, '0')}
       </span>
       <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{screen.name}</span>

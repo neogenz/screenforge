@@ -99,7 +99,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         >
           <span className="truncate">{config.modelName}</span>
           <span className="flex shrink-0 items-center gap-1.5">
-            <span className="mono-value text-[10px] text-faint">{config.screenSize}</span>
+            <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
             <ChevronDown
               size={12}
               strokeWidth={1.5}
@@ -178,7 +178,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
-              'caps-label transition-colors duration-150 ease-out',
+              'field-label transition-colors duration-150 ease-out',
               'hover:border-border-strong hover:text-foreground',
             )}
           >
@@ -202,7 +202,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="caps-label-strong">Ombre</span>
+          <span className="section-title">Ombre</span>
           <Switch
             checked={shadowEnabled}
             ariaLabel="Activer l’ombre de l’appareil"
@@ -239,7 +239,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="caps-label">Couleur</span>
+              <span className="field-label">Couleur</span>
               <ColorPicker
                 value={shadowColor}
                 showOpacity

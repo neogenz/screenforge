@@ -59,9 +59,9 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="caps-label-strong">Remplissage</span>
+          <span className="section-title">Remplissage</span>
           <div className="flex items-center gap-2">
-            <span className="caps-label">Dégradé</span>
+            <span className="field-label">Dégradé</span>
             <Switch ariaLabel="Activer le dégradé" checked={fillIsGradient} onChange={handleGradientToggle} />
           </div>
         </div>
@@ -99,7 +99,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
 
       {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <span className="caps-label-strong">Contour</span>
+        <span className="section-title">Contour</span>
         <Field label="Couleur">
           <ColorPicker
             value={layer.stroke ?? DEFAULT_STROKE_COLOR}

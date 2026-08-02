@@ -134,7 +134,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
 
       {activeTab === 'solid' && (
         <div className="flex flex-col gap-1.5">
-          <span className="caps-label">Couleur</span>
+          <span className="field-label">Couleur</span>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </div>
       )}

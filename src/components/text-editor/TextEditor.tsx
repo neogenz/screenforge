@@ -167,7 +167,7 @@ export function TextEditor({ layer }: TextEditorProps) {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="caps-label-strong">Dégradé</span>
+          <span className="section-title">Dégradé</span>
           <Switch
             ariaLabel="Activer le dégradé du texte"
             checked={!!layer.gradientFill}

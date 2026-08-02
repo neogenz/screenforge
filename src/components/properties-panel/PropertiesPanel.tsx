@@ -41,18 +41,20 @@ export function PropertiesPanel() {
   else if (selectedLayers.length > 1) headerLabel = 'Sélection'
 
   return (
-    <aside className="island flex h-full min-h-0 flex-col overflow-hidden">
+    // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
+    <aside className="island flex max-h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="caps-label-strong">{headerLabel}</span>
+        <span className="section-title">{headerLabel}</span>
         {selectedLayers.length > 1 && (
-          <span className="mono-value text-[10px] text-faint">
+          <span className="tabular text-[10px] text-faint">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
+      <div className="min-h-0 overflow-y-auto">
         {selectedLayers.length === 0 && (
           <div className="p-3">
             <BackgroundSection />
@@ -135,7 +137,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex h-8 w-full items-center gap-1.5 px-3',
-          'caps-label-strong',
+          'section-title',
           'transition-colors duration-150 ease-out hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         )}

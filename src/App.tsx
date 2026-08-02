@@ -89,7 +89,7 @@ export default function App() {
       <main className="absolute inset-0">
         <CanvasEditor />
       </main>
-      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-chrome)" />
+      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)" />
 
       {/* Floating chrome */}
       <div className="absolute left-3 right-3 top-3 z-(--z-chrome)">

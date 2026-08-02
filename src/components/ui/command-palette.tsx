@@ -139,7 +139,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           )}
           {grouped.map((group) => (
             <div key={group.section}>
-              <p className="caps-label px-2 pb-1 pt-2.5">{group.section}</p>
+              <p className="field-label px-2 pb-1 pt-2.5">{group.section}</p>
               {group.commands.map(({ command, index }) => (
                 <button
                   key={command.id}
@@ -164,8 +164,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </div>
 
         <div className="flex items-center gap-3 border-t border-border px-3 py-2">
-          <span className="caps-label flex items-center gap-1"><Kbd>↑↓</Kbd> naviguer</span>
-          <span className="caps-label flex items-center gap-1"><Kbd>↵</Kbd> exécuter</span>
+          <span className="field-label flex items-center gap-1"><Kbd>↑↓</Kbd> naviguer</span>
+          <span className="field-label flex items-center gap-1"><Kbd>↵</Kbd> exécuter</span>
         </div>
       </div>
     </div>,

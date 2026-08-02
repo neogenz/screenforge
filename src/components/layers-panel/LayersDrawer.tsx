@@ -16,14 +16,19 @@ export function LayersDrawer() {
     <div
       aria-hidden={!open}
       className={cn(
-        'fixed z-(--z-chrome) transition-transform duration-200 ease-out-expo',
+        // Colonne flex, et non simple bloc : `max-h-full` sur l'îlot se résout à
+        // `none` sous un parent de hauteur automatique. C'est le rétrécissement
+        // du flex qui le ramène sous le plafond, puis le fait défiler.
+        'fixed flex flex-col z-(--z-chrome) transition-transform duration-200 ease-out-expo',
         open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]',
         !open && 'pointer-events-none',
       )}
+      // L'îlot épouse son contenu : `maxHeight` plafonne, `bottom` étirerait.
+      // Deux panneaux pleine hauteur remplis à 15%, c'est le défaut le plus visible.
       style={{
         left: ISLAND_MARGIN,
         top: STAGE_TOP_INSET,
-        bottom: STAGE_BOTTOM_INSET,
+        maxHeight: `calc(100dvh - ${STAGE_TOP_INSET + STAGE_BOTTOM_INSET}px)`,
         width: DRAWER_WIDTH_LAYERS,
       }}
     >

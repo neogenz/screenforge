@@ -75,7 +75,10 @@
   --radius-xl: 10px;
   --radius-full: 9999px;
 
-  /* ── z-index : 5 niveaux nommés, rien d'autre ── */
+  /* ── z-index : 6 niveaux nommés, rien d'autre ── */
+  /* Le voile passe devant le canvas et derrière le chrome. Au même niveau que
+     lui, seul l'ordre du DOM les départageait : ça casse au premier déplacement. */
+  --z-stage-veil: 10;
   --z-chrome: 20;
   --z-overlay: 50;
   --z-modal: 60;

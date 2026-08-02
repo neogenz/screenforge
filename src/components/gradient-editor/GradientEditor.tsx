@@ -92,7 +92,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
       {/* Type */}
       <div className="flex flex-col gap-2">
-        <span className="caps-label">Type</span>
+        <span className="field-label">Type</span>
         <Segmented
           options={TYPE_OPTIONS}
           value={value.type}
@@ -139,7 +139,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
       {/* Preview */}
       <div className="flex flex-col gap-2">
-        <span className="caps-label">Aperçu</span>
+        <span className="field-label">Aperçu</span>
         <div
           className="h-8 w-full rounded-md border border-border"
           style={{ background: buildCssGradient(value) }}
@@ -150,8 +150,8 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Stops */}
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="caps-label">
-            Arrêts <span className="mono-value">{value.stops.length}/10</span>
+          <span className="field-label">
+            Arrêts <span className="tabular">{value.stops.length}/10</span>
           </span>
         </div>
 

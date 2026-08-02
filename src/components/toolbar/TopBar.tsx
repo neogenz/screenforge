@@ -42,8 +42,13 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
   error: 'Échec de l’enregistrement',
 }
 
+/**
+ * Filet séparateur : plus court que les boutons, pour séparer sans découper.
+ * L'écart de part et d'autre porte davantage que le trait lui-même — c'est lui
+ * qui fait lire un groupe, d'où `mx-1.5` contre `gap-0.5` en intra-groupe.
+ */
 function Divider() {
-  return <div aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-border-strong" />
 }
 
 /** Unique top bar: project identity, layer tools, workspace toggles, export. */
@@ -62,13 +67,14 @@ function ProjectSegment() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-export" />
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-foreground-muted" />
       <ProjectName />
+      {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
       <span
         role="status"
         aria-live="polite"
         className={cn(
-          'caps-label hidden shrink-0 items-center gap-1.5 xl:flex',
+          'hidden shrink-0 items-center gap-1.5 text-[11px] xl:flex',
           saveStatus === 'error' ? 'text-danger' : 'text-faint',
         )}
       >
@@ -141,7 +147,7 @@ function ToolsSegment() {
   }
 
   return (
-    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-0.5">
+    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-[2px]">
       <IconButton
         aria-label="Annuler"
         title="Annuler (⌘Z)"
@@ -199,7 +205,7 @@ function ActionsSegment() {
   const theme = useUIStore((s) => s.theme)
 
   return (
-    <div className="ml-auto flex items-center gap-0.5">
+    <div className="ml-auto flex items-center gap-[2px]">
       <IconButton
         aria-label="Basculer le panneau Calques"
         title="Panneau Calques (⌘⇧L)"
@@ -261,7 +267,7 @@ function ActionsSegment() {
         aria-label="Ouvrir l’export"
         title="Exporter les captures App Store"
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
-        className="ml-1"
+        className="ml-2.5"
       >
         <Download size={12} strokeWidth={2} aria-hidden />
         Exporter

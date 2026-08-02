@@ -78,7 +78,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
       <div className="flex flex-col gap-5">
         {/* Typographie */}
         <section>
-          <h3 className="caps-label-strong mb-3">Typographie</h3>
+          <h3 className="section-title mb-3">Typographie</h3>
           <div className="flex flex-col gap-3">
             <Field label="Police">
               <FontPicker
@@ -122,7 +122,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
 
         {/* Arrière-plan */}
         <section>
-          <h3 className="caps-label-strong mb-3">Arrière-plan</h3>
+          <h3 className="section-title mb-3">Arrière-plan</h3>
           <BackgroundEditor
             background={draft.background}
             onChange={(background) => update({ background })}
@@ -133,7 +133,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
 
         {/* Appareil */}
         <section>
-          <h3 className="caps-label-strong mb-3">Appareil</h3>
+          <h3 className="section-title mb-3">Appareil</h3>
           <div className="flex flex-col gap-3">
             <Field label="Modèle">
               <Select

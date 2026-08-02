@@ -291,7 +291,10 @@ export function applyLayerToFabricObject(
       fill: layer.gradientFill ? createGradient(layer.gradientFill) : layer.color,
       textAlign: layer.textAlign,
       lineHeight: layer.lineHeight,
-      charSpacing: layer.letterSpacing,
+      // `charSpacing` de Fabric se compte en millièmes de cadratin, le champ de
+      // l'interface en pixels. Passer la valeur brute donnait 0,002 em pour un
+      // réglage de 2 px : le contrôle ne faisait visiblement rien.
+      charSpacing: (layer.letterSpacing / layer.fontSize) * 1000,
       shadow: createShadow(layer.shadow),
     })
     object.initDimensions()

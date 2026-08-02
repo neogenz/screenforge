@@ -80,7 +80,7 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
         <div role="listbox" aria-label="Polices" className="max-h-60 overflow-y-auto p-1">
           {pinned.length > 0 && (
             <>
-              <div role="presentation" className="caps-label px-2 pb-1 pt-1.5">
+              <div role="presentation" className="field-label px-2 pb-1 pt-1.5">
                 Populaires
               </div>
               {pinned.map((family) => (
@@ -103,7 +103,7 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="caps-label px-2 py-3 text-center">Aucune police trouvée</div>
+            <div className="field-label px-2 py-3 text-center">Aucune police trouvée</div>
           )}
         </div>
       </Popover>

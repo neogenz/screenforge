@@ -370,7 +370,8 @@ export function useCanvas() {
   }, [])
 
   const fitAll = useCallback((canvas: Canvas, screenCount: number) => {
-    const insets = stageInsets()
+    const { layersOpen, propsOpen } = useUIStore.getState()
+    const insets = stageInsets({ layers: layersOpen, props: propsOpen })
     const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
     const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
     const totalWidth = getTotalWidth(screenCount)
@@ -1100,7 +1101,8 @@ export function useCanvas() {
     if (!canvas || !project) return
     const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
     if (screenIndex === -1) return
-    const insets = stageInsets()
+    const { layersOpen, propsOpen } = useUIStore.getState()
+    const insets = stageInsets({ layers: layersOpen, props: propsOpen })
     const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
     const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
     const padding = 48
