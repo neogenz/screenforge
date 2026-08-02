@@ -23,15 +23,23 @@ export function TemplatePreview({ template }: TemplatePreviewProps) {
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>
+        {/* `meet` centre le viewBox dans une boîte plus large : sans découpe, un
+            texte plus large que la planche déborde sur la vignette et l'aperçu
+            passe pour cassé. */}
+        <clipPath id={`${template.id}-clip`}>
+          <rect width={WIDTH} height={HEIGHT} />
+        </clipPath>
         {gradientDefinition(backgroundId, backgroundGradient(template.background))}
         {sortedLayers.map((layer) => layer.type === 'shape' && typeof layer.fill !== 'string'
           ? gradientDefinition(`${template.id}-${layer.id}`, layer.fill)
           : null)}
       </defs>
-      <rect width={WIDTH} height={HEIGHT} fill={paintForBackground(template.background, backgroundId)} />
-      {sortedLayers.map((layer) => (
-        <TemplateLayer key={layer.id} templateId={template.id} layer={layer} />
-      ))}
+      <g clipPath={`url(#${template.id}-clip)`}>
+        <rect width={WIDTH} height={HEIGHT} fill={paintForBackground(template.background, backgroundId)} />
+        {sortedLayers.map((layer) => (
+          <TemplateLayer key={layer.id} templateId={template.id} layer={layer} />
+        ))}
+      </g>
     </svg>
   )
 }
@@ -43,32 +51,34 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
   const transform = layer.rotation ? `rotate(${layer.rotation} ${centerX} ${centerY})` : undefined
 
   if (layer.type === 'text') {
-    const content = transformText(layer).split('\n')
-    const textX = layer.textAlign === 'center'
-      ? layer.x + layer.width / 2
-      : layer.textAlign === 'right'
-        ? layer.x + layer.width
-        : layer.x
+    // `<text>` ne revient jamais à la ligne : un titre plus large que sa boîte
+    // sortait de la planche. Le contenu est une Textbox sur le canevas, donc
+    // l'aperçu doit replier au même endroit — seul un bloc HTML le fait.
     return (
-      <text
+      <foreignObject
         transform={transform}
-        x={textX}
+        x={layer.x}
         y={layer.y}
-        fill={layer.color}
-        opacity={layer.opacity}
-        fontFamily={`${layer.fontFamily}, system-ui, sans-serif`}
-        fontSize={layer.fontSize}
-        fontWeight={layer.fontWeight}
-        letterSpacing={layer.letterSpacing}
-        textAnchor={layer.textAlign === 'center' ? 'middle' : layer.textAlign === 'right' ? 'end' : 'start'}
-        dominantBaseline="hanging"
+        width={layer.width}
+        height={HEIGHT - layer.y}
       >
-        {content.map((line, index) => (
-          <tspan key={`${line}-${index}`} x={textX} dy={index === 0 ? 0 : layer.fontSize * layer.lineHeight}>
-            {line}
-          </tspan>
-        ))}
-      </text>
+        <div
+          style={{
+            color: layer.color,
+            opacity: layer.opacity,
+            fontFamily: `${layer.fontFamily}, system-ui, sans-serif`,
+            fontSize: layer.fontSize,
+            fontWeight: layer.fontWeight,
+            letterSpacing: layer.letterSpacing,
+            lineHeight: layer.lineHeight,
+            textAlign: layer.textAlign,
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
+          }}
+        >
+          {transformText(layer)}
+        </div>
+      </foreignObject>
     )
   }
 

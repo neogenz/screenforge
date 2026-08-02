@@ -45,7 +45,12 @@ function TemplatePickerContent() {
       footer={selected
         ? (
           <div className="flex w-full items-center justify-between gap-3">
-            <p className="min-w-0 truncate text-[12px] text-foreground-muted">{selected.name}</p>
+            {/* Le libellé de la vignette tient sur un mot : c'est ici, une fois le
+                modèle choisi, que sa description a la place d'être lue. */}
+            <div className="flex min-w-0 flex-col">
+              <p className="truncate text-[12px] font-medium text-foreground">{selected.name}</p>
+              <p className="truncate text-[11.5px] text-foreground-muted">{selected.description}</p>
+            </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="default" onClick={() => handleApply('current')}>
                 Appliquer à l’écran actuel
@@ -58,7 +63,10 @@ function TemplatePickerContent() {
         )
         : undefined}
     >
-      <div className="grid grid-cols-2 gap-3">
+      {/* Les vignettes portent le format de la planche (440×956) : à l'ancienne
+          boîte carrée, l'aperçu flottait au centre de deux bandes vides plus
+          larges que lui. Une colonne par modèle, la galerie tient d'un regard. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5">
         {TEMPLATES.map((template) => {
           const isSelected = selected?.id === template.id
           return (
@@ -69,23 +77,20 @@ function TemplatePickerContent() {
               aria-pressed={isSelected}
               aria-label={`Sélectionner le modèle ${template.name}`}
               className={cn(
-                'group flex flex-col self-start overflow-hidden rounded-xl border bg-panel text-left',
-                'transition-[border-color,box-shadow] duration-150 ease-out',
+                'group flex flex-col gap-2 self-start rounded-lg border p-2 text-left',
+                'transition-[border-color,background] duration-150 ease-out',
                 'focus-visible:outline-none focus-visible:border-foreground-muted',
                 isSelected
-                  ? 'border-foreground-muted'
-                  : 'border-border hover:border-border-strong',
+                  ? 'border-foreground-muted bg-raised'
+                  : 'border-border hover:border-border-strong hover:bg-raised-hover',
               )}
             >
-              <div className="h-60 w-full shrink-0 overflow-hidden border-b border-border bg-stage">
+              <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">
                 <TemplatePreview template={template} />
               </div>
-              <div className="flex flex-col gap-1 px-3 py-2.5">
-                <p className="text-[12px] font-medium text-foreground">{template.name}</p>
-                <p className="line-clamp-2 text-[12px] leading-relaxed text-foreground-muted">
-                  {template.description}
-                </p>
-              </div>
+              <p className="truncate px-0.5 text-[11.5px] font-medium text-foreground">
+                {template.name}
+              </p>
             </button>
           )
         })}

@@ -54,7 +54,7 @@ function Divider() {
 /** Unique top bar: project identity, layer tools, workspace toggles, export. */
 export function TopBar() {
   return (
-    <div className="island relative flex h-11 items-center gap-1 px-1.5">
+    <div className="island relative flex h-12 items-center gap-1 px-2">
       <ProjectSegment />
       <ToolsSegment />
       <ActionsSegment />
@@ -128,8 +128,8 @@ function ProjectName() {
       aria-label="Nom du projet"
       spellCheck={false}
       className={cn(
-        'h-8 w-36 min-w-0 truncate rounded-md border border-transparent bg-transparent px-1.5',
-        'text-[13px] font-medium tracking-[-0.01em] text-foreground transition-colors',
+        'h-9 w-40 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
+        'text-[14px] font-semibold tracking-[-0.012em] text-foreground transition-colors',
         'hover:border-border focus:border-border-strong focus:bg-raised focus:outline-none',
       )}
     />
@@ -147,14 +147,14 @@ function ToolsSegment() {
   }
 
   return (
-    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-[2px]">
+    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
       <IconButton
         aria-label="Annuler"
         title="Annuler (⌘Z)"
         disabled={!canUndo}
         onClick={() => undo()}
       >
-        <Undo2 size={15} strokeWidth={1.75} />
+        <Undo2 size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Rétablir"
@@ -162,37 +162,44 @@ function ToolsSegment() {
         disabled={!canRedo}
         onClick={() => redo()}
       >
-        <Redo2 size={15} strokeWidth={1.75} />
+        <Redo2 size={16} strokeWidth={1.75} />
       </IconButton>
 
       <Divider />
 
-      <IconButton
-        aria-label="Ajouter Texte"
-        title="Ajouter : texte"
-        onClick={() => addLayer(createTextLayer(useCanvasStore.getState().layers.length))}
-      >
-        <Type size={15} strokeWidth={1.75} />
-      </IconButton>
-      <DeviceAddTool
-        onSelect={(model) =>
-          addLayer(createDeviceLayer(model, useCanvasStore.getState().layers.length))
-        }
-      />
-      <IconButton
-        aria-label="Ajouter Image"
-        title="Ajouter : image"
-        onClick={() => document.getElementById('sf-image-import-input')?.click()}
-      >
-        <ImageIcon size={15} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Ajouter Forme"
-        title="Ajouter : forme"
-        onClick={() => addLayer(createShapeLayer(useCanvasStore.getState().layers.length))}
-      >
-        <Square size={15} strokeWidth={1.75} />
-      </IconButton>
+      {/* Les quatre outils d'ajout forment un groupe : un rail en creux le dit
+          mieux qu'un filet, et distingue « créer » de « défaire ». */}
+      <div className="flex items-center gap-[2px] rounded-md border border-border bg-inset p-[3px]">
+        <IconButton
+          size="sm"
+          aria-label="Ajouter Texte"
+          title="Ajouter : texte"
+          onClick={() => addLayer(createTextLayer(useCanvasStore.getState().layers.length))}
+        >
+          <Type size={16} strokeWidth={1.75} />
+        </IconButton>
+        <DeviceAddTool
+          onSelect={(model) =>
+            addLayer(createDeviceLayer(model, useCanvasStore.getState().layers.length))
+          }
+        />
+        <IconButton
+          size="sm"
+          aria-label="Ajouter Image"
+          title="Ajouter : image"
+          onClick={() => document.getElementById('sf-image-import-input')?.click()}
+        >
+          <ImageIcon size={16} strokeWidth={1.75} />
+        </IconButton>
+        <IconButton
+          size="sm"
+          aria-label="Ajouter Forme"
+          title="Ajouter : forme"
+          onClick={() => addLayer(createShapeLayer(useCanvasStore.getState().layers.length))}
+        >
+          <Square size={16} strokeWidth={1.75} />
+        </IconButton>
+      </div>
     </div>
   )
 }
@@ -205,14 +212,14 @@ function ActionsSegment() {
   const theme = useUIStore((s) => s.theme)
 
   return (
-    <div className="ml-auto flex items-center gap-[2px]">
+    <div className="ml-auto flex items-center gap-1">
       <IconButton
         aria-label="Basculer le panneau Calques"
         title="Panneau Calques (⌘⇧L)"
         active={layersOpen}
         onClick={() => useUIStore.getState().toggleLayers()}
       >
-        <PanelLeft size={15} strokeWidth={1.75} />
+        <PanelLeft size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Basculer le panneau Propriétés"
@@ -220,7 +227,7 @@ function ActionsSegment() {
         active={propsOpen}
         onClick={() => useUIStore.getState().toggleProps()}
       >
-        <PanelRight size={15} strokeWidth={1.75} />
+        <PanelRight size={16} strokeWidth={1.75} />
       </IconButton>
 
       <Divider />
@@ -231,7 +238,7 @@ function ActionsSegment() {
         active={showTemplatesPicker}
         onClick={() => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker)}
       >
-        <LayoutTemplate size={15} strokeWidth={1.75} />
+        <LayoutTemplate size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Ouvrir les réglages globaux"
@@ -239,14 +246,14 @@ function ActionsSegment() {
         active={showGlobalsEditor}
         onClick={() => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor)}
       >
-        <Settings size={15} strokeWidth={1.75} />
+        <Settings size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Changer de thème"
         title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
         onClick={() => useUIStore.getState().toggleTheme()}
       >
-        {theme === 'dark' ? <Sun size={15} strokeWidth={1.75} /> : <Moon size={15} strokeWidth={1.75} />}
+        {theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
       </IconButton>
       <button
         type="button"
@@ -254,7 +261,7 @@ function ActionsSegment() {
         title="Palette de commandes (⌘K)"
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-faint',
+          'flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-faint',
           'transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground',
         )}
       >
@@ -269,7 +276,7 @@ function ActionsSegment() {
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
         className="ml-2.5"
       >
-        <Download size={12} strokeWidth={2} aria-hidden />
+        <Download size={13} strokeWidth={2} aria-hidden />
         Exporter
       </Button>
     </div>
@@ -289,6 +296,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
     <>
       <IconButton
         ref={anchorRef}
+        size="sm"
         aria-label="Ajouter un cadre iPhone"
         title="Ajouter : cadre iPhone"
         aria-haspopup="menu"
@@ -296,7 +304,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
         active={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <Smartphone size={15} strokeWidth={1.75} />
+        <Smartphone size={16} strokeWidth={1.75} />
         <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
       </IconButton>
       <Dropdown

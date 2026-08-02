@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
@@ -137,15 +138,13 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
         </div>
       )}
 
-      {/* Preview */}
-      <div className="flex flex-col gap-2">
-        <span className="field-label">Aperçu</span>
-        <div
-          className="h-8 w-full rounded-md border border-border"
-          style={{ background: buildCssGradient(value) }}
-          aria-hidden="true"
-        />
-      </div>
+      {/* La piste est à la fois l'aperçu et le contrôle : deux blocs séparés
+          faisaient saisir au chiffre une position qui se voit à l'œil. */}
+      <StopTrack
+        gradient={value}
+        stops={sortedStops}
+        onMove={(index, offset) => updateStop(index, { offset })}
+      />
 
       {/* Stops */}
       <div className="flex min-w-0 flex-col gap-2">
@@ -156,35 +155,25 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
         </div>
 
         <div className="flex flex-col gap-2">
-          {sortedStops.map((stop, displayIndex) => (
+          {sortedStops.map((stop) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-inset p-2"
+              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-inset p-2"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color })}
                 showOpacity
               />
-              <div className="flex min-w-0 items-center gap-2">
-                <NumberField
-                  label="Pos"
-                  ariaLabel={`Position du stop ${displayIndex + 1}`}
-                  min={0}
-                  max={100}
-                  value={Math.round(stop.offset * 100)}
-                  onChange={(v) => updateStop(stop.originalIndex, { offset: v / 100 })}
-                />
-                <IconButton
-                  size="sm"
-                  onClick={() => removeStop(stop.originalIndex)}
-                  disabled={value.stops.length <= 2}
-                  aria-label="Supprimer le stop"
-                  className="shrink-0 hover:bg-danger-soft hover:text-danger"
-                >
-                  <Trash2 size={12} strokeWidth={1.5} aria-hidden />
-                </IconButton>
-              </div>
+              <IconButton
+                size="sm"
+                onClick={() => removeStop(stop.originalIndex)}
+                disabled={value.stops.length <= 2}
+                aria-label="Supprimer le stop"
+                className="shrink-0 hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 size={13} strokeWidth={1.5} aria-hidden />
+              </IconButton>
             </div>
           ))}
         </div>
@@ -196,10 +185,87 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           disabled={value.stops.length >= 10}
           className="w-full"
         >
-          <Plus size={12} strokeWidth={1.75} aria-hidden />
+          <Plus size={13} strokeWidth={1.75} aria-hidden />
           Ajouter un stop
         </Button>
       </div>
+    </div>
+  )
+}
+
+/** Pas de pas : la souris place au pixel, seul le clavier a besoin d'un cran. */
+const KEY_STEP = 0.01
+const KEY_STEP_COARSE = 0.1
+
+interface StopTrackProps {
+  gradient: GradientFill
+  stops: (ColorStop & { originalIndex: number })[]
+  onMove: (index: number, offset: number) => void
+}
+
+/**
+ * Piste du dégradé : la bande montre le résultat, les pastilles portent les
+ * arrêts. La souris fait le geste, les flèches donnent la précision.
+ */
+function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
+  const track = useRef<HTMLDivElement>(null)
+
+  function offsetAt(clientX: number): number {
+    const bounds = track.current?.getBoundingClientRect()
+    if (!bounds || bounds.width === 0) return 0
+    return Math.min(1, Math.max(0, (clientX - bounds.left) / bounds.width))
+  }
+
+  function handlePointerDown(index: number, event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const move = (pointer: PointerEvent) => onMove(index, offsetAt(pointer.clientX))
+    const release = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', release)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', release)
+  }
+
+  function handleKeyDown(index: number, offset: number, event: React.KeyboardEvent) {
+    const step = event.shiftKey ? KEY_STEP_COARSE : KEY_STEP
+    const delta = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
+    if (delta === 0) return
+    event.preventDefault()
+    onMove(index, Math.min(1, Math.max(0, offset + delta)))
+  }
+
+  return (
+    <div
+      ref={track}
+      // La bande porte le damier : sans lui un arrêt transparent est indiscernable
+      // d'un arrêt blanc, et c'est justement ce qu'on vient régler.
+      className="checkerboard relative h-9 w-full rounded-md border border-border"
+    >
+      <div
+        aria-hidden
+        className="absolute inset-0 rounded-[8px]"
+        style={{ background: buildCssGradient(gradient) }}
+      />
+      {stops.map((stop, displayIndex) => (
+        <button
+          key={stop.originalIndex}
+          type="button"
+          role="slider"
+          aria-label={`Position de l’arrêt ${displayIndex + 1}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(stop.offset * 100)}
+          aria-valuetext={`${Math.round(stop.offset * 100)} %`}
+          onPointerDown={(event) => handlePointerDown(stop.originalIndex, event)}
+          onKeyDown={(event) => handleKeyDown(stop.originalIndex, stop.offset, event)}
+          style={{ left: `${stop.offset * 100}%`, background: stop.color }}
+          className="absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
+            rounded-full border-2 border-white shadow-[0_1px_3px_oklch(0_0_0/0.5)]
+            transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
+        />
+      ))}
     </div>
   )
 }

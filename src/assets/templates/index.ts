@@ -1,3 +1,5 @@
+import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { POPULAR_FONTS } from '@/hooks/use-fonts'
 import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
 
 const W = 440
@@ -18,10 +20,10 @@ function textLayer(
     opacity: 1,
     locked: false,
     visible: true,
-    fontFamily: 'Archivo',
+    fontFamily: POPULAR_FONTS[0],
     fontSize: 48,
     fontWeight: 700,
-    color: '#0b6b32',
+    color: DEFAULT_INK_COLOR,
     textAlign: 'center',
     lineHeight: 1.12,
     letterSpacing: -0.5,
@@ -75,8 +77,8 @@ const overlay: ShapeLayer = {
     type: 'linear',
     angle: 180,
     stops: [
-      { offset: 0, color: 'rgba(0,63,29,0)' },
-      { offset: 1, color: 'rgba(0,63,29,0.92)' },
+      { offset: 0, color: 'rgba(12,12,11,0)' },
+      { offset: 1, color: 'rgba(12,12,11,0.92)' },
     ],
   },
 }
@@ -86,14 +88,14 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'hero',
     name: 'Hero',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
-    background: { type: 'solid', color: '#efffea' },
+    background: { type: 'solid', color: '#f2f3f5' },
     layers: [
       textLayer('hero-title', 'Title', 'Titre de la capture', {
         x: 30, y: 76, width: W - 60, height: 110, zIndex: 0,
       }, { fontSize: 56 }),
       textLayer('hero-subtitle', 'Subtitle', 'Description facultative', {
-        x: 52, y: 194, width: W - 104, height: 44, zIndex: 1,
-      }, { fontSize: 20, fontWeight: 500, color: '#31533d', letterSpacing: 0 }),
+        x: 52, y: 218, width: W - 104, height: 44, zIndex: 1,
+      }, { fontSize: 20, fontWeight: 500, color: '#5a5a57', letterSpacing: 0 }),
       deviceLayer('hero-device', 'iPhone', {
         x: 88, y: 340, width: 264, height: 557, rotation: -10, zIndex: 2,
       }),
@@ -124,8 +126,8 @@ export const TEMPLATES: TemplateDefinition[] = [
       type: 'linear-gradient',
       angle: 155,
       stops: [
-        { offset: 0, color: '#f4fff0' },
-        { offset: 1, color: '#dff5db' },
+        { offset: 0, color: '#fbfbfc' },
+        { offset: 1, color: '#e4e6ec' },
       ],
     },
     layers: [
@@ -144,7 +146,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     id: 'full-bleed',
     name: 'Full Bleed',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
-    background: { type: 'solid', color: '#dff5db' },
+    background: { type: 'solid', color: '#e4e6ec' },
     layers: [
       deviceLayer('full-bleed-device', 'iPhone', {
         x: 20, y: 54, width: 400, height: 844, rotation: 0, zIndex: 0,
@@ -166,10 +168,13 @@ export const TEMPLATES: TemplateDefinition[] = [
     layers: [
       textLayer('minimal-label', 'Label', 'CATÉGORIE', {
         x: 28, y: 166, width: 220, height: 30, zIndex: 0,
-      }, { fontSize: 13, color: '#0b6b32', textAlign: 'left', letterSpacing: 2, textTransform: 'uppercase' }),
-      textLayer('minimal-title', 'Title', 'Titre de la\ncapture', {
-        x: 28, y: 210, width: 238, height: 180, zIndex: 1,
-      }, { fontSize: 50, color: '#141413', textAlign: 'left' }),
+      }, { fontSize: 13, color: '#5a5a57', textAlign: 'left', letterSpacing: 2, textTransform: 'uppercase' }),
+      // Colonne de texte de 180 px : au-delà le titre passe sous l'appareil,
+      // posé en x=220. À cette largeur, 46 px ne tiennent qu'un mot par ligne —
+      // la maquette éditoriale suppose une accroche courte, pas une phrase.
+      textLayer('minimal-title', 'Title', 'Titre\ncourt', {
+        x: 28, y: 210, width: 180, height: 180, zIndex: 1,
+      }, { fontSize: 46, color: '#141413', textAlign: 'left' }),
       deviceLayer('minimal-device', 'iPhone', {
         x: 220, y: 118, width: 210, height: 443, rotation: 4, zIndex: 2,
       }),

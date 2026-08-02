@@ -89,7 +89,7 @@ export function ScreensBar() {
       role="listbox"
       aria-label="Écrans"
       style={{ height: FILMSTRIP_HEIGHT }}
-      className="island flex max-w-[min(720px,56vw)] animate-slide-up items-center gap-2 overflow-x-auto px-2"
+      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-center gap-2.5 overflow-x-auto px-2.5"
     >
       {list.map((screen, index) => (
         <div
@@ -125,20 +125,20 @@ export function ScreensBar() {
         type="button"
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'mb-[22px] flex aspect-[1320/2868] shrink-0 items-center justify-center self-center',
-          'rounded-md border border-border bg-raised',
+          'mb-[26px] flex aspect-[1320/2868] shrink-0 items-center justify-center self-center',
+          'rounded-sm border border-border bg-raised',
           'text-foreground-muted transition-colors duration-150 ease-out',
           'hover:border-border-strong hover:bg-raised-hover hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
         )}
       >
-        <Plus size={15} strokeWidth={1.75} />
+        <Plus size={16} strokeWidth={1.75} />
       </button>
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
-        <span className="tabular mb-[22px] shrink-0 self-center px-1 text-[10px] text-faint">
+        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-[10.5px] text-faint">
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>
       )}

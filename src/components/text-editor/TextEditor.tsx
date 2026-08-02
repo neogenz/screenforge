@@ -77,9 +77,11 @@ export function TextEditor({ layer }: TextEditorProps) {
         />
       </Field>
 
-      <Field label="Police">
-        <FontPicker value={layer.fontFamily} onChange={(fontFamily) => update({ fontFamily })} />
-      </Field>
+      <FontPicker
+        label="Police"
+        value={layer.fontFamily}
+        onChange={(fontFamily) => update({ fontFamily })}
+      />
 
       <NumberField
         label="Taille"
@@ -89,19 +91,18 @@ export function TextEditor({ layer }: TextEditorProps) {
         min={1}
       />
 
-      <Field label="Graisse">
-        <Select
-          value={layer.fontWeight}
-          onChange={(event) => update({ fontWeight: Number(event.target.value) })}
-          aria-label="Graisse de la police"
-        >
-          {weights.map((weight) => (
-            <option key={weight} value={weight}>
-              {weight}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <Select
+        label="Graisse"
+        value={layer.fontWeight}
+        onChange={(event) => update({ fontWeight: Number(event.target.value) })}
+        aria-label="Graisse de la police"
+      >
+        {weights.map((weight) => (
+          <option key={weight} value={weight}>
+            {weight}
+          </option>
+        ))}
+      </Select>
 
       <Field label="Couleur">
         <ColorPicker

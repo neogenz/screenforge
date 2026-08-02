@@ -26,7 +26,7 @@ export function ToastViewport() {
           )}
         >
           {TONE_ICON[item.tone]}
-          <span className="max-w-72 text-[12px] text-foreground">{item.message}</span>
+          <span className="max-w-72 text-[12.5px] text-foreground">{item.message}</span>
         </button>
       ))}
     </div>

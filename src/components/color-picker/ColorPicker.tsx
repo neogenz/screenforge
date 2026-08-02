@@ -140,7 +140,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          className="relative h-7 w-9 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
+          className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
           onClick={() => nativeRef.current?.click()}
           aria-label="Ouvrir le sélecteur de couleur"
         >

@@ -57,7 +57,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
-      className="group/thumb relative flex shrink-0 flex-col gap-1"
+      className="group/thumb relative flex shrink-0 flex-col gap-1.5"
       onContextMenu={(event) => {
         event.preventDefault()
         setMenuPosition({ left: event.clientX, top: event.clientY })
@@ -71,13 +71,13 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-pressed={isActive}
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-md bg-inset',
+          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-sm bg-inset',
           'border transition-[border-color,box-shadow,transform] duration-150 ease-out',
           'active:scale-[0.97]',
-          // L'écran actif se signale par un contraste de valeur : bordure claire
-          // doublée d'un anneau, jamais par une couleur.
+          // L'écran courant est un état : l'anneau d'accent le dit à distance,
+          // là où deux gris voisins demandaient de comparer les vignettes.
           isActive
-            ? 'border-foreground shadow-[0_0_0_2px_var(--color-raised-active)]'
+            ? 'border-transparent shadow-[0_0_0_2px_var(--color-accent)]'
             : 'border-border hover:border-border-strong',
         )}
       >
@@ -106,7 +106,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          className="field-surface h-[18px] w-full px-1 text-center text-[10px] text-foreground outline-none"
+          className="field-surface h-5 w-full px-1 text-center text-[10.5px] text-foreground outline-none"
         />
       ) : (
         <button
@@ -115,8 +115,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           onDoubleClick={startRename}
           title={`${screen.name} — double-clic pour renommer`}
           className={cn(
-            'flex h-[18px] w-full items-center justify-center gap-1 rounded-[4px] px-0.5',
-            'text-[10px] leading-none transition-colors',
+            // `hit-40` : le libellé fait 20px de haut mais se clique comme le
+            // reste. Le recouvrement avec la vignette est sans effet — même action.
+            'hit-40 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
+            'text-[10.5px] leading-none transition-colors',
             isActive ? 'text-foreground' : 'text-faint hover:text-foreground-muted',
           )}
         >
@@ -136,7 +138,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }
         }}
         className={cn(
-          'hit-40 absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-[4px]',
+          'hit-40 absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-xs',
           'border border-border bg-panel/95 text-foreground-muted transition-opacity hover:text-foreground',
           !menuPosition &&
             'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
@@ -145,7 +147,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-expanded={menuPosition !== null}
         aria-haspopup="menu"
       >
-        <MoreHorizontal size={11} strokeWidth={1.75} aria-hidden />
+        <MoreHorizontal size={12} strokeWidth={1.75} aria-hidden />
       </button>
 
       {menuPosition && (

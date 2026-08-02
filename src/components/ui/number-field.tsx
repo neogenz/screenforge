@@ -118,7 +118,7 @@ export function NumberField({
       onPointerCancel={handlePointerUp}
       title={`${ariaLabel} — glisser pour ajuster`}
       className={cn(
-        'field-surface flex h-7 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2',
+        'field-surface flex h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
         'transition-[border-color] duration-150 ease-out hover:border-border-strong',
         // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
         'focus-within:border-foreground-muted focus-within:outline-[1.5px]',
@@ -163,7 +163,7 @@ export function NumberField({
         }}
         onKeyDown={handleKeyDown}
         className={cn(
-          'h-full w-full min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-foreground outline-none',
+          'h-full w-full min-w-0 flex-1 bg-transparent text-[12.5px] tabular-nums text-foreground outline-none',
           // Le curseur texte n'apparaît qu'une fois le champ en édition.
           editing ? 'cursor-text' : 'cursor-ew-resize',
         )}

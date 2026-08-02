@@ -133,7 +133,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
         <div ref={listRef} role="listbox" aria-label="Commandes" className="max-h-80 overflow-y-auto p-1.5">
           {results.length === 0 && (
-            <p className="px-3 py-6 text-center text-[12px] text-faint">
+            <p className="px-3 py-6 text-center text-[12.5px] text-faint">
               Aucune commande pour « {query} »
             </p>
           )}
@@ -155,7 +155,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     index === activeIndex ? 'bg-raised-hover text-foreground' : 'text-foreground-muted',
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate text-[12px]">{command.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px]">{command.title}</span>
                   {command.shortcut && <Kbd>{command.shortcut}</Kbd>}
                 </button>
               ))}

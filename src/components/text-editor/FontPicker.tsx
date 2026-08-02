@@ -10,12 +10,14 @@ export interface FontPickerProps {
   value: string
   onChange: (family: string) => void
   id?: string
+  /** Libellé posé dans le champ : même grammaire que `NumberField` et `Select`. */
+  label?: string
 }
 
 /** Head of POPULAR_FONTS pinned under "Populaires" when not searching. */
 const PINNED_COUNT = 10
 
-export function FontPicker({ value, onChange, id }: FontPickerProps) {
+export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -55,13 +57,16 @@ export function FontPicker({ value, onChange, id }: FontPickerProps) {
         variant="default"
         size="sm"
         onClick={() => setOpen((current) => !current)}
-        className="h-7 w-full justify-between font-normal normal-case"
+        className="field-surface h-8 w-full justify-between border-border bg-inset font-normal normal-case hover:bg-inset"
         aria-label={`Police : ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="truncate">{value}</span>
-        <ChevronDown size={11} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
+        <span className="flex min-w-0 items-center gap-1.5">
+          {label && <span className="field-label shrink-0 select-none">{label}</span>}
+          <span className="truncate">{value}</span>
+        </span>
+        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
       </Button>
 
       <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">

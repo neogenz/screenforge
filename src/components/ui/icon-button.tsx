@@ -11,13 +11,16 @@ const iconButtonVariants = cva(
     'active:bg-raised-active',
     'focus-visible:border-border-strong',
     'disabled:pointer-events-none disabled:opacity-35',
+    // Neutre, et non l'accent : ces boutons disent « ce panneau est ouvert »,
+    // pas « c'est ici que vous travaillez ». L'accent est réservé à ce que
+    // l'utilisateur édite — l'écran courant, le calque sélectionné, le focus.
     'data-[active=true]:bg-raised-active data-[active=true]:text-foreground',
   ],
   {
     variants: {
       size: {
-        sm: 'h-7 w-7 rounded-md',
-        md: 'h-8 w-8 rounded-md',
+        sm: 'h-8 w-8 rounded-md',
+        md: 'h-9 w-9 rounded-md',
       },
     },
     defaultVariants: { size: 'md' },

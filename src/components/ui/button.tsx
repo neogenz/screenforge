@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 const buttonVariants = cva(
   [
     'inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap',
-    'font-sans text-[12px] font-medium',
+    'font-sans text-[12.5px] font-medium',
     'transition-[background,color,border-color] duration-150 ease-out',
     'disabled:pointer-events-none disabled:opacity-40',
   ],
@@ -24,10 +24,12 @@ const buttonVariants = cva(
         danger:
           'border border-border bg-transparent text-danger hover:border-danger hover:bg-danger-soft active:bg-danger-soft',
       },
+      // 26px de haut, c'est la taille d'un bouton de barre d'outils d'IDE.
+      // Le produit se compare à des outils de design : on part de 30.
       size: {
-        sm: 'h-[26px] rounded-md px-2.5',
-        md: 'h-[30px] rounded-md px-3',
-        lg: 'h-[34px] rounded-lg px-3.5',
+        sm: 'h-[30px] rounded-md px-3',
+        md: 'h-[34px] rounded-md px-3.5',
+        lg: 'h-[40px] rounded-lg px-4',
       },
     },
     defaultVariants: { variant: 'default', size: 'md' },

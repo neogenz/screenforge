@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import {
-  Copy,
   Eye,
   EyeOff,
   GripVertical,
@@ -8,7 +7,6 @@ import {
   Lock,
   Smartphone,
   Square,
-  Trash2,
   Type,
   Unlock,
 } from 'lucide-react'
@@ -32,10 +30,10 @@ interface LayerItemProps {
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
   const className = 'shrink-0'
   switch (type) {
-    case 'text': return <Type size={12} strokeWidth={1.5} className={className} aria-hidden />
-    case 'device-frame': return <Smartphone size={12} strokeWidth={1.5} className={className} aria-hidden />
-    case 'image': return <ImageIcon size={12} strokeWidth={1.5} className={className} aria-hidden />
-    default: return <Square size={12} strokeWidth={1.5} className={className} aria-hidden />
+    case 'text': return <Type size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'device-frame': return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'image': return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
+    default: return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
   }
 }
 
@@ -135,10 +133,13 @@ export const LayerItem = memo(function LayerItem({
       onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex h-[30px] cursor-pointer select-none items-center gap-2 rounded-md px-1.5',
-        'transition-colors duration-100 ease-out focus-visible:ring-1 focus-visible:ring-border-strong',
+        'group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+        'transition-colors duration-100 ease-out',
+        // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
+        // L'aplat pesait autant que le contenu du panneau et ne disait pas
+        // « sélectionné », seulement « survolé un peu plus fort ».
         isSelected
-          ? 'bg-raised-active text-foreground'
+          ? 'accent-mark text-foreground'
           : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
       )}
     >
@@ -160,14 +161,17 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12px] focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12.5px] focus:border-foreground-muted"
         />
       ) : (
-        <span className="flex-1 truncate text-[12px]">
+        <span className="flex-1 truncate text-[12.5px]">
           {layer.name}
         </span>
       )}
 
+      {/* Deux actions, pas quatre. À 32px pièce, quatre boutons couvraient le
+          milieu de la ligne : viser le nom d'un calque basculait sa visibilité.
+          Dupliquer et supprimer restent au menu contextuel et au clavier. */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <IconButton
           size="sm"
@@ -194,29 +198,6 @@ export const LayerItem = memo(function LayerItem({
           {layer.locked
             ? <Lock size={11} strokeWidth={1.5} aria-hidden />
             : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
-        </IconButton>
-        <IconButton
-          size="sm"
-          aria-label="Dupliquer le calque"
-          title="Dupliquer le calque"
-          onClick={(event) => {
-            event.stopPropagation()
-            actions.duplicate(layer)
-          }}
-        >
-          <Copy size={11} strokeWidth={1.5} aria-hidden />
-        </IconButton>
-        <IconButton
-          size="sm"
-          aria-label="Supprimer le calque"
-          title="Supprimer le calque"
-          className="hover:text-danger"
-          onClick={(event) => {
-            event.stopPropagation()
-            actions.remove(layer)
-          }}
-        >
-          <Trash2 size={11} strokeWidth={1.5} aria-hidden />
         </IconButton>
       </div>
 

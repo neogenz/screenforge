@@ -44,10 +44,10 @@ export function PropertiesPanel() {
     // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
     <aside className="island flex max-h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
-        <span className="section-title">{headerLabel}</span>
+      <div className="flex h-12 shrink-0 items-center justify-between px-3.5">
+        <span className="panel-title">{headerLabel}</span>
         {selectedLayers.length > 1 && (
-          <span className="tabular text-[10px] text-faint">
+          <span className="tabular text-[11px] text-faint">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
@@ -56,15 +56,15 @@ export function PropertiesPanel() {
       {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
       <div className="min-h-0 overflow-y-auto">
         {selectedLayers.length === 0 && (
-          <div className="p-3">
+          <div className="px-3.5 pb-3.5">
             <BackgroundSection />
           </div>
         )}
 
         {selectedLayers.length > 1 && (
-          <div className="p-3">
-            <div className="surface-inner px-4 py-6 text-center">
-              <p className="text-[12px] leading-relaxed text-foreground-muted">
+          <div className="px-3.5 pb-3.5">
+            <div className="surface-inner px-4 py-7 text-center">
+              <p className="text-[12.5px] leading-relaxed text-foreground-muted">
                 {selectedLayers.length} calques sélectionnés.
               </p>
               <p className="mt-1 text-[11px] text-faint">
@@ -77,7 +77,7 @@ export function PropertiesPanel() {
         {selectedLayer && (
           <>
             {/* Scope — screen-local or shared across all screens */}
-            <div className="border-b border-border px-3 py-2.5">
+            <div className="px-3.5 pb-3">
               <Segmented
                 ariaLabel="Portée du calque"
                 className="w-full"
@@ -131,21 +131,22 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="border-b border-border">
+    // Une section est une carte posée dans le panneau, pas une bande séparée
+    // par un filet : c'est la matière qui groupe, le trait ne faisait que hacher.
+    <div className="mx-3.5 mb-3 overflow-hidden rounded-md border border-border bg-inset/60">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-8 w-full items-center gap-1.5 px-3',
+          'flex h-9 w-full items-center gap-1.5 px-2.5',
           'section-title',
           'transition-colors duration-150 ease-out hover:text-foreground',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong',
         )}
         aria-expanded={open}
       >
         <ChevronRight
-          size={11}
-          strokeWidth={1.5}
+          size={12}
+          strokeWidth={1.75}
           aria-hidden
           className={cn(
             'shrink-0 text-faint transition-transform duration-150 ease-out',
@@ -156,7 +157,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
       </button>
 
       {open && children && (
-        <div className="px-3 pb-3 pt-1">{children}</div>
+        <div className="px-2.5 pb-3 pt-0.5">{children}</div>
       )}
     </div>
   )

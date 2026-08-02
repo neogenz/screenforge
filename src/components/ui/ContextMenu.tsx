@@ -81,7 +81,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
               onClose()
             }}
             className={cn(
-              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] transition-colors',
+              'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left text-[12.5px] transition-colors',
               'disabled:pointer-events-none disabled:opacity-40',
               item.danger ? 'text-danger hover:bg-danger-soft' : 'text-foreground hover:bg-raised-hover',
             )}

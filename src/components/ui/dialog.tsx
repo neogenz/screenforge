@@ -43,8 +43,10 @@ export function Dialog({
     if (!open) return
     restoreFocusRef.current = document.activeElement
     const panel = panelRef.current
-    const autofocus = panel?.querySelector<HTMLElement>('[data-autofocus]')
-      ?? panel?.querySelector<HTMLElement>(FOCUSABLE)
+    // À défaut de cible désignée, c'est le panneau qui prend le focus, pas le
+    // premier bouton venu : la croix de fermeture se retrouvait cerclée
+    // d'accent à l'ouverture, soit l'élément le plus voyant de la boîte.
+    const autofocus = panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel
     autofocus?.focus()
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -90,19 +92,21 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         className={cn(
           'surface-modal relative flex max-h-[85dvh] w-full animate-slide-up flex-col overflow-hidden',
+          'focus:outline-none',
           SIZES[size],
         )}
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-3.5">
-          <h2 id={titleId} className="section-title">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-4">
+          <h2 id={titleId} className="panel-title">
             {title}
           </h2>
           <div className="flex items-center gap-1">
             {headerActions}
             <IconButton aria-label="Fermer" title="Fermer (Échap)" onClick={onClose} size="sm">
-              <X size={14} strokeWidth={1.75} />
+              <X size={15} strokeWidth={1.75} />
             </IconButton>
           </div>
         </div>

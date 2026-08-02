@@ -28,7 +28,7 @@ export function Segmented<T extends string>({
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex items-stretch gap-0.5 rounded-lg border border-border bg-inset p-0.5',
+        'inline-flex items-stretch gap-0.5 rounded-md border border-border bg-inset p-[3px]',
         className,
       )}
     >
@@ -43,8 +43,9 @@ export function Segmented<T extends string>({
             title={option.ariaLabel ?? option.label}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-6 items-center justify-center gap-1 rounded-md px-2',
-              'font-sans text-[11px] font-medium',
+              // Rayon intérieur = rayon du groupe (9) moins la marge (3).
+              'inline-flex h-8 items-center justify-center gap-1 rounded-sm px-2.5',
+              'font-sans text-[11.5px] font-medium',
               'transition-[background,color] duration-150 ease-out',
               // L'option active monte d'un palier : lisible sur panneau clair comme sombre,
               // là où une bordure claire seule disparaissait en thème clair.

@@ -7,20 +7,20 @@
  */
 
 export const ISLAND_MARGIN = 12
-export const TOP_BAR_HEIGHT = 44
-export const DRAWER_WIDTH_LAYERS = 264
-export const DRAWER_WIDTH_PROPS = 304
+export const TOP_BAR_HEIGHT = 48
+export const DRAWER_WIDTH_LAYERS = 280
+export const DRAWER_WIDTH_PROPS = 320
 
 /**
  * Hauteur de vignette dans la filmstrip. Au ratio 1320×2868 elle donne ~39px
  * de large : en deçà on ne distingue plus une mise en page d'une autre, ce qui
  * est le seul service que rend la bande.
  */
-export const THUMBNAIL_HEIGHT = 84
-/** Vignette + son libellé (18px) + l'écart (4px) + le rembourrage de l'îlot (2×8). */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + 18 + 4 + 16
+export const THUMBNAIL_HEIGHT = 100
+/** Vignette + son libellé (20px) + l'écart (6px) + le rembourrage de l'îlot (2×10). */
+export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + 20 + 6 + 20
 
-/** Top bar (44px) + margins above and below. */
+/** Top bar (48px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
 /** Filmstrip + margins. */
 export const STAGE_BOTTOM_INSET = FILMSTRIP_HEIGHT + ISLAND_MARGIN * 2

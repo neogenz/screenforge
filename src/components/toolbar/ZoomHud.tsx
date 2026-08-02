@@ -14,21 +14,21 @@ export function ZoomHud() {
   const resetZoom = useUIStore((s) => s.resetZoom)
 
   return (
-    <div className="island flex h-9 items-center gap-0.5 px-1">
+    <div className="island flex h-10 items-center gap-0.5 px-1.5">
       <IconButton size="sm" aria-label="Zoom arrière" title="Zoom arrière (⌘−)" onClick={zoomOut}>
-        <Minus size={13} strokeWidth={1.75} />
+        <Minus size={14} strokeWidth={1.75} />
       </IconButton>
       <button
         type="button"
         aria-label="Ajuster le zoom aux écrans"
         title="Ajuster aux écrans (⌘0)"
         onClick={resetZoom}
-        className="tabular h-7 min-w-12 rounded-md px-1.5 text-center text-[11px] text-foreground-muted transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground"
+        className="tabular h-8 min-w-13 rounded-md px-2 text-center text-[11.5px] font-medium text-foreground-muted transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground"
       >
         {Math.round(zoom * 100)}%
       </button>
       <IconButton size="sm" aria-label="Zoom avant" title="Zoom avant (⌘+)" onClick={zoomIn}>
-        <Plus size={13} strokeWidth={1.75} />
+        <Plus size={14} strokeWidth={1.75} />
       </IconButton>
     </div>
   )

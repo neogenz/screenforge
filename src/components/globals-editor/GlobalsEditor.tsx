@@ -80,15 +80,15 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
         <section>
           <h3 className="section-title mb-3">Typographie</h3>
           <div className="flex flex-col gap-3">
-            <Field label="Police">
-              <FontPicker
-                value={draft.fontFamily}
-                onChange={(fontFamily) => update({ fontFamily })}
-              />
-            </Field>
+            <FontPicker
+              label="Police"
+              value={draft.fontFamily}
+              onChange={(fontFamily) => update({ fontFamily })}
+            />
             <div className="flex gap-3">
-              <Field label="Graisse" className="flex-1">
+              <div className="flex-1">
                 <Select
+                  label="Graisse"
                   value={draft.fontWeight}
                   onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
                   aria-label="Graisse de police par défaut"
@@ -97,17 +97,17 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                     <option key={weight.value} value={weight.value}>{weight.label}</option>
                   ))}
                 </Select>
-              </Field>
-              <Field label="Taille" className="w-28">
+              </div>
+              <div className="w-28">
                 <NumberField
-                  label="px"
+                  label="Taille"
                   ariaLabel="Taille de police par défaut"
                   value={draft.fontSize}
                   min={8}
                   max={200}
                   onChange={(fontSize) => update({ fontSize })}
                 />
-              </Field>
+              </div>
             </div>
             <Field label="Couleur">
               <ColorPicker
@@ -135,19 +135,18 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
         <section>
           <h3 className="section-title mb-3">Appareil</h3>
           <div className="flex flex-col gap-3">
-            <Field label="Modèle">
-              <Select
-                value={draft.deviceModel}
-                onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
-                aria-label="Modèle d’appareil par défaut"
-              >
-                {modelOptions.map((option) => (
-                  <option key={option.model} value={option.model}>
-                    {option.modelName} · {option.screenSize}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <Select
+              label="Modèle"
+              value={draft.deviceModel}
+              onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
+              aria-label="Modèle d’appareil par défaut"
+            >
+              {modelOptions.map((option) => (
+                <option key={option.model} value={option.model}>
+                  {option.modelName} · {option.screenSize}
+                </option>
+              ))}
+            </Select>
             <Field label="Couleur">
               <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil par défaut">
                 {frame.colors.map((color) => (

@@ -12,7 +12,7 @@ export function Textarea({ className, ref, ...props }: TextareaProps) {
       ref={ref}
       className={cn(
         'field-surface w-full resize-y px-2 py-1.5',
-        'text-[12px] leading-snug text-foreground placeholder:text-faint',
+        'text-[12.5px] leading-snug text-foreground placeholder:text-faint',
         'transition-[border-color] duration-150 ease-out',
         'hover:border-border-strong focus:border-foreground-muted',
         'aria-invalid:border-danger aria-invalid:hover:border-danger aria-invalid:focus:border-danger',

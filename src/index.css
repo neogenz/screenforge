@@ -5,13 +5,19 @@
 @source "./**/*.ts";
 
 /*
- * ScreenForge v4 — design system.
+ * ScreenForge v5 — design system.
  *
- * Monochrome intégral : aucune couleur chromatique dans le chrome, la seule
- * couleur à l'écran vient des artboards de l'utilisateur. Le rouge a disparu ;
- * l'action primaire est un blanc plein, la sélection un contraste de valeur.
- * Rampe de neutres à chroma 0, paliers d'au moins 0.04 de luminance.
- * Deux directions d'élévation : les îlots montent, les champs descendent.
+ * Le chrome est neutre à chroma 0 : la seule couleur du produit vient des
+ * artboards, et un chrome teinté fausserait le jugement de l'utilisateur sur
+ * ses propres couleurs. Une exception, l'accent citron : il ne dit jamais
+ * « action », il dit « ici » — outil actif, écran courant, focus, ligne
+ * sélectionnée. L'action primaire, elle, reste un aplat clair : deux couleurs
+ * qui crient font une interface sans hiérarchie.
+ *
+ * Géométrie généreuse : rayons de 9px sur les contrôles, 14 sur les îlots,
+ * 18 sur les modales, et le rayon intérieur vaut toujours l'extérieur moins la
+ * marge. Séparation par la matière plutôt que par le trait : en sombre les
+ * bordures s'effacent et c'est l'ombre portée qui détache les surfaces.
  * Typographie : Inter variable, une seule famille, chiffres tabulaires natifs.
  * Motion : ease-out expo, 120–200ms, transform/opacity uniquement.
  */
@@ -21,21 +27,32 @@
   /* ── Neutres (dark, défaut) — chroma 0, le stage est le point le plus sombre ── */
   --color-stage: oklch(0.145 0 0);
   --color-background: oklch(0.175 0 0);
-  --color-panel: oklch(0.205 0 0);
+  --color-panel: oklch(0.215 0 0);
   /* En creux : plus sombre que le panneau qui le porte. C'est ce qui fait lire un champ. */
-  --color-inset: oklch(0.155 0 0);
+  --color-inset: oklch(0.165 0 0);
   /* En relief : au-dessus du panneau. Boutons, options actives, vignettes. */
-  --color-raised: oklch(0.245 0 0);
-  --color-raised-hover: oklch(0.285 0 0);
-  --color-raised-active: oklch(0.325 0 0);
+  --color-raised: oklch(0.26 0 0);
+  --color-raised-hover: oklch(0.3 0 0);
+  --color-raised-active: oklch(0.34 0 0);
 
   /* Luminances choisies pour tenir 4.5:1 sur stage, background, panel, inset et raised. */
   --color-foreground: oklch(0.97 0 0);
   --color-foreground-muted: oklch(0.78 0 0);
   --color-faint: oklch(0.64 0 0);
 
-  --color-border: oklch(0.27 0 0);
+  /* Bordures discrètes : en sombre c'est l'ombre qui détache, pas le trait. */
+  --color-border: oklch(0.26 0 0);
   --color-border-strong: oklch(0.36 0 0);
+
+  /* ── Accent — l'état, jamais l'action ──
+     Employé en aplat, en anneau ou en pastille ; jamais comme couleur de texte,
+     un citron lisible sur sombre ne l'est plus sur clair. Le texte posé dessus
+     est `accent-ink`, contrasté 12:1. */
+  --color-accent: oklch(0.87 0.2 124);
+  --color-accent-hover: oklch(0.92 0.2 124);
+  --color-accent-ink: oklch(0.24 0.05 124);
+  --color-accent-soft: oklch(0.87 0.2 124 / 0.11);
+  --color-accent-line: oklch(0.87 0.2 124 / 0.55);
 
   /* Lasso de sélection. Le cadre des objets, lui, est figé dans `canvas-utils` :
      posé sur le contenu de l'utilisateur, il ne peut pas suivre le thème. */
@@ -48,31 +65,36 @@
   --color-success: oklch(0.65 0.12 155);
   --color-warning: oklch(0.72 0.11 75);
 
-  --color-artboard-ring: oklch(1 0 0 / 0.12);
-  --color-artboard-ring-active: oklch(1 0 0 / 0.5);
+  /* Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
+     dégradé violet fausse le jugement de l'utilisateur sur sa propre couleur.
+     L'écran courant se signale par la valeur, pas par la teinte. */
+  --color-artboard-ring: oklch(1 0 0 / 0.1);
+  --color-artboard-ring-active: oklch(1 0 0 / 0.55);
   /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS. */
-  --color-artboard-shadow: oklch(0 0 0 / 0.45);
-  --color-scrim: oklch(0.1 0 0 / 0.6);
+  --color-artboard-shadow: oklch(0 0 0 / 0.5);
+  --color-scrim: oklch(0.1 0 0 / 0.62);
 
-  /* ── Élévation ── */
-  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -8px oklch(0 0 0 / 0.45);
-  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.28), 0 12px 36px -12px oklch(0 0 0 / 0.45);
-  --shadow-modal: 0 24px 72px -12px oklch(0 0 0 / 0.6);
+  /* ── Élévation — large, basse en opacité, en trois couches ── */
+  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
+    0 24px 48px -24px oklch(0 0 0 / 0.55);
+  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
+    0 32px 64px -32px oklch(0 0 0 / 0.6);
+  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
   /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
   /* Lumière rasante sur l'arête haute d'un îlot. */
-  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.04);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
 
   /* ── Type — une seule famille ── */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
 
-  /* ── Radius ── */
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
+  /* ── Radius — le rayon intérieur vaut l'extérieur moins la marge ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-full: 9999px;
 
   /* ── z-index : 6 niveaux nommés, rien d'autre ── */
@@ -148,25 +170,52 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 
-/* ── Light — même structure, neutre vrai (chroma 0), accent noir ── */
+/* ── Marques d'accent ──
+   Déclarées en `@utility` et non en classe de composant : c'est ce qui permet
+   de les préfixer d'un variant (`data-[active=true]:accent-mark`). */
+
+/* Aplat citron, encre sombre — la marque forte : écran courant, coche. */
+@utility accent-fill {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+/* Marque discrète : voile et liseré, le texte garde sa couleur. */
+@utility accent-mark {
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-line);
+}
+
+/* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
-  --color-stage: oklch(0.88 0 0);
-  --color-background: oklch(0.94 0 0);
+  --color-stage: oklch(0.9 0 0);
+  --color-background: oklch(0.955 0 0);
   --color-panel: oklch(1 0 0);
   /* En clair le creux doit rester sous `raised` : à 0.965 les deux se confondaient
      et une pastille active posée dans un conteneur en creux devenait invisible. */
-  --color-inset: oklch(0.935 0 0);
-  --color-raised: oklch(0.97 0 0);
-  --color-raised-hover: oklch(0.94 0 0);
-  --color-raised-active: oklch(0.91 0 0);
+  --color-inset: oklch(0.945 0 0);
+  --color-raised: oklch(0.975 0 0);
+  --color-raised-hover: oklch(0.945 0 0);
+  --color-raised-active: oklch(0.915 0 0);
 
   --color-foreground: oklch(0.18 0 0);
-  /* Le stage clair (0.88) est le fond le plus exigeant : ces deux valeurs y tiennent 4.5:1. */
-  --color-foreground-muted: oklch(0.38 0 0);
-  --color-faint: oklch(0.47 0 0);
+  /* Le stage clair (0.9) est le fond le plus exigeant : ces deux valeurs y tiennent 4.5:1. */
+  --color-foreground-muted: oklch(0.4 0 0);
+  --color-faint: oklch(0.48 0 0);
 
-  --color-border: oklch(0.9 0 0);
-  --color-border-strong: oklch(0.8 0 0);
+  --color-border: oklch(0.915 0 0);
+  --color-border-strong: oklch(0.82 0 0);
+
+  /* Même citron : il reste un aplat, et son encre sombre y tient 12:1 dans les
+     deux thèmes. Ce qui change en clair, c'est le voile — 0.16 d'un citron très
+     lumineux disparaît sur blanc. */
+  --color-accent: oklch(0.85 0.2 124);
+  --color-accent-hover: oklch(0.8 0.2 124);
+  --color-accent-ink: oklch(0.24 0.05 124);
+  /* 0.28 sur blanc virait au surligneur : la ligne sélectionnée pesait plus que
+     tout le reste du panneau. 0.16 tient encore le « ici » sans crier. */
+  --color-accent-soft: oklch(0.8 0.2 124 / 0.16);
+  --color-accent-line: oklch(0.72 0.18 124 / 0.9);
 
   --color-selection: oklch(0.18 0 0);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
@@ -176,14 +225,16 @@
   --color-success: oklch(0.5 0.11 155);
   --color-warning: oklch(0.55 0.1 70);
 
-  --color-artboard-ring: oklch(0 0 0 / 0.12);
-  --color-artboard-ring-active: oklch(0 0 0 / 0.45);
-  --color-artboard-shadow: oklch(0 0 0 / 0.18);
+  --color-artboard-ring: oklch(0 0 0 / 0.1);
+  --color-artboard-ring-active: oklch(0 0 0 / 0.5);
+  --color-artboard-shadow: oklch(0 0 0 / 0.16);
   --color-scrim: oklch(0.3 0 0 / 0.35);
 
-  --shadow-island: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px -8px oklch(0 0 0 / 0.12);
-  --shadow-menu: 0 4px 12px oklch(0 0 0 / 0.06), 0 12px 36px -12px oklch(0 0 0 / 0.14);
-  --shadow-modal: 0 24px 72px -12px oklch(0 0 0 / 0.2);
+  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
+    0 24px 48px -24px oklch(0 0 0 / 0.14);
+  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
+    0 32px 64px -32px oklch(0 0 0 / 0.16);
+  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
   --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
@@ -226,9 +277,9 @@
   button {
     font-family: inherit;
   }
+  /* Le focus est un état : c'est donc l'accent qui le porte, pas un gris clair. */
   :focus-visible {
-    outline: 1.5px solid
-      color-mix(in oklch, var(--color-foreground) 55%, transparent);
+    outline: 2px solid var(--color-accent-line);
     outline-offset: 2px;
   }
 }
@@ -241,6 +292,7 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-island), var(--hairline-top);
   }
+
 
   /* ── Scène : vignette discrète, les artboards portent la lumière ── */
   .stage-vignette {
@@ -259,19 +311,28 @@
     );
   }
 
-  /* ── Libellés : casse normale, jamais de capitales trackées ── */
+  /* ── Hiérarchie de texte — trois niveaux, écarts francs ──
+     L'ancienne échelle tenait dans 1,5px entre le libellé et le titre : à cet
+     écart rien ne hiérarchise, tout se lit comme un même bloc gris. */
+  .panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--color-foreground);
+    line-height: 1.25;
+  }
+  .section-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--color-foreground);
+    line-height: 1.25;
+  }
   .field-label {
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0;
-    color: var(--color-foreground-muted);
-    line-height: 1.2;
-  }
-  .section-title {
-    font-size: 12px;
-    font-weight: 550;
-    letter-spacing: 0;
-    color: var(--color-foreground);
+    color: var(--color-faint);
     line-height: 1.2;
   }
   /* Valeurs numériques : Inter a des chiffres tabulaires, pas besoin d'une mono. */

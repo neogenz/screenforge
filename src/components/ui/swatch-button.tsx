@@ -29,7 +29,7 @@ export function SwatchButton({
       aria-pressed={selected}
       className={cn(
         // L'anneau vit dans le padding : aucun décalage de mise en page à la sélection.
-        'h-7 w-7 shrink-0 rounded-full p-[3px] ring-inset',
+        'h-8 w-8 shrink-0 rounded-full p-[3px] ring-inset',
         'transition-[box-shadow] duration-150 ease-out',
         selected
           ? 'ring-2 ring-foreground'
