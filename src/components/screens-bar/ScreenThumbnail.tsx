@@ -99,7 +99,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          className="h-5 w-20 rounded-md border border-border-strong bg-panel px-1 text-center text-[10px] text-foreground outline-none"
+          className="h-5 w-20 rounded-md border border-border-strong bg-panel px-1 text-center text-[10px] text-foreground"
         />
       ) : (
         <button

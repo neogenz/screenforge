@@ -160,7 +160,7 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12px] outline-none focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12px] focus:border-foreground-muted"
         />
       ) : (
         <span className="flex-1 truncate text-[12px]">

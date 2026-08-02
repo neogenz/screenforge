@@ -11,7 +11,7 @@ export interface TooltipProps {
 }
 
 /** Hover/focus tooltip. Wraps the trigger in an inline-flex span. */
-export function Tooltip({ label, children, side = 'top', delay = 350 }: TooltipProps) {
+export function Tooltip({ label, children, side = 'top', delay = 400 }: TooltipProps) {
   const wrapperRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [visible, setVisible] = useState(false)
@@ -56,9 +56,10 @@ export function Tooltip({ label, children, side = 'top', delay = 350 }: TooltipP
           role="tooltip"
           style={{ left: position.left, top: position.top }}
           className={cn(
-            'menu-shadow pointer-events-none fixed z-(--z-popover) -translate-x-1/2 animate-fade-in',
-            'whitespace-nowrap rounded-md border border-border bg-raised px-1.5 py-1',
-            'font-mono text-[10px] text-foreground-muted',
+            // Ombre légère : une infobulle n'a pas le poids d'un menu.
+            'pointer-events-none fixed z-(--z-popover) -translate-x-1/2 animate-fade-in',
+            'whitespace-nowrap rounded-md border border-border bg-raised px-2 py-1 shadow-sm',
+            'text-[11px] leading-none text-foreground',
             side === 'top' ? '-translate-y-full' : 'translate-y-0',
           )}
         >

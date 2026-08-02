@@ -46,7 +46,7 @@ export function Slider({
         style={{ '--fill': `${fill}%` } as CSSProperties}
         className="flex-1"
       />
-      <span className="mono-value w-9 shrink-0 text-right text-[10px] text-foreground-muted">
+      <span className="tabular w-9 shrink-0 text-right text-[11px] text-foreground-muted">
         {formatValue ? formatValue(value) : value}
       </span>
     </div>

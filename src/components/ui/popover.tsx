@@ -88,7 +88,8 @@ export function Popover({
         visibility: position ? 'visible' : 'hidden',
       }}
       className={cn(
-        'menu-shadow z-(--z-popover) animate-menu-in overflow-hidden rounded-xl border border-border bg-raised',
+        // Même grammaire que Dropdown et ContextMenu : rayon lg, ombre menu, fond panneau.
+        'menu-shadow z-(--z-popover) animate-menu-in overflow-hidden rounded-lg border border-border bg-panel',
         side === 'bottom' ? 'origin-top' : 'origin-bottom',
         className,
       )}

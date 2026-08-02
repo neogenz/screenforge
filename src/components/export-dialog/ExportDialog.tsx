@@ -77,13 +77,12 @@ function ExportDialogContent({ project }: { project: Project }) {
               Annuler
             </Button>
             <Button
-              variant="export"
+              variant="primary"
               onClick={() => void handleExport()}
-              disabled={isExporting || selectedScreens.length === 0}
+              loading={isExporting}
+              disabled={selectedScreens.length === 0}
             >
-              {isExporting
-                ? <Loader size={12} className="animate-spin" aria-hidden />
-                : <Download size={12} aria-hidden />}
+              {!isExporting && <Download size={12} aria-hidden />}
               {isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
             </Button>
           </div>

@@ -146,7 +146,7 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
       aria-selected={selected}
       onClick={() => onSelect(family)}
       className={cn(
-        'flex h-7 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-[12px] outline-none',
+        'flex h-7 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-[12px]',
         'transition-colors duration-100 ease-out',
         'focus-visible:bg-raised-hover',
         selected

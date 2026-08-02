@@ -11,7 +11,10 @@
       rel="stylesheet"
     />
     <style>
+      /* Évite le flash blanc avant la feuille de styles. La classe de thème
+         est posée sur <html> par l'app pour que les portails en héritent. */
       html { background: oklch(0.145 0 0); }
+      html.light { background: oklch(0.88 0 0); }
     </style>
   </head>
   <body>

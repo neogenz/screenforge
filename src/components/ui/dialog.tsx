@@ -95,8 +95,8 @@ export function Dialog({
           SIZES[size],
         )}
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 id={titleId} className="text-[13px] font-semibold text-foreground">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-3.5">
+          <h2 id={titleId} className="section-title">
             {title}
           </h2>
           <div className="flex items-center gap-1">
@@ -106,9 +106,9 @@ export function Dialog({
             </IconButton>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
         {footer && (
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-4 py-3">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-5 py-3.5">
             {footer}
           </div>
         )}

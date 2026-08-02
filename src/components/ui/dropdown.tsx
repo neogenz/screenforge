@@ -85,7 +85,7 @@ export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'sta
             }}
             onMouseEnter={() => !item.disabled && setActiveIndex(index)}
             className={cn(
-              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none',
+              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left',
               'transition-colors duration-100 ease-out',
               'disabled:pointer-events-none disabled:opacity-40',
               index === activeIndex && (item.danger ? 'bg-danger-soft' : 'bg-raised-hover'),
@@ -95,7 +95,7 @@ export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'sta
             {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
             <span className="min-w-0 flex-1 truncate text-[12px]">{item.label}</span>
             {item.meta && (
-              <span className="mono-value shrink-0 text-[10px] text-faint">{item.meta}</span>
+              <span className="tabular shrink-0 text-[10px] text-faint">{item.meta}</span>
             )}
             {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
           </button>

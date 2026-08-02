@@ -126,7 +126,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             aria-label="Rechercher une commande"
             placeholder="Rechercher une commande…"
             spellCheck={false}
-            className="h-10 w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
+            className="h-10 w-full bg-transparent text-[13px] text-foreground placeholder:text-faint"
           />
           <Kbd>esc</Kbd>
         </div>

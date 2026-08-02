@@ -43,12 +43,14 @@ export function Segmented<T extends string>({
             title={option.ariaLabel ?? option.label}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex h-6 items-center justify-center gap-1 rounded-md px-2 outline-none',
+              'inline-flex h-6 items-center justify-center gap-1 rounded-md px-2',
               'font-sans text-[11px] font-medium',
               'transition-[background,color] duration-150 ease-out',
+              // L'option active monte d'un palier : lisible sur panneau clair comme sombre,
+              // là où une bordure claire seule disparaissait en thème clair.
               active
-                ? 'border border-border bg-raised text-foreground'
-                : 'border border-transparent text-faint hover:text-foreground',
+                ? 'bg-raised text-foreground shadow-(--hairline-top)'
+                : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
             )}
           >
             {option.icon}

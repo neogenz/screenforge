@@ -248,7 +248,7 @@ function ActionsSegment() {
         title="Palette de commandes (⌘K)"
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-faint outline-none',
+          'flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-faint',
           'transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground',
         )}
       >
@@ -256,7 +256,7 @@ function ActionsSegment() {
       </button>
 
       <Button
-        variant="export"
+        variant="primary"
         size="md"
         aria-label="Ouvrir l’export"
         title="Exporter les captures App Store"

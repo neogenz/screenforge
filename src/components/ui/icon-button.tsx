@@ -4,10 +4,11 @@ import { cn } from '@/lib/utils'
 
 const iconButtonVariants = cva(
   [
-    'inline-flex select-none items-center justify-center outline-none',
-    'border border-transparent bg-transparent text-faint',
+    'inline-flex select-none items-center justify-center',
+    'border border-transparent bg-transparent text-foreground-muted',
     'transition-[background,color,border-color] duration-150 ease-out',
     'hover:bg-raised-hover hover:text-foreground',
+    'active:bg-raised-active',
     'focus-visible:border-border-strong',
     'disabled:pointer-events-none disabled:opacity-35',
     'data-[active=true]:bg-raised-active data-[active=true]:text-foreground',

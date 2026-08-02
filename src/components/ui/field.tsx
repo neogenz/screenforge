@@ -14,7 +14,7 @@ export interface FieldProps {
 export function Field({ id, label, children, className, inline = false }: FieldProps) {
   return (
     <div className={cn(inline ? 'flex items-center justify-between gap-2' : 'flex flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="caps-label shrink-0">
+      <label htmlFor={id} className="field-label shrink-0">
         {label}
       </label>
       {children}

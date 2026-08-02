@@ -3,10 +3,17 @@ import type { KeyboardEvent, PointerEvent, Ref } from 'react'
 import { clampNumber, roundTo } from '@/lib/number'
 import { cn } from '@/lib/utils'
 
+/** Distance en pixels avant qu'un appui devienne un scrub plutôt qu'un clic. */
+const SCRUB_THRESHOLD = 3
+
 export interface NumberFieldProps {
-  /** Visible mini label, also used as the scrub handle (e.g. "X"). */
-  label: string
-  /** Full accessible name, e.g. "Position X". */
+  /**
+   * Préfixe court affiché dans le champ, ex. « X ». Casse normale, en retrait :
+   * c'est la grammaire des champs numériques, distincte du libellé au-dessus
+   * que porte `Field` pour tous les autres contrôles.
+   */
+  label?: string
+  /** Nom accessible complet, ex. « Position X ». */
   ariaLabel: string
   value: number
   onChange: (value: number) => void
@@ -20,8 +27,8 @@ export interface NumberFieldProps {
 }
 
 /**
- * Figma-grade numeric field: drag the label to scrub (⇧ = ×10, ⌥ = ×0.1),
- * or type directly. Commits live, Escape reverts.
+ * Champ numérique scrubbable sur toute sa surface : glisser ajuste
+ * (⇧ = ×10, ⌥ = ×0.1), cliquer focalise et laisse saisir. Commit live, Échap annule.
  */
 export function NumberField({
   label,
@@ -38,36 +45,53 @@ export function NumberField({
 }: NumberFieldProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string | null>(null)
-  const scrub = useRef<{ pointerId: number; startX: number; startValue: number } | null>(null)
+  const [scrubbing, setScrubbing] = useState(false)
+  const scrub = useRef<{
+    pointerId: number
+    startX: number
+    startValue: number
+    engaged: boolean
+  } | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   function commit(next: number) {
     onChange(roundTo(clampNumber(next, min, max), precision))
   }
 
-  function handleScrubDown(event: PointerEvent<HTMLSpanElement>) {
-    if (disabled) return
-    event.preventDefault()
-    scrub.current = { pointerId: event.pointerId, startX: event.clientX, startValue: value }
-    event.currentTarget.setPointerCapture(event.pointerId)
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (disabled || event.button !== 0) return
+    // Pas de preventDefault : sous le seuil, l'appui reste un clic qui focalise.
+    scrub.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startValue: value,
+      engaged: false,
+    }
   }
 
-  function handleScrubMove(event: PointerEvent<HTMLSpanElement>) {
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const state = scrub.current
     if (!state || state.pointerId !== event.pointerId) return
+    const delta = event.clientX - state.startX
+    if (!state.engaged) {
+      if (Math.abs(delta) < SCRUB_THRESHOLD) return
+      state.engaged = true
+      setScrubbing(true)
+      event.currentTarget.setPointerCapture(event.pointerId)
+      // Le caret suivrait le pointeur et sélectionnerait le texte pendant le drag.
+      inputRef.current?.blur()
+    }
     const modifier = event.shiftKey ? 10 : event.altKey ? 0.1 : 1
-    commit(state.startValue + (event.clientX - state.startX) * step * modifier)
+    commit(state.startValue + delta * step * modifier)
   }
 
-  function handleScrubUp(event: PointerEvent<HTMLSpanElement>) {
+  function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
     const state = scrub.current
     if (!state || state.pointerId !== event.pointerId) return
     scrub.current = null
-    event.currentTarget.releasePointerCapture(event.pointerId)
-    // Click without drag: focus the input instead.
-    if (Math.abs(event.clientX - state.startX) < 2) {
-      inputRef.current?.focus()
-      inputRef.current?.select()
+    if (state.engaged) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+      setScrubbing(false)
     }
   }
 
@@ -88,26 +112,27 @@ export function NumberField({
 
   return (
     <div
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      title={`${ariaLabel} — glisser pour ajuster`}
       className={cn(
-        'flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md border border-border bg-raised px-1.5',
+        'field-surface flex h-7 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2',
         'transition-[border-color] duration-150 ease-out hover:border-border-strong',
-        'focus-within:border-foreground-muted',
+        // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
+        'focus-within:border-foreground-muted focus-within:outline-[1.5px]',
+        'focus-within:outline-offset-2 focus-within:outline-foreground/55',
+        scrubbing && 'select-none border-foreground-muted',
         disabled && 'pointer-events-none opacity-40',
         className,
       )}
     >
-      <span
-        role="presentation"
-        aria-hidden
-        onPointerDown={handleScrubDown}
-        onPointerMove={handleScrubMove}
-        onPointerUp={handleScrubUp}
-        onPointerCancel={handleScrubUp}
-        className="caps-label shrink-0 cursor-ew-resize touch-none select-none py-1"
-        title={`${ariaLabel} — glisser pour ajuster`}
-      >
-        {label}
-      </span>
+      {label && (
+        <span aria-hidden className="field-label shrink-0 select-none text-faint">
+          {label}
+        </span>
+      )}
       <input
         ref={(node) => {
           inputRef.current = node
@@ -122,9 +147,10 @@ export function NumberField({
         min={Number.isFinite(min) ? min : undefined}
         max={Number.isFinite(max) ? max : undefined}
         step={step}
-        onFocus={() => {
+        onFocus={(event) => {
           setEditing(true)
           setDraft(String(roundTo(value, precision)))
+          event.currentTarget.select()
         }}
         onChange={(event) => {
           setDraft(event.target.value)
@@ -136,7 +162,11 @@ export function NumberField({
           setDraft(null)
         }}
         onKeyDown={handleKeyDown}
-        className="h-full w-full min-w-0 flex-1 bg-transparent font-mono text-[11px] tabular-nums text-foreground outline-none"
+        className={cn(
+          'h-full w-full min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-foreground outline-none',
+          // Le curseur texte n'apparaît qu'une fois le champ en édition.
+          editing ? 'cursor-text' : 'cursor-ew-resize',
+        )}
       />
     </div>
   )

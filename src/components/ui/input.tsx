@@ -4,19 +4,23 @@ import { cn } from '@/lib/utils'
 
 const inputVariants = cva(
   [
-    'h-7 w-full rounded-md border border-border bg-raised px-2 outline-none',
+    'field-surface h-7 w-full px-2',
     'text-foreground placeholder:text-faint',
-    'transition-[border-color,background] duration-150 ease-out',
+    'transition-[border-color] duration-150 ease-out',
     'hover:border-border-strong focus:border-foreground-muted',
+    // L'invalidité se signale sur la bordure, jamais sur le fond.
+    'aria-invalid:border-danger aria-invalid:hover:border-danger aria-invalid:focus:border-danger',
+    'disabled:pointer-events-none disabled:opacity-40',
   ],
   {
     variants: {
       font: {
-        mono: 'font-mono text-[11px] tabular-nums',
-        sans: 'font-sans text-[12px]',
+        /** Valeurs numériques : Inter a des chiffres tabulaires natifs. */
+        tabular: 'text-[12px] tabular-nums',
+        sans: 'text-[12px]',
       },
     },
-    defaultVariants: { font: 'mono' },
+    defaultVariants: { font: 'tabular' },
   },
 )
 

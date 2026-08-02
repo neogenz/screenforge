@@ -140,7 +140,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          className="relative h-7 w-9 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border outline-none transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
+          className="relative h-7 w-9 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
           onClick={() => nativeRef.current?.click()}
           aria-label="Ouvrir le sélecteur de couleur"
         >
@@ -172,7 +172,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           aria-hidden="true"
         />
         <Input
-          font="mono"
+          font="tabular"
           value={hexInput}
           onChange={handleHexInput}
           onBlur={handleHexBlur}
@@ -212,7 +212,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               <button
                 key={color}
                 type="button"
-                className="h-5 w-5 cursor-pointer rounded-[4px] border border-border outline-none transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
+                className="h-5 w-5 cursor-pointer rounded-[4px] border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
                 style={{ backgroundColor: color }}
                 onClick={() => {
                   addRecentColor(color)

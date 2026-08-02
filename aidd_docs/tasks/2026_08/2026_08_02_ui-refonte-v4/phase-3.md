@@ -83,13 +83,31 @@ flowchart TD
    vives ensuite. Les projets existants stockent le nom de la couleur, pas son index :
    le réordonnancement ne les casse pas.
 
-### `3)` Habiller la sélection Fabric
+### `3)` Corriger le cadre de sélection décalé
+
+> Signalé par l'utilisateur le 2026-08-02, capture à l'appui : sur un cadre d'appareil pivoté,
+> la boîte de sélection est plus grande que le téléphone et débordée vers le haut-droite.
+> Lu comme un bug, et c'en est un.
+
+1. Diagnostiquer avant de corriger : mesurer `getBoundingRect()` de l'objet rendu contre les
+   bornes visibles du mockup, à rotation nulle puis à 20 degrés.
+2. Cause pressentie, à confirmer : les boutons latéraux sont dessinés hors du `viewBox`, à
+   `x = -2` et `x = width - 1`. `loadSVGFromURL` les parse en objets réels au-delà du cadre,
+   donc la boîte englobante du groupe s'étend dessus alors que le rendu, lui, est écrêté.
+   L'élargissement du `viewBox` de la tâche 1 doit à lui seul refermer l'écart.
+3. Si l'écart persiste après la tâche 1, vérifier l'origine des objets : Fabric v7 a basculé
+   `originX` / `originY` de `left` / `top` à `center` / `center`, et `bug-fabric-v7-origin.md`
+   documente déjà un décalage d'une demi-taille causé par ce changement dans ce dépôt.
+4. Le contrôle est géométrique, pas visuel : la boîte de sélection doit coïncider avec les
+   bornes du mockup à moins d'un pixel, à toute rotation.
+
+### `4)` Habiller la sélection Fabric
 
 > Les poignées sont restées aux défauts de la bibliothèque : carrés bleus de 13px.
 
-1. Dans `readChromeColors`, remplacer `activeRing` : il lit `--color-export` avec `#d71921`
-   en repli. Il lit désormais `--color-artboard-ring-active`. Ajouter la lecture de
-   `--color-selection`.
+1. Dans `readChromeColors`, ajouter la lecture de `--color-selection`. La bascule de
+   `activeRing` vers `--color-artboard-ring-active` a été faite en phase 1, avec la
+   suppression du token `--color-export` dont il dépendait.
 2. Appliquer à tout objet rendu, au moment de sa création dans `canvas-utils.ts` :
    `borderColor` et `cornerColor` à `--color-selection`, `cornerStrokeColor` à `--color-stage`,
    `cornerSize: 8`, `cornerStyle: 'circle'`, `transparentCorners: false`, `borderScaleFactor: 1.5`.
@@ -99,7 +117,7 @@ flowchart TD
 5. Aucun de ces réglages ne peut atteindre l'export : `lib/export.ts` construit un
    `StaticCanvas` distinct à partir des données de calque, sans contrôles ni anneaux.
 
-### `4)` Corriger la police du libellé d'écran
+### `5)` Corriger la police du libellé d'écran
 
 > Le libellé dessiné sur le canvas est en Archivo, une famille qui n'est plus chargée.
 
@@ -110,7 +128,7 @@ flowchart TD
    libellé, sinon Fabric mesure avec un repli et le libellé se décale.
 3. Le libellé passe en `--color-foreground-muted` : `--color-faint` est trop faible sur le stage.
 
-### `5)` Remplacer le contenu de départ
+### `6)` Remplacer le contenu de départ
 
 > Le premier écran que voit l'utilisateur est un indigo Tailwind sur une police quelconque.
 
@@ -128,6 +146,7 @@ flowchart TD
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | Les boutons latéraux sont visibles sur le mockup rendu ; le bezel est noir sur les huit couleurs de châssis ; la tranche montre un dégradé, pas un aplat |
 | 2    | Ajouter un cadre iPhone sur un projet neuf produit un appareil neutre ; ouvrir un projet enregistré en orange le rouvre en orange                        |
-| 3    | Les poignées de sélection reprennent la couleur du thème et changent avec lui ; un export lancé sur une sélection active ne contient ni poignée ni anneau |
-| 4    | Le libellé d'écran est dessiné dans la même famille que l'interface, sans décalage horizontal au chargement                                              |
-| 5    | Un projet neuf ne contient plus `#6366f1` ; le premier texte ajouté n'est plus en Archivo                                                                |
+| 3    | Sur un cadre d'appareil pivoté à 20 degrés, la boîte de sélection coïncide avec les bornes visibles du mockup à moins d'un pixel                        |
+| 4    | Les poignées de sélection reprennent la couleur du thème et changent avec lui ; un export lancé sur une sélection active ne contient ni poignée ni anneau |
+| 5    | Le libellé d'écran est dessiné dans la même famille que l'interface, sans décalage horizontal au chargement                                              |
+| 6    | Un projet neuf ne contient plus `#6366f1` ; le premier texte ajouté n'est plus en Archivo                                                                |

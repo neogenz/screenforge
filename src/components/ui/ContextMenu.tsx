@@ -81,7 +81,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
               onClose()
             }}
             className={cn(
-              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] outline-none transition-colors',
+              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12px] transition-colors',
               'disabled:pointer-events-none disabled:opacity-40',
               item.danger ? 'text-danger hover:bg-danger-soft' : 'text-foreground hover:bg-raised-hover',
             )}
@@ -89,7 +89,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
             {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.shortcut && (
-              <span className="mono-value ml-auto pl-4 text-[10px] text-faint">{item.shortcut}</span>
+              <span className="tabular ml-auto pl-4 text-[10px] text-faint">{item.shortcut}</span>
             )}
           </button>
         ),

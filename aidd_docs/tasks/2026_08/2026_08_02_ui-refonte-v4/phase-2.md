@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Primitives UI — une seule grammaire de champ
@@ -54,7 +54,7 @@ status: pending
 2. Libellé : `.field-label`, toujours au-dessus du contrôle, jamais à l'intérieur.
 3. Contrôle pleine largeur : surface en creux, hairline haute, hauteur 28px.
 4. Libellé partagé par une paire de champs : posé une seule fois au-dessus du groupe.
-5. Champ numérique : la valeur seule, sans préfixe textuel dans le champ.
+5. Champ numérique : préfixe court en retrait, puis la valeur. Scrub sur toute la surface.
 6. Contrôle sans surface : le libellé et le contrôle partagent une ligne.
 
 ## User Journey
@@ -75,8 +75,13 @@ flowchart TD
 
 1. `field.tsx` devient le seul endroit qui rend un libellé : `.field-label` au-dessus du
    contrôle, ou sur la même ligne quand `inline` est passé.
-2. `number-field.tsx` cesse de rendre son propre préfixe textuel. Le composant n'affiche plus
-   que la valeur ; son libellé vient de `Field`. La zone de scrub reste sur le champ entier.
+2. `number-field.tsx` garde son préfixe court dans le champ, mais en casse normale et en
+   retrait. **Écart assumé au plan initial**, qui prévoyait de le supprimer au profit de
+   `Field` : une grille X / Y à deux colonnes se lit mieux avec un préfixe dans le champ
+   qu'avec un libellé au-dessus, et c'est ce que font Figma, Sketch et Framer. La règle
+   reste unique et sans ambiguïté — préfixe dans le champ pour les champs numériques,
+   libellé au-dessus via `Field` pour tout le reste — donc les deux grammaires
+   concurrentes disparaissent quand même. La zone de scrub couvre le champ entier.
 3. Remplacer `.mono-value` par `.tabular` dans `number-field.tsx` et `kbd.tsx`.
 4. Vérifier qu'aucune primitive ne rend plus de texte en capitales.
 
@@ -120,7 +125,7 @@ flowchart TD
 
 | Task | Acceptance criteria                                                                                                                                        |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Aucune primitive ne rend de texte en capitales ; un champ numérique affiche sa valeur sans préfixe et reste scrubbable sur toute sa surface                |
+| 1    | Aucune primitive ne rend de texte en capitales ; un champ numérique est scrubbable sur toute sa surface, y compris au centre du champ, et un clic sans glissement y place le curseur |
 | 2    | Sur une même surface, un champ paraît en retrait et un bouton en avant, sans lecture du code ; un bouton `default` est visible au repos, sans survol       |
 | 3    | Chaque primitive interactive répond visiblement au survol, au focus clavier et au clic maintenu ; un bouton en chargement refuse le clic                   |
 | 4    | Un menu, un menu contextuel, un menu de calque et un popover ouverts côte à côte partagent rayon, ombre et hauteur de ligne                                |

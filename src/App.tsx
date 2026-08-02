@@ -33,6 +33,14 @@ export default function App() {
 
   const theme = useUIStore((s) => s.theme)
 
+  // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
+  // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('light', theme === 'light')
+    root.classList.toggle('dark', theme === 'dark')
+  }, [theme])
+
   useEffect(() => {
     async function init() {
       const stored = await loadLatestProject()
@@ -76,7 +84,7 @@ export default function App() {
   }
 
   return (
-    <div className={`relative h-full w-full overflow-hidden bg-stage ${theme}`}>
+    <div className="relative h-full w-full overflow-hidden bg-stage">
       {/* Stage: full-bleed canvas */}
       <main className="absolute inset-0">
         <CanvasEditor />

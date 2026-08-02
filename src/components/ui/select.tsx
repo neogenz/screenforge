@@ -6,17 +6,19 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   ref?: Ref<HTMLSelectElement>
 }
 
-/** Native select dressed as an Input, chevron via currentColor (no hex in CSS). */
+/** Select natif habillé comme un Input, chevron en currentColor (aucun hex en CSS). */
 export function Select({ className, children, ref, ...props }: SelectProps) {
   return (
     <div className="relative w-full">
       <select
         ref={ref}
         className={cn(
-          'h-7 w-full appearance-none rounded-md border border-border bg-raised pl-2 pr-7 outline-none',
-          'font-sans text-[12px] text-foreground',
-          'transition-[border-color,background] duration-150 ease-out',
+          'field-surface h-7 w-full appearance-none pl-2 pr-7',
+          'text-[12px] text-foreground',
+          'transition-[border-color] duration-150 ease-out',
           'hover:border-border-strong focus:border-foreground-muted',
+          'aria-invalid:border-danger aria-invalid:hover:border-danger aria-invalid:focus:border-danger',
+          'disabled:pointer-events-none disabled:opacity-40',
           className,
         )}
         {...props}
