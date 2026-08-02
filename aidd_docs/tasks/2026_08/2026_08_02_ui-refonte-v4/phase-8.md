@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Vérification & garde-fous
@@ -97,3 +97,11 @@ flowchart TD
 | 3    | Typecheck, lint et suite e2e passent ; le ZIP exporté est toujours en 1320×2868 PNG-24 opaque ; les trois flux ajoutés sont couverts |
 | 4    | Ni `CLAUDE.md` ni `AGENTS.md` ne mentionnent Archivo, Chivo Mono, Geist ou le rouge d'export                                         |
 | 5    | Les quatre défauts du diagnostic sont vérifiés sur les captures ; le parcours de six captures au ZIP est exécuté de bout en bout sans documentation, et sa durée est consignée |
+
+## Reste ouvert
+
+| Point                                                                | État                                                                                                                                         |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Critère 3.4 — couverture des flux de la phase 5                      | Sans objet pour l'instant : la phase 5 est `pending`, donc ni l'import en lot ni le dialogue de premier lancement n'existent. Seul le flux de la phase 4 (accroche, repères, barre contextuelle) est couvert, par `assert-p4` |
+| Critère 5.3 — parcours chronométré de six captures au ZIP            | Non exécuté : il demande un opérateur humain, non un automate. La chaîne équivalente (créer, importer, éditer, partager, exporter le ZIP) est couverte de bout en bout par la sonde `e2e.mjs`, PNG mesurés à 1320×2868 |
+| Décision « monochrome intégral » de la phase 1                       | Renversée en v5 : un accent citron unique est introduit, réservé à l'état (écran courant, calque sélectionné, focus). L'action reste neutre, l'artboard reste neutre. Voir la ligne ajoutée aux `Decisions` du plan |

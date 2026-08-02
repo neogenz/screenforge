@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "validate:export": "node scripts/validate-export.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "audit:contrast": "node scripts/contrast-audit.mjs",
+    "probe:visual": "node scripts/visual-probe.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",

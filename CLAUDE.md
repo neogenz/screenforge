@@ -101,12 +101,16 @@ src/
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
 
-## Design language (v2)
+## Design language (v5)
 
-- **Floating islands**: the canvas is full-bleed; toolbar, panels, screens strip and zoom HUD float above it as `.island` surfaces. `lib/stage.ts` computes the fit insets.
-- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). Warm graphite; red `#d71921` reserved for export + active states; restrained blue for focus only.
-- **Type**: Archivo (UI) + Chivo Mono (labels ALL CAPS 10px, tabular values), loaded via `index.html`.
-- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants).
+- **Floating islands**: the canvas is full-bleed; the top bar, the Layers/Properties drawers (⌘⇧L / ⌘⇧P), the screens filmstrip and the zoom HUD float above it. `lib/stage.ts` is the single source for chrome geometry — drawers never move the artboard.
+- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). True neutral, chroma 0 on every chrome surface: a colour-judgement tool must not tint what sits next to the artboard.
+- **One accent, for state only**: lime `--color-accent`, reserved for "you are here" — current screen, selected layer, focus ring. Never on an action: the Export CTA is a plain light fill. Nothing chromatic touches the artboard (`--color-artboard-ring-active` and the selection frame stay neutral).
+- **Type**: Inter variable (UI, `index.html`), 13.5px body, tabular figures for numeric fields. No all-caps labels. Content fonts (text layers) load on demand.
+- **Radii & material**: 9px controls, 14px islands, 18px modals; inner radius = outer − padding. Surfaces separate by material (`panel` / `inset` / `raised`) rather than by rule.
+- **Field grammar**: single-line controls carry their label inline (`Select`/`Input`/`NumberField`/`FontPicker` `label` prop); only multi-line or composite controls get a stacked `.field-label`.
+- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
+- **Guard-rails**: `npm run audit:contrast` fails if any ink/surface pair drops under 4.5:1; `npm run probe:visual` captures dark/light × empty/populated.
 - Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)

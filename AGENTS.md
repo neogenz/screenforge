@@ -118,13 +118,16 @@ src/
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
 
-## Design language (v3)
+## Design language (v5)
 
-- **Réduction maximale**: the canvas is full-bleed; a single top bar (`TopBar`, h-11) holds project identity, tools and the Export CTA. Layers/Properties are overlay **drawers** (⌘⇧L / ⌘⇧P, Escape closes them before deselecting) — `lib/stage.ts` is the single source for chrome geometry; `stageInsets()` reserves only bar, filmstrip and margins (drawers never move the artboard).
-- **Monochrome**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). Warm graphite near-neutral; accent is white (`foreground`); red `#d71921` (`export` tokens) is reserved for the Export CTA only — active/selected states are always neutral (`border-foreground-muted`, `bg-surface-active`). Focus ring is neutral, no blue anywhere.
-- **Type**: Geist (UI) + Geist Mono (tabular values), loaded via `index.html`. Labels are `.caps-label` (Geist Sans caps 10px); content fonts (text layers) still load on demand.
-- **Elevation & z**: islands/modals 8px radius, controls 6px; shadows only on floating surfaces; z-index only via the 5 named levels `--z-chrome/overlay/modal/popover/toast` (used as `z-(--z-*)`).
-- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (Button variants: `default`/`primary`/`export`/`ghost`/`danger`; plus Select, Textarea, SwatchButton, IconButton…). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
+- **Réduction maximale**: the canvas is full-bleed; a single top bar (`TopBar`, h-12) holds project identity, tools and the Export CTA. Layers/Properties are overlay **drawers** (⌘⇧L / ⌘⇧P, Escape closes them before deselecting) — `lib/stage.ts` is the single source for chrome geometry; `stageInsets()` reserves only bar, filmstrip and margins (drawers never move the artboard). Selecting a layer does **not** open the Properties drawer: the contextual `SelectionToolbar` sits under the selection while the drawer is closed.
+- **True neutral**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`), chroma 0 on every chrome surface — a colour-judgement tool must not tint what sits next to the artboard.
+- **One accent, for state only**: lime `--color-accent`, reserved for "you are here" — current screen, selected layer, focus ring (`accent-fill` / `accent-mark`, declared as `@utility` so they take variants). Never on an action: the Export CTA is a plain light fill, and drawer toggles stay neutral. Nothing chromatic touches the artboard (`--color-artboard-ring-active`, selection frame and snapping guides stay neutral).
+- **Type**: Inter variable (UI, `index.html`), 13.5px body, `.panel-title` / `.section-title` / `.field-label`, tabular figures for numeric fields. No all-caps labels. Content fonts (text layers) load on demand — `use-fonts.ts` clears Fabric's char-width cache after each load.
+- **Radii, elevation & z**: 9px controls, 14px islands, 18px modals, inner radius = outer − padding; surfaces separate by material (`panel` / `inset` / `raised`) with shadows only on floating ones; z-index only via the 5 named levels `--z-chrome/overlay/modal/popover/toast` (used as `z-(--z-*)`).
+- **Field grammar**: single-line controls carry their label inline (`Select`/`Input`/`NumberField`/`FontPicker` `label` prop); only multi-line or composite controls get a stacked `.field-label`.
+- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (Button variants: `default`/`primary`/`ghost`/`danger`; plus Select, Textarea, SwatchButton, IconButton…). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
+- **Guard-rails**: `npm run audit:contrast` fails if any ink/surface pair drops under 4.5:1; `npm run probe:visual` captures dark/light × empty/populated at density 2.
 - Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)
