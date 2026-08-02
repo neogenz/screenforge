@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
-import { useUIStore } from '@/stores/ui.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import { SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { alignTo, boundsOf, distribute } from '@/lib/align'
+import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
 import type { Background, Layer, Project, Screen, TemplateDefinition } from '@/types'
 
 interface ScreenHistorySnapshot {
@@ -42,6 +43,8 @@ interface CanvasState {
   duplicateLayer: (id: string) => void
   setLayerScope: (id: string, scope: 'screen' | 'layout') => void
   setLayers: (layers: Layer[], options?: EditOptions) => void
+  alignSelection: (mode: AlignMode) => void
+  distributeSelection: (mode: DistributeMode) => void
   setActiveScreenId: (id: string) => void
   syncLayersFromProject: () => void
   recordHistory: () => void
@@ -142,6 +145,44 @@ function parseSnapshot(snapshot: string): HistorySnapshot | null {
     console.error('Could not restore editor history.', error)
     return null
   }
+}
+
+function selectedLayers(state: Pick<CanvasState, 'layers' | 'selectedLayerIds'>): Layer[] {
+  const selected = new Set(state.selectedLayerIds)
+  return state.layers.filter((layer) => selected.has(layer.id) && !layer.locked)
+}
+
+/**
+ * Sur quoi la sélection s'aligne. Au-delà d'un calque c'est la boîte de la
+ * sélection : aligner un groupe sur l'artboard l'empilerait sur un seul bord.
+ * Un calque isolé, lui, n'a que l'artboard comme référence utile.
+ *
+ * Un calque partagé vit dans l'espace continu de la planche, qui saute les
+ * gouttières : sa fenêtre est celle de l'écran actif, décalée d'autant.
+ */
+function alignmentReference(
+  state: Pick<CanvasState, 'activeScreenId'>,
+  selected: Layer[],
+): Placeable {
+  if (selected.length > 1) return boundsOf(selected)
+  const screens = useProjectStore.getState().project?.screens ?? []
+  const index = selected[0]?.scope === 'layout'
+    ? Math.max(0, screens.findIndex((screen) => screen.id === state.activeScreenId))
+    : 0
+  return { x: index * SCREEN_WIDTH, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
+}
+
+/** Réécrit les positions calculées dans la liste complète, ordre préservé. */
+function placeLayers(
+  layers: Layer[],
+  selected: Layer[],
+  placements: { x: number; y: number }[],
+): Layer[] {
+  const moves = new Map(selected.map((layer, index) => [layer.id, placements[index]]))
+  return layers.map((layer) => {
+    const move = moves.get(layer.id)
+    return move ? { ...layer, x: Math.round(move.x), y: Math.round(move.y) } : layer
+  })
 }
 
 function applyGlobalsToNewLayer(layer: Layer): Layer {
@@ -313,14 +354,12 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       })
     },
 
-    selectLayer: (id) => {
-      set({ selectedLayerIds: [id] })
-      useUIStore.getState().openProps()
-    },
-    selectLayers: (ids) => {
-      set({ selectedLayerIds: ids })
-      if (ids.length > 0) useUIStore.getState().openProps()
-    },
+    // Sélectionner n'ouvre plus le drawer Propriétés. Il mangeait un tiers du
+    // stage au premier clic, et la barre contextuelle — qui ne s'affiche que
+    // drawer fermé — n'était alors jamais atteignable. Le drawer reste sous la
+    // main de l'utilisateur : bouton de la barre du haut, ou son raccourci.
+    selectLayer: (id) => set({ selectedLayerIds: [id] }),
+    selectLayers: (ids) => set({ selectedLayerIds: ids }),
     clearSelection: () => set({ selectedLayerIds: [] }),
 
     reorderLayer: (id, newIndex) => {
@@ -447,6 +486,20 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         },
       })
       set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screen.id) }))
+    },
+
+    alignSelection: (mode) => {
+      const selected = selectedLayers(get())
+      if (selected.length === 0) return
+      const placements = alignTo(selected, mode, alignmentReference(get(), selected))
+      get().setLayers(placeLayers(get().layers, selected, placements))
+    },
+
+    distributeSelection: (mode) => {
+      const selected = selectedLayers(get())
+      // Deux calques sont déjà « répartis » : il n'y a pas d'intervalle intérieur.
+      if (selected.length < 3) return
+      get().setLayers(placeLayers(get().layers, selected, distribute(selected, mode)))
     },
 
     setActiveScreenId: (id) => {

@@ -35,32 +35,37 @@ FabricObject.ownDefaults.originX = 'left'
 FabricObject.ownDefaults.originY = 'top'
 
 /**
- * Habillage de la sélection : géométrie fixe, couleurs pilotées par le thème.
- * Rien de tout ceci n'atteint l'export — `lib/export.ts` reconstruit un
- * `StaticCanvas` distinct à partir des données de calque, sans contrôles.
+ * Habillage de la sélection.
+ *
+ * Ces couleurs ne suivent pas le thème, et c'est délibéré : le cadre est posé
+ * sur le contenu de l'utilisateur, pas sur le chrome de l'application. Un cadre
+ * qui suivait le thème devenait blanc sur blanc dès qu'un artboard était clair
+ * en thème sombre — la sélection disparaissait purement et simplement.
+ *
+ * La paire trait clair sur halo sombre reste lisible sur n'importe quel fond ;
+ * c'est la convention des outils de recadrage, et elle ne coûte rien puisque
+ * `lib/export.ts` reconstruit un `StaticCanvas` distinct, sans contrôles.
  */
+const SELECTION_INK = '#ffffff'
+const SELECTION_HALO = 'rgba(0,0,0,0.6)'
+/** Épaisseur du halo de part et d'autre du trait clair, en pixels. */
+const HALO_SPREAD = 1
+/** Tranche voisine d'un calque partagé : présente, jamais saisissable. */
+const GHOST_INK = 'rgba(255,255,255,0.6)'
+const GHOST_HALO = 'rgba(0,0,0,0.3)'
+
 const SELECTION_GEOMETRY = {
   cornerSize: 9,
   touchCornerSize: 22,
   cornerStyle: 'circle',
   transparentCorners: false,
-  cornerStrokeColor: '#000000',
-  borderScaleFactor: 1.5,
-  borderOpacityWhenMoving: 0.4,
+  borderScaleFactor: 1,
+  borderOpacityWhenMoving: 0.5,
   padding: 0,
+  borderColor: SELECTION_INK,
+  cornerColor: SELECTION_INK,
+  cornerStrokeColor: SELECTION_HALO,
 } as const
-
-let selectionColors = {
-  border: '#f7f7f7',
-  corner: '#f7f7f7',
-  cornerStroke: '#252525',
-  ghost: 'rgba(247,247,247,0.4)',
-}
-
-/** Relu au changement de thème : les poignées suivent `--color-selection`. */
-export function setSelectionColors(next: typeof selectionColors): void {
-  selectionColors = next
-}
 
 /**
  * Une poignée ne s'affiche que si elle fait quelque chose. Les milieux d'arête
@@ -71,12 +76,7 @@ export function setSelectionColors(next: typeof selectionColors): void {
 const EDGE_HANDLES = { ml: false, mr: false, mt: false, mb: false }
 
 export function applySelectionStyle(object: FabricObject, layerType?: Layer['type']): void {
-  object.set({
-    ...SELECTION_GEOMETRY,
-    borderColor: selectionColors.border,
-    cornerColor: selectionColors.corner,
-    cornerStrokeColor: selectionColors.cornerStroke,
-  })
+  object.set(SELECTION_GEOMETRY)
   if (layerType === 'device-frame') object.setControlsVisibility(EDGE_HANDLES)
   // Un texte se laisse élargir, jamais étirer en hauteur.
   else if (layerType === 'text') object.setControlsVisibility({ mt: false, mb: false })
@@ -100,15 +100,53 @@ export function getScreenOffset(index: number): number {
   return index * (SCREEN_WIDTH + SCREEN_GAP)
 }
 
-// ─── Sélection écrêtée à la planche ──────────────────────────────────────────
+// ─── Sélection : bicolore, écrêtée à la planche ──────────────────────────────
 
 type ControlRenderer = (
   ctx: CanvasRenderingContext2D,
   styleOverride?: Record<string, unknown>,
 ) => void
 
-const renderControlsUnclipped =
-  (FabricObject.prototype as unknown as { _renderControls: ControlRenderer })._renderControls
+type ControlHost = FabricObject & { _renderControls: ControlRenderer }
+
+const renderControlsPlain =
+  (FabricObject.prototype as unknown as ControlHost)._renderControls
+
+/**
+ * Trace le cadre en deux passes : un halo sombre plus large, puis le trait
+ * clair par-dessus. C'est ce qui rend la sélection lisible aussi bien sur un
+ * artboard blanc que sur un artboard noir.
+ *
+ * `ctx.lineWidth` est lu sur l'objet et non sur le style surchargé, d'où le
+ * réglage temporaire de `borderScaleFactor` : Fabric n'expose pas l'épaisseur
+ * du cadre autrement. Les poignées, elles, sont déjà bicolores par
+ * construction — pastille claire, liseré sombre — et n'ont pas besoin des deux
+ * passes, on les réserve donc à la seconde.
+ */
+function renderTwoTone(
+  object: FabricObject,
+  ctx: CanvasRenderingContext2D,
+  styleOverride: Record<string, unknown> | undefined,
+  ink: string,
+  halo: string,
+): void {
+  const width = object.borderScaleFactor
+  object.borderScaleFactor = width + HALO_SPREAD * 2
+  renderControlsPlain.call(object, ctx, {
+    ...styleOverride,
+    hasControls: false,
+    borderColor: halo,
+  })
+  object.borderScaleFactor = width
+  renderControlsPlain.call(object, ctx, { ...styleOverride, borderColor: ink })
+}
+
+// Défaut global : couvre l'ActiveSelection d'une multi-sélection, qui n'est pas
+// un calque et ne passe donc jamais par `applySelectionStyle`.
+;(FabricObject.prototype as unknown as ControlHost)._renderControls =
+  function renderTwoToneControls(ctx, styleOverride) {
+    renderTwoTone(this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
+  }
 
 /** Restreint le tracé à la fenêtre d'une planche, en coordonnées canvas. */
 function clipToScreen(
@@ -142,11 +180,11 @@ function clipToScreen(
  * que l'objet continue sur la planche voisine, sans prétendre être saisissables.
  */
 export function clipControlsToScreen(object: RenderedObject, screenIndex: number): void {
-  const target = object as RenderedObject & { _renderControls: ControlRenderer }
+  const target = object as RenderedObject & ControlHost
   target._renderControls = function renderClippedControls(ctx, styleOverride) {
     ctx.save()
     clipToScreen(ctx, this, screenIndex)
-    renderControlsUnclipped.call(this, ctx, styleOverride)
+    renderTwoTone(this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
     ctx.restore()
 
     const layerId = this.data?.layerId
@@ -158,10 +196,7 @@ export function clipControlsToScreen(object: RenderedObject, screenIndex: number
       ctx.save()
       clipToScreen(ctx, sibling, siblingScreen)
       // La couleur, pas `globalAlpha` : le tracé de Fabric remet l'alpha à 1.
-      renderControlsUnclipped.call(sibling, ctx, {
-        hasControls: false,
-        borderColor: selectionColors.ghost,
-      })
+      renderTwoTone(sibling, ctx, { hasControls: false }, GHOST_INK, GHOST_HALO)
       ctx.restore()
     }
   }

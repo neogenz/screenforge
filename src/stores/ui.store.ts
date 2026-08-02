@@ -24,7 +24,6 @@ interface UIState {
   resetZoom: () => void
   toggleLayers: () => void
   toggleProps: () => void
-  openProps: () => void
   closeDrawers: () => void
   setActiveTool: (tool: ActiveTool) => void
   setShowExportDialog: (show: boolean) => void
@@ -82,8 +81,6 @@ export const useUIStore = create<UIState>()((set) => ({
 
   toggleProps: () =>
     set((state) => ({ propsOpen: !state.propsOpen })),
-
-  openProps: () => set({ propsOpen: true }),
 
   closeDrawers: () => set({ layersOpen: false, propsOpen: false }),
 

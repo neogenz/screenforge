@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActiveSelection,
   Canvas,
+  FabricObject,
   Point,
   Rect,
   Shadow,
@@ -21,13 +22,14 @@ import {
   getTotalWidth,
   layerToFabricObject,
   needsFabricObjectRecreation,
-  setSelectionColors,
   type RenderedObject,
 } from '@/components/canvas/canvas-utils'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { stageInsets } from '@/lib/stage'
+import { computeSnap } from '@/lib/snapping'
+import type { Box, Guide } from '@/lib/snapping'
 import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
@@ -40,8 +42,6 @@ interface ChromeColors {
   activeRing: string
   selection: string
   selectionSoft: string
-  selectionGhost: string
-  stage: string
 }
 
 function readChromeColors(): ChromeColors {
@@ -55,22 +55,146 @@ function readChromeColors(): ChromeColors {
     activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
     selection: read('--color-selection', '#f7f7f7'),
     selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
-    selectionGhost: read('--color-selection-ghost', 'rgba(255,255,255,0.4)'),
-    stage: read('--color-stage', '#252525'),
   }
 }
 
-/** Poignées, cadre de sélection et lasso : une seule couleur, celle du thème. */
-function applyCanvasSelectionColors(canvas: Canvas, chrome: ChromeColors): void {
-  setSelectionColors({
-    border: chrome.selection,
-    corner: chrome.selection,
-    cornerStroke: chrome.stage,
-    ghost: chrome.selectionGhost,
-  })
+/**
+ * Le lasso, lui, suit le thème : il est tracé sur le stage bien plus souvent
+ * que sur un artboard. Le cadre des objets, à l'inverse, est toujours posé sur
+ * le contenu de l'utilisateur — ses couleurs sont figées dans `canvas-utils`.
+ */
+function applyLassoColors(canvas: Canvas, chrome: ChromeColors): void {
   canvas.selectionColor = chrome.selectionSoft
   canvas.selectionBorderColor = chrome.selection
   canvas.selectionLineWidth = 1
+}
+
+/** Distance d'accroche, en pixels d'écran : c'est ce que l'œil juge, pas les unités canvas. */
+const SNAP_DISTANCE_PX = 6
+
+/**
+ * Les repères sont tracés sur le contenu de l'utilisateur, jamais sur le
+ * chrome : leur couleur ne suit donc pas le thème. Un magenta saturé — la
+ * convention de tous les éditeurs de maquette — reste lisible sur à peu près
+ * n'importe quel artboard et n'existe nulle part ailleurs dans l'interface.
+ */
+const GUIDE_COLOR = '#ff2d6f'
+
+/**
+ * `getBoundingRect` lit `aCoords`, que Fabric ne rafraîchit qu'à la fin d'une
+ * action de transformation — donc après avoir émis `object:moving`. Sans ce
+ * `setCoords`, l'accroche raisonnait sur la position d'avant le mouvement et
+ * ne se déclenchait jamais.
+ */
+function boxOf(object: FabricObject): Box {
+  object.setCoords()
+  const { left, top, width, height } = object.getBoundingRect()
+  return { left, top, width, height }
+}
+
+/**
+ * Ce sur quoi le calque en cours de déplacement peut s'accrocher : les bords et
+ * le centre de son artboard, puis ceux des autres calques de la même planche.
+ * L'artboard vient en tête — à égalité de distance, ses repères l'emportent.
+ *
+ * Calculé une fois par geste : le recalculer à chaque frame ferait un
+ * `getBoundingRect` par objet et par mouvement de souris.
+ */
+function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] {
+  const members = new Set<FabricObject>(
+    moving instanceof ActiveSelection ? moving.getObjects() : [moving],
+  )
+  const screenIndex = [...members]
+    .map((member) => (member as RenderedObject).data?.screenIndex)
+    .find((index) => index !== undefined) ?? 0
+
+  const targets: Box[] = [
+    { left: getScreenOffset(screenIndex), top: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  ]
+  for (const object of canvas.getObjects() as RenderedObject[]) {
+    if (members.has(object) || object.data?.screenIndex !== screenIndex) continue
+    if (object.data?.rendererType === 'background' || object.data?.rendererType === 'label') continue
+    if (!object.visible) continue
+    targets.push(boxOf(object))
+  }
+  return targets
+}
+
+function drawGuides(canvas: Canvas, guides: Guide[]): void {
+  const ctx = canvas.contextTop
+  const retina = canvas.getRetinaScaling()
+  const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform
+  ctx.save()
+  ctx.setTransform(retina, 0, 0, retina, 0, 0)
+  ctx.strokeStyle = GUIDE_COLOR
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  for (const guide of guides) {
+    // Le demi-pixel place le trait sur la grille : sans lui un hairline se
+    // dédouble sur deux colonnes et paraît flou.
+    if (guide.axis === 'x') {
+      const x = Math.round(guide.position * zoomX + panX) + 0.5
+      ctx.moveTo(x, guide.from * zoomY + panY)
+      ctx.lineTo(x, guide.to * zoomY + panY)
+    } else {
+      const y = Math.round(guide.position * zoomY + panY) + 0.5
+      ctx.moveTo(guide.from * zoomX + panX, y)
+      ctx.lineTo(guide.to * zoomX + panX, y)
+    }
+  }
+  ctx.stroke()
+  ctx.restore()
+  // Fabric efface `contextTop` au rendu suivant quand ce drapeau est levé :
+  // c'est ce qui nettoie les repères de la frame précédente.
+  canvas.contextTopDirty = true
+}
+
+/** Boîte de la sélection en pixels du conteneur, pour poser la barre contextuelle. */
+export interface SelectionFrame {
+  left: number
+  top: number
+  width: number
+  height: number
+  /** Le canvas occupe tout le conteneur : ses dimensions bornent la barre. */
+  stageWidth: number
+  stageHeight: number
+}
+
+function readSelectionFrame(canvas: Canvas): SelectionFrame | null {
+  const active = canvas.getActiveObject() as RenderedObject | null
+  if (!active) return null
+  active.setCoords()
+  const bounds = active.getBoundingRect()
+  let left = bounds.left
+  let right = bounds.left + bounds.width
+  // L'instance d'un calque partagé déborde de sa planche : la barre doit se
+  // poser sous la tranche que l'utilisateur voit, pas au milieu d'une gouttière.
+  const screenIndex = active.data?.screenIndex
+  if (screenIndex !== undefined) {
+    left = Math.max(left, getScreenOffset(screenIndex))
+    right = Math.min(right, getScreenOffset(screenIndex) + SCREEN_WIDTH)
+  }
+  if (right <= left) return null
+  const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform
+  return {
+    left: left * zoomX + panX,
+    top: bounds.top * zoomY + panY,
+    width: (right - left) * zoomX,
+    height: bounds.height * zoomY,
+    stageWidth: canvas.getWidth(),
+    stageHeight: canvas.getHeight(),
+  }
+}
+
+function sameFrame(left: SelectionFrame | null, right: SelectionFrame | null): boolean {
+  if (left === right) return true
+  if (!left || !right) return false
+  return Math.round(left.left) === Math.round(right.left)
+    && Math.round(left.top) === Math.round(right.top)
+    && Math.round(left.width) === Math.round(right.width)
+    && Math.round(left.height) === Math.round(right.height)
+    && left.stageWidth === right.stageWidth
+    && left.stageHeight === right.stageHeight
 }
 
 function createScreenClipPath(screenIndex: number): Rect {
@@ -273,6 +397,8 @@ export function useCanvas() {
   const fontLoadRequests = useRef(new Set<string>())
   const layoutInstances = useRef(new Map<string, RenderedObject[]>())
   const wheelRenderQueued = useRef(false)
+  const publishedFrame = useRef<SelectionFrame | null>(null)
+  const [selectionFrame, setSelectionFrame] = useState<SelectionFrame | null>(null)
   const setZoom = useUIStore((state) => state.setZoom)
 
   const generateThumbnails = useCallback((screens: Screen[]) => {
@@ -426,7 +552,7 @@ export function useCanvas() {
     if (!canvas) return
     const { screens, layoutLayers, activeScreenId } = project
     const chrome = readChromeColors()
-    applyCanvasSelectionColors(canvas, chrome)
+    applyLassoColors(canvas, chrome)
     const version = ++syncVersion.current
     syncing.current = true
 
@@ -858,7 +984,22 @@ export function useCanvas() {
       useCanvasStore.getState().syncLayersFromProject()
     })
 
+    /**
+     * Un texte déjà sélectionné annonce l'édition en place ; au repos il annonce
+     * le déplacement, qui est ce qu'un premier clic fait vraiment. Un curseur
+     * `text` posé en permanence promettrait une sélection de caractères que le
+     * premier clic refuse.
+     */
+    function syncTextCursors() {
+      const active = new Set(canvas.getActiveObjects())
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        if (object.data?.rendererType !== 'text' || !object.selectable) continue
+        object.hoverCursor = active.has(object) ? 'text' : 'move'
+      }
+    }
+
     function handleSelection() {
+      syncTextCursors()
       if (syncing.current || applyingStoreSelection.current) return
       // `selection:updated` only reports the delta — read the full selection.
       const renderedObjects = canvas.getActiveObjects() as RenderedObject[]
@@ -899,6 +1040,7 @@ export function useCanvas() {
       if (targets.length === 0) canvas.discardActiveObject()
       else if (targets.length === 1) canvas.setActiveObject(targets[0])
       else canvas.setActiveObject(new ActiveSelection(targets, { canvas }))
+      syncTextCursors()
       canvas.requestRenderAll()
       queueMicrotask(() => {
         applyingStoreSelection.current = false
@@ -925,10 +1067,45 @@ export function useCanvas() {
     // Swapping to the union selection on mousedown would break Fabric's drag
     // setup, so it happens on mouse:up. During a first-gesture drag of one
     // instance, mirror the delta to its echoes to keep the panorama coherent.
+    // Repères et cibles d'accroche : vivent le temps d'un geste, jamais dans le
+    // graphe d'objets — sinon ils apparaîtraient dans la liste des calques,
+    // dans l'historique et dans le PNG exporté.
+    let guides: Guide[] = []
+    let snapTargets: Box[] | null = null
+
+    canvas.on('after:render', () => {
+      if (guides.length > 0) drawGuides(canvas, guides)
+      // Une seule source pour la position de la barre contextuelle : elle suit
+      // ainsi le zoom, le pan et la sélection sans un abonnement par cas. Le
+      // rendu React n'a lieu que si le rectangle arrondi a réellement bougé, et
+      // jamais pendant un geste — la barre s'efface le temps du déplacement.
+      const next = interacting.current ? null : readSelectionFrame(canvas)
+      if (sameFrame(next, publishedFrame.current)) return
+      publishedFrame.current = next
+      setSelectionFrame(next)
+    })
+
     const mirrorLast = new Map<string, { left: number; top: number }>()
     canvas.on('object:moving', (event) => {
       const target = event.target as RenderedObject | undefined
-      if (!target || target instanceof ActiveSelection || !target.data?.layout) return
+      if (!target) return
+
+      const pointerEvent = event.e as MouseEvent | TouchEvent
+      // ⌘ ou Ctrl maintenu : positionnement libre, comme dans tout éditeur.
+      const freehand = 'metaKey' in pointerEvent && (pointerEvent.metaKey || pointerEvent.ctrlKey)
+      if (freehand) {
+        guides = []
+      } else {
+        snapTargets ??= collectSnapTargets(canvas, target)
+        const snap = computeSnap(boxOf(target), snapTargets, SNAP_DISTANCE_PX / canvas.getZoom())
+        if (snap.dx !== 0 || snap.dy !== 0) {
+          target.set({ left: target.left + snap.dx, top: target.top + snap.dy })
+          target.setCoords()
+        }
+        guides = snap.guides
+      }
+
+      if (target instanceof ActiveSelection || !target.data?.layout) return
       const layerId = target.data.layerId
       if (!layerId) return
       const last = mirrorLast.get(layerId) ?? { left: target.left, top: target.top }
@@ -945,8 +1122,11 @@ export function useCanvas() {
     })
     canvas.on('mouse:up', () => {
       mirrorLast.clear()
+      guides = []
+      snapTargets = null
       interacting.current = false
       applyStoreSelection()
+      canvas.requestRenderAll()
     })
 
     // Persist direct on-canvas text edits (double-click → type) back to the store.
@@ -989,10 +1169,60 @@ export function useCanvas() {
       }
     })
 
+    // ── Déplacement de la vue : espace maintenu, ou clic molette ──────────────
+    // Alt et glisser a été retiré : dans tout éditeur de maquette ce geste
+    // duplique, et le réserver au pan condamnait la duplication au drag.
+    let spaceHeld = false
+    function setPanMode(active: boolean): void {
+      if (spaceHeld === active) return
+      spaceHeld = active
+      canvas.defaultCursor = active ? 'grab' : 'default'
+      // Sans cela un clic pendant le pan attraperait l'objet sous le curseur.
+      canvas.skipTargetFind = active
+      canvas.selection = !active
+      canvas.setCursor(active ? 'grab' : 'default')
+    }
+
+    function isTypingTarget(): boolean {
+      const element = document.activeElement as HTMLElement | null
+      if (!element) return false
+      // Pendant l'édition en place, Fabric focalise un textarea caché : le test
+      // couvre donc aussi ce cas, et l'espace y reste un espace.
+      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
+        || element.isContentEditable
+    }
+
+    function handleCanvasKeyDown(event: KeyboardEvent): void {
+      if (isTypingTarget()) return
+      if (event.code === 'Space' && !event.repeat) {
+        event.preventDefault()
+        setPanMode(true)
+        return
+      }
+      // Entrée ouvre l'édition en place : le double-clic la propose déjà mais
+      // rien ne l'annonçait, et le clavier n'y donnait aucun accès.
+      if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+        const target = canvas.getActiveObject()
+        if (!(target instanceof Textbox) || !target.selectable) return
+        event.preventDefault()
+        target.enterEditing()
+        target.selectAll()
+        canvas.requestRenderAll()
+      }
+    }
+    function handleCanvasKeyUp(event: KeyboardEvent): void {
+      if (event.code === 'Space') setPanMode(false)
+    }
+    // ⌘-Tab pendant l'appui laisserait le pan armé sans jamais voir le relâchement.
+    const releasePanMode = () => setPanMode(false)
+    window.addEventListener('keydown', handleCanvasKeyDown)
+    window.addEventListener('keyup', handleCanvasKeyUp)
+    window.addEventListener('blur', releasePanMode)
+
     canvas.on('mouse:down', (event) => {
       const pointerEvent = event.e as MouseEvent | TouchEvent
       if (!('button' in pointerEvent)) return
-      if (pointerEvent.altKey || pointerEvent.button === 1) {
+      if (spaceHeld || pointerEvent.button === 1) {
         panning.current = true
         panPoint.current = { x: pointerEvent.clientX, y: pointerEvent.clientY }
         canvas.selection = false
@@ -1013,8 +1243,9 @@ export function useCanvas() {
       if (!panning.current) return
       panning.current = false
       panPoint.current = null
-      canvas.selection = true
-      canvas.setCursor('default')
+      // Espace toujours enfoncé : on revient au pan armé, pas au mode normal.
+      canvas.selection = !spaceHeld
+      canvas.setCursor(spaceHeld ? 'grab' : 'default')
     })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
@@ -1038,6 +1269,9 @@ export function useCanvas() {
       unsubscribeStoreSelection()
       canvas.upperCanvasEl.removeEventListener('mousedown', handleDomMouseDown, true)
       window.removeEventListener('mouseup', handleDomMouseUp, true)
+      window.removeEventListener('keydown', handleCanvasKeyDown)
+      window.removeEventListener('keyup', handleCanvasKeyUp)
+      window.removeEventListener('blur', releasePanMode)
       resizeObserver.disconnect()
       if (resizeTimer) clearTimeout(resizeTimer)
       if (thumbnailTimer.current) clearTimeout(thumbnailTimer.current)
@@ -1072,7 +1306,7 @@ export function useCanvas() {
     const project = useProjectStore.getState().project
     if (!canvas || !project) return
     const chrome = readChromeColors()
-    applyCanvasSelectionColors(canvas, chrome)
+    applyLassoColors(canvas, chrome)
     for (const object of canvas.getObjects() as RenderedObject[]) {
       const data = object.data
       if (data?.rendererType === 'label') {
@@ -1149,5 +1383,5 @@ export function useCanvas() {
     canvas.requestRenderAll()
   }), [fitAll])
 
-  return { canvasRef, containerRef, getLayerIdAtPoint }
+  return { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame }
 }

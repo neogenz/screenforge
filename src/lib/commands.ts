@@ -7,16 +7,35 @@ import {
   createShapeLayer,
   createTextLayer,
 } from '@/lib/layer-factories'
+import type { AlignMode, DistributeMode } from '@/lib/align'
 
 export interface Command {
   id: string
   title: string
-  section: 'Calques' | 'Écrans' | 'Affichage' | 'Projet'
+  section: 'Calques' | 'Alignement' | 'Écrans' | 'Affichage' | 'Projet'
   keywords?: string[]
   shortcut?: string
   enabled?: () => boolean
   run: () => void
 }
+
+/**
+ * Référence : l'artboard quand un seul calque est sélectionné, la boîte de la
+ * sélection au-delà. `canvas.store` s'en charge, la palette n'a que les libellés.
+ */
+const ALIGNMENTS = [
+  { id: 'left', title: 'Aligner à gauche', mode: 'left' },
+  { id: 'center-x', title: 'Centrer horizontalement', mode: 'center-x' },
+  { id: 'right', title: 'Aligner à droite', mode: 'right' },
+  { id: 'top', title: 'Aligner en haut', mode: 'top' },
+  { id: 'center-y', title: 'Centrer verticalement', mode: 'center-y' },
+  { id: 'bottom', title: 'Aligner en bas', mode: 'bottom' },
+] as const satisfies readonly { id: string; title: string; mode: AlignMode }[]
+
+const DISTRIBUTIONS = [
+  { id: 'horizontal', title: 'Répartir horizontalement', mode: 'horizontal' },
+  { id: 'vertical', title: 'Répartir verticalement', mode: 'vertical' },
+] as const satisfies readonly { id: string; title: string; mode: DistributeMode }[]
 
 /**
  * Command registry for the ⌘K palette. Commands read stores imperatively
@@ -86,6 +105,23 @@ export function getCommands(): Command[] {
         for (const id of canvas().selectedLayerIds) canvas().removeLayer(id)
       },
     },
+    ...ALIGNMENTS.map(({ id, title, mode }) => ({
+      id: `align-${id}`,
+      title,
+      section: 'Alignement' as const,
+      keywords: ['aligner', 'align', id],
+      enabled: hasSelection,
+      run: () => canvas().alignSelection(mode),
+    })),
+    ...DISTRIBUTIONS.map(({ id, title, mode }) => ({
+      id: `distribute-${id}`,
+      title,
+      section: 'Alignement' as const,
+      keywords: ['répartir', 'distribuer', 'espacer'],
+      // Deux calques n'ont pas d'intervalle intérieur : rien à répartir.
+      enabled: () => canvas().selectedLayerIds.length >= 3,
+      run: () => canvas().distributeSelection(mode),
+    })),
     {
       id: 'new-screen',
       title: 'Nouvel écran',

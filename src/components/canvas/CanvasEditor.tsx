@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { buildLayerMenuItems } from '@/components/ui/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
@@ -6,7 +7,7 @@ import { useLayerActions } from '@/hooks/use-layer-actions'
 import { useCanvasStore } from '@/stores/canvas.store'
 
 export default function CanvasEditor() {
-  const { canvasRef, containerRef, getLayerIdAtPoint } = useCanvas()
+  const { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame } = useCanvas()
   const actions = useLayerActions()
   const layers = useCanvasStore((state) => state.layers)
   const [menu, setMenu] = useState<{ left: number; top: number; layerId: string } | null>(null)
@@ -30,6 +31,7 @@ export default function CanvasEditor() {
       onContextMenu={handleContextMenu}
     >
       <canvas ref={canvasRef} />
+      <SelectionToolbar frame={selectionFrame} />
       {menu && menuLayer && (
         <ContextMenu
           position={{ left: menu.left, top: menu.top }}

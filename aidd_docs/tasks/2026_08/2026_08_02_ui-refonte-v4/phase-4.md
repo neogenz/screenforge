@@ -1,6 +1,37 @@
 ---
-status: pending
+status: done
 ---
+
+## Écarts constatés à l'implémentation
+
+1. **La sélection était illisible pour une raison structurelle, pas chromatique.** Le cadre
+   suivait le thème (phase 3, tâche 4) alors qu'il est posé sur le contenu de l'utilisateur,
+   jamais sur l'interface : en thème sombre il devenait blanc sur un artboard blanc. Le
+   cadre est désormais indépendant du thème, tracé en deux passes — trait clair sur halo
+   sombre — donc lisible sur n'importe quel fond : 9,1:1 sur sombre, 21,0:1 sur clair. Seul
+   le lasso, qui vit surtout sur le stage, continue de suivre le thème.
+
+2. **Cause racine du crénage cassé, hors plan.** Fabric mémorise la largeur des glyphes dans
+   un cache global par famille et graisse. Un texte mesuré avant l'arrivée de la webfont
+   gardait les avances de la police de secours — d'où les mots collés visibles jusque dans
+   le PNG exporté. `cache.clearFontCache(family)` au chargement corrige la mesure : écart
+   du pire glyphe 27 % avant, 0,0 % après.
+
+3. **Tâche 1.6 (accroche au redimensionnement) reportée.** Les critères d'acceptation ne
+   couvrent que le déplacement, et une accroche de redimensionnement approximative est pire
+   que pas d'accroche du tout.
+
+4. **Tâche 4.3 restreinte.** Le curseur `text` n'apparaît que sur un calque texte déjà
+   sélectionné, pas au simple survol : au repos il promettrait une sélection de caractères
+   que le premier clic refuse.
+
+5. **Sélectionner n'ouvre plus le drawer Propriétés.** Il s'ouvrait de force à chaque clic,
+   ce qui rendait la barre contextuelle — conditionnée au drawer fermé — inatteignable, et
+   mangeait un tiers du stage sans qu'on l'ait demandé. Le drawer reste accessible par son
+   bouton et son raccourci.
+
+6. **Écart de la phase 1 relevé ici :** le plan nommait le jeton `--shadow-artboard`, il a
+   été livré sous `--color-artboard-shadow` pour rester dans l'espace `@theme` de Tailwind.
 
 # Instruction: Manipulation directe — repères, alignement, édition sur le canvas
 

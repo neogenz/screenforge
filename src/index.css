@@ -37,12 +37,10 @@
   --color-border: oklch(0.27 0 0);
   --color-border-strong: oklch(0.36 0 0);
 
-  /* Sélection : une seule couleur pour le chrome et pour les poignées Fabric. */
+  /* Lasso de sélection. Le cadre des objets, lui, est figé dans `canvas-utils` :
+     posé sur le contenu de l'utilisateur, il ne peut pas suivre le thème. */
   --color-selection: oklch(0.97 0 0);
-  /* Remplissage du lasso, dérivé de la même couleur. */
   --color-selection-soft: oklch(0.97 0 0 / 0.14);
-  /* Tranche voisine d'un calque partagé : présente, jamais saisissable. */
-  --color-selection-ghost: oklch(0.97 0 0 / 0.4);
 
   /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
   --color-danger: oklch(0.62 0.18 25);
@@ -172,7 +170,6 @@
 
   --color-selection: oklch(0.18 0 0);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
-  --color-selection-ghost: oklch(0.18 0 0 / 0.35);
 
   --color-danger: oklch(0.55 0.19 25);
   --color-danger-soft: oklch(0.55 0.19 25 / 0.1);
