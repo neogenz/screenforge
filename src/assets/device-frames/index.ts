@@ -350,11 +350,16 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
       <stop offset="0.5" stop-color="${color.frame}"/>
       <stop offset="1" stop-color="${railEdge}"/>
     </linearGradient>
-    <!-- Reflet de verre : une diagonale très faible en haut de la dalle. -->
-    <linearGradient id="${glassId}" x1="0" y1="0" x2="0.55" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.06"/>
-      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.015"/>
-      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    <!--
+      Reflet de verre serré contre le bord haut. Un lavis diagonal sur toute la
+      dalle donnait un écran gris qui semble incurvé sur les côtés : la lecture
+      immédiate est « Android à écran courbe », pas iPhone. De face, un iPhone
+      est un rectangle noir plat.
+    -->
+    <linearGradient id="${glassId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="0.06" stop-color="#ffffff" stop-opacity="0.012"/>
+      <stop offset="0.14" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
@@ -370,8 +375,8 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   <!-- Bezel : noir sur tout appareil réel, quelle que soit la couleur du châssis -->
   <path d="${bezelPath}" fill="#0B0B0D"/>
 
-  <!-- Dalle -->
-  <path d="${screenPath}" fill="#141416"/>
+  <!-- Dalle : noir profond, pas un gris. Un gris lit comme un rendu 3D. -->
+  <path d="${screenPath}" fill="#050506"/>
 
   ${screenshotUrl ? `<!-- Capture -->
   <image x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${escapeSvgAttribute(screenshotUrl)}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}

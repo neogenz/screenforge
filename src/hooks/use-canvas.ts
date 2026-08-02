@@ -82,6 +82,23 @@ function createScreenClipPath(screenIndex: number): Rect {
   })
 }
 
+/** En deçà, la tranche visible est un liseré : rien qu'on puisse viser. */
+const MIN_GRABBABLE = 8
+
+/**
+ * La tranche de ce calque tombe-t-elle dans la fenêtre de sa planche ? Un
+ * panorama n'est visible que sur les planches qu'il traverse ; ailleurs son
+ * instance est entièrement écrêtée et ne doit pas se laisser attraper.
+ */
+function intersectsScreen(object: RenderedObject, screenIndex: number): boolean {
+  const bounds = object.getBoundingRect()
+  const windowLeft = getScreenOffset(screenIndex)
+  const overlapX = Math.min(bounds.left + bounds.width, windowLeft + SCREEN_WIDTH)
+    - Math.max(bounds.left, windowLeft)
+  const overlapY = Math.min(bounds.top + bounds.height, SCREEN_HEIGHT) - Math.max(bounds.top, 0)
+  return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
+}
+
 /**
  * Clip paths only depend on the screen index — reuse the existing Rect
  * instead of allocating a fresh one for every object on every sync.
@@ -90,6 +107,27 @@ function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void
   if (object.data?.clipScreenIndex === screenIndex && object.clipPath) return
   object.clipPath = createScreenClipPath(screenIndex)
   object.set('data', { ...object.data, clipScreenIndex: screenIndex })
+}
+
+/**
+ * Pose l'instance d'un calque partagé sur sa planche. Le calque vit dans un
+ * espace continu qui ignore les gouttières : chaque planche en montre la
+ * tranche qui la traverse, d'où le décalage des seules gouttières cumulées.
+ * Les deux chemins de synchronisation passent ici, sinon un déplacement en
+ * patch laisse la prise réglée sur la position précédente.
+ */
+function applyLayoutInstance(
+  object: RenderedObject,
+  layer: Layer,
+  screenIndex: number,
+): void {
+  applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH)
+  ensureScreenClipPath(object, screenIndex)
+  // Seule une tranche réellement visible se laisse attraper. Réserver la prise
+  // à la planche active donnait des poignées posées sur du vide, à côté de la
+  // tranche que l'utilisateur voit.
+  const visible = intersectsScreen(object, screenIndex)
+  object.set({ selectable: !layer.locked && visible, evented: !layer.locked && visible })
 }
 
 function screensHaveVisualChanges(current: Project, previous: Project | null): boolean {
@@ -576,17 +614,7 @@ export function useCanvas() {
             layout: true,
             rendererType: layer.type,
           })
-          // Un calque partagé occupe la même place sur chaque planche : il suit
-          // donc le pas complet des écrans. Retrancher `SCREEN_WIDTH` le laissait
-          // à un intervalle de la première planche, hors de sa propre fenêtre de
-          // découpe — invisible, mais ses poignées, elles, restaient dessinées.
-          applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
-          const isActiveInstance = screen.id === activeScreenId
-          ensureScreenClipPath(object, screenIndex)
-          object.set({
-            selectable: !layer.locked && isActiveInstance,
-            evented: !layer.locked && isActiveInstance,
-          })
+          applyLayoutInstance(object, layer, screenIndex)
         }
       }
 
@@ -707,7 +735,7 @@ export function useCanvas() {
         const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
         if (!object) return false
         if (needsFabricObjectRecreation(object, layer)) return false
-        applyLayerToFabricObject(object, layer, getScreenOffset(index))
+        applyLayoutInstance(object, layer, index)
       }
     }
 
@@ -769,7 +797,10 @@ export function useCanvas() {
         if (object.data?.layout) {
           layoutUpdates.set(
             layerId,
-            fabricObjectToLayerUpdate(object, getScreenOffset(screenIndex)) as Partial<Layer>,
+            fabricObjectToLayerUpdate(
+              object,
+              getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
+            ) as Partial<Layer>,
           )
           continue
         }

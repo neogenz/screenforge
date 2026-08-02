@@ -25,11 +25,15 @@ Quatre points du plan reposaient sur des hypothèses que la mesure a démenties.
    `loadSVGFromURL` mais rastérisé via `<img>` : le hors-`viewBox` est écrêté par le
    navigateur, la marge transparente mesurée est nulle. Deux causes réelles, distinctes :
    - l'origine de rotation en coin haut-gauche, qui éjectait le calque hors de l'artboard ;
-   - un calque partagé (« Partager partout ») placé à `getScreenOffset(i) − i × SCREEN_WIDTH`,
-     soit un simple intervalle au lieu du pas complet des écrans. Toutes les instances au-delà
-     de la première atterrissaient sur la première planche, hors de leur propre fenêtre de
-     découpe : invisibles, mais leurs poignées restaient dessinées. C'est ce que montrait la
-     capture de l'utilisateur.
+   - la prise des instances d'un calque partagé (« Partager partout »). Le décalage
+     `getScreenOffset(i) − i × SCREEN_WIDTH` n'est pas un bug : c'est la formule du panorama.
+     Le calque vit dans un espace continu qui saute les gouttières, chaque planche en affiche
+     la tranche qui la traverse via son chemin d'écrêtage. Ce qui était faux, c'est que
+     **toutes** les instances restaient saisissables, y compris celles écrêtées à néant : leurs
+     poignées se dessinaient sur du vide, à côté de la tranche visible. C'est ce que montrait
+     la capture. `intersectsScreen` réserve désormais la prise aux tranches réellement
+     visibles, et les deux chemins de synchronisation passent par `applyLayoutInstance` —
+     sinon un déplacement en patch laisse la prise réglée sur la position précédente.
 
 5. **Tâche 6 — les défauts ne venaient pas des fabriques.** `DEFAULT_GLOBALS` écrase les
    fabriques de calques via `applyGlobalsToNewLayer` : c'est là que vivaient `Archivo`,
