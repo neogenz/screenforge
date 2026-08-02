@@ -1,3 +1,5 @@
+import { cache } from 'fabric'
+
 const loadedFonts = new Set<string>()
 const fontPromises = new Map<string, Promise<FontLoadResult>>()
 
@@ -113,6 +115,14 @@ async function loadFont(
       throw new Error(`No font face was returned for ${family}.`)
     }
     loadedFonts.add(key)
+    // Fabric mémorise la largeur de chaque glyphe, par famille et par graisse,
+    // dans un cache global. Un texte posé avant l'arrivée de la police est
+    // mesuré avec la police de secours, et ces largeurs fausses survivent au
+    // chargement : les glyphes se dessinent dans la bonne police mais avec les
+    // avances de l'autre, d'où les mots collés et les lettres écartées. Purger
+    // ici plutôt que chez chaque appelant — canvas, export et aperçus partagent
+    // le même cache, et c'est ici, et seulement ici, que la mesure change.
+    cache.clearFontCache(family)
     return { family, status: 'loaded' }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown font loading error.'
