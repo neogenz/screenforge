@@ -202,6 +202,33 @@ export function clipControlsToScreen(object: RenderedObject, screenIndex: number
   }
 }
 
+/**
+ * Écrête le contenu d'un calque à la fenêtre de sa planche.
+ *
+ * Par `ctx.clip()` et non par la propriété `clipPath` de Fabric. Dès qu'un
+ * `clipPath` est posé, `needsItsOwnCache()` renvoie vrai : l'objet est peint
+ * dans une surface intermédiaire, puis recopiée sur la planche à un décalage
+ * fractionnaire en filtrage bilinéaire. Le bord des glyphes est alors lissé
+ * deux fois. Mesuré sur un titre de 48 unités à 63 % de zoom : 0,49 pixel
+ * intermédiaire par pixel d'encre en passant par le cache, 0,27 en rendu
+ * direct — c'est le flou que montrait la capture. Le réglage `objectCaching`
+ * ne suffit pas : `needsItsOwnCache()` passe devant.
+ */
+export function clipContentToScreen(object: RenderedObject, screenIndex: number): void {
+  const renderPlain = Object.getPrototypeOf(object).render as FabricObject['render']
+  object.render = function renderClipped(ctx: CanvasRenderingContext2D) {
+    ctx.save()
+    // Le contexte est déjà en coordonnées de scène ici — Fabric applique le
+    // transform de vue avant de parcourir les objets. Contrairement au tracé
+    // des poignées, qui lui arrive en espace device, il n'y a rien à composer.
+    ctx.beginPath()
+    ctx.rect(getScreenOffset(screenIndex), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    ctx.clip()
+    renderPlain.call(this, ctx)
+    ctx.restore()
+  }
+}
+
 export function getTotalWidth(screenCount: number): number {
   return screenCount < 1
     ? SCREEN_WIDTH
@@ -367,6 +394,14 @@ export async function layerToFabricObject(layer: Layer): Promise<RenderedObject>
     }
   }
 
+  // Rendu direct sur la planche, sans surface intermédiaire. Le cache d'objet
+  // de Fabric est fait pour des scènes à des centaines d'objets qu'on repeint
+  // sans les modifier ; ici il n'économise rien et sa recopie, posée à un
+  // décalage fractionnaire, lisse le bord des glyphes une seconde fois. À
+  // l'export en 1320×2868, le couper fait tomber le lissage de 0,21 à 0,10
+  // pixel intermédiaire par pixel d'encre — et le PNG de 86 à 68 ko, un bord
+  // net se compressant mieux qu'un dégradé.
+  object.objectCaching = false
   object.set('data', {
     uid: layer.id,
     rendererType: layer.type,

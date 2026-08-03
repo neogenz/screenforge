@@ -15,6 +15,7 @@ import {
   applyLayerToFabricObject,
   applySelectionStyle,
   backgroundToFabricFill,
+  clipContentToScreen,
   clipControlsToScreen,
   disposeFabricObjectResource,
   fabricObjectToLayerUpdate,
@@ -197,19 +198,6 @@ function sameFrame(left: SelectionFrame | null, right: SelectionFrame | null): b
     && left.stageHeight === right.stageHeight
 }
 
-function createScreenClipPath(screenIndex: number): Rect {
-  return new Rect({
-    originX: 'left',
-    originY: 'top',
-    left: getScreenOffset(screenIndex),
-    top: 0,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-    fill: '#000000',
-    absolutePositioned: true,
-  })
-}
-
 /** En deçà, la tranche visible est un liseré : rien qu'on puisse viser. */
 const MIN_GRABBABLE = 8
 
@@ -228,16 +216,16 @@ function intersectsScreen(object: RenderedObject, screenIndex: number): boolean 
 }
 
 /**
- * Rattache un objet à la fenêtre de sa planche : le contenu par `clipPath`, la
- * sélection par le même écrêtage. Les deux vont ensemble — un cadre plus large
- * que ce qui est dessiné se lit comme un sélecteur cassé.
+ * Rattache un objet à la fenêtre de sa planche : le contenu et la sélection
+ * par le même écrêtage. Les deux vont ensemble — un cadre plus large que ce
+ * qui est dessiné se lit comme un sélecteur cassé.
  *
- * Le chemin d'écrêtage ne dépend que de l'indice : on réutilise le Rect existant
- * plutôt que d'en allouer un par objet à chaque synchronisation.
+ * L'écrêtage ne dépend que de l'indice, et poser les deux enveloppes coûte
+ * deux fermetures : le marqueur évite de les refaire à chaque synchronisation.
  */
 function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void {
-  if (object.data?.clipScreenIndex === screenIndex && object.clipPath) return
-  object.clipPath = createScreenClipPath(screenIndex)
+  if (object.data?.clipScreenIndex === screenIndex) return
+  clipContentToScreen(object, screenIndex)
   clipControlsToScreen(object, screenIndex)
   object.set('data', { ...object.data, clipScreenIndex: screenIndex })
 }

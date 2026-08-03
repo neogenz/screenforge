@@ -114,7 +114,9 @@ src/
 
 **Binary assets (v2)**: image layers and device screenshots hold a short `assetId`, never a data URL. Payloads live in `lib/assets.ts` (in-memory registry, hash-deduped) and persist in the IDB `assets` table; `storage.ts` migrates v1 inline data URLs on load. History snapshots, autosave and sync diffs stay tiny as a result.
 
-**Granular sync (v2)**: `use-canvas.ts` diffs project references (`diffProjectChange`) — single-screen, same-stacking-order changes take the in-place `syncPatch` path (no clipPath/z-order rebuild); structural changes fall back to full reconciliation.
+**Granular sync (v2)**: `use-canvas.ts` diffs project references (`diffProjectChange`) — single-screen, same-stacking-order changes take the in-place `syncPatch` path (no clip/z-order rebuild); structural changes fall back to full reconciliation.
+
+**No object cache, no `clipPath`**: layer objects set `objectCaching = false`, and screen clipping goes through `clipContentToScreen` (a `ctx.clip()` inside a wrapped `render`), never Fabric's `clipPath` property. Both rules exist for the same reason: any object Fabric caches gets blitted back at a fractional offset with bilinear filtering, so every edge is antialiased twice — measured at 2× the soft-edge pixels on screen and in the exported PNG. Setting `clipPath` re-forces the cache via `needsItsOwnCache()` regardless of `objectCaching`.
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
 

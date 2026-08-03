@@ -322,31 +322,42 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   const pillY = screenY + screenWidth * 0.027
   const pillRadius = pillHeight / 2
 
-  // Notch (16e): centered dip from the top edge of the screen
-  const notchWidth = Math.round(screenWidth * 0.52)
-  const notchHeight = 16
+  // Encoche (16e) : 162 pt de large et 32 pt de haut sur une dalle de 390 pt,
+  // soit 0,415 et 0,082 de sa largeur. Elle était donnée à 0,52 de large et à
+  // une hauteur absolue de 16 unités, indépendante du modèle — une encoche
+  // d'un tiers trop large se lit comme un gabarit générique, pas comme un
+  // iPhone.
+  const notchWidth = Math.round(screenWidth * 0.415)
+  const notchHeight = screenWidth * 0.082
   const notchX = (width - notchWidth) / 2
-  const notchRadius = 8
+  const notchRadius = notchHeight / 2
 
   // Boutons latéraux : la moitié visible dépasse, l'autre passe sous la tranche
   // pour que la pièce paraisse encastrée plutôt que collée sur le bord.
+  //
+  // Les positions et les longueurs sont des fractions de la hauteur du corps,
+  // relevées sur la gamme Pro actuelle. Elles forment une figure qu'on
+  // reconnaît sans y penser : à gauche le bouton d'action puis la paire de
+  // volume, en face le bouton latéral qui chevauche cette paire, et le Camera
+  // Control plus bas. Toute dérive sur l'un des cinq casse la figure entière.
   const btnWidth = BUTTON_PROTRUSION * 2
   const btnRadius = 0.8
-  // Power button (right side)
-  const powerBtnY = height * 0.28
-  const powerBtnH = height * 0.1
-  // Camera Control (right side, sous le bouton latéral) : présent sur toute la
-  // gamme à îlot dynamique. Son absence est un des tells du gabarit générique.
-  const cameraCtlY = height * 0.43
-  const cameraCtlH = height * 0.045
-  // Volume buttons (left side)
-  const volUpY = height * 0.22
-  const volUpH = height * 0.07
-  const volDownY = height * 0.31
-  const volDownH = height * 0.1
-  // Silent switch (left side)
-  const silentY = height * 0.15
-  const silentH = height * 0.04
+  // Bouton d'action (gauche), en haut de la série.
+  const actionY = height * 0.148
+  const actionH = height * 0.038
+  // Une seule longueur pour les deux touches de volume : sur l'appareil elles
+  // sont identiques, et c'est l'inégalité qui se voit en premier — l'ancien
+  // gabarit en donnait une à 7 % et l'autre à 10 % de la hauteur.
+  const volumeH = height * 0.058
+  const volUpY = height * 0.205
+  const volDownY = height * 0.276
+  // Bouton latéral (droite), face à la paire de volume.
+  const powerBtnY = height * 0.232
+  const powerBtnH = height * 0.098
+  // Camera Control (droite) : présent sur toute la gamme à îlot dynamique. Son
+  // absence est un des tells du gabarit générique.
+  const cameraCtlY = height * 0.4
+  const cameraCtlH = height * 0.05
 
   const screenClipId = `screen-clip-${config.model}`
   const railId = `rail-${config.model}`
@@ -412,9 +423,9 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   <!-- Boutons latéraux, sous la tranche pour paraître encastrés -->
   ${sideButton(powerBtnY, powerBtnH, 'right')}
   ${dynamicIsland ? sideButton(cameraCtlY, cameraCtlH, 'right') : ''}
-  ${sideButton(silentY, silentH, 'left')}
-  ${sideButton(volUpY, volUpH, 'left')}
-  ${sideButton(volDownY, volDownH, 'left')}
+  ${sideButton(actionY, actionH, 'left')}
+  ${sideButton(volUpY, volumeH, 'left')}
+  ${sideButton(volDownY, volumeH, 'left')}
 
   <!-- Tranche -->
   <path d="${railPath}" fill="url(#${railId})" stroke="${railEdge}" stroke-width="0.6"/>
@@ -434,12 +445,26 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   <!-- Liseré interne : sépare la dalle du bezel -->
   <path d="${innerPath}" fill="none" stroke="#000000" stroke-opacity="0.55" stroke-width="0.8"/>
 
-  <!-- Îlot dynamique avec objectif, ou encoche -->
-  ${dynamicIsland
-    ? `<rect x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>
+  <!--
+    Îlot dynamique, ou encoche.
+
+    L'îlot n'est dessiné que sur un appareil vide. Une capture prise sur un
+    iPhone à îlot le contient déjà : la dalle est un rectangle plein et le
+    système compose la pastille noire dans le tampon d'affichage, donc dans le
+    PNG. La redessiner par-dessus en superposait une seconde, à nos
+    proportions et non aux siennes — d'où la marche noire au sommet de l'écran.
+
+    L'encoche, elle, reste dessinée dans tous les cas : sur un appareil à
+    encoche la découpe est physique, le tampon derrière contient le fond de
+    l'app, et la capture ne porte donc aucun noir à cet endroit.
+  -->
+  ${!dynamicIsland
+    ? `<path d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
+    : screenshotUrl
+      ? ''
+      : `<rect x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>
   <circle cx="${round(pillX + pillWidth - pillHeight / 2 - 0.8)}" cy="${round(pillY + pillHeight / 2)}" r="${round(pillHeight * 0.19)}" fill="#101116"/>
-  <circle cx="${round(pillX + pillWidth - pillHeight / 2 - 0.8)}" cy="${round(pillY + pillHeight / 2)}" r="${round(pillHeight * 0.1)}" fill="#05050A"/>`
-    : `<path d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`}
+  <circle cx="${round(pillX + pillWidth - pillHeight / 2 - 0.8)}" cy="${round(pillY + pillHeight / 2)}" r="${round(pillHeight * 0.1)}" fill="#05050A"/>`}
 </svg>`
 }
 

@@ -32,10 +32,14 @@ import type { Layer, TextLayer } from '@/types'
 
 /**
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
- * 40 et non 36 — les contrôles font 32 depuis la v5, et une barre de 36 les
- * laissait affleurer ses deux bords au lieu de les contenir.
+ *
+ * 48, la même géométrie que la barre du haut : 8 px au-dessus et en dessous de
+ * contrôles qui en font 32. À 40 il n'en restait que 4, et un champ encadré —
+ * la police, le corps — se lit alors comme collé aux deux bords, là où un
+ * bouton-icône sans fond s'en accommode. Les deux barres n'ont pas de raison
+ * de respirer différemment.
  */
-const BAR_HEIGHT = 40
+const BAR_HEIGHT = 48
 /** Écart entre la sélection et la barre. */
 const OFFSET = 10
 /** Marge minimale conservée contre les bords du stage. */
@@ -96,7 +100,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   return (
     <div
       className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
-        flex h-10 max-w-[min(680px,calc(100%-24px))] items-center gap-0.5 overflow-x-auto px-1.5"
+        flex h-12 max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto px-2"
       role="toolbar"
       aria-label="Actions de la sélection"
       style={{
@@ -149,8 +153,13 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   )
 }
 
+/**
+ * Le trait sépare des groupes, pas des boutons : il lui faut plus d'air que
+ * l'écart courant, sinon la barre se lit comme une seule file d'icônes. 2 px de
+ * marge s'ajoutent aux 4 px du `gap` — 6 de chaque côté contre 4 entre voisins.
+ */
 function Divider() {
-  return <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
+  return <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
 }
 
 function MultiCount({ count }: { count: number }) {
