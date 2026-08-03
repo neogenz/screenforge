@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
 import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import { SwatchButton } from '@/components/ui/swatch-button'
 import { Switch } from '@/components/ui/switch'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
+import { analyzeDeviceBezel } from '@/lib/device-bezel'
 import { decodeImage, readAsDataUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
@@ -27,6 +28,11 @@ const ORIENTATION_OPTIONS: SegmentedOption<Orientation>[] = [
   { value: 'landscape', label: 'Paysage' },
 ]
 
+const SOURCE_OPTIONS: SegmentedOption<'generated' | 'apple'>[] = [
+  { value: 'generated', label: 'ScreenForge' },
+  { value: 'apple', label: 'Apple officiel' },
+]
+
 export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
   const shadowEnabled = layer.shadowEnabled ?? false
@@ -37,11 +43,15 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const shadowCoalesceKey = `layer:${layer.id}:shadow`
 
   const [modelOpen, setModelOpen] = useState(false)
-  const [fileError, setFileError] = useState<string | null>(null)
+  const [screenshotError, setScreenshotError] = useState<string | null>(null)
+  const [bezelError, setBezelError] = useState<string | null>(null)
+  const [bezelLoading, setBezelLoading] = useState(false)
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bezelInputRef = useRef<HTMLInputElement>(null)
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
+  const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
   const modelOptions = config.current
     ? CURRENT_DEVICE_FRAMES
     : [config, ...CURRENT_DEVICE_FRAMES]
@@ -50,10 +60,10 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
     const file = event.target.files?.[0]
     if (!file) return
 
-    setFileError(null)
+    setScreenshotError(null)
     event.target.value = ''
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      setFileError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
+      setScreenshotError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
       return
     }
 
@@ -62,8 +72,50 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       await decodeImage(dataUrl)
       onUpdate({ screenshotAssetId: registerAsset(dataUrl) })
     } catch {
-      setFileError("La capture est illisible ou endommagée.")
+      setScreenshotError("La capture est illisible ou endommagée.")
     }
+  }
+
+  async function handleBezelChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setBezelError(null)
+    setBezelLoading(true)
+    try {
+      const result = await analyzeDeviceBezel(file)
+      const assetId = registerAsset(result.dataUrl)
+      const longSide = Math.max(width, height)
+      const portrait = result.metadata.naturalHeight >= result.metadata.naturalWidth
+      const ratio = result.metadata.naturalWidth / result.metadata.naturalHeight
+      onUpdate({
+        importedBezel: { assetId, ...result.metadata },
+        width: portrait ? Math.round(longSide * ratio) : longSide,
+        height: portrait ? longSide : Math.round(longSide / ratio),
+        orientation: 'portrait',
+        rotation: 0,
+        opacity: 1,
+        shadowEnabled: false,
+      })
+    } catch (error) {
+      setBezelError(error instanceof Error ? error.message : 'Le bezel est illisible.')
+    } finally {
+      setBezelLoading(false)
+    }
+  }
+
+  function removeImportedBezel() {
+    const canonical = getDefaultDeviceSize(deviceModel)
+    const longSide = Math.max(width, height)
+    const ratio = canonical.width / canonical.height
+    onUpdate({
+      importedBezel: undefined,
+      width: Math.round(longSide * ratio),
+      height: longSide,
+      orientation: 'portrait',
+    })
+    setBezelError(null)
   }
 
   function handleModelChange(model: DeviceModel) {
@@ -88,7 +140,89 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Modèle">
+      <Field label="Source">
+        <Segmented
+          options={SOURCE_OPTIONS}
+          value={layer.importedBezel ? 'apple' : 'generated'}
+          onChange={(source) => {
+            if (source === 'apple') bezelInputRef.current?.click()
+            else if (layer.importedBezel) removeImportedBezel()
+          }}
+          ariaLabel="Source du cadre"
+          className="w-full"
+        />
+      </Field>
+      <input
+        ref={bezelInputRef}
+        type="file"
+        accept="image/png"
+        className="sr-only"
+        aria-label="Importer un bezel Apple"
+        onChange={(event) => void handleBezelChange(event)}
+      />
+
+      {layer.importedBezel ? (
+        <Field label="Bezel Apple">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+            {bezelUrl && (
+              <img
+                src={bezelUrl}
+                alt="Bezel importé"
+                className="h-8 w-8 shrink-0 object-contain"
+              />
+            )}
+            <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">
+              {layer.importedBezel.fileName}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={bezelLoading}
+              onClick={() => bezelInputRef.current?.click()}
+              aria-label="Remplacer le bezel Apple"
+            >
+              Remplacer
+            </Button>
+            <IconButton
+              size="sm"
+              aria-label="Retirer le bezel Apple"
+              className="hover:text-danger"
+              onClick={removeImportedBezel}
+            >
+              <X size={13} strokeWidth={1.5} aria-hidden />
+            </IconButton>
+          </div>
+        </Field>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Button
+            variant="default"
+            size="sm"
+            loading={bezelLoading}
+            onClick={() => bezelInputRef.current?.click()}
+          >
+            <Upload size={13} strokeWidth={1.5} aria-hidden />
+            Importer le PNG Apple
+          </Button>
+          <a
+            href="https://developer.apple.com/design/resources/#product-bezels"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-foreground-muted underline-offset-2 hover:underline"
+          >
+            Télécharger le DMG chez Apple
+            <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
+          </a>
+          <span className="text-[11px] leading-relaxed text-faint">Extraire le DMG, puis choisir un PNG transparent.</span>
+        </div>
+      )}
+      {bezelError && (
+        <p role="alert" className="text-[11px] leading-relaxed text-danger">
+          {bezelError}
+        </p>
+      )}
+
+      {!layer.importedBezel && <Field label="Modèle">
         <Button
           ref={modelButtonRef}
           variant="default"
@@ -108,8 +242,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             />
           </span>
         </Button>
-      </Field>
-      <Dropdown
+      </Field>}
+      {!layer.importedBezel && <Dropdown
         open={modelOpen}
         anchor={modelButtonRef}
         onClose={() => setModelOpen(false)}
@@ -120,9 +254,9 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onSelect: () => handleModelChange(frame.model),
         }))}
         ariaLabel="Modèle d’appareil"
-      />
+      />}
 
-      <Field label="Couleur">
+      {!layer.importedBezel && <Field label="Couleur">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
           {config.colors.map((color) => (
             <SwatchButton
@@ -135,9 +269,9 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             />
           ))}
         </div>
-      </Field>
+      </Field>}
 
-      <Field label="Orientation">
+      {!layer.importedBezel && <Field label="Orientation">
         <Segmented
           options={ORIENTATION_OPTIONS}
           value={orientation}
@@ -145,7 +279,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           ariaLabel="Orientation"
           className="w-full"
         />
-      </Field>
+      </Field>}
 
       <Field label="Capture d’écran">
         {screenshotUrl ? (
@@ -193,14 +327,18 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           aria-label="Importer la capture de l’app"
           onChange={(event) => void handleScreenshotChange(event)}
         />
-        {fileError && (
+        {screenshotError && (
           <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
-            {fileError}
+            {screenshotError}
           </p>
         )}
       </Field>
 
-      <div className="flex flex-col gap-2">
+      {layer.importedBezel ? (
+        <p className="text-[11px] leading-relaxed text-faint">
+          Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
+        </p>
+      ) : <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="section-title">Ombre</span>
           <Switch
@@ -248,7 +386,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

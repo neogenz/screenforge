@@ -216,6 +216,18 @@ function LayerControls({ layer }: { layer: Layer }) {
   }
 
   if (layer.type === 'device-frame') {
+    if (layer.importedBezel) {
+      return (
+        <>
+          <span className="field-label max-w-44 shrink truncate px-1">
+            {layer.importedBezel.fileName}
+          </span>
+          <ScreenshotButton
+            onPick={(screenshotAssetId) => update({ screenshotAssetId } as Partial<Layer>)}
+          />
+        </>
+      )
+    }
     const colors = getDeviceFrame(layer.deviceModel).colors
     return (
       <>

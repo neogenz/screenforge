@@ -6,6 +6,7 @@ import {
   Rect,
   Shadow,
   Textbox,
+  controlsUtils,
   util,
 } from 'fabric'
 import {
@@ -74,10 +75,36 @@ const SELECTION_GEOMETRY = {
  * l'objet refuse, et encombrait la sélection de huit points au lieu de quatre.
  */
 const EDGE_HANDLES = { ml: false, mr: false, mt: false, mb: false }
+const CORNER_HANDLES = ['tl', 'tr', 'bl', 'br'] as const
 
-export function applySelectionStyle(object: FabricObject, layerType?: Layer['type']): void {
+function scaleWithoutUniformToggle(
+  ...args: Parameters<typeof controlsUtils.scalingEqually>
+): ReturnType<typeof controlsUtils.scalingEqually> {
+  const canvas = args[1].target.canvas
+  if (!canvas || !('uniScaleKey' in canvas)) return controlsUtils.scalingEqually(...args)
+  const uniScaleKey = canvas.uniScaleKey
+  canvas.uniScaleKey = null
+  try {
+    return controlsUtils.scalingEqually(...args)
+  } finally {
+    canvas.uniScaleKey = uniScaleKey
+  }
+}
+
+export function applySelectionStyle(
+  object: FabricObject,
+  layerType?: Layer['type'],
+  officialBezel = false,
+): void {
   object.set(SELECTION_GEOMETRY)
-  if (layerType === 'device-frame') object.setControlsVisibility(EDGE_HANDLES)
+  if (layerType === 'device-frame') {
+    object.setControlsVisibility({ ...EDGE_HANDLES, mtr: !officialBezel })
+    if (officialBezel) {
+      for (const handle of CORNER_HANDLES) {
+        object.controls[handle].actionHandler = scaleWithoutUniformToggle
+      }
+    }
+  }
   // Un texte se laisse élargir, jamais étirer en hauteur.
   else if (layerType === 'text') object.setControlsVisibility({ mt: false, mb: false })
 }
@@ -306,6 +333,28 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
   width: number
   height: number
 } {
+  const imported = layer.importedBezel
+  const importedUrl = resolveAsset(imported?.assetId)
+  if (imported && importedUrl) {
+    const screenshotUrl = resolveAsset(layer.screenshotAssetId)
+    const escape = (value: string) => value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    const { naturalWidth: width, naturalHeight: height, screen } = imported
+    return {
+      width,
+      height,
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+  ${screenshotUrl
+    ? `<image x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" href="${escape(screenshotUrl)}" preserveAspectRatio="xMidYMid slice"/>`
+    : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="#050506"/>`}
+  <image x="0" y="0" width="${width}" height="${height}" href="${escape(importedUrl)}"/>
+</svg>`,
+    }
+  }
+
   const config = getDeviceFrame(layer.deviceModel)
   const portraitSvg = generateDeviceFrameSVG(
     config,
@@ -344,8 +393,17 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 function getResourceKey(layer: Layer): string {
   if (layer.type === 'image') return `image:${layer.assetId}`
   if (layer.type === 'device-frame') {
+    if (layer.importedBezel && resolveAsset(layer.importedBezel.assetId)) {
+      return [
+        'device',
+        'imported',
+        layer.importedBezel.assetId,
+        layer.screenshotAssetId ?? '',
+      ].join(':')
+    }
     return [
       'device',
+      'generated',
       layer.deviceModel,
       layer.deviceColor,
       layer.orientation,
@@ -417,14 +475,15 @@ export function applyLayerToFabricObject(
   layer: Layer,
   screenOffset = 0,
 ): void {
+  const officialBezel = layer.type === 'device-frame' && Boolean(layer.importedBezel)
   object.set({
     // Origine au centre : une rotation pivote le calque sur lui-même au lieu de
     // le faire tourner autour de son coin, ce qui l'éjectait de l'artboard.
     // `layer.x` / `layer.y` restent le coin haut-gauche de la boîte non pivotée.
     originX: 'center',
     originY: 'center',
-    angle: layer.rotation,
-    opacity: layer.opacity,
+    angle: officialBezel ? 0 : layer.rotation,
+    opacity: officialBezel ? 1 : layer.opacity,
     visible: layer.visible,
     selectable: !layer.locked,
     evented: !layer.locked,
@@ -488,9 +547,10 @@ export function applyLayerToFabricObject(
     object.set({
       // Official device aspect ratio — canvas scaling stays proportional.
       lockUniScaling: true,
+      lockRotation: officialBezel,
       scaleX: layer.width / Math.max(1, object.width),
       scaleY: layer.height / Math.max(1, object.height),
-      shadow: layer.shadowEnabled
+      shadow: !officialBezel && layer.shadowEnabled
         ? new Shadow({
             blur: layer.shadowBlur ?? 20,
             color: layer.shadowColor ?? DEFAULT_CANVAS_SHADOW_COLOR,
@@ -501,7 +561,7 @@ export function applyLayerToFabricObject(
     })
   }
 
-  applySelectionStyle(object, layer.type)
+  applySelectionStyle(object, layer.type, officialBezel)
 
   // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
   const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))

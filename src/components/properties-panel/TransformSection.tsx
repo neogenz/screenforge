@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
+import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
@@ -15,6 +15,7 @@ interface TransformSectionProps {
 export function TransformSection({ layer }: TransformSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
   const isDevice = layer.type === 'device-frame'
+  const isOfficialBezel = isDevice && Boolean(layer.importedBezel)
   const isText = layer.type === 'text'
   const [lockAspectOverride, setLockAspect] = useState(false)
   // Device frames are official hardware — their aspect ratio is never unlocked.
@@ -34,8 +35,9 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
   function handleWidth(width: number) {
     if (isDevice) {
-      const frame = getDeviceFrame(layer.deviceModel)
-      const ratio = frame.width / frame.height
+      const ratio = layer.importedBezel
+        ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
       update({ width, height: Math.max(1, Math.round(width / ratio)) })
     } else if (!isText && lockAspect && layer.height > 0) {
       const ratio = layer.width / layer.height
@@ -50,8 +52,9 @@ export function TransformSection({ layer }: TransformSectionProps) {
     if (isText) return
 
     if (isDevice) {
-      const frame = getDeviceFrame(layer.deviceModel)
-      const ratio = frame.width / frame.height
+      const ratio = layer.importedBezel
+        ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
       update({ width: Math.max(1, Math.round(height * ratio)), height })
     } else if (lockAspect && layer.width > 0) {
       const ratio = layer.width / layer.height
@@ -62,10 +65,12 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   function handleRotation(value: number) {
+    if (isOfficialBezel) return
     update({ rotation: ((value % 360) + 360) % 360 })
   }
 
   function handleOpacity(value: number) {
+    if (isOfficialBezel) return
     updateLayer(
       layer.id,
       { opacity: Math.min(1, Math.max(0, Math.round(value) / 100)) },
@@ -75,7 +80,14 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
   function resetSize() {
     if (layer.type === 'device-frame') {
-      update(getDefaultDeviceSize(layer.deviceModel))
+      const canonical = getDefaultDeviceSize(layer.deviceModel)
+      if (layer.importedBezel) {
+        const longSide = Math.max(canonical.width, canonical.height)
+        const ratio = layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        update(layer.importedBezel.naturalHeight >= layer.importedBezel.naturalWidth
+          ? { width: Math.round(longSide * ratio), height: longSide }
+          : { width: longSide, height: Math.round(longSide / ratio) })
+      } else update(canonical)
     } else if (layer.type === 'image') {
       const scale = Math.min(
         600 / layer.originalWidth,
@@ -148,6 +160,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
         step={1}
         value={Math.round(layer.rotation)}
         onChange={handleRotation}
+        disabled={isOfficialBezel}
       />
 
       {/* Opacity */}
@@ -158,6 +171,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
         step={1}
         value={Math.round(layer.opacity * 100)}
         onChange={handleOpacity}
+        disabled={isOfficialBezel}
         formatValue={(v) => `${Math.round(v)}%`}
       />
 

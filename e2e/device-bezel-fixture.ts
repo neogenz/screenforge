@@ -38,6 +38,16 @@ export function makeDeviceBezelPng(kind: BezelKind = 'valid'): Buffer {
 
 export const corruptPng = () => Buffer.from('not a png')
 
+export function makeSolidPng(
+  width: number,
+  height: number,
+  color: readonly [number, number, number, number],
+): Buffer {
+  const data = new Uint8Array(width * height * 4)
+  for (let offset = 0; offset < data.length; offset += 4) data.set(color, offset)
+  return Buffer.from(encode({ width, height, data, channels: 4, depth: 8 }))
+}
+
 export function asBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64')
 }
