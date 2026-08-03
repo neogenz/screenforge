@@ -21,6 +21,10 @@ export interface DebugObject {
   data?: {
     uid?: string
     layerId?: string
+    screenId?: string
+    screenIndex?: number
+    clipScreenIndex?: number
+    layout?: boolean
     rendererType?: string
     resourceKey?: string
   }
@@ -41,7 +45,15 @@ declare global {
     __sfCanvas?: Canvas
     __sfStores?: {
       useHistoryStore: { getState: () => { past: string[]; future: string[] } }
-      useCanvasStore: { getState: () => { layers: { x: number }[] } }
+      useCanvasStore: { getState: () => {
+        layers: { id: string; x: number; y: number }[]
+        selectedLayerIds: string[]
+        activeScreenId: string
+      } }
+      useProjectStore: { getState: () => { project: {
+        screens: { id: string; layers: { id: string; x: number; y: number }[] }[]
+        activeScreenId: string
+      } | null } }
     }
   }
 }
@@ -180,6 +192,28 @@ export async function activeCenter(page: Page): Promise<{ x: number; y: number }
     }
   })
   if (!pos) throw new Error('No active object')
+  return pos
+}
+
+/** Page-pixel center of an artboard, ordered from left to right. */
+export async function screenCenter(page: Page, index: number): Promise<{ x: number; y: number }> {
+  const pos = await page.evaluate((screenIndex) => {
+    const canvas = window.__sfCanvas
+    if (!canvas) return null
+    const backgrounds = (canvas.getObjects() as DebugObject[])
+      .filter((object) => object.data?.rendererType === 'background')
+      .sort((left, right) => (left.left ?? 0) - (right.left ?? 0))
+    const background = backgrounds[screenIndex]
+    if (!background?.getCenterPoint) return null
+    const rect = canvas.upperCanvasEl.getBoundingClientRect()
+    const viewport = canvas.viewportTransform
+    const center = background.getCenterPoint()
+    return {
+      x: rect.left + center.x * viewport[0] + viewport[4],
+      y: rect.top + center.y * viewport[3] + viewport[5],
+    }
+  }, index)
+  if (!pos) throw new Error(`Screen ${index} not found`)
   return pos
 }
 

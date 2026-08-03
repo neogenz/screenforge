@@ -121,6 +121,15 @@ function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] {
   return targets
 }
 
+function screenIndexAtPoint(screens: Screen[], point: { x: number; y: number }): number | null {
+  if (point.y < 0 || point.y > SCREEN_HEIGHT) return null
+  const index = screens.findIndex((_, screenIndex) => {
+    const left = getScreenOffset(screenIndex)
+    return point.x >= left && point.x <= left + SCREEN_WIDTH
+  })
+  return index === -1 ? null : index
+}
+
 function drawGuides(canvas: Canvas, guides: Guide[]): void {
   const ctx = canvas.contextTop
   const retina = canvas.getRetinaScaling()
@@ -888,6 +897,8 @@ export function useCanvas() {
       dbg.__sfFabric = { Rect, ActiveSelection, Point, util }
     }
 
+    const dragSourceScreenIndexes = new Map<RenderedObject, number>()
+
     canvas.on('object:modified', (event) => {
       if (syncing.current || !event.target) return
       const target = event.target
@@ -902,15 +913,15 @@ export function useCanvas() {
         Number(a.data?.screenId === project.activeScreenId)
         - Number(b.data?.screenId === project.activeScreenId))
 
-      const affectedScreenIds = new Set(objects.flatMap((object) =>
-        object.data?.screenId ? [object.data.screenId] : [],
-      ))
-      const changesProjectLayout = objects.some((object) => object.data?.layout)
-        || affectedScreenIds.size > 1
-      if (changesProjectLayout) useCanvasStore.getState().recordProjectHistory()
-      else useCanvasStore.getState().recordHistory()
-
-      const updates = new Map<string, Map<string, Partial<Layer>>>()
+      const dropScreenIndex = event.action === 'drag'
+        ? screenIndexAtPoint(project.screens, target.getCenterPoint())
+        : null
+      const localUpdates: {
+        layer: Layer
+        sourceScreenId: string
+        targetScreenId: string
+        update: Partial<Layer>
+      }[] = []
       const layoutUpdates = new Map<string, Partial<Layer>>()
       for (const object of objects) {
         const layerId = object.data?.layerId ?? object.data?.uid
@@ -928,14 +939,38 @@ export function useCanvas() {
           )
           continue
         }
-        const screenUpdates = updates.get(screenId) ?? new Map<string, Partial<Layer>>()
-        screenUpdates.set(
-          layerId,
-          fabricObjectToLayerUpdate(object, getScreenOffset(screenIndex)) as Partial<Layer>,
-        )
-        updates.set(screenId, screenUpdates)
+        const sourceScreenIndex = dragSourceScreenIndexes.get(object) ?? screenIndex
+        const targetScreenIndex = dropScreenIndex ?? sourceScreenIndex
+        const targetScreen = project.screens[targetScreenIndex]
+        const layer = project.screens[screenIndex].layers.find((candidate) => candidate.id === layerId)
+        if (!targetScreen || !layer) continue
+        if (dropScreenIndex === null && object.data?.screenIndex !== sourceScreenIndex) {
+          object.set('data', { ...object.data, screenIndex: sourceScreenIndex })
+          ensureScreenClipPath(object, sourceScreenIndex)
+        }
+        localUpdates.push({
+          layer,
+          sourceScreenId: screenId,
+          targetScreenId: targetScreen.id,
+          update: fabricObjectToLayerUpdate(
+            object,
+            getScreenOffset(targetScreenIndex),
+          ) as Partial<Layer>,
+        })
       }
-      if (updates.size === 0 && layoutUpdates.size === 0) return
+      if (localUpdates.length === 0 && layoutUpdates.size === 0) return
+
+      const transfer = localUpdates.find((change) =>
+        change.sourceScreenId !== change.targetScreenId)
+      const affectedScreenIds = new Set(localUpdates.flatMap((change) => [
+        change.sourceScreenId,
+        change.targetScreenId,
+      ]))
+      const changesProjectLayout = layoutUpdates.size > 0
+        || Boolean(transfer)
+        || affectedScreenIds.size > 1
+      if (changesProjectLayout) useCanvasStore.getState().recordProjectHistory()
+      else useCanvasStore.getState().recordHistory()
 
       if (target instanceof ActiveSelection) {
         // The discard fires selection:cleared synchronously — the store must
@@ -946,30 +981,79 @@ export function useCanvas() {
           ignoreSelectionCleared.current = false
         })
       }
-      const screens = project.screens.map((screen) => {
-        const screenUpdates = updates.get(screen.id)
-        if (!screenUpdates) return screen
-        return {
-          ...screen,
-          layers: screen.layers.map((layer) => ({
-            ...layer,
-            ...screenUpdates.get(layer.id),
-          }) as Layer),
+
+      const changesBySource = new Map<string, Map<string, typeof localUpdates[number]>>()
+      const additionsByTarget = new Map<string, typeof localUpdates>()
+      for (const change of localUpdates) {
+        const sourceChanges = changesBySource.get(change.sourceScreenId) ?? new Map()
+        sourceChanges.set(change.layer.id, change)
+        changesBySource.set(change.sourceScreenId, sourceChanges)
+        if (change.sourceScreenId !== change.targetScreenId) {
+          const additions = additionsByTarget.get(change.targetScreenId) ?? []
+          additions.push(change)
+          additionsByTarget.set(change.targetScreenId, additions)
         }
+      }
+
+      const screens = project.screens.map((screen) => {
+        const sourceChanges = changesBySource.get(screen.id)
+        const layers = sourceChanges
+          ? screen.layers.flatMap((layer) => {
+              const change = sourceChanges.get(layer.id)
+              if (!change) return [layer]
+              return change.targetScreenId === screen.id
+                ? [{ ...layer, ...change.update } as Layer]
+                : []
+            })
+          : screen.layers
+        const additions = additionsByTarget.get(screen.id)
+        if (!additions?.length) {
+          return layers === screen.layers ? screen : { ...screen, layers }
+        }
+        const topZIndex = Math.max(
+          -1,
+          ...layers.map((layer) => layer.zIndex),
+          ...project.layoutLayers.map((layer) => layer.zIndex),
+        )
+        const moved = additions
+          .sort((left, right) => left.layer.zIndex - right.layer.zIndex)
+          .map((change, index) => ({
+            ...change.layer,
+            ...change.update,
+            zIndex: topZIndex + index + 1,
+          }) as Layer)
+        return { ...screen, layers: [...layers, ...moved] }
       })
+      const destinationScreenId = transfer?.targetScreenId
       useProjectStore.setState({
         project: {
           ...project,
+          activeScreenId: destinationScreenId ?? project.activeScreenId,
           screens,
-          layoutLayers: project.layoutLayers.map((layer) => ({
-            ...layer,
-            ...layoutUpdates.get(layer.id),
-            scope: 'layout',
-          }) as Layer),
+          layoutLayers: layoutUpdates.size > 0
+            ? project.layoutLayers.map((layer) => {
+                const update = layoutUpdates.get(layer.id)
+                return update ? { ...layer, ...update, scope: 'layout' } as Layer : layer
+              })
+            : project.layoutLayers,
           updatedAt: Math.max(Date.now(), project.updatedAt + 1),
         },
       })
-      useCanvasStore.getState().syncLayersFromProject()
+      const canvasStore = useCanvasStore.getState()
+      if (destinationScreenId) {
+        const selectedIds = [...new Set(objects.flatMap((object) => {
+          const id = object.data?.layerId ?? object.data?.uid
+          return id ? [id] : []
+        }))]
+        if (destinationScreenId !== canvasStore.activeScreenId) {
+          selectionFromCanvas.current = true
+        }
+        canvasStore.setActiveScreenId(destinationScreenId)
+        useCanvasStore.getState().selectLayers(selectedIds)
+      } else {
+        canvasStore.syncLayersFromProject()
+      }
+      dragSourceScreenIndexes.clear()
     })
 
     /**
@@ -1078,6 +1162,30 @@ export function useCanvas() {
       const target = event.target as RenderedObject | undefined
       if (!target) return
 
+      const members = target instanceof ActiveSelection
+        ? target.getObjects() as RenderedObject[]
+        : [target]
+      const localMembers = members.filter((object) => !object.data?.layout)
+      for (const object of localMembers) {
+        const sourceIndex = object.data?.screenIndex
+        if (sourceIndex !== undefined && !dragSourceScreenIndexes.has(object)) {
+          dragSourceScreenIndexes.set(object, sourceIndex)
+        }
+      }
+      const targetScreenIndex = screenIndexAtPoint(
+        useProjectStore.getState().project?.screens ?? [],
+        target.getCenterPoint(),
+      )
+      if (targetScreenIndex !== null && localMembers.some(
+        (object) => object.data?.screenIndex !== targetScreenIndex,
+      )) {
+        for (const object of localMembers) {
+          object.set('data', { ...object.data, screenIndex: targetScreenIndex })
+          ensureScreenClipPath(object, targetScreenIndex)
+        }
+        snapTargets = null
+      }
+
       const pointerEvent = event.e as MouseEvent | TouchEvent
       // ⌘ ou Ctrl maintenu : positionnement libre, comme dans tout éditeur.
       const freehand = 'metaKey' in pointerEvent && (pointerEvent.metaKey || pointerEvent.ctrlKey)
@@ -1110,6 +1218,7 @@ export function useCanvas() {
     })
     canvas.on('mouse:up', () => {
       mirrorLast.clear()
+      dragSourceScreenIndexes.clear()
       guides = []
       snapTargets = null
       interacting.current = false
