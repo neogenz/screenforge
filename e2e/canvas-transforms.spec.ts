@@ -322,8 +322,12 @@ test.describe('canvas transforms', () => {
           ownerScreenId: owner?.id,
           selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
           storedX: layer?.x,
+          storedY: layer?.y,
           renderedX: object && background
             ? object.getBoundingRect().left - background.getBoundingRect().left
+            : undefined,
+          renderedY: object && background
+            ? object.getBoundingRect().top - background.getBoundingRect().top
             : undefined,
           viewport: [...(canvas?.viewportTransform ?? [])],
           zoom: canvas?.getZoom() ?? -1,
@@ -333,6 +337,7 @@ test.describe('canvas transforms', () => {
       expect(state.activeScreenId).toBe(state.ownerScreenId)
       expect(state.selectedIds).toEqual([layerId])
       expectClose(state.renderedX!, state.storedX!, 1)
+      expectClose(state.renderedY!, state.storedY!, 1)
       expectClose(state.zoom, viewport.zoom, 0.0001)
       expect(state.viewport).toHaveLength(viewport.transform.length)
       state.viewport.forEach((value, index) =>
