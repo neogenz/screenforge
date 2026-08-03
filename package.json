@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
+    "test:unit": "vitest run src",
     "validate:export": "node scripts/validate-export.mjs",
     "test:e2e": "playwright test",
     "audit:contrast": "node scripts/contrast-audit.mjs",
@@ -43,10 +44,12 @@
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "eslint-plugin-react-refresh": "^0.5.0",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.0.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.1.10"
   }
 }

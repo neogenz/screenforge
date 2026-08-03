@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { nextTimestamp } from '@/lib/time'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
@@ -52,10 +53,6 @@ interface CanvasState {
   applyTemplate: (template: TemplateDefinition, mode: 'current' | 'new') => string | null
   undo: () => void
   redo: () => void
-}
-
-function cloneValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function withoutThumbnail(screen: Screen): Screen {
@@ -223,12 +220,12 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         screens: project.screens.map((screen) => screen.id === snapshot.screenId
           ? {
               ...screen,
-              layers: cloneValue(snapshot.layers),
-              background: cloneValue(snapshot.background),
+              layers: structuredClone(snapshot.layers),
+              background: structuredClone(snapshot.background),
               thumbnail: undefined,
             }
           : screen),
-        updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+        updatedAt: nextTimestamp(project.updatedAt),
       },
     })
     set({
@@ -240,7 +237,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
 
   function persistProject(snapshot: ProjectHistorySnapshot) {
     const current = useProjectStore.getState().project
-    const restored = cloneValue(snapshot.project)
+    const restored = structuredClone(snapshot.project)
     const activeScreenId = restored.screens.some((screen) => screen.id === restored.activeScreenId)
       ? restored.activeScreenId
       : restored.screens[0]?.id ?? ''
@@ -248,7 +245,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       project: {
         ...restored,
         activeScreenId,
-        updatedAt: Math.max(Date.now(), (current?.updatedAt ?? 0) + 1),
+        updatedAt: nextTimestamp(current?.updatedAt ?? 0),
       },
     })
     set({
@@ -398,7 +395,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         useProjectStore.getState().saveLayoutLayers([
           ...project.layoutLayers,
           {
-            ...cloneValue(source),
+            ...structuredClone(source),
             id: crypto.randomUUID(),
             name: `${source.name} copie`,
             x: source.x + 16,
@@ -430,7 +427,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       if ((scope === 'layout' && !screenLayer) || (scope === 'screen' && !layoutLayer)) return
 
       recordProject()
-      const moved = cloneValue((screenLayer ?? layoutLayer) as Layer)
+      const moved = structuredClone((screenLayer ?? layoutLayer) as Layer)
       const screens = project.screens.map((candidate) => candidate.id === screenId
         ? {
             ...candidate,
@@ -463,7 +460,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           ...project,
           screens,
           layoutLayers,
-          updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+          updatedAt: nextTimestamp(project.updatedAt),
         },
       })
       set({ layers: syncFromProject(screenId), selectedLayerIds: [id] })
@@ -482,7 +479,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
             ? { ...candidate, layers: layers.filter((layer) => layer.scope !== 'layout') }
             : candidate),
           layoutLayers: layers.filter((layer) => layer.scope === 'layout'),
-          updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+          updatedAt: nextTimestamp(project.updatedAt),
         },
       })
       set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screen.id) }))
@@ -514,7 +511,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           project: {
             ...project,
             activeScreenId: validId,
-            updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+            updatedAt: nextTimestamp(project.updatedAt),
           },
         })
       }
@@ -544,7 +541,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       const project = useProjectStore.getState().project
       if (!project) return null
       const layers = template.layers.map((layer, index) => ({
-        ...cloneValue(layer),
+        ...structuredClone(layer),
         id: crypto.randomUUID(),
         zIndex: index,
       })) as Layer[]

@@ -29,6 +29,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { stageInsets } from '@/lib/stage'
+import { nextTimestamp } from '@/lib/time'
 import { computeSnap } from '@/lib/snapping'
 import type { Box, Guide } from '@/lib/snapping'
 import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
@@ -992,7 +993,7 @@ export function useCanvas() {
           activeScreenId: destinationScreenId ?? project.activeScreenId,
           screens: next.screens,
           layoutLayers: next.layoutLayers,
-          updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+          updatedAt: nextTimestamp(project.updatedAt),
         },
       })
       const canvasStore = useCanvasStore.getState()

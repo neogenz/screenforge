@@ -51,10 +51,6 @@ function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
   return dbPromise
 }
 
-function cloneValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
 function uniqueId(candidate: unknown, seen: Set<string>): string {
   const id = typeof candidate === 'string' && candidate && !seen.has(candidate)
     ? candidate
@@ -102,7 +98,7 @@ function normalizeLayer(
   scope?: 'layout',
 ): Layer | null {
   if (!value || typeof value !== 'object') return null
-  const candidate = cloneValue(value) as Partial<Layer> & {
+  const candidate = structuredClone(value) as Partial<Layer> & {
     src?: string
     screenshotUrl?: string
   }
@@ -148,11 +144,11 @@ function normalizeGlobals(value: unknown): GlobalSettings {
     ? value as Partial<GlobalSettings>
     : {}
   return {
-    ...cloneValue(DEFAULT_GLOBALS),
-    ...cloneValue(candidate),
+    ...structuredClone(DEFAULT_GLOBALS),
+    ...structuredClone(candidate),
     background: candidate.background
-      ? cloneValue(candidate.background)
-      : cloneValue(DEFAULT_GLOBALS.background),
+      ? structuredClone(candidate.background)
+      : structuredClone(DEFAULT_GLOBALS.background),
   }
 }
 
@@ -183,8 +179,8 @@ export function normalizeProject(value: unknown): Project {
         : `Écran ${screenIndex + 1}`,
       layers,
       background: screen.background
-        ? cloneValue(screen.background)
-        : cloneValue(globals.background),
+        ? structuredClone(screen.background)
+        : structuredClone(globals.background),
       ...(typeof screen.thumbnail === 'string' ? { thumbnail: screen.thumbnail } : {}),
     }]
   })
@@ -277,7 +273,7 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 function remapLayerAssets(layer: Layer, ids: ReadonlyMap<string, string>): Layer {
-  const copy = cloneValue(layer)
+  const copy = structuredClone(layer)
   if (copy.type === 'image') copy.assetId = ids.get(copy.assetId) ?? copy.assetId
   if (copy.type === 'device-frame') {
     if (copy.screenshotAssetId) {
@@ -299,12 +295,12 @@ function importedProject(decoded: DecodedProjectFile): {
   const idMap = new Map(decoded.assets.map((asset) => [asset.id, crypto.randomUUID()]))
   const now = Date.now()
   const project = normalizeProject({
-    ...cloneValue(decoded.project),
+    ...structuredClone(decoded.project),
     id: projectId,
     createdAt: now,
     updatedAt: now,
     screens: decoded.project.screens.map((screen) => ({
-      ...cloneValue(screen),
+      ...structuredClone(screen),
       thumbnail: undefined,
       layers: screen.layers.map((layer) => remapLayerAssets(layer, idMap)),
     })),

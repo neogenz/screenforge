@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/hooks/use-fonts'
 import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
 
@@ -20,16 +21,12 @@ export const DEFAULT_GLOBALS: GlobalSettings = {
   deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
 }
 
-function cloneValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
-}
-
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {
   return {
     id: crypto.randomUUID(),
     name,
     layers: [],
-    background: cloneValue(globals.background),
+    background: structuredClone(globals.background),
   }
 }
 
@@ -37,7 +34,7 @@ function withTimestamp(project: Project, updates: Partial<Project>): Project {
   return {
     ...project,
     ...updates,
-    updatedAt: Math.max(Date.now(), project.updatedAt + 1),
+    updatedAt: nextTimestamp(project.updatedAt),
   }
 }
 
@@ -69,7 +66,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   createProject: (name) => {
     const now = Date.now()
-    const globals = cloneValue(DEFAULT_GLOBALS)
+    const globals = structuredClone(DEFAULT_GLOBALS)
     const screen = createDefaultScreen('Écran 1', globals)
     set({
       project: {
@@ -112,8 +109,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       ? {
           id: crypto.randomUUID(),
           name: content.name,
-          layers: cloneValue(content.layers),
-          background: cloneValue(content.background),
+          layers: structuredClone(content.layers),
+          background: structuredClone(content.background),
         }
       : createDefaultScreen(`Écran ${project.screens.length + 1}`, project.globals)
     set({
@@ -146,11 +143,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       if (sourceIndex === -1) return null
       const source = project.screens[sourceIndex]
       const duplicate: Screen = {
-        ...cloneValue(source),
+        ...structuredClone(source),
         id: crypto.randomUUID(),
         name: `${source.name} copie`,
         layers: source.layers.map((layer) => ({
-          ...cloneValue(layer),
+          ...structuredClone(layer),
           id: crypto.randomUUID(),
         })),
         thumbnail: undefined,
@@ -185,7 +182,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     set((state) => state.project
       ? {
           project: withTimestamp(state.project, {
-            globals: { ...state.project.globals, ...cloneValue(globals) },
+            globals: { ...state.project.globals, ...structuredClone(globals) },
           }),
         }
       : state),
@@ -195,7 +192,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       ? {
           project: withTimestamp(state.project, {
             screens: state.project.screens.map((screen) => screen.id === screenId
-              ? { ...screen, background: cloneValue(background) }
+              ? { ...screen, background: structuredClone(background) }
               : screen),
           }),
         }
@@ -282,7 +279,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         const layer = screen.layers.find((candidate) => candidate.id === layerId)
         if (!layer) return screen
         const duplicate: Layer = {
-          ...cloneValue(layer),
+          ...structuredClone(layer),
           id: crypto.randomUUID(),
           name: `${layer.name} copie`,
           x: layer.x + 16,
@@ -305,8 +302,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           screens: state.project.screens.map((screen) => screen.id === screenId
             ? {
                 ...screen,
-                background: cloneValue(background),
-                layers: cloneValue(layers),
+                background: structuredClone(background),
+                layers: structuredClone(layers),
                 thumbnail: undefined,
               }
             : screen),
