@@ -44,6 +44,7 @@ export interface DebugObject {
 declare global {
   interface Window {
     __sfCanvas?: Canvas
+    __sfCrash?: () => void
     __sfStores?: {
       useHistoryStore: { getState: () => { past: string[]; future: string[] } }
       useCanvasStore: { getState: () => {
@@ -52,6 +53,7 @@ declare global {
         activeScreenId: string
       } }
       useProjectStore: { getState: () => { project: {
+        id: string
         screens: { id: string; layers: Array<{
           id: string
           x: number
