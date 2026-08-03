@@ -1,6 +1,6 @@
 ---
 objective: "Les calques locaux peuvent être transférés par glisser-déposer entre écrans et être coupés, copiés puis collés au clavier sur macOS et Windows."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Transfert de calques entre écrans et presse-papiers clavier
