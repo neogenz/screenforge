@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge peut télécharger un projet complet dans une archive portable puis l’ouvrir dans un autre navigateur sans perdre ses écrans, réglages ou assets."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Projet ScreenForge portable
