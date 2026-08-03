@@ -19,6 +19,27 @@ interface PortableFixture {
   }
 }
 
+const OVERSIZED_ASSET_BYTES = 64 * 1024 * 1024 + 1
+
+function withCentralUncompressedSize(
+  source: Uint8Array,
+  entryName: string,
+  size: number,
+): Uint8Array {
+  const bytes = Uint8Array.from(source)
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const decoder = new TextDecoder()
+  for (let offset = 0; offset <= bytes.byteLength - 46; offset += 1) {
+    if (view.getUint32(offset, true) !== 0x02014b50) continue
+    const nameLength = view.getUint16(offset + 28, true)
+    const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLength))
+    if (name !== entryName) continue
+    view.setUint32(offset + 24, size, true)
+    return bytes
+  }
+  throw new Error(`ZIP entry not found: ${entryName}`)
+}
+
 async function portableFixture(page: Page): Promise<PortableFixture> {
   return page.evaluate(async () => {
     const { clearAssets, registerAsset } = await import('/src/lib/assets.ts')
@@ -181,16 +202,39 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     assets: Array<{ path: string }>
   }
   missing.remove(missingManifest.assets[0].path)
+  const unknownDirectory = await JSZip.loadAsync(source)
+  unknownDirectory.folder('unexpected')
+  const nullLayer = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: unknown[] }> }
+    project.screens[0].layers[0] = null
+  })
+  const invalidGeometry = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
+    project.screens[0].layers[0].width = 0
+  })
+  const oversizedCentralEntry = withCentralUncompressedSize(
+    source,
+    missingManifest.assets[0].path,
+    OVERSIZED_ASSET_BYTES,
+  )
 
   expect(await Promise.all([
     readArchive(page, unsupported),
     readArchive(page, await missing.generateAsync({ type: 'uint8array' })),
     readArchive(page, corruptHash),
     readArchive(page, declaredOversize),
+    readArchive(page, await unknownDirectory.generateAsync({ type: 'uint8array' })),
+    readArchive(page, nullLayer),
+    readArchive(page, invalidGeometry),
+    readArchive(page, oversizedCentralEntry),
   ])).toEqual([
     'unsupported-version',
     'missing-asset',
     'corrupt-asset',
+    'asset-too-large',
+    'unsafe-entry',
+    'invalid-manifest',
+    'invalid-manifest',
     'asset-too-large',
   ])
 })
@@ -298,13 +342,26 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   const afterReload = await page.evaluate(async () => {
     const { resolveAsset } = await import('/src/lib/assets.ts')
     const project = window.__sfStores?.useProjectStore.getState().project
+    const layers = project
+      ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
+      : []
     const device = project?.screens[0].layers.find((layer) => layer.type === 'device-frame')
     if (!device || device.type !== 'device-frame') return null
+    const assetIds = layers.flatMap((layer) => {
+      if (layer.type === 'image') return [layer.assetId]
+      if (layer.type !== 'device-frame') return []
+      return [layer.screenshotAssetId, layer.importedBezel?.assetId].filter(Boolean) as string[]
+    })
     return {
       projectId: project?.id,
+      projectName: project?.name,
       screenCount: project?.screens.length,
-      assetsResolved: Boolean(resolveAsset(device.screenshotAssetId)
-        && resolveAsset(device.importedBezel?.assetId)),
+      screens: project?.screens.map((screen) => ({
+        name: screen.name,
+        layerTypes: screen.layers.map((layer) => layer.type).sort(),
+      })),
+      assetCount: new Set(assetIds).size,
+      assetsResolved: assetIds.every((id) => Boolean(resolveAsset(id))),
       device: {
         x: device.x,
         y: device.y,
@@ -315,14 +372,22 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   })
   expect(afterReload).toMatchObject({
     projectId: imported.projectId,
+    projectName: 'Backup démo',
     screenCount: 2,
+    screens: [
+      { name: 'Écran 1', layerTypes: ['device-frame', 'image', 'text'] },
+      { name: 'Écran 2', layerTypes: [] },
+    ],
+    assetCount: 3,
     assetsResolved: true,
   })
 
   const { png } = await downloadFirstExportedPng(page)
   const decoded = decode(png)
   expect(decoded).toMatchObject({ width: 1320, height: 2868, depth: 8, channels: 3 })
-  const state = afterReload!.device
+  expect(afterReload).not.toBeNull()
+  if (!afterReload) throw new Error('Imported project missing after reload')
+  const state = afterReload.device
   const x = Math.floor((state.x + state.width * (9.5 / MOCK_BEZEL.width)) * 3)
   const y = Math.floor((state.y + state.height * (14.5 / MOCK_BEZEL.height)) * 3)
   const offset = (y * decoded.width + x) * decoded.channels
