@@ -15,7 +15,7 @@ const SHORTCUT_GROUPS: { title: string; entries: { keys: string; label: string }
   {
     title: 'Calques',
     entries: [
-      { keys: '⌘C / ⌘V', label: 'Copier / coller' },
+      { keys: '⌘C / ⌘X / ⌘V', label: 'Copier / couper / coller' },
       { keys: '⌘D', label: 'Dupliquer' },
       { keys: '⌫', label: 'Supprimer' },
       { keys: '←→↑↓', label: 'Déplacer (⇧ = ×10)' },

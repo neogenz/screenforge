@@ -6,6 +6,11 @@ import type { Layer } from '@/types'
 
 let clipboard: Layer[] = []
 
+function copySelectedLayers(layers: Layer[], selectedLayerIds: string[]): Layer[] {
+  const selected = new Set(selectedLayerIds)
+  return layers.filter((layer) => selected.has(layer.id)).map((layer) => structuredClone(layer))
+}
+
 function isEditingInput(): boolean {
   const el = document.activeElement
   if (!el) return false
@@ -100,9 +105,17 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'c') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        clipboard = layers
-          .filter((l) => selectedLayerIds.includes(l.id))
-          .map((l) => ({ ...l }))
+        clipboard = copySelectedLayers(layers, selectedLayerIds)
+        return
+      }
+
+      // Cut
+      if (meta && !shift && key === 'x') {
+        if (selectedLayerIds.length === 0) return
+        e.preventDefault()
+        clipboard = copySelectedLayers(layers, selectedLayerIds)
+        setLayers(layers.filter((layer) => !selectedLayerIds.includes(layer.id)))
+        clearSelection()
         return
       }
 
