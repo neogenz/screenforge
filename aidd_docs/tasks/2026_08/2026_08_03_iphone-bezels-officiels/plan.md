@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge permet d’importer localement un PNG de bezel iPhone officiel Apple, d’y composer une capture et d’exporter une planche App Store exacte, sans redistribuer l’asset Apple."
-status: implemented
+status: reviewed
 ---
 
 # Plan: Bezels iPhone officiels importés localement
