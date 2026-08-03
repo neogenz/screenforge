@@ -2,29 +2,41 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActiveSelection,
   Canvas,
-  FabricObject,
   Point,
   Rect,
-  Shadow,
   Textbox,
   util,
 } from 'fabric'
 import {
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
-  applyLayerToFabricObject,
   applySelectionStyle,
-  backgroundToFabricFill,
-  clipContentToScreen,
-  clipControlsToScreen,
   disposeFabricObjectResource,
   fabricObjectToLayerUpdate,
   getScreenOffset,
   getTotalWidth,
-  layerToFabricObject,
-  needsFabricObjectRecreation,
   type RenderedObject,
 } from '@/components/canvas/canvas-utils'
+import {
+  SNAP_DISTANCE_PX,
+  applyLassoColors,
+  boxOf,
+  collectSnapTargets,
+  drawGuides,
+  readChromeColors,
+  readSelectionFrame,
+  resolveSelectionObjects,
+  sameFrame,
+  sameIds,
+  screenIndexAtPoint,
+  type SelectionFrame,
+} from '@/components/canvas/canvas-interactions'
+import {
+  ensureScreenClipPath,
+  patchCanvas,
+  syncCanvas,
+  type CanvasSyncRuntime,
+} from '@/components/canvas/canvas-sync'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -32,353 +44,13 @@ import { stageInsets } from '@/lib/stage'
 import { nextTimestamp } from '@/lib/time'
 import { computeSnap } from '@/lib/snapping'
 import type { Box, Guide } from '@/lib/snapping'
-import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
+import { diffProjectChange } from '@/lib/canvas/project-diff'
 import { applyLayerTransfer } from '@/lib/layer-transfer'
 import type { LayoutLayerUpdate, LocalLayerTransfer } from '@/lib/layer-transfer'
-import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
-
-interface ChromeColors {
-  label: string
-  artboardRing: string
-  activeRing: string
-  selection: string
-  selectionSoft: string
-}
-
-function readChromeColors(): ChromeColors {
-  const styles = getComputedStyle(document.documentElement)
-  const read = (token: string, fallback: string) =>
-    styles.getPropertyValue(token).trim() || fallback
-  return {
-    // Le libellé d'écran est posé sur le stage : `faint` y est trop faible.
-    label: read('--color-foreground-muted', '#b8b8b8'),
-    artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
-    activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
-    selection: read('--color-selection', '#f7f7f7'),
-    selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
-  }
-}
-
-/**
- * Le lasso, lui, suit le thème : il est tracé sur le stage bien plus souvent
- * que sur un artboard. Le cadre des objets, à l'inverse, est toujours posé sur
- * le contenu de l'utilisateur — ses couleurs sont figées dans `canvas-utils`.
- */
-function applyLassoColors(canvas: Canvas, chrome: ChromeColors): void {
-  canvas.selectionColor = chrome.selectionSoft
-  canvas.selectionBorderColor = chrome.selection
-  canvas.selectionLineWidth = 1
-}
-
-/** Distance d'accroche, en pixels d'écran : c'est ce que l'œil juge, pas les unités canvas. */
-const SNAP_DISTANCE_PX = 6
-
-/**
- * Les repères sont tracés sur le contenu de l'utilisateur, jamais sur le
- * chrome : leur couleur ne suit donc pas le thème. Un magenta saturé — la
- * convention de tous les éditeurs de maquette — reste lisible sur à peu près
- * n'importe quel artboard et n'existe nulle part ailleurs dans l'interface.
- */
-const GUIDE_COLOR = '#ff2d6f'
-
-/**
- * `getBoundingRect` lit `aCoords`, que Fabric ne rafraîchit qu'à la fin d'une
- * action de transformation — donc après avoir émis `object:moving`. Sans ce
- * `setCoords`, l'accroche raisonnait sur la position d'avant le mouvement et
- * ne se déclenchait jamais.
- */
-function boxOf(object: FabricObject): Box {
-  object.setCoords()
-  const { left, top, width, height } = object.getBoundingRect()
-  return { left, top, width, height }
-}
-
-/**
- * Ce sur quoi le calque en cours de déplacement peut s'accrocher : les bords et
- * le centre de son artboard, puis ceux des autres calques de la même planche.
- * L'artboard vient en tête — à égalité de distance, ses repères l'emportent.
- *
- * Calculé une fois par geste : le recalculer à chaque frame ferait un
- * `getBoundingRect` par objet et par mouvement de souris.
- */
-function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] {
-  const members = new Set<FabricObject>(
-    moving instanceof ActiveSelection ? moving.getObjects() : [moving],
-  )
-  const screenIndex = [...members]
-    .map((member) => (member as RenderedObject).data?.screenIndex)
-    .find((index) => index !== undefined) ?? 0
-
-  const targets: Box[] = [
-    { left: getScreenOffset(screenIndex), top: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
-  ]
-  for (const object of canvas.getObjects() as RenderedObject[]) {
-    if (members.has(object) || object.data?.screenIndex !== screenIndex) continue
-    if (object.data?.rendererType === 'background' || object.data?.rendererType === 'label') continue
-    if (!object.visible) continue
-    targets.push(boxOf(object))
-  }
-  return targets
-}
-
-function screenIndexAtPoint(screens: Screen[], point: { x: number; y: number }): number | null {
-  if (point.y < 0 || point.y > SCREEN_HEIGHT) return null
-  const index = screens.findIndex((_, screenIndex) => {
-    const left = getScreenOffset(screenIndex)
-    return point.x >= left && point.x <= left + SCREEN_WIDTH
-  })
-  return index === -1 ? null : index
-}
-
-function drawGuides(canvas: Canvas, guides: Guide[]): void {
-  const ctx = canvas.contextTop
-  const retina = canvas.getRetinaScaling()
-  const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform
-  ctx.save()
-  ctx.setTransform(retina, 0, 0, retina, 0, 0)
-  ctx.strokeStyle = GUIDE_COLOR
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  for (const guide of guides) {
-    // Le demi-pixel place le trait sur la grille : sans lui un hairline se
-    // dédouble sur deux colonnes et paraît flou.
-    if (guide.axis === 'x') {
-      const x = Math.round(guide.position * zoomX + panX) + 0.5
-      ctx.moveTo(x, guide.from * zoomY + panY)
-      ctx.lineTo(x, guide.to * zoomY + panY)
-    } else {
-      const y = Math.round(guide.position * zoomY + panY) + 0.5
-      ctx.moveTo(guide.from * zoomX + panX, y)
-      ctx.lineTo(guide.to * zoomX + panX, y)
-    }
-  }
-  ctx.stroke()
-  ctx.restore()
-  // Fabric efface `contextTop` au rendu suivant quand ce drapeau est levé :
-  // c'est ce qui nettoie les repères de la frame précédente.
-  canvas.contextTopDirty = true
-}
-
-/** Boîte de la sélection en pixels du conteneur, pour poser la barre contextuelle. */
-export interface SelectionFrame {
-  left: number
-  top: number
-  width: number
-  height: number
-  /** Le canvas occupe tout le conteneur : ses dimensions bornent la barre. */
-  stageWidth: number
-  stageHeight: number
-}
-
-function readSelectionFrame(canvas: Canvas): SelectionFrame | null {
-  const active = canvas.getActiveObject() as RenderedObject | null
-  if (!active) return null
-  active.setCoords()
-  const bounds = active.getBoundingRect()
-  let left = bounds.left
-  let right = bounds.left + bounds.width
-  // L'instance d'un calque partagé déborde de sa planche : la barre doit se
-  // poser sous la tranche que l'utilisateur voit, pas au milieu d'une gouttière.
-  const screenIndex = active.data?.screenIndex
-  if (screenIndex !== undefined) {
-    left = Math.max(left, getScreenOffset(screenIndex))
-    right = Math.min(right, getScreenOffset(screenIndex) + SCREEN_WIDTH)
-  }
-  if (right <= left) return null
-  const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform
-  return {
-    left: left * zoomX + panX,
-    top: bounds.top * zoomY + panY,
-    width: (right - left) * zoomX,
-    height: bounds.height * zoomY,
-    stageWidth: canvas.getWidth(),
-    stageHeight: canvas.getHeight(),
-  }
-}
-
-function sameFrame(left: SelectionFrame | null, right: SelectionFrame | null): boolean {
-  if (left === right) return true
-  if (!left || !right) return false
-  return Math.round(left.left) === Math.round(right.left)
-    && Math.round(left.top) === Math.round(right.top)
-    && Math.round(left.width) === Math.round(right.width)
-    && Math.round(left.height) === Math.round(right.height)
-    && left.stageWidth === right.stageWidth
-    && left.stageHeight === right.stageHeight
-}
-
-/** En deçà, la tranche visible est un liseré : rien qu'on puisse viser. */
-const MIN_GRABBABLE = 8
-
-/**
- * La tranche de ce calque tombe-t-elle dans la fenêtre de sa planche ? Un
- * panorama n'est visible que sur les planches qu'il traverse ; ailleurs son
- * instance est entièrement écrêtée et ne doit pas se laisser attraper.
- */
-function intersectsScreen(object: RenderedObject, screenIndex: number): boolean {
-  const bounds = object.getBoundingRect()
-  const windowLeft = getScreenOffset(screenIndex)
-  const overlapX = Math.min(bounds.left + bounds.width, windowLeft + SCREEN_WIDTH)
-    - Math.max(bounds.left, windowLeft)
-  const overlapY = Math.min(bounds.top + bounds.height, SCREEN_HEIGHT) - Math.max(bounds.top, 0)
-  return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
-}
-
-/**
- * Rattache un objet à la fenêtre de sa planche : le contenu et la sélection
- * par le même écrêtage. Les deux vont ensemble — un cadre plus large que ce
- * qui est dessiné se lit comme un sélecteur cassé.
- *
- * L'écrêtage ne dépend que de l'indice, et poser les deux enveloppes coûte
- * deux fermetures : le marqueur évite de les refaire à chaque synchronisation.
- */
-function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void {
-  if (object.data?.clipScreenIndex === screenIndex) return
-  clipContentToScreen(object, screenIndex)
-  clipControlsToScreen(object, screenIndex)
-  object.set('data', { ...object.data, clipScreenIndex: screenIndex })
-}
-
-/**
- * Pose l'instance d'un calque partagé sur sa planche. Le calque vit dans un
- * espace continu qui ignore les gouttières : chaque planche en montre la
- * tranche qui la traverse, d'où le décalage des seules gouttières cumulées.
- * Les deux chemins de synchronisation passent ici, sinon un déplacement en
- * patch laisse la prise réglée sur la position précédente.
- */
-function applyLayoutInstance(
-  object: RenderedObject,
-  layer: Layer,
-  screenIndex: number,
-): void {
-  applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH)
-  ensureScreenClipPath(object, screenIndex)
-  // Seule une tranche réellement visible se laisse attraper. Réserver la prise
-  // à la planche active donnait des poignées posées sur du vide, à côté de la
-  // tranche que l'utilisateur voit.
-  const visible = intersectsScreen(object, screenIndex)
-  object.set({ selectable: !layer.locked && visible, evented: !layer.locked && visible })
-}
-
-function screensHaveVisualChanges(current: Project, previous: Project | null): boolean {
-  if (!previous || current.screens.length !== previous.screens.length) return true
-  if (current.layoutLayers !== previous.layoutLayers
-    || current.activeScreenId !== previous.activeScreenId) return true
-  return current.screens.some((screen, index) => {
-    const previousScreen = previous.screens[index]
-    return screen.id !== previousScreen.id
-      || screen.name !== previousScreen.name
-      || screen.layers !== previousScreen.layers
-      || screen.background !== previousScreen.background
-  })
-}
-
-function sameIds(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((id, index) => id === right[index])
-}
-
-type ProjectChange =
-  | { type: 'none' }
-  | { type: 'full' }
-  | {
-      type: 'patch'
-      screenId: string
-      layerIds: string[]
-      layoutLayerIds: string[]
-      backgroundChanged: boolean
-    }
-
-function layerOrderKey(layers: Layer[]): string {
-  return layers.map((layer) => `${layer.id}:${layer.zIndex}`).join('|')
-}
-
-function changedLayerIds(current: Layer[], previous: Layer[]): string[] | null {
-  if (current.length !== previous.length) return null
-  if (layerOrderKey(current) !== layerOrderKey(previous)) return null
-  const ids: string[] = []
-  for (let index = 0; index < current.length; index += 1) {
-    if (current[index] !== previous[index]) ids.push(current[index].id)
-  }
-  return ids
-}
-
-/**
- * Reference-level diff between two project states. 'patch' means: one
- * screen, same object set and stacking order — only some layer objects and/or
- * the background changed, so the canvas can be patched in place instead of
- * running a full reconciliation pass.
- */
-function diffProjectChange(current: Project, previous: Project | null): ProjectChange {
-  if (!previous) return { type: 'full' }
-  if (!screensHaveVisualChanges(current, previous)) return { type: 'none' }
-  if (current.screens.length !== previous.screens.length) return { type: 'full' }
-  if (current.activeScreenId !== previous.activeScreenId) return { type: 'full' }
-
-  let layoutLayerIds: string[] = []
-  if (current.layoutLayers !== previous.layoutLayers) {
-    const changed = changedLayerIds(current.layoutLayers, previous.layoutLayers)
-    if (!changed) return { type: 'full' }
-    layoutLayerIds = changed
-  }
-
-  const changedScreens: { screen: Screen; previousScreen: Screen }[] = []
-  for (let index = 0; index < current.screens.length; index += 1) {
-    const screen = current.screens[index]
-    const previousScreen = previous.screens[index]
-    if (screen.id !== previousScreen.id) return { type: 'full' }
-    if (screen === previousScreen) continue
-    if (screen.name !== previousScreen.name) return { type: 'full' }
-    if (screen.layers !== previousScreen.layers || screen.background !== previousScreen.background) {
-      changedScreens.push({ screen, previousScreen })
-    }
-  }
-
-  if (changedScreens.length > 1) return { type: 'full' }
-  if (changedScreens.length === 0) {
-    return layoutLayerIds.length > 0
-      ? {
-          type: 'patch',
-          screenId: current.activeScreenId,
-          layerIds: [],
-          layoutLayerIds,
-          backgroundChanged: false,
-        }
-      : { type: 'none' }
-  }
-
-  const { screen, previousScreen } = changedScreens[0]
-  const layerIds = screen.layers === previousScreen.layers
-    ? []
-    : changedLayerIds(screen.layers, previousScreen.layers)
-  if (!layerIds) return { type: 'full' }
-  const backgroundChanged = screen.background !== previousScreen.background
-
-  if (layerIds.length === 0 && layoutLayerIds.length === 0 && !backgroundChanged) {
-    return { type: 'none' }
-  }
-  return { type: 'patch', screenId: screen.id, layerIds, layoutLayerIds, backgroundChanged }
-}
-
-/**
- * Maps store selection to canvas objects. A shared (layout) layer resolves to
- * its active-screen instance only: each instance is a full clipped clone, so
- * wrapping the panorama union in one ActiveSelection produced a giant
- * misaligned control box — and rotating/scaling that union wrote back garbage.
- */
-function resolveSelectionObjects(
-  project: Project,
-  objectsById: Map<string, RenderedObject>,
-  selectedIds: string[],
-): RenderedObject[] {
-  return selectedIds.flatMap((id) => {
-    const object = objectsById.get(id)
-      ?? objectsById.get(`layout:${id}:${project.activeScreenId}`)
-    return object ? [object] : []
-  })
-}
+export type { SelectionFrame } from '@/components/canvas/canvas-interactions'
 
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -550,334 +222,33 @@ export function useCanvas() {
   const sync = useCallback(async (project: Project) => {
     const canvas = fabricRef.current
     if (!canvas) return
-    const { screens, layoutLayers, activeScreenId } = project
-    const chrome = readChromeColors()
-    applyLassoColors(canvas, chrome)
-    const version = ++syncVersion.current
-    syncing.current = true
-
-    try {
-      const existingObjects = canvas.getObjects() as RenderedObject[]
-      const objectsById = new Map<string, RenderedObject>()
-      for (const object of existingObjects) {
-        const id = object.data?.uid
-        if (!id) continue
-        const duplicate = objectsById.get(id)
-        if (duplicate) {
-          canvas.remove(object)
-          disposeFabricObjectResource(object)
-        } else {
-          objectsById.set(id, object)
-        }
-      }
-
-      const wantedIds = new Set<string>()
-      for (const screen of screens) {
-        wantedIds.add(`background:${screen.id}`)
-        wantedIds.add(`label:${screen.id}`)
-        for (const layer of screen.layers) wantedIds.add(layer.id)
-        for (const layer of layoutLayers) wantedIds.add(`layout:${layer.id}:${screen.id}`)
-      }
-      for (const [id, object] of objectsById) {
-        if (wantedIds.has(id)) continue
-        canvas.remove(object)
-        disposeFabricObjectResource(object)
-        objectsById.delete(id)
-      }
-
-      for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
-        const screen = screens[screenIndex]
-        const offset = getScreenOffset(screenIndex)
-        const backgroundId = `background:${screen.id}`
-        let background = objectsById.get(backgroundId)
-        if (!background) {
-          background = new Rect({
-            originX: 'left',
-            originY: 'top',
-            width: SCREEN_WIDTH,
-            height: SCREEN_HEIGHT,
-            selectable: false,
-            evented: false,
-            strokeUniform: true,
-            shadow: new Shadow({ color: DEFAULT_CANVAS_SHADOW_COLOR, blur: 24, offsetY: 4 }),
-          })
-          background.set('data', {
-            uid: backgroundId,
-            screenId: screen.id,
-            rendererType: 'background',
-          })
-          canvas.add(background)
-          objectsById.set(backgroundId, background)
-        }
-        background.set({
-          left: offset,
-          top: 0,
-          fill: backgroundToFabricFill(screen.background),
-          stroke: screen.id === activeScreenId ? chrome.activeRing : chrome.artboardRing,
-          strokeWidth: screen.id === activeScreenId ? 2 : 1,
-        })
-        background.setCoords()
-
-        const labelId = `label:${screen.id}`
-        let label = objectsById.get(labelId)
-        if (!label) {
-          label = new Textbox('', {
-            originX: 'left',
-            originY: 'top',
-            width: SCREEN_WIDTH,
-            fontSize: 12,
-            // Même famille que l'interface. Archivo n'est plus chargée depuis la v3 :
-            // le libellé retombait sur system-ui et détonnait avec le reste.
-            fontFamily: 'Inter, system-ui, sans-serif',
-            selectable: false,
-            evented: false,
-          })
-          label.set('data', {
-            uid: labelId,
-            screenId: screen.id,
-            rendererType: 'label',
-          })
-          canvas.add(label)
-          objectsById.set(labelId, label)
-        }
-        label.set({ left: offset, top: -26, text: screen.name, fill: chrome.label })
-        label.setCoords()
-
-        for (const layer of screen.layers) {
-          if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) {
-            const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
-            if (!fontLoadRequests.current.has(fontKey)) {
-              fontLoadRequests.current.add(fontKey)
-              void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
-                if (result.status !== 'loaded') return
-                const latestCanvas = fabricRef.current
-                if (!latestCanvas) return
-                const textObject = (latestCanvas.getObjects() as RenderedObject[]).find(
-                  (candidate) => candidate.data?.uid === layer.id,
-                )
-                if (textObject instanceof Textbox) textObject.initDimensions()
-                textObject?.setCoords()
-                latestCanvas.requestRenderAll()
-              })
-            }
-          }
-          let object = objectsById.get(layer.id)
-          if (object && needsFabricObjectRecreation(object, layer)) {
-            const replacement = await layerToFabricObject(layer)
-            if (syncVersion.current !== version) {
-              disposeFabricObjectResource(replacement)
-              return
-            }
-            canvas.remove(object)
-            disposeFabricObjectResource(object)
-            object = replacement
-            canvas.add(object)
-            objectsById.set(layer.id, object)
-          } else if (!object) {
-            object = await layerToFabricObject(layer)
-            if (syncVersion.current !== version) {
-              disposeFabricObjectResource(object)
-              return
-            }
-            canvas.add(object)
-            objectsById.set(layer.id, object)
-          }
-
-          object.set('data', {
-            ...object.data,
-            uid: layer.id,
-            layerId: layer.id,
-            screenId: screen.id,
-            screenIndex,
-            layout: false,
-            rendererType: layer.type,
-          })
-          applyLayerToFabricObject(object, layer, offset)
-          ensureScreenClipPath(object, screenIndex)
-        }
-      }
-
-      for (const layer of layoutLayers) {
-        if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) {
-          const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
-          if (!fontLoadRequests.current.has(fontKey)) {
-            fontLoadRequests.current.add(fontKey)
-            void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
-              if (result.status !== 'loaded') return
-              const latestCanvas = fabricRef.current
-              if (!latestCanvas) return
-              for (const textObject of latestCanvas.getObjects() as RenderedObject[]) {
-                if (textObject.data?.layerId !== layer.id) continue
-                if (textObject instanceof Textbox) textObject.initDimensions()
-                textObject.setCoords()
-              }
-              latestCanvas.requestRenderAll()
-            })
-          }
-        }
-
-        for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
-          const screen = screens[screenIndex]
-          const objectId = `layout:${layer.id}:${screen.id}`
-          let object = objectsById.get(objectId)
-          if (object && needsFabricObjectRecreation(object, layer)) {
-            const replacement = await layerToFabricObject(layer)
-            if (syncVersion.current !== version) {
-              disposeFabricObjectResource(replacement)
-              return
-            }
-            canvas.remove(object)
-            disposeFabricObjectResource(object)
-            object = replacement
-            canvas.add(object)
-            objectsById.set(objectId, object)
-          } else if (!object) {
-            object = await layerToFabricObject(layer)
-            if (syncVersion.current !== version) {
-              disposeFabricObjectResource(object)
-              return
-            }
-            canvas.add(object)
-            objectsById.set(objectId, object)
-          }
-
-          object.set('data', {
-            ...object.data,
-            uid: objectId,
-            layerId: layer.id,
-            screenId: screen.id,
-            screenIndex,
-            layout: true,
-            rendererType: layer.type,
-          })
-          applyLayoutInstance(object, layer, screenIndex)
-        }
-      }
-
-      const orderedObjects: RenderedObject[] = []
-      for (const screen of screens) {
-        const background = objectsById.get(`background:${screen.id}`)
-        if (background) orderedObjects.push(background)
-      }
-      for (const screen of screens) {
-        const layers = [...screen.layers, ...layoutLayers]
-          .sort((left, right) => left.zIndex - right.zIndex)
-        for (const layer of layers) {
-          const object = layer.scope === 'layout'
-            ? objectsById.get(`layout:${layer.id}:${screen.id}`)
-            : objectsById.get(layer.id)
-          if (object) orderedObjects.push(object)
-        }
-      }
-      for (const screen of screens) {
-        const label = objectsById.get(`label:${screen.id}`)
-        if (label) orderedObjects.push(label)
-      }
-      // Z-order: only pay the moveObjectTo pass when the order actually changed.
-      const wantedOrder = orderedObjects.map((object) => object.data?.uid ?? '')
-      const currentOrder = (canvas.getObjects() as RenderedObject[])
-        .map((object) => object.data?.uid ?? '')
-      if (!sameIds(currentOrder, wantedOrder)) {
-        orderedObjects.forEach((object, index) => canvas.moveObjectTo(object, index))
-      }
-
-      // Precomputed layout echoes for the object:moving mirror (no per-move scan).
-      const instances = new Map<string, RenderedObject[]>()
-      for (const layer of layoutLayers) {
-        instances.set(layer.id, screens.flatMap((screen) => {
-          const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
-          return object ? [object] : []
-        }))
-      }
-      layoutInstances.current = instances
-
-      const selectedIds = useCanvasStore.getState().selectedLayerIds
-      const currentSelectionIds = canvas.getActiveObjects()
-        .map((object) => {
-          const data = (object as RenderedObject).data
-          return data?.layerId ?? data?.uid
-        })
-        .filter((id): id is string => Boolean(id))
-      const uniqueCurrentIds = [...new Set(currentSelectionIds)]
-      if (!sameIds(uniqueCurrentIds, selectedIds)) {
-        const selectedObjects = resolveSelectionObjects(project, objectsById, selectedIds)
-        if (selectedObjects.length === 0) canvas.discardActiveObject()
-        else if (selectedObjects.length === 1) canvas.setActiveObject(selectedObjects[0])
-        else canvas.setActiveObject(new ActiveSelection(selectedObjects, { canvas }))
-      }
-
-      canvas.requestRenderAll()
-      generateThumbnails(screens)
-    } catch (error) {
-      console.error('Could not synchronize the canvas.', error)
-    } finally {
-      if (syncVersion.current === version) {
-        requestAnimationFrame(() => {
-          syncing.current = false
-        })
-      }
-    }
+    await syncCanvas(project, {
+      canvas,
+      currentCanvas: () => fabricRef.current,
+      syncVersion,
+      syncing,
+      fontLoadRequests: fontLoadRequests.current,
+      layoutInstances,
+      generateThumbnails,
+    })
   }, [generateThumbnails])
 
-  /**
-   * In-place patch path for single-screen, same-stacking-order changes
-   * (the hot path: panel edits, keyboard nudges, canvas transform commits).
-   * Returns false when the change cannot be patched — caller falls back to
-   * a full sync.
-   */
   const syncPatch = useCallback(async (
     project: Project,
-    change: {
-      screenId: string
-      layerIds: string[]
-      layoutLayerIds: string[]
-      backgroundChanged: boolean
-    },
+    change: Extract<ReturnType<typeof diffProjectChange>, { type: 'patch' }>,
   ): Promise<boolean> => {
     const canvas = fabricRef.current
     if (!canvas) return false
-    const objectsById = new Map<string, RenderedObject>()
-    for (const object of canvas.getObjects() as RenderedObject[]) {
-      const id = object.data?.uid
-      if (id) objectsById.set(id, object)
+    const runtime: CanvasSyncRuntime = {
+      canvas,
+      currentCanvas: () => fabricRef.current,
+      syncVersion,
+      syncing,
+      fontLoadRequests: fontLoadRequests.current,
+      layoutInstances,
+      generateThumbnails,
     }
-
-    if (change.backgroundChanged) {
-      const screen = project.screens.find((candidate) => candidate.id === change.screenId)
-      const background = objectsById.get(`background:${change.screenId}`)
-      if (!screen || !background) return false
-      background.set({ fill: backgroundToFabricFill(screen.background) })
-      background.setCoords()
-    }
-
-    const screenIndex = project.screens.findIndex((screen) => screen.id === change.screenId)
-    if (screenIndex === -1 && change.layerIds.length > 0) return false
-    const screen = project.screens[screenIndex]
-
-    for (const layerId of change.layerIds) {
-      const layer = screen.layers.find((candidate) => candidate.id === layerId)
-      const object = objectsById.get(layerId)
-      if (!layer || !object) return false
-      if (needsFabricObjectRecreation(object, layer)) return false
-      if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
-      applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
-    }
-
-    for (const layerId of change.layoutLayerIds) {
-      const layer = project.layoutLayers.find((candidate) => candidate.id === layerId)
-      if (!layer) return false
-      if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
-      for (let index = 0; index < project.screens.length; index += 1) {
-        const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
-        if (!object) return false
-        if (needsFabricObjectRecreation(object, layer)) return false
-        applyLayoutInstance(object, layer, index)
-      }
-    }
-
-    canvas.requestRenderAll()
-    generateThumbnails(project.screens)
-    return true
+    return patchCanvas(project, change, runtime)
   }, [generateThumbnails])
 
   useEffect(() => {
