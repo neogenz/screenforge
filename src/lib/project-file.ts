@@ -1,5 +1,6 @@
 import JSZip, { type JSZipObject } from 'jszip'
 import { resolveAsset } from '@/lib/assets'
+import { collectAssetIds } from '@/lib/asset-refs'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import type { Layer, Project } from '@/types'
 
@@ -95,19 +96,8 @@ function isAssetMimeType(value: unknown): value is AssetMimeType {
   return typeof value === 'string' && value in MIME_EXTENSIONS
 }
 
-function layersOf(project: Project): Layer[] {
-  return [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
-}
-
 export function collectProjectAssetIds(project: Project): string[] {
-  const ids = new Set<string>()
-  for (const layer of layersOf(project)) {
-    if (layer.type === 'image') ids.add(layer.assetId)
-    if (layer.type !== 'device-frame') continue
-    if (layer.screenshotAssetId) ids.add(layer.screenshotAssetId)
-    if (layer.importedBezel?.assetId) ids.add(layer.importedBezel.assetId)
-  }
-  return [...ids].sort()
+  return [...collectAssetIds(project)].sort()
 }
 
 function projectWithoutThumbnails(project: Project): Project {

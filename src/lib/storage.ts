@@ -2,13 +2,17 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import {
   hydrateAssets,
+  markAssetsClean,
+  readDirtyAssets,
   registerAsset,
-  takeDirtyAssets,
+  sweepAssets,
 } from '@/lib/assets'
+import { collectAssetIds } from '@/lib/asset-refs'
 import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
 import { createDefaultScreen, DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
+import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { GlobalSettings, ImportedDeviceBezel, Layer, Project, Screen } from '@/types'
 
@@ -46,9 +50,20 @@ function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
           store.createIndex('by-project', 'projectId')
         }
       },
+      blocking() {
+        void dbPromise?.then((db) => db.close())
+        dbPromise = null
+      },
     })
   }
   return dbPromise
+}
+
+export class InvalidProjectRecordError extends Error {
+  constructor() {
+    super('Invalid ScreenForge project record.')
+    this.name = 'InvalidProjectRecordError'
+  }
 }
 
 function uniqueId(candidate: unknown, seen: Set<string>): string {
@@ -154,9 +169,14 @@ function normalizeGlobals(value: unknown): GlobalSettings {
 
 /** Convert legacy or partial IndexedDB values into a valid current project. */
 export function normalizeProject(value: unknown): Project {
-  const candidate = value && typeof value === 'object'
-    ? value as Partial<Project>
-    : {}
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InvalidProjectRecordError()
+  }
+  const candidate = value as Partial<Project>
+  if (typeof candidate.id !== 'string' || !candidate.id || !Array.isArray(candidate.screens)
+    || candidate.screens.length === 0) {
+    throw new InvalidProjectRecordError()
+  }
   const globals = normalizeGlobals(candidate.globals)
   const screenIds = new Set<string>()
   const layerIds = new Set<string>()
@@ -217,24 +237,45 @@ export function normalizeProject(value: unknown): Project {
   }
 }
 
-/** Persists newly registered assets for this project (no-op when clean). */
-async function flushDirtyAssets(
+async function commitProject(
   db: IDBPDatabase<ScreenForgeDB>,
-  projectId: string,
-): Promise<void> {
-  const dirty = takeDirtyAssets()
-  if (dirty.length === 0) return
-  const tx = db.transaction('assets', 'readwrite')
-  await Promise.all(
-    dirty.map((asset) => tx.store.put({ id: asset.id, projectId, dataUrl: asset.dataUrl })),
-  )
-  await tx.done
+  project: Project,
+  deleteAssetIds: readonly string[] = [],
+): Promise<Project> {
+  const normalized = normalizeProject(project)
+  const dirty = readDirtyAssets()
+  const tx = db.transaction(['projects', 'assets'], 'readwrite')
+  const projects = tx.objectStore('projects')
+  const assets = tx.objectStore('assets')
+  const requests: Promise<unknown>[] = []
+  const done = tx.done
+  try {
+    for (const asset of dirty) {
+      requests.push(assets.put({
+        id: asset.id,
+        projectId: normalized.id,
+        dataUrl: asset.dataUrl,
+      }))
+    }
+    for (const id of deleteAssetIds) requests.push(assets.delete(id))
+    requests.push(projects.put(normalized))
+    await Promise.all([...requests, done])
+  } catch (error) {
+    try {
+      tx.abort()
+    } catch {
+      // The failing request may already have aborted the transaction.
+    }
+    await Promise.allSettled([...requests, done])
+    throw error
+  }
+  markAssetsClean(dirty.map((asset) => asset.id))
+  return normalized
 }
 
 export async function saveProject(project: Project): Promise<void> {
   const db = await getDB()
-  await db.put('projects', normalizeProject(project))
-  await flushDirtyAssets(db, project.id)
+  await commitProject(db, project)
 }
 
 /** Loads a project and its binary assets; migrates v1 inline payloads. */
@@ -244,10 +285,11 @@ async function loadProjectRecord(record: Project | undefined): Promise<Project |
   const assets = await db.getAllFromIndex('assets', 'by-project', record.id)
   hydrateAssets(assets)
   const project = normalizeProject(record)
-  // Inline data URLs found during normalization were registered as new
-  // assets — persist them now so the migration is durable.
-  await flushDirtyAssets(db, project.id)
-  return project
+  const keepIds = collectAssetIds(project)
+  const orphanIds = assets.flatMap((asset) => keepIds.has(asset.id) ? [] : [asset.id])
+  sweepAssets(keepIds)
+  // Rewrites legacy inline data and deletes orphans in the same durable commit.
+  return commitProject(db, project, orphanIds)
 }
 
 export async function loadProject(id: string): Promise<Project | undefined> {
@@ -258,7 +300,20 @@ export async function loadProject(id: string): Promise<Project | undefined> {
 export async function loadLatestProject(): Promise<Project | undefined> {
   const db = await getDB()
   const all = await db.getAllFromIndex('projects', 'by-updated')
-  return loadProjectRecord(all[all.length - 1])
+  let invalidFound = false
+  for (let index = all.length - 1; index >= 0; index -= 1) {
+    try {
+      return await loadProjectRecord(all[index])
+    } catch (error) {
+      if (!(error instanceof InvalidProjectRecordError)) throw error
+      invalidFound = true
+      console.error('Ignored an invalid local project record.', error)
+    }
+  }
+  if (invalidFound) {
+    toast('Un projet local illisible a été conservé. Un nouveau projet a été ouvert.', 'error')
+  }
+  return undefined
 }
 
 export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]> {
@@ -269,7 +324,14 @@ export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'cre
 
 export async function deleteProject(id: string): Promise<void> {
   const db = await getDB()
-  await db.delete('projects', id)
+  const tx = db.transaction(['projects', 'assets'], 'readwrite')
+  const assets = tx.objectStore('assets')
+  const assetIds = await assets.index('by-project').getAllKeys(id)
+  await Promise.all([
+    tx.objectStore('projects').delete(id),
+    ...assetIds.map((assetId) => assets.delete(assetId)),
+    tx.done,
+  ])
 }
 
 function remapLayerAssets(layer: Layer, ids: ReadonlyMap<string, string>): Layer {
@@ -348,6 +410,7 @@ async function persist(project: Project): Promise<void> {
   } catch (error) {
     if (sequence === saveSequence) useUIStore.getState().setSaveStatus('error')
     console.error('Could not save the project.', error)
+    toast('Sauvegarde locale impossible. Vos modifications restent ouvertes.', 'error')
     throw error
   }
 }

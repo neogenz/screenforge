@@ -54,18 +54,32 @@ export function clearAssets(): void {
   dirtyIds.clear()
 }
 
-/** Returns registered-but-unpersisted assets and marks them clean. */
-export function takeDirtyAssets(): { id: string; dataUrl: string }[] {
+/** Returns registered-but-unpersisted assets without changing retry state. */
+export function readDirtyAssets(): { id: string; dataUrl: string }[] {
   const dirty: { id: string; dataUrl: string }[] = []
   for (const id of dirtyIds) {
     const dataUrl = registry.get(id)
     if (dataUrl) dirty.push({ id, dataUrl })
   }
-  dirtyIds.clear()
   return dirty
 }
 
-/** Marks already-persisted assets as clean without returning them. */
-export function markAssetsClean(): void {
-  dirtyIds.clear()
+/** Marks only assets confirmed by an IndexedDB commit as clean. */
+export function markAssetsClean(ids: Iterable<string>): void {
+  for (const id of ids) dirtyIds.delete(id)
+}
+
+/** Removes unreferenced payloads from every in-memory registry index. */
+export function sweepAssets(keepIds: ReadonlySet<string>): string[] {
+  const removed: string[] = []
+  for (const [id, dataUrl] of registry) {
+    if (keepIds.has(id)) continue
+    registry.delete(id)
+    dirtyIds.delete(id)
+    const bucket = idsByLength.get(dataUrl.length)
+    bucket?.delete(id)
+    if (bucket?.size === 0) idsByLength.delete(dataUrl.length)
+    removed.push(id)
+  }
+  return removed
 }
