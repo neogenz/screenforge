@@ -37,6 +37,7 @@ import {
   syncCanvas,
   type CanvasSyncRuntime,
 } from '@/components/canvas/canvas-sync'
+import { installControlsPatch } from '@/components/canvas/controls-patch'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -253,6 +254,7 @@ export function useCanvas() {
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
+    installControlsPatch()
     const container = containerRef.current
     const bounds = container.getBoundingClientRect()
     const canvas = new Canvas(canvasRef.current, {

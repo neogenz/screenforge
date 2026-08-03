@@ -18,6 +18,14 @@ import {
 } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
+import {
+  GHOST_HALO,
+  GHOST_INK,
+  SELECTION_HALO,
+  SELECTION_INK,
+  renderTwoTone,
+  type ControlHost,
+} from '@/components/canvas/controls-patch'
 import type {
   Background,
   BaseLayer,
@@ -47,14 +55,6 @@ FabricObject.ownDefaults.originY = 'top'
  * c'est la convention des outils de recadrage, et elle ne coûte rien puisque
  * `lib/export.ts` reconstruit un `StaticCanvas` distinct, sans contrôles.
  */
-const SELECTION_INK = '#ffffff'
-const SELECTION_HALO = 'rgba(0,0,0,0.6)'
-/** Épaisseur du halo de part et d'autre du trait clair, en pixels. */
-const HALO_SPREAD = 1
-/** Tranche voisine d'un calque partagé : présente, jamais saisissable. */
-const GHOST_INK = 'rgba(255,255,255,0.6)'
-const GHOST_HALO = 'rgba(0,0,0,0.3)'
-
 const SELECTION_GEOMETRY = {
   cornerSize: 9,
   touchCornerSize: 22,
@@ -128,52 +128,6 @@ export function getScreenOffset(index: number): number {
 }
 
 // ─── Sélection : bicolore, écrêtée à la planche ──────────────────────────────
-
-type ControlRenderer = (
-  ctx: CanvasRenderingContext2D,
-  styleOverride?: Record<string, unknown>,
-) => void
-
-type ControlHost = FabricObject & { _renderControls: ControlRenderer }
-
-const renderControlsPlain =
-  (FabricObject.prototype as unknown as ControlHost)._renderControls
-
-/**
- * Trace le cadre en deux passes : un halo sombre plus large, puis le trait
- * clair par-dessus. C'est ce qui rend la sélection lisible aussi bien sur un
- * artboard blanc que sur un artboard noir.
- *
- * `ctx.lineWidth` est lu sur l'objet et non sur le style surchargé, d'où le
- * réglage temporaire de `borderScaleFactor` : Fabric n'expose pas l'épaisseur
- * du cadre autrement. Les poignées, elles, sont déjà bicolores par
- * construction — pastille claire, liseré sombre — et n'ont pas besoin des deux
- * passes, on les réserve donc à la seconde.
- */
-function renderTwoTone(
-  object: FabricObject,
-  ctx: CanvasRenderingContext2D,
-  styleOverride: Record<string, unknown> | undefined,
-  ink: string,
-  halo: string,
-): void {
-  const width = object.borderScaleFactor
-  object.borderScaleFactor = width + HALO_SPREAD * 2
-  renderControlsPlain.call(object, ctx, {
-    ...styleOverride,
-    hasControls: false,
-    borderColor: halo,
-  })
-  object.borderScaleFactor = width
-  renderControlsPlain.call(object, ctx, { ...styleOverride, borderColor: ink })
-}
-
-// Défaut global : couvre l'ActiveSelection d'une multi-sélection, qui n'est pas
-// un calque et ne passe donc jamais par `applySelectionStyle`.
-;(FabricObject.prototype as unknown as ControlHost)._renderControls =
-  function renderTwoToneControls(ctx, styleOverride) {
-    renderTwoTone(this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
-  }
 
 /** Restreint le tracé à la fenêtre d'une planche, en coordonnées canvas. */
 function clipToScreen(
