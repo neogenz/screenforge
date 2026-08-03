@@ -1,11 +1,12 @@
-import { readAsDataUrl } from '@/lib/image'
 import type { ImportedDeviceBezel } from '@/types'
 
 export const MAX_DEVICE_BEZEL_FILE_BYTES = 32 * 1024 * 1024
 export const MAX_DEVICE_BEZEL_PIXELS = 40_000_000
 
 const TRANSPARENT_ALPHA_MAX = 16
+const QUEUED_ALPHA = TRANSPARENT_ALPHA_MAX + 1
 const MIN_SCREEN_AREA_RATIO = 0.1
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const
 
 export type DeviceBezelErrorCode =
   | 'invalid-format'
@@ -43,6 +44,44 @@ function decodeImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
+function readBytes(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => reader.result instanceof ArrayBuffer
+      ? resolve(new Uint8Array(reader.result))
+      : reject(new DeviceBezelError('invalid-image'))
+    reader.onerror = () => reject(new DeviceBezelError('invalid-image'))
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+function readPngDimensions(bytes: Uint8Array): { width: number; height: number } {
+  if (bytes.length < 24 || PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) {
+    throw new DeviceBezelError('invalid-image')
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const ihdr = String.fromCharCode(...bytes.subarray(12, 16))
+  if (view.getUint32(8) !== 13 || ihdr !== 'IHDR') {
+    throw new DeviceBezelError('invalid-image')
+  }
+  const width = view.getUint32(16)
+  const height = view.getUint32(20)
+  if (!width || !height) throw new DeviceBezelError('invalid-image')
+  if (width > Math.floor(MAX_DEVICE_BEZEL_PIXELS / height)) {
+    throw new DeviceBezelError('image-too-large')
+  }
+  return { width, height }
+}
+
+function bytesToDataUrl(bytes: Uint8Array): string {
+  const chunkSize = 0x8000
+  const chunks = new Array<string>(Math.ceil(bytes.length / chunkSize))
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    chunks[offset / chunkSize] = String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return `data:image/png;base64,${btoa(chunks.join(''))}`
+}
+
 function findScreen(
   pixels: Uint8ClampedArray,
   width: number,
@@ -54,34 +93,58 @@ function findScreen(
   const isTransparent = (index: number) => pixels[index * 4 + 3] <= TRANSPARENT_ALPHA_MAX
   if (!isTransparent(start)) throw new DeviceBezelError('screen-not-found')
 
-  const visited = new Uint8Array(width * height)
-  const stack = [start]
-  visited[start] = 1
+  const pixelCount = width * height
+  let stack = new Uint32Array(Math.min(1024, pixelCount))
+  let stackLength = 0
+  const push = (index: number) => {
+    if (stackLength === stack.length) {
+      const grown = new Uint32Array(Math.min(pixelCount, stack.length * 2))
+      grown.set(stack)
+      stack = grown
+    }
+    pixels[index * 4 + 3] = QUEUED_ALPHA
+    stack[stackLength] = index
+    stackLength += 1
+  }
+  push(start)
   let minX = startX
   let maxX = startX
   let minY = startY
   let maxY = startY
   let count = 0
 
-  while (stack.length > 0) {
-    const index = stack.pop()!
-    const x = index % width
+  while (stackLength > 0) {
+    stackLength -= 1
+    const index = stack[stackLength]
+    const seedX = index % width
     const y = Math.floor(index / width)
-    if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+    let left = seedX
+    let right = seedX
+    while (left > 0 && isTransparent(y * width + left - 1)) left -= 1
+    while (right < width - 1 && isTransparent(y * width + right + 1)) right += 1
+    if (left === 0 || right === width - 1 || y === 0 || y === height - 1) {
       throw new DeviceBezelError('screen-not-found')
     }
 
-    count += 1
-    minX = Math.min(minX, x)
-    maxX = Math.max(maxX, x)
+    count += right - left + 1
+    minX = Math.min(minX, left)
+    maxX = Math.max(maxX, right)
     minY = Math.min(minY, y)
     maxY = Math.max(maxY, y)
+    for (let x = left; x <= right; x += 1) pixels[(y * width + x) * 4 + 3] = 255
 
-    const neighbors = [index - 1, index + 1, index - width, index + width]
-    for (const neighbor of neighbors) {
-      if (!visited[neighbor] && isTransparent(neighbor)) {
-        visited[neighbor] = 1
-        stack.push(neighbor)
+    for (let deltaY = -1; deltaY <= 1; deltaY += 2) {
+      const neighborY = y + deltaY
+      let insideRun = false
+      for (let x = left; x <= right; x += 1) {
+        const neighbor = neighborY * width + x
+        const alpha = pixels[neighbor * 4 + 3]
+        if (alpha <= TRANSPARENT_ALPHA_MAX) {
+          if (!insideRun) push(neighbor)
+          insideRun = true
+        } else if (alpha !== QUEUED_ALPHA) {
+          insideRun = false
+        }
       }
     }
   }
@@ -101,10 +164,14 @@ export async function analyzeDeviceBezel(file: File): Promise<DeviceBezelAnalysi
   if (file.type !== 'image/png') throw new DeviceBezelError('invalid-format')
   if (file.size > MAX_DEVICE_BEZEL_FILE_BYTES) throw new DeviceBezelError('file-too-large')
 
+  let bytes: Uint8Array
+  let expectedSize: { width: number; height: number }
   let dataUrl: string
   let image: HTMLImageElement
   try {
-    dataUrl = await readAsDataUrl(file)
+    bytes = await readBytes(file)
+    expectedSize = readPngDimensions(bytes)
+    dataUrl = bytesToDataUrl(bytes)
     image = await decodeImage(dataUrl)
   } catch (error) {
     if (error instanceof DeviceBezelError) throw error
@@ -113,9 +180,8 @@ export async function analyzeDeviceBezel(file: File): Promise<DeviceBezelAnalysi
 
   const naturalWidth = image.naturalWidth
   const naturalHeight = image.naturalHeight
-  if (!naturalWidth || !naturalHeight) throw new DeviceBezelError('invalid-image')
-  if (naturalWidth * naturalHeight > MAX_DEVICE_BEZEL_PIXELS) {
-    throw new DeviceBezelError('image-too-large')
+  if (naturalWidth !== expectedSize.width || naturalHeight !== expectedSize.height) {
+    throw new DeviceBezelError('invalid-image')
   }
 
   const canvas = document.createElement('canvas')

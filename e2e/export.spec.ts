@@ -1,24 +1,12 @@
 import { test, expect } from '@playwright/test'
-import JSZip from 'jszip'
 import { decode } from 'fast-png'
-import { addDeviceLayer, addTextLayer, waitForApp } from './helpers'
+import {
+  addDeviceLayer,
+  addTextLayer,
+  downloadFirstExportedPng,
+  waitForApp,
+} from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
-
-async function downloadFirstPng(page: import('@playwright/test').Page): Promise<Uint8Array> {
-  await page.locator('button[aria-label="Ouvrir l’export"]').click()
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 60_000 }),
-    page.locator('button', { hasText: 'Exporter le ZIP' }).click(),
-  ])
-  expect(await download.failure()).toBeNull()
-  const stream = await download.createReadStream()
-  const chunks: Buffer[] = []
-  for await (const chunk of stream) chunks.push(chunk as Buffer)
-  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
-  const entry = Object.values(zip.files).find((file) => !file.dir)
-  if (!entry) throw new Error('exported PNG missing')
-  return entry.async('uint8array')
-}
 
 /**
  * Critical path: exported PNGs must be pixel-exact for App Store Connect.
@@ -29,24 +17,9 @@ test.describe('export', () => {
     await addDeviceLayer(page)
     await addTextLayer(page)
 
-    await page.locator('button[aria-label="Ouvrir l’export"]').click()
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 60_000 }),
-      page.locator('button', { hasText: 'Exporter le ZIP' }).click(),
-    ])
-
-    const failure = await download.failure()
-    expect(failure).toBeNull()
-    const stream = await download.createReadStream()
-    const chunks: Buffer[] = []
-    for await (const chunk of stream) chunks.push(chunk as Buffer)
-    const zip = await JSZip.loadAsync(Buffer.concat(chunks))
-
-    const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir)
+    const { names, png } = await downloadFirstExportedPng(page)
     expect(names).toHaveLength(1)
     expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
-
-    const png = await zip.files[names[0]].async('uint8array')
     const view = new DataView(png.buffer, png.byteOffset, png.byteLength)
     expect(view.getUint32(16)).toBe(1320) // IHDR width
     expect(view.getUint32(20)).toBe(2868) // IHDR height
@@ -76,7 +49,10 @@ test.describe('export', () => {
         x: number; y: number; width: number; height: number
       }
     })
-    const decoded = decode(await downloadFirstPng(page))
+    const { names, png } = await downloadFirstExportedPng(page)
+    expect(names).toHaveLength(1)
+    expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
+    const decoded = decode(png)
     expect(decoded.width).toBe(1320)
     expect(decoded.height).toBe(2868)
     expect(decoded.depth).toBe(8)

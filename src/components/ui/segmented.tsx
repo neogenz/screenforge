@@ -14,6 +14,7 @@ export interface SegmentedProps<T extends string> {
   onChange: (value: T) => void
   ariaLabel?: string
   className?: string
+  disabled?: boolean
 }
 
 export function Segmented<T extends string>({
@@ -22,6 +23,7 @@ export function Segmented<T extends string>({
   onChange,
   ariaLabel,
   className,
+  disabled = false,
 }: SegmentedProps<T>) {
   return (
     <div
@@ -38,6 +40,7 @@ export function Segmented<T extends string>({
           <button
             key={option.value}
             type="button"
+            disabled={disabled}
             aria-pressed={active}
             aria-label={option.ariaLabel ?? option.label}
             title={option.ariaLabel ?? option.label}
@@ -47,6 +50,7 @@ export function Segmented<T extends string>({
               'inline-flex h-8 items-center justify-center gap-1 rounded-sm px-2.5',
               'font-sans text-[11.5px] font-medium',
               'transition-[background,color] duration-150 ease-out',
+              'disabled:pointer-events-none disabled:opacity-40',
               // L'option active monte d'un palier : lisible sur panneau clair comme sombre,
               // là où une bordure claire seule disparaissait en thème clair.
               active

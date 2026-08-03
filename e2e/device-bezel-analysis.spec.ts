@@ -1,5 +1,10 @@
 import { test, expect, type Page } from '@playwright/test'
-import { asBase64, corruptPng, makeDeviceBezelPng, MOCK_BEZEL } from './device-bezel-fixture'
+import {
+  asBase64,
+  corruptPng,
+  makeDeviceBezelPng,
+  MOCK_BEZEL,
+} from './device-bezel-fixture'
 
 interface AnalysisResult {
   ok: boolean
@@ -11,6 +16,16 @@ interface AnalysisResult {
     naturalHeight: number
     screen: { x: number; y: number; width: number; height: number }
   }
+}
+
+function oversizedDeviceBezelHeader(): Buffer {
+  const bytes = Buffer.alloc(24)
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
+  bytes.writeUInt32BE(13, 8)
+  bytes.write('IHDR', 12, 'ascii')
+  bytes.writeUInt32BE(10_000, 16)
+  bytes.writeUInt32BE(4_001, 20)
+  return bytes
 }
 
 async function analyze(page: Page, bytes: Uint8Array): Promise<AnalysisResult> {
@@ -92,6 +107,13 @@ test('rejects an oversized file before reading it', async ({ page }) => {
   })
 
   expect(result).toEqual({ code: 'file-too-large', read: false })
+})
+
+test('rejects oversized IHDR dimensions before decoding pixel data', async ({ page }) => {
+  expect(await analyze(page, oversizedDeviceBezelHeader())).toEqual({
+    ok: false,
+    code: 'image-too-large',
+  })
 })
 
 test('normalizes legacy and malformed device layers safely', async ({ page }) => {

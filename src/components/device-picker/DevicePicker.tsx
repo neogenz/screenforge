@@ -49,6 +49,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bezelInputRef = useRef<HTMLInputElement>(null)
+  const bezelRequestRef = useRef(0)
+  const bezelBusyRef = useRef(false)
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
@@ -79,12 +81,15 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   async function handleBezelChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
+    if (!file || bezelBusyRef.current) return
 
+    bezelBusyRef.current = true
+    const requestId = ++bezelRequestRef.current
     setBezelError(null)
     setBezelLoading(true)
     try {
       const result = await analyzeDeviceBezel(file)
+      if (requestId !== bezelRequestRef.current) return
       const assetId = registerAsset(result.dataUrl)
       const longSide = Math.max(width, height)
       const portrait = result.metadata.naturalHeight >= result.metadata.naturalWidth
@@ -99,9 +104,13 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         shadowEnabled: false,
       })
     } catch (error) {
+      if (requestId !== bezelRequestRef.current) return
       setBezelError(error instanceof Error ? error.message : 'Le bezel est illisible.')
     } finally {
-      setBezelLoading(false)
+      if (requestId === bezelRequestRef.current) {
+        bezelBusyRef.current = false
+        setBezelLoading(false)
+      }
     }
   }
 
@@ -150,6 +159,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           }}
           ariaLabel="Source du cadre"
           className="w-full"
+          disabled={bezelLoading}
         />
       </Field>
       <input
@@ -158,6 +168,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         accept="image/png"
         className="sr-only"
         aria-label="Importer un bezel Apple"
+        disabled={bezelLoading}
         onChange={(event) => void handleBezelChange(event)}
       />
 
@@ -185,6 +196,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             </Button>
             <IconButton
               size="sm"
+              disabled={bezelLoading}
               aria-label="Retirer le bezel Apple"
               className="hover:text-danger"
               onClick={removeImportedBezel}

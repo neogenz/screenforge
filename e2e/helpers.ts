@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
+import JSZip from 'jszip'
 
 /**
  * E2E helpers driving the app through its real UI, plus a dev-only debug
@@ -46,7 +47,7 @@ declare global {
     __sfStores?: {
       useHistoryStore: { getState: () => { past: string[]; future: string[] } }
       useCanvasStore: { getState: () => {
-        layers: { id: string; x: number; y: number }[]
+        layers: { id: string; x: number; y: number; type?: string }[]
         selectedLayerIds: string[]
         activeScreenId: string
       } }
@@ -61,7 +62,9 @@ declare global {
 export async function waitForApp(page: Page): Promise<void> {
   await page.goto('/', { waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 15_000 })
-  await page.waitForTimeout(800)
+  await expect.poll(() => page.evaluate(() => window.__sfCanvas
+    ?.getObjects()
+    .some((object) => (object as DebugObject).data?.rendererType === 'background'))).toBe(true)
 }
 
 export async function addTextLayer(page: Page): Promise<void> {
@@ -76,9 +79,33 @@ export async function addShapeLayer(page: Page): Promise<void> {
 
 export async function addDeviceLayer(page: Page): Promise<void> {
   await page.locator('button[aria-label="Ajouter un cadre iPhone"]').click()
-  await page.waitForTimeout(300)
-  await page.locator('[role="menuitem"]').first().click()
-  await page.waitForTimeout(800)
+  const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
+  await expect(model).toBeVisible()
+  await model.click()
+  await expect.poll(() => page.evaluate(() => window.__sfStores
+    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'device-frame'))).toBe(true)
+}
+
+export interface ExportedZipPng {
+  names: string[]
+  png: Uint8Array
+}
+
+export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipPng> {
+  await page.getByLabel('Ouvrir l’export').click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60_000 }),
+    page.getByRole('button', { name: 'Exporter le ZIP' }).click(),
+  ])
+  expect(await download.failure()).toBeNull()
+  const stream = await download.createReadStream()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream) chunks.push(chunk as Buffer)
+  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
+  const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir)
+  const entry = zip.files[names[0]]
+  if (!entry) throw new Error('exported PNG missing')
+  return { names, png: await entry.async('uint8array') }
 }
 
 export async function addScreen(page: Page): Promise<void> {

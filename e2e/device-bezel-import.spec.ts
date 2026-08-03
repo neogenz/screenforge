@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import { test, expect, type Page } from '@playwright/test'
-import JSZip from 'jszip'
+import { decode } from 'fast-png'
 import {
   addDeviceLayer,
   controlPosition,
+  downloadFirstExportedPng,
   findObject,
   waitForApp,
 } from './helpers'
@@ -24,7 +25,10 @@ interface DeviceLayerState {
     fileName: string
     naturalWidth: number
     naturalHeight: number
+    screen: { x: number; y: number; width: number; height: number }
   }
+  x: number
+  y: number
 }
 
 async function deviceLayer(page: Page): Promise<DeviceLayerState> {
@@ -58,20 +62,29 @@ async function selectDeviceLayer(page: Page) {
   await page.getByRole('option', { name: /iPhone, device-frame/ }).click()
 }
 
-async function exportFirstPng(page: Page): Promise<Uint8Array> {
-  await page.getByLabel('Ouvrir l’export').click()
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 60_000 }),
-    page.getByRole('button', { name: 'Exporter le ZIP' }).click(),
-  ])
-  expect(await download.failure()).toBeNull()
-  const stream = await download.createReadStream()
-  const chunks: Buffer[] = []
-  for await (const chunk of stream) chunks.push(chunk as Buffer)
-  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
-  const entry = Object.values(zip.files).find((file) => !file.dir)
-  if (!entry) throw new Error('exported PNG missing')
-  return entry.async('uint8array')
+function darkRuns(
+  image: { width: number; channels: number; data: Uint8Array | Uint16Array },
+  x: number,
+  yAt: (offset: number) => number,
+  length: number,
+): Array<[number, number]> {
+  const runs: Array<[number, number]> = []
+  let start = -1
+  for (let offset = 0; offset < length; offset += 1) {
+    const y = yAt(offset)
+    const index = (y * image.width + x) * image.channels
+    const dark = image.data[index] < 24
+      && image.data[index + 1] < 24
+      && image.data[index + 2] < 24
+      && (image.channels < 4 || image.data[index + 3] > 200)
+    if (dark && start < 0) start = offset
+    if (!dark && start >= 0) {
+      runs.push([start, offset - 1])
+      start = -1
+    }
+  }
+  if (start >= 0) runs.push([start, length - 1])
+  return runs.filter(([from, to]) => to - from > 20)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -174,18 +187,104 @@ test('falls back to the generated frame when an imported asset is missing', asyn
   await expect(page.getByRole('button', { name: 'Retirer le bezel Apple' })).toBeVisible()
 })
 
+test('serializes bezel analysis and disables every import trigger while busy', async ({ page }) => {
+  await page.evaluate(() => {
+    const state = window as unknown as {
+      __bezelReadControl?: { reads: number; release?: () => void }
+    }
+    const nativeRead = FileReader.prototype.readAsArrayBuffer
+    state.__bezelReadControl = { reads: 0 }
+    FileReader.prototype.readAsArrayBuffer = function (blob) {
+      const control = state.__bezelReadControl!
+      control.reads += 1
+      control.release = () => nativeRead.call(this, blob)
+    }
+  })
+
+  await uploadBezel(page, makeDeviceBezelPng(), 'first.png')
+  await expect.poll(() => page.evaluate(() => (window as unknown as {
+    __bezelReadControl?: { reads: number }
+  }).__bezelReadControl?.reads)).toBe(1)
+  const source = page.getByRole('group', { name: 'Source du cadre' })
+  await expect(source.getByRole('button', { name: 'ScreenForge' })).toBeDisabled()
+  await expect(source.getByRole('button', { name: 'Apple officiel' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Importer le PNG Apple' })).toBeDisabled()
+
+  await uploadBezel(page, makeDeviceBezelPng(), 'second.png')
+  expect(await page.evaluate(() => (window as unknown as {
+    __bezelReadControl?: { reads: number }
+  }).__bezelReadControl?.reads)).toBe(1)
+  expect(await deviceLayer(page)).not.toHaveProperty('importedBezel')
+
+  await page.evaluate(() => (window as unknown as {
+    __bezelReadControl?: { release?: () => void }
+  }).__bezelReadControl?.release?.())
+  await expect(page.getByText('first.png')).toBeVisible()
+  await expect(page.getByText('second.png')).toHaveCount(0)
+})
+
 test('accepts a real Apple Product Bezel outside the repository', async ({ page }) => {
   const bezelPath = process.env.APPLE_BEZEL_PATH
-  test.skip(!bezelPath, 'Set APPLE_BEZEL_PATH to an extracted Apple Product Bezel PNG')
-  if (!bezelPath) return
+  const screenshotPath = process.env.APPLE_SCREENSHOT_PATH
+  test.skip(
+    !bezelPath || !screenshotPath,
+    'Set APPLE_BEZEL_PATH and APPLE_SCREENSHOT_PATH to matching iPhone assets',
+  )
+  if (!bezelPath || !screenshotPath) return
 
   await page.getByLabel('Importer un bezel Apple').setInputFiles(bezelPath)
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await uploadScreenshot(page)
+  await page.getByLabel('Importer la capture de l’app').setInputFiles(screenshotPath)
   await expect(page.getByRole('status')).toContainText('Enregistré', { timeout: 10_000 })
+  const screenshot = decode(await readFile(screenshotPath))
+  const bezel = decode(await readFile(bezelPath))
+  const beforeReload = await deviceLayer(page)
+  expect(beforeReload.importedBezel?.screen).toMatchObject({
+    width: screenshot.width,
+    height: screenshot.height,
+  })
+
+  const scanLength = Math.min(240, screenshot.height)
+  const screenshotRuns = darkRuns(
+    screenshot,
+    Math.floor(screenshot.width / 2),
+    (offset) => offset,
+    scanLength,
+  )
+  const screen = beforeReload.importedBezel!.screen
+  const bezelRuns = darkRuns(
+    bezel,
+    screen.x + Math.floor(screen.width / 2),
+    (offset) => screen.y + offset,
+    scanLength,
+  )
+  expect(screenshotRuns).toHaveLength(1)
+  expect(bezelRuns).toHaveLength(1)
+  expect(bezelRuns[0][0]).toBeCloseTo(screenshotRuns[0][0], -1)
+  expect(bezelRuns[0][1]).toBeCloseTo(screenshotRuns[0][1], -1)
+
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas))
-  expect((await deviceLayer(page)).importedBezel?.assetId).toBeTruthy()
-  expect((await exportFirstPng(page)).byteLength).toBeGreaterThan(0)
+  const afterReload = await deviceLayer(page)
+  expect(afterReload.importedBezel?.assetId).toBeTruthy()
+  const { names, png } = await downloadFirstExportedPng(page)
+  expect(names).toHaveLength(1)
+  expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
+  const exported = decode(png)
+  const outputX = Math.floor((afterReload.x + afterReload.width * (
+    (screen.x + screen.width / 2) / afterReload.importedBezel!.naturalWidth
+  )) * 3)
+  const exportRuns = darkRuns(
+    exported,
+    outputX,
+    (offset) => Math.floor((afterReload.y + afterReload.height * (
+      (screen.y + offset) / afterReload.importedBezel!.naturalHeight
+    )) * 3),
+    scanLength,
+  )
+  expect(exportRuns).toHaveLength(1)
+  expect(exportRuns[0][0]).toBeCloseTo(screenshotRuns[0][0], -1)
+  expect(exportRuns[0][1]).toBeCloseTo(screenshotRuns[0][1], -1)
   expect((await readFile(bezelPath)).byteLength).toBeGreaterThan(0)
+  expect((await readFile(screenshotPath)).byteLength).toBeGreaterThan(0)
 })

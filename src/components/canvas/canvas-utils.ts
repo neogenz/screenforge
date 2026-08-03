@@ -17,7 +17,7 @@ import {
   getDeviceRenderSize,
 } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
-import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
+import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
 import type {
   Background,
   BaseLayer,
@@ -349,7 +349,7 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   ${screenshotUrl
     ? `<image x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" href="${escape(screenshotUrl)}" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="#050506"/>`}
+    : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="${DEFAULT_DEVICE_SCREEN_COLOR}"/>`}
   <image x="0" y="0" width="${width}" height="${height}" href="${escape(importedUrl)}"/>
 </svg>`,
     }
