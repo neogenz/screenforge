@@ -54,11 +54,24 @@ export interface TextLayer extends BaseLayer {
   gradientFill?: GradientFill
 }
 
+export interface ImportedDeviceBezel {
+  /** Asset id of the Apple-supplied transparent PNG (see lib/assets.ts). */
+  assetId: string
+  fileName: string
+  naturalWidth: number
+  naturalHeight: number
+  /** Transparent display opening, in the PNG's natural pixel coordinates. */
+  screen: { x: number; y: number; width: number; height: number }
+}
+
 export interface DeviceFrameLayer extends BaseLayer {
   type: 'device-frame'
   deviceModel: DeviceModel
   deviceColor: DeviceColor
+  /** Applies to the generated frame only; imported Apple artwork is never rotated. */
   orientation: Orientation
+  /** Optional Apple Product Bezel supplied locally by the user. */
+  importedBezel?: ImportedDeviceBezel
   /** Asset id of the inserted app screenshot (see lib/assets.ts). */
   screenshotAssetId?: string
   shadowEnabled?: boolean

@@ -7,7 +7,7 @@ import {
 } from '@/lib/assets'
 import { createDefaultScreen, DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
-import type { GlobalSettings, Layer, Project, Screen } from '@/types'
+import type { GlobalSettings, ImportedDeviceBezel, Layer, Project, Screen } from '@/types'
 
 interface AssetRecord {
   id: string
@@ -60,6 +60,38 @@ function uniqueId(candidate: unknown, seen: Set<string>): string {
   return id
 }
 
+function normalizeImportedBezel(value: unknown): ImportedDeviceBezel | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as Partial<ImportedDeviceBezel>
+  const screen = candidate.screen
+  if (
+    typeof candidate.assetId !== 'string' || !candidate.assetId
+    || typeof candidate.fileName !== 'string' || !candidate.fileName
+    || !Number.isFinite(candidate.naturalWidth) || (candidate.naturalWidth ?? 0) <= 0
+    || !Number.isFinite(candidate.naturalHeight) || (candidate.naturalHeight ?? 0) <= 0
+    || !screen
+    || !Number.isFinite(screen.x) || screen.x < 0
+    || !Number.isFinite(screen.y) || screen.y < 0
+    || !Number.isFinite(screen.width) || screen.width <= 0
+    || !Number.isFinite(screen.height) || screen.height <= 0
+    || screen.x + screen.width > candidate.naturalWidth!
+    || screen.y + screen.height > candidate.naturalHeight!
+  ) return undefined
+
+  return {
+    assetId: candidate.assetId,
+    fileName: candidate.fileName,
+    naturalWidth: candidate.naturalWidth!,
+    naturalHeight: candidate.naturalHeight!,
+    screen: {
+      x: screen.x,
+      y: screen.y,
+      width: screen.width,
+      height: screen.height,
+    },
+  }
+}
+
 function normalizeLayer(
   value: unknown,
   seenIds: Set<string>,
@@ -97,6 +129,13 @@ function normalizeLayer(
       deviceLayer.screenshotAssetId = registerAsset(candidate.screenshotUrl)
     }
     delete (deviceLayer as { screenshotUrl?: string }).screenshotUrl
+    const importedBezel = normalizeImportedBezel(deviceLayer.importedBezel)
+    if (importedBezel) {
+      deviceLayer.importedBezel = importedBezel
+      deviceLayer.orientation = 'portrait'
+    } else {
+      delete deviceLayer.importedBezel
+    }
   }
   return normalized
 }

@@ -59,7 +59,7 @@ ScreenForge deliberately omits smaller and legacy output choices. App Store Conn
 |---|---|
 | **Accuracy** | Screenshots must show REAL app functionality. Fabricated data = rejection (Guideline 2.3.7) |
 | **Status bar** | Include it — shows realistic context |
-| **Device frames** | Allowed and encouraged. Use current-gen frames (iPhone 15/16) |
+| **Device frames** | Allowed and encouraged. Use a current generated frame or a current Apple Product Bezel imported locally |
 | **Text overlays** | Allowed. Must be accurate. No hyperbolic claims ("best app ever") |
 | **Language** | Text must match a language your app actually supports |
 | **No ratings/badges** | Don't show App Store ratings or award badges |
@@ -87,7 +87,7 @@ Layer-based design surface:
 | Layer Type | Capabilities |
 |---|---|
 | **Text** | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill |
-| **Device Frame** | iPhone mockup with screenshot inside. Rotate, scale, position freely |
+| **Device Frame** | iPhone mockup with screenshot inside. Generated frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
 | **Image** | Import PNG/JPEG/SVG, crop, resize, opacity, shadow |
 | **Shape** | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow |
 | **Background** | Solid color, linear/radial gradient, image fill |
@@ -136,6 +136,10 @@ Built-in mockups:
 | iPhone 16 | MVP |
 | iPhone 15 Pro | v2 |
 | iPhone 15 | v2 |
+
+Apple Product Bezels are optional user-provided PNG overlays. The user downloads
+and extracts them from Apple's DMG; ScreenForge stores them only in the current
+project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
 
 **Controls:**
 - Device color variant (Silver, Black, Natural Titanium, etc.)
@@ -253,7 +257,7 @@ src/
     use-export.ts        # Export + batch logic
     use-fonts.ts         # Google Fonts loader
   assets/
-    device-frames/       # iPhone SVG mockups (per model + color)
+    device-frames/       # Generated iPhone SVG fallbacks (per model + color)
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
@@ -297,7 +301,7 @@ src/
 - Canvas editor with text, device frame, image, shape, background layers
 - Full text styling (Google Fonts, size, weight, color, shadow, gradient)
 - Background designer (solid + gradients + presets)
-- 3 iPhone frames (16 Pro Max, 16 Pro, 16) with color variants
+- Generated iPhone frames with color variants + local import of Apple Product Bezel PNGs
 - 5 pre-built templates
 - Batch export at 1320 × 2868 (opaque PNG, ZIP)
 - Project save/load (IndexedDB)
@@ -329,6 +333,6 @@ src/
 
 | Question | Decision |
 |---|---|
-| Device frame assets? | Bundle SVGs in repo — local-first, no CDN |
+| Device frame assets? | Keep generated SVG fallbacks; official Apple PNGs are supplied and stored locally by each user, never bundled |
 | Font loading? | On-demand via Google Fonts API with preview picker |
 | Project format? | IndexedDB for auto-save + JSON export/import for portability |

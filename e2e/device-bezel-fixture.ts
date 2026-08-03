@@ -1,0 +1,43 @@
+import { encode } from 'fast-png'
+
+export const MOCK_BEZEL = {
+  width: 19,
+  height: 31,
+  screen: { x: 4, y: 5, width: 11, height: 19 },
+} as const
+
+type BezelKind = 'valid' | 'opaque' | 'open'
+
+export function makeDeviceBezelPng(kind: BezelKind = 'valid'): Buffer {
+  const { width, height, screen } = MOCK_BEZEL
+  const data = new Uint8Array(width * height * 4)
+
+  // Transparent canvas, opaque phone body.
+  for (let y = 2; y < height - 2; y += 1) {
+    for (let x = 2; x < width - 2; x += 1) {
+      const offset = (y * width + x) * 4
+      data.set([24, 88, 176, 255], offset)
+    }
+  }
+
+  if (kind !== 'opaque') {
+    for (let y = screen.y; y < screen.y + screen.height; y += 1) {
+      for (let x = screen.x; x < screen.x + screen.width; x += 1) {
+        data[(y * width + x) * 4 + 3] = 0
+      }
+    }
+  }
+
+  if (kind === 'open') {
+    const y = screen.y + Math.floor(screen.height / 2)
+    for (let x = 0; x < screen.x; x += 1) data[(y * width + x) * 4 + 3] = 0
+  }
+
+  return Buffer.from(encode({ width, height, data, channels: 4, depth: 8 }))
+}
+
+export const corruptPng = () => Buffer.from('not a png')
+
+export function asBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64')
+}
