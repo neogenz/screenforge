@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   activeObjectState,
   activeCenter,
@@ -15,6 +15,18 @@ import {
   transformInput,
   waitForApp,
 } from './helpers'
+
+async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
+  const [start, destination] = await Promise.all([
+    activeCenter(page),
+    screenCenter(page, screenIndex),
+  ])
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(destination.x, destination.y, { steps: 12 })
+  await page.mouse.up()
+  await page.waitForTimeout(900)
+}
 
 /**
  * The reported bug: selection handles drift away from the layer after
@@ -274,5 +286,125 @@ test.describe('canvas transforms', () => {
       screenIndex: 0,
       clipScreenIndex: 0,
     })
+  })
+
+  test('repeated transfers stay stable through undo and redo', async ({ page }) => {
+    await addTextLayer(page)
+    const layerId = await page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id)
+    expect(layerId).toBeTruthy()
+
+    await addScreen(page)
+    await page.locator('button[aria-label^="Activer"]').first().click()
+    await page.waitForTimeout(600)
+    await page.locator(`[data-layer-id="${layerId}"]`).click()
+    const viewport = await page.evaluate(() => ({
+      transform: [...(window.__sfCanvas?.viewportTransform ?? [])],
+      zoom: window.__sfCanvas?.getZoom() ?? -1,
+    }))
+
+    async function expectStableOwner(ownerIndex: number) {
+      const state = await page.evaluate(({ id, index }) => {
+        const project = window.__sfStores?.useProjectStore.getState().project
+        const canvas = window.__sfCanvas
+        const owner = project?.screens[index]
+        const layer = owner?.layers.find((candidate) => candidate.id === id)
+        const object = canvas?.getObjects().find((candidate) =>
+          (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+        const background = canvas?.getObjects()
+          .filter((candidate) =>
+            (candidate as { data?: { rendererType?: string } }).data?.rendererType === 'background')
+          .sort((left, right) => left.left - right.left)[index]
+        return {
+          counts: project?.screens.map((screen) =>
+            screen.layers.filter((candidate) => candidate.id === id).length),
+          activeScreenId: project?.activeScreenId,
+          ownerScreenId: owner?.id,
+          selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+          storedX: layer?.x,
+          renderedX: object && background
+            ? object.getBoundingRect().left - background.getBoundingRect().left
+            : undefined,
+          viewport: [...(canvas?.viewportTransform ?? [])],
+          zoom: canvas?.getZoom() ?? -1,
+        }
+      }, { id: layerId!, index: ownerIndex })
+      expect(state.counts).toEqual(ownerIndex === 0 ? [1, 0] : [0, 1])
+      expect(state.activeScreenId).toBe(state.ownerScreenId)
+      expect(state.selectedIds).toEqual([layerId])
+      expectClose(state.renderedX!, state.storedX!, 1)
+      expectClose(state.zoom, viewport.zoom, 0.0001)
+      expect(state.viewport).toHaveLength(viewport.transform.length)
+      state.viewport.forEach((value, index) =>
+        expectClose(value, viewport.transform[index], 0.0001))
+    }
+
+    await dragSelectionToScreen(page, 1)
+    await expectStableOwner(1)
+    await dragSelectionToScreen(page, 0)
+    await expectStableOwner(0)
+
+    await page.keyboard.press('Meta+z')
+    await page.waitForTimeout(800)
+    const undone = await page.evaluate((id) =>
+      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
+        screen.layers.filter((layer) => layer.id === id).length), layerId)
+    expect(undone).toEqual([0, 1])
+
+    await page.keyboard.press('Meta+Shift+z')
+    await page.waitForTimeout(800)
+    const redone = await page.evaluate((id) =>
+      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
+        screen.layers.filter((layer) => layer.id === id).length), layerId)
+    expect(redone).toEqual([1, 0])
+  })
+
+  test('mixed local and shared selection transfers only the local layer', async ({ page }) => {
+    await addDeviceLayer(page)
+    await addScreen(page)
+    await page.locator('button[aria-label^="Activer"]').first().click()
+    await page.waitForTimeout(600)
+    await layerRows(page).first().click()
+    await page.locator('button', { hasText: 'Partager partout' }).click()
+    await page.waitForTimeout(600)
+    await addTextLayer(page)
+
+    const ids = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project as
+        | { screens: { layers: { id: string }[] }[]; layoutLayers: { id: string }[] }
+        | undefined
+      return {
+        local: project?.screens[0]?.layers[0]?.id,
+        shared: project?.layoutLayers[0]?.id,
+      }
+    })
+    expect(ids.local).toBeTruthy()
+    expect(ids.shared).toBeTruthy()
+    await page.locator(`[data-layer-id="${ids.local}"]`).click()
+    await page.locator(`[data-layer-id="${ids.shared}"]`).click({ modifiers: ['Meta'] })
+    expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
+
+    await dragSelectionToScreen(page, 1)
+    const result = await page.evaluate(({ localId, sharedId }) => {
+      const project = window.__sfStores?.useProjectStore.getState().project as
+        | {
+            screens: { layers: { id: string }[] }[]
+            layoutLayers: { id: string; scope?: string }[]
+          }
+        | undefined
+      return {
+        localCounts: project?.screens.map((screen) =>
+          screen.layers.filter((layer) => layer.id === localId).length),
+        sharedLocalCounts: project?.screens.map((screen) =>
+          screen.layers.filter((layer) => layer.id === sharedId).length),
+        sharedLayoutCount: project?.layoutLayers.filter((layer) =>
+          layer.id === sharedId && layer.scope === 'layout').length,
+        selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+      }
+    }, { localId: ids.local!, sharedId: ids.shared! })
+    expect(result.localCounts).toEqual([0, 1])
+    expect(result.sharedLocalCounts).toEqual([0, 0])
+    expect(result.sharedLayoutCount).toBe(1)
+    expect(new Set(result.selectedIds)).toEqual(new Set([ids.local, ids.shared]))
   })
 })

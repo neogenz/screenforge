@@ -32,6 +32,8 @@ import { stageInsets } from '@/lib/stage'
 import { computeSnap } from '@/lib/snapping'
 import type { Box, Guide } from '@/lib/snapping'
 import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
+import { applyLayerTransfer } from '@/lib/layer-transfer'
+import type { LayoutLayerUpdate, LocalLayerTransfer } from '@/lib/layer-transfer'
 import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
 import type { Layer, Project, Screen } from '@/types'
 
@@ -916,13 +918,8 @@ export function useCanvas() {
       const dropScreenIndex = event.action === 'drag'
         ? screenIndexAtPoint(project.screens, target.getCenterPoint())
         : null
-      const localUpdates: {
-        layer: Layer
-        sourceScreenId: string
-        targetScreenId: string
-        update: Partial<Layer>
-      }[] = []
-      const layoutUpdates = new Map<string, Partial<Layer>>()
+      const localUpdates: LocalLayerTransfer[] = []
+      const layoutUpdates: LayoutLayerUpdate[] = []
       for (const object of objects) {
         const layerId = object.data?.layerId ?? object.data?.uid
         const screenId = object.data?.screenId
@@ -930,13 +927,13 @@ export function useCanvas() {
         const screenIndex = project.screens.findIndex((screen) => screen.id === screenId)
         if (screenIndex === -1) continue
         if (object.data?.layout) {
-          layoutUpdates.set(
+          layoutUpdates.push({
             layerId,
-            fabricObjectToLayerUpdate(
+            update: fabricObjectToLayerUpdate(
               object,
               getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
             ) as Partial<Layer>,
-          )
+          })
           continue
         }
         const sourceScreenIndex = dragSourceScreenIndexes.get(object) ?? screenIndex
@@ -958,7 +955,7 @@ export function useCanvas() {
           ) as Partial<Layer>,
         })
       }
-      if (localUpdates.length === 0 && layoutUpdates.size === 0) return
+      if (localUpdates.length === 0 && layoutUpdates.length === 0) return
 
       const transfer = localUpdates.find((change) =>
         change.sourceScreenId !== change.targetScreenId)
@@ -966,7 +963,7 @@ export function useCanvas() {
         change.sourceScreenId,
         change.targetScreenId,
       ]))
-      const changesProjectLayout = layoutUpdates.size > 0
+      const changesProjectLayout = layoutUpdates.length > 0
         || Boolean(transfer)
         || affectedScreenIds.size > 1
       if (changesProjectLayout) useCanvasStore.getState().recordProjectHistory()
@@ -982,60 +979,19 @@ export function useCanvas() {
         })
       }
 
-      const changesBySource = new Map<string, Map<string, typeof localUpdates[number]>>()
-      const additionsByTarget = new Map<string, typeof localUpdates>()
-      for (const change of localUpdates) {
-        const sourceChanges = changesBySource.get(change.sourceScreenId) ?? new Map()
-        sourceChanges.set(change.layer.id, change)
-        changesBySource.set(change.sourceScreenId, sourceChanges)
-        if (change.sourceScreenId !== change.targetScreenId) {
-          const additions = additionsByTarget.get(change.targetScreenId) ?? []
-          additions.push(change)
-          additionsByTarget.set(change.targetScreenId, additions)
-        }
-      }
-
-      const screens = project.screens.map((screen) => {
-        const sourceChanges = changesBySource.get(screen.id)
-        const layers = sourceChanges
-          ? screen.layers.flatMap((layer) => {
-              const change = sourceChanges.get(layer.id)
-              if (!change) return [layer]
-              return change.targetScreenId === screen.id
-                ? [{ ...layer, ...change.update } as Layer]
-                : []
-            })
-          : screen.layers
-        const additions = additionsByTarget.get(screen.id)
-        if (!additions?.length) {
-          return layers === screen.layers ? screen : { ...screen, layers }
-        }
-        const topZIndex = Math.max(
-          -1,
-          ...layers.map((layer) => layer.zIndex),
-          ...project.layoutLayers.map((layer) => layer.zIndex),
-        )
-        const moved = additions
-          .sort((left, right) => left.layer.zIndex - right.layer.zIndex)
-          .map((change, index) => ({
-            ...change.layer,
-            ...change.update,
-            zIndex: topZIndex + index + 1,
-          }) as Layer)
-        return { ...screen, layers: [...layers, ...moved] }
+      const next = applyLayerTransfer({
+        screens: project.screens,
+        layoutLayers: project.layoutLayers,
+        localTransfers: localUpdates,
+        layoutUpdates,
       })
-      const destinationScreenId = transfer?.targetScreenId
+      const destinationScreenId = next.destinationScreenId
       useProjectStore.setState({
         project: {
           ...project,
           activeScreenId: destinationScreenId ?? project.activeScreenId,
-          screens,
-          layoutLayers: layoutUpdates.size > 0
-            ? project.layoutLayers.map((layer) => {
-                const update = layoutUpdates.get(layer.id)
-                return update ? { ...layer, ...update, scope: 'layout' } as Layer : layer
-              })
-            : project.layoutLayers,
+          screens: next.screens,
+          layoutLayers: next.layoutLayers,
           updatedAt: Math.max(Date.now(), project.updatedAt + 1),
         },
       })
