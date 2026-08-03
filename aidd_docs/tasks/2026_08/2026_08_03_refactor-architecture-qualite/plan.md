@@ -1,6 +1,6 @@
 ---
 objective: "Réduire la dette d’entretien du canvas, de l’historique et du stockage sans modifier le comportement normal de l’éditeur, tout en garantissant une persistance atomique et des contrôles de release reproductibles."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Refonte qualité et architecture pour la commercialisation
