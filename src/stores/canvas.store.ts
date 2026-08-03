@@ -1,26 +1,17 @@
 import { create } from 'zustand'
-import { useHistoryStore } from '@/stores/history.store'
+import {
+  useHistoryStore,
+  type HistorySnapshot,
+  type ProjectHistorySnapshot,
+  type ScreenHistorySnapshot,
+} from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
-import type { Background, Layer, Project, Screen, TemplateDefinition } from '@/types'
-
-interface ScreenHistorySnapshot {
-  kind: 'screen'
-  screenId: string
-  layers: Layer[]
-  background: Background
-}
-
-interface ProjectHistorySnapshot {
-  kind: 'project'
-  project: Project
-}
-
-type HistorySnapshot = ScreenHistorySnapshot | ProjectHistorySnapshot
+import type { Background, Layer, Screen, TemplateDefinition } from '@/types'
 
 interface EditOptions {
   /** Burst key: rapid edits with the same key collapse into one undo step. */
@@ -90,58 +81,29 @@ function syncLayersPreservingIdentity(previous: Layer[], screenId: string): Laye
   return next
 }
 
-function serializeScreen(screenId: string): string | null {
+function screenSnapshot(screenId: string): ScreenHistorySnapshot | null {
   const screen = activeScreen(screenId)
   return screen
-    ? JSON.stringify({
+    ? {
         kind: 'screen',
         screenId,
         layers: screen.layers,
         background: screen.background,
-      } satisfies ScreenHistorySnapshot)
+      }
     : null
 }
 
-function serializeProject(): string | null {
+function projectSnapshot(): ProjectHistorySnapshot | null {
   const project = useProjectStore.getState().project
   return project
-    ? JSON.stringify({
+    ? {
         kind: 'project',
         project: {
           ...project,
           screens: project.screens.map(withoutThumbnail),
         },
-      } satisfies ProjectHistorySnapshot)
+      }
     : null
-}
-
-function parseSnapshot(snapshot: string): HistorySnapshot | null {
-  try {
-    const parsed: unknown = JSON.parse(snapshot)
-    if (!parsed || typeof parsed !== 'object') return null
-    const candidate = parsed as Partial<HistorySnapshot> & {
-      layers?: Layer[]
-      background?: Background
-    }
-    if (candidate.kind === 'project' && candidate.project?.screens?.length) {
-      return candidate as ProjectHistorySnapshot
-    }
-    if (candidate.kind === 'screen'
-      && typeof candidate.screenId === 'string'
-      && Array.isArray(candidate.layers)
-      && candidate.background) {
-      return candidate as ScreenHistorySnapshot
-    }
-    // Compatibility with history entries created before project-wide snapshots.
-    if (Array.isArray(candidate.layers) && candidate.background) {
-      const screenId = useCanvasStore.getState().activeScreenId
-      return { kind: 'screen', screenId, layers: candidate.layers, background: candidate.background }
-    }
-    return null
-  } catch (error) {
-    console.error('Could not restore editor history.', error)
-    return null
-  }
 }
 
 function selectedLayers(state: Pick<CanvasState, 'layers' | 'selectedLayerIds'>): Layer[] {
@@ -201,12 +163,12 @@ function applyGlobalsToNewLayer(layer: Layer): Layer {
 
 export const useCanvasStore = create<CanvasState>()((set, get) => {
   function recordCurrent(coalesceKey?: string) {
-    const snapshot = serializeScreen(get().activeScreenId)
+    const snapshot = screenSnapshot(get().activeScreenId)
     if (snapshot) useHistoryStore.getState().record(snapshot, coalesceKey)
   }
 
   function recordProject(coalesceKey?: string) {
-    const snapshot = serializeProject()
+    const snapshot = projectSnapshot()
     if (snapshot) useHistoryStore.getState().record(snapshot, coalesceKey)
   }
 
@@ -258,18 +220,15 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
   function travel(direction: 'undo' | 'redo') {
     const history = useHistoryStore.getState()
     const stack = direction === 'undo' ? history.past : history.future
-    const targetHint = stack[stack.length - 1] ? parseSnapshot(stack[stack.length - 1]) : null
+    const targetHint: HistorySnapshot | undefined = stack[stack.length - 1]
     if (!targetHint) return
     const current = targetHint.kind === 'project'
-      ? serializeProject()
-      : serializeScreen(targetHint.screenId)
+      ? projectSnapshot()
+      : screenSnapshot(targetHint.screenId)
     if (!current) return
-    const target = history[direction](current)
-    if (!target) return
-    const restored = parseSnapshot(target)
-    if (!restored) return
-    if (restored.kind === 'project') persistProject(restored)
-    else persistScreen(restored)
+    const restored = history[direction](current)
+    if (restored?.kind === 'project') persistProject(restored)
+    else if (restored) persistScreen(restored)
   }
 
   return {

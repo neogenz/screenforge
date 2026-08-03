@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Background, Layer, Project } from '@/types'
 
 /**
  * Coalescing rule: snapshots are PRE-state. When a burst of edits shares a
@@ -8,17 +9,61 @@ import { create } from 'zustand'
  */
 const COALESCE_WINDOW_MS = 1200
 
+export interface ScreenHistorySnapshot {
+  kind: 'screen'
+  screenId: string
+  layers: Layer[]
+  background: Background
+}
+
+export interface ProjectHistorySnapshot {
+  kind: 'project'
+  project: Project
+}
+
+export type HistorySnapshot = ScreenHistorySnapshot | ProjectHistorySnapshot
+
 interface HistoryState {
-  past: string[]
-  future: string[]
+  past: HistorySnapshot[]
+  future: HistorySnapshot[]
   maxHistory: number
   lastCoalesceKey: string | null
   lastRecordedAt: number
 
-  record: (snapshot: string, coalesceKey?: string) => void
-  undo: (currentSnapshot: string) => string | null
-  redo: (currentSnapshot: string) => string | null
+  record: (snapshot: HistorySnapshot, coalesceKey?: string) => void
+  undo: (currentSnapshot: HistorySnapshot) => HistorySnapshot | null
+  redo: (currentSnapshot: HistorySnapshot) => HistorySnapshot | null
   clear: () => void
+}
+
+function sameProject(left: Project, right: Project): boolean {
+  return left.id === right.id
+    && left.name === right.name
+    && left.activeScreenId === right.activeScreenId
+    && left.globals === right.globals
+    && left.layoutLayers === right.layoutLayers
+    && left.createdAt === right.createdAt
+    && left.updatedAt === right.updatedAt
+    && left.screens.length === right.screens.length
+    && left.screens.every((screen, index) => {
+      const other = right.screens[index]
+      return screen.id === other.id
+        && screen.name === other.name
+        && screen.layers === other.layers
+        && screen.background === other.background
+    })
+}
+
+function sameSnapshot(left: HistorySnapshot | undefined, right: HistorySnapshot): boolean {
+  if (!left || left.kind !== right.kind) return false
+  if (left.kind === 'project' && right.kind === 'project') {
+    return sameProject(left.project, right.project)
+  }
+  return left.kind === 'screen'
+    && right.kind === 'screen'
+    && left.screenId === right.screenId
+    && left.layers === right.layers
+    && left.background === right.background
 }
 
 export const useHistoryStore = create<HistoryState>()((set, get) => ({
@@ -36,10 +81,9 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
         && coalesceKey === state.lastCoalesceKey
         && now - state.lastRecordedAt < COALESCE_WINDOW_MS
       ) {
-        // Same burst: keep the first pre-state, just refresh the timer.
         return { lastRecordedAt: now, future: [] }
       }
-      if (state.past[state.past.length - 1] === snapshot) {
+      if (sameSnapshot(state.past[state.past.length - 1], snapshot)) {
         return { future: [], lastCoalesceKey: coalesceKey ?? null, lastRecordedAt: now }
       }
       return {
