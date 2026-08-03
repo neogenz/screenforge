@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
   Download,
+  FileDown,
+  FolderOpen,
   ImageIcon,
   LayoutTemplate,
   LoaderCircle,
@@ -27,6 +29,15 @@ import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
+import {
+  createProjectFile,
+  PROJECT_FILE_EXTENSION,
+  PROJECT_FILE_MIME,
+  projectFileErrorMessage,
+} from '@/lib/project-file'
+import { importPortableProject, saveCurrentProject } from '@/lib/storage'
+import { downloadBlob, slugify } from '@/lib/zip'
+import { toast } from '@/stores/toast.store'
 import {
   createDeviceLayer,
   createShapeLayer,
@@ -69,6 +80,7 @@ function ProjectSegment() {
     <div className="flex min-w-0 items-center gap-2">
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-foreground-muted" />
       <ProjectName />
+      <ProjectFileMenu />
       {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
       <span
         role="status"
@@ -84,6 +96,101 @@ function ProjectSegment() {
         {SAVE_LABELS[saveStatus]}
       </span>
     </div>
+  )
+}
+
+function ProjectFileMenu() {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const anchorRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+    requestAnimationFrame(() => anchorRef.current?.focus())
+  }, [])
+
+  async function downloadProject() {
+    const project = useProjectStore.getState().project
+    if (!project) return
+    setBusy(true)
+    try {
+      await saveCurrentProject()
+      const blob = await createProjectFile(useProjectStore.getState().project ?? project)
+      downloadBlob(blob, `${slugify(project.name)}${PROJECT_FILE_EXTENSION}`)
+      toast('Copie du projet téléchargée.', 'success')
+    } catch (error) {
+      toast(projectFileErrorMessage(error), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function openProject(file: File) {
+    setBusy(true)
+    try {
+      await importPortableProject(file)
+      toast('Projet importé.', 'success')
+    } catch (error) {
+      toast(projectFileErrorMessage(error), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <IconButton
+        ref={anchorRef}
+        size="sm"
+        aria-label="Ouvrir le menu Projet"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-busy={busy}
+        active={open}
+        disabled={busy}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {busy
+          ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
+          : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
+      </IconButton>
+      <Dropdown
+        open={open}
+        anchor={anchorRef}
+        onClose={closeMenu}
+        ariaLabel="Fichier du projet"
+        items={[
+          {
+            id: 'download-project',
+            label: 'Télécharger une copie',
+            icon: <FileDown size={14} strokeWidth={1.75} />,
+            disabled: busy,
+            onSelect: () => void downloadProject(),
+          },
+          {
+            id: 'open-project',
+            label: 'Ouvrir un projet…',
+            icon: <FolderOpen size={14} strokeWidth={1.75} />,
+            disabled: busy,
+            onSelect: () => inputRef.current?.click(),
+          },
+        ]}
+      />
+      <input
+        ref={inputRef}
+        type="file"
+        accept={`${PROJECT_FILE_EXTENSION},${PROJECT_FILE_MIME}`}
+        aria-label="Ouvrir un projet ScreenForge"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (file) void openProject(file)
+        }}
+      />
+    </>
   )
 }
 

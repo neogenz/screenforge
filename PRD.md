@@ -304,7 +304,7 @@ src/
 - Generated iPhone frames with color variants + local import of Apple Product Bezel PNGs
 - 5 pre-built templates
 - Batch export at 1320 × 2868 (opaque PNG, ZIP)
-- Project save/load (IndexedDB)
+- Project autosave/load (IndexedDB) + portable `.screenforge.zip` backup/import
 - Globals (shared font, background, device across screens)
 - Undo/redo + keyboard shortcuts
 
@@ -325,7 +325,7 @@ src/
 3. Dimensions are pixel-exact (1320 x 2868 for 6.9", etc.)
 4. Text rendering matches AppScreens.com quality
 5. Zero API calls — fully local
-6. Projects persist across browser sessions
+6. Projects persist across browser sessions and reopen from a portable local backup
 
 ---
 
@@ -335,4 +335,4 @@ src/
 |---|---|
 | Device frame assets? | Keep generated SVG fallbacks; official Apple PNGs are supplied and stored locally by each user, never bundled |
 | Font loading? | On-demand via Google Fonts API with preview picker |
-| Project format? | IndexedDB for auto-save + JSON export/import for portability |
+| Project format? | IndexedDB for autosave; versioned `.screenforge.zip` with `project.json` and referenced binary assets for portability |

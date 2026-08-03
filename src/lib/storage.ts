@@ -5,7 +5,10 @@ import {
   registerAsset,
   takeDirtyAssets,
 } from '@/lib/assets'
+import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
 import { createDefaultScreen, DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
+import { useCanvasStore } from '@/stores/canvas.store'
+import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { GlobalSettings, ImportedDeviceBezel, Layer, Project, Screen } from '@/types'
 
@@ -271,6 +274,69 @@ export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'cre
 export async function deleteProject(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('projects', id)
+}
+
+function remapLayerAssets(layer: Layer, ids: ReadonlyMap<string, string>): Layer {
+  const copy = cloneValue(layer)
+  if (copy.type === 'image') copy.assetId = ids.get(copy.assetId) ?? copy.assetId
+  if (copy.type === 'device-frame') {
+    if (copy.screenshotAssetId) {
+      copy.screenshotAssetId = ids.get(copy.screenshotAssetId) ?? copy.screenshotAssetId
+    }
+    if (copy.importedBezel) {
+      copy.importedBezel.assetId = ids.get(copy.importedBezel.assetId)
+        ?? copy.importedBezel.assetId
+    }
+  }
+  return copy
+}
+
+function importedProject(decoded: DecodedProjectFile): {
+  project: Project
+  assets: AssetRecord[]
+} {
+  const projectId = crypto.randomUUID()
+  const idMap = new Map(decoded.assets.map((asset) => [asset.id, crypto.randomUUID()]))
+  const now = Date.now()
+  const project = normalizeProject({
+    ...cloneValue(decoded.project),
+    id: projectId,
+    createdAt: now,
+    updatedAt: now,
+    screens: decoded.project.screens.map((screen) => ({
+      ...cloneValue(screen),
+      thumbnail: undefined,
+      layers: screen.layers.map((layer) => remapLayerAssets(layer, idMap)),
+    })),
+    layoutLayers: decoded.project.layoutLayers.map((layer) => remapLayerAssets(layer, idMap)),
+  })
+  const assets = decoded.assets.map((asset) => ({
+    id: idMap.get(asset.id)!,
+    projectId,
+    dataUrl: asset.dataUrl,
+  }))
+  return { project, assets }
+}
+
+/** Validates fully, then atomically persists and activates an independent project copy. */
+export async function importPortableProject(file: File): Promise<Project> {
+  const decoded = await readProjectFile(file)
+  await saveCurrentProject()
+  const imported = importedProject(decoded)
+  const db = await getDB()
+  const tx = db.transaction(['projects', 'assets'], 'readwrite')
+  await Promise.all([
+    tx.objectStore('projects').put(imported.project),
+    ...imported.assets.map((asset) => tx.objectStore('assets').put(asset)),
+  ])
+  await tx.done
+
+  hydrateAssets(imported.assets)
+  useProjectStore.getState().loadProject(imported.project)
+  useCanvasStore.getState().setActiveScreenId(imported.project.activeScreenId)
+  useHistoryStore.getState().clear()
+  useUIStore.getState().setSaveStatus('saved')
+  return imported.project
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null

@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
 
@@ -52,7 +52,24 @@ declare global {
         activeScreenId: string
       } }
       useProjectStore: { getState: () => { project: {
-        screens: { id: string; layers: { id: string; x: number; y: number }[] }[]
+        screens: { id: string; layers: Array<{
+          id: string
+          x: number
+          y: number
+          width?: number
+          height?: number
+          type?: string
+          assetId?: string
+          screenshotAssetId?: string
+          importedBezel?: { assetId: string }
+        }> }[]
+        layoutLayers: Array<{
+          id: string
+          type?: string
+          assetId?: string
+          screenshotAssetId?: string
+          importedBezel?: { assetId: string }
+        }>
         activeScreenId: string
       } | null } }
     }
@@ -91,17 +108,21 @@ export interface ExportedZipPng {
   png: Uint8Array
 }
 
+export async function readDownload(download: Download): Promise<Uint8Array> {
+  expect(await download.failure()).toBeNull()
+  const stream = await download.createReadStream()
+  const chunks: Buffer[] = []
+  for await (const chunk of stream) chunks.push(chunk as Buffer)
+  return Buffer.concat(chunks)
+}
+
 export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipPng> {
   await page.getByLabel('Ouvrir l’export').click()
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),
     page.getByRole('button', { name: 'Exporter le ZIP' }).click(),
   ])
-  expect(await download.failure()).toBeNull()
-  const stream = await download.createReadStream()
-  const chunks: Buffer[] = []
-  for await (const chunk of stream) chunks.push(chunk as Buffer)
-  const zip = await JSZip.loadAsync(Buffer.concat(chunks))
+  const zip = await JSZip.loadAsync(await readDownload(download))
   const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir)
   const entry = zip.files[names[0]]
   if (!entry) throw new Error('exported PNG missing')

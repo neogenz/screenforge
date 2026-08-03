@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
+import { decode } from 'fast-png'
 import JSZip from 'jszip'
-import { waitForApp } from './helpers'
+import {
+  addDeviceLayer,
+  downloadFirstExportedPng,
+  readDownload,
+  waitForApp,
+} from './helpers'
+import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
 interface PortableFixture {
   archive: number[]
@@ -212,4 +219,151 @@ test('rejects an invalid archive without mutating the open project or assets', a
     expectedProjectId: before.projectId,
     asset: 'data:image/png;base64,c2VudGluZWw=',
   })
+})
+
+async function downloadPortableProject(page: Page): Promise<Uint8Array> {
+  await page.getByRole('button', { name: 'Ouvrir le menu Projet' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: 'Télécharger une copie' }).click(),
+  ])
+  expect(download.suggestedFilename()).toBe('backup_demo.screenforge.zip')
+  return readDownload(download)
+}
+
+test('downloads, imports and reloads a complete portable project', async ({ page }) => {
+  await page.getByLabel('Nom du projet').fill('Backup démo')
+  await page.getByLabel('Nom du projet').press('Enter')
+  await page.getByLabel('Ajouter Texte').click()
+  await expect.poll(() => page.evaluate(() => window.__sfStores
+    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'text'))).toBe(true)
+  await page.getByLabel('Importer une image').setInputFiles({
+    name: 'hero.png',
+    mimeType: 'image/png',
+    buffer: makeSolidPng(16, 16, [34, 197, 94, 255]),
+  })
+  await addDeviceLayer(page)
+  await page.getByLabel('Importer un bezel Apple').setInputFiles({
+    name: 'bezel.png',
+    mimeType: 'image/png',
+    buffer: makeDeviceBezelPng(),
+  })
+  await page.getByLabel('Importer la capture de l’app').setInputFiles({
+    name: 'capture.png',
+    mimeType: 'image/png',
+    buffer: makeSolidPng(MOCK_BEZEL.screen.width, MOCK_BEZEL.screen.height, [232, 32, 48, 255]),
+  })
+  await page.getByLabel('Ajouter un écran').click()
+  await expect.poll(() => page.evaluate(() => window.__sfStores
+    ?.useProjectStore.getState().project?.screens.length)).toBe(2)
+  const before = await page.evaluate(() => ({
+    projectId: window.__sfStores?.useProjectStore.getState().project?.id,
+    historySize: window.__sfStores?.useHistoryStore.getState().past.length,
+  }))
+  expect(before.historySize).toBeGreaterThan(0)
+
+  const archive = await downloadPortableProject(page)
+  await page.getByLabel('Ouvrir un projet ScreenForge').setInputFiles({
+    name: 'backup_demo.screenforge.zip',
+    mimeType: 'application/zip',
+    buffer: Buffer.from(archive),
+  })
+  await expect(page.getByText('Projet importé.')).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Enregistré' })).toBeVisible()
+
+  const imported = await page.evaluate(async () => {
+    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const layers = project
+      ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
+      : []
+    const ids = layers.flatMap((layer) => {
+      if (layer.type === 'image') return [layer.assetId]
+      if (layer.type !== 'device-frame') return []
+      return [layer.screenshotAssetId, layer.importedBezel?.assetId].filter(Boolean) as string[]
+    })
+    return {
+      projectId: project?.id,
+      screenCount: project?.screens.length,
+      historySize: window.__sfStores?.useHistoryStore.getState().past.length,
+      assetIds: ids,
+      assetsResolved: ids.every((id) => Boolean(resolveAsset(id))),
+    }
+  })
+  expect(imported).toMatchObject({ screenCount: 2, historySize: 0, assetsResolved: true })
+  expect(imported.projectId).not.toBe(before.projectId)
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForFunction(() => Boolean(window.__sfCanvas))
+  const afterReload = await page.evaluate(async () => {
+    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const device = project?.screens[0].layers.find((layer) => layer.type === 'device-frame')
+    if (!device || device.type !== 'device-frame') return null
+    return {
+      projectId: project?.id,
+      screenCount: project?.screens.length,
+      assetsResolved: Boolean(resolveAsset(device.screenshotAssetId)
+        && resolveAsset(device.importedBezel?.assetId)),
+      device: {
+        x: device.x,
+        y: device.y,
+        width: device.width,
+        height: device.height,
+      },
+    }
+  })
+  expect(afterReload).toMatchObject({
+    projectId: imported.projectId,
+    screenCount: 2,
+    assetsResolved: true,
+  })
+
+  const { png } = await downloadFirstExportedPng(page)
+  const decoded = decode(png)
+  expect(decoded).toMatchObject({ width: 1320, height: 2868, depth: 8, channels: 3 })
+  const state = afterReload!.device
+  const x = Math.floor((state.x + state.width * (9.5 / MOCK_BEZEL.width)) * 3)
+  const y = Math.floor((state.y + state.height * (14.5 / MOCK_BEZEL.height)) * 3)
+  const offset = (y * decoded.width + x) * decoded.channels
+  expect(Array.from(decoded.data.slice(offset, offset + 3))).toEqual([232, 32, 48])
+})
+
+test('keeps the current session intact when UI import rejects a corrupt file', async ({ page }) => {
+  const before = await page.evaluate(async () => {
+    const { registerAsset } = await import('/src/lib/assets.ts')
+    return {
+      projectId: window.__sfStores?.useProjectStore.getState().project?.id,
+      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      assetId: registerAsset('data:image/png;base64,c3RheQ=='),
+    }
+  })
+  await page.getByLabel('Ouvrir un projet ScreenForge').setInputFiles({
+    name: 'broken.screenforge.zip',
+    mimeType: 'application/zip',
+    buffer: Buffer.from('broken'),
+  })
+  await expect(page.getByText('Archive projet invalide.')).toBeVisible()
+  expect(await page.evaluate(async ({ assetId }) => {
+    const { resolveAsset } = await import('/src/lib/assets.ts')
+    return {
+      projectId: window.__sfStores?.useProjectStore.getState().project?.id,
+      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      asset: resolveAsset(assetId),
+    }
+  }, before)).toEqual({
+    projectId: before.projectId,
+    activeScreenId: before.activeScreenId,
+    asset: 'data:image/png;base64,c3RheQ==',
+  })
+})
+
+test('project menu is keyboard navigable and restores focus', async ({ page }) => {
+  const trigger = page.getByRole('button', { name: 'Ouvrir le menu Projet' })
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('menu', { name: 'Fichier du projet' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu', { name: 'Fichier du projet' })).toHaveCount(0)
+  await expect(trigger).toBeFocused()
 })

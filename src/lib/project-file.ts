@@ -43,6 +43,24 @@ export class ProjectFileError extends Error {
   }
 }
 
+const ERROR_MESSAGES: Record<ProjectFileErrorCode, string> = {
+  'file-too-large': 'Le fichier projet est trop volumineux.',
+  'invalid-archive': 'Archive projet invalide.',
+  'invalid-manifest': 'Le manifeste du projet est invalide.',
+  'unsupported-version': 'Cette version de projet ScreenForge n’est pas prise en charge.',
+  'unsafe-entry': 'L’archive contient un chemin non autorisé.',
+  'missing-asset': 'Un asset du projet est manquant.',
+  'asset-too-large': 'Un asset du projet est trop volumineux.',
+  'corrupt-asset': 'Un asset du projet est corrompu.',
+  'missing-current-asset': 'Le projet ouvert référence un asset introuvable.',
+}
+
+export function projectFileErrorMessage(error: unknown): string {
+  return error instanceof ProjectFileError
+    ? ERROR_MESSAGES[error.code]
+    : 'Échec inattendu du fichier projet.'
+}
+
 interface ProjectAssetDescriptor {
   id: string
   path: string
