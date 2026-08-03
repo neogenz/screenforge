@@ -1,6 +1,6 @@
 ---
 objective: "Le transfert inter-écrans conserve son comportement tout en isolant son calcul métier et en verrouillant les enchaînements répétés et les sélections mixtes par E2E."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Stabiliser le transfert inter-écrans
