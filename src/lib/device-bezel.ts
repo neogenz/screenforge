@@ -87,6 +87,9 @@ function findScreen(
   width: number,
   height: number,
 ): ImportedDeviceBezel['screen'] {
+  for (let alpha = 3; alpha < pixels.length; alpha += 4) {
+    if (pixels[alpha] > TRANSPARENT_ALPHA_MAX) pixels[alpha] = 255
+  }
   const startX = Math.floor(width / 2)
   const startY = Math.floor(height / 2)
   const start = startY * width + startX

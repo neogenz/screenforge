@@ -68,6 +68,17 @@ test('detects the enclosed transparent screen with exact geometry', async ({ pag
   expect(JSON.stringify(result.metadata)).not.toContain('data:image')
 })
 
+test('does not confuse a real alpha 17 pixel with the flood-fill marker', async ({ page }) => {
+  const result = await analyze(page, makeDeviceBezelPng('alpha-17-separator'))
+
+  expect(result).toMatchObject({
+    ok: true,
+    metadata: {
+      screen: { x: 4, y: 8, width: 11, height: 16 },
+    },
+  })
+})
+
 test('rejects opaque, open and corrupt PNGs with stable errors', async ({ page }) => {
   const [opaque, open, corrupt] = await Promise.all([
     analyze(page, makeDeviceBezelPng('opaque')),

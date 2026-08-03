@@ -62,29 +62,100 @@ async function selectDeviceLayer(page: Page) {
   await page.getByRole('option', { name: /iPhone, device-frame/ }).click()
 }
 
-function darkRuns(
+interface PixelBox {
+  x: number
+  y: number
+  width: number
+  height: number
+  area: number
+}
+
+interface PixelRegion {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function topDarkComponents(
   image: { width: number; channels: number; data: Uint8Array | Uint16Array },
-  x: number,
-  yAt: (offset: number) => number,
-  length: number,
-): Array<[number, number]> {
-  const runs: Array<[number, number]> = []
-  let start = -1
-  for (let offset = 0; offset < length; offset += 1) {
-    const y = yAt(offset)
+  region: PixelRegion,
+): PixelBox[] {
+  const pixelCount = region.width * region.height
+  const visited = new Uint8Array(pixelCount)
+  const queue = new Uint32Array(pixelCount)
+  const components: PixelBox[] = []
+  let tail = 0
+  const isDark = (pixel: number) => {
+    const x = region.x + pixel % region.width
+    const y = region.y + Math.floor(pixel / region.width)
     const index = (y * image.width + x) * image.channels
-    const dark = image.data[index] < 24
+    return image.data[index] < 24
       && image.data[index + 1] < 24
       && image.data[index + 2] < 24
       && (image.channels < 4 || image.data[index + 3] > 200)
-    if (dark && start < 0) start = offset
-    if (!dark && start >= 0) {
-      runs.push([start, offset - 1])
-      start = -1
+  }
+  const visit = (neighbor: number) => {
+    if (visited[neighbor] || !isDark(neighbor)) return
+    visited[neighbor] = 1
+    queue[tail] = neighbor
+    tail += 1
+  }
+
+  for (let start = 0; start < pixelCount; start += 1) {
+    if (visited[start] || !isDark(start)) continue
+    let head = 0
+    tail = 0
+    let minX = region.width
+    let minY = region.height
+    let maxX = 0
+    let maxY = 0
+    let area = 0
+    visited[start] = 1
+    queue[tail] = start
+    tail += 1
+
+    while (head < tail) {
+      const pixel = queue[head]
+      head += 1
+      const x = pixel % region.width
+      const y = Math.floor(pixel / region.width)
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+      area += 1
+
+      if (x > 0) visit(pixel - 1)
+      if (x + 1 < region.width) visit(pixel + 1)
+      if (y > 0) visit(pixel - region.width)
+      if (y + 1 < region.height) visit(pixel + region.width)
+    }
+
+    const width = maxX - minX + 1
+    const height = maxY - minY + 1
+    if (
+      width >= region.width * 0.2
+      && height >= region.height * 0.15
+      && area >= pixelCount * 0.02
+    ) {
+      components.push({
+        x: region.x + minX,
+        y: region.y + minY,
+        width,
+        height,
+        area,
+      })
     }
   }
-  if (start >= 0) runs.push([start, length - 1])
-  return runs.filter(([from, to]) => to - from > 20)
+
+  return components
+}
+
+function expectAlignedBox(actual: PixelBox, expected: PixelBox, tolerance: number) {
+  for (const key of ['x', 'y', 'width', 'height'] as const) {
+    expect(Math.abs(actual[key] - expected[key]), `${key} alignment`).toBeLessThanOrEqual(tolerance)
+  }
 }
 
 test.beforeEach(async ({ page }) => {
@@ -244,24 +315,22 @@ test('accepts a real Apple Product Bezel outside the repository', async ({ page 
     height: screenshot.height,
   })
 
-  const scanLength = Math.min(240, screenshot.height)
-  const screenshotRuns = darkRuns(
-    screenshot,
-    Math.floor(screenshot.width / 2),
-    (offset) => offset,
-    scanLength,
-  )
   const screen = beforeReload.importedBezel!.screen
-  const bezelRuns = darkRuns(
-    bezel,
-    screen.x + Math.floor(screen.width / 2),
-    (offset) => screen.y + offset,
-    scanLength,
-  )
-  expect(screenshotRuns).toHaveLength(1)
-  expect(bezelRuns).toHaveLength(1)
-  expect(bezelRuns[0][0]).toBeCloseTo(screenshotRuns[0][0], -1)
-  expect(bezelRuns[0][1]).toBeCloseTo(screenshotRuns[0][1], -1)
+  const screenshotRegion = {
+    x: Math.floor(screenshot.width * 0.3),
+    y: 0,
+    width: Math.ceil(screenshot.width * 0.4),
+    height: Math.min(240, screenshot.height),
+  }
+  const screenshotIslands = topDarkComponents(screenshot, screenshotRegion)
+  const bezelIslands = topDarkComponents(bezel, {
+    ...screenshotRegion,
+    x: screen.x + screenshotRegion.x,
+    y: screen.y,
+  }).map((box) => ({ ...box, x: box.x - screen.x, y: box.y - screen.y }))
+  expect(screenshotIslands).toHaveLength(1)
+  expect(bezelIslands).toHaveLength(1)
+  expectAlignedBox(bezelIslands[0], screenshotIslands[0], 5)
 
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas))
@@ -271,20 +340,29 @@ test('accepts a real Apple Product Bezel outside the repository', async ({ page 
   expect(names).toHaveLength(1)
   expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
   const exported = decode(png)
-  const outputX = Math.floor((afterReload.x + afterReload.width * (
-    (screen.x + screen.width / 2) / afterReload.importedBezel!.naturalWidth
-  )) * 3)
-  const exportRuns = darkRuns(
-    exported,
-    outputX,
-    (offset) => Math.floor((afterReload.y + afterReload.height * (
-      (screen.y + offset) / afterReload.importedBezel!.naturalHeight
-    )) * 3),
-    scanLength,
-  )
-  expect(exportRuns).toHaveLength(1)
-  expect(exportRuns[0][0]).toBeCloseTo(screenshotRuns[0][0], -1)
-  expect(exportRuns[0][1]).toBeCloseTo(screenshotRuns[0][1], -1)
+  const exportScaleX = afterReload.width * 3 / afterReload.importedBezel!.naturalWidth
+  const exportScaleY = afterReload.height * 3 / afterReload.importedBezel!.naturalHeight
+  const outputScreenX = (afterReload.x + afterReload.width * (
+    screen.x / afterReload.importedBezel!.naturalWidth
+  )) * 3
+  const outputScreenY = (afterReload.y + afterReload.height * (
+    screen.y / afterReload.importedBezel!.naturalHeight
+  )) * 3
+  const exportRegion = {
+    x: Math.floor(outputScreenX + screenshotRegion.x * exportScaleX),
+    y: Math.floor(outputScreenY),
+    width: Math.ceil(screenshotRegion.width * exportScaleX),
+    height: Math.ceil(screenshotRegion.height * exportScaleY),
+  }
+  const exportIslands = topDarkComponents(exported, exportRegion).map((box) => ({
+    ...box,
+    x: (box.x - outputScreenX) / exportScaleX,
+    y: (box.y - outputScreenY) / exportScaleY,
+    width: box.width / exportScaleX,
+    height: box.height / exportScaleY,
+  }))
+  expect(exportIslands).toHaveLength(1)
+  expectAlignedBox(exportIslands[0], screenshotIslands[0], 6)
   expect((await readFile(bezelPath)).byteLength).toBeGreaterThan(0)
   expect((await readFile(screenshotPath)).byteLength).toBeGreaterThan(0)
 })

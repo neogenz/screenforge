@@ -6,7 +6,7 @@ export const MOCK_BEZEL = {
   screen: { x: 4, y: 5, width: 11, height: 19 },
 } as const
 
-type BezelKind = 'valid' | 'opaque' | 'open'
+type BezelKind = 'valid' | 'opaque' | 'open' | 'alpha-17-separator'
 
 export function makeDeviceBezelPng(kind: BezelKind = 'valid'): Buffer {
   const { width, height, screen } = MOCK_BEZEL
@@ -31,6 +31,19 @@ export function makeDeviceBezelPng(kind: BezelKind = 'valid'): Buffer {
   if (kind === 'open') {
     const y = screen.y + Math.floor(screen.height / 2)
     for (let x = 0; x < screen.x; x += 1) data[(y * width + x) * 4 + 3] = 0
+  }
+
+  if (kind === 'alpha-17-separator') {
+    for (let y = screen.y; y < screen.y + screen.height; y += 1) {
+      for (let x = screen.x; x < screen.x + screen.width; x += 1) {
+        data[(y * width + x) * 4 + 3] = 255
+      }
+    }
+    for (let y = 9; y <= 23; y += 1) {
+      for (let x = 5; x <= 13; x += 1) data[(y * width + x) * 4 + 3] = 0
+    }
+    for (let x = 4; x <= 14; x += 1) data[(8 * width + x) * 4 + 3] = 0
+    data[(8 * width + 7) * 4 + 3] = 17
   }
 
   return Buffer.from(encode({ width, height, data, channels: 4, depth: 8 }))
