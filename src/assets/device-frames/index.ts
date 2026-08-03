@@ -156,12 +156,19 @@ export const DEVICE_BLEED = BUTTON_PROTRUSION
 export const DEVICE_RASTER_SCALE = 4
 
 /**
- * Coin en superellipse (|x/r|^n + |y/r|^n = 1) et non arc de cercle : c'est la
- * forme réelle des châssis Apple. Un `rx` de SVG trahit le gabarit au premier
- * regard, d'autant plus que la bordure est fine.
+ * Coin continu à la manière d'iOS : superellipse |x/a|^n + |y/a|^n = 1, et non
+ * arc de cercle. Un `rx` de SVG trahit le gabarit au premier regard.
+ *
+ * Les deux constantes vont ensemble et se règlent ensemble. À exposant 5 et
+ * demi-axe égal au rayon, le coin passe à 0,18·r de l'angle quand un arc de
+ * cercle passe à 0,41·r : la silhouette obtenue est *plus carrée* qu'un rayon
+ * ordinaire, soit l'inverse de l'effet recherché — c'est ce qui faisait lire
+ * une dalle Android. iOS étale le coin sur ~1,53× le rayon nominal, ce qui
+ * relâche la tension à la jonction avec le flanc tout en gardant l'angle rond.
  */
-const SQUIRCLE_EXPONENT = 5
-const SQUIRCLE_STEPS = 8
+const SQUIRCLE_EXPONENT = 4
+const SQUIRCLE_SPREAD = 1.528
+const SQUIRCLE_STEPS = 12
 
 interface Point { x: number; y: number }
 
@@ -170,16 +177,16 @@ function round(value: number): number {
 }
 
 /**
- * Quart de superellipse, de (r, 0) à (0, r) dans le repère local du coin.
+ * Quart de superellipse, de (a, 0) à (0, a) dans le repère local du coin.
  *
  * `outer` donne la courbe de référence : le quart renvoyé est sa parallèle
- * intérieure, à la distance `outer − radius`. Se contenter de réduire le rayon
- * épaissit la bordure dans les angles — mesuré à 3,5 unités contre 2,25 sur les
- * flancs, soit +56 % — et ce biseau est exactement ce qui fait lire des formes
- * empilées au lieu d'un objet.
+ * intérieure, à la distance `outer − extent`. Se contenter de réduire le
+ * demi-axe épaissit la bordure dans les angles — mesuré à 3,5 unités contre
+ * 2,25 sur les flancs, soit +56 % — et ce biseau est exactement ce qui fait
+ * lire des formes empilées au lieu d'un objet.
  */
-function squircleQuarter(radius: number, outer: number = radius): Point[] {
-  const distance = outer - radius
+function squircleQuarter(extent: number, outer: number = extent): Point[] {
+  const distance = outer - extent
   const exponent = 2 / SQUIRCLE_EXPONENT
   const points: Point[] = []
   for (let step = 0; step <= SQUIRCLE_STEPS; step += 1) {
@@ -228,9 +235,14 @@ export function squircleRect(
   /** Rayon de la silhouette dont ce rectangle est la parallèle intérieure. */
   outerRadius: number = radius,
 ): string {
-  const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2))
-  if (r === 0) return `M ${round(x)} ${round(y)} h ${round(width)} v ${round(height)} h ${round(-width)} Z`
-  const quarter = squircleQuarter(r, r + (outerRadius - radius))
+  if (radius <= 0) return `M ${round(x)} ${round(y)} h ${round(width)} v ${round(height)} h ${round(-width)} Z`
+
+  // Le coin s'étale sur `SQUIRCLE_SPREAD` fois le rayon nominal : c'est là que
+  // la courbe rejoint le flanc droit, donc là que commencent les segments.
+  const inset = Math.max(0, outerRadius - radius)
+  const outerExtent = (radius + inset) * SQUIRCLE_SPREAD
+  const r = Math.min(outerExtent - inset, Math.min(width, height) / 2)
+  const quarter = squircleQuarter(r, r + inset)
   // Chaque coin : centre, axe vers le point tangent « en x », axe « en y ».
   const corners: { cx: number; cy: number; ux: number; uy: number; reverse: boolean }[] = [
     { cx: x + width - r, cy: y + r, ux: 1, uy: -1, reverse: true },
@@ -301,12 +313,13 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   const bleed = DEVICE_BLEED
   const svgWidth = width + bleed * 2
 
-  // Îlot dynamique, proportionné à la dalle et non au châssis : ~125 pt de large
-  // et ~36 pt de haut sur une dalle de 440 pt, posé ~11 pt sous son bord haut.
-  const pillWidth = screenWidth * 0.284
-  const pillHeight = screenWidth * 0.082
+  // Îlot dynamique, proportionné à la dalle et non au châssis : 125 pt de large
+  // et 36,7 pt de haut sur une dalle de 402 pt, posé 11 pt sous son bord haut.
+  // Il doit flotter : collé au bezel il se lit comme une encoche, donc Android.
+  const pillWidth = screenWidth * 0.311
+  const pillHeight = screenWidth * 0.091
   const pillX = (width - pillWidth) / 2
-  const pillY = screenY + screenWidth * 0.025
+  const pillY = screenY + screenWidth * 0.027
   const pillRadius = pillHeight / 2
 
   // Notch (16e): centered dip from the top edge of the screen
@@ -322,6 +335,10 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   // Power button (right side)
   const powerBtnY = height * 0.28
   const powerBtnH = height * 0.1
+  // Camera Control (right side, sous le bouton latéral) : présent sur toute la
+  // gamme à îlot dynamique. Son absence est un des tells du gabarit générique.
+  const cameraCtlY = height * 0.43
+  const cameraCtlH = height * 0.045
   // Volume buttons (left side)
   const volUpY = height * 0.22
   const volUpH = height * 0.07
@@ -394,6 +411,7 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
 
   <!-- Boutons latéraux, sous la tranche pour paraître encastrés -->
   ${sideButton(powerBtnY, powerBtnH, 'right')}
+  ${dynamicIsland ? sideButton(cameraCtlY, cameraCtlH, 'right') : ''}
   ${sideButton(silentY, silentH, 'left')}
   ${sideButton(volUpY, volUpH, 'left')}
   ${sideButton(volDownY, volDownH, 'left')}

@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react'
 import {
+  AlignCenter,
   AlignCenterHorizontal,
   AlignCenterVertical,
   AlignEndHorizontal,
   AlignEndVertical,
+  AlignLeft,
+  AlignRight,
   AlignStartHorizontal,
   AlignStartVertical,
   Copy,
@@ -16,7 +19,6 @@ import { FontPicker } from '@/components/text-editor/FontPicker'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Popover } from '@/components/ui/popover'
-import { Segmented } from '@/components/ui/segmented'
 import { SwatchButton } from '@/components/ui/swatch-button'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
@@ -28,8 +30,12 @@ import type { SelectionFrame } from '@/hooks/use-canvas'
 import type { AlignMode } from '@/lib/align'
 import type { Layer, TextLayer } from '@/types'
 
-/** Hauteur fixe de la barre : évite de la mesurer pour décider du basculement. */
-const BAR_HEIGHT = 36
+/**
+ * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
+ * 40 et non 36 — les contrôles font 32 depuis la v5, et une barre de 36 les
+ * laissait affleurer ses deux bords au lieu de les contenir.
+ */
+const BAR_HEIGHT = 40
 /** Écart entre la sélection et la barre. */
 const OFFSET = 10
 /** Marge minimale conservée contre les bords du stage. */
@@ -44,10 +50,17 @@ const ALIGNMENTS: { mode: AlignMode; icon: LucideIcon; label: string }[] = [
   { mode: 'bottom', icon: AlignEndHorizontal, label: 'Aligner en bas' },
 ]
 
-const TEXT_ALIGNMENTS: { value: TextLayer['textAlign']; label: string }[] = [
-  { value: 'left', label: 'Gauche' },
-  { value: 'center', label: 'Centre' },
-  { value: 'right', label: 'Droite' },
+/**
+ * En icônes et non en mots : « Gauche Centre Droite » était le seul bloc de
+ * texte de la barre, il en faisait un tiers de la largeur, et son groupe
+ * segmenté montait à 38 px dans une barre qui n'en fait pas 40. Les glyphes de
+ * paragraphe ne se confondent pas avec les icônes d'alignement d'objet, qui
+ * figurent des bords, pas des lignes de texte.
+ */
+const TEXT_ALIGNMENTS: { value: TextLayer['textAlign']; icon: LucideIcon; label: string }[] = [
+  { value: 'left', icon: AlignLeft, label: 'Texte à gauche' },
+  { value: 'center', icon: AlignCenter, label: 'Texte centré' },
+  { value: 'right', icon: AlignRight, label: 'Texte à droite' },
 ]
 
 interface SelectionToolbarProps {
@@ -83,7 +96,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   return (
     <div
       className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
-        flex h-9 max-w-[min(680px,calc(100%-24px))] items-center gap-0.5 overflow-x-auto px-1"
+        flex h-10 max-w-[min(680px,calc(100%-24px))] items-center gap-0.5 overflow-x-auto px-1.5"
       role="toolbar"
       aria-label="Actions de la sélection"
       style={{
@@ -162,7 +175,7 @@ function LayerControls({ layer }: { layer: Layer }) {
             onChange={(fontFamily) => update({ fontFamily } as Partial<Layer>)}
           />
         </div>
-        <div className="w-16 shrink-0">
+        <div className="w-[68px] shrink-0">
           <NumberField
             ariaLabel="Taille du texte"
             value={layer.fontSize}
@@ -177,17 +190,18 @@ function LayerControls({ layer }: { layer: Layer }) {
           value={layer.color}
           onChange={(color) => update({ color } as Partial<Layer>, `layer:${layer.id}:color`)}
         />
-        <Segmented
-          className="shrink-0"
-          ariaLabel="Alignement du texte"
-          options={TEXT_ALIGNMENTS.map((option) => ({
-            value: option.value,
-            label: option.label,
-            ariaLabel: `Aligner le texte à ${option.label.toLowerCase()}`,
-          }))}
-          value={layer.textAlign}
-          onChange={(textAlign) => update({ textAlign } as Partial<Layer>)}
-        />
+        {TEXT_ALIGNMENTS.map(({ value, icon: Icon, label }) => (
+          <IconButton
+            key={value}
+            size="sm"
+            active={layer.textAlign === value}
+            aria-label={label}
+            title={label}
+            onClick={() => update({ textAlign: value } as Partial<Layer>)}
+          >
+            <Icon size={14} strokeWidth={1.6} aria-hidden />
+          </IconButton>
+        ))}
       </>
     )
   }
@@ -205,7 +219,7 @@ function LayerControls({ layer }: { layer: Layer }) {
         {colors.map((color) => (
           <SwatchButton
             key={color.name}
-            className="h-6 w-6"
+            className="hit-40 h-7 w-7"
             color={color.frame}
             selected={color.name === layer.deviceColor}
             aria-label={color.label}
@@ -321,7 +335,7 @@ function ColorControl({
     <>
       <SwatchButton
         ref={anchor}
-        className="h-6 w-6"
+        className="hit-40 h-7 w-7"
         color={value}
         selected={open}
         aria-label={label}
