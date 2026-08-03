@@ -1,6 +1,6 @@
 ---
 objective: "Permettre aux contributeurs d’exécuter depuis la racine du projet, au moyen d’une interface unique et découvrable, les principaux workflows de développement, de contrôle qualité et de validation déjà pris en charge par le projet."
-status: implemented
+status: reviewed
 ---
 
 # Plan: Ajouter un Makefile à la racine
