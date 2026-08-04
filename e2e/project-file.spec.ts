@@ -408,7 +408,7 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
     mimeType: 'application/zip',
     buffer: Buffer.from('broken'),
   })
-  await expect(page.getByText('Archive projet invalide.')).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'Archive projet invalide.' })).toBeVisible()
   expect(await page.evaluate(async ({ assetId }) => {
     const { resolveAsset } = await import('/src/lib/assets.ts')
     return {

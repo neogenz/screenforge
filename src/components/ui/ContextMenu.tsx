@@ -46,6 +46,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
         <DropdownMenuPrimitive.Content
           data-context-menu
           aria-label={label}
+          onClick={(event) => event.stopPropagation()}
           align="start"
           side="bottom"
           sideOffset={0}

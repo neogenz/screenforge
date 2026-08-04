@@ -54,6 +54,68 @@ test.describe('canvas transforms', () => {
     expectClose(after!.top, before!.top, 0.5)
   })
 
+  test('scrubbing position X stays aligned through the store sync', async ({ page }) => {
+    await addDeviceLayer(page)
+    const before = await page.evaluate(() => {
+      const state = window.__sfStores?.useCanvasStore.getState()
+      const id = state?.selectedLayerIds[0]
+      const layer = state?.layers.find((candidate) => candidate.id === id)
+      const object = window.__sfCanvas?.getObjects().find((candidate) =>
+        (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+      return {
+        id,
+        x: layer?.x,
+        y: layer?.y,
+        renderedX: object?.left,
+        selectedIds: state?.selectedLayerIds ?? [],
+      }
+    })
+    expect(before.id).toBeTruthy()
+
+    const scrubBox = await transformInput(page, 0).evaluate((input) => {
+      const rect = input.parentElement?.getBoundingClientRect()
+      if (!rect) throw new Error('Scrub surface missing')
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    })
+    const start = {
+      x: scrubBox.x + scrubBox.width / 2,
+      y: scrubBox.y + scrubBox.height / 2,
+    }
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 24, start.y, { steps: 6 })
+    await page.mouse.up()
+    await page.waitForTimeout(50)
+
+    async function readState() {
+      return page.evaluate((id) => {
+        const state = window.__sfStores?.useCanvasStore.getState()
+        const layer = state?.layers.find((candidate) => candidate.id === id)
+        const object = window.__sfCanvas?.getObjects().find((candidate) =>
+          (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+        return {
+          x: layer?.x,
+          y: layer?.y,
+          renderedX: object?.left,
+          selectedIds: state?.selectedLayerIds ?? [],
+        }
+      }, before.id!)
+    }
+
+    const immediate = await readState()
+    expectClose(immediate.x!, before.x! + 24, 1)
+    expectClose(immediate.y!, before.y!, 0.01)
+    expectClose(immediate.renderedX! - before.renderedX!, immediate.x! - before.x!, 1)
+    expect(immediate.selectedIds).toEqual([before.id])
+
+    await page.waitForTimeout(800)
+    const settled = await readState()
+    expectClose(settled.x!, immediate.x!, 0.01)
+    expectClose(settled.y!, immediate.y!, 0.01)
+    expectClose(settled.renderedX!, immediate.renderedX!, 0.5)
+    expect(settled.selectedIds).toEqual([before.id])
+  })
+
   test('canvas rotation does not jump after sync', async ({ page }) => {
     await addDeviceLayer(page)
     await dragControl(page, 'mtr', 40, 0)

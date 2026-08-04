@@ -18,17 +18,30 @@ test.describe('layers panel', () => {
   test('context menu duplicates and deletes a layer', async ({ page }) => {
     await addTextLayer(page)
     await expect(layerRows(page)).toHaveCount(1)
+    const originalId = await layerRows(page).first().getAttribute('data-layer-id')
 
     // Duplicate via right-click menu.
     await layerRows(page).first().click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Dupliquer' }).click()
     await expect(layerRows(page)).toHaveCount(2)
     await expect(layerRows(page).filter({ hasText: 'copie' })).toHaveCount(1)
+    const duplicated = await page.evaluate(() => {
+      const state = window.__sfStores?.useCanvasStore.getState()
+      return {
+        copyId: state?.layers.find((layer) => layer.id !== state.layers[0]?.id)?.id,
+        selectedIds: state?.selectedLayerIds ?? [],
+      }
+    })
+    expect(duplicated.copyId).toBeTruthy()
+    expect(duplicated.copyId).not.toBe(originalId)
+    expect(duplicated.selectedIds).toEqual([duplicated.copyId])
 
     // Delete the copy via right-click menu.
     await layerRows(page).filter({ hasText: 'copie' }).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(1)
+    expect(await page.evaluate(() =>
+      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
   })
 
   test('cmd-click toggles multi-selection, menu acts on all selected', async ({ page }) => {
@@ -43,6 +56,8 @@ test.describe('layers panel', () => {
     await layerRows(page).nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(0)
+    expect(await page.evaluate(() =>
+      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
   })
 
   test('double-click renames a layer', async ({ page }) => {
