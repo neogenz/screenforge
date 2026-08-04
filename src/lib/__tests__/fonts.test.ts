@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 function stubFonts(load: (font: string) => Promise<FontFace[]>) {
-  const link = { sheet: {} } as HTMLLinkElement
+  const link = { sheet: {}, remove: vi.fn() } as unknown as HTMLLinkElement
   vi.stubGlobal('CSS', { escape: (value: string) => value })
   vi.stubGlobal('document', {
     querySelector: () => link,
@@ -29,6 +29,38 @@ describe('loadGoogleFont', () => {
 
     expect(load).toHaveBeenCalledTimes(2)
     expect(isFontLoaded('Retry Sans', ['400'])).toBe(true)
+  })
+
+  it('replaces a failed stylesheet before retrying', async () => {
+    let failedRemoved = false
+    const failedLink = {
+      sheet: null,
+      addEventListener: vi.fn((type: string, listener: () => void) => {
+        if (type === 'error') queueMicrotask(listener)
+      }),
+      removeEventListener: vi.fn(),
+      remove: vi.fn(() => { failedRemoved = true }),
+    } as unknown as HTMLLinkElement
+    const loadedLink = { sheet: {}, dataset: {} } as unknown as HTMLLinkElement
+    const appendChild = vi.fn()
+    const load = vi.fn().mockResolvedValue([{} as FontFace])
+    vi.stubGlobal('CSS', { escape: (value: string) => value })
+    vi.stubGlobal('window', { setTimeout, clearTimeout })
+    vi.stubGlobal('document', {
+      querySelector: () => failedRemoved ? null : failedLink,
+      createElement: () => loadedLink,
+      head: { appendChild },
+      fonts: { load, ready: Promise.resolve() },
+    } as unknown as Document)
+    const { loadGoogleFont } = await import('@/lib/fonts')
+
+    await expect(loadGoogleFont('Network Retry Sans', ['400']))
+      .resolves.toMatchObject({ status: 'fallback' })
+    await expect(loadGoogleFont('Network Retry Sans', ['400']))
+      .resolves.toMatchObject({ status: 'loaded' })
+
+    expect(failedLink.remove).toHaveBeenCalledOnce()
+    expect(appendChild).toHaveBeenCalledWith(loadedLink)
   })
 
   it('deduplicates concurrent requests for the same face', async () => {

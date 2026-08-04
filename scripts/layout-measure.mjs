@@ -5,12 +5,16 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:8080'
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 await page.goto(baseURL)
+// Browser globals inside Playwright's page context.
+// eslint-disable-next-line no-undef
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
 // Fresh project state: clear any stored project first.
+// eslint-disable-next-line no-undef
 await page.evaluate(() => indexedDB.deleteDatabase('screenforge'))
 await page.reload()
+// eslint-disable-next-line no-undef
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
@@ -38,7 +42,9 @@ await page.getByLabel('Position X').press('Enter')
 await page.waitForTimeout(1000)
 
 const report = await page.evaluate(() => {
+  // eslint-disable-next-line no-undef
   const canvas = window.__sfCanvas
+  // eslint-disable-next-line no-undef
   const stores = window.__sfStores
   if (!canvas || !stores) throw new Error('ScreenForge debug handles unavailable')
   /** @type {Array<import('../e2e/helpers').DebugObject & { clipPath?: { left?: number; top?: number } }>} */

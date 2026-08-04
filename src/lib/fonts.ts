@@ -105,8 +105,9 @@ async function loadFont(
   weights: string[],
   key: string,
 ): Promise<FontLoadResult> {
+  let link: HTMLLinkElement | null = null
   try {
-    let link = document.querySelector<HTMLLinkElement>(`link[data-font-key="${CSS.escape(key)}"]`)
+    link = document.querySelector<HTMLLinkElement>(`link[data-font-key="${CSS.escape(key)}"]`)
     if (!link) {
       const familyParam = `${encodeURIComponent(family)}:wght@${weights.join(';')}`
       link = document.createElement('link')
@@ -136,6 +137,7 @@ async function loadFont(
     cache.clearFontCache(family)
     return { family, status: 'loaded' }
   } catch (error) {
+    link?.remove()
     const message = error instanceof Error ? error.message : 'Unknown font loading error.'
     return { family, status: 'fallback', message }
   }
