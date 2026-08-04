@@ -1,6 +1,6 @@
 ---
 objective: "Les neuf findings de la migration shadcn sont clos et le cadre iPhone ScreenForge adopte un contour plat blanc inspiré d’AppScreens sans régression d’accessibilité, d’interaction ni de release."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Corriger la review shadcn et aplatir le cadre iPhone
