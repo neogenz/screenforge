@@ -1,221 +1,404 @@
-import { useState, useRef } from 'react'
-import { ChevronDown, X, Check } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
+import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
+import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { Button } from '@/components/ui/button'
+import { Dropdown } from '@/components/ui/dropdown'
+import { Field } from '@/components/ui/field'
+import { IconButton } from '@/components/ui/icon-button'
+import { NumberField } from '@/components/ui/number-field'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
+import { SwatchButton } from '@/components/ui/swatch-button'
+import { Switch } from '@/components/ui/switch'
+import { registerAsset, resolveAsset } from '@/lib/assets'
+import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
+import { analyzeDeviceBezel } from '@/lib/device-bezel'
+import { decodeImage, readAsDataUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
-import { DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
-import { inputCls, Field } from '@/components/properties-panel/TransformSection'
-import { Toggle } from '@/components/text-editor/TextEditor'
-import type { DeviceFrameLayer, DeviceModel, DeviceColor, Orientation } from '@/types'
+import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
 interface DevicePickerProps {
-  deviceModel: DeviceModel
-  deviceColor: DeviceColor
-  orientation: Orientation
-  screenshotUrl?: string
-  shadowEnabled: boolean
-  shadowBlur: number
-  shadowColor: string
-  shadowOffsetX: number
-  shadowOffsetY: number
-  onUpdate: (updates: Partial<DeviceFrameLayer>) => void
+  layer: DeviceFrameLayer
+  onUpdate: (updates: Partial<DeviceFrameLayer>, options?: { coalesceKey?: string }) => void
 }
 
-export function DevicePicker({
-  deviceModel,
-  deviceColor,
-  orientation,
-  screenshotUrl,
-  shadowEnabled,
-  shadowBlur,
-  shadowColor,
-  shadowOffsetX,
-  shadowOffsetY,
-  onUpdate,
-}: DevicePickerProps) {
-  const [shadowOpen, setShadowOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const config = getDeviceFrame(deviceModel)
+const ORIENTATION_OPTIONS: SegmentedOption<Orientation>[] = [
+  { value: 'portrait', label: 'Portrait' },
+  { value: 'landscape', label: 'Paysage' },
+]
 
-  function handleScreenshotChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+const SOURCE_OPTIONS: SegmentedOption<'generated' | 'apple'>[] = [
+  { value: 'generated', label: 'ScreenForge' },
+  { value: 'apple', label: 'Apple officiel' },
+]
+
+export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
+  const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
+  const shadowEnabled = layer.shadowEnabled ?? false
+  const shadowBlur = layer.shadowBlur ?? 0
+  const shadowColor = layer.shadowColor ?? DEFAULT_DEVICE_SHADOW_COLOR
+  const shadowOffsetX = layer.shadowOffsetX ?? 0
+  const shadowOffsetY = layer.shadowOffsetY ?? 0
+  const shadowCoalesceKey = `layer:${layer.id}:shadow`
+
+  const [modelOpen, setModelOpen] = useState(false)
+  const [screenshotError, setScreenshotError] = useState<string | null>(null)
+  const [bezelError, setBezelError] = useState<string | null>(null)
+  const [bezelLoading, setBezelLoading] = useState(false)
+  const modelButtonRef = useRef<HTMLButtonElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const bezelInputRef = useRef<HTMLInputElement>(null)
+  const bezelRequestRef = useRef(0)
+  const bezelBusyRef = useRef(false)
+  const config = getDeviceFrame(deviceModel)
+  const screenshotUrl = resolveAsset(screenshotAssetId)
+  const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
+  const modelOptions = config.current
+    ? CURRENT_DEVICE_FRAMES
+    : [config, ...CURRENT_DEVICE_FRAMES]
+
+  async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onUpdate({ screenshotUrl: reader.result as string })
-    reader.readAsDataURL(file)
-    e.target.value = ''
+
+    setScreenshotError(null)
+    event.target.value = ''
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      setScreenshotError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
+      return
+    }
+
+    try {
+      const dataUrl = await readAsDataUrl(file)
+      await decodeImage(dataUrl)
+      onUpdate({ screenshotAssetId: registerAsset(dataUrl) })
+    } catch {
+      setScreenshotError("La capture est illisible ou endommagée.")
+    }
+  }
+
+  async function handleBezelChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || bezelBusyRef.current) return
+
+    bezelBusyRef.current = true
+    const requestId = ++bezelRequestRef.current
+    setBezelError(null)
+    setBezelLoading(true)
+    try {
+      const result = await analyzeDeviceBezel(file)
+      if (requestId !== bezelRequestRef.current) return
+      const assetId = registerAsset(result.dataUrl)
+      const longSide = Math.max(width, height)
+      const portrait = result.metadata.naturalHeight >= result.metadata.naturalWidth
+      const ratio = result.metadata.naturalWidth / result.metadata.naturalHeight
+      onUpdate({
+        importedBezel: { assetId, ...result.metadata },
+        width: portrait ? Math.round(longSide * ratio) : longSide,
+        height: portrait ? longSide : Math.round(longSide / ratio),
+        orientation: 'portrait',
+        rotation: 0,
+        opacity: 1,
+        shadowEnabled: false,
+      })
+    } catch (error) {
+      if (requestId !== bezelRequestRef.current) return
+      setBezelError(error instanceof Error ? error.message : 'Le bezel est illisible.')
+    } finally {
+      if (requestId === bezelRequestRef.current) {
+        bezelBusyRef.current = false
+        setBezelLoading(false)
+      }
+    }
+  }
+
+  function removeImportedBezel() {
+    const canonical = getDefaultDeviceSize(deviceModel)
+    const longSide = Math.max(width, height)
+    const ratio = canonical.width / canonical.height
+    onUpdate({
+      importedBezel: undefined,
+      width: Math.round(longSide * ratio),
+      height: longSide,
+      orientation: 'portrait',
+    })
+    setBezelError(null)
+  }
+
+  function handleModelChange(model: DeviceModel) {
+    const next = getDeviceFrame(model)
+    const canonical = getDefaultDeviceSize(model)
+    const size = orientation === 'portrait'
+      ? canonical
+      : { width: canonical.height, height: canonical.width }
+    onUpdate({ deviceModel: model, deviceColor: next.colors[0].name, ...size })
+  }
+
+  function handleOrientationChange(next: Orientation) {
+    if (next === orientation) return
+    const shortSide = Math.min(width, height)
+    const longSide = Math.max(width, height)
+    onUpdate({
+      orientation: next,
+      width: next === 'portrait' ? shortSide : longSide,
+      height: next === 'portrait' ? longSide : shortSide,
+    })
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      {/* Model */}
-      <Field label="Model">
-        <select
-          value={deviceModel}
-          onChange={(e) => {
-            const m = e.target.value as DeviceModel
-            const c = getDeviceFrame(m).colors[0].name
-            onUpdate({ deviceModel: m, deviceColor: c })
+    <div className="flex flex-col gap-3">
+      <Field label="Source">
+        <Segmented
+          options={SOURCE_OPTIONS}
+          value={layer.importedBezel ? 'apple' : 'generated'}
+          onChange={(source) => {
+            if (source === 'apple') bezelInputRef.current?.click()
+            else if (layer.importedBezel) removeImportedBezel()
           }}
-          className={inputCls}
-        >
-          {DEVICE_FRAMES.map((f) => (
-            <option key={f.model} value={f.model}>{f.modelName}</option>
-          ))}
-        </select>
+          ariaLabel="Source du cadre"
+          className="w-full"
+          disabled={bezelLoading}
+        />
       </Field>
+      <input
+        ref={bezelInputRef}
+        type="file"
+        accept="image/png"
+        className="sr-only"
+        aria-label="Importer un bezel Apple"
+        disabled={bezelLoading}
+        onChange={(event) => void handleBezelChange(event)}
+      />
 
-      {/* Color */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-medium text-muted shrink-0">Color</span>
-        <div className="flex gap-1">
-          {config.colors.map((c) => (
-            <button
-              key={c.name}
-              onClick={() => onUpdate({ deviceColor: c.name })}
-              title={c.label}
-              aria-label={c.label}
-              className={cn(
-                'relative w-6 h-6 rounded-full border-[1.5px] transition-all',
-                deviceColor === c.name
-                  ? 'border-primary scale-110'
-                  : 'border-border/60 hover:border-border',
-              )}
-              style={{ backgroundColor: c.frame }}
+      {layer.importedBezel ? (
+        <Field label="Bezel Apple">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+            {bezelUrl && (
+              <img
+                src={bezelUrl}
+                alt="Bezel importé"
+                className="h-8 w-8 shrink-0 object-contain"
+              />
+            )}
+            <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">
+              {layer.importedBezel.fileName}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={bezelLoading}
+              onClick={() => bezelInputRef.current?.click()}
+              aria-label="Remplacer le bezel Apple"
             >
-              {deviceColor === c.name && (
-                <Check
-                  size={10}
-                  className="absolute inset-0 m-auto"
-                  style={{ color: isLightColor(c.frame) ? '#000' : '#fff' }}
-                  strokeWidth={3}
-                />
-              )}
-            </button>
+              Remplacer
+            </Button>
+            <IconButton
+              size="sm"
+              disabled={bezelLoading}
+              aria-label="Retirer le bezel Apple"
+              className="hover:text-danger"
+              onClick={removeImportedBezel}
+            >
+              <X size={13} strokeWidth={1.5} aria-hidden />
+            </IconButton>
+          </div>
+        </Field>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Button
+            variant="default"
+            size="sm"
+            loading={bezelLoading}
+            onClick={() => bezelInputRef.current?.click()}
+          >
+            <Upload size={13} strokeWidth={1.5} aria-hidden />
+            Importer le PNG Apple
+          </Button>
+          <a
+            href="https://developer.apple.com/design/resources/#product-bezels"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-foreground-muted underline-offset-2 hover:underline"
+          >
+            Télécharger le DMG chez Apple
+            <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
+          </a>
+          <span className="text-[11px] leading-relaxed text-faint">Extraire le DMG, puis choisir un PNG transparent.</span>
+        </div>
+      )}
+      {bezelError && (
+        <p role="alert" className="text-[11px] leading-relaxed text-danger">
+          {bezelError}
+        </p>
+      )}
+
+      {!layer.importedBezel && <Field label="Modèle">
+        <Button
+          ref={modelButtonRef}
+          variant="default"
+          className="w-full justify-between"
+          onClick={() => setModelOpen((open) => !open)}
+          aria-label="Modèle d’appareil"
+          aria-expanded={modelOpen}
+        >
+          <span className="truncate">{config.modelName}</span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
+            <ChevronDown
+              size={12}
+              strokeWidth={1.5}
+              aria-hidden
+              className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
+            />
+          </span>
+        </Button>
+      </Field>}
+      {!layer.importedBezel && <Dropdown
+        open={modelOpen}
+        anchor={modelButtonRef}
+        onClose={() => setModelOpen(false)}
+        items={modelOptions.map((frame) => ({
+          id: frame.model,
+          label: frame.modelName,
+          meta: frame.screenSize,
+          onSelect: () => handleModelChange(frame.model),
+        }))}
+        ariaLabel="Modèle d’appareil"
+      />}
+
+      {!layer.importedBezel && <Field label="Couleur">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
+          {config.colors.map((color) => (
+            <SwatchButton
+              key={color.name}
+              color={color.frame}
+              selected={deviceColor === color.name}
+              onClick={() => onUpdate({ deviceColor: color.name })}
+              title={color.label}
+              aria-label={color.label}
+            />
           ))}
         </div>
-      </div>
+      </Field>}
 
-      {/* Orientation */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-medium text-muted shrink-0">Orient.</span>
-        <div className="flex flex-1 rounded-md bg-surface border border-border p-[2px] gap-[2px]">
-          {(['portrait', 'landscape'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => onUpdate({ orientation: v })}
-              className={cn(
-                'flex-1 h-7 text-xs font-medium capitalize rounded transition-all',
-                orientation === v
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'text-muted hover:text-foreground',
-              )}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
+      {!layer.importedBezel && <Field label="Orientation">
+        <Segmented
+          options={ORIENTATION_OPTIONS}
+          value={orientation}
+          onChange={handleOrientationChange}
+          ariaLabel="Orientation"
+          className="w-full"
+        />
+      </Field>}
 
-      {/* Screenshot */}
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium text-muted">Screenshot</span>
+      <Field label="Capture d’écran">
         {screenshotUrl ? (
-          <div className="flex items-center gap-2 rounded-md bg-surface border border-border p-1.5 group">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
             <img
               src={screenshotUrl}
-              alt="Screenshot"
-              className="w-8 h-8 rounded object-cover shrink-0"
+              alt="Capture importée"
+              className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
             />
-            <div className="flex-1 min-w-0">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] text-muted hover:text-primary transition-colors"
-              >
-                Replace
-              </button>
-            </div>
-            <button
-              onClick={() => onUpdate({ screenshotUrl: undefined })}
-              className="w-5 h-5 flex items-center justify-center rounded text-muted/40 hover:text-danger hover:bg-danger/10 transition-colors"
-              aria-label="Remove screenshot"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 justify-start"
+              onClick={() => fileInputRef.current?.click()}
             >
-              <X size={10} />
-            </button>
+              Remplacer
+            </Button>
+            <IconButton
+              size="sm"
+              aria-label="Supprimer la capture"
+              className="hover:text-danger"
+              onClick={() => onUpdate({ screenshotAssetId: undefined })}
+            >
+              <X size={13} strokeWidth={1.5} aria-hidden />
+            </IconButton>
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="h-7 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-xs text-muted transition-colors hover:border-primary hover:text-primary"
+            className={cn(
+              'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
+              'field-label transition-colors duration-150 ease-out',
+              'hover:border-border-strong hover:text-foreground',
+            )}
           >
-            Upload image
+            Aucune capture · importer un PNG/JPEG
           </button>
         )}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/jpg"
-          className="hidden"
-          onChange={handleScreenshotChange}
+          accept="image/png,image/jpeg"
+          className="sr-only"
+          aria-label="Importer la capture de l’app"
+          onChange={(event) => void handleScreenshotChange(event)}
         />
-      </div>
+        {screenshotError && (
+          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
+            {screenshotError}
+          </p>
+        )}
+      </Field>
 
-      {/* Shadow */}
-      <div className="flex flex-col gap-1.5">
+      {layer.importedBezel ? (
+        <p className="text-[11px] leading-relaxed text-faint">
+          Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
+        </p>
+      ) : <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Shadow</span>
-          <div className="flex items-center gap-1.5">
-            <Toggle active={shadowEnabled} onToggle={() => onUpdate({ shadowEnabled: !shadowEnabled })} />
-            <button
-              onClick={() => setShadowOpen((v) => !v)}
-              className="text-muted/40 hover:text-muted transition-colors"
-            >
-              <ChevronDown size={11} className={cn('transition-transform', shadowOpen && 'rotate-180')} />
-            </button>
-          </div>
+          <span className="section-title">Ombre</span>
+          <Switch
+            checked={shadowEnabled}
+            ariaLabel="Activer l’ombre de l’appareil"
+            onChange={(checked) => onUpdate({ shadowEnabled: checked })}
+          />
         </div>
 
-        {shadowOpen && shadowEnabled && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3 animate-fade-in">
-            <div className="flex items-center gap-1.5">
-              <span className="w-8 text-[10px] text-muted">Blur</span>
-              <input
-                type="range" min={0} max={60} value={shadowBlur}
-                onChange={(e) => onUpdate({ shadowBlur: Number(e.target.value) })}
-                className="flex-1 cursor-pointer"
-              />
-              <span className="w-5 text-right text-[10px] text-muted tabular-nums">{shadowBlur}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-8 text-[10px] text-muted">Color</span>
-              <input
-                type="color" value={shadowColor}
-                onChange={(e) => onUpdate({ shadowColor: e.target.value })}
-                className="h-5 w-7 cursor-pointer rounded border border-border bg-transparent p-0.5"
-              />
-            </div>
+        {shadowEnabled && (
+          <div className="flex flex-col gap-2">
+            <NumberField
+              label="Flou"
+              ariaLabel="Flou de l’ombre"
+              value={shadowBlur}
+              onChange={(value) => onUpdate({ shadowBlur: value }, { coalesceKey: shadowCoalesceKey })}
+              min={0}
+              max={100}
+            />
             <div className="grid grid-cols-2 gap-2">
-              <Field label="X">
-                <input type="number" value={shadowOffsetX}
-                  onChange={(e) => onUpdate({ shadowOffsetX: Number(e.target.value) })}
-                  className={inputCls}
-                />
-              </Field>
-              <Field label="Y">
-                <input type="number" value={shadowOffsetY}
-                  onChange={(e) => onUpdate({ shadowOffsetY: Number(e.target.value) })}
-                  className={inputCls}
-                />
-              </Field>
+              <NumberField
+                label="X"
+                ariaLabel="Décalage X de l’ombre"
+                value={shadowOffsetX}
+                onChange={(value) => onUpdate({ shadowOffsetX: value }, { coalesceKey: shadowCoalesceKey })}
+                min={-500}
+                max={500}
+              />
+              <NumberField
+                label="Y"
+                ariaLabel="Décalage Y de l’ombre"
+                value={shadowOffsetY}
+                onChange={(value) => onUpdate({ shadowOffsetY: value }, { coalesceKey: shadowCoalesceKey })}
+                min={-500}
+                max={500}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="field-label">Couleur</span>
+              <ColorPicker
+                value={shadowColor}
+                showOpacity
+                onChange={(color) => onUpdate({ shadowColor: color }, { coalesceKey: shadowCoalesceKey })}
+              />
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
-}
-
-function isLightColor(hex: string): boolean {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return (r * 299 + g * 587 + b * 114) / 1000 > 155
 }

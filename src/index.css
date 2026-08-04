@@ -4,82 +4,239 @@
 @source "./**/*.tsx";
 @source "./**/*.ts";
 
+/*
+ * ScreenForge v5 — design system.
+ *
+ * Le chrome est neutre à chroma 0 : la seule couleur du produit vient des
+ * artboards, et un chrome teinté fausserait le jugement de l'utilisateur sur
+ * ses propres couleurs. Une exception, l'accent citron : il ne dit jamais
+ * « action », il dit « ici » — outil actif, écran courant, focus, ligne
+ * sélectionnée. L'action primaire, elle, reste un aplat clair : deux couleurs
+ * qui crient font une interface sans hiérarchie.
+ *
+ * Géométrie généreuse : rayons de 9px sur les contrôles, 14 sur les îlots,
+ * 18 sur les modales, et le rayon intérieur vaut toujours l'extérieur moins la
+ * marge. Séparation par la matière plutôt que par le trait : en sombre les
+ * bordures s'effacent et c'est l'ombre portée qui détache les surfaces.
+ * Typographie : Inter variable, une seule famille, chiffres tabulaires natifs.
+ * Motion : ease-out expo, 120–200ms, transform/opacity uniquement.
+ */
 @theme {
   --spacing: 0.25rem;
 
-  /* ── Dark Glass palette ── */
-  --color-background: oklch(0.12 0.006 270);
-  --color-panel: oklch(0.15 0.006 270);
-  --color-panel-header: oklch(0.17 0.008 270);
-  --color-surface: oklch(0.19 0.008 270);
-  --color-surface-hover: oklch(0.24 0.010 270);
-  --color-primary: oklch(0.65 0.20 260);
-  --color-primary-hover: oklch(0.58 0.20 260);
-  --color-foreground: oklch(0.92 0.005 270);
-  --color-muted: oklch(0.50 0.012 270);
-  --color-border: oklch(0.26 0.008 270);
-  --color-accent: oklch(0.65 0.16 155);
-  --color-danger: oklch(0.62 0.20 25);
-  --color-canvas-bg: oklch(0.09 0.005 270);
+  /* ── Neutres (dark, défaut) — chroma 0, le stage est le point le plus sombre ── */
+  --color-stage: oklch(0.145 0 0);
+  --color-background: oklch(0.175 0 0);
+  --color-panel: oklch(0.215 0 0);
+  /* En creux : plus sombre que le panneau qui le porte. C'est ce qui fait lire un champ. */
+  --color-inset: oklch(0.165 0 0);
+  /* En relief : au-dessus du panneau. Boutons, options actives, vignettes. */
+  --color-raised: oklch(0.26 0 0);
+  --color-raised-hover: oklch(0.3 0 0);
+  --color-raised-active: oklch(0.34 0 0);
 
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-panel: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Luminances choisies pour tenir 4.5:1 sur stage, background, panel, inset et raised. */
+  --color-foreground: oklch(0.97 0 0);
+  --color-foreground-muted: oklch(0.78 0 0);
+  --color-faint: oklch(0.64 0 0);
 
-  --animate-fade-in: fade-in 0.18s ease-out;
-  --animate-slide-up: slide-up 0.2s ease-out;
+  /* Bordures discrètes : en sombre c'est l'ombre qui détache, pas le trait. */
+  --color-border: oklch(0.26 0 0);
+  --color-border-strong: oklch(0.36 0 0);
+
+  /* ── Accent — l'état, jamais l'action ──
+     Employé en aplat, en anneau ou en pastille ; jamais comme couleur de texte,
+     un citron lisible sur sombre ne l'est plus sur clair. Le texte posé dessus
+     est `accent-ink`, contrasté 12:1. */
+  --color-accent: oklch(0.87 0.2 124);
+  --color-accent-hover: oklch(0.92 0.2 124);
+  --color-accent-ink: oklch(0.24 0.05 124);
+  --color-accent-soft: oklch(0.87 0.2 124 / 0.11);
+  --color-accent-line: oklch(0.87 0.2 124 / 0.55);
+
+  /* Lasso de sélection. Le cadre des objets, lui, est figé dans `canvas-utils` :
+     posé sur le contenu de l'utilisateur, il ne peut pas suivre le thème. */
+  --color-selection: oklch(0.97 0 0);
+  --color-selection-soft: oklch(0.97 0 0 / 0.14);
+
+  /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
+  --color-danger: oklch(0.62 0.18 25);
+  --color-danger-soft: oklch(0.62 0.18 25 / 0.14);
+  --color-success: oklch(0.65 0.12 155);
+  --color-warning: oklch(0.72 0.11 75);
+
+  /* Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
+     dégradé violet fausse le jugement de l'utilisateur sur sa propre couleur.
+     L'écran courant se signale par la valeur, pas par la teinte. */
+  --color-artboard-ring: oklch(1 0 0 / 0.1);
+  --color-artboard-ring-active: oklch(1 0 0 / 0.55);
+  /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS. */
+  --color-artboard-shadow: oklch(0 0 0 / 0.5);
+  --color-scrim: oklch(0.1 0 0 / 0.62);
+
+  /* ── Élévation — large, basse en opacité, en trois couches ── */
+  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
+    0 24px 48px -24px oklch(0 0 0 / 0.55);
+  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
+    0 32px 64px -32px oklch(0 0 0 / 0.6);
+  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
+  /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
+  /* Lumière rasante sur l'arête haute d'un îlot. */
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
+
+  /* ── Type — une seule famille ── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+
+  /* ── Radius — le rayon intérieur vaut l'extérieur moins la marge ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* ── z-index : 6 niveaux nommés, rien d'autre ── */
+  /* Le voile passe devant le canvas et derrière le chrome. Au même niveau que
+     lui, seul l'ordre du DOM les départageait : ça casse au premier déplacement. */
+  --z-stage-veil: 10;
+  --z-chrome: 20;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-popover: 70;
+  --z-toast: 80;
+
+  /* ── Motion : ease-out expo, jamais de rebond ── */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: fade-in 0.14s var(--ease-out);
+  --animate-slide-up: slide-up 0.2s var(--ease-out-expo);
+  --animate-menu-in: menu-in 0.16s var(--ease-out-expo);
+  --animate-toast-in: toast-in 0.2s var(--ease-out-expo);
+  --animate-palette-in: palette-in 0.16s var(--ease-out-expo);
 
   @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-3px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   @keyframes slide-up {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes palette-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 
-/* ── Light theme overrides ── */
+/* ── Marques d'accent ──
+   Déclarées en `@utility` et non en classe de composant : c'est ce qui permet
+   de les préfixer d'un variant (`data-[active=true]:accent-mark`). */
+
+/* Aplat citron, encre sombre — la marque forte : écran courant, coche. */
+@utility accent-fill {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+/* Marque discrète : voile et liseré, le texte garde sa couleur. */
+@utility accent-mark {
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-line);
+}
+
+/* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
-  --color-background: oklch(0.96 0.004 265);
-  --color-panel: oklch(0.98 0.003 265);
-  --color-panel-header: oklch(0.94 0.008 265);
-  --color-surface: oklch(0.93 0.006 265);
-  --color-surface-hover: oklch(0.89 0.008 265);
-  --color-primary: oklch(0.55 0.19 260);
-  --color-primary-hover: oklch(0.48 0.19 260);
-  --color-foreground: oklch(0.18 0.02 265);
-  --color-muted: oklch(0.45 0.015 265);
-  --color-border: oklch(0.84 0.010 265);
-  --color-accent: oklch(0.62 0.16 155);
-  --color-danger: oklch(0.55 0.2 25);
-  --color-canvas-bg: oklch(0.88 0.006 265);
-}
+  --color-stage: oklch(0.9 0 0);
+  --color-background: oklch(0.955 0 0);
+  --color-panel: oklch(1 0 0);
+  /* En clair le creux doit rester sous `raised` : à 0.965 les deux se confondaient
+     et une pastille active posée dans un conteneur en creux devenait invisible. */
+  --color-inset: oklch(0.945 0 0);
+  --color-raised: oklch(0.975 0 0);
+  --color-raised-hover: oklch(0.945 0 0);
+  --color-raised-active: oklch(0.915 0 0);
 
-/* Light theme scrollbar */
-.light ::-webkit-scrollbar-thumb {
-  background: oklch(0.78 0.008 265);
-}
-.light ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.70 0.010 265);
-}
+  --color-foreground: oklch(0.18 0 0);
+  /* Le stage clair (0.9) est le fond le plus exigeant : ces deux valeurs y tiennent 4.5:1. */
+  --color-foreground-muted: oklch(0.4 0 0);
+  --color-faint: oklch(0.48 0 0);
 
-/* Light theme range slider */
-.light input[type="range"] {
-  background: oklch(0.84 0.010 265);
-}
-.light input[type="range"]::-webkit-slider-thumb {
-  border-color: white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
-.light input[type="range"]::-moz-range-track {
-  background: oklch(0.84 0.010 265);
-}
-.light input[type="range"]::-moz-range-thumb {
-  border-color: white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  --color-border: oklch(0.915 0 0);
+  --color-border-strong: oklch(0.82 0 0);
+
+  /* Même citron : il reste un aplat, et son encre sombre y tient 12:1 dans les
+     deux thèmes. Ce qui change en clair, c'est le voile — 0.16 d'un citron très
+     lumineux disparaît sur blanc. */
+  --color-accent: oklch(0.85 0.2 124);
+  --color-accent-hover: oklch(0.8 0.2 124);
+  --color-accent-ink: oklch(0.24 0.05 124);
+  /* 0.28 sur blanc virait au surligneur : la ligne sélectionnée pesait plus que
+     tout le reste du panneau. 0.16 tient encore le « ici » sans crier. */
+  --color-accent-soft: oklch(0.8 0.2 124 / 0.16);
+  --color-accent-line: oklch(0.72 0.18 124 / 0.9);
+
+  --color-selection: oklch(0.18 0 0);
+  --color-selection-soft: oklch(0.18 0 0 / 0.1);
+
+  --color-danger: oklch(0.55 0.19 25);
+  --color-danger-soft: oklch(0.55 0.19 25 / 0.1);
+  --color-success: oklch(0.5 0.11 155);
+  --color-warning: oklch(0.55 0.1 70);
+
+  --color-artboard-ring: oklch(0 0 0 / 0.1);
+  --color-artboard-ring-active: oklch(0 0 0 / 0.5);
+  --color-artboard-shadow: oklch(0 0 0 / 0.16);
+  --color-scrim: oklch(0.3 0 0 / 0.35);
+
+  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
+    0 24px 48px -24px oklch(0 0 0 / 0.14);
+  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
+    0 32px 64px -32px oklch(0 0 0 / 0.16);
+  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
 
 @layer base {
@@ -97,6 +254,13 @@
     font-family: var(--font-sans);
     background: var(--color-background);
     color: var(--color-foreground);
+    font-size: 13.5px;
+    line-height: 1.5;
+    /* Inter est déjà réglée pour le petit corps : pas de tracking correctif. */
+    letter-spacing: 0;
+    font-optical-sizing: auto;
+    /* cv05 l à empattement, cv08 majuscule I à empattement, ss03 esperluette simplifiée. */
+    font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -106,110 +270,223 @@
     min-height: 0;
     overflow: hidden;
   }
+  ::selection {
+    background: var(--color-foreground);
+    color: var(--color-panel);
+  }
+  button {
+    font-family: inherit;
+  }
+  /* Le focus est un état : c'est donc l'accent qui le porte, pas un gris clair. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-line);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
-  .sidebar-shell--layers {
-    box-sizing: border-box;
-    display: flex;
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-    flex-direction: column;
-    padding: 0.375rem 0.375rem 0.5rem;
-  }
-  .sidebar-shell--properties {
-    box-sizing: border-box;
-    display: flex;
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-    flex-direction: column;
-    padding: 0;
-  }
-
-  .panel-chrome {
+  /* ── Îlot flottant : barre, drawers, filmstrip ── */
+  .island {
     background: var(--color-panel);
-    font-family: var(--font-panel);
-  }
-  .panel-section-inset {
-    border-radius: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    padding: 0 0.75rem 0.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-island), var(--hairline-top);
   }
 
-  /* Glass panel effect */
-  .glass {
-    backdrop-filter: blur(20px) saturate(140%);
-    background: oklch(0.15 0.006 270 / 0.8);
-    border: 1px solid oklch(1 0 0 / 0.06);
+
+  /* ── Scène : vignette discrète, les artboards portent la lumière ── */
+  .stage-vignette {
+    pointer-events: none;
+    background: radial-gradient(
+      120% 90% at 50% 42%,
+      transparent 60%,
+      oklch(0.08 0 0 / 0.35) 100%
+    );
   }
-  .glass-subtle {
-    backdrop-filter: blur(12px) saturate(120%);
-    background: oklch(0.15 0.006 270 / 0.6);
-    border: 1px solid oklch(1 0 0 / 0.04);
+  .light .stage-vignette {
+    background: radial-gradient(
+      120% 90% at 50% 42%,
+      transparent 62%,
+      oklch(0.3 0 0 / 0.1) 100%
+    );
+  }
+
+  /* ── Hiérarchie de texte — trois niveaux, écarts francs ──
+     L'ancienne échelle tenait dans 1,5px entre le libellé et le titre : à cet
+     écart rien ne hiérarchise, tout se lit comme un même bloc gris. */
+  .panel-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--color-foreground);
+    line-height: 1.25;
+  }
+  .section-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--color-foreground);
+    line-height: 1.25;
+  }
+  .field-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--color-faint);
+    line-height: 1.2;
+  }
+  /* Valeurs numériques : Inter a des chiffres tabulaires, pas besoin d'une mono. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Surfaces ── */
+  .surface-inner {
+    background: var(--color-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+  }
+  .surface-modal {
+    background: var(--color-panel);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal), var(--hairline-top);
+  }
+  .menu-shadow {
+    box-shadow: var(--shadow-menu), var(--hairline-top);
+  }
+  /* Un champ se lit en creux : fond plus sombre que son panneau, ombre interne d'un pixel. */
+  .field-surface {
+    background: var(--color-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* Damier alpha : ce qui distingue un blanc opaque d'un transparent. */
+  .checkerboard {
+    background-color: oklch(1 0 0);
+    background-image:
+      linear-gradient(45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+      linear-gradient(-45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%),
+      linear-gradient(-45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  }
+
+  .img-outline {
+    outline: 1px solid oklch(1 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+  .light .img-outline {
+    outline: 1px solid oklch(0 0 0 / 0.1);
+  }
+
+  /* Hit area 40px sans changer la taille visuelle */
+  .hit-40 {
+    position: relative;
+  }
+  .hit-40::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--color-border);
   }
 }
 
-/* Hide number input spinners */
+/* ── Form primitives ── */
 input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 
-/* Custom range slider — dark theme */
+/* Range slider — piste remplie via --fill, thumb nette */
 input[type="range"] {
-  -webkit-appearance: none; appearance: none;
-  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  height: 3px;
   border-radius: 999px;
-  background: oklch(0.26 0.008 270);
+  background: linear-gradient(
+    to right,
+    var(--color-foreground-muted) 0%,
+    var(--color-foreground-muted) var(--fill, 50%),
+    var(--color-border) var(--fill, 50%),
+    var(--color-border) 100%
+  );
   outline: none;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--color-primary); cursor: pointer;
-  border: 2px solid oklch(0.20 0.008 270); box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-foreground);
+  cursor: pointer;
+  border: 2px solid var(--color-panel);
   margin-top: -4px;
+  transition: transform 0.12s var(--ease-out);
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+/* Pendant le drag : le halo dit que le contrôle a la main, la piste ne bouge pas. */
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px
+    color-mix(in oklch, var(--color-foreground) 16%, transparent);
 }
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
+  background: transparent;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--color-primary); cursor: pointer;
-  border: 2px solid oklch(0.20 0.008 270); box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-foreground);
+  cursor: pointer;
+  border: 2px solid var(--color-panel);
 }
 input[type="range"]::-moz-range-track {
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
-  background: oklch(0.26 0.008 270);
+  background: transparent;
 }
 
-/* Select dropdown — dark */
-select {
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 2rem;
-}
-
-/* Scrollbar — thin, dark */
+/* Scrollbar — fine */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.30 0.008 270);
+  background: var(--color-border-strong);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.38 0.010 270);
+  background: var(--color-foreground-muted);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,250 +1,263 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { X, Download, Loader } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { AlertCircle, Check, Download, FileCheck2, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
-import { useCanvasStore } from '@/stores/canvas.store'
 import { useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
-import type { DisplayClass } from '@/types'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import type { Project, Screen } from '@/types'
 
 export function ExportDialog() {
-  const showExportDialog = useUIStore((s) => s.showExportDialog)
-  const setShowExportDialog = useUIStore((s) => s.setShowExportDialog)
-  const project = useProjectStore((s) => s.project)
-  const activeScreenId = useCanvasStore((s) => s.activeScreenId)
+  const showExportDialog = useUIStore((state) => state.showExportDialog)
+  const project = useProjectStore((state) => state.project)
 
-  const { exportSingle, exportBatch, isExporting, progress } = useExport()
+  if (!showExportDialog || !project) return null
+  return <ExportDialogContent project={project} />
+}
 
-  const screens = useMemo(() => project?.screens ?? [], [project?.screens])
+function ExportDialogContent({ project }: { project: Project }) {
+  const showExportDialog = useUIStore((state) => state.showExportDialog)
+  const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
+  const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
+    project.screens.map((screen) => screen.id),
+  )
+  const { exportBatch, isExporting, progress, error, completedFiles, clearError } = useExport()
 
-  const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>([])
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>([PRIMARY_DIMENSION.size])
-
-  // Reset selections when dialog opens (via timeout to avoid setState-in-effect lint error)
-  useEffect(() => {
-    if (!showExportDialog) return
-    const t = setTimeout(() => {
-      setSelectedScreenIds(screens.map((s) => s.id))
-      setSelectedDimensions([PRIMARY_DIMENSION.size])
-    }, 0)
-    return () => clearTimeout(t)
-  }, [showExportDialog]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const allScreensSelected = selectedScreenIds.length === screens.length
-  const toggleAllScreens = useCallback(() => {
-    setSelectedScreenIds(allScreensSelected ? [] : screens.map((s) => s.id))
-  }, [allScreensSelected, screens])
-
-  const toggleScreen = useCallback((id: string) => {
-    setSelectedScreenIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    )
-  }, [])
-
-  const toggleDimension = useCallback((size: string) => {
-    setSelectedDimensions((prev) =>
-      prev.includes(size) ? prev.filter((d) => d !== size) : [...prev, size]
-    )
-  }, [])
+  const selectedScreens = useMemo(
+    () => project.screens.flatMap((screen, screenIndex) =>
+      selectedScreenIds.includes(screen.id) ? [{ screen, screenIndex }] : [],
+    ),
+    [project.screens, selectedScreenIds],
+  )
+  const allScreensSelected = selectedScreenIds.length === project.screens.length
 
   const handleClose = useCallback(() => {
     if (!isExporting) setShowExportDialog(false)
   }, [isExporting, setShowExportDialog])
 
-  // Escape to close
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
+  const toggleAllScreens = useCallback(() => {
+    clearError()
+    setSelectedScreenIds(allScreensSelected ? [] : project.screens.map((screen) => screen.id))
+  }, [allScreensSelected, clearError, project.screens])
+
+  const toggleScreen = useCallback((id: string) => {
+    clearError()
+    setSelectedScreenIds((previous) =>
+      previous.includes(id)
+        ? previous.filter((screenId) => screenId !== id)
+        : [...previous, id],
+    )
+  }, [clearError])
+
+  const handleExport = useCallback(async () => {
+    if (selectedScreens.length === 0) return
+    try {
+      await exportBatch(project.name, selectedScreens, project.layoutLayers, EXPORT_DIMENSIONS)
+    } catch {
+      // useExport exposes the precise blocking error in the dialog.
     }
-    if (showExportDialog) {
-      document.addEventListener('keydown', onKey)
-      return () => document.removeEventListener('keydown', onKey)
-    }
-  }, [showExportDialog, handleClose])
-
-  const handleExportCurrent = useCallback(async () => {
-    const activeScreen = screens.find((s) => s.id === activeScreenId) ?? screens[0]
-    if (!activeScreen) return
-    const dim = EXPORT_DIMENSIONS.find((d) => d.size === PRIMARY_DIMENSION.size) ?? EXPORT_DIMENSIONS[0]
-    // canvasJSON is not stored yet — we use an empty object as placeholder
-    // The actual canvas JSON will come from the canvas hook once it's wired up
-    await exportSingle({}, activeScreen.name, dim)
-  }, [screens, activeScreenId, exportSingle])
-
-  const handleExportSelected = useCallback(async () => {
-    const selectedScreens = screens
-      .filter((s) => selectedScreenIds.includes(s.id))
-      .map((s) => ({ canvasJSON: {} as object, name: s.name }))
-
-    const dims = EXPORT_DIMENSIONS.filter((d) => selectedDimensions.includes(d.size))
-
-    if (selectedScreens.length === 0 || dims.length === 0) return
-
-    await exportBatch(selectedScreens, dims)
-  }, [screens, selectedScreenIds, selectedDimensions, exportBatch])
-
-  const selectedDimObjs: DisplayClass[] = EXPORT_DIMENSIONS.filter((d) =>
-    selectedDimensions.includes(d.size)
-  )
-  const exportCount = selectedScreenIds.length * selectedDimObjs.length
-
-  if (!showExportDialog) return null
+  }, [exportBatch, project.layoutLayers, project.name, selectedScreens])
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
+    <Dialog
+      open={showExportDialog}
+      onClose={handleClose}
+      title="Export officiel"
+      size="lg"
+      headerActions={<span className="field-label px-1">App Store</span>}
+      footer={
+        <div className="flex w-full items-center justify-between gap-3">
+          <p className="text-[10px] text-foreground-muted">
+            Aucun téléchargement partiel en cas d’échec.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="default" onClick={handleClose} disabled={isExporting}>
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void handleExport()}
+              loading={isExporting}
+              disabled={selectedScreens.length === 0}
+            >
+              {!isExporting && <Download size={12} aria-hidden />}
+              {isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
+            </Button>
+          </div>
+        </div>
+      }
     >
-      <div className="bg-background rounded-xl shadow-xl p-6 w-[560px] max-h-[80vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">Export Screenshots</h2>
-          <button
-            onClick={handleClose}
-            disabled={isExporting}
-            className={cn(
-              'p-1.5 rounded-lg transition-colors',
-              'hover:bg-white/10',
-              'focus:outline-none focus:ring-2 focus:ring-white/20',
-              'disabled:opacity-40 disabled:cursor-not-allowed'
-            )}
-            aria-label="Close export dialog"
+      {/* -m-4 cancels the Dialog body padding so the columns stay flush. */}
+      <div className="-m-4 flex flex-col">
+        <div className="grid grid-cols-[minmax(0,1fr)_220px]">
+          <section
+            className="max-h-[52dvh] overflow-y-auto border-r border-border px-5 py-4"
+            aria-labelledby="export-screens-title"
           >
-            <X size={18} />
-          </button>
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h3 id="export-screens-title" className="section-title">Captures</h3>
+                <p className="mt-1 text-[11px] text-foreground-muted">
+                  L’ordre du projet sera conservé dans le ZIP.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAllScreens}
+                disabled={isExporting}
+                className="field-label transition-colors hover:text-foreground"
+              >
+                {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              {project.screens.map((screen, index) => (
+                <ScreenChoice
+                  key={screen.id}
+                  screen={screen}
+                  index={index}
+                  checked={selectedScreenIds.includes(screen.id)}
+                  disabled={isExporting}
+                  onToggle={() => toggleScreen(screen.id)}
+                />
+              ))}
+            </div>
+          </section>
+
+          <aside
+            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-4 py-4"
+            aria-label="Profil d’export"
+          >
+            <div className="surface-inner p-3.5">
+              <span className="field-label">Profil</span>
+              <p className="mt-1.5 text-[13px] font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
+              <p className="tabular mt-1 text-[12px] text-foreground-muted">
+                {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
+              </p>
+              <div className="hairline my-3" />
+              <ul className="flex flex-col gap-2 text-[11px] text-foreground-muted">
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> PNG · 8 bits</li>
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> RGB opaque · sans alpha</li>
+                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> Cible interne &lt; 5 MB</li>
+              </ul>
+            </div>
+
+            <div className="surface-inner p-3.5">
+              <span className="field-label">Lot final</span>
+              <p className="mt-1.5 text-[22px] font-medium tabular-nums text-foreground">
+                {selectedScreens.length}
+              </p>
+              <p className="text-[11px] text-foreground-muted">
+                fichier{selectedScreens.length > 1 ? 's' : ''} sous <span className="font-mono">6.9/</span>
+              </p>
+            </div>
+          </aside>
         </div>
 
-        {/* Screen Selection */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-white/70">Screens</h3>
-            <button
-              onClick={toggleAllScreens}
-              className="text-xs text-white/50 hover:text-white/80 transition-colors"
-            >
-              {allScreensSelected ? 'Deselect All' : 'Select All'}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {screens.map((screen) => (
-              <label
-                key={screen.id}
-                className={cn(
-                  'flex items-center gap-3 p-2.5 rounded-lg cursor-pointer',
-                  'border border-white/10 hover:border-white/20 transition-colors',
-                  selectedScreenIds.includes(screen.id) && 'border-white/30 bg-white/5'
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedScreenIds.includes(screen.id)}
-                  onChange={() => toggleScreen(screen.id)}
-                  className="w-4 h-4 accent-white rounded"
-                />
-                {screen.thumbnail && (
-                  <img
-                    src={screen.thumbnail}
-                    alt={screen.name}
-                    className="w-8 h-8 rounded object-cover bg-white/5"
+        {(progress || error || completedFiles.length > 0) && (
+          <div className="border-t border-border px-5 py-3" aria-live="polite">
+            {progress && (
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <Loader size={13} className="animate-spin text-foreground" aria-hidden />
+                  <span className="text-[11px] text-foreground">{progress.label}</span>
+                  <span className="tabular ml-auto text-[10px] text-foreground-muted">
+                    {progress.current}/{progress.total}
+                  </span>
+                </div>
+                <div className="h-0.5 overflow-hidden bg-border">
+                  <div
+                    className="h-full bg-foreground transition-[width] duration-300 ease-out"
+                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
                   />
-                )}
-                <span className="text-sm">{screen.name}</span>
-              </label>
-            ))}
-          </div>
-        </section>
-
-        {/* Dimension Selection */}
-        <section className="mb-6">
-          <h3 className="text-sm font-medium text-white/70 mb-3">Dimensions</h3>
-          <div className="space-y-2">
-            {EXPORT_DIMENSIONS.map((dim) => (
-              <label
-                key={dim.size}
-                className={cn(
-                  'flex items-center gap-3 p-2.5 rounded-lg cursor-pointer',
-                  'border border-white/10 hover:border-white/20 transition-colors',
-                  selectedDimensions.includes(dim.size) && 'border-white/30 bg-white/5'
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedDimensions.includes(dim.size)}
-                  onChange={() => toggleDimension(dim.size)}
-                  className="w-4 h-4 accent-white rounded"
-                />
-                <span className="text-sm flex-1">
-                  {dim.size}
-                  {dim.isPrimary && (
-                    <span className="ml-2 text-xs text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
-                      recommended
-                    </span>
-                  )}
-                </span>
-                <span className="text-xs text-white/40">
-                  {dim.portrait.width}&times;{dim.portrait.height}
-                </span>
-              </label>
-            ))}
-          </div>
-        </section>
-
-        {/* Progress */}
-        {isExporting && progress && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Loader size={14} className="animate-spin" />
-              <span className="text-sm text-white/70">{progress.label}</span>
-              <span className="text-xs text-white/40 ml-auto">
-                {progress.current}/{progress.total}
-              </span>
-            </div>
-            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white/60 rounded-full transition-all duration-300"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-              />
-            </div>
+                </div>
+              </div>
+            )}
+            {error && (
+              <div role="alert" className="flex items-start gap-2 text-[11px] text-danger">
+                <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                <span>{error}</span>
+              </div>
+            )}
+            {!isExporting && !error && completedFiles.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 text-[11px] text-foreground">
+                  <FileCheck2 size={13} aria-hidden />
+                  ZIP validé et téléchargé · {completedFiles.length} fichier{completedFiles.length > 1 ? 's' : ''}
+                </div>
+                <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
+                  {completedFiles.map((file) => (
+                    <li key={file.path} className="flex items-baseline justify-between gap-3">
+                      <span className="tabular min-w-0 truncate text-[10px] text-foreground-muted">
+                        {file.path}
+                      </span>
+                      <span className="tabular shrink-0 text-[10px] text-faint">
+                        {formatMegabytes(file.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button
-            onClick={handleExportCurrent}
-            disabled={isExporting || screens.length === 0}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm',
-              'border border-white/20 hover:border-white/40 hover:bg-white/5 transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-white/20',
-              'disabled:opacity-40 disabled:cursor-not-allowed'
-            )}
-          >
-            <Download size={14} />
-            Export Current
-          </button>
-          <button
-            onClick={handleExportSelected}
-            disabled={isExporting || exportCount === 0}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium flex-1 justify-center',
-              'bg-white text-black hover:bg-white/90 transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-white/20',
-              'disabled:opacity-40 disabled:cursor-not-allowed'
-            )}
-          >
-            {isExporting ? (
-              <Loader size={14} className="animate-spin" />
-            ) : (
-              <Download size={14} />
-            )}
-            {isExporting
-              ? 'Exporting...'
-              : `Export ${exportCount > 0 ? `${exportCount} file${exportCount > 1 ? 's' : ''}` : 'Selected'}`}
-          </button>
-        </div>
       </div>
-    </div>
+    </Dialog>
+  )
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(2)} MB`
+}
+
+function ScreenChoice({
+  screen,
+  index,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  screen: Screen
+  index: number
+  checked: boolean
+  disabled: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onToggle}
+      className={cn(
+        'flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2 text-left',
+        'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+        checked ? 'border-foreground bg-inset' : 'border-border hover:border-border-strong',
+      )}
+    >
+      <span className={cn(
+        'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
+        checked ? 'border-foreground bg-foreground text-panel' : 'border-border-strong bg-panel',
+      )}>
+        {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
+      </span>
+      {screen.thumbnail ? (
+        <img
+          src={screen.thumbnail}
+          alt=""
+          className="h-10 w-[18px] shrink-0 rounded-[2px] border border-border object-cover"
+        />
+      ) : (
+        <span className="h-10 w-[18px] shrink-0 rounded-[2px] border border-border bg-stage" />
+      )}
+      <span className="tabular w-5 shrink-0 text-[10px] text-faint">
+        {String(index + 1).padStart(2, '0')}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{screen.name}</span>
+    </button>
   )
 }

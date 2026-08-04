@@ -1,154 +1,167 @@
-import { useState, useRef, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { POPULAR_FONTS, loadGoogleFont, isFontLoaded } from '@/hooks/use-fonts'
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown } from 'lucide-react'
+import { POPULAR_FONTS, isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Popover } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
-interface FontPickerProps {
+export interface FontPickerProps {
   value: string
   onChange: (family: string) => void
+  id?: string
+  /** Libellé posé dans le champ : même grammaire que `NumberField` et `Select`. */
+  label?: string
 }
 
+/** Head of POPULAR_FONTS pinned under "Populaires" when not searching. */
 const PINNED_COUNT = 10
 
-export function FontPicker({ value, onChange }: FontPickerProps) {
+export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const filtered = search.trim()
-    ? POPULAR_FONTS.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
+  const query = search.trim().toLowerCase()
+  const filtered = query
+    ? POPULAR_FONTS.filter((family) => family.toLowerCase().includes(query))
     : POPULAR_FONTS
+  const pinned = query ? [] : filtered.slice(0, PINNED_COUNT)
+  const rest = query ? filtered : filtered.slice(PINNED_COUNT)
 
-  // Close on outside click
+  // Reset the search when the panel closes (derived state, no effect).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (!open) setSearch('')
+  }
+
+  // Focus the search field once the panel is positioned and visible.
   useEffect(() => {
     if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    const frame = requestAnimationFrame(() => searchRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
   }, [open])
 
-  // Focus search when opening; reset on close via cleanup
-  useEffect(() => {
-    if (!open) return
-    setTimeout(() => searchRef.current?.focus(), 0)
-    return () => setSearch('')
-  }, [open])
-
-  async function handleSelect(family: string) {
-    await loadGoogleFont(family)
+  function handleSelect(family: string) {
     onChange(family)
     setOpen(false)
   }
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          'flex h-7 w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 text-xs text-foreground',
-          'transition-[box-shadow,border-color,background-color] hover:border-muted hover:bg-surface-hover',
-          'focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20',
-        )}
-        style={{ fontFamily: `"${value}", system-ui` }}
+    <>
+      <Button
+        ref={triggerRef}
+        id={id}
+        variant="default"
+        size="sm"
+        onClick={() => setOpen((current) => !current)}
+        className="field-surface h-8 w-full justify-between border-border bg-inset font-normal normal-case hover:bg-inset"
+        aria-label={`Police : ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="truncate">{value}</span>
-        <ChevronDown size={14} className="shrink-0 text-muted" />
-      </button>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {label && <span className="field-label shrink-0 select-none">{label}</span>}
+          <span className="truncate">{value}</span>
+        </span>
+        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
+      </Button>
 
-      {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-surface border border-border rounded-md shadow-lg flex flex-col overflow-hidden">
-          <div className="p-2 border-b border-border">
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search fonts..."
-              className={cn(
-                'w-full h-7 px-2 text-xs rounded-md border border-border',
-                'bg-background text-foreground focus:outline-none focus:border-primary',
-              )}
-            />
-          </div>
-
-          <ul
-            role="listbox"
-            className="overflow-y-auto max-h-60"
-          >
-            {filtered.map((family, i) => (
-              <FontOption
-                key={family}
-                family={family}
-                selected={family === value}
-                isPinned={!search.trim() && i < PINNED_COUNT}
-                onSelect={handleSelect}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted">No fonts found</li>
-            )}
-          </ul>
+      <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
+        <div className="border-b border-border p-1.5">
+          <Input
+            ref={searchRef}
+            font="sans"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher une police…"
+            aria-label="Rechercher une police"
+          />
         </div>
-      )}
-    </div>
+
+        <div role="listbox" aria-label="Polices" className="max-h-60 overflow-y-auto p-1">
+          {pinned.length > 0 && (
+            <>
+              <div role="presentation" className="field-label px-2 pb-1 pt-1.5">
+                Populaires
+              </div>
+              {pinned.map((family) => (
+                <FontOption
+                  key={family}
+                  family={family}
+                  selected={family === value}
+                  onSelect={handleSelect}
+                />
+              ))}
+              <div role="presentation" className="hairline mx-1 my-1" />
+            </>
+          )}
+          {rest.map((family) => (
+            <FontOption
+              key={family}
+              family={family}
+              selected={family === value}
+              onSelect={handleSelect}
+            />
+          ))}
+          {filtered.length === 0 && (
+            <div className="field-label px-2 py-3 text-center">Aucune police trouvée</div>
+          )}
+        </div>
+      </Popover>
+    </>
   )
 }
 
 interface FontOptionProps {
   family: string
   selected: boolean
-  isPinned: boolean
   onSelect: (family: string) => void
 }
 
-function FontOption({ family, selected, isPinned, onSelect }: FontOptionProps) {
-  const ref = useRef<HTMLLIElement>(null)
-  const [fontLoaded, setFontLoaded] = useState(isFontLoaded(family))
+function FontOption({ family, selected, onSelect }: FontOptionProps) {
+  const itemRef = useRef<HTMLButtonElement>(null)
+  const [fontLoaded, setFontLoaded] = useState(() => isFontLoaded(family))
 
-  // Load font preview when scrolled into view
+  // Load the preview font only when the row scrolls into view.
   useEffect(() => {
-    if (fontLoaded) return
-    const el = ref.current
-    if (!el) return
+    if (fontLoaded || !itemRef.current) return
     const observer = new IntersectionObserver(
-      async (entries) => {
-        if (entries[0].isIntersecting) {
-          observer.disconnect()
-          await loadGoogleFont(family, ['400'])
-          setFontLoaded(true)
-        }
+      (entries) => {
+        if (!entries[0].isIntersecting) return
+        observer.disconnect()
+        void loadGoogleFont(family, ['400']).then((result) => {
+          setFontLoaded(result.status === 'loaded')
+        })
       },
       { threshold: 0.1 },
     )
-    observer.observe(el)
+    observer.observe(itemRef.current)
     return () => observer.disconnect()
   }, [family, fontLoaded])
 
   return (
-    <li
-      ref={ref}
+    <button
+      ref={itemRef}
+      type="button"
       role="option"
       aria-selected={selected}
       onClick={() => onSelect(family)}
       className={cn(
-        'px-2 py-1.5 text-xs cursor-pointer flex items-center justify-between gap-2',
-        'hover:bg-surface-hover transition-colors',
-        selected && 'bg-primary/10 text-primary',
+        'flex h-7 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-[12px]',
+        'transition-colors duration-100 ease-out',
+        'focus-visible:bg-raised-hover',
+        selected
+          ? 'bg-raised-active text-foreground'
+          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
       )}
       style={fontLoaded ? { fontFamily: `"${family}", system-ui` } : undefined}
     >
       <span className="truncate">{family}</span>
-      {isPinned && (
-        <span className="text-xs text-muted shrink-0">popular</span>
-      )}
-    </li>
+      {selected && <Check size={11} strokeWidth={2} className="shrink-0 text-foreground" aria-hidden />}
+    </button>
   )
 }

@@ -1,133 +1,221 @@
-import { useState, useRef } from 'react'
-import { GripVertical, Type, Smartphone, ImageIcon, Square, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
+import { memo, useEffect, useRef, useState } from 'react'
+import {
+  Eye,
+  EyeOff,
+  GripVertical,
+  ImageIcon,
+  Lock,
+  Smartphone,
+  Square,
+  Type,
+  Unlock,
+} from 'lucide-react'
+import { ContextMenu } from '@/components/ui/ContextMenu'
+import { IconButton } from '@/components/ui/icon-button'
+import { buildLayerMenuItems } from '@/components/ui/layer-menu'
+import { useLayerActions } from '@/hooks/use-layer-actions'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
 
 interface LayerItemProps {
   layer: Layer
   isSelected: boolean
-  onSelect: () => void
-  onToggleVisibility: () => void
-  onToggleLock: () => void
-  onRename: (name: string) => void
-  onDragStart: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
+  onSelect: (layer: Layer, event: React.MouseEvent) => void
+  onSelectExclusive: (layer: Layer) => void
+  onDragStart: (layer: Layer, event: React.DragEvent) => void
+  onDragOver: (event: React.DragEvent) => void
+  onDrop: (layer: Layer, event: React.DragEvent) => void
 }
 
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
-  const cls = 'shrink-0 text-muted/80'
+  const className = 'shrink-0'
   switch (type) {
-    case 'text': return <Type size={13} strokeWidth={1.75} className={cls} />
-    case 'device-frame': return <Smartphone size={13} strokeWidth={1.75} className={cls} />
-    case 'image': return <ImageIcon size={13} strokeWidth={1.75} className={cls} />
-    case 'shape': return <Square size={13} strokeWidth={1.75} className={cls} />
-    default: return <Square size={13} strokeWidth={1.75} className={cls} />
+    case 'text': return <Type size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'device-frame': return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'image': return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
+    default: return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
   }
 }
 
-export function LayerItem({
+/**
+ * A single layer row. Memoized: the parent passes stable callbacks (the layer
+ * is handed back as an argument), so rows skip re-renders unless their own
+ * layer or selection state changes.
+ */
+export const LayerItem = memo(function LayerItem({
   layer,
   isSelected,
   onSelect,
-  onToggleVisibility,
-  onToggleLock,
-  onRename,
+  onSelectExclusive,
   onDragStart,
   onDragOver,
   onDrop,
 }: LayerItemProps) {
+  const actions = useLayerActions()
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(layer.name)
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  function handleDoubleClick() {
+  useEffect(() => {
+    if (!editing) return
+    const frame = requestAnimationFrame(() => inputRef.current?.select())
+    return () => cancelAnimationFrame(frame)
+  }, [editing])
+
+  function startRename() {
     setEditName(layer.name)
     setEditing(true)
-    setTimeout(() => inputRef.current?.select(), 0)
   }
 
   function commitRename() {
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== layer.name) {
-      onRename(trimmed)
-    }
+    if (trimmed && trimmed !== layer.name) actions.rename(layer, trimmed)
     setEditing(false)
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') commitRename()
-    if (e.key === 'Escape') setEditing(false)
+  function handleRenameKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') commitRename()
+    if (event.key === 'Escape') setEditing(false)
+  }
+
+  function handleContextMenu(event: React.MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!isSelected) onSelectExclusive(layer)
+    setMenuPosition({ left: event.clientX, top: event.clientY })
+  }
+
+  function handleItemKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelectExclusive(layer)
+    } else if (event.key === 'F2') {
+      event.preventDefault()
+      startRename()
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault()
+      event.stopPropagation()
+      actions.remove(layer)
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+      event.preventDefault()
+      event.stopPropagation()
+      actions.duplicate(layer)
+    } else if (event.altKey && event.key === 'ArrowUp') {
+      event.preventDefault()
+      actions.moveForward(layer)
+    } else if (event.altKey && event.key === 'ArrowDown') {
+      event.preventDefault()
+      actions.moveBackward(layer)
+    }
+  }
+
+  function handleDoubleClick(event: React.MouseEvent) {
+    if ((event.target as HTMLElement).closest('button, input')) return
+    event.stopPropagation()
+    startRename()
   }
 
   return (
     <div
+      role="option"
+      tabIndex={0}
+      aria-selected={isSelected}
+      aria-label={`${layer.name}, ${layer.type}`}
+      data-layer-id={layer.id}
       draggable
-      onDragStart={onDragStart}
+      onDragStart={(event) => onDragStart(layer, event)}
       onDragOver={onDragOver}
-      onDrop={onDrop}
-      onClick={onSelect}
+      onDrop={(event) => onDrop(layer, event)}
+      onClick={(event) => onSelect(layer, event)}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-1.5 select-none',
+        'group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+        'transition-colors duration-100 ease-out',
+        // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
+        // L'aplat pesait autant que le contenu du panneau et ne disait pas
+        // « sélectionné », seulement « survolé un peu plus fort ».
         isSelected
-          ? 'bg-primary/10 text-foreground'
-          : 'text-foreground/90 hover:bg-surface-hover/70',
+          ? 'accent-mark text-foreground'
+          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
       )}
     >
-      <GripVertical size={12} strokeWidth={1.75} className="shrink-0 cursor-grab text-muted/50 opacity-0 group-hover:opacity-100 active:cursor-grabbing" />
+      <GripVertical
+        size={11}
+        strokeWidth={1.5}
+        aria-hidden
+        className="shrink-0 cursor-grab text-faint opacity-0 transition-opacity group-hover:opacity-100"
+      />
+
       <LayerTypeIcon type={layer.type} />
 
       {editing ? (
         <input
           ref={inputRef}
           value={editName}
-          onChange={(e) => setEditName(e.target.value)}
+          onChange={(event) => setEditName(event.target.value)}
           onBlur={commitRename}
-          onKeyDown={handleKeyDown}
-          onClick={(e) => e.stopPropagation()}
-          className="min-w-0 flex-1 rounded border border-primary bg-panel px-1.5 py-0.5 text-[11px] outline-none ring-1 ring-primary/20"
+          onKeyDown={handleRenameKeyDown}
+          onClick={(event) => event.stopPropagation()}
+          aria-label="Nom du calque"
+          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12.5px] focus:border-foreground-muted"
         />
       ) : (
-        <span
-          className="flex-1 truncate text-[11px] font-medium"
-          onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick() }}
-        >
+        <span className="flex-1 truncate text-[12.5px]">
           {layer.name}
         </span>
       )}
 
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          aria-label={layer.visible ? 'Hide layer' : 'Show layer'}
-          title={layer.visible ? 'Hide' : 'Show'}
-          onClick={(e) => { e.stopPropagation(); onToggleVisibility() }}
-          className={cn(
-            'flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-surface hover:text-foreground',
-            !layer.visible && 'opacity-100 text-muted/50',
-          )}
+      {/* Deux actions, pas quatre. À 32px pièce, quatre boutons couvraient le
+          milieu de la ligne : viser le nom d'un calque basculait sa visibilité.
+          Dupliquer et supprimer restent au menu contextuel et au clavier. */}
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <IconButton
+          size="sm"
+          aria-label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
+          title={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.setVisibility(layer, !layer.visible)
+          }}
         >
-          {layer.visible ? <Eye size={12} strokeWidth={1.75} /> : <EyeOff size={12} strokeWidth={1.75} />}
-        </button>
-        <button
-          aria-label={layer.locked ? 'Unlock layer' : 'Lock layer'}
-          title={layer.locked ? 'Unlock' : 'Lock'}
-          onClick={(e) => { e.stopPropagation(); onToggleLock() }}
-          className={cn(
-            'flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-surface hover:text-foreground',
-            layer.locked && 'opacity-100 text-primary/70',
-          )}
+          {layer.visible
+            ? <Eye size={11} strokeWidth={1.5} aria-hidden />
+            : <EyeOff size={11} strokeWidth={1.5} aria-hidden />}
+        </IconButton>
+        <IconButton
+          size="sm"
+          aria-label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
+          title={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
+          onClick={(event) => {
+            event.stopPropagation()
+            actions.setLocked(layer, !layer.locked)
+          }}
         >
-          {layer.locked ? <Lock size={12} strokeWidth={1.75} /> : <Unlock size={12} strokeWidth={1.75} />}
-        </button>
+          {layer.locked
+            ? <Lock size={11} strokeWidth={1.5} aria-hidden />
+            : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
+        </IconButton>
       </div>
 
-      {/* Always-visible indicators when toggled */}
       {(!layer.visible || layer.locked) && (
-        <div className="flex shrink-0 items-center gap-0.5 group-hover:hidden">
-          {!layer.visible && <EyeOff size={11} strokeWidth={1.75} className="text-muted/40" />}
-          {layer.locked && <Lock size={11} strokeWidth={1.75} className="text-primary/50" />}
+        <div className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden" aria-hidden>
+          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-faint" />}
+          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-faint" />}
         </div>
+      )}
+
+      {menuPosition && (
+        <ContextMenu
+          position={menuPosition}
+          label={`Actions de ${layer.name}`}
+          onClose={() => setMenuPosition(null)}
+          items={buildLayerMenuItems(layer, actions, { onRename: startRename })}
+        />
       )}
     </div>
   )
-}
+})

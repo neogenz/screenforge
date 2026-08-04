@@ -1,94 +1,169 @@
-import { useState, useRef } from 'react'
-import { Copy, Trash2 } from 'lucide-react'
+import { memo, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { ContextMenu } from '@/components/ui/ContextMenu'
 import { cn } from '@/lib/utils'
+import { THUMBNAIL_HEIGHT } from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ScreenThumbnailProps {
   screen: Screen
   isActive: boolean
   index: number
-  onClick: () => void
-  onDuplicate: () => void
-  onDelete: () => void
+  canDelete: boolean
+  canMoveLeft: boolean
+  canMoveRight: boolean
+  onSelect: (id: string) => void
+  onRename: (id: string, name: string) => void
+  onDuplicate: (id: string) => void
+  onDelete: (id: string) => void
+  onMove: (index: number, direction: -1 | 1) => void
 }
 
-export function ScreenThumbnail({
+export const ScreenThumbnail = memo(function ScreenThumbnail({
   screen,
   isActive,
   index,
-  onClick,
+  canDelete,
+  canMoveLeft,
+  canMoveRight,
+  onSelect,
+  onRename,
   onDuplicate,
   onDelete,
+  onMove,
 }: ScreenThumbnailProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [draftName, setDraftName] = useState(screen.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const actionsRef = useRef<HTMLButtonElement>(null)
 
-  function handleContextMenu(e: React.MouseEvent) {
-    e.preventDefault()
-    setMenuOpen(true)
+  useEffect(() => {
+    if (!editing) return
+    const frame = requestAnimationFrame(() => inputRef.current?.select())
+    return () => cancelAnimationFrame(frame)
+  }, [editing])
+
+  function startRename() {
+    setDraftName(screen.name)
+    setEditing(true)
   }
 
-  function handleMenuAction(action: () => void) {
-    action()
-    setMenuOpen(false)
+  function commitRename() {
+    const trimmed = draftName.trim()
+    if (trimmed && trimmed !== screen.name) onRename(screen.id, trimmed)
+    setEditing(false)
   }
 
   return (
     <div
-      ref={containerRef}
-      className="relative shrink-0"
-      onContextMenu={handleContextMenu}
-      onBlur={(e) => {
-        if (!containerRef.current?.contains(e.relatedTarget as Node)) {
-          setMenuOpen(false)
-        }
+      className="group/thumb relative flex shrink-0 flex-col gap-1.5"
+      onContextMenu={(event) => {
+        event.preventDefault()
+        setMenuPosition({ left: event.clientX, top: event.clientY })
       }}
     >
-      <div
-        onClick={onClick}
+      <button
+        type="button"
+        onClick={() => onSelect(screen.id)}
+        onDoubleClick={startRename}
+        aria-label={`Activer ${screen.name}`}
+        aria-pressed={isActive}
+        style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'h-[120px] aspect-[9/19.5] cursor-pointer overflow-hidden rounded-xl transition-all',
+          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-sm bg-inset',
+          'border transition-[border-color,box-shadow,transform] duration-150 ease-out',
+          'active:scale-[0.97]',
+          // L'écran courant est un état : l'anneau d'accent le dit à distance,
+          // là où deux gris voisins demandaient de comparer les vignettes.
           isActive
-            ? 'ring-2 ring-primary shadow-[0_0_16px_rgba(99,102,241,0.3)]'
-            : 'ring-1 ring-white/[0.06] hover:ring-white/15',
+            ? 'border-transparent shadow-[0_0_0_2px_var(--color-accent)]'
+            : 'border-border hover:border-border-strong',
         )}
       >
         {screen.thumbnail ? (
           <img
             src={screen.thumbnail}
             alt={screen.name}
-            className="h-full w-full object-cover"
+            className="img-outline h-full w-full object-cover"
           />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-surface to-canvas-bg" />
+          <div className="h-full w-full bg-raised" />
         )}
-      </div>
+      </button>
 
-      <div className="pointer-events-none absolute top-1.5 left-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-md bg-black/25 px-1 text-[10px] font-medium text-white/90 backdrop-blur-md">
-        {index + 1}
-      </div>
-
-      {menuOpen && (
-        <div
-          className="absolute bottom-full left-0 z-50 mb-2 min-w-[140px] rounded-lg border border-white/[0.08] bg-panel py-1.5 shadow-xl backdrop-blur-xl"
-          onMouseDown={(e) => e.preventDefault()}
+      {/* Le numéro vit sous la vignette, pas dessus : à cette largeur une pastille
+          posée sur l'image en masquait le quart. */}
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draftName}
+          onChange={(event) => setDraftName(event.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitRename()
+            if (event.key === 'Escape') setEditing(false)
+          }}
+          aria-label="Nom de l’écran"
+          spellCheck={false}
+          className="field-surface h-5 w-full px-1 text-center text-[10.5px] text-foreground outline-none"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => onSelect(screen.id)}
+          onDoubleClick={startRename}
+          title={`${screen.name} — double-clic pour renommer`}
+          className={cn(
+            // `hit-40` : le libellé fait 20px de haut mais se clique comme le
+            // reste. Le recouvrement avec la vignette est sans effet — même action.
+            'hit-40 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
+            'text-[10.5px] leading-none transition-colors',
+            isActive ? 'text-foreground' : 'text-faint hover:text-foreground-muted',
+          )}
         >
-          <button
-            onClick={() => handleMenuAction(onDuplicate)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-foreground transition-colors hover:bg-surface-hover"
-          >
-            <Copy size={13} />
-            Dupliquer
-          </button>
-          <button
-            onClick={() => handleMenuAction(onDelete)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-danger transition-colors hover:bg-surface-hover"
-          >
-            <Trash2 size={13} />
-            Supprimer
-          </button>
-        </div>
+          <span className="tabular shrink-0 opacity-60">{String(index + 1).padStart(2, '0')}</span>
+          <span className="truncate">{screen.name}</span>
+        </button>
+      )}
+
+      <button
+        ref={actionsRef}
+        type="button"
+        onClick={() => {
+          if (menuPosition) setMenuPosition(null)
+          else {
+            const bounds = actionsRef.current?.getBoundingClientRect()
+            if (bounds) setMenuPosition({ left: bounds.right - 180, top: bounds.top - 150 })
+          }
+        }}
+        className={cn(
+          'hit-40 absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-xs',
+          'border border-border bg-panel/95 text-foreground-muted transition-opacity hover:text-foreground',
+          !menuPosition &&
+            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
+        )}
+        aria-label={`Actions de ${screen.name}`}
+        aria-expanded={menuPosition !== null}
+        aria-haspopup="menu"
+      >
+        <MoreHorizontal size={12} strokeWidth={1.75} aria-hidden />
+      </button>
+
+      {menuPosition && (
+        <ContextMenu
+          position={menuPosition}
+          label={`Actions de ${screen.name}`}
+          onClose={() => setMenuPosition(null)}
+          items={[
+            { label: 'Renommer', icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />, onSelect: startRename },
+            { label: 'Dupliquer', icon: <Copy size={11} strokeWidth={1.5} aria-hidden />, onSelect: () => onDuplicate(screen.id) },
+            { label: 'Déplacer à gauche', icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveLeft, onSelect: () => onMove(index, -1) },
+            { label: 'Déplacer à droite', icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveRight, onSelect: () => onMove(index, 1) },
+            { label: 'Supprimer', icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />, danger: true, disabled: !canDelete, onSelect: () => onDelete(screen.id) },
+          ]}
+        />
       )}
     </div>
   )
-}
+})

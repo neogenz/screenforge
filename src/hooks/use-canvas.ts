@@ -1,54 +1,57 @@
-import { useEffect, useRef, useCallback } from 'react'
-import { Canvas, Rect, Textbox, Shadow, Gradient, Group, Point, type FabricObject } from 'fabric'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  ActiveSelection,
+  Canvas,
+  Point,
+  Rect,
+  Textbox,
+  util,
+} from 'fabric'
+import {
+  SCREEN_HEIGHT,
+  SCREEN_WIDTH,
+  applySelectionStyle,
+  disposeFabricObjectResource,
+  fabricObjectToLayerUpdate,
+  getScreenOffset,
+  getTotalWidth,
+  type RenderedObject,
+} from '@/components/canvas/canvas-utils'
+import {
+  SNAP_DISTANCE_PX,
+  applyLassoColors,
+  boxOf,
+  collectSnapTargets,
+  drawGuides,
+  readChromeColors,
+  readSelectionFrame,
+  resolveSelectionObjects,
+  sameFrame,
+  sameIds,
+  screenIndexAtPoint,
+  type SelectionFrame,
+} from '@/components/canvas/canvas-interactions'
+import {
+  ensureScreenClipPath,
+  patchCanvas,
+  syncCanvas,
+  type CanvasSyncRuntime,
+} from '@/components/canvas/canvas-sync'
+import { installControlsPatch } from '@/components/canvas/controls-patch'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
-import { layerToFabricObject, fabricObjectToLayerUpdate } from '@/components/canvas/canvas-utils'
-import { getDeviceFrame } from '@/assets/device-frames'
-import type { Background, Layer, Screen, DeviceFrameLayer } from '@/types'
+import { stageInsets } from '@/lib/stage'
+import { nextTimestamp } from '@/lib/time'
+import { computeSnap } from '@/lib/snapping'
+import type { Box, Guide } from '@/lib/snapping'
+import { diffProjectChange } from '@/lib/canvas/project-diff'
+import { applyLayerTransfer } from '@/lib/layer-transfer'
+import type { LayoutLayerUpdate, LocalLayerTransfer } from '@/lib/layer-transfer'
+import type { Layer, Project, Screen } from '@/types'
 
-export const SCREEN_WIDTH = 440
-export const SCREEN_HEIGHT = 956
-const SCREEN_GAP = 40
-
-export function getScreenOffset(i: number) { return i * (SCREEN_WIDTH + SCREEN_GAP) }
-export function getTotalWidth(n: number) { return n < 1 ? SCREEN_WIDTH : n * SCREEN_WIDTH + (n - 1) * SCREEN_GAP }
-
-/**
- * Group clipPath covering ALL screen areas but NOT the gaps.
- * Applied to every user layer so content is visible on screens,
- * hidden in gaps, and flows naturally across screen boundaries.
- */
-function makeScreensClipPath(screenCount: number): Group {
-  const rects: Rect[] = []
-  for (let i = 0; i < screenCount; i++) {
-    rects.push(new Rect({
-      left: getScreenOffset(i),
-      top: 0,
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
-    }))
-  }
-  return new Group(rects, { absolutePositioned: true })
-}
-
-function bgFill(bg: Background, w: number, h: number): string | Gradient<'linear'> | Gradient<'radial'> {
-  if (bg.type === 'solid') return bg.color
-  if (bg.type === 'linear-gradient') {
-    const r = (bg.angle * Math.PI) / 180
-    return new Gradient<'linear'>({ type: 'linear', coords: {
-      x1: w/2 - Math.cos(r)*w/2, y1: h/2 - Math.sin(r)*h/2,
-      x2: w/2 + Math.cos(r)*w/2, y2: h/2 + Math.sin(r)*h/2,
-    }, colorStops: bg.stops })
-  }
-  const cx = (bg.centerX ?? 50) / 100, cy = (bg.centerY ?? 50) / 100
-  return new Gradient<'radial'>({ type: 'radial', coords: {
-    x1: w*cx, y1: h*cy, r1: 0, x2: w*cx, y2: h*cy, r2: Math.max(w, h)/2,
-  }, colorStops: bg.stops })
-}
-
-type D = FabricObject & { data?: Record<string, unknown> }
+export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
+export type { SelectionFrame } from '@/components/canvas/canvas-interactions'
 
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -56,303 +59,756 @@ export function useCanvas() {
   const fabricRef = useRef<Canvas | null>(null)
   const syncing = useRef(false)
   const syncVersion = useRef(0)
+  const ignoreSelectionCleared = useRef(false)
   const panning = useRef(false)
-  const panPt = useRef<{ x: number; y: number } | null>(null)
-  const thumbTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const thumbGen = useRef(0)
-  const setZoom = useUIStore(s => s.setZoom)
+  const interacting = useRef(false)
+  const applyingStoreSelection = useRef(false)
+  const panPoint = useRef<{ x: number; y: number } | null>(null)
+  const selectionFromCanvas = useRef(false)
+  const thumbnailTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const thumbnailGeneration = useRef(0)
+  const fontLoadRequests = useRef(new Set<string>())
+  const layoutInstances = useRef(new Map<string, RenderedObject[]>())
+  const wheelRenderQueued = useRef(false)
+  const publishedFrame = useRef<SelectionFrame | null>(null)
+  const [selectionFrame, setSelectionFrame] = useState<SelectionFrame | null>(null)
+  const setZoom = useUIStore((state) => state.setZoom)
 
-  /** Generate thumbnails by cropping each screen from the rendered lowerCanvasEl.
-   *  Uses getBoundingRect() on background rects to get EXACT pixel coordinates —
-   *  no manual DPR/viewport math needed. */
   const generateThumbnails = useCallback((screens: Screen[]) => {
-    if (thumbTimer.current) clearTimeout(thumbTimer.current)
-    const gen = ++thumbGen.current
-    thumbTimer.current = setTimeout(() => {
+    if (thumbnailTimer.current) clearTimeout(thumbnailTimer.current)
+    const generation = ++thumbnailGeneration.current
+
+    thumbnailTimer.current = setTimeout(() => {
+      // The capture pass mutates the viewport and forces two renders — keep
+      // it off the interaction critical path.
+      const scheduleIdle: (task: () => void) => void =
+        typeof requestIdleCallback === 'function'
+          ? (task) => requestIdleCallback(() => task(), { timeout: 1200 })
+          : (task) => setTimeout(task, 0)
+      scheduleIdle(() => {
       const canvas = fabricRef.current
-      if (!canvas || gen !== thumbGen.current) return
+      if (!canvas || generation !== thumbnailGeneration.current) return
+      const backgrounds = (canvas.getObjects() as RenderedObject[]).filter(
+        (object) => object.data?.rendererType === 'background',
+      )
+      if (backgrounds.length === 0) return
 
-      const sourceEl = canvas.lowerCanvasEl
-      if (!sourceEl) return
+      const savedViewport = [...canvas.viewportTransform] as typeof canvas.viewportTransform
+      const thumbnails: Record<string, string> = {}
 
-      // Save viewport, fit all screens, render — then crop — then restore.
-      // renderAll() is synchronous so the browser never repaints the fitAll state.
-      const savedVpt = [...canvas.viewportTransform] as typeof canvas.viewportTransform
-
-      // Compute a viewport that shows ALL screens with margin
-      type D = FabricObject & { data?: Record<string, unknown> }
-      const bgs = (canvas.getObjects() as D[]).filter(o => o.data?.type === 'bg')
-      if (bgs.length === 0) return
-
-      // Find the bounding box of ALL bg rects (using aCoords for correct corners)
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const bg of bgs) {
-        const tl = bg.aCoords.tl, br = bg.aCoords.br
-        minX = Math.min(minX, tl.x); minY = Math.min(minY, tl.y)
-        maxX = Math.max(maxX, br.x); maxY = Math.max(maxY, br.y)
-      }
-      const contentW = maxX - minX, contentH = maxY - minY
-      const pad = 20
-      const cw = canvas.width, ch = canvas.height
-      const fitZoom = Math.min((cw - pad * 2) / contentW, (ch - pad * 2) / contentH, 1)
-      const fitPanX = (cw - contentW * fitZoom) / 2 - minX * fitZoom
-      const fitPanY = (ch - contentH * fitZoom) / 2 - minY * fitZoom
-
-      canvas.viewportTransform = [fitZoom, 0, 0, fitZoom, fitPanX, fitPanY]
-      canvas.calcViewportBoundaries()
-      canvas.renderAll()
-
-      const dpr = canvas.getRetinaScaling()
-      const thumbW = Math.round(SCREEN_WIDTH * 0.2)
-      const thumbH = Math.round(SCREEN_HEIGHT * 0.2)
-      const thumbs: Record<string, string> = {}
-
-      for (let i = 0; i < screens.length; i++) {
-        if (gen !== thumbGen.current) break
-        const sc = screens[i]
-        try {
-          const bgObj = bgs.find(o => o.data?.uid === `bg-${sc.id}`)
-          if (!bgObj) continue
-
-          const tl = bgObj.aCoords.tl
-          const br = bgObj.aCoords.br
-          const zoom = fitZoom
-
-          const srcX = (tl.x * zoom + fitPanX) * dpr
-          const srcY = (tl.y * zoom + fitPanY) * dpr
-          const srcW = (br.x - tl.x) * zoom * dpr
-          const srcH = (br.y - tl.y) * zoom * dpr
-
-          if (srcW <= 0 || srcH <= 0) continue
-
-          const crop = document.createElement('canvas')
-          crop.width = thumbW
-          crop.height = thumbH
-          const ctx = crop.getContext('2d')!
-          ctx.drawImage(sourceEl, srcX, srcY, srcW, srcH, 0, 0, thumbW, thumbH)
-          thumbs[sc.id] = crop.toDataURL('image/png')
-        } catch { /* skip */ }
-      }
-
-      // Restore original viewport immediately — no visual flicker
-      canvas.viewportTransform = savedVpt
-      canvas.calcViewportBoundaries()
-      canvas.renderAll()
-
-      if (gen !== thumbGen.current) return
-
-      const p = useProjectStore.getState().project
-      if (p) {
-        const updatedScreens = p.screens.map(s =>
-          thumbs[s.id] && s.thumbnail !== thumbs[s.id]
-            ? { ...s, thumbnail: thumbs[s.id] }
-            : s
-        )
-        if (updatedScreens.some((s, i) => s !== p.screens[i])) {
-          useProjectStore.setState({ project: { ...p, screens: updatedScreens } })
+      try {
+        let minX = Infinity
+        let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+        for (const background of backgrounds) {
+          const { tl, br } = background.aCoords
+          minX = Math.min(minX, tl.x)
+          minY = Math.min(minY, tl.y)
+          maxX = Math.max(maxX, br.x)
+          maxY = Math.max(maxY, br.y)
         }
+
+        const contentWidth = maxX - minX
+        const contentHeight = maxY - minY
+        const padding = 20
+        const fitZoom = Math.min(
+          (canvas.width - padding * 2) / contentWidth,
+          (canvas.height - padding * 2) / contentHeight,
+          1,
+        )
+        const panX = (canvas.width - contentWidth * fitZoom) / 2 - minX * fitZoom
+        const panY = (canvas.height - contentHeight * fitZoom) / 2 - minY * fitZoom
+        canvas.setViewportTransform([fitZoom, 0, 0, fitZoom, panX, panY])
+        canvas.renderAll()
+
+        const source = canvas.lowerCanvasEl
+        const retinaScale = canvas.getRetinaScaling()
+        const thumbnailWidth = Math.round(SCREEN_WIDTH * 0.2)
+        const thumbnailHeight = Math.round(SCREEN_HEIGHT * 0.2)
+
+        for (const screen of screens) {
+          if (generation !== thumbnailGeneration.current) return
+          const background = backgrounds.find(
+            (object) => object.data?.uid === `background:${screen.id}`,
+          )
+          if (!background) continue
+          const { tl, br } = background.aCoords
+          const crop = document.createElement('canvas')
+          crop.width = thumbnailWidth
+          crop.height = thumbnailHeight
+          const context = crop.getContext('2d')
+          if (!context) continue
+          context.drawImage(
+            source,
+            (tl.x * fitZoom + panX) * retinaScale,
+            (tl.y * fitZoom + panY) * retinaScale,
+            (br.x - tl.x) * fitZoom * retinaScale,
+            (br.y - tl.y) * fitZoom * retinaScale,
+            0,
+            0,
+            thumbnailWidth,
+            thumbnailHeight,
+          )
+          thumbnails[screen.id] = crop.toDataURL('image/png')
+        }
+      } catch (error) {
+        console.error('Could not generate screen thumbnails.', error)
+      } finally {
+        canvas.setViewportTransform(savedViewport)
+        canvas.renderAll()
       }
-    }, 600)
+
+      if (generation !== thumbnailGeneration.current) return
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const updatedScreens = project.screens.map((screen) => {
+        const thumbnail = thumbnails[screen.id]
+        return thumbnail && thumbnail !== screen.thumbnail
+          ? { ...screen, thumbnail }
+          : screen
+      })
+      if (updatedScreens.some((screen, index) => screen !== project.screens[index])) {
+        useProjectStore.setState({
+          project: { ...project, screens: updatedScreens },
+        })
+      }
+      })
+    }, 300)
   }, [])
 
-  const fitAll = useCallback((c: Canvas, n: number) => {
-    const tw = getTotalWidth(n), pad = 80
-    const cw = c.width ?? 800, ch = c.height ?? 600
-    const s = Math.min((cw - pad*2) / tw, (ch - pad*2) / SCREEN_HEIGHT, 1)
-    c.setViewportTransform([s, 0, 0, s, (cw - tw*s)/2, (ch - SCREEN_HEIGHT*s)/2])
-    setZoom(s)
+  const fitAll = useCallback((canvas: Canvas, screenCount: number) => {
+    const { layersOpen, propsOpen } = useUIStore.getState()
+    const insets = stageInsets({ layers: layersOpen, props: propsOpen })
+    const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
+    const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
+    const totalWidth = getTotalWidth(screenCount)
+    const padding = 48
+    const zoom = Math.min(
+      (availableWidth - padding * 2) / totalWidth,
+      (availableHeight - padding * 2) / SCREEN_HEIGHT,
+      1,
+    )
+    canvas.setViewportTransform([
+      zoom,
+      0,
+      0,
+      zoom,
+      insets.left + (availableWidth - totalWidth * zoom) / 2,
+      insets.top + (availableHeight - SCREEN_HEIGHT * zoom) / 2,
+    ])
+    setZoom(zoom)
   }, [setZoom])
 
-  const sync = useCallback(async (screens: Screen[]) => {
+  /**
+   * Resolves the store layer under a native pointer event, for the on-canvas
+   * context menu. Layout instances expose their shared `layerId`; chrome
+   * objects (background, label) are not evented and never match.
+   */
+  const getLayerIdAtPoint = useCallback((event: MouseEvent): string | null => {
+    const canvas = fabricRef.current
+    if (!canvas) return null
+    const target = canvas.findTarget(event)?.target as RenderedObject | undefined
+    const data = target?.data
+    if (data) {
+      const id = data.layerId ?? data.uid
+      if (id) return id
+    }
+    // Click inside an active multi-selection: keep it and target any member.
+    const selected = useCanvasStore.getState().selectedLayerIds
+    if (target instanceof ActiveSelection) return selected[0] ?? null
+    return null
+  }, [])
+
+  const sync = useCallback(async (project: Project) => {
     const canvas = fabricRef.current
     if (!canvas) return
-    const ver = ++syncVersion.current
-    syncing.current = true
+    await syncCanvas(project, {
+      canvas,
+      currentCanvas: () => fabricRef.current,
+      syncVersion,
+      syncing,
+      fontLoadRequests: fontLoadRequests.current,
+      layoutInstances,
+      generateThumbnails,
+    })
+  }, [generateThumbnails])
 
-    try {
-    const objs = canvas.getObjects() as D[]
-    const map = new Map<string, D>()
-    for (const o of objs) {
-      const u = o.data?.uid as string
-      if (u) {
-        if (map.has(u)) canvas.remove(o)
-        else map.set(u, o)
-      }
+  const syncPatch = useCallback(async (
+    project: Project,
+    change: Extract<ReturnType<typeof diffProjectChange>, { type: 'patch' }>,
+  ): Promise<boolean> => {
+    const canvas = fabricRef.current
+    if (!canvas) return false
+    const runtime: CanvasSyncRuntime = {
+      canvas,
+      currentCanvas: () => fabricRef.current,
+      syncVersion,
+      syncing,
+      fontLoadRequests: fontLoadRequests.current,
+      layoutInstances,
+      generateThumbnails,
     }
-
-    const want = new Set<string>()
-    for (const sc of screens) {
-      want.add(`bg-${sc.id}`); want.add(`lbl-${sc.id}`)
-      for (const l of sc.layers) want.add(l.id)
-    }
-    for (const o of objs) { const u = o.data?.uid as string; if (u && !want.has(u)) canvas.remove(o) }
-
-    // Shared clipPath: visible on all screens, hidden in gaps
-    const clip = makeScreensClipPath(screens.length)
-
-    for (let i = 0; i < screens.length; i++) {
-      const sc = screens[i], off = getScreenOffset(i)
-
-      // BG
-      const bgId = `bg-${sc.id}`, fill = bgFill(sc.background, SCREEN_WIDTH, SCREEN_HEIGHT)
-      const eBg = map.get(bgId)
-      if (eBg) { eBg.set({ left: off, fill }); eBg.setCoords() }
-      else {
-        const r = new Rect({ left: off, top: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT,
-          fill, rx: 4, ry: 4, selectable: false, evented: false,
-          shadow: new Shadow({ color: 'rgba(0,0,0,0.25)', blur: 16, offsetX: 0, offsetY: 3 }) })
-        r.set('data', { uid: bgId, type: 'bg', screenId: sc.id })
-        canvas.add(r); canvas.sendObjectToBack(r)
-      }
-
-      // Label
-      const lId = `lbl-${sc.id}`, eL = map.get(lId)
-      if (eL) { eL.set({ left: off + 8, text: sc.name } as Record<string, unknown>); eL.setCoords() }
-      else {
-        const t = new Textbox(sc.name, { left: off + 8, top: SCREEN_HEIGHT - 24, width: SCREEN_WIDTH - 16,
-          fontSize: 11, fontFamily: 'Inter, system-ui, sans-serif', fill: 'rgba(255,255,255,0.3)',
-          selectable: false, evented: false, editable: false, textAlign: 'left' })
-        t.set('data', { uid: lId, type: 'lbl', screenId: sc.id }); canvas.add(t)
-      }
-
-      // Layers — clipped to all screen areas (Group clipPath)
-      for (const layer of sc.layers) {
-        const ex = map.get(layer.id)
-        if (ex) {
-          if (layer.type === 'device-frame') {
-            const dfl = layer as DeviceFrameLayer, prev = ex.data as Record<string, unknown> | undefined
-            if (prev?.deviceModel !== dfl.deviceModel || prev?.deviceColor !== dfl.deviceColor ||
-                prev?.orientation !== dfl.orientation || prev?.screenshotUrl !== dfl.screenshotUrl) {
-              try {
-                const o = await layerToFabricObject(layer)
-                if (syncVersion.current !== ver) return
-                canvas.remove(ex)
-                o.set({ left: layer.x + off }); o.clipPath = clip
-                o.set('data', { ...(o as D).data, uid: layer.id, screenId: sc.id })
-                canvas.add(o)
-              } catch (e) { console.error('device recreate:', e) }
-              continue
-            }
-            const cfg = getDeviceFrame(dfl.deviceModel)
-            ex.set({ left: layer.x + off, top: layer.y, angle: layer.rotation,
-              opacity: layer.opacity, visible: layer.visible,
-              scaleX: layer.width / cfg.width, scaleY: layer.height / cfg.height })
-            ex.clipPath = clip; ex.setCoords()
-          } else {
-            ex.set({ left: layer.x + off, top: layer.y, angle: layer.rotation,
-              opacity: layer.opacity, visible: layer.visible })
-            ex.clipPath = clip; ex.setCoords()
-          }
-        } else {
-          try {
-            const o = await layerToFabricObject(layer)
-            if (syncVersion.current !== ver) return
-            o.set({ left: layer.x + off }); o.clipPath = clip
-            o.set('data', { ...(o as D).data, uid: layer.id, screenId: sc.id })
-            canvas.add(o)
-          } catch (e) { console.error('layer create:', layer.id, e) }
-        }
-      }
-    }
-
-    for (const o of canvas.getObjects() as D[]) { if (o.data?.type === 'bg') canvas.sendObjectToBack(o) }
-    canvas.requestRenderAll()
-    generateThumbnails(screens)
-    } finally {
-      if (syncVersion.current === ver) {
-        requestAnimationFrame(() => { syncing.current = false })
-      }
-    }
+    return patchCanvas(project, change, runtime)
   }, [generateThumbnails])
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
+    installControlsPatch()
     const container = containerRef.current
-    const { width, height } = container.getBoundingClientRect()
+    const bounds = container.getBoundingClientRect()
     const canvas = new Canvas(canvasRef.current, {
-      backgroundColor: 'transparent', width, height, selection: true, preserveObjectStacking: true,
+      backgroundColor: 'transparent',
+      width: Math.max(1, Math.floor(bounds.width)),
+      height: Math.max(1, Math.floor(bounds.height)),
+      selection: true,
+      preserveObjectStacking: true,
+      // Let contextmenu events bubble to React — CanvasEditor renders its own menu.
+      stopContextMenu: false,
     })
     fabricRef.current = canvas
+    if (import.meta.env.DEV) {
+      const dbg = window as unknown as { __sfCanvas?: Canvas; __sfFabric?: unknown }
+      dbg.__sfCanvas = canvas
+      dbg.__sfFabric = { Rect, ActiveSelection, Point, util }
+    }
 
-    canvas.on('object:modified', (e) => {
-      if (syncing.current) return
-      const obj = e.target as D
-      const lid = obj?.data?.uid as string, sid = obj?.data?.screenId as string
-      if (!lid || !sid || obj.data?.type === 'bg' || obj.data?.type === 'lbl') return
-      const proj = useProjectStore.getState().project; if (!proj) return
-      const si = proj.screens.findIndex(s => s.id === sid); if (si === -1) return
-      const aid = useCanvasStore.getState().activeScreenId
-      if (sid === aid) useHistoryStore.getState().pushSnapshot(JSON.stringify(useCanvasStore.getState().layers))
-      const upd = fabricObjectToLayerUpdate(obj); upd.x = (upd.x ?? 0) - getScreenOffset(si)
-      useProjectStore.getState().updateScreenLayer(sid, lid, upd as Partial<Layer>)
-      if (sid === aid) useCanvasStore.getState().syncLayersFromProject()
-    })
+    const dragSourceScreenIndexes = new Map<RenderedObject, number>()
 
-    function handleSel(sel: FabricObject[]) {
-      if (syncing.current) return
-      const ids: string[] = []; let fs: string | null = null
-      for (const o of sel) {
-        const d = (o as D).data; if (!d || d.type === 'bg' || d.type === 'lbl') continue
-        if (d.uid) { ids.push(d.uid as string); if (!fs) fs = d.screenId as string }
+    canvas.on('object:modified', (event) => {
+      if (syncing.current || !event.target) return
+      const target = event.target
+      const objects = target instanceof ActiveSelection
+        ? target.getObjects() as RenderedObject[]
+        : [target as RenderedObject]
+      const project = useProjectStore.getState().project
+      if (!project) return
+      // On group transforms of a shared layer, every instance writes the same
+      // layerId — the active screen's instance is authoritative (processed last).
+      objects.sort((a, b) =>
+        Number(a.data?.screenId === project.activeScreenId)
+        - Number(b.data?.screenId === project.activeScreenId))
+
+      const dropScreenIndex = event.action === 'drag'
+        ? screenIndexAtPoint(project.screens, target.getCenterPoint())
+        : null
+      const localUpdates: LocalLayerTransfer[] = []
+      const layoutUpdates: LayoutLayerUpdate[] = []
+      for (const object of objects) {
+        const layerId = object.data?.layerId ?? object.data?.uid
+        const screenId = object.data?.screenId
+        if (!layerId || !screenId) continue
+        const screenIndex = project.screens.findIndex((screen) => screen.id === screenId)
+        if (screenIndex === -1) continue
+        if (object.data?.layout) {
+          layoutUpdates.push({
+            layerId,
+            update: fabricObjectToLayerUpdate(
+              object,
+              getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
+            ) as Partial<Layer>,
+          })
+          continue
+        }
+        const sourceScreenIndex = dragSourceScreenIndexes.get(object) ?? screenIndex
+        const targetScreenIndex = dropScreenIndex ?? sourceScreenIndex
+        const targetScreen = project.screens[targetScreenIndex]
+        const layer = project.screens[screenIndex].layers.find((candidate) => candidate.id === layerId)
+        if (!targetScreen || !layer) continue
+        if (dropScreenIndex === null && object.data?.screenIndex !== sourceScreenIndex) {
+          object.set('data', { ...object.data, screenIndex: sourceScreenIndex })
+          ensureScreenClipPath(object, sourceScreenIndex)
+        }
+        localUpdates.push({
+          layer,
+          sourceScreenId: screenId,
+          targetScreenId: targetScreen.id,
+          update: fabricObjectToLayerUpdate(
+            object,
+            getScreenOffset(targetScreenIndex),
+          ) as Partial<Layer>,
+        })
       }
-      if (fs && fs !== useCanvasStore.getState().activeScreenId) useCanvasStore.getState().setActiveScreenId(fs)
-      if (ids.length === 1) useCanvasStore.getState().selectLayer(ids[0])
-      else if (ids.length > 1) useCanvasStore.getState().selectLayers(ids)
-    }
-    canvas.on('selection:created', e => handleSel(e.selected ?? []))
-    canvas.on('selection:updated', e => handleSel(e.selected ?? []))
-    canvas.on('selection:cleared', () => { if (!syncing.current) useCanvasStore.getState().clearSelection() })
+      if (localUpdates.length === 0 && layoutUpdates.length === 0) return
 
-    canvas.on('mouse:wheel', (opt: { e: WheelEvent }) => {
-      const { e } = opt; e.preventDefault()
+      const transfer = localUpdates.find((change) =>
+        change.sourceScreenId !== change.targetScreenId)
+      const affectedScreenIds = new Set(localUpdates.flatMap((change) => [
+        change.sourceScreenId,
+        change.targetScreenId,
+      ]))
+      const changesProjectLayout = layoutUpdates.length > 0
+        || Boolean(transfer)
+        || affectedScreenIds.size > 1
+      if (changesProjectLayout) useCanvasStore.getState().recordProjectHistory()
+      else useCanvasStore.getState().recordHistory()
+
+      if (target instanceof ActiveSelection) {
+        // The discard fires selection:cleared synchronously — the store must
+        // keep the selection so the upcoming sync can re-apply it.
+        ignoreSelectionCleared.current = true
+        canvas.discardActiveObject()
+        queueMicrotask(() => {
+          ignoreSelectionCleared.current = false
+        })
+      }
+
+      const next = applyLayerTransfer({
+        screens: project.screens,
+        layoutLayers: project.layoutLayers,
+        localTransfers: localUpdates,
+        layoutUpdates,
+      })
+      const destinationScreenId = next.destinationScreenId
+      useProjectStore.setState({
+        project: {
+          ...project,
+          activeScreenId: destinationScreenId ?? project.activeScreenId,
+          screens: next.screens,
+          layoutLayers: next.layoutLayers,
+          updatedAt: nextTimestamp(project.updatedAt),
+        },
+      })
+      const canvasStore = useCanvasStore.getState()
+      if (destinationScreenId) {
+        const selectedIds = [...new Set(objects.flatMap((object) => {
+          const id = object.data?.layerId ?? object.data?.uid
+          return id ? [id] : []
+        }))]
+        if (destinationScreenId !== canvasStore.activeScreenId) {
+          selectionFromCanvas.current = true
+        }
+        canvasStore.setActiveScreenId(destinationScreenId)
+        useCanvasStore.getState().selectLayers(selectedIds)
+      } else {
+        canvasStore.syncLayersFromProject()
+      }
+      dragSourceScreenIndexes.clear()
+    })
+
+    /**
+     * Un texte déjà sélectionné annonce l'édition en place ; au repos il annonce
+     * le déplacement, qui est ce qu'un premier clic fait vraiment. Un curseur
+     * `text` posé en permanence promettrait une sélection de caractères que le
+     * premier clic refuse.
+     */
+    function syncTextCursors() {
+      const active = new Set(canvas.getActiveObjects())
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        if (object.data?.rendererType !== 'text' || !object.selectable) continue
+        object.hoverCursor = active.has(object) ? 'text' : 'move'
+      }
+    }
+
+    function handleSelection() {
+      syncTextCursors()
+      if (syncing.current || applyingStoreSelection.current) return
+      // `selection:updated` only reports the delta — read the full selection.
+      const renderedObjects = canvas.getActiveObjects() as RenderedObject[]
+      const ids = [...new Set(renderedObjects.flatMap((object) => {
+        const id = object.data?.layerId ?? object.data?.uid
+        return id ? [id] : []
+      }))]
+      const screenId = renderedObjects.find((object) => object.data?.screenId)?.data?.screenId
+      if (screenId && screenId !== useCanvasStore.getState().activeScreenId) {
+        selectionFromCanvas.current = true
+        useCanvasStore.getState().setActiveScreenId(screenId)
+      }
+      if (ids.length === 1) {
+        useCanvasStore.getState().selectLayer(ids[0])
+      } else if (ids.length > 1) {
+        useCanvasStore.getState().selectLayers(ids)
+      }
+    }
+
+    // Store → canvas selection. A single shared layer resolves to every screen
+    // instance it spans, so the control box matches the clipped panorama
+    // rendering exactly. Never called mid-gesture (would break Fabric's drag
+    // setup): canvas interactions apply it on mouse:up instead.
+    function applyStoreSelection() {
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const ids = useCanvasStore.getState().selectedLayerIds
+      const objectsById = new Map<string, RenderedObject>()
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        if (object.data?.uid) objectsById.set(object.data.uid, object)
+      }
+      const targets = resolveSelectionObjects(project, objectsById, ids)
+      const activeObjects = canvas.getActiveObjects() as RenderedObject[]
+      if (activeObjects.length === targets.length
+        && targets.every((target) => activeObjects.includes(target))) return
+      // Swallow the echo selection events fired by these mutations.
+      applyingStoreSelection.current = true
+      if (targets.length === 0) canvas.discardActiveObject()
+      else if (targets.length === 1) canvas.setActiveObject(targets[0])
+      else canvas.setActiveObject(new ActiveSelection(targets, { canvas }))
+      syncTextCursors()
+      canvas.requestRenderAll()
+      queueMicrotask(() => {
+        applyingStoreSelection.current = false
+      })
+    }
+
+    const unsubscribeStoreSelection = useCanvasStore.subscribe((state, previous) => {
+      if (sameIds(state.selectedLayerIds, previous.selectedLayerIds)) return
+      if (interacting.current || syncing.current) return
+      applyStoreSelection()
+    })
+
+    // Fabric emits its canvas mouse:down AFTER selection events, which is too
+    // late to flag an ongoing gesture — DOM capture phase runs before both.
+    const handleDomMouseDown = () => {
+      interacting.current = true
+    }
+    const handleDomMouseUp = () => {
+      interacting.current = false
+    }
+    canvas.upperCanvasEl.addEventListener('mousedown', handleDomMouseDown, true)
+    window.addEventListener('mouseup', handleDomMouseUp, true)
+
+    // Swapping to the union selection on mousedown would break Fabric's drag
+    // setup, so it happens on mouse:up. During a first-gesture drag of one
+    // instance, mirror the delta to its echoes to keep the panorama coherent.
+    // Repères et cibles d'accroche : vivent le temps d'un geste, jamais dans le
+    // graphe d'objets — sinon ils apparaîtraient dans la liste des calques,
+    // dans l'historique et dans le PNG exporté.
+    let guides: Guide[] = []
+    let snapTargets: Box[] | null = null
+
+    canvas.on('after:render', () => {
+      if (guides.length > 0) drawGuides(canvas, guides)
+      // Une seule source pour la position de la barre contextuelle : elle suit
+      // ainsi le zoom, le pan et la sélection sans un abonnement par cas. Le
+      // rendu React n'a lieu que si le rectangle arrondi a réellement bougé, et
+      // jamais pendant un geste — la barre s'efface le temps du déplacement.
+      const next = interacting.current ? null : readSelectionFrame(canvas)
+      if (sameFrame(next, publishedFrame.current)) return
+      publishedFrame.current = next
+      setSelectionFrame(next)
+    })
+
+    const mirrorLast = new Map<string, { left: number; top: number }>()
+    canvas.on('object:moving', (event) => {
+      const target = event.target as RenderedObject | undefined
+      if (!target) return
+
+      const members = target instanceof ActiveSelection
+        ? target.getObjects() as RenderedObject[]
+        : [target]
+      const localMembers = members.filter((object) => !object.data?.layout)
+      for (const object of localMembers) {
+        const sourceIndex = object.data?.screenIndex
+        if (sourceIndex !== undefined && !dragSourceScreenIndexes.has(object)) {
+          dragSourceScreenIndexes.set(object, sourceIndex)
+        }
+      }
+      const targetScreenIndex = screenIndexAtPoint(
+        useProjectStore.getState().project?.screens ?? [],
+        target.getCenterPoint(),
+      )
+      if (targetScreenIndex !== null && localMembers.some(
+        (object) => object.data?.screenIndex !== targetScreenIndex,
+      )) {
+        for (const object of localMembers) {
+          object.set('data', { ...object.data, screenIndex: targetScreenIndex })
+          ensureScreenClipPath(object, targetScreenIndex)
+        }
+        snapTargets = null
+      }
+
+      const pointerEvent = event.e as MouseEvent | TouchEvent
+      // ⌘ ou Ctrl maintenu : positionnement libre, comme dans tout éditeur.
+      const freehand = 'metaKey' in pointerEvent && (pointerEvent.metaKey || pointerEvent.ctrlKey)
+      if (freehand) {
+        guides = []
+      } else {
+        snapTargets ??= collectSnapTargets(canvas, target)
+        const snap = computeSnap(boxOf(target), snapTargets, SNAP_DISTANCE_PX / canvas.getZoom())
+        if (snap.dx !== 0 || snap.dy !== 0) {
+          target.set({ left: target.left + snap.dx, top: target.top + snap.dy })
+          target.setCoords()
+        }
+        guides = snap.guides
+      }
+
+      if (target instanceof ActiveSelection || !target.data?.layout) return
+      const layerId = target.data.layerId
+      if (!layerId) return
+      const last = mirrorLast.get(layerId) ?? { left: target.left, top: target.top }
+      const dx = target.left - last.left
+      const dy = target.top - last.top
+      mirrorLast.set(layerId, { left: target.left, top: target.top })
+      if (dx === 0 && dy === 0) return
+      for (const object of layoutInstances.current.get(layerId) ?? []) {
+        if (object === target) continue
+        object.set({ left: object.left + dx, top: object.top + dy })
+        object.setCoords()
+      }
+      canvas.requestRenderAll()
+    })
+    canvas.on('mouse:up', () => {
+      mirrorLast.clear()
+      dragSourceScreenIndexes.clear()
+      guides = []
+      snapTargets = null
+      interacting.current = false
+      applyStoreSelection()
+      canvas.requestRenderAll()
+    })
+
+    // Persist direct on-canvas text edits (double-click → type) back to the store.
+    canvas.on('text:editing:exited', (event) => {
+      const target = event.target as RenderedObject | undefined
+      if (!target || !(target instanceof Textbox)) return
+      const data = (target as RenderedObject).data
+      const layerId = data?.layerId ?? data?.uid
+      if (!layerId) return
+      const layers = useCanvasStore.getState().layers
+      const layer = layers.find((candidate) => candidate.id === layerId)
+      if (layer?.type === 'text' && layer.content !== target.text) {
+        useCanvasStore.getState().updateLayer(layerId, { content: target.text })
+      }
+    })
+
+    canvas.on('selection:created', () => handleSelection())
+    canvas.on('selection:updated', () => handleSelection())
+    canvas.on('selection:cleared', () => {
+      if (ignoreSelectionCleared.current || applyingStoreSelection.current) return
+      if (!syncing.current) useCanvasStore.getState().clearSelection()
+    })
+
+    canvas.on('mouse:wheel', ({ e }: { e: WheelEvent }) => {
+      e.preventDefault()
       if (e.metaKey || e.ctrlKey) {
-        let z = canvas.getZoom() * (0.999 ** e.deltaY)
-        z = Math.min(4, Math.max(0.1, z)); canvas.zoomToPoint(new Point(e.offsetX, e.offsetY), z); setZoom(z)
-      } else canvas.relativePan(new Point(-e.deltaX, -e.deltaY))
-      // Regenerate thumbnails after viewport change
-      const pr = useProjectStore.getState().project
-      if (pr) generateThumbnails(pr.screens)
+        const zoom = Math.min(4, Math.max(0.1, canvas.getZoom() * 0.999 ** e.deltaY))
+        canvas.zoomToPoint(new Point(e.offsetX, e.offsetY), zoom)
+        setZoom(zoom)
+      } else {
+        canvas.relativePan(new Point(-e.deltaX, -e.deltaY))
+      }
+      // Batch wheel bursts into one render per frame.
+      if (!wheelRenderQueued.current) {
+        wheelRenderQueued.current = true
+        requestAnimationFrame(() => {
+          wheelRenderQueued.current = false
+          canvas.requestRenderAll()
+        })
+      }
     })
-    canvas.on('mouse:down', opt => {
-      const e = opt.e as MouseEvent | TouchEvent; if (!('button' in e)) return
-      if (e.altKey || e.button === 1) { panning.current = true; panPt.current = { x: e.clientX, y: e.clientY }; canvas.selection = false; canvas.setCursor('grabbing') }
-    })
-    canvas.on('mouse:move', opt => {
-      if (!panning.current || !panPt.current) return
-      const e = opt.e as MouseEvent | TouchEvent; if (!('clientX' in e)) return
-      canvas.relativePan(new Point(e.clientX - panPt.current.x, e.clientY - panPt.current.y))
-      panPt.current = { x: e.clientX, y: e.clientY }
-    })
-    canvas.on('mouse:up', () => { if (panning.current) { panning.current = false; panPt.current = null; canvas.selection = true; canvas.setCursor('default') } })
 
-    const obs = new ResizeObserver(entries => {
-      const r = entries[0]?.contentRect; if (!r || r.width < 1) return
-      canvas.setDimensions({ width: r.width, height: r.height }); canvas.requestRenderAll()
-      const pr = useProjectStore.getState().project
-      if (pr) generateThumbnails(pr.screens)
-    })
-    obs.observe(container)
-
-    const proj = useProjectStore.getState().project
-    if (proj?.screens.length) sync(proj.screens).then(() => fitAll(canvas, proj.screens.length))
-    return () => { obs.disconnect(); canvas.dispose(); fabricRef.current = null }
-  }, [setZoom, sync, fitAll])
-
-  useEffect(() => useProjectStore.subscribe((s, p) => {
-    if (s.project && s.project.screens !== p.project?.screens) sync(s.project.screens)
-  }), [sync])
-
-  useEffect(() => useUIStore.subscribe((s, p) => {
-    const c = fabricRef.current; if (!c) return
-    if (s.zoom !== p.zoom && Math.abs(c.getZoom() - s.zoom) > 0.0001) {
-      s.zoom === 1 ? c.setViewportTransform([1,0,0,1,0,0]) : c.zoomToPoint(c.getVpCenter(), s.zoom); c.requestRenderAll()
-      const pr = useProjectStore.getState().project
-      if (pr) generateThumbnails(pr.screens)
-    } else if (s.viewportResetKey !== p.viewportResetKey) {
-      const pr = useProjectStore.getState().project
-      if (pr) { fitAll(c, pr.screens.length); c.requestRenderAll(); generateThumbnails(pr.screens) }
+    // ── Déplacement de la vue : espace maintenu, ou clic molette ──────────────
+    // Alt et glisser a été retiré : dans tout éditeur de maquette ce geste
+    // duplique, et le réserver au pan condamnait la duplication au drag.
+    let spaceHeld = false
+    function setPanMode(active: boolean): void {
+      if (spaceHeld === active) return
+      spaceHeld = active
+      canvas.defaultCursor = active ? 'grab' : 'default'
+      // Sans cela un clic pendant le pan attraperait l'objet sous le curseur.
+      canvas.skipTargetFind = active
+      canvas.selection = !active
+      canvas.setCursor(active ? 'grab' : 'default')
     }
-  }), [fitAll, generateThumbnails])
 
-  return { canvasRef, containerRef }
+    function isTypingTarget(): boolean {
+      const element = document.activeElement as HTMLElement | null
+      if (!element) return false
+      // Pendant l'édition en place, Fabric focalise un textarea caché : le test
+      // couvre donc aussi ce cas, et l'espace y reste un espace.
+      return ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
+        || element.isContentEditable
+    }
+
+    function handleCanvasKeyDown(event: KeyboardEvent): void {
+      if (isTypingTarget()) return
+      if (event.code === 'Space' && !event.repeat) {
+        event.preventDefault()
+        setPanMode(true)
+        return
+      }
+      // Entrée ouvre l'édition en place : le double-clic la propose déjà mais
+      // rien ne l'annonçait, et le clavier n'y donnait aucun accès.
+      if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
+        const target = canvas.getActiveObject()
+        if (!(target instanceof Textbox) || !target.selectable) return
+        event.preventDefault()
+        target.enterEditing()
+        target.selectAll()
+        canvas.requestRenderAll()
+      }
+    }
+    function handleCanvasKeyUp(event: KeyboardEvent): void {
+      if (event.code === 'Space') setPanMode(false)
+    }
+    // ⌘-Tab pendant l'appui laisserait le pan armé sans jamais voir le relâchement.
+    const releasePanMode = () => setPanMode(false)
+    window.addEventListener('keydown', handleCanvasKeyDown)
+    window.addEventListener('keyup', handleCanvasKeyUp)
+    window.addEventListener('blur', releasePanMode)
+
+    canvas.on('mouse:down', (event) => {
+      const pointerEvent = event.e as MouseEvent | TouchEvent
+      if (!('button' in pointerEvent)) return
+      if (spaceHeld || pointerEvent.button === 1) {
+        panning.current = true
+        panPoint.current = { x: pointerEvent.clientX, y: pointerEvent.clientY }
+        canvas.selection = false
+        canvas.setCursor('grabbing')
+      }
+    })
+    canvas.on('mouse:move', (event) => {
+      if (!panning.current || !panPoint.current) return
+      const pointerEvent = event.e as MouseEvent | TouchEvent
+      if (!('clientX' in pointerEvent)) return
+      canvas.relativePan(new Point(
+        pointerEvent.clientX - panPoint.current.x,
+        pointerEvent.clientY - panPoint.current.y,
+      ))
+      panPoint.current = { x: pointerEvent.clientX, y: pointerEvent.clientY }
+    })
+    canvas.on('mouse:up', () => {
+      if (!panning.current) return
+      panning.current = false
+      panPoint.current = null
+      // Espace toujours enfoncé : on revient au pan armé, pas au mode normal.
+      canvas.selection = !spaceHeld
+      canvas.setCursor(spaceHeld ? 'grab' : 'default')
+    })
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    const resizeObserver = new ResizeObserver((entries) => {
+      const size = entries[0]?.contentRect
+      if (!size || size.width < 1 || size.height < 1) return
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        canvas.setDimensions({ width: Math.floor(size.width), height: Math.floor(size.height) })
+        canvas.requestRenderAll()
+      }, 80)
+    })
+    resizeObserver.observe(container)
+
+    const project = useProjectStore.getState().project
+    if (project) {
+      void sync(project).then(() => fitAll(canvas, project.screens.length))
+    }
+
+    return () => {
+      unsubscribeStoreSelection()
+      canvas.upperCanvasEl.removeEventListener('mousedown', handleDomMouseDown, true)
+      window.removeEventListener('mouseup', handleDomMouseUp, true)
+      window.removeEventListener('keydown', handleCanvasKeyDown)
+      window.removeEventListener('keyup', handleCanvasKeyUp)
+      window.removeEventListener('blur', releasePanMode)
+      resizeObserver.disconnect()
+      if (resizeTimer) clearTimeout(resizeTimer)
+      if (thumbnailTimer.current) clearTimeout(thumbnailTimer.current)
+      for (const object of canvas.getObjects() as RenderedObject[]) {
+        disposeFabricObjectResource(object)
+      }
+      canvas.dispose()
+      fabricRef.current = null
+    }
+  }, [fitAll, setZoom, sync])
+
+  useEffect(() => useProjectStore.subscribe((state, previous) => {
+    const canvas = fabricRef.current
+    if (!canvas || !state.project) return
+    const change = diffProjectChange(state.project, previous.project)
+    if (change.type === 'none') return
+    if (change.type === 'patch') {
+      const project = state.project
+      void syncPatch(project, change).then((patched) => {
+        if (!patched) void sync(project)
+      })
+      return
+    }
+    const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
+    void sync(state.project).then(() => {
+      if (screenCountChanged) fitAll(canvas, state.project?.screens.length ?? 1)
+    })
+  }), [fitAll, sync, syncPatch])
+
+  const applyThemeToCanvas = useCallback(() => {
+    const canvas = fabricRef.current
+    const project = useProjectStore.getState().project
+    if (!canvas || !project) return
+    const chrome = readChromeColors()
+    applyLassoColors(canvas, chrome)
+    for (const object of canvas.getObjects() as RenderedObject[]) {
+      const data = object.data
+      if (data?.rendererType === 'label') {
+        object.set('fill', chrome.label)
+      } else if (data?.rendererType === 'background') {
+        const isActive = data.screenId === project.activeScreenId
+        object.set({
+          stroke: isActive ? chrome.activeRing : chrome.artboardRing,
+          strokeWidth: isActive ? 2 : 1,
+        })
+      } else {
+        applySelectionStyle(object)
+      }
+    }
+    canvas.requestRenderAll()
+  }, [])
+
+  // Theme change: re-render chrome colors (labels, artboard rings, handles).
+  // Différé d'une frame : la classe de thème est posée sur <html> par un effet
+  // React, qui n'a pas encore tourné quand l'abonné Zustand est appelé.
+  useEffect(() => useUIStore.subscribe((state, previous) => {
+    if (state.theme === previous.theme) return
+    requestAnimationFrame(applyThemeToCanvas)
+  }), [applyThemeToCanvas])
+
+  // Clicking a screen thumbnail centers the viewport on that artboard.
+  useEffect(() => useCanvasStore.subscribe((state, previous) => {
+    if (state.activeScreenId === previous.activeScreenId) return
+    if (selectionFromCanvas.current) {
+      selectionFromCanvas.current = false
+      return
+    }
+    const canvas = fabricRef.current
+    const project = useProjectStore.getState().project
+    if (!canvas || !project) return
+    const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
+    if (screenIndex === -1) return
+    const { layersOpen, propsOpen } = useUIStore.getState()
+    const insets = stageInsets({ layers: layersOpen, props: propsOpen })
+    const availableWidth = Math.max(1, canvas.width - insets.left - insets.right)
+    const availableHeight = Math.max(1, canvas.height - insets.top - insets.bottom)
+    const padding = 48
+    const zoom = Math.min(
+      (availableWidth - padding * 2) / SCREEN_WIDTH,
+      (availableHeight - padding * 2) / SCREEN_HEIGHT,
+      1,
+    )
+    const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
+    canvas.setViewportTransform([
+      zoom,
+      0,
+      0,
+      zoom,
+      insets.left + availableWidth / 2 - screenCenterX * zoom,
+      insets.top + (availableHeight - SCREEN_HEIGHT * zoom) / 2,
+    ])
+    useUIStore.getState().setZoom(zoom)
+    canvas.requestRenderAll()
+  }), [])
+
+  useEffect(() => useUIStore.subscribe((state, previous) => {
+    const canvas = fabricRef.current
+    if (!canvas) return
+    if (state.viewportResetKey !== previous.viewportResetKey) {
+      const project = useProjectStore.getState().project
+      if (project) {
+        fitAll(canvas, project.screens.length)
+        canvas.requestRenderAll()
+      }
+      return
+    }
+    if (state.zoom === previous.zoom || Math.abs(canvas.getZoom() - state.zoom) < 0.0001) return
+    canvas.zoomToPoint(canvas.getVpCenter(), state.zoom)
+    canvas.requestRenderAll()
+  }), [fitAll])
+
+  return { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame }
 }

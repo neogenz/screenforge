@@ -18,3 +18,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/

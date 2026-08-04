@@ -1,17 +1,25 @@
+import { useRef } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
-import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { NumberField } from '@/components/ui/number-field'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
+import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
   value: GradientFill
   onChange: (gradient: GradientFill) => void
 }
 
-const inputCls = cn(
-  'h-10 rounded-lg border border-border bg-surface px-3 text-sm text-foreground shadow-sm',
-  'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20',
-)
+type GradientType = GradientFill['type']
+
+const TYPE_OPTIONS: SegmentedOption<GradientType>[] = [
+  { value: 'linear', label: 'Linéaire' },
+  { value: 'radial', label: 'Radial' },
+]
 
 function buildCssGradient(gradient: GradientFill): string {
   const stops = gradient.stops
@@ -21,19 +29,28 @@ function buildCssGradient(gradient: GradientFill): string {
     .join(', ')
 
   if (gradient.type === 'radial') {
-    return `radial-gradient(circle, ${stops})`
+    return `radial-gradient(circle at ${gradient.centerX ?? 50}% ${gradient.centerY ?? 50}%, ${stops})`
   }
   const angle = gradient.angle ?? 90
   return `linear-gradient(${angle}deg, ${stops})`
 }
 
 export function GradientEditor({ value, onChange }: GradientEditorProps) {
-  function setType(type: 'linear' | 'radial') {
+  function setType(type: GradientType) {
     onChange({ ...value, type })
   }
 
   function setAngle(angle: number) {
-    onChange({ ...value, angle: ((angle % 360) + 360) % 360 })
+    const finiteAngle = Number.isFinite(angle) ? angle : 0
+    onChange({ ...value, angle: ((finiteAngle % 360) + 360) % 360 })
+  }
+
+  function setCenter(axis: 'centerX' | 'centerY', percentage: number) {
+    const finitePercentage = Number.isFinite(percentage) ? percentage : 50
+    onChange({
+      ...value,
+      [axis]: Math.min(100, Math.max(0, finitePercentage)),
+    })
   }
 
   function updateStop(index: number, partial: Partial<ColorStop>) {
@@ -47,7 +64,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     if (value.stops.length >= 10) return
     const sorted = value.stops.slice().sort((a: ColorStop, b: ColorStop) => a.offset - b.offset)
     if (sorted.length < 2) {
-      onChange({ ...value, stops: [...value.stops, { offset: 1, color: '#ffffff' }] })
+      onChange({ ...value, stops: [...value.stops, { offset: 1, color: DEFAULT_STOP_COLOR }] })
       return
     }
     const last = sorted[sorted.length - 1]
@@ -65,130 +82,190 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
   const sortedStops = value.stops
     .map((s: ColorStop, originalIndex: number) => ({ ...s, originalIndex }))
-    .sort((a: ColorStop & { originalIndex: number }, b: ColorStop & { originalIndex: number }) => a.offset - b.offset)
+    .sort(
+      (
+        a: ColorStop & { originalIndex: number },
+        b: ColorStop & { originalIndex: number },
+      ) => a.offset - b.offset,
+    )
 
   return (
-    <div className="flex w-full min-w-0 max-w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
+      {/* Type */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Forme</span>
-        <div className="flex gap-2">
-          {(['linear', 'radial'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={cn(
-                'h-10 min-w-0 flex-1 rounded-xl border px-4 text-sm font-medium capitalize transition-colors',
-                value.type === t
-                  ? 'border-primary bg-primary text-white shadow-sm'
-                  : 'border-border bg-surface text-foreground hover:border-muted hover:bg-surface-hover',
-              )}
-            >
-              {t === 'linear' ? 'Linéaire' : 'Radial'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {value.type === 'linear' && (
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Angle</span>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min={0}
-              max={359}
-              value={value.angle ?? 90}
-              onChange={(e) => setAngle(parseInt(e.target.value, 10) || 0)}
-              className={cn(inputCls, 'w-24 tabular-nums')}
-              aria-label="Angle du dégradé en degrés"
-            />
-            <span className="text-sm text-muted">degrés</span>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Aperçu</span>
-        <div
-          className="h-10 w-full rounded-xl border border-border shadow-inner"
-          style={{ background: buildCssGradient(value) }}
-          aria-hidden="true"
+        <span className="field-label">Type</span>
+        <Segmented
+          options={TYPE_OPTIONS}
+          value={value.type}
+          onChange={setType}
+          ariaLabel="Type de dégradé"
+          className="w-full [&>button]:flex-1"
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wider text-muted">
-            Points de couleur ({value.stops.length}/10)
+      {/* Angle (linear only) */}
+      {value.type === 'linear' && (
+        <NumberField
+          label="Angle"
+          ariaLabel="Angle du dégradé"
+          min={0}
+          max={360}
+          step={1}
+          value={value.angle ?? 90}
+          onChange={setAngle}
+        />
+      )}
+
+      {/* Center (radial only) */}
+      {value.type === 'radial' && (
+        <div className="flex gap-2">
+          <NumberField
+            label="X"
+            ariaLabel="Centre X du dégradé"
+            min={0}
+            max={100}
+            value={Math.round(value.centerX ?? 50)}
+            onChange={(v) => setCenter('centerX', v)}
+          />
+          <NumberField
+            label="Y"
+            ariaLabel="Centre Y du dégradé"
+            min={0}
+            max={100}
+            value={Math.round(value.centerY ?? 50)}
+            onChange={(v) => setCenter('centerY', v)}
+          />
+        </div>
+      )}
+
+      {/* La piste est à la fois l'aperçu et le contrôle : deux blocs séparés
+          faisaient saisir au chiffre une position qui se voit à l'œil. */}
+      <StopTrack
+        gradient={value}
+        stops={sortedStops}
+        onMove={(index, offset) => updateStop(index, { offset })}
+      />
+
+      {/* Stops */}
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="field-label">
+            Arrêts <span className="tabular">{value.stops.length}/10</span>
           </span>
-          <button
-            type="button"
-            onClick={addStop}
-            disabled={value.stops.length >= 10}
-            className={cn(
-              'inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors sm:w-auto sm:justify-center',
-              'border-border bg-surface text-foreground hover:border-muted hover:bg-surface-hover',
-              'disabled:cursor-not-allowed disabled:opacity-40',
-            )}
-            aria-label="Ajouter un point de couleur"
-          >
-            <Plus size={16} strokeWidth={2} />
-            Ajouter
-          </button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           {sortedStops.map((stop) => (
             <div
               key={stop.originalIndex}
-              className="min-w-0 max-w-full rounded-xl border border-border/80 bg-background/40 p-3 shadow-sm sm:p-4"
+              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-inset p-2"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color })}
                 showOpacity
               />
-              <div className="mt-5 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Position</span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={stop.offset}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value)
-                        if (!isNaN(v)) {
-                          updateStop(stop.originalIndex, { offset: Math.max(0, Math.min(1, v)) })
-                        }
-                      }}
-                      className={cn(inputCls, 'w-28 tabular-nums')}
-                      aria-label="Position du point sur le dégradé"
-                    />
-                    <span className="text-xs text-muted">(0–1)</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeStop(stop.originalIndex)}
-                  disabled={value.stops.length <= 2}
-                  className={cn(
-                    'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
-                    'border-border bg-surface text-muted hover:border-danger hover:text-danger',
-                    'disabled:cursor-not-allowed disabled:opacity-40',
-                  )}
-                  aria-label="Supprimer ce point"
-                >
-                  <Trash2 size={18} strokeWidth={1.75} />
-                </button>
-              </div>
+              <IconButton
+                size="sm"
+                onClick={() => removeStop(stop.originalIndex)}
+                disabled={value.stops.length <= 2}
+                aria-label="Supprimer le stop"
+                className="shrink-0 hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 size={13} strokeWidth={1.5} aria-hidden />
+              </IconButton>
             </div>
           ))}
         </div>
+
+        <Button
+          variant="default"
+          size="sm"
+          onClick={addStop}
+          disabled={value.stops.length >= 10}
+          className="w-full"
+        >
+          <Plus size={13} strokeWidth={1.75} aria-hidden />
+          Ajouter un stop
+        </Button>
       </div>
+    </div>
+  )
+}
+
+/** Pas de pas : la souris place au pixel, seul le clavier a besoin d'un cran. */
+const KEY_STEP = 0.01
+const KEY_STEP_COARSE = 0.1
+
+interface StopTrackProps {
+  gradient: GradientFill
+  stops: (ColorStop & { originalIndex: number })[]
+  onMove: (index: number, offset: number) => void
+}
+
+/**
+ * Piste du dégradé : la bande montre le résultat, les pastilles portent les
+ * arrêts. La souris fait le geste, les flèches donnent la précision.
+ */
+function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
+  const track = useRef<HTMLDivElement>(null)
+
+  function offsetAt(clientX: number): number {
+    const bounds = track.current?.getBoundingClientRect()
+    if (!bounds || bounds.width === 0) return 0
+    return Math.min(1, Math.max(0, (clientX - bounds.left) / bounds.width))
+  }
+
+  function handlePointerDown(index: number, event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const move = (pointer: PointerEvent) => onMove(index, offsetAt(pointer.clientX))
+    const release = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', release)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', release)
+  }
+
+  function handleKeyDown(index: number, offset: number, event: React.KeyboardEvent) {
+    const step = event.shiftKey ? KEY_STEP_COARSE : KEY_STEP
+    const delta = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
+    if (delta === 0) return
+    event.preventDefault()
+    onMove(index, Math.min(1, Math.max(0, offset + delta)))
+  }
+
+  return (
+    <div
+      ref={track}
+      // La bande porte le damier : sans lui un arrêt transparent est indiscernable
+      // d'un arrêt blanc, et c'est justement ce qu'on vient régler.
+      className="checkerboard relative h-9 w-full rounded-md border border-border"
+    >
+      <div
+        aria-hidden
+        className="absolute inset-0 rounded-[8px]"
+        style={{ background: buildCssGradient(gradient) }}
+      />
+      {stops.map((stop, displayIndex) => (
+        <button
+          key={stop.originalIndex}
+          type="button"
+          role="slider"
+          aria-label={`Position de l’arrêt ${displayIndex + 1}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(stop.offset * 100)}
+          aria-valuetext={`${Math.round(stop.offset * 100)} %`}
+          onPointerDown={(event) => handlePointerDown(stop.originalIndex, event)}
+          onKeyDown={(event) => handleKeyDown(stop.originalIndex, stop.offset, event)}
+          style={{ left: `${stop.offset * 100}%`, background: stop.color }}
+          className="absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
+            rounded-full border-2 border-white shadow-[0_1px_3px_oklch(0_0_0/0.5)]
+            transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
+        />
+      ))}
     </div>
   )
 }

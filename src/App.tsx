@@ -1,105 +1,147 @@
-import { useEffect } from 'react'
-import { useShallow } from 'zustand/react/shallow'
-import { Toolbar } from '@/components/toolbar/Toolbar'
-import { LayersPanel } from '@/components/layers-panel/LayersPanel'
+import { lazy, Suspense, useEffect } from 'react'
+import { TopBar } from '@/components/toolbar/TopBar'
+import { ZoomHud } from '@/components/toolbar/ZoomHud'
+import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
-import { PropertiesPanel } from '@/components/properties-panel/PropertiesPanel'
+import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
-import { ExportDialog } from '@/components/export-dialog/ExportDialog'
-import { TemplatePicker } from '@/components/template-picker/TemplatePicker'
-import { GlobalsEditor } from '@/components/globals-editor/GlobalsEditor'
+import { CommandPalette } from '@/components/ui/command-palette'
+import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
+import { ToastViewport } from '@/components/ui/toast'
+import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
-import { loadGoogleFont } from '@/hooks/use-fonts'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
+import { clearAssets } from '@/lib/assets'
+import { createImageLayerFromFile } from '@/lib/layer-factories'
+import { IMAGE_ACCEPT } from '@/lib/image'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
+const ExportDialog = lazy(() =>
+  import('@/components/export-dialog/ExportDialog').then((module) => ({ default: module.ExportDialog })),
+)
+const TemplatePicker = lazy(() =>
+  import('@/components/template-picker/TemplatePicker').then((module) => ({ default: module.TemplatePicker })),
+)
+const GlobalsEditor = lazy(() =>
+  import('@/components/globals-editor/GlobalsEditor').then((module) => ({ default: module.GlobalsEditor })),
+)
+
 export default function App() {
   useKeyboard()
 
-  const { showLayersPanel, showPropertiesPanel, theme } = useUIStore(
-    useShallow((s) => ({
-      showLayersPanel: s.showLayersPanel,
-      showPropertiesPanel: s.showPropertiesPanel,
-      theme: s.theme,
-    })),
-  )
+  const theme = useUIStore((s) => s.theme)
+
+  // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
+  // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('light', theme === 'light')
+    root.classList.toggle('dark', theme === 'dark')
+  }, [theme])
 
   useEffect(() => {
     async function init() {
-      Promise.all([
-        loadGoogleFont('Inter', ['400', '500', '600', '700']),
-        loadGoogleFont('DM Sans', ['400', '500', '600', '700']),
-      ]).catch(() => {})
-
       const stored = await loadLatestProject()
 
       if (stored) {
-        // Migrate orphaned layoutLayers back into the first screen
-        if (stored.layoutLayers?.length) {
-          const first = stored.screens[0]
-          if (first) {
-            const migrated = stored.layoutLayers.map((l) => {
-              const { scope: _, ...rest } = l as typeof l & { scope?: string }
-              return rest
-            })
-            first.layers = [...migrated, ...first.layers]
-          }
-          stored.layoutLayers = []
-        }
         useProjectStore.getState().loadProject(stored)
-        const firstScreen = stored.screens[0]
-        if (firstScreen) {
-          useCanvasStore.getState().setActiveScreenId(firstScreen.id)
+        useUIStore.getState().setSaveStatus('saved')
+        const activeScreen = stored.screens.find((screen) => screen.id === stored.activeScreenId)
+          ?? stored.screens[0]
+        if (activeScreen) {
+          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       } else {
-        useProjectStore.getState().createProject('Untitled Project')
+        clearAssets()
+        useProjectStore.getState().createProject('Projet sans titre')
         const project = useProjectStore.getState().project
-        const firstScreen = project?.screens[0]
-        if (firstScreen) {
-          useCanvasStore.getState().setActiveScreenId(firstScreen.id)
+        const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
+          ?? project?.screens[0]
+        if (activeScreen) {
+          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
         }
       }
     }
 
-    init().catch(console.error)
+    void init().catch((error) => {
+      console.error('Could not initialize ScreenForge.', error)
+    })
 
     const unsubscribe = initAutoSave()
     return unsubscribe
   }, [])
 
+  async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const { layers, addLayer } = useCanvasStore.getState()
+    const result = await createImageLayerFromFile(file, layers.length)
+    if (result.ok) addLayer(result.layer)
+    else toast(result.error, 'error')
+  }
+
   return (
-    <div className={`flex h-full min-h-0 w-full flex-col overflow-hidden bg-background ${theme}`}>
-      <header className="shrink-0">
-        <Toolbar />
-      </header>
+    <div className="relative h-full w-full overflow-hidden bg-stage">
+      {/* Stage: full-bleed canvas */}
+      <main className="absolute inset-0">
+        <CanvasEditor />
+      </main>
+      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)" />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-        {showLayersPanel && (
-          <div className="box-border flex max-h-full min-h-0 w-60 shrink-0 flex-col overflow-hidden">
-            <LayersPanel />
-          </div>
-        )}
-
-        <main className="relative z-0 min-h-0 min-w-0 flex-1 overflow-hidden">
-          <CanvasEditor />
-        </main>
-
-        {showPropertiesPanel && (
-          <div className="box-border flex max-h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden">
-            <PropertiesPanel />
-          </div>
-        )}
+      {/* Floating chrome */}
+      <div className="absolute left-3 right-3 top-3 z-(--z-chrome)">
+        <TopBar />
+      </div>
+      <LayersDrawer />
+      <PropertiesDrawer />
+      <div className="absolute bottom-3 left-1/2 z-(--z-chrome) -translate-x-1/2">
+        <ScreensBar />
+      </div>
+      <div className="absolute bottom-3 right-3 z-(--z-chrome)">
+        <ZoomHud />
       </div>
 
-      <footer className="relative z-20 box-border h-32 shrink-0 overflow-x-auto overflow-y-visible border-t border-border">
-        <ScreensBar />
-      </footer>
+      <input
+        id="sf-image-import-input"
+        type="file"
+        accept={IMAGE_ACCEPT}
+        aria-label="Importer une image"
+        className="sr-only"
+        onChange={(event) => void handleImageImport(event)}
+      />
 
-      <ExportDialog />
-      <TemplatePicker />
-      <GlobalsEditor />
+      <Overlays />
     </div>
+  )
+}
+
+function Overlays() {
+  const showCommandPalette = useUIStore((s) => s.showCommandPalette)
+  const showShortcuts = useUIStore((s) => s.showShortcuts)
+  const showExportDialog = useUIStore((s) => s.showExportDialog)
+  const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
+  const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
+
+  return (
+    <>
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => useUIStore.getState().setShowCommandPalette(false)}
+      />
+      <ShortcutsOverlay
+        open={showShortcuts}
+        onClose={() => useUIStore.getState().setShowShortcuts(false)}
+      />
+      <ToastViewport />
+
+      <Suspense fallback={null}>
+        {showExportDialog && <ExportDialog />}
+        {showTemplatesPicker && <TemplatePicker />}
+        {showGlobalsEditor && <GlobalsEditor />}
+      </Suspense>
+    </>
   )
 }

@@ -46,43 +46,74 @@ npm run typecheck
 ```
 src/
   components/
+    ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
+                         # NumberField (scrub), Slider, Segmented, Switch, Field, Dialog,
+                         # Popover, Dropdown, Tooltip, Kbd, CommandPalette, ToastViewport
     canvas/              # Fabric.js canvas wrapper + interactions
-    toolbar/             # Save, undo, redo, zoom, export
-    layers-panel/        # Layer list, reorder, visibility
-    properties-panel/    # Selected layer properties editor
-    screens-bar/         # Screen thumbnails (bottom bar)
+    toolbar/             # Floating chrome: Toolbar (tools + export), ProjectIsland, ZoomHud
+    layers-panel/        # Layer list (search, groups, DnD), memoized LayerItem
+    properties-panel/    # Properties shell + sections + shared ShadowEditor
+    screens-bar/         # Floating screens strip, memoized ScreenThumbnail
     background-editor/   # Solid + gradient + preset backgrounds
     device-picker/       # iPhone frame selection + config
-    text-editor/         # Typography controls
-    template-picker/     # Template gallery modal
+    text-editor/         # Typography controls + FontPicker
+    template-picker/     # Template gallery dialog
+    globals-editor/      # Project defaults dialog
     export-dialog/       # Export config + batch export
-    color-picker/        # Reusable color + gradient picker
+    color-picker/        # Color + alpha picker (recent colors)
     gradient-editor/     # Color stop editor
   stores/
-    canvas.store.ts      # Layers, selection, active screen
-    project.store.ts     # Project metadata, screens, globals
-    history.store.ts     # Undo/redo command stack
-    ui.store.ts          # Panel states, zoom, active tool
+    canvas.store.ts      # Layers, selection, active screen — facade over project.store
+    project.store.ts     # Project metadata, screens, globals — source of truth
+    history.store.ts     # Undo/redo snapshots with burst coalescing
+    ui.store.ts          # Panel/dialog flags, zoom, theme
+    toast.store.ts       # Toast queue
   hooks/
-    use-canvas.ts        # Fabric.js lifecycle + events
-    use-keyboard.ts      # Shortcut handling
-    use-export.ts        # Export + batch logic
-    use-fonts.ts         # Google Fonts loader
+    use-canvas.ts        # Fabric lifecycle + granular sync (diff → patch | full)
+    use-keyboard.ts      # Shortcuts (⌘K palette, nudges coalesced, clipboard)
+    use-export.ts        # Batch export, bounded parallelism (2 workers)
+    use-fonts.ts         # Google Fonts loader (content fonts, on-demand)
+    use-layer-actions.ts # Shared layer actions (imperative getState, stable refs)
   assets/
     device-frames/       # iPhone SVG mockups (per model + color)
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
     dimensions.ts        # Apple dimension constants — MUST match PRD table exactly
-    storage.ts           # IndexedDB read/write via idb
+    assets.ts            # Binary asset registry (data URLs OUT of the layer graph)
+    storage.ts           # IndexedDB v2 (projects + assets tables), migration, autosave
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation via JSZip
+    commands.ts          # ⌘K command registry
+    layer-factories.ts   # Add-layer defaults (single source)
+    stage.ts             # Floating-chrome insets for canvas fit
+    image.ts / number.ts # Shared image + numeric helpers
     utils.ts             # cn() helper (clsx + tailwind-merge)
   types/
     index.ts             # Layer, Screen, Project, ExportConfig types
 ```
 
 **Key data flow**: Zustand stores are the single source of truth. The Fabric.js canvas syncs bidirectionally with `canvas.store.ts`. User edits on canvas -> store update -> properties panel reflects. Properties panel edit -> store update -> canvas re-renders.
+
+**Binary assets (v2)**: image layers and device screenshots hold a short `assetId`, never a data URL. Payloads live in `lib/assets.ts` (in-memory registry, hash-deduped) and persist in the IDB `assets` table; `storage.ts` migrates v1 inline data URLs on load.
+
+**Granular sync (v2)**: `use-canvas.ts` diffs project references — single-screen, same-stacking-order changes take the in-place `syncPatch` path; structural changes fall back to full reconciliation.
+
+**No object cache, no `clipPath`**: layer objects set `objectCaching = false`, and screen clipping goes through `clipContentToScreen` (a `ctx.clip()` inside a wrapped `render`), never Fabric's `clipPath` property. Both rules exist for the same reason: any object Fabric caches gets blitted back at a fractional offset with bilinear filtering, so every edge is antialiased twice — measured at 2× the soft-edge pixels on screen and in the exported PNG. Setting `clipPath` re-forces the cache via `needsItsOwnCache()` regardless of `objectCaching`.
+
+**History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
+
+## Design language (v5)
+
+- **Floating islands**: the canvas is full-bleed; the top bar, the Layers/Properties drawers (⌘⇧L / ⌘⇧P), the screens filmstrip and the zoom HUD float above it. `lib/stage.ts` is the single source for chrome geometry — drawers never move the artboard.
+- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). True neutral, chroma 0 on every chrome surface: a colour-judgement tool must not tint what sits next to the artboard.
+- **One accent, for state only**: lime `--color-accent`, reserved for "you are here" — current screen, selected layer, focus ring. Never on an action: the Export CTA is a plain light fill. Nothing chromatic touches the artboard (`--color-artboard-ring-active` and the selection frame stay neutral).
+- **Type**: Inter variable (UI, `index.html`), 13.5px body, tabular figures for numeric fields. No all-caps labels. Content fonts (text layers) load on demand.
+- **Radii & material**: 9px controls, 14px islands, 18px modals; inner radius = outer − padding. Surfaces separate by material (`panel` / `inset` / `raised`) rather than by rule.
+- **Field grammar**: single-line controls carry their label inline (`Select`/`Input`/`NumberField`/`FontPicker` `label` prop); only multi-line or composite controls get a stacked `.field-label`.
+- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
+- **Guard-rails**: `npm run audit:contrast` fails if any ink/surface pair drops under 4.5:1; `npm run probe:visual` captures dark/light × empty/populated.
+- Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)
 

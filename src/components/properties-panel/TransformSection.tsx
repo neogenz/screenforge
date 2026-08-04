@@ -1,7 +1,11 @@
 import { useState } from 'react'
-import { Link2, Unlink2 } from 'lucide-react'
+import { Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { cn } from '@/lib/utils'
+import { getDefaultDeviceSize } from '@/assets/device-frames'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { NumberField } from '@/components/ui/number-field'
+import { Slider } from '@/components/ui/slider'
 import type { Layer } from '@/types'
 
 interface TransformSectionProps {
@@ -10,146 +14,177 @@ interface TransformSectionProps {
 
 export function TransformSection({ layer }: TransformSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
-  const [lockAspect, setLockAspect] = useState(false)
+  const isDevice = layer.type === 'device-frame'
+  const isOfficialBezel = isDevice && Boolean(layer.importedBezel)
+  const isText = layer.type === 'text'
+  const [lockAspectOverride, setLockAspect] = useState(false)
+  // Device frames are official hardware — their aspect ratio is never unlocked.
+  const lockAspect = isDevice || lockAspectOverride
 
   function update(patch: Partial<Layer>) {
-    updateLayer(layer.id, patch)
+    updateLayer(layer.id, patch, { coalesceKey: `layer:${layer.id}:transform` })
   }
 
-  function handleWidth(raw: string) {
-    const w = parseFloat(raw) || 0
-    if (lockAspect && layer.height > 0) {
+  function handleX(x: number) {
+    update({ x })
+  }
+
+  function handleY(y: number) {
+    update({ y })
+  }
+
+  function handleWidth(width: number) {
+    if (isDevice) {
+      const ratio = layer.importedBezel
+        ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
+      update({ width, height: Math.max(1, Math.round(width / ratio)) })
+    } else if (!isText && lockAspect && layer.height > 0) {
       const ratio = layer.width / layer.height
-      update({ width: w, height: Math.round(w / ratio) })
+      update({ width, height: Math.max(1, Math.round(width / ratio)) })
     } else {
-      update({ width: w })
+      update({ width })
     }
   }
 
-  function handleHeight(raw: string) {
-    const h = parseFloat(raw) || 0
-    if (lockAspect && layer.width > 0) {
+  function handleHeight(height: number) {
+    // Text height is derived from content — never edited directly.
+    if (isText) return
+
+    if (isDevice) {
+      const ratio = layer.importedBezel
+        ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
+      update({ width: Math.max(1, Math.round(height * ratio)), height })
+    } else if (lockAspect && layer.width > 0) {
       const ratio = layer.width / layer.height
-      update({ width: Math.round(h * ratio), height: h })
+      update({ width: Math.max(1, Math.round(height * ratio)), height })
     } else {
-      update({ height: h })
+      update({ height })
+    }
+  }
+
+  function handleRotation(value: number) {
+    if (isOfficialBezel) return
+    update({ rotation: ((value % 360) + 360) % 360 })
+  }
+
+  function handleOpacity(value: number) {
+    if (isOfficialBezel) return
+    updateLayer(
+      layer.id,
+      { opacity: Math.min(1, Math.max(0, Math.round(value) / 100)) },
+      { coalesceKey: `layer:${layer.id}:opacity` },
+    )
+  }
+
+  function resetSize() {
+    if (layer.type === 'device-frame') {
+      const canonical = getDefaultDeviceSize(layer.deviceModel)
+      if (layer.importedBezel) {
+        const longSide = Math.max(canonical.width, canonical.height)
+        const ratio = layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
+        update(layer.importedBezel.naturalHeight >= layer.importedBezel.naturalWidth
+          ? { width: Math.round(longSide * ratio), height: longSide }
+          : { width: longSide, height: Math.round(longSide / ratio) })
+      } else update(canonical)
+    } else if (layer.type === 'image') {
+      const scale = Math.min(
+        600 / layer.originalWidth,
+        600 / layer.originalHeight,
+        1,
+      )
+      update({
+        width: Math.max(1, Math.round(layer.originalWidth * scale)),
+        height: Math.max(1, Math.round(layer.originalHeight * scale)),
+      })
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {/* X / Y */}
       <div className="grid grid-cols-2 gap-2">
-        <Field label="X">
-          <input
-            type="number"
-            value={Math.round(layer.x)}
-            onChange={(e) => update({ x: parseFloat(e.target.value) || 0 })}
-            className={inputCls}
-            aria-label="X position"
-          />
-        </Field>
-        <Field label="Y">
-          <input
-            type="number"
-            value={Math.round(layer.y)}
-            onChange={(e) => update({ y: parseFloat(e.target.value) || 0 })}
-            className={inputCls}
-            aria-label="Y position"
-          />
-        </Field>
+        <NumberField
+          label="X"
+          ariaLabel="Position X"
+          value={Math.round(layer.x)}
+          onChange={handleX}
+        />
+        <NumberField
+          label="Y"
+          ariaLabel="Position Y"
+          value={Math.round(layer.y)}
+          onChange={handleY}
+        />
       </div>
 
       {/* W / Lock / H */}
-      <div className="flex items-end gap-1.5">
-        <Field label="L" className="min-w-0 flex-1">
-          <input
-            type="number"
-            min={1}
-            value={Math.round(layer.width)}
-            onChange={(e) => handleWidth(e.target.value)}
-            className={inputCls}
-            aria-label="Width"
-          />
-        </Field>
-        <button
-          type="button"
+      <div className="flex items-center gap-1.5">
+        <NumberField
+          label="L"
+          ariaLabel="Largeur"
+          min={1}
+          value={Math.round(layer.width)}
+          onChange={handleWidth}
+        />
+        <IconButton
+          size="sm"
+          active={lockAspect}
+          disabled={isText || isDevice}
           onClick={() => setLockAspect((v) => !v)}
-          className={cn(
-            'mb-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface transition-colors',
-            'hover:border-muted hover:bg-surface-hover',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
-            lockAspect ? 'border-primary/30 bg-primary/8 text-primary' : 'text-muted',
-          )}
-          aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+          className="shrink-0"
+          aria-label="Verrouiller les proportions"
           aria-pressed={lockAspect}
         >
-          {lockAspect ? <Link2 size={13} strokeWidth={1.75} /> : <Unlink2 size={13} strokeWidth={1.75} />}
-        </button>
-        <Field label="H" className="min-w-0 flex-1">
-          <input
-            type="number"
-            min={1}
-            value={Math.round(layer.height)}
-            onChange={(e) => handleHeight(e.target.value)}
-            className={inputCls}
-            aria-label="Height"
-          />
-        </Field>
+          {lockAspect ? (
+            <Link size={12} strokeWidth={1.5} aria-hidden />
+          ) : (
+            <Unlink size={12} strokeWidth={1.5} aria-hidden />
+          )}
+        </IconButton>
+        <NumberField
+          label="H"
+          ariaLabel="Hauteur"
+          min={1}
+          value={Math.round(layer.height)}
+          onChange={handleHeight}
+          disabled={isText}
+        />
       </div>
 
-      {/* Rotation / Opacity */}
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Rotation">
-          <div className="relative">
-            <input
-              type="number"
-              min={0}
-              max={360}
-              value={Math.round(layer.rotation)}
-              onChange={(e) => update({ rotation: parseFloat(e.target.value) || 0 })}
-              className={cn(inputCls, 'pr-6')}
-              aria-label="Rotation in degrees"
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted">
-              °
-            </span>
-          </div>
-        </Field>
-        <Field label="Opacité">
-          <div className="flex h-7 items-center gap-1.5">
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={layer.opacity}
-              onChange={(e) => update({ opacity: parseFloat(e.target.value) })}
-              className="min-h-5 flex-1 cursor-pointer"
-              aria-label="Opacity"
-            />
-            <span className="w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-muted">
-              {Math.round(layer.opacity * 100)}
-            </span>
-          </div>
-        </Field>
-      </div>
-    </div>
-  )
-}
+      {/* Rotation */}
+      <NumberField
+        label="Rot"
+        ariaLabel="Rotation"
+        step={1}
+        value={Math.round(layer.rotation)}
+        onChange={handleRotation}
+        disabled={isOfficialBezel}
+      />
 
-export const inputCls = cn(
-  'h-7 w-full rounded-md border border-white/[0.08] bg-surface px-2 text-xs tabular-nums text-foreground',
-  'transition-[box-shadow,border-color,background-color]',
-  'hover:border-white/15',
-  'focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20',
-)
+      {/* Opacity */}
+      <Slider
+        ariaLabel="Opacité"
+        min={0}
+        max={100}
+        step={1}
+        value={Math.round(layer.opacity * 100)}
+        onChange={handleOpacity}
+        disabled={isOfficialBezel}
+        formatValue={(v) => `${Math.round(v)}%`}
+      />
 
-export function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-[10px] font-medium text-muted">{label}</span>
-      {children}
+      {(isDevice || layer.type === 'image') && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={resetSize}
+          className="self-start"
+        >
+          Taille d'origine
+        </Button>
+      )}
     </div>
   )
 }

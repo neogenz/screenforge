@@ -1,10 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScreenForge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Évite le flash blanc avant la feuille de styles. La classe de thème
+         est posée sur <html> par l'app pour que les portails en héritent. */
+      html { background: oklch(0.145 0 0); }
+      html.light { background: oklch(0.88 0 0); }
+    </style>
   </head>
   <body>
     <div id="root"></div>

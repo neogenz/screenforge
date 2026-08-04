@@ -27,8 +27,8 @@ export interface ColorStop {
 export interface GradientFill {
   type: 'linear' | 'radial'
   angle?: number     // degrees, linear only
-  centerX?: number   // radial only
-  centerY?: number   // radial only
+  centerX?: number   // 0–100 percentage, radial only
+  centerY?: number   // 0–100 percentage, radial only
   stops: ColorStop[]
 }
 
@@ -54,12 +54,26 @@ export interface TextLayer extends BaseLayer {
   gradientFill?: GradientFill
 }
 
+export interface ImportedDeviceBezel {
+  /** Asset id of the Apple-supplied transparent PNG (see lib/assets.ts). */
+  assetId: string
+  fileName: string
+  naturalWidth: number
+  naturalHeight: number
+  /** Transparent display opening, in the PNG's natural pixel coordinates. */
+  screen: { x: number; y: number; width: number; height: number }
+}
+
 export interface DeviceFrameLayer extends BaseLayer {
   type: 'device-frame'
   deviceModel: DeviceModel
   deviceColor: DeviceColor
+  /** Applies to the generated frame only; imported Apple artwork is never rotated. */
   orientation: Orientation
-  screenshotUrl?: string  // data URL of inserted app screenshot
+  /** Optional Apple Product Bezel supplied locally by the user. */
+  importedBezel?: ImportedDeviceBezel
+  /** Asset id of the inserted app screenshot (see lib/assets.ts). */
+  screenshotAssetId?: string
   shadowEnabled?: boolean
   shadowBlur?: number
   shadowColor?: string
@@ -69,7 +83,8 @@ export interface DeviceFrameLayer extends BaseLayer {
 
 export interface ImageLayer extends BaseLayer {
   type: 'image'
-  src: string  // base64 or URL
+  /** Asset id of the image payload (see lib/assets.ts). */
+  assetId: string
   originalWidth: number
   originalHeight: number
   shadow?: TextShadow
@@ -119,6 +134,7 @@ export interface Project {
   id: string
   name: string
   screens: Screen[]
+  activeScreenId: string
   globals: GlobalSettings
   /** Layers shared across all screens */
   layoutLayers: Layer[]
@@ -136,9 +152,29 @@ export interface ExportConfig {
 
 // ─── Device & Orientation ────────────────────────────────────────────────────
 
-export type DeviceModel = 'iphone-16-pro-max' | 'iphone-16-pro' | 'iphone-16'
+export type DeviceModel =
+  | 'iphone-17-pro-max'
+  | 'iphone-17-pro'
+  | 'iphone-17'
+  | 'iphone-air'
+  | 'iphone-16-plus'
+  | 'iphone-16'
+  | 'iphone-16e'
+  // Legacy — kept so older projects still render
+  | 'iphone-16-pro-max'
+  | 'iphone-16-pro'
 
 export type DeviceColor =
+  | 'cosmic-orange'
+  | 'deep-blue'
+  | 'silver'
+  | 'lavender'
+  | 'sage'
+  | 'mist-blue'
+  | 'sky-blue'
+  | 'light-gold'
+  | 'cloud-white'
+  | 'space-black'
   | 'black-titanium'
   | 'white-titanium'
   | 'natural-titanium'

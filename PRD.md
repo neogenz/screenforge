@@ -16,7 +16,7 @@ None respect indie devs' time or budget.
 
 ## Solution
 
-A **local web app** (Vite + React + Fabric.js) running in the browser. Projects stored locally. Exports pixel-perfect PNGs at all Apple-accepted iPhone dimensions.
+A **local web app** (Vite + React + Fabric.js) running in the browser. Projects are stored locally. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
 
 ---
 
@@ -32,21 +32,13 @@ A **local web app** (Vite + React + Fabric.js) running in the browser. Projects 
 
 Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9" class), and Apple auto-scales to all smaller iPhone display classes. No need to upload separate sets per device.
 
-### Accepted Dimensions
+### Production profile
 
-| Display Class | Portrait (W x H) | Landscape (W x H) | Devices |
+| Display Class | Orientation | Dimensions | Project limit |
 |---|---|---|---|
-| **6.9"** | **1320 x 2868** | **2868 x 1320** | iPhone 16 Pro Max |
-| **6.7"** | **1290 x 2796** | **2796 x 1290** | iPhone 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max |
-| 6.5" | 1284 x 2778 | 2778 x 1284 | iPhone 13 Pro Max, 12 Pro Max, 11 Pro Max, XS Max |
-| 6.3" | 1206 x 2622 | 2622 x 1206 | iPhone 16e |
-| 6.1" | 1179 x 2556 | 2556 x 1179 | iPhone 16, 15, 14, 13, 12 |
-| 5.8" | 1125 x 2436 | 2436 x 1125 | iPhone X, XS, 11 Pro, 12 mini, 13 mini |
-| 5.5" | 1242 x 2208 | 2208 x 1242 | iPhone 8 Plus, 7 Plus, 6s Plus (legacy) |
-| 4.7" | 750 x 1334 | 1334 x 750 | iPhone SE 2nd/3rd, 8, 7, 6s (legacy) |
-| 4.0" | 640 x 1136 | 1136 x 640 | iPhone SE 1st, 5s (legacy) |
+| **iPhone 6.9"** | **Portrait** | **1320 × 2868 px** | **10 screenshots** |
 
-**Bold = primary targets.** Submit 6.9" (1320 x 2868), Apple auto-scales the rest.
+ScreenForge deliberately omits smaller and legacy output choices. App Store Connect accepts the highest-resolution 6.9" set and scales it for smaller iPhone display classes.
 
 ### File Requirements
 
@@ -54,8 +46,8 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 |---|---|
 | **Format** | PNG (recommended) or JPEG |
 | **Color space** | sRGB (recommended) or Display P3 |
-| **Bit depth** | 8-bit RGB or RGBA |
-| **Transparency** | Allowed (PNG only) |
+| **Bit depth** | 8-bit RGB |
+| **Transparency** | Forbidden; every exported PNG is opaque |
 | **Max file size** | 50 MB per screenshot (aim for < 5 MB) |
 | **Min screenshots** | 1 |
 | **Max screenshots** | 10 per device class |
@@ -67,7 +59,7 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 |---|---|
 | **Accuracy** | Screenshots must show REAL app functionality. Fabricated data = rejection (Guideline 2.3.7) |
 | **Status bar** | Include it — shows realistic context |
-| **Device frames** | Allowed and encouraged. Use current-gen frames (iPhone 15/16) |
+| **Device frames** | Allowed and encouraged. Use a current generated frame or a current Apple Product Bezel imported locally |
 | **Text overlays** | Allowed. Must be accurate. No hyperbolic claims ("best app ever") |
 | **Language** | Text must match a language your app actually supports |
 | **No ratings/badges** | Don't show App Store ratings or award badges |
@@ -95,7 +87,7 @@ Layer-based design surface:
 | Layer Type | Capabilities |
 |---|---|
 | **Text** | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill |
-| **Device Frame** | iPhone mockup with screenshot inside. Rotate, scale, position freely |
+| **Device Frame** | iPhone mockup with screenshot inside. Generated frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
 | **Image** | Import PNG/JPEG/SVG, crop, resize, opacity, shadow |
 | **Shape** | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow |
 | **Background** | Solid color, linear/radial gradient, image fill |
@@ -145,6 +137,10 @@ Built-in mockups:
 | iPhone 15 Pro | v2 |
 | iPhone 15 | v2 |
 
+Apple Product Bezels are optional user-provided PNG overlays. The user downloads
+and extracts them from Apple's DMG; ScreenForge stores them only in the current
+project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
+
 **Controls:**
 - Device color variant (Silver, Black, Natural Titanium, etc.)
 - Orientation (portrait / landscape)
@@ -181,39 +177,28 @@ Fully editable after applying.
 ### 7. Export
 
 **Single export:**
-- Current screen as PNG at selected dimension
+- Current screen as an opaque portrait PNG at 1320 × 2868
 
 **Batch export (the killer feature):**
 - Select screens (checkboxes, default: all)
-- Select target dimensions:
-  - **6.9" (1320 x 2868)** — checked by default (App Store submission)
-  - 6.7" (1290 x 2796)
-  - 6.5" (1284 x 2778)
-  - 6.3" (1206 x 2622)
-  - 6.1" (1179 x 2556)
-  - 5.8" (1125 x 2436)
-  - 5.5" (1242 x 2208) — legacy
+- Fixed target: **iPhone 6.9" portrait (1320 × 2868)**
 - Format: PNG (default)
 - Output: ZIP with organized folders
 
 **Output structure:**
 ```
-export/
-  6.9/
-    01_hero.png
-    02_feature_budget.png
-    03_feature_year.png
-    04_feature_templates.png
-    05_feature_expense.png
-  6.7/
-    01_hero.png
-    ...
+iphone-6.9-portrait/
+  01_hero.png
+  02_feature_budget.png
+  03_feature_year.png
+  04_feature_templates.png
+  05_feature_expense.png
 ```
 
 **Quality guarantees:**
 - Renders at exact target resolution via Fabric.js `multiplier` / `toBlob()` — zero upscaling
 - sRGB color space
-- PNG-24 (8-bit RGBA)
+- PNG-24 (8-bit RGB, no alpha channel)
 - Optimized to < 5 MB per file
 - Dimensions are pixel-exact — tested against Apple's accepted values
 
@@ -272,11 +257,11 @@ src/
     use-export.ts        # Export + batch logic
     use-fonts.ts         # Google Fonts loader
   assets/
-    device-frames/       # iPhone SVG mockups (per model + color)
+    device-frames/       # Generated iPhone SVG fallbacks (per model + color)
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
-    dimensions.ts        # All Apple dimension constants
+    dimensions.ts        # Single iPhone 6.9" App Store target
     storage.ts           # IndexedDB read/write
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation
@@ -316,10 +301,10 @@ src/
 - Canvas editor with text, device frame, image, shape, background layers
 - Full text styling (Google Fonts, size, weight, color, shadow, gradient)
 - Background designer (solid + gradients + presets)
-- 3 iPhone frames (16 Pro Max, 16 Pro, 16) with color variants
+- Generated iPhone frames with color variants + local import of Apple Product Bezel PNGs
 - 5 pre-built templates
-- Batch export at all iPhone dimensions (PNG, ZIP)
-- Project save/load (IndexedDB)
+- Batch export at 1320 × 2868 (opaque PNG, ZIP)
+- Project autosave/load (IndexedDB) + portable `.screenforge.zip` backup/import
 - Globals (shared font, background, device across screens)
 - Undo/redo + keyboard shortcuts
 
@@ -340,7 +325,7 @@ src/
 3. Dimensions are pixel-exact (1320 x 2868 for 6.9", etc.)
 4. Text rendering matches AppScreens.com quality
 5. Zero API calls — fully local
-6. Projects persist across browser sessions
+6. Projects persist across browser sessions and reopen from a portable local backup
 
 ---
 
@@ -348,6 +333,6 @@ src/
 
 | Question | Decision |
 |---|---|
-| Device frame assets? | Bundle SVGs in repo — local-first, no CDN |
+| Device frame assets? | Keep generated SVG fallbacks; official Apple PNGs are supplied and stored locally by each user, never bundled |
 | Font loading? | On-demand via Google Fonts API with preview picker |
-| Project format? | IndexedDB for auto-save + JSON export/import for portability |
+| Project format? | IndexedDB for autosave; versioned `.screenforge.zip` with `project.json` and referenced binary assets for portability |

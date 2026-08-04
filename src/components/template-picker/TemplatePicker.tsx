@@ -1,171 +1,100 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
 import { TEMPLATES } from '@/assets/templates'
+import { TemplatePreview } from './TemplatePreview'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
+import { toast } from '@/stores/toast.store'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { TemplateDefinition, Layer } from '@/types'
+import type { TemplateDefinition } from '@/types'
 
 type ApplyMode = 'current' | 'new'
 
-interface ConfirmState {
-  template: TemplateDefinition
-}
-
-function buildPreviewGradient(template: TemplateDefinition): React.CSSProperties {
-  const bg = template.background
-  if (bg.type === 'solid') return { background: bg.color }
-  if (bg.type === 'radial-gradient') {
-    const stops = bg.stops.map((s) => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')
-    return { background: `radial-gradient(circle, ${stops})` }
-  }
-  const stops = bg.stops.map((s) => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')
-  return { background: `linear-gradient(${bg.angle}deg, ${stops})` }
-}
-
-function applyTemplate(template: TemplateDefinition, mode: ApplyMode) {
-  const { setLayers, clearSelection } = useCanvasStore.getState()
-  const { project, addScreen, updateScreenBackground, saveScreenLayers } = useProjectStore.getState()
-  if (!project) return
-
-  const newLayers: Layer[] = template.layers.map((l) => ({
-    ...l,
-    id: crypto.randomUUID(),
-  }))
-
-  if (mode === 'current') {
-    const activeId = useCanvasStore.getState().activeScreenId || project.screens[0]?.id
-    if (!activeId) return
-    clearSelection()
-    setLayers(newLayers)
-    updateScreenBackground(activeId, template.background)
-    saveScreenLayers(activeId, newLayers)
-  } else {
-    addScreen()
-    // The new screen is appended — grab its id after creation
-    const updatedProject = useProjectStore.getState().project
-    if (!updatedProject) return
-    const newScreen = updatedProject.screens[updatedProject.screens.length - 1]
-    clearSelection()
-    setLayers(newLayers)
-    updateScreenBackground(newScreen.id, template.background)
-    saveScreenLayers(newScreen.id, newLayers)
-  }
-}
-
 export function TemplatePicker() {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
-  const setShowTemplatesPicker = useUIStore((s) => s.setShowTemplatesPicker)
-  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
 
   if (!showTemplatesPicker) return null
+  return <TemplatePickerContent />
+}
 
-  function handleCardClick(template: TemplateDefinition) {
-    setConfirm({ template })
-  }
+function TemplatePickerContent() {
+  const setShowTemplatesPicker = useUIStore((s) => s.setShowTemplatesPicker)
+  const [selected, setSelected] = useState<TemplateDefinition | null>(null)
 
-  function handleApply(mode: ApplyMode) {
-    if (!confirm) return
-    applyTemplate(confirm.template, mode)
-    setConfirm(null)
+  function handleClose() {
     setShowTemplatesPicker(false)
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Template picker"
-    >
-      <div className="relative bg-background rounded-xl shadow-2xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">Choose a Template</h2>
-          <button
-            type="button"
-            onClick={() => setShowTemplatesPicker(false)}
-            className="p-1 rounded hover:bg-surface-hover transition-colors text-muted"
-            aria-label="Close template picker"
-          >
-            <X size={16} />
-          </button>
-        </div>
+  function handleApply(mode: ApplyMode) {
+    if (!selected) return
+    const screenId = useCanvasStore.getState().applyTemplate(selected, mode)
+    if (!screenId) {
+      toast('Nombre maximum d’écrans atteint.', 'error')
+      return
+    }
+    handleClose()
+  }
 
-        {/* Grid */}
-        <div className="overflow-y-auto p-5 grid grid-cols-2 gap-4">
-          {TEMPLATES.map((template) => (
+  return (
+    <Dialog
+      open
+      onClose={handleClose}
+      title="Modèles de mise en page"
+      size="lg"
+      footer={selected
+        ? (
+          <div className="flex w-full items-center justify-between gap-3">
+            {/* Le libellé de la vignette tient sur un mot : c'est ici, une fois le
+                modèle choisi, que sa description a la place d'être lue. */}
+            <div className="flex min-w-0 flex-col">
+              <p className="truncate text-[12px] font-medium text-foreground">{selected.name}</p>
+              <p className="truncate text-[11.5px] text-foreground-muted">{selected.description}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button variant="default" onClick={() => handleApply('current')}>
+                Appliquer à l’écran actuel
+              </Button>
+              <Button variant="primary" onClick={() => handleApply('new')}>
+                Nouvel écran
+              </Button>
+            </div>
+          </div>
+        )
+        : undefined}
+    >
+      {/* Les vignettes portent le format de la planche (440×956) : à l'ancienne
+          boîte carrée, l'aperçu flottait au centre de deux bandes vides plus
+          larges que lui. Une colonne par modèle, la galerie tient d'un regard. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5">
+        {TEMPLATES.map((template) => {
+          const isSelected = selected?.id === template.id
+          return (
             <button
               key={template.id}
               type="button"
-              onClick={() => handleCardClick(template)}
+              onClick={() => setSelected(template)}
+              aria-pressed={isSelected}
+              aria-label={`Sélectionner le modèle ${template.name}`}
               className={cn(
-                'flex flex-col rounded-lg border border-border overflow-hidden text-left',
-                'hover:border-primary hover:shadow-md transition-all cursor-pointer',
+                'group flex flex-col gap-2 self-start rounded-lg border p-2 text-left',
+                'transition-[border-color,background] duration-150 ease-out',
+                'focus-visible:outline-none focus-visible:border-foreground-muted',
+                isSelected
+                  ? 'border-foreground-muted bg-raised'
+                  : 'border-border hover:border-border-strong hover:bg-raised-hover',
               )}
-              aria-label={`Apply ${template.name} template`}
             >
-              {/* Preview */}
-              <div
-                className="w-full aspect-[9/16]"
-                style={buildPreviewGradient(template)}
-              />
-              {/* Info */}
-              <div className="p-3 bg-surface">
-                <p className="text-sm font-semibold text-foreground">{template.name}</p>
-                <p className="text-xs text-muted mt-0.5 leading-tight">{template.description}</p>
+              <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">
+                <TemplatePreview template={template} />
               </div>
+              <p className="truncate px-0.5 text-[11.5px] font-medium text-foreground">
+                {template.name}
+              </p>
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
-
-      {/* Confirm dialog */}
-      {confirm && (
-        <div
-          className="absolute inset-0 flex items-center justify-center bg-black/30"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Confirm template application"
-        >
-          <div className="bg-background rounded-xl shadow-2xl w-80 p-6 flex flex-col gap-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Apply "{confirm.template.name}"</p>
-              <p className="text-xs text-muted mt-1">Where would you like to apply this template?</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => handleApply('current')}
-                className={cn(
-                  'h-9 px-4 rounded bg-primary text-white text-sm font-medium',
-                  'hover:bg-primary-hover transition-colors',
-                )}
-              >
-                Apply to current screen
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApply('new')}
-                className={cn(
-                  'h-9 px-4 rounded border border-border text-sm text-foreground',
-                  'hover:bg-surface-hover transition-colors',
-                )}
-              >
-                Create new screen
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirm(null)}
-                className="h-9 px-4 rounded text-sm text-muted hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </Dialog>
   )
 }

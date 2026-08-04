@@ -1,170 +1,131 @@
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
-import { inputCls, Field } from './TransformSection'
-import { Toggle } from '@/components/text-editor/TextEditor'
-import type { ShapeLayer, GradientFill, TextShadow } from '@/types'
+import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
+import { Field } from '@/components/ui/field'
+import { NumberField } from '@/components/ui/number-field'
+import { Segmented } from '@/components/ui/segmented'
+import type { SegmentedOption } from '@/components/ui/segmented'
+import { Switch } from '@/components/ui/switch'
+import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO, DEFAULT_STROKE_COLOR } from '@/lib/content-defaults'
+import type { GradientFill, Layer, ShapeLayer } from '@/types'
 
 interface ShapeSectionProps {
   layer: ShapeLayer
 }
 
+const SHAPE_TYPE_OPTIONS: SegmentedOption<ShapeLayer['shapeType']>[] = [
+  { value: 'rectangle', label: 'Rectangle' },
+  { value: 'circle', label: 'Cercle' },
+  { value: 'rounded-rect', label: 'Arrondi' },
+]
+
 export function ShapeSection({ layer }: ShapeSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
 
-  function update(patch: Partial<ShapeLayer>) {
-    updateLayer(layer.id, patch as Partial<import('@/types').Layer>)
+  function update(patch: Partial<ShapeLayer>, options?: { coalesceKey?: string }) {
+    updateLayer(layer.id, patch as Partial<Layer>, options)
   }
 
   const fillIsGradient = typeof layer.fill !== 'string'
-  const fillColor = typeof layer.fill === 'string' ? layer.fill : '#6366f1'
+  const fillColor = typeof layer.fill === 'string' ? layer.fill : DEFAULT_GRADIENT_FROM
 
-  function handleGradientToggle() {
-    if (fillIsGradient) {
-      update({ fill: fillColor })
-    } else {
+  function handleGradientToggle(gradientOn: boolean) {
+    if (gradientOn) {
       const gradient: GradientFill = {
         type: 'linear',
         angle: 90,
         stops: [
-          { offset: 0, color: '#6366f1' },
-          { offset: 1, color: '#8b5cf6' },
+          { offset: 0, color: DEFAULT_GRADIENT_FROM },
+          { offset: 1, color: DEFAULT_GRADIENT_TO },
         ],
       }
       update({ fill: gradient })
-    }
-  }
-
-  function handleShadowToggle() {
-    if (layer.shadow) {
-      update({ shadow: undefined })
     } else {
-      const shadow: TextShadow = { offsetX: 4, offsetY: 4, blur: 8, color: 'rgba(0,0,0,0.3)' }
-      update({ shadow })
+      update({ fill: fillColor })
     }
   }
 
   return (
     <div className="flex flex-col gap-2.5">
+      <Segmented
+        options={SHAPE_TYPE_OPTIONS}
+        value={layer.shapeType}
+        onChange={(shapeType) => update({ shapeType })}
+        ariaLabel="Type de forme"
+        className="w-full"
+      />
+
       {/* Fill */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Remplissage</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-muted">Dégradé</span>
-            <Toggle active={fillIsGradient} onToggle={handleGradientToggle} />
+          <span className="section-title">Remplissage</span>
+          <div className="flex items-center gap-2">
+            <span className="field-label">Dégradé</span>
+            <Switch ariaLabel="Activer le dégradé" checked={fillIsGradient} onChange={handleGradientToggle} />
           </div>
         </div>
         {fillIsGradient ? (
           <GradientEditor
             value={layer.fill as GradientFill}
-            onChange={(fill) => update({ fill })}
+            onChange={(fill) => update({ fill }, { coalesceKey: `layer:${layer.id}:fill` })}
           />
         ) : (
           <ColorPicker
             value={fillColor}
-            onChange={(fill) => update({ fill })}
+            onChange={(fill) => update({ fill }, { coalesceKey: `layer:${layer.id}:fill` })}
             showOpacity
           />
         )}
       </div>
 
-      <div className="h-px bg-border/60" />
-
-      {/* Stroke */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-medium text-foreground">Contour</span>
-        <Field label="Couleur">
-          <ColorPicker
-            value={layer.stroke ?? '#000000'}
-            onChange={(stroke) => update({ stroke })}
-          />
-        </Field>
-        <Field label="Épaisseur">
-          <input
-            type="number"
-            min={0}
-            value={layer.strokeWidth ?? 0}
-            onChange={(e) => update({ strokeWidth: parseInt(e.target.value, 10) || 0 })}
-            className={inputCls}
-            aria-label="Stroke width"
-          />
-        </Field>
-      </div>
-
-      {/* Border radius */}
+      {/* Border radius — rounded-rect only */}
       {layer.shapeType === 'rounded-rect' && (
         <>
-          <div className="h-px bg-border/60" />
-          <Field label="Rayon">
-            <input
-              type="number"
-              min={0}
-              value={layer.borderRadius ?? 8}
-              onChange={(e) => update({ borderRadius: parseInt(e.target.value, 10) || 0 })}
-              className={inputCls}
-              aria-label="Border radius"
-            />
-          </Field>
+          <div className="hairline" />
+          <NumberField
+            label="Rayon"
+            ariaLabel="Rayon des coins"
+            value={layer.borderRadius ?? 8}
+            onChange={(borderRadius) =>
+              update({ borderRadius }, { coalesceKey: `layer:${layer.id}:borderRadius` })
+            }
+            min={0}
+          />
         </>
       )}
 
-      <div className="h-px bg-border/60" />
+      <div className="hairline" />
 
-      {/* Shadow */}
+      {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-foreground">Ombre</span>
-          <Toggle active={!!layer.shadow} onToggle={handleShadowToggle} />
-        </div>
-        {layer.shadow && (
-          <div className="ml-0.5 flex flex-col gap-2 border-l-2 border-border/60 pl-3">
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="X">
-                <input
-                  type="number"
-                  value={layer.shadow.offsetX}
-                  onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetX: parseInt(e.target.value, 10) || 0 } })
-                  }
-                  className={inputCls}
-                  aria-label="Shadow X offset"
-                />
-              </Field>
-              <Field label="Y">
-                <input
-                  type="number"
-                  value={layer.shadow.offsetY}
-                  onChange={(e) =>
-                    update({ shadow: { ...layer.shadow!, offsetY: parseInt(e.target.value, 10) || 0 } })
-                  }
-                  className={inputCls}
-                  aria-label="Shadow Y offset"
-                />
-              </Field>
-            </div>
-            <Field label="Blur">
-              <input
-                type="number"
-                min={0}
-                value={layer.shadow.blur}
-                onChange={(e) =>
-                  update({ shadow: { ...layer.shadow!, blur: parseInt(e.target.value, 10) || 0 } })
-                }
-                className={inputCls}
-                aria-label="Shadow blur"
-              />
-            </Field>
-            <Field label="Couleur">
-              <ColorPicker
-                value={layer.shadow.color}
-                onChange={(color) => update({ shadow: { ...layer.shadow!, color } })}
-                showOpacity
-              />
-            </Field>
-          </div>
-        )}
+        <span className="section-title">Contour</span>
+        <Field label="Couleur">
+          <ColorPicker
+            value={layer.stroke ?? DEFAULT_STROKE_COLOR}
+            onChange={(stroke) => update({ stroke }, { coalesceKey: `layer:${layer.id}:stroke` })}
+          />
+        </Field>
+        <NumberField
+          label="Épaisseur"
+          ariaLabel="Épaisseur du contour"
+          value={layer.strokeWidth ?? 0}
+          onChange={(strokeWidth) =>
+            update({ strokeWidth }, { coalesceKey: `layer:${layer.id}:strokeWidth` })
+          }
+          min={0}
+          max={100}
+        />
       </div>
+
+      <div className="hairline" />
+
+      <ShadowEditor
+        shadow={layer.shadow}
+        onChange={(shadow, options) => update({ shadow }, options)}
+        ariaLabel="Activer l’ombre"
+        coalesceKey={`layer:${layer.id}:shadow`}
+      />
     </div>
   )
 }

@@ -1,10 +1,15 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
+import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
 
 let clipboard: Layer[] = []
+
+function copySelectedLayers(layers: Layer[], selectedLayerIds: string[]): Layer[] {
+  const selected = new Set(selectedLayerIds)
+  return layers.filter((layer) => selected.has(layer.id)).map((layer) => structuredClone(layer))
+}
 
 function isEditingInput(): boolean {
   const el = document.activeElement
@@ -20,64 +25,79 @@ function isEditingInput(): boolean {
 export function useKeyboard(): void {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
-      if (isEditingInput()) return
-
       const meta = e.metaKey || e.ctrlKey
       const shift = e.shiftKey
       const key = e.key
 
+      // Command palette: global, even from inside inputs.
+      if (meta && key === 'k') {
+        e.preventDefault()
+        const ui = useUIStore.getState()
+        ui.setShowCommandPalette(!ui.showCommandPalette)
+        return
+      }
+
+      if (isEditingInput()) return
+
       const {
         layers,
         selectedLayerIds,
-        removeLayer,
-        duplicateLayer,
+        setLayers,
         selectLayers,
         clearSelection,
-        updateLayer,
-        setLayers,
+        undo,
+        redo,
       } = useCanvasStore.getState()
 
-      const { undo, redo, canUndo, canRedo } = useHistoryStore.getState()
       const {
         zoomIn,
         zoomOut,
         resetZoom,
+        toggleLayers,
+        toggleProps,
+        closeDrawers,
         setShowTemplatesPicker,
         setShowGlobalsEditor,
         setShowExportDialog,
+        setShowShortcuts,
       } = useUIStore.getState()
+
+      // Drawers
+      if (meta && shift && key.toLowerCase() === 'l') {
+        e.preventDefault()
+        toggleLayers()
+        return
+      }
+      if (meta && shift && key.toLowerCase() === 'p') {
+        e.preventDefault()
+        toggleProps()
+        return
+      }
+
+      // Shortcuts overlay
+      if (key === '?') {
+        e.preventDefault()
+        setShowShortcuts(true)
+        return
+      }
+
+      if (meta && !shift && key === 's') {
+        e.preventDefault()
+        void saveCurrentProject().catch(() => undefined)
+        return
+      }
 
       // Undo
       if (meta && !shift && key === 'z') {
         e.preventDefault()
-        if (canUndo()) {
-          const snapshot = undo()
-          if (snapshot) {
-            try {
-              const parsed = JSON.parse(snapshot) as Layer[]
-              setLayers(parsed)
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        undo()
         return
       }
 
       // Redo
       if (meta && shift && key === 'z') {
         e.preventDefault()
-        if (canRedo()) {
-          const snapshot = redo()
-          if (snapshot) {
-            try {
-              const parsed = JSON.parse(snapshot) as Layer[]
-              setLayers(parsed)
-            } catch {
-              /* ignore */
-            }
-          }
-        }
+        redo()
         return
       }
 
@@ -85,9 +105,17 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'c') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        clipboard = layers
-          .filter((l) => selectedLayerIds.includes(l.id))
-          .map((l) => ({ ...l }))
+        clipboard = copySelectedLayers(layers, selectedLayerIds)
+        return
+      }
+
+      // Cut
+      if (meta && !shift && key === 'x') {
+        if (selectedLayerIds.length === 0) return
+        e.preventDefault()
+        clipboard = copySelectedLayers(layers, selectedLayerIds)
+        setLayers(layers.filter((layer) => !selectedLayerIds.includes(layer.id)))
+        clearSelection()
         return
       }
 
@@ -95,18 +123,22 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'v') {
         if (clipboard.length === 0) return
         e.preventDefault()
+        let screenZ = layers.filter((layer) => layer.scope !== 'layout').length
+        let layoutZ = layers.length - screenZ
         const newIds: string[] = []
-        for (const layer of clipboard) {
+        const pastedLayers = clipboard.map((layer) => {
           const newLayer: Layer = {
             ...layer,
             id: crypto.randomUUID(),
-            name: `${layer.name} copy`,
+            name: `${layer.name} copie`,
             x: layer.x + 20,
             y: layer.y + 20,
+            zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,
           }
-          useCanvasStore.getState().addLayer(newLayer)
           newIds.push(newLayer.id)
-        }
+          return newLayer
+        })
+        setLayers([...layers, ...pastedLayers])
         selectLayers(newIds)
         return
       }
@@ -115,9 +147,25 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 'd') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        for (const id of selectedLayerIds) {
-          duplicateLayer(id)
-        }
+        let screenZ = layers.filter((layer) => layer.scope !== 'layout').length
+        let layoutZ = layers.length - screenZ
+        const newIds: string[] = []
+        const duplicates = layers
+          .filter((layer) => selectedLayerIds.includes(layer.id))
+          .map((layer) => {
+            const duplicate: Layer = {
+              ...layer,
+              id: crypto.randomUUID(),
+              name: `${layer.name} copie`,
+              x: layer.x + 16,
+              y: layer.y + 16,
+              zIndex: layer.scope === 'layout' ? layoutZ++ : screenZ++,
+            }
+            newIds.push(duplicate.id)
+            return duplicate
+          })
+        setLayers([...layers, ...duplicates])
+        selectLayers(newIds)
         return
       }
 
@@ -125,9 +173,7 @@ export function useKeyboard(): void {
       if (key === 'Delete' || key === 'Backspace') {
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
-        for (const id of selectedLayerIds) {
-          removeLayer(id)
-        }
+        setLayers(layers.filter((layer) => !selectedLayerIds.includes(layer.id)))
         clearSelection()
         return
       }
@@ -154,11 +200,15 @@ export function useKeyboard(): void {
           setShowGlobalsEditor(false)
           return
         }
+        if (ui.layersOpen || ui.propsOpen) {
+          closeDrawers()
+          return
+        }
         clearSelection()
         return
       }
 
-      // Arrow nudge
+      // Arrow nudge — burst-coalesced so holding a key is one undo step.
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)
       ) {
@@ -169,11 +219,14 @@ export function useKeyboard(): void {
           key === 'ArrowLeft' ? -delta : key === 'ArrowRight' ? delta : 0
         const dy =
           key === 'ArrowUp' ? -delta : key === 'ArrowDown' ? delta : 0
-        for (const id of selectedLayerIds) {
-          const layer = layers.find((l) => l.id === id)
-          if (!layer) continue
-          updateLayer(id, { x: layer.x + dx, y: layer.y + dy })
-        }
+        setLayers(
+          layers.map((layer) =>
+            selectedLayerIds.includes(layer.id)
+              ? { ...layer, x: layer.x + dx, y: layer.y + dy }
+              : layer,
+          ),
+          { coalesceKey: `nudge:${[...selectedLayerIds].sort().join(',')}` },
+        )
         return
       }
 

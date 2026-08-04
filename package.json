@@ -5,30 +5,40 @@
   "type": "module",
   "packageManager": "pnpm@10.26.1",
   "pnpm": {
-    "onlyBuiltDependencies": ["canvas"]
+    "onlyBuiltDependencies": [
+      "canvas"
+    ]
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "pnpm run test:unit && pnpm run typecheck && pnpm run lint",
+    "test:unit": "vitest run src",
+    "test:release": "pnpm test && pnpm run build && pnpm run test:e2e && pnpm run audit:contrast",
+    "validate:export": "node scripts/validate-export.mjs",
+    "test:e2e": "playwright test",
+    "audit:contrast": "node scripts/contrast-audit.mjs",
+    "probe:visual": "node scripts/visual-probe.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "fabric": "^7.0.0",
+    "fast-png": "^8.0.0",
     "idb": "^8.0.0",
     "jszip": "^3.10.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.0",
-    "zundo": "^2.3.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -36,10 +46,12 @@
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "eslint-plugin-react-refresh": "^0.5.0",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.0.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.1.10"
   }
 }
