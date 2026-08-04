@@ -245,7 +245,7 @@ function LayerControls({ layer }: { layer: Layer }) {
         {colors.map((color) => (
           <SwatchButton
             key={color.name}
-            className="hit-40 size-8"
+            className="size-8"
             color={color.frame}
             selected={color.name === layer.deviceColor}
             aria-label={color.label}
@@ -356,7 +356,7 @@ function ColorControl({
     <>
       <SwatchButton
         ref={anchor}
-        className="hit-40 size-8"
+        className="size-8"
         color={value}
         selected={open}
         aria-label={label}

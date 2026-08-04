@@ -1,6 +1,6 @@
 ---
 objective: "Le design system ne surcharge plus shadcn que par 13 tokens produit, et les échelles rendues (type, hauteurs, rythme, rayons) sont fermées et vérifiables."
-status: in-progress
+status: implemented
 ---
 
 <!-- Fill or omit these sections; never add, rename, or reorder one. -->

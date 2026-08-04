@@ -130,9 +130,9 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           onDoubleClick={startRename}
           title={`${screen.name} — double-clic pour renommer`}
           className={cn(
-            // `hit-40` : le libellé fait 20px de haut mais se clique comme le
+            // `hit-44` : le libellé fait 20px de haut mais se clique comme le
             // reste. Le recouvrement avec la vignette est sans effet — même action.
-            'hit-40 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
+            'hit-44 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
             'text-2xs leading-none transition-colors',
             isActive ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
           )}
@@ -153,7 +153,12 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }
         }}
         className={cn(
-          'hit-40 absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-xs',
+          // Zone ancrée au coin plutôt que centrée : centrée, elle dépassait de
+          // 12px à droite de la tuile et volait le clic à la vignette voisine.
+          // Elle ne recouvre plus que sa propre tuile, et reste inerte tant que
+          // le bouton n'est pas survolé.
+          'hit-44 after:inset-auto after:right-0 after:top-0 after:translate-none',
+          'absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-xs',
           'border border-border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
             'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',

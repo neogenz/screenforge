@@ -57,6 +57,10 @@ declare global {
         project: Project | null
         updateScreenBackground: (screenId: string, background: Project['globals']['background']) => void
       } }
+      useUIStore: { getState: () => {
+        setZoom: (zoom: number) => void
+        toggleProps: () => void
+      } }
     }
   }
 }

@@ -86,6 +86,35 @@ export function installViewport({
     setZoom(zoom)
   }
 
+  /**
+   * Recentre la scène sur la zone libre sans toucher au zoom.
+   *
+   * Recadrer entièrement écraserait un zoom et un panoramique choisis ; ne rien
+   * faire laissait la transformation calculée pour l'ancienne taille, et les
+   * planches dérivaient hors de l'écran. Le recadrage complet ne sert que
+   * lorsque le contenu, au zoom courant, ne tient plus dans la zone libre.
+   */
+  function recenter(): void {
+    const screenCount = getProject()?.screens.length ?? 1
+    const { insets, width, height } = availableStage()
+    const zoom = canvas.getZoom()
+    const totalWidth = getTotalWidth(screenCount)
+
+    if (totalWidth * zoom > width || SCREEN_HEIGHT * zoom > height) {
+      fitAll()
+      return
+    }
+
+    canvas.setViewportTransform([
+      zoom,
+      0,
+      0,
+      zoom,
+      insets.left + (width - totalWidth * zoom) / 2,
+      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+    ])
+  }
+
   const disposeWheel = canvas.on('mouse:wheel', ({ e }: { e: WheelEvent }) => {
     e.preventDefault()
     if (e.metaKey || e.ctrlKey) {
@@ -171,6 +200,7 @@ export function installViewport({
     if (resizeTimer) clearTimeout(resizeTimer)
     resizeTimer = setTimeout(() => {
       canvas.setDimensions({ width: Math.floor(size.width), height: Math.floor(size.height) })
+      recenter()
       canvas.requestRenderAll()
     }, 80)
   })
@@ -208,6 +238,14 @@ export function installViewport({
   const unsubscribeUi = subscribeUi((state, previous) => {
     if (state.viewportResetKey !== previous.viewportResetKey) {
       fitAll()
+      canvas.requestRenderAll()
+      return
+    }
+    // Un drawer qui s'ouvre change la zone libre sans changer la taille du
+    // conteneur : le `ResizeObserver` ne voit rien, et la première comme la
+    // dernière planche se retrouvaient à moitié sous un panneau.
+    if (state.layersOpen !== previous.layersOpen || state.propsOpen !== previous.propsOpen) {
+      recenter()
       canvas.requestRenderAll()
       return
     }

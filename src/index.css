@@ -439,14 +439,23 @@
     outline: 1px solid oklch(0 0 0 / 0.1);
   }
 
-  /* Hit area 40px sans changer la taille visuelle */
-  .hit-40 {
+  /* Zone de frappe d'au moins 44px, sans changer la taille visuelle.
+     `inset: -8px` ajoutait 16px quelle que soit la cible : 36px sur un libellé
+     de 20, soit un nom qui mentait. Un pseudo-élément centré à `min-*: 44px`
+     dit ce qu'il fait et vaut pour n'importe quelle taille d'hôte. */
+  .hit-44 {
     position: relative;
   }
-  .hit-40::after {
+  .hit-44::after {
     content: "";
     position: absolute;
-    inset: -8px;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .hairline {
@@ -490,13 +499,28 @@ input[type="number"] {
   background: var(--color-muted-foreground);
 }
 
-/* ── Reduced motion ── */
+/* ── Mouvement réduit ──
+   Le kill global supprimait aussi le retour d'état : survol, focus et sélection
+   basculaient d'un cran à l'autre sans transition, et un menu apparaissait sans
+   qu'on voie d'où. On ne coupe donc que le déplacement — glissements d'entrée et
+   transitions de `transform` — et on garde une fondu court, qui informe sans
+   bouger. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* Une transition de `transform` est un déplacement : c'est elle qui gêne,
+       pas la couleur ni l'opacité, qui restent à leur durée d'origine. */
+    transition-property: color, background-color, border-color, outline-color,
+      fill, stroke, opacity, box-shadow;
+  }
+
+  /* Les trois entrées qui déplacent : elles gardent leur durée et leur courbe,
+     et ne font plus que se révéler. `fade-in`, sans `transform`, est déjà
+     conforme. */
+  .animate-slide-up,
+  .animate-menu-in,
+  .animate-palette-in {
+    animation-name: fade-in;
   }
 }
