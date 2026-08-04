@@ -63,9 +63,9 @@ export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align 
               )}
             >
               {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
-              <span className="min-w-0 flex-1 truncate text-[12.5px]">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
               {item.meta && (
-                <span className="tabular shrink-0 text-[10px] text-muted-foreground">{item.meta}</span>
+                <span className="tabular shrink-0 text-2xs text-muted-foreground">{item.meta}</span>
               )}
               {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
             </DropdownMenuPrimitive.Item>

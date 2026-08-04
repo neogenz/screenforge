@@ -121,7 +121,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          className="field-surface h-5 w-full px-1 text-center text-[10.5px] text-foreground outline-none"
+          className="field-surface h-5 w-full px-1 text-center text-2xs text-foreground outline-none"
         />
       ) : (
         <button
@@ -133,7 +133,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             // `hit-40` : le libellé fait 20px de haut mais se clique comme le
             // reste. Le recouvrement avec la vignette est sans effet — même action.
             'hit-40 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
-            'text-[10.5px] leading-none transition-colors',
+            'text-2xs leading-none transition-colors',
             isActive ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
           )}
         >

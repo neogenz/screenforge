@@ -181,7 +181,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 className="h-8 w-8 shrink-0 object-contain"
               />
             )}
-            <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">
               {layer.importedBezel.fileName}
             </span>
             <Button
@@ -219,16 +219,16 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             href="https://developer.apple.com/design/resources/#product-bezels"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-2xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-[11px] leading-relaxed text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
+          <span className="text-2xs leading-relaxed text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-[11px] leading-relaxed text-destructive">
+        <p role="alert" className="text-2xs leading-relaxed text-destructive">
           {bezelError}
         </p>
       )}
@@ -245,7 +245,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             >
               <span className="truncate">{config.modelName}</span>
               <span className="flex shrink-0 items-center gap-1.5">
-                <span className="tabular text-[10px] text-muted-foreground">{config.screenSize}</span>
+                <span className="tabular text-2xs text-muted-foreground">{config.screenSize}</span>
                 <ChevronDown
                   size={12}
                   strokeWidth={1.5}
@@ -337,14 +337,14 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-destructive">
+          <p role="alert" className="mt-1.5 text-2xs leading-relaxed text-destructive">
             {screenshotError}
           </p>
         )}
       </Field>
 
       {layer.importedBezel ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-2xs leading-relaxed text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : <div className="flex flex-col gap-2">

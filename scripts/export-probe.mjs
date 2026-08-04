@@ -9,7 +9,7 @@ const context = await browser.newContext({ viewport: { width: 1600, height: 1000
 const page = await context.newPage()
 await page.goto(baseURL)
 // Browser global inside Playwright's page context.
-// eslint-disable-next-line no-undef
+ 
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 

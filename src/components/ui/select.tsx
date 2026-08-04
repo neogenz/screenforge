@@ -78,7 +78,7 @@ export function Select({
         aria-invalid={ariaProps['aria-invalid']}
         className={cn(
           'field-surface relative flex h-8 w-full items-center gap-2 pl-2.5 pr-7 text-left outline-none',
-          'text-[12.5px] text-foreground',
+          'text-sm text-foreground',
           'transition-[border-color] duration-150 ease-out',
           'hover:border-input focus:border-muted-foreground',
           'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
@@ -115,8 +115,8 @@ export function Select({
                 textValue={option.text}
                 disabled={option.disabled}
                 className={cn(
-                  'relative flex h-7 cursor-pointer items-center rounded-sm pr-7 pl-2 outline-none select-none',
-                  'text-[12.5px]',
+                  'relative flex h-8 cursor-pointer items-center rounded-sm pr-7 pl-2 outline-none select-none',
+                  'text-sm',
                   'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                   'data-[highlighted]:bg-accent',
                 )}

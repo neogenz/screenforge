@@ -78,7 +78,7 @@ function ProjectSegment() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-muted-foreground" />
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-xs bg-muted-foreground" />
       <ProjectName />
       <ProjectFileMenu />
       {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
@@ -86,7 +86,7 @@ function ProjectSegment() {
         role="status"
         aria-live="polite"
         className={cn(
-          'hidden shrink-0 items-center gap-1.5 text-[11px] xl:flex',
+          'hidden shrink-0 items-center gap-1.5 text-2xs xl:flex',
           saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
@@ -227,7 +227,7 @@ function ProjectName() {
       spellCheck={false}
       className={cn(
         'h-9 w-40 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
-        'text-[14px] font-semibold tracking-[-0.012em] text-foreground transition-colors',
+        'text-sm font-semibold tracking-[-0.012em] text-foreground transition-colors',
         'hover:border-border focus:border-input focus:bg-secondary focus:outline-none',
       )}
     />
@@ -363,7 +363,7 @@ function ActionsSegment() {
         title="Palette de commandes (⌘K)"
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
+          'flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
           'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
         )}
       >

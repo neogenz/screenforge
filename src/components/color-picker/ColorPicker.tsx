@@ -198,7 +198,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         )}
       </div>
       {colorError && (
-        <p id={errorId} role="alert" className="text-[11px] leading-relaxed text-destructive">
+        <p id={errorId} role="alert" className="text-2xs leading-relaxed text-destructive">
           {colorError}
         </p>
       )}
@@ -212,7 +212,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               <button
                 key={color}
                 type="button"
-                className="h-5 w-5 cursor-pointer rounded-[4px] border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
+                className="h-5 w-5 cursor-pointer rounded-xs border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
                 style={{ backgroundColor: color }}
                 onClick={() => {
                   addRecentColor(color)

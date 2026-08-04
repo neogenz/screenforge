@@ -248,7 +248,7 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
     >
       <div
         aria-hidden
-        className="absolute inset-0 rounded-[8px]"
+        className="absolute inset-0 rounded-md"
         style={{ background: buildCssGradient(gradient) }}
       />
       {stops.map((stop, displayIndex) => (

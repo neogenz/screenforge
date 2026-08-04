@@ -166,7 +166,7 @@ export function ScreensBar() {
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
-        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-[10.5px] text-muted-foreground">
+        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-2xs text-muted-foreground">
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>
       )}

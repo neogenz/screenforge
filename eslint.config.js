@@ -46,7 +46,9 @@ export default tseslint.config(
     files: ['scripts/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: globals.node,
+      // Ces scripts pilotent un navigateur : le corps des `page.evaluate`
+      // s'exécute dans la page et lit ses globales, comme les specs e2e.
+      globals: { ...globals.browser, ...globals.node },
     },
   },
 )

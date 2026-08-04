@@ -73,7 +73,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
                 disabled={item.disabled}
                 onSelect={() => item.onSelect()}
                 className={cn(
-                  'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left text-[12.5px] outline-none transition-colors',
+                  'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left text-sm outline-none transition-colors',
                   'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                   item.danger
                     ? 'text-destructive data-[highlighted]:bg-destructive/14'
@@ -83,7 +83,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
                 {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.shortcut && (
-                  <span className="tabular ml-auto pl-4 text-[10px] text-muted-foreground">{item.shortcut}</span>
+                  <span className="tabular ml-auto pl-4 text-2xs text-muted-foreground">{item.shortcut}</span>
                 )}
               </DropdownMenuPrimitive.Item>
             ),

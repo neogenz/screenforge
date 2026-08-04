@@ -59,7 +59,7 @@ export function Slider({
           )}
         />
       </SliderPrimitive.Root>
-      <span className="field-surface tabular flex h-7 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-muted-foreground">
+      <span className="field-surface tabular flex h-8 min-w-11 shrink-0 items-center justify-center px-2 text-2xs text-muted-foreground">
         {formatValue ? formatValue(current) : current}
       </span>
     </div>

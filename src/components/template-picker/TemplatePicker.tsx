@@ -48,8 +48,8 @@ function TemplatePickerContent() {
             {/* Le libellé de la vignette tient sur un mot : c'est ici, une fois le
                 modèle choisi, que sa description a la place d'être lue. */}
             <div className="flex min-w-0 flex-col">
-              <p className="truncate text-[12px] font-medium text-foreground">{selected.name}</p>
-              <p className="truncate text-[11.5px] text-muted-foreground">{selected.description}</p>
+              <p className="truncate text-sm font-medium text-foreground">{selected.name}</p>
+              <p className="truncate text-2xs text-muted-foreground">{selected.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="default" onClick={() => handleApply('current')}>
@@ -88,7 +88,7 @@ function TemplatePickerContent() {
               <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">
                 <TemplatePreview template={template} />
               </div>
-              <p className="truncate px-0.5 text-[11.5px] font-medium text-foreground">
+              <p className="truncate px-0.5 text-2xs font-medium text-foreground">
                 {template.name}
               </p>
             </button>

@@ -16,8 +16,8 @@ const inputVariants = cva(
     variants: {
       font: {
         /** Valeurs numériques : Inter a des chiffres tabulaires natifs. */
-        tabular: 'text-[12.5px] tabular-nums',
-        sans: 'text-[12.5px]',
+        tabular: 'text-sm tabular-nums',
+        sans: 'text-sm',
       },
     },
     defaultVariants: { font: 'tabular' },

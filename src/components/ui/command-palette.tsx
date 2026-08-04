@@ -48,13 +48,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         <Command.Input
           aria-label="Rechercher une commande"
           placeholder="Rechercher une commande…"
-          className="h-10 w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+          className="h-10 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
         <Kbd>esc</Kbd>
       </div>
 
       <Command.List label="Commandes" className="max-h-80 overflow-y-auto p-1.5">
-        <Command.Empty className="px-3 py-6 text-center text-[12.5px] text-muted-foreground">
+        <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
           Aucune commande
         </Command.Empty>
         {sections.map((group) => (
@@ -71,7 +71,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   'data-[selected=true]:bg-accent data-[selected=true]:text-foreground',
                 )}
               >
-                <span className="min-w-0 flex-1 truncate text-[12.5px]">{command.title}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{command.title}</span>
                 {command.shortcut && <Kbd>{command.shortcut}</Kbd>}
               </Command.Item>
             ))}

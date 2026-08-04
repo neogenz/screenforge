@@ -48,7 +48,7 @@ export function PropertiesPanel() {
       <div className="flex h-12 shrink-0 items-center justify-between px-3.5">
         <span className="panel-title">{headerLabel}</span>
         {selectedLayers.length > 1 && (
-          <span className="tabular text-[11px] text-muted-foreground">
+          <span className="tabular text-2xs text-muted-foreground">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
@@ -65,10 +65,10 @@ export function PropertiesPanel() {
         {selectedLayers.length > 1 && (
           <div className="px-3.5 pb-3.5">
             <div className="surface-inner px-4 py-7 text-center">
-              <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {selectedLayers.length} calques sélectionnés.
               </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-2xs text-muted-foreground">
                 Sélectionnez un seul calque pour éditer.
               </p>
             </div>
