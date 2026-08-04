@@ -1,6 +1,6 @@
 ---
 objective: "Corriger les quatre findings de la review des contrôles afin que le diff soit typé, accessible, annulable sans fusion indue et fiable pour chaque graisse de police demandée."
-status: implemented
+status: reviewed
 ---
 
 # Plan: Correction des findings des contrôles
