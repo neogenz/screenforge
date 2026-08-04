@@ -1,5 +1,3 @@
-import JSZip from 'jszip'
-
 export interface ExportEntry {
   dimension: string  // e.g. '6.9'
   index: number      // 1-based
@@ -8,6 +6,7 @@ export interface ExportEntry {
 }
 
 export async function createExportZip(entries: ExportEntry[]): Promise<Blob> {
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   for (const entry of entries) {
     const filename = `${String(entry.index).padStart(2, '0')}_${entry.name}.png`

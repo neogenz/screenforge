@@ -1,4 +1,5 @@
-import JSZip, { type JSZipObject } from 'jszip'
+import type JSZip from 'jszip'
+import type { JSZipObject } from 'jszip'
 import { resolveAsset } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
@@ -173,6 +174,7 @@ export async function createProjectFile(project: Project): Promise<Blob> {
     throw new ProjectFileError('invalid-manifest')
   }
 
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   zip.file(MANIFEST_PATH, manifestJson, { date: ZIP_DATE })
   for (const { descriptor, bytes } of assets) {
@@ -417,6 +419,7 @@ function preflightEntries(entries: JSZipObject[]): void {
 
 async function loadZip(file: File): Promise<JSZip> {
   try {
+    const { default: JSZip } = await import('jszip')
     return await JSZip.loadAsync(file, { createFolders: false })
   } catch {
     throw new ProjectFileError('invalid-archive')
