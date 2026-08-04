@@ -1,7 +1,7 @@
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
-import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
 import { POPULAR_FONTS } from '@/hooks/use-fonts'
 import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
@@ -75,6 +75,11 @@ export function createDeviceLayer(model: DeviceModel, zIndex: number) {
     deviceModel: model,
     deviceColor: config.colors[0].name,
     orientation: 'portrait' as const,
+    shadowEnabled: true,
+    shadowBlur: 18,
+    shadowColor: DEFAULT_DEVICE_SHADOW_COLOR,
+    shadowOffsetX: 0,
+    shadowOffsetY: 10,
   }
 }
 

@@ -10,7 +10,6 @@ import {
   util,
 } from 'fabric'
 import {
-  DEVICE_BLEED,
   DEVICE_RASTER_SCALE,
   generateDeviceFrameSVG,
   getDeviceFrame,
@@ -324,14 +323,12 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
   const contentEnd = portraitSvg.lastIndexOf('</svg>')
   const content = portraitSvg.slice(contentStart, contentEnd)
   // Rotation de 90° autour de l'origine puis translation : (x, y) → (height - y, x).
-  // Le contenu portrait s'étend de -DEVICE_BLEED à width + DEVICE_BLEED en x,
-  // ce débordement se retrouve donc en y une fois couché.
   return {
     width: rendered.height,
     height: rendered.width,
     // Même facteur de rastérisation que le portrait : sinon un appareil couché
     // serait quatre fois moins net que le même appareil debout.
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-DEVICE_BLEED} ${config.height} ${rendered.width}" width="${config.height * DEVICE_RASTER_SCALE}" height="${rendered.width * DEVICE_RASTER_SCALE}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${config.height} ${rendered.width}" width="${config.height * DEVICE_RASTER_SCALE}" height="${rendered.width * DEVICE_RASTER_SCALE}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
   }
 }
 
