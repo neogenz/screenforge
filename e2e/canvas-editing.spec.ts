@@ -59,8 +59,8 @@ test.describe('canvas text editing', () => {
         font.startsWith('400 ') ? [{} as FontFace] : [],
       )
       try {
-        const moduleUrl = new URL('/src/hooks/use-fonts.ts', window.location.href).href
-        const fonts = await import(/* @vite-ignore */ moduleUrl) as typeof import('../src/hooks/use-fonts')
+        const moduleUrl = new URL('/src/lib/fonts.ts', window.location.href).href
+        const fonts = await import(/* @vite-ignore */ moduleUrl) as typeof import('../src/lib/fonts')
         const load = await fonts.loadGoogleFont(family, ['400', '900'])
         return {
           status: load.status,

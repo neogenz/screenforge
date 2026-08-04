@@ -3,7 +3,7 @@ import { getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
 
 const DEFAULT_DEVICE_MODEL: DeviceModel = 'iphone-17-pro-max'

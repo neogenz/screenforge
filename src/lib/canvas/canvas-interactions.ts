@@ -4,7 +4,7 @@ import {
   SCREEN_WIDTH,
   getScreenOffset,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
+} from '@/lib/canvas/canvas-utils'
 import type { Box, Guide } from '@/lib/snapping'
 import type { Project, Screen } from '@/types'
 

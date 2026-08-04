@@ -1,9 +1,9 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { imageImportErrorMessage, importImageFile } from '@/lib/image'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
 
 /**

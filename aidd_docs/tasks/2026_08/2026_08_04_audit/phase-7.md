@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Frontières de modules et retry des polices
@@ -45,6 +45,7 @@ status: pending
 ├── src/stores/
 │   ├── canvas.store.ts                           ✏️ dimensions depuis lib/canvas
 │   └── project.store.ts                          ✏️ constantes depuis lib/fonts
+├── vite.config.ts                                ✏️ résolution native ESM sans `__dirname`
 └── aidd_docs/memory/codebase-map.md               ✏️ frontières de modules actualisées
 ```
 

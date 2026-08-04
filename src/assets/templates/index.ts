@@ -1,5 +1,5 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
 
 const W = 440

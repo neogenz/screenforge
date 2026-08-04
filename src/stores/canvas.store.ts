@@ -8,7 +8,7 @@ import {
 import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
 import type { Background, Layer, Screen, TemplateDefinition } from '@/types'

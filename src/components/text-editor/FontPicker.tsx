@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
-import { POPULAR_FONTS, isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+import { POPULAR_FONTS, isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'

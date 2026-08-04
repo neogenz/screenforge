@@ -11,7 +11,7 @@ import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
 import { Select } from '@/components/ui/select'
 import { SwatchButton } from '@/components/ui/swatch-button'
-import { FONT_WEIGHT_OPTIONS } from '@/hooks/use-fonts'
+import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
 export function GlobalsEditor() {

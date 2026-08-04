@@ -7,8 +7,8 @@ import {
   disposeFabricObjectResource,
   layerToFabricObject,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
-import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+} from '@/lib/canvas/canvas-utils'
+import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Screen } from '@/types'
 
 export const INTERNAL_PNG_SIZE_TARGET = 5 * 1024 * 1024

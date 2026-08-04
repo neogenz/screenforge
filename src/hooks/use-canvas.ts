@@ -16,7 +16,7 @@ import {
   getScreenOffset,
   getTotalWidth,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
+} from '@/lib/canvas/canvas-utils'
 import {
   SNAP_DISTANCE_PX,
   applyLassoColors,
@@ -30,14 +30,14 @@ import {
   sameIds,
   screenIndexAtPoint,
   type SelectionFrame,
-} from '@/components/canvas/canvas-interactions'
+} from '@/lib/canvas/canvas-interactions'
 import {
   ensureScreenClipPath,
   patchCanvas,
   syncCanvas,
   type CanvasSyncRuntime,
-} from '@/components/canvas/canvas-sync'
-import { installControlsPatch } from '@/components/canvas/controls-patch'
+} from '@/lib/canvas/canvas-sync'
+import { installControlsPatch } from '@/lib/canvas/controls-patch'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -51,7 +51,7 @@ import type { LayoutLayerUpdate, LocalLayerTransfer } from '@/lib/layer-transfer
 import type { Layer, Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
-export type { SelectionFrame } from '@/components/canvas/canvas-interactions'
+export type { SelectionFrame } from '@/lib/canvas/canvas-interactions'
 
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)

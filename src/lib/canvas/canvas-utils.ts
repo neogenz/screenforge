@@ -24,7 +24,7 @@ import {
   SELECTION_INK,
   renderTwoTone,
   type ControlHost,
-} from '@/components/canvas/controls-patch'
+} from '@/lib/canvas/controls-patch'
 import type {
   Background,
   BaseLayer,

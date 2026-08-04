@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
-import { FONT_WEIGHT_OPTIONS } from '@/hooks/use-fonts'
+import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import { FontPicker } from './FontPicker'
 import type { GradientFill, Layer, TextLayer } from '@/types'
 

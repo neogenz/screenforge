@@ -11,17 +11,17 @@ import {
   layerToFabricObject,
   needsFabricObjectRecreation,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
+} from '@/lib/canvas/canvas-utils'
 import {
   applyLassoColors,
   readChromeColors,
   resolveSelectionObjects,
   sameIds,
-} from '@/components/canvas/canvas-interactions'
+} from '@/lib/canvas/canvas-interactions'
 import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import type { ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Project, Screen } from '@/types'
 
 type MutableValue<T> = { current: T }

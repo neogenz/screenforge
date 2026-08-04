@@ -150,7 +150,10 @@ export function loadGoogleFont(
   if (loadedFonts.has(key)) return Promise.resolve({ family, status: 'loaded' })
   const existing = fontPromises.get(key)
   if (existing) return existing
-  const promise = loadFont(family, normalizedWeights, key)
+  const promise = loadFont(family, normalizedWeights, key).then((result) => {
+    if (result.status === 'fallback') fontPromises.delete(key)
+    return result
+  })
   fontPromises.set(key, promise)
   return promise
 }
