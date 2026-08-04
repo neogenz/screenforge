@@ -18,14 +18,13 @@ test.describe('canvas text editing', () => {
     })
     expect(center).not.toBeNull()
     await page.mouse.dblclick(center!.x, center!.y)
-    await page.waitForTimeout(400)
+    await expect.poll(() => page.evaluate(() =>
+      Boolean((window.__sfCanvas?.getActiveObject() as DebugObject | undefined)?.isEditing),
+    )).toBe(true)
     await page.keyboard.press('Meta+a')
     await page.keyboard.type('Nouveau titre')
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(600)
-
-    const object = await findObject(page, 'text')
-    expect(object?.text).toBe('Nouveau titre')
+    await expect.poll(async () => (await findObject(page, 'text'))?.text).toBe('Nouveau titre')
     // The properties panel reflects the edited content.
     await expect(page.locator('textarea', { hasText: 'Nouveau titre' })).toHaveCount(1)
   })
@@ -126,13 +125,15 @@ test.describe('device screenshot import', () => {
       return canvas.toDataURL('image/png').split(',')[1]
     })
 
-    const fileInput = page.locator('input[type="file"][accept*="png"]').first()
+    const fileInput = page.getByLabel('Importer la capture de l’app')
+    const previousResource = (await findObject(page, 'device-frame'))?.data?.resourceKey
     await fileInput.setInputFiles({
       name: 'capture.png',
       mimeType: 'image/png',
       buffer: Buffer.from(pngBase64, 'base64'),
     })
-    await page.waitForTimeout(1200)
+    await expect.poll(async () => (await findObject(page, 'device-frame'))?.data?.resourceKey)
+      .not.toBe(previousResource)
 
     const object = await findObject(page, 'device-frame')
     // resourceKey embeds model, color, orientation and the screenshot URL.

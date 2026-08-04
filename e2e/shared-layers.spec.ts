@@ -8,6 +8,7 @@ import {
   layerRows,
   objectStates,
   waitForApp,
+  waitForCanvasSettled,
 } from './helpers'
 
 test.describe('shared (layout) layers', () => {
@@ -20,10 +21,12 @@ test.describe('shared (layout) layers', () => {
     await addScreen(page)
     // Back to screen 1, reselect, share.
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+    )).toBe(1)
 
     const state = await activeObjectState(page)
     expect(state).not.toBeNull()
@@ -34,14 +37,16 @@ test.describe('shared (layout) layers', () => {
     await addDeviceLayer(page)
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+    )).toBe(1)
 
     await dragControl(page, 'mtr', 50, 0)
     const immediate = await activeObjectState(page)
-    await page.waitForTimeout(900)
+    await waitForCanvasSettled(page)
     const settled = await activeObjectState(page)
 
     expect(immediate!.angle).toBeGreaterThan(3)

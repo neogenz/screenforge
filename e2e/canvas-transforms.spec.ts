@@ -14,6 +14,7 @@ import {
   screenCenter,
   transformInput,
   waitForApp,
+  waitForCanvasSettled,
 } from './helpers'
 
 async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
@@ -25,7 +26,7 @@ async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<v
   await page.mouse.down()
   await page.mouse.move(destination.x, destination.y, { steps: 12 })
   await page.mouse.up()
-  await page.waitForTimeout(900)
+  await waitForCanvasSettled(page)
 }
 
 async function setRotation(page: Page, angle: number): Promise<void> {
@@ -52,7 +53,7 @@ test.describe('canvas transforms', () => {
     expect(before).not.toBeNull()
 
     await setRotation(page, 30)
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
 
     const after = await activeObjectState(page)
     expectClose(after!.angle, 30, 0.5)
@@ -91,7 +92,6 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(start.x + 24, start.y, { steps: 6 })
     await page.mouse.up()
-    await page.waitForTimeout(50)
 
     async function readState() {
       return page.evaluate((id) => {
@@ -114,7 +114,7 @@ test.describe('canvas transforms', () => {
     expectClose(immediate.renderedX! - before.renderedX!, immediate.x! - before.x!, 1)
     expect(immediate.selectedIds).toEqual([before.id])
 
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const settled = await readState()
     expectClose(settled.x!, immediate.x!, 0.01)
     expectClose(settled.y!, immediate.y!, 0.01)
@@ -127,7 +127,7 @@ test.describe('canvas transforms', () => {
     await dragControl(page, 'mtr', 40, 0)
     // Immediately after release (pre-sync) and after the store round-trip.
     const immediate = await activeObjectState(page)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const settled = await activeObjectState(page)
     expect(immediate!.angle).toBeGreaterThan(2)
     expectClose(settled!.angle, immediate!.angle, 0.5)
@@ -138,11 +138,11 @@ test.describe('canvas transforms', () => {
   test('corner resize keeps angle and position', async ({ page }) => {
     await addDeviceLayer(page)
     await setRotation(page, 20)
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     const before = await activeObjectState(page)
 
     await dragControl(page, 'br', 30, 30)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const after = await activeObjectState(page)
     expectClose(after!.angle, before!.angle, 0.5)
     expect(after!.scaleX).toBeGreaterThan(before!.scaleX)
@@ -151,11 +151,11 @@ test.describe('canvas transforms', () => {
   test('dragging a rotated object keeps its angle', async ({ page }) => {
     await addDeviceLayer(page)
     await dragControl(page, 'mtr', 40, 0)
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     const rotated = await activeObjectState(page)
 
     await dragActiveBody(page, 60, 30)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const dragged = await activeObjectState(page)
     expectClose(dragged!.angle, rotated!.angle, 0.3)
     expect(dragged!.left).toBeGreaterThan(rotated!.left + 20)
@@ -166,9 +166,9 @@ test.describe('canvas transforms', () => {
     await addTextLayer(page)
     const before = await activeObjectState(page)
     await dragActiveBody(page, 80, 40)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
     const layer = await findObject(page, 'text')
     expectClose(layer!.left!, before!.left, 1.5)
     expectClose(layer!.top!, before!.top, 1.5)
@@ -185,7 +185,9 @@ test.describe('canvas transforms', () => {
 
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.activeScreenId,
+    )).toBe(source.screenId)
     await layerRows(page).first().click()
 
     const before = await page.evaluate(() => ({
@@ -208,7 +210,7 @@ test.describe('canvas transforms', () => {
     expect(preview?.clipScreenIndex).toBe(1)
 
     await page.mouse.up()
-    await page.waitForTimeout(900)
+    await waitForCanvasSettled(page)
     const transferred = await page.evaluate((layerId) => {
       const project = window.__sfStores?.useProjectStore.getState().project
       const canvas = window.__sfCanvas
@@ -245,15 +247,13 @@ test.describe('canvas transforms', () => {
     transferred.viewport.forEach((value, index) => expectClose(value, before.viewport[index], 0.0001))
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(800)
-    const restored = await page.evaluate((layerId) => {
+    await expect.poll(() => page.evaluate((layerId) => {
       const project = window.__sfStores?.useProjectStore.getState().project
-      return {
+      return JSON.stringify({
         sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId).length,
         targetCount: project?.screens[1]?.layers.filter((candidate) => candidate.id === layerId).length,
-      }
-    }, source.layerId)
-    expect(restored).toEqual({ sourceCount: 1, targetCount: 0 })
+      })
+    }, source.layerId)).toBe(JSON.stringify({ sourceCount: 1, targetCount: 0 }))
   })
 
   test('dragging a multi-selection transfers every local layer', async ({ page }) => {
@@ -263,7 +263,7 @@ test.describe('canvas transforms', () => {
       window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.map((layer) => layer.id) ?? [])
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await layerRows(page).nth(1).click({ modifiers: ['Meta'] })
     expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
@@ -274,7 +274,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(destination.x, destination.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(900)
+    await waitForCanvasSettled(page)
 
     const result = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -295,7 +295,7 @@ test.describe('canvas transforms', () => {
       window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id)
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
 
     const [start, firstScreen, secondScreen] = await Promise.all([
@@ -308,7 +308,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(gutter.x, gutter.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
 
     const afterGutter = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -334,7 +334,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(firstScreen.x, firstScreen.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
     const afterReturn = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
       const object = window.__sfCanvas?.getObjects()
@@ -363,7 +363,7 @@ test.describe('canvas transforms', () => {
 
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await page.locator(`[data-layer-id="${layerId}"]`).click()
     const viewport = await page.evaluate(() => ({
       transform: [...(window.__sfCanvas?.viewportTransform ?? [])],
@@ -417,28 +417,26 @@ test.describe('canvas transforms', () => {
     await expectStableOwner(0)
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(800)
-    const undone = await page.evaluate((id) =>
+    await expect.poll(() => page.evaluate((id) =>
       window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)
-    expect(undone).toEqual([0, 1])
+        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([0, 1])
 
     await page.keyboard.press('Meta+Shift+z')
-    await page.waitForTimeout(800)
-    const redone = await page.evaluate((id) =>
+    await expect.poll(() => page.evaluate((id) =>
       window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)
-    expect(redone).toEqual([1, 0])
+        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([1, 0])
   })
 
   test('mixed local and shared selection transfers only the local layer', async ({ page }) => {
     await addDeviceLayer(page)
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+    )).toBe(1)
     await addTextLayer(page)
 
     const ids = await page.evaluate(() => {

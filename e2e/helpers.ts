@@ -38,6 +38,7 @@ export interface DebugObject {
   type?: string
   visible?: boolean
   text?: string
+  isEditing?: boolean
   oCoords?: Record<string, { x: number; y: number }>
   getCenterPoint?: () => { x: number; y: number }
 }
@@ -70,13 +71,17 @@ export async function waitForApp(page: Page): Promise<void> {
 }
 
 export async function addTextLayer(page: Page): Promise<void> {
+  const count = await projectLayerCount(page)
   await page.locator('button[aria-label="Ajouter Texte"]').click()
-  await page.waitForTimeout(300)
+  await expect.poll(() => projectLayerCount(page)).toBe(count + 1)
+  await expect.poll(async () => Boolean(await findObject(page, 'text'))).toBe(true)
 }
 
 export async function addShapeLayer(page: Page): Promise<void> {
+  const count = await projectLayerCount(page)
   await page.locator('button[aria-label="Ajouter Forme"]').click()
-  await page.waitForTimeout(300)
+  await expect.poll(() => projectLayerCount(page)).toBe(count + 1)
+  await expect.poll(async () => Boolean(await findObject(page, 'shape'))).toBe(true)
 }
 
 export async function addDeviceLayer(page: Page): Promise<void> {
@@ -115,8 +120,50 @@ export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipP
 }
 
 export async function addScreen(page: Page): Promise<void> {
+  const count = await page.evaluate(() =>
+    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)
   await page.locator('button[aria-label="Ajouter un écran"]').click()
-  await page.waitForTimeout(600)
+  await expect.poll(() => page.evaluate(() =>
+    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)).toBe(count + 1)
+  await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(count + 1)
+}
+
+async function projectLayerCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    if (!project) return 0
+    return project.layoutLayers.length
+      + project.screens.reduce((total, screen) => total + screen.layers.length, 0)
+  })
+}
+
+/** Wait until project and rendered-object state stop changing across polls. */
+export async function waitForCanvasSettled(page: Page): Promise<void> {
+  let previous = ''
+  let stablePolls = 0
+  await expect.poll(async () => {
+    const current = await page.evaluate(() => JSON.stringify({
+      project: window.__sfStores?.useProjectStore.getState().project,
+      selection: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+      objects: window.__sfCanvas?.getObjects().map((object) => {
+        const debug = object as DebugObject
+        return {
+          data: debug.data,
+          left: debug.left,
+          top: debug.top,
+          angle: debug.angle,
+          scaleX: debug.scaleX,
+          scaleY: debug.scaleY,
+          visible: debug.visible,
+          text: debug.text,
+          isEditing: debug.isEditing,
+        }
+      }),
+    }))
+    stablePolls = current === previous ? stablePolls + 1 : 0
+    previous = current
+    return stablePolls >= 2
+  }, { timeout: 5_000, intervals: [50, 100, 200, 400] }).toBe(true)
 }
 
 export function layerRows(page: Page) {

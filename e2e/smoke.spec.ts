@@ -26,10 +26,8 @@ test.describe('smoke', () => {
     await expect(layerRows(page)).toHaveCount(3)
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(400)
     await expect(layerRows(page)).toHaveCount(2)
     await page.keyboard.press('Meta+Shift+z')
-    await page.waitForTimeout(400)
     await expect(layerRows(page)).toHaveCount(3)
   })
 
