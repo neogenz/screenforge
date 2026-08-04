@@ -18,6 +18,12 @@ const SURFACES = ['stage', 'background', 'panel', 'inset', 'raised']
 
 const MIN_RATIO = 4.5
 
+/**
+ * @param {number} lightness
+ * @param {number} chroma
+ * @param {number} hueDegrees
+ * @returns {number[]}
+ */
 function oklchToRgb(lightness, chroma, hueDegrees) {
   const hue = (hueDegrees * Math.PI) / 180
   const a = chroma * Math.cos(hue)
@@ -36,10 +42,12 @@ function oklchToRgb(lightness, chroma, hueDegrees) {
 }
 
 /** Luminance relative WCAG : les canaux linéaires sont déjà ce qu'elle demande. */
+/** @param {number[]} color */
 function luminance([r, g, b]) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
+/** @param {number[]} first @param {number[]} second */
 function contrast(first, second) {
   const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a)
   return (high + 0.05) / (low + 0.05)
@@ -54,7 +62,9 @@ function readTokens() {
   const lightStart = css.indexOf('.light {')
   if (lightStart === -1) throw new Error('bloc .light introuvable dans src/index.css')
 
+  /** @param {string} source */
   const parse = (source) => {
+    /** @type {Map<string, number[]>} */
     const tokens = new Map()
     const pattern = /--color-([a-z0-9-]+):\s*oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)\s*;/g
     for (const [, name, l, c, h] of source.matchAll(pattern)) {
@@ -95,7 +105,12 @@ if (failures > 0) {
 
 const worst = Object.entries(themes).map(([theme, tokens]) => {
   const ratios = INKS.flatMap((ink) =>
-    SURFACES.map((surface) => contrast(tokens.get(ink), tokens.get(surface))))
+    SURFACES.map((surface) => {
+      const foreground = tokens.get(ink)
+      const background = tokens.get(surface)
+      if (!foreground || !background) throw new Error(`jeton absent du thème ${theme}`)
+      return contrast(foreground, background)
+    }))
   return `${theme} ${Math.min(...ratios).toFixed(2)}:1`
 })
 console.log(`Contraste OK — pire cas : ${worst.join(', ')}`)

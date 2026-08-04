@@ -39,20 +39,24 @@ await page.waitForTimeout(1000)
 
 const report = await page.evaluate(() => {
   const canvas = window.__sfCanvas
-  const objects = canvas.getObjects()
+  const stores = window.__sfStores
+  if (!canvas || !stores) throw new Error('ScreenForge debug handles unavailable')
+  /** @type {Array<import('../e2e/helpers').DebugObject & { clipPath?: { left?: number; top?: number } }>} */
+  const rendered = /** @type {never} */ (canvas.getObjects())
+  const objects = rendered
     .filter((o) => o.data?.rendererType === 'device-frame')
     .map((o) => ({
       uid: o.data?.uid,
       layout: o.data?.layout,
       screenIndex: o.data?.screenIndex,
       clipScreenIndex: o.data?.clipScreenIndex,
-      left: Math.round(o.left * 100) / 100,
-      top: Math.round(o.top * 100) / 100,
-      angle: Math.round(o.angle * 100) / 100,
+      left: Math.round((o.left ?? 0) * 100) / 100,
+      top: Math.round((o.top ?? 0) * 100) / 100,
+      angle: Math.round((o.angle ?? 0) * 100) / 100,
       clipLeft: o.clipPath?.left,
       clipTop: o.clipPath?.top,
     }))
-  const layers = window.__sfStores.useCanvasStore.getState().layers.map((l) => ({
+  const layers = stores.useCanvasStore.getState().layers.map((l) => ({
     id: l.id, type: l.type, scope: l.scope, x: l.x, y: l.y, rotation: l.rotation,
   }))
   return { objects, layers, viewport: canvas.viewportTransform }

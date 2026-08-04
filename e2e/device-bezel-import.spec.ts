@@ -78,7 +78,7 @@ interface PixelRegion {
 }
 
 function topDarkComponents(
-  image: { width: number; channels: number; data: Uint8Array | Uint16Array },
+  image: ReturnType<typeof decode>,
   region: PixelRegion,
 ): PixelBox[] {
   const pixelCount = region.width * region.height

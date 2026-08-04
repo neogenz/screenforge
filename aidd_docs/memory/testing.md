@@ -11,6 +11,7 @@
 
 - Vitest for unit tests; `fake-indexeddb` supplies browser storage in tests.
 - Playwright runs Chromium serially against Vite on port 5199 and retains traces on failure.
+- `tsconfig.tools.json` type-checks Playwright specs/config, Vite config, and checked JavaScript scripts.
 
 ## Conventions
 
@@ -24,3 +25,4 @@
 - `pnpm run test:unit`: unit suite.
 - `pnpm run test:e2e`: Chromium E2E suite.
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
+- GitHub runs the release gate on every push and pull request and uploads Playwright diagnostics on failure.

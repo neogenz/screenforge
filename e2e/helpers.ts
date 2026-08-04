@@ -1,7 +1,7 @@
 import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
-import type { Background } from '../src/types'
+import type { Layer, Project } from '../src/types'
 
 /**
  * E2E helpers driving the app through its real UI, plus a dev-only debug
@@ -49,33 +49,13 @@ declare global {
     __sfStores?: {
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: { getState: () => {
-        layers: { id: string; x: number; y: number; type?: string }[]
+        layers: Layer[]
         selectedLayerIds: string[]
         activeScreenId: string
       } }
-      useProjectStore: { getState: () => { project: {
-        id: string
-        screens: { id: string; background: Background; layers: Array<{
-          id: string
-          x: number
-          y: number
-          width?: number
-          height?: number
-          type?: string
-          assetId?: string
-          screenshotAssetId?: string
-          importedBezel?: { assetId: string }
-        }> }[]
-        layoutLayers: Array<{
-          id: string
-          type?: string
-          assetId?: string
-          screenshotAssetId?: string
-          importedBezel?: { assetId: string }
-        }>
-        activeScreenId: string
-      } | null
-      updateScreenBackground: (screenId: string, background: Background) => void
+      useProjectStore: { getState: () => {
+        project: Project | null
+        updateScreenBackground: (screenId: string, background: Project['globals']['background']) => void
       } }
     }
   }

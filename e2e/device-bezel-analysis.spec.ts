@@ -30,7 +30,8 @@ function oversizedDeviceBezelHeader(): Buffer {
 
 async function analyze(page: Page, bytes: Uint8Array): Promise<AnalysisResult> {
   return page.evaluate(async (base64) => {
-    const { analyzeDeviceBezel } = await import('/src/lib/device-bezel.ts')
+    const modulePath = '/src/lib/device-bezel.ts'
+    const { analyzeDeviceBezel } = await import(modulePath) as typeof import('../src/lib/device-bezel')
     const binary = atob(base64)
     const payload = Uint8Array.from(binary, (character) => character.charCodeAt(0))
     const file = new File([payload], 'iPhone Test - Portrait.png', { type: 'image/png' })
@@ -93,7 +94,8 @@ test('rejects opaque, open and corrupt PNGs with stable errors', async ({ page }
 
 test('rejects an oversized file before reading it', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = await import('/src/lib/device-bezel.ts')
+    const modulePath = '/src/lib/device-bezel.ts'
+    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = await import(modulePath) as typeof import('../src/lib/device-bezel')
     let read = false
     const file = {
       name: 'huge.png',
@@ -103,7 +105,7 @@ test('rejects an oversized file before reading it', async ({ page }) => {
         read = true
         throw new Error('must not read')
       },
-    } as File
+    } as unknown as File
     try {
       await analyzeDeviceBezel(file)
       return { code: 'none', read }
@@ -129,7 +131,8 @@ test('rejects oversized IHDR dimensions before decoding pixel data', async ({ pa
 
 test('normalizes legacy and malformed device layers safely', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const { normalizeProject } = await import('/src/lib/storage.ts')
+    const modulePath = '/src/lib/storage.ts'
+    const { normalizeProject } = await import(modulePath) as typeof import('../src/lib/storage')
     const layer = {
       id: 'device',
       type: 'device-frame',
@@ -148,29 +151,33 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
       orientation: 'landscape',
       screenshotAssetId: 'screenshot',
     }
-    const project = (candidate: object) => normalizeProject({
-      id: 'project',
-      name: 'Test',
-      activeScreenId: 'screen',
-      screens: [{
-        id: 'screen',
-        name: 'Screen',
-        background: { type: 'solid', color: '#fff' },
-        layers: [{ ...layer, ...candidate }],
-      }],
-      globals: {
-        fontFamily: 'Inter',
-        fontWeight: 700,
-        fontSize: 48,
-        fontColor: '#000',
-        background: { type: 'solid', color: '#fff' },
-        deviceModel: 'iphone-17-pro-max',
-        deviceColor: 'silver',
-      },
-      layoutLayers: [],
-      createdAt: 1,
-      updatedAt: 1,
-    }).screens[0].layers[0]
+    const project = (candidate: object) => {
+      const normalized = normalizeProject({
+        id: 'project',
+        name: 'Test',
+        activeScreenId: 'screen',
+        screens: [{
+          id: 'screen',
+          name: 'Screen',
+          background: { type: 'solid', color: '#fff' },
+          layers: [{ ...layer, ...candidate }],
+        }],
+        globals: {
+          fontFamily: 'Inter',
+          fontWeight: 700,
+          fontSize: 48,
+          fontColor: '#000',
+          background: { type: 'solid', color: '#fff' },
+          deviceModel: 'iphone-17-pro-max',
+          deviceColor: 'silver',
+        },
+        layoutLayers: [],
+        createdAt: 1,
+        updatedAt: 1,
+      }).screens[0].layers[0]
+      if (normalized.type !== 'device-frame') throw new Error('Expected device layer')
+      return normalized
+    }
 
     const legacy = project({})
     const malformed = project({

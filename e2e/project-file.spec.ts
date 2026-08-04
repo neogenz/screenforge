@@ -42,8 +42,10 @@ function withCentralUncompressedSize(
 
 async function portableFixture(page: Page): Promise<PortableFixture> {
   return page.evaluate(async () => {
-    const { clearAssets, registerAsset } = await import('/src/lib/assets.ts')
-    const { createProjectFile, readProjectFile } = await import('/src/lib/project-file.ts')
+    const assetsPath = '/src/lib/assets.ts'
+    const projectFilePath = '/src/lib/project-file.ts'
+    const { clearAssets, registerAsset } = await import(assetsPath) as typeof import('../src/lib/assets')
+    const { createProjectFile, readProjectFile } = await import(projectFilePath) as typeof import('../src/lib/project-file')
     clearAssets()
     const imageId = registerAsset('data:image/png;base64,aW1hZ2U=')
     const screenshotId = registerAsset('data:image/jpeg;base64,c2NyZWVuc2hvdA==')
@@ -138,7 +140,8 @@ async function portableFixture(page: Page): Promise<PortableFixture> {
 
 async function readArchive(page: Page, bytes: Uint8Array) {
   return page.evaluate(async (archive) => {
-    const { readProjectFile } = await import('/src/lib/project-file.ts')
+    const modulePath = '/src/lib/project-file.ts'
+    const { readProjectFile } = await import(modulePath) as typeof import('../src/lib/project-file')
     try {
       await readProjectFile(new File([Uint8Array.from(archive)], 'test.screenforge.zip'))
       return 'ok'
@@ -241,8 +244,10 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
 
 test('rejects an invalid archive without mutating the open project or assets', async ({ page }) => {
   const before = await page.evaluate(async () => {
-    const { registerAsset } = await import('/src/lib/assets.ts')
-    const { useProjectStore } = await import('/src/stores/project.store.ts')
+    const assetsPath = '/src/lib/assets.ts'
+    const projectStorePath = '/src/stores/project.store.ts'
+    const { registerAsset } = await import(assetsPath) as typeof import('../src/lib/assets')
+    const { useProjectStore } = await import(projectStorePath) as typeof import('../src/stores/project.store')
     return {
       projectId: useProjectStore.getState().project?.id,
       assetId: registerAsset('data:image/png;base64,c2VudGluZWw='),
@@ -251,8 +256,10 @@ test('rejects an invalid archive without mutating the open project or assets', a
 
   expect(await readArchive(page, new TextEncoder().encode('not a zip'))).toBe('invalid-archive')
   expect(await page.evaluate(async ({ projectId, assetId }) => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
-    const { useProjectStore } = await import('/src/stores/project.store.ts')
+    const assetsPath = '/src/lib/assets.ts'
+    const projectStorePath = '/src/stores/project.store.ts'
+    const { resolveAsset } = await import(assetsPath) as typeof import('../src/lib/assets')
+    const { useProjectStore } = await import(projectStorePath) as typeof import('../src/stores/project.store')
     return {
       projectId: useProjectStore.getState().project?.id,
       asset: resolveAsset(assetId),
@@ -316,7 +323,8 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await expect(page.getByRole('status').filter({ hasText: 'Enregistré' })).toBeVisible()
 
   const imported = await page.evaluate(async () => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const modulePath = '/src/lib/assets.ts'
+    const { resolveAsset } = await import(modulePath) as typeof import('../src/lib/assets')
     const project = window.__sfStores?.useProjectStore.getState().project
     const layers = project
       ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
@@ -340,7 +348,8 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas))
   const afterReload = await page.evaluate(async () => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const modulePath = '/src/lib/assets.ts'
+    const { resolveAsset } = await import(modulePath) as typeof import('../src/lib/assets')
     const project = window.__sfStores?.useProjectStore.getState().project
     const layers = project
       ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
@@ -396,7 +405,8 @@ test('downloads, imports and reloads a complete portable project', async ({ page
 
 test('keeps the current session intact when UI import rejects a corrupt file', async ({ page }) => {
   const before = await page.evaluate(async () => {
-    const { registerAsset } = await import('/src/lib/assets.ts')
+    const modulePath = '/src/lib/assets.ts'
+    const { registerAsset } = await import(modulePath) as typeof import('../src/lib/assets')
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
       activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
@@ -410,7 +420,8 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
   })
   await expect(page.getByRole('alert').filter({ hasText: 'Archive projet invalide.' })).toBeVisible()
   expect(await page.evaluate(async ({ assetId }) => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const modulePath = '/src/lib/assets.ts'
+    const { resolveAsset } = await import(modulePath) as typeof import('../src/lib/assets')
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
       activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
