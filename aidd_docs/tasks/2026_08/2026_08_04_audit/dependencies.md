@@ -30,8 +30,22 @@ Stack globalement alignée avec les standards communautaires 2026 pour un outil 
 | JSZip 3.10 | Dernière release août 2022, projet mort (373 issues) ; fflate 0.8.3 le dépasse en téléchargements (54M/sem) et est le remplaçant consensuel | **Basculer → fflate** (`level: 0`, les PNG ne se compressent pas) |
 | fast-png 8 | 8.0.0 = dernière, maintenu, rien de nouveau dans le segment | **Garder** |
 | lucide-react 1.7 | 1.28.0 — toujours le set d'icônes par défaut React | **Mettre à jour** (vérifier renommages d'icônes) |
-| CVA + clsx + tailwind-merge | Toujours le trio standard ; tailwind-merge v3 requis pour TW v4 | **Garder** |
+| CVA + clsx + tailwind-merge | Toujours le trio standard ; tailwind-merge v3 requis pour TW v4 ; c'est aussi le socle exact de shadcn/ui | **Garder** (sert de base à la migration shadcn) |
 | Concept local-first (IndexedDB + canvas + ZIP + Google Fonts) | Validé par le clone open source notable du segment (YUZU-Hub/appscreen, ~2k★, architecture quasi identique) ; le marché concurrentiel part sur du SaaS IA freemium — le positionnement « local, pixel-exact, zéro abonnement » reste différenciant | **Aligné** |
+
+## Décision : migration totale vers shadcn/ui (à planifier)
+
+Décision produit/tech actée le 2026-08-04 : remplacer les primitives UI maison (`src/components/ui/`) par **shadcn/ui** pour avoir une base standard « out of the box » au lieu d'un design system 100 % custom. Migration **totale** : même les composants sans équivalent shadcn (`NumberField` scrub, `SwatchButton`) seront reconstruits par-dessus les primitives Radix.
+
+Points clés pour le plan à venir :
+- **Compatibilité native** : shadcn/ui n'est pas une dépendance mais un générateur qui copie les composants dans le repo ; il est construit sur la stack déjà présente (Tailwind v4 CSS-first, CVA, clsx, tailwind-merge, `cn()`, Lucide). Aucun changement de paradigme.
+- **Nouvelles dépendances à ajouter** : `radix-ui` (primitives accessibles), `sonner` (toasts, remplace `ToastViewport`), `cmdk` (palette ⌘K, remplace `CommandPalette`), `tw-animate-css` (animations des composants).
+- **Ajustements nécessaires** : densité du chrome (shadcn sort en h-9/h-10 par défaut, le projet vise 28-36px → variants de size à définir) ; tokens OKLCH existants dans `@theme` à mapper sur les tokens shadcn ; design language v5 d'`AGENTS.md` à mettre à jour une fois la migration faite.
+- **Impact surface** : toutes les features importent depuis `src/components/ui/` — si l'API des composants copiés est adaptée pour rester compatible (mêmes noms/props), la migration se fait fichier par fichier sans toucher aux features.
+
+| Choix du projet | État communauté août 2026 | Verdict |
+|---|---|---|
+| Primitives UI maison (CVA) | shadcn/ui = standard de fait de l'écosystème React/Tailwind ; socle Radix pour l'a11y | **Migrer vers shadcn/ui** (décision actée, plan à produire) |
 
 ## Findings
 
@@ -48,6 +62,7 @@ Stack globalement alignée avec les standards communautaires 2026 pour un outil 
 | 🟢  | dependencies | `package.json:54`  | vite 8.0.3 → 8.2.0 (patch mineur)                                                              | `pnpm update vite @vitejs/plugin-react`                                     | S      |
 | 🟢  | dependencies | `package.json:36`  | tailwind-merge 3.5.0 → 3.6.0 (+ patches @types/react, tailwindcss 4.3.3, playwright 1.62.1…)   | `pnpm update` (patches)                                                     | S      |
 | 🟢  | dependencies | `package.json`     | Licences : tout MIT/permissif, aucun GPL/AGPL — conforme pour un usage commercial               | RAS                                                                         | S      |
+| 🟢  | dependencies | `src/components/ui/` | Primitives UI 100 % maison alors que shadcn/ui est le standard ; décision actée : migration totale (voir section dédiée) | Produire un plan de migration shadcn/ui (radix-ui, sonner, cmdk, tw-animate-css) | L      |
 
 ## Top actions
 
@@ -55,6 +70,7 @@ Stack globalement alignée avec les standards communautaires 2026 pour un outil 
 2. **Remplacer JSZip par fflate** dans `src/lib/zip.ts` (et `src/lib/project-file.ts`, `e2e/helpers.ts`, `scripts/validate-export.mjs`) — seul vrai écart avec le standard 2026 ; bundle et perf en bénéficient (finding 3). Hand-off : refactor.
 3. **Migrer TypeScript 5.9 → 6.0** — dernière version officiellement supportée par typescript-eslint ; TS 7 attendra typescript-eslint v9 (finding 6). Hand-off : refactor.
 4. **Vague de mises à jour mineures** : lucide-react, vite, eslint 10, pnpm 11, patches divers (findings 4-5, 7, 10, 11). Hand-off : refactor.
+5. **Plan de migration shadcn/ui** (décision actée, migration totale — voir section dédiée) : à produire avec aidd-dev-01-plan à la demande. Hand-off : plan puis implement.
 
 ## Coverage
 
