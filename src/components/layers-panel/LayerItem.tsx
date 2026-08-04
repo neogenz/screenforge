@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { IconButton } from '@/components/ui/icon-button'
-import { buildLayerMenuItems } from '@/components/ui/layer-menu'
+import { buildLayerMenuItems } from '@/lib/layer-menu'
 import { useLayerActions } from '@/hooks/use-layer-actions'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
