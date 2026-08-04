@@ -56,7 +56,9 @@ const report = await page.evaluate(() => {
       clipLeft: o.clipPath?.left,
       clipTop: o.clipPath?.top,
     }))
-  const layers = stores.useCanvasStore.getState().layers.map((l) => ({
+  const project = stores.useProjectStore.getState().project
+  const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+  const layers = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].map((l) => ({
     id: l.id, type: l.type, scope: l.scope, x: l.x, y: l.y, rotation: l.rotation,
   }))
   return { objects, layers, viewport: canvas.viewportTransform }

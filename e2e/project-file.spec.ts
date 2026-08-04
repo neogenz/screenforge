@@ -328,7 +328,7 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await page.getByLabel('Nom du projet').press('Enter')
   await page.getByLabel('Ajouter Texte').click()
   await expect.poll(() => page.evaluate(() => window.__sfStores
-    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'text'))).toBe(true)
+    ?.useProjectStore.getState().project?.screens[0]?.layers.some((layer) => layer.type === 'text'))).toBe(true)
   await page.getByLabel('Importer une image').setInputFiles({
     name: 'hero.png',
     mimeType: 'image/png',
@@ -448,9 +448,10 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
   const before = await page.evaluate(async () => {
     const modulePath = '/src/lib/assets.ts'
     const { registerAsset } = await import(modulePath) as typeof import('../src/lib/assets')
+    const project = window.__sfStores?.useProjectStore.getState().project
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
-      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      activeScreenId: project?.activeScreenId,
       assetId: registerAsset('data:image/png;base64,c3RheQ=='),
     }
   })
@@ -463,9 +464,10 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
   expect(await page.evaluate(async ({ assetId }) => {
     const modulePath = '/src/lib/assets.ts'
     const { resolveAsset } = await import(modulePath) as typeof import('../src/lib/assets')
+    const project = window.__sfStores?.useProjectStore.getState().project
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
-      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      activeScreenId: project?.activeScreenId,
       asset: resolveAsset(assetId),
     }
   }, before)).toEqual({

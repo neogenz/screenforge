@@ -27,10 +27,12 @@ test.describe('layers panel', () => {
     await expect(layerRows(page)).toHaveCount(2)
     await expect(layerRows(page).filter({ hasText: 'copie' })).toHaveCount(1)
     const duplicated = await page.evaluate(() => {
-      const state = window.__sfStores?.useCanvasStore.getState()
+      const canvas = window.__sfStores?.useCanvasStore.getState()
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layers = project?.screens.find((screen) => screen.id === project.activeScreenId)?.layers ?? []
       return {
-        copyId: state?.layers.find((layer) => layer.id !== state.layers[0]?.id)?.id,
-        selectedIds: state?.selectedLayerIds ?? [],
+        copyId: layers.find((layer) => layer.id !== layers[0]?.id)?.id,
+        selectedIds: canvas?.selectedLayerIds ?? [],
       }
     })
     expect(duplicated.copyId).toBeTruthy()

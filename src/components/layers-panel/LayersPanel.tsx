@@ -5,7 +5,7 @@ import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer } from '@/lib/layer-factories'
 import type { Layer } from '@/types'
 
@@ -16,12 +16,8 @@ import type { Layer } from '@/types'
  * memoized LayerItems skip re-renders on unrelated state changes.
  */
 export function LayersPanel() {
-  const { layers, selectedLayerIds } = useCanvasStore(
-    useShallow((state) => ({
-      layers: state.layers,
-      selectedLayerIds: state.selectedLayerIds,
-    })),
-  )
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
+  const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
   const defaultDeviceModel = useProjectStore((state) => state.project?.globals.deviceModel)
 
   const [query, setQuery] = useState('')
@@ -81,7 +77,8 @@ export function LayersPanel() {
   const handleDrop = useCallback((layer: Layer, event: React.DragEvent) => {
     event.preventDefault()
     const sourceId = dragSourceId.current
-    const { layers, reorderLayer } = useCanvasStore.getState()
+    const { reorderLayer } = useCanvasStore.getState()
+    const layers = getProjectLayers(useProjectStore.getState().project)
     const source = layers.find((candidate) => candidate.id === sourceId)
     if (source && source.id !== layer.id && source.scope === layer.scope) {
       reorderLayer(source.id, layer.zIndex)
@@ -95,7 +92,8 @@ export function LayersPanel() {
 
   const handleAddDevice = useCallback(() => {
     if (!defaultDeviceModel) return
-    const { layers, addLayer } = useCanvasStore.getState()
+    const { addLayer } = useCanvasStore.getState()
+    const layers = getProjectLayers(useProjectStore.getState().project)
     addLayer(createDeviceLayer(defaultDeviceModel, layers.length))
   }, [defaultDeviceModel])
 

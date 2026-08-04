@@ -38,11 +38,22 @@ function withTimestamp(project: Project, updates: Partial<Project>): Project {
   }
 }
 
+export function getActiveScreen(project: Project | null): Screen | undefined {
+  return project?.screens.find((screen) => screen.id === project.activeScreenId)
+    ?? project?.screens[0]
+}
+
+export function getProjectLayers(project: Project | null): Layer[] {
+  const screen = getActiveScreen(project)
+  return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+}
+
 interface ProjectState {
   project: Project | null
 
   createProject: (name: string) => void
   loadProject: (project: Project) => void
+  setActiveScreenId: (id: string) => void
   updateProjectName: (name: string) => void
   addScreen: (content?: Pick<Screen, 'name' | 'layers' | 'background'>) => string | null
   removeScreen: (id: string) => string | null
@@ -83,6 +94,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   },
 
   loadProject: (project) => set({ project }),
+
+  setActiveScreenId: (id) =>
+    set((state) => {
+      if (!state.project || state.project.activeScreenId === id) return state
+      if (!state.project.screens.some((screen) => screen.id === id)) return state
+      return { project: withTimestamp(state.project, { activeScreenId: id }) }
+    }),
 
   renameScreen: (id, name) =>
     set((state) => {

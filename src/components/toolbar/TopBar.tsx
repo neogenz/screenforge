@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore, type SaveStatus } from '@/stores/ui.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
@@ -244,6 +244,10 @@ function ToolsSegment() {
     useCanvasStore.getState().addLayer(layer)
   }
 
+  function layerCount() {
+    return getProjectLayers(useProjectStore.getState().project).length
+  }
+
   return (
     <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
       <IconButton
@@ -272,13 +276,13 @@ function ToolsSegment() {
           size="sm"
           aria-label="Ajouter Texte"
           title="Ajouter : texte"
-          onClick={() => addLayer(createTextLayer(useCanvasStore.getState().layers.length))}
+          onClick={() => addLayer(createTextLayer(layerCount()))}
         >
           <Type size={16} strokeWidth={1.75} />
         </IconButton>
         <DeviceAddTool
           onSelect={(model) =>
-            addLayer(createDeviceLayer(model, useCanvasStore.getState().layers.length))
+            addLayer(createDeviceLayer(model, layerCount()))
           }
         />
         <IconButton
@@ -293,7 +297,7 @@ function ToolsSegment() {
           size="sm"
           aria-label="Ajouter Forme"
           title="Ajouter : forme"
-          onClick={() => addLayer(createShapeLayer(useCanvasStore.getState().layers.length))}
+          onClick={() => addLayer(createShapeLayer(layerCount()))}
         >
           <Square size={16} strokeWidth={1.75} />
         </IconButton>

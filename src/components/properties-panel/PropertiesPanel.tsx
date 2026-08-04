@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { cn } from '@/lib/utils'
@@ -22,13 +23,13 @@ const SCOPE_OPTIONS: SegmentedOption<LayerScope>[] = [
 ]
 
 export function PropertiesPanel() {
-  const { layers, selectedLayerIds, setLayerScope } = useCanvasStore(
+  const { selectedLayerIds, setLayerScope } = useCanvasStore(
     useShallow((s) => ({
-      layers: s.layers,
       selectedLayerIds: s.selectedLayerIds,
       setLayerScope: s.setLayerScope,
     })),
   )
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
 
   const selectedLayers = selectedLayerIds
     .map((id) => layers.find((l) => l.id === id))

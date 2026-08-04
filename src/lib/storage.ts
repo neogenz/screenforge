@@ -282,7 +282,7 @@ export async function importPortableProject(file: File): Promise<Project> {
 
   hydrateAssets(imported.assets)
   useProjectStore.getState().loadProject(imported.project)
-  useCanvasStore.getState().setActiveScreenId(imported.project.activeScreenId)
+  useCanvasStore.getState().clearSelection()
   useHistoryStore.getState().clear()
   useUIStore.getState().setSaveStatus('saved')
   return imported.project

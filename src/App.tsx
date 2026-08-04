@@ -14,7 +14,7 @@ import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { clearAssets } from '@/lib/assets'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -48,20 +48,9 @@ export default function App() {
       if (stored) {
         useProjectStore.getState().loadProject(stored)
         useUIStore.getState().setSaveStatus('saved')
-        const activeScreen = stored.screens.find((screen) => screen.id === stored.activeScreenId)
-          ?? stored.screens[0]
-        if (activeScreen) {
-          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
-        }
       } else {
         clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
-        const project = useProjectStore.getState().project
-        const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
-          ?? project?.screens[0]
-        if (activeScreen) {
-          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
-        }
       }
     }
 
@@ -77,8 +66,11 @@ export default function App() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    const { layers, addLayer } = useCanvasStore.getState()
-    const result = await createImageLayerFromFile(file, layers.length)
+    const { addLayer } = useCanvasStore.getState()
+    const result = await createImageLayerFromFile(
+      file,
+      getProjectLayers(useProjectStore.getState().project).length,
+    )
     if (result.ok) addLayer(result.layer)
     else toast(result.error, 'error')
   }

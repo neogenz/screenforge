@@ -33,10 +33,10 @@ interface DeviceLayerState {
 
 async function deviceLayer(page: Page): Promise<DeviceLayerState> {
   return page.evaluate(() => {
-    const stores = (window as unknown as {
-      __sfStores?: { useCanvasStore: { getState: () => { layers: Array<{ type: string }> } } }
-    }).__sfStores
-    const layer = stores?.useCanvasStore.getState().layers.find((item) => item.type === 'device-frame')
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .find((item) => item.type === 'device-frame')
     if (!layer) throw new Error('device layer missing')
     return JSON.parse(JSON.stringify(layer)) as DeviceLayerState
   })
@@ -247,20 +247,13 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
 
 test('falls back to the generated frame when an imported asset is missing', async ({ page }) => {
   await page.evaluate(() => {
-    const stores = (window as unknown as {
-      __sfStores?: {
-        useCanvasStore: {
-          getState: () => {
-            layers: Array<{ id: string; type: string }>
-            updateLayer: (id: string, updates: object) => void
-          }
-        }
-      }
-    }).__sfStores
-    const state = stores?.useCanvasStore.getState()
-    const layer = state?.layers.find((item) => item.type === 'device-frame')
+    const state = window.__sfStores?.useProjectStore.getState()
+    const project = state?.project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .find((item) => item.type === 'device-frame')
     if (!state || !layer) throw new Error('device layer missing')
-    state.updateLayer(layer.id, {
+    window.__sfStores?.useCanvasStore.getState().updateLayer(layer.id, {
       importedBezel: {
         assetId: 'missing',
         fileName: 'Missing.png',

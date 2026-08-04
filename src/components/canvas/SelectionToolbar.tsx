@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   AlignCenter,
   AlignCenterHorizontal,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/image'
 import { toast } from '@/stores/toast.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { SelectionFrame } from '@/hooks/use-canvas'
 import type { AlignMode } from '@/lib/align'
@@ -87,7 +89,7 @@ interface SelectionToolbarProps {
  */
 export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   const propsOpen = useUIStore((state) => state.propsOpen)
-  const layers = useCanvasStore((state) => state.layers)
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
 
   if (propsOpen || !frame || selectedLayerIds.length === 0) return null

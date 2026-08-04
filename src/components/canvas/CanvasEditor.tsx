@@ -1,22 +1,25 @@
 import { useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { buildLayerMenuItems } from '@/lib/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 
 export default function CanvasEditor() {
   const { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame } = useCanvas()
   const actions = useLayerActions()
-  const layers = useCanvasStore((state) => state.layers)
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
   const [menu, setMenu] = useState<{ left: number; top: number; layerId: string } | null>(null)
 
   function handleContextMenu(event: React.MouseEvent) {
     event.preventDefault()
     const layerId = getLayerIdAtPoint(event.nativeEvent)
     if (!layerId) return
-    const { layers: currentLayers, selectedLayerIds, selectLayer } = useCanvasStore.getState()
+    const { selectedLayerIds, selectLayer } = useCanvasStore.getState()
+    const currentLayers = getProjectLayers(useProjectStore.getState().project)
     if (!currentLayers.some((layer) => layer.id === layerId)) return
     if (!selectedLayerIds.includes(layerId)) selectLayer(layerId)
     setMenu({ left: event.clientX, top: event.clientY, layerId })

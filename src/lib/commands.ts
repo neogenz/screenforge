@@ -1,4 +1,4 @@
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -47,9 +47,9 @@ export function getCommands(): Command[] {
   const project = useProjectStore.getState
   const history = useHistoryStore.getState
 
-  const layerCount = () => canvas().layers.length
+  const layerCount = () => getProjectLayers(project().project).length
   const hasSelection = () => canvas().selectedLayerIds.length > 0
-  const activeScreenId = () => canvas().activeScreenId
+  const activeScreenId = () => project().project?.activeScreenId ?? ''
 
   return [
     {
@@ -128,8 +128,7 @@ export function getCommands(): Command[] {
       section: 'Écrans',
       keywords: ['écran', 'screen', 'ajouter'],
       run: () => {
-        const id = project().addScreen()
-        if (id) canvas().setActiveScreenId(id)
+        if (project().addScreen()) canvas().clearSelection()
       },
     },
     {
@@ -137,8 +136,7 @@ export function getCommands(): Command[] {
       title: 'Dupliquer l’écran actif',
       section: 'Écrans',
       run: () => {
-        const id = project().duplicateScreen(activeScreenId())
-        if (id) canvas().setActiveScreenId(id)
+        if (project().duplicateScreen(activeScreenId())) canvas().clearSelection()
       },
     },
     {

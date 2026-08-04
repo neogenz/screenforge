@@ -50,9 +50,8 @@ declare global {
     __sfStores?: {
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: { getState: () => {
-        layers: Layer[]
         selectedLayerIds: string[]
-        activeScreenId: string
+        updateLayer: (id: string, updates: Partial<Layer>) => void
       } }
       useProjectStore: { getState: () => {
         project: Project | null
@@ -89,8 +88,12 @@ export async function addDeviceLayer(page: Page): Promise<void> {
   const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
   await expect(model).toBeVisible()
   await model.click()
-  await expect.poll(() => page.evaluate(() => window.__sfStores
-    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'device-frame'))).toBe(true)
+  await expect.poll(() => page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .some((layer) => layer.type === 'device-frame')
+  })).toBe(true)
 }
 
 export interface ExportedZipPng {

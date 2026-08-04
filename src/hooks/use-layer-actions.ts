@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import type { Layer } from '@/types'
 
 function sameScope(layer: Layer, candidate: Layer): boolean {
@@ -23,6 +24,7 @@ function scopedGroup(layers: Layer[], layer: Layer): Layer[] {
 export function useLayerActions() {
   return useMemo(() => {
     const store = useCanvasStore.getState
+    const layers = () => getProjectLayers(useProjectStore.getState().project)
 
     function targetIds(layer: Layer): string[] {
       const { selectedLayerIds } = store()
@@ -32,19 +34,20 @@ export function useLayerActions() {
     }
 
     function remove(layer: Layer) {
-      const { layers, setLayers, clearSelection } = store()
+      const { setLayers, clearSelection } = store()
       const ids = targetIds(layer)
-      setLayers(layers.filter((candidate) => !ids.includes(candidate.id)))
+      setLayers(layers().filter((candidate) => !ids.includes(candidate.id)))
       clearSelection()
     }
 
     function duplicate(layer: Layer) {
-      const { layers, setLayers, selectLayers } = store()
+      const { setLayers, selectLayers } = store()
+      const currentLayers = layers()
       const ids = targetIds(layer)
-      let screenZ = layers.filter((candidate) => candidate.scope !== 'layout').length
-      let layoutZ = layers.length - screenZ
+      let screenZ = currentLayers.filter((candidate) => candidate.scope !== 'layout').length
+      let layoutZ = currentLayers.length - screenZ
       const newIds: string[] = []
-      const duplicates = layers
+      const duplicates = currentLayers
         .filter((candidate) => ids.includes(candidate.id))
         .map((candidate) => {
           const copy: Layer = {
@@ -58,39 +61,39 @@ export function useLayerActions() {
           newIds.push(copy.id)
           return copy
         })
-      setLayers([...layers, ...duplicates])
+      setLayers([...currentLayers, ...duplicates])
       selectLayers(newIds)
     }
 
     function setVisibility(layer: Layer, visible: boolean) {
-      const { layers, setLayers, updateLayer } = store()
+      const { setLayers, updateLayer } = store()
       const ids = targetIds(layer)
       if (ids.length === 1) {
         updateLayer(ids[0], { visible })
       } else {
-        setLayers(layers.map((candidate) =>
+        setLayers(layers().map((candidate) =>
           ids.includes(candidate.id) ? { ...candidate, visible } : candidate))
       }
     }
 
     function setLocked(layer: Layer, locked: boolean) {
-      const { layers, setLayers, updateLayer } = store()
+      const { setLayers, updateLayer } = store()
       const ids = targetIds(layer)
       if (ids.length === 1) {
         updateLayer(ids[0], { locked })
       } else {
-        setLayers(layers.map((candidate) =>
+        setLayers(layers().map((candidate) =>
           ids.includes(candidate.id) ? { ...candidate, locked } : candidate))
       }
     }
 
     function groupIndex(layer: Layer): number {
-      return scopedGroup(store().layers, layer).findIndex((candidate) => candidate.id === layer.id)
+      return scopedGroup(layers(), layer).findIndex((candidate) => candidate.id === layer.id)
     }
 
     function canMoveForward(layer: Layer): boolean {
       const index = groupIndex(layer)
-      return index !== -1 && index < scopedGroup(store().layers, layer).length - 1
+      return index !== -1 && index < scopedGroup(layers(), layer).length - 1
     }
 
     function canMoveBackward(layer: Layer): boolean {

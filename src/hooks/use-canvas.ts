@@ -39,7 +39,7 @@ import {
 } from '@/components/canvas/canvas-sync'
 import { installControlsPatch } from '@/components/canvas/controls-patch'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { stageInsets } from '@/lib/stage'
 import { nextTimestamp } from '@/lib/time'
@@ -360,6 +360,11 @@ export function useCanvas() {
         layoutUpdates,
       })
       const destinationScreenId = next.destinationScreenId
+      if (destinationScreenId && destinationScreenId !== project.activeScreenId) {
+        // The project subscription runs synchronously. Mark canvas-originated
+        // navigation before publishing the transfer so it preserves framing.
+        selectionFromCanvas.current = true
+      }
       useProjectStore.setState({
         project: {
           ...project,
@@ -375,13 +380,7 @@ export function useCanvas() {
           const id = object.data?.layerId ?? object.data?.uid
           return id ? [id] : []
         }))]
-        if (destinationScreenId !== canvasStore.activeScreenId) {
-          selectionFromCanvas.current = true
-        }
-        canvasStore.setActiveScreenId(destinationScreenId)
-        useCanvasStore.getState().selectLayers(selectedIds)
-      } else {
-        canvasStore.syncLayersFromProject()
+        canvasStore.selectLayers(selectedIds)
       }
       dragSourceScreenIndexes.clear()
     })
@@ -410,9 +409,10 @@ export function useCanvas() {
         return id ? [id] : []
       }))]
       const screenId = renderedObjects.find((object) => object.data?.screenId)?.data?.screenId
-      if (screenId && screenId !== useCanvasStore.getState().activeScreenId) {
+      const project = useProjectStore.getState().project
+      if (screenId && screenId !== project?.activeScreenId) {
         selectionFromCanvas.current = true
-        useCanvasStore.getState().setActiveScreenId(screenId)
+        useProjectStore.getState().setActiveScreenId(screenId)
       }
       if (ids.length === 1) {
         useCanvasStore.getState().selectLayer(ids[0])
@@ -563,7 +563,7 @@ export function useCanvas() {
       const data = (target as RenderedObject).data
       const layerId = data?.layerId ?? data?.uid
       if (!layerId) return
-      const layers = useCanvasStore.getState().layers
+      const layers = getProjectLayers(useProjectStore.getState().project)
       const layer = layers.find((candidate) => candidate.id === layerId)
       if (layer?.type === 'text' && layer.content !== target.text) {
         useCanvasStore.getState().updateLayer(layerId, { content: target.text })
@@ -760,16 +760,17 @@ export function useCanvas() {
   }), [applyThemeToCanvas])
 
   // Clicking a screen thumbnail centers the viewport on that artboard.
-  useEffect(() => useCanvasStore.subscribe((state, previous) => {
-    if (state.activeScreenId === previous.activeScreenId) return
+  useEffect(() => useProjectStore.subscribe((state, previous) => {
+    const activeScreenId = state.project?.activeScreenId
+    if (!activeScreenId || activeScreenId === previous.project?.activeScreenId) return
     if (selectionFromCanvas.current) {
       selectionFromCanvas.current = false
       return
     }
     const canvas = fabricRef.current
-    const project = useProjectStore.getState().project
+    const project = state.project
     if (!canvas || !project) return
-    const screenIndex = project.screens.findIndex((screen) => screen.id === state.activeScreenId)
+    const screenIndex = project.screens.findIndex((screen) => screen.id === activeScreenId)
     if (screenIndex === -1) return
     const { layersOpen, propsOpen } = useUIStore.getState()
     const insets = stageInsets({ layers: layersOpen, props: propsOpen })

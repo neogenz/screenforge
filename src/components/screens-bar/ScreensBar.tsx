@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
@@ -11,24 +12,27 @@ import type { Background } from '@/types'
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const screens = useProjectStore((s) => s.project?.screens)
-  const activeScreenId = useCanvasStore((s) => s.activeScreenId)
+  const { screens, activeScreenId } = useProjectStore(useShallow((state) => ({
+    screens: state.project?.screens,
+    activeScreenId: state.project?.activeScreenId ?? '',
+  })))
   const list = screens ?? []
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
   const dragSourceIndex = useRef<number | null>(null)
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
 
   const handleSelect = useCallback((id: string) => {
-    const { activeScreenId: current, setActiveScreenId } = useCanvasStore.getState()
-    if (id !== current) setActiveScreenId(id)
+    const project = useProjectStore.getState().project
+    if (id === project?.activeScreenId) return
+    useProjectStore.getState().setActiveScreenId(id)
+    useCanvasStore.getState().clearSelection()
   }, [])
 
   const handleAdd = useCallback(() => {
     const project = useProjectStore.getState().project
     if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
     useCanvasStore.getState().recordProjectHistory()
-    const screenId = useProjectStore.getState().addScreen()
-    if (screenId) useCanvasStore.getState().setActiveScreenId(screenId)
+    if (useProjectStore.getState().addScreen()) useCanvasStore.getState().clearSelection()
   }, [])
 
   const handleRename = useCallback((id: string, name: string) => {
@@ -39,16 +43,14 @@ export function ScreensBar() {
     const project = useProjectStore.getState().project
     if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
     useCanvasStore.getState().recordProjectHistory()
-    const duplicateId = useProjectStore.getState().duplicateScreen(id)
-    if (duplicateId) useCanvasStore.getState().setActiveScreenId(duplicateId)
+    if (useProjectStore.getState().duplicateScreen(id)) useCanvasStore.getState().clearSelection()
   }, [])
 
   const handleDelete = useCallback((id: string) => {
     const project = useProjectStore.getState().project
     if (!project || project.screens.length <= 1) return
     useCanvasStore.getState().recordProjectHistory()
-    const nextActiveId = useProjectStore.getState().removeScreen(id)
-    if (nextActiveId) useCanvasStore.getState().setActiveScreenId(nextActiveId)
+    if (useProjectStore.getState().removeScreen(id)) useCanvasStore.getState().clearSelection()
   }, [])
 
   const handleCopySettings = useCallback((id: string) => {

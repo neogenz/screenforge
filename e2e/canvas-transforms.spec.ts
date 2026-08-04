@@ -66,7 +66,10 @@ test.describe('canvas transforms', () => {
     const before = await page.evaluate(() => {
       const state = window.__sfStores?.useCanvasStore.getState()
       const id = state?.selectedLayerIds[0]
-      const layer = state?.layers.find((candidate) => candidate.id === id)
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+      const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+        .find((candidate) => candidate.id === id)
       const object = window.__sfCanvas?.getObjects().find((candidate) =>
         (candidate as { data?: { layerId?: string } }).data?.layerId === id)
       return {
@@ -96,7 +99,10 @@ test.describe('canvas transforms', () => {
     async function readState() {
       return page.evaluate((id) => {
         const state = window.__sfStores?.useCanvasStore.getState()
-        const layer = state?.layers.find((candidate) => candidate.id === id)
+        const project = window.__sfStores?.useProjectStore.getState().project
+        const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+        const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+          .find((candidate) => candidate.id === id)
         const object = window.__sfCanvas?.getObjects().find((candidate) =>
           (candidate as { data?: { layerId?: string } }).data?.layerId === id)
         return {

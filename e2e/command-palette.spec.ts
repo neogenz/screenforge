@@ -38,7 +38,7 @@ test.describe('history coalescing', () => {
       () => window.__sfStores?.useHistoryStore.getState().past.length ?? -1,
     )
     const xBefore = await page.evaluate(
-      () => window.__sfStores?.useCanvasStore.getState().layers[0]?.x ?? -1,
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
     )
     expect(xBefore).toBeGreaterThanOrEqual(0)
 
@@ -58,11 +58,11 @@ test.describe('history coalescing', () => {
     // Undo the last single nudge, then ONE undo reverts the whole burst.
     await page.keyboard.press('Meta+z')
     await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useCanvasStore.getState().layers[0]?.x ?? -1,
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
     )).toBe(xBefore + 5)
     await page.keyboard.press('Meta+z')
     await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useCanvasStore.getState().layers[0]?.x ?? -1,
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
     )).toBe(xBefore)
   })
 })

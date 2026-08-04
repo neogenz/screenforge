@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
@@ -47,7 +48,6 @@ export function useKeyboard(): void {
       if (isEditingInput()) return
 
       const {
-        layers,
         selectedLayerIds,
         setLayers,
         selectLayers,
@@ -55,6 +55,7 @@ export function useKeyboard(): void {
         undo,
         redo,
       } = useCanvasStore.getState()
+      const layers = getProjectLayers(useProjectStore.getState().project)
 
       const {
         zoomIn,
