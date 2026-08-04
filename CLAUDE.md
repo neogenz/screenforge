@@ -103,16 +103,18 @@ src/
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
 
-## Design language (v5)
+## Design language (v6)
 
+- **shadcn is the vocabulary**: `src/index.css` exposes the shadcn token contract (`background`, `card`, `popover`, `muted`, `secondary`, `accent`, `primary`, `border`, `input`, `ring`, `destructive` + `-foreground` pairs). Only 13 tokens sit outside it, for concepts shadcn has no name for: `stage`, `marker*`, `success`, `warning`, `artboard-*`, `shadow-inset`, `hairline-top`, six `z-*`. Never re-theme a shadcn name to mean something else.
 - **Floating islands**: the canvas is full-bleed; the top bar, the Layers/Properties drawers (⌘⇧L / ⌘⇧P), the screens filmstrip and the zoom HUD float above it. `lib/stage.ts` is the single source for chrome geometry — drawers never move the artboard.
-- **Tokens**: all colors OKLCH in `src/index.css` `@theme` (dark default + `.light`). True neutral, chroma 0 on every chrome surface: a colour-judgement tool must not tint what sits next to the artboard.
-- **One accent, for state only**: lime `--color-accent`, reserved for "you are here" — current screen, selected layer, focus ring. Never on an action: the Export CTA is a plain light fill. Nothing chromatic touches the artboard (`--color-artboard-ring-active` and the selection frame stay neutral).
-- **Type**: Inter variable (UI, `index.html`), 13.5px body, tabular figures for numeric fields. No all-caps labels. Content fonts (text layers) load on demand.
-- **Radii & material**: 9px controls, 14px islands, 18px modals; inner radius = outer − padding. Surfaces separate by material (`panel` / `inset` / `raised`) rather than by rule.
+- **Tokens**: all colors OKLCH in `src/index.css` `@theme static` (dark default + `.light`). `static` is required: the default tree-shakes to used-only, which left the `-foreground` pairs out of `:root`. True neutral, chroma 0 on every chrome surface — a colour-judgement tool must not tint what sits next to the artboard.
+- **One marker, for state only**: lime `--color-marker`, reserved for "you are here" — current screen, selected layer, focus ring. Not named `accent`: shadcn reserves that for the neutral hover surface. Never on an action: the Export CTA is a plain light fill. Nothing chromatic touches the artboard (`--color-artboard-ring-active` and the selection frame stay neutral).
+- **Closed scales**: three type sizes (11 / 14 / 16 rendered), two control heights (32 panel, 36 top bar and modal footers), four radii derived from `--radius: 0.625rem` (4 / 6 / 8 / 14), two vertical gaps (6 binds a label to its control, 8 separates controls and sections). Adding a fifth value is the drift the guard exists to catch.
+- **Island geometry**: `.island` carries its own inset, `--island-padding` = `--radius-xl − --radius-md` = 6px, so "inner radius = outer − inset" holds by construction and a `rounded-md` control set against an island edge follows its curve. Drawers take `.island-flush` — their header bleeds to the edge and their content carries the inset.
+- **Type**: Inter variable (UI, `index.html`), 14px body, tabular figures for numeric fields. No all-caps labels. Content fonts (text layers) load on demand.
 - **Field grammar**: single-line controls carry their label inline (`Select`/`Input`/`NumberField`/`FontPicker` `label` prop); only multi-line or composite controls get a stacked `.field-label`.
-- **Primitives first**: never hand-roll buttons/inputs/dialogs in feature code — use `src/components/ui/` (CVA variants). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
-- **Guard-rails**: `npm run audit:contrast` fails if any ink/surface pair drops under 4.5:1; `npm run probe:visual` captures dark/light × empty/populated.
+- **Primitives first**: never hand-roll buttons/inputs/dialogs/scroll areas in feature code — use `src/components/ui/` (CVA variants). Content default colors live in `src/lib/content-defaults.ts`, never inline hex in components.
+- **Guard-rails**: `pnpm run audit:contrast` fails if any ink/surface pair drops under 4.5:1; `pnpm run audit:scale` fails if the rendered type, height, radius or gap scales open up, naming the offending elements; `pnpm run probe:visual` captures dark/light × empty/populated.
 - Full context for design skills lives in `.impeccable.md`.
 
 ## Standards (from installed skills)
