@@ -14,7 +14,12 @@ import { Switch } from '@/components/ui/switch'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
 import { analyzeDeviceBezel } from '@/lib/device-bezel'
-import { decodeImage, readAsDataUrl } from '@/lib/image'
+import {
+  imageImportErrorMessage,
+  importImageFile,
+  SCREENSHOT_IMAGE_ACCEPT,
+  SCREENSHOT_IMAGE_TYPES,
+} from '@/lib/image'
 import { cn } from '@/lib/utils'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
@@ -63,17 +68,12 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
     setScreenshotError(null)
     event.target.value = ''
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      setScreenshotError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
-      return
-    }
 
     try {
-      const dataUrl = await readAsDataUrl(file)
-      await decodeImage(dataUrl)
-      onUpdate({ screenshotAssetId: registerAsset(dataUrl) })
-    } catch {
-      setScreenshotError("La capture est illisible ou endommagée.")
+      const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
+      onUpdate({ screenshotAssetId: registerAsset(image.dataUrl) })
+    } catch (error) {
+      setScreenshotError(imageImportErrorMessage(error))
     }
   }
 
@@ -331,7 +331,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept={SCREENSHOT_IMAGE_ACCEPT}
           className="sr-only"
           aria-label="Importer la capture de l’app"
           onChange={(event) => void handleScreenshotChange(event)}

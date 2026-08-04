@@ -12,3 +12,4 @@
 - Keep invalid input local, display concise inline `role="alert"` feedback, and disable or show loading state during async submission.
 - File inputs may remain visually hidden but must be triggered by labelled controls and clear their value after selection.
 - File validation completes before mutating the active project; invalid archives and images keep the current session intact and surface a concise error.
+- Content images are limited to PNG/JPEG/SVG, 16 Mio and 16 MP; device captures are PNG/JPEG only. Apple bezel PNGs use the same 16 MP ceiling before their synchronous transparency analysis.

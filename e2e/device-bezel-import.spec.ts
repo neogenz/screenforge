@@ -188,6 +188,25 @@ test('imports, protects, deduplicates and removes an Apple bezel', async ({ page
   expect(await deviceLayer(page)).not.toHaveProperty('importedBezel')
 })
 
+test('rejects invalid and oversized captures without mutating the device', async ({ page }) => {
+  const input = page.getByLabel('Importer la capture de l’app')
+  await input.setInputFiles({
+    name: 'capture.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+  })
+  await expect(page.getByRole('alert')).toContainText('Format d’image non pris en charge')
+  expect(await deviceLayer(page)).not.toHaveProperty('screenshotAssetId')
+
+  await input.setInputFiles({
+    name: 'huge.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(16 * 1024 * 1024 + 1),
+  })
+  await expect(page.getByRole('alert')).toContainText('taille maximale de 16 Mio')
+  expect(await deviceLayer(page)).not.toHaveProperty('screenshotAssetId')
+})
+
 test('keeps the natural ratio, locks official artwork and persists both assets', async ({ page }) => {
   await uploadBezel(page, makeDeviceBezelPng(), 'Persistent Bezel.png')
   await uploadScreenshot(page)

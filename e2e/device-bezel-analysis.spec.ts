@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
   asBase64,
+  APP_STORE_BEZEL,
   corruptPng,
   makeDeviceBezelPng,
   MOCK_BEZEL,
@@ -23,8 +24,8 @@ function oversizedDeviceBezelHeader(): Buffer {
   bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
   bytes.writeUInt32BE(13, 8)
   bytes.write('IHDR', 12, 'ascii')
-  bytes.writeUInt32BE(10_000, 16)
-  bytes.writeUInt32BE(4_001, 20)
+  bytes.writeUInt32BE(4_001, 16)
+  bytes.writeUInt32BE(4_000, 20)
   return bytes
 }
 
@@ -67,6 +68,18 @@ test('detects the enclosed transparent screen with exact geometry', async ({ pag
   })
   expect(result.dataUrl).toMatch(/^data:image\/png;base64,/)
   expect(JSON.stringify(result.metadata)).not.toContain('data:image')
+})
+
+test('accepts an App Store-sized bezel below the 16 MP ceiling', async ({ page }) => {
+  const result = await analyze(page, makeDeviceBezelPng('valid', APP_STORE_BEZEL))
+  expect(result).toMatchObject({
+    ok: true,
+    metadata: {
+      naturalWidth: APP_STORE_BEZEL.width,
+      naturalHeight: APP_STORE_BEZEL.height,
+      screen: APP_STORE_BEZEL.screen,
+    },
+  })
 })
 
 test('does not confuse a real alpha 17 pixel with the flood-fill marker', async ({ page }) => {

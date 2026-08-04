@@ -6,10 +6,19 @@ export const MOCK_BEZEL = {
   screen: { x: 4, y: 5, width: 11, height: 19 },
 } as const
 
+export const APP_STORE_BEZEL = {
+  width: 1320,
+  height: 2868,
+  screen: { x: 80, y: 120, width: 1160, height: 2628 },
+} as const
+
 type BezelKind = 'valid' | 'opaque' | 'open' | 'alpha-17-separator'
 
-export function makeDeviceBezelPng(kind: BezelKind = 'valid'): Buffer {
-  const { width, height, screen } = MOCK_BEZEL
+export function makeDeviceBezelPng(
+  kind: BezelKind = 'valid',
+  geometry: { width: number; height: number; screen: { x: number; y: number; width: number; height: number } } = MOCK_BEZEL,
+): Buffer {
+  const { width, height, screen } = geometry
   const data = new Uint8Array(width * height * 4)
 
   // Transparent canvas, opaque phone body.

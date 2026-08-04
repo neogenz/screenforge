@@ -22,7 +22,12 @@ import { Popover } from '@/components/ui/popover'
 import { SwatchButton } from '@/components/ui/swatch-button'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
-import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
+import {
+  imageImportErrorMessage,
+  importImageFile,
+  SCREENSHOT_IMAGE_ACCEPT,
+  SCREENSHOT_IMAGE_TYPES,
+} from '@/lib/image'
 import { toast } from '@/stores/toast.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -306,16 +311,11 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (!isSupportedImageFile(file)) {
-      toast('Format non pris en charge. Utilisez un PNG ou un JPEG.', 'error')
-      return
-    }
     try {
-      const dataUrl = await readAsDataUrl(file)
-      await decodeImage(dataUrl)
-      onPick(registerAsset(dataUrl))
-    } catch {
-      toast('La capture est illisible ou endommagée.', 'error')
+      const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
+      onPick(registerAsset(image.dataUrl))
+    } catch (error) {
+      toast(imageImportErrorMessage(error), 'error')
     }
   }
 
@@ -332,7 +332,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
       <input
         ref={input}
         type="file"
-        accept="image/png,image/jpeg"
+        accept={SCREENSHOT_IMAGE_ACCEPT}
         className="hidden"
         onChange={handleChange}
       />

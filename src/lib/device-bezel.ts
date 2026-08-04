@@ -1,7 +1,7 @@
 import type { ImportedDeviceBezel } from '@/types'
 
 export const MAX_DEVICE_BEZEL_FILE_BYTES = 32 * 1024 * 1024
-export const MAX_DEVICE_BEZEL_PIXELS = 40_000_000
+export const MAX_DEVICE_BEZEL_PIXELS = 16_000_000
 
 const TRANSPARENT_ALPHA_MAX = 16
 const QUEUED_ALPHA = TRANSPARENT_ALPHA_MAX + 1
@@ -18,7 +18,7 @@ export type DeviceBezelErrorCode =
 const ERROR_MESSAGES: Record<DeviceBezelErrorCode, string> = {
   'invalid-format': 'Le bezel doit être un PNG transparent.',
   'file-too-large': 'Le PNG dépasse la taille maximale de 32 Mio.',
-  'image-too-large': 'Le PNG dépasse la limite de 40 mégapixels.',
+  'image-too-large': 'Le PNG dépasse la limite de 16 mégapixels.',
   'invalid-image': 'Le PNG est illisible ou endommagé.',
   'screen-not-found': "L’ouverture transparente de l’écran est introuvable.",
 }

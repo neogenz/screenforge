@@ -2,7 +2,7 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
-import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
+import { imageImportErrorMessage, importImageFile } from '@/lib/image'
 import { POPULAR_FONTS } from '@/hooks/use-fonts'
 import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
 
@@ -92,13 +92,9 @@ export async function createImageLayerFromFile(
   file: File,
   zIndex: number,
 ): Promise<ImageImportResult> {
-  if (!isSupportedImageFile(file)) {
-    return { ok: false, error: 'Format non pris en charge. Utilisez un PNG, JPEG ou SVG.' }
-  }
   try {
-    const dataUrl = await readAsDataUrl(file)
-    const image = await decodeImage(dataUrl)
-    const assetId = registerAsset(dataUrl)
+    const image = await importImageFile(file)
+    const assetId = registerAsset(image.dataUrl)
     const scale = Math.min(600 / image.width, 600 / image.height, 1)
     const width = Math.max(1, image.width * scale)
     const height = Math.max(1, image.height * scale)
@@ -122,7 +118,7 @@ export async function createImageLayerFromFile(
         originalHeight: image.height,
       },
     }
-  } catch {
-    return { ok: false, error: "L'image est illisible ou endommagée." }
+  } catch (error) {
+    return { ok: false, error: imageImportErrorMessage(error) }
   }
 }
