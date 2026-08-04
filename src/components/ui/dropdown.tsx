@@ -44,7 +44,7 @@ export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align 
           loop
           onEscapeKeyDown={(event) => event.stopPropagation()}
           className={cn(
-            'menu-shadow z-(--z-popover) min-w-44 animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-panel p-1',
+            'menu-shadow z-(--z-popover) min-w-44 animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-popover p-1',
             className,
           )}
         >
@@ -58,14 +58,14 @@ export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align 
                 'transition-colors duration-100 ease-out',
                 'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                 item.danger
-                  ? 'text-danger data-[highlighted]:bg-danger-soft'
-                  : 'text-foreground data-[highlighted]:bg-raised-hover',
+                  ? 'text-destructive data-[highlighted]:bg-destructive/14'
+                  : 'text-foreground data-[highlighted]:bg-accent',
               )}
             >
-              {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
+              {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
               <span className="min-w-0 flex-1 truncate text-[12.5px]">{item.label}</span>
               {item.meta && (
-                <span className="tabular shrink-0 text-[10px] text-faint">{item.meta}</span>
+                <span className="tabular shrink-0 text-[10px] text-muted-foreground">{item.meta}</span>
               )}
               {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
             </DropdownMenuPrimitive.Item>

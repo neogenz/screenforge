@@ -57,7 +57,7 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
         variant="default"
         size="sm"
         onClick={() => setOpen((current) => !current)}
-        className="field-surface h-8 w-full justify-between border-border bg-inset font-normal normal-case hover:bg-inset"
+        className="field-surface h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
         aria-label={`Police : ${value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -66,7 +66,7 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
           {label && <span className="field-label shrink-0 select-none">{label}</span>}
           <span className="truncate">{value}</span>
         </span>
-        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0 text-faint" aria-hidden />
+        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0 text-muted-foreground" aria-hidden />
       </Button>
 
       <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
@@ -153,10 +153,10 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
       className={cn(
         'flex h-7 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-[12px]',
         'transition-colors duration-100 ease-out',
-        'focus-visible:bg-raised-hover',
+        'focus-visible:bg-accent',
         selected
-          ? 'bg-raised-active text-foreground'
-          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
+          ? 'bg-secondary text-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
       style={fontLoaded ? { fontFamily: `"${family}", system-ui` } : undefined}
     >

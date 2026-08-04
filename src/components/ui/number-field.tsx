@@ -120,7 +120,7 @@ export function NumberField({
       className={cn(
         'flex h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
         'rounded-md border border-input bg-muted shadow-(--shadow-inset)',
-        'transition-[border-color] duration-150 ease-out hover:border-border-strong',
+        'transition-[border-color] duration-150 ease-out hover:border-input',
         // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
         'focus-within:border-ring focus-within:outline-[1.5px]',
         'focus-within:outline-offset-2 focus-within:outline-ring',

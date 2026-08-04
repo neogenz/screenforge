@@ -16,14 +16,14 @@ const buttonVariants = cva(
       variant: {
         // En relief sur son panneau : lisible au repos, sans attendre le survol.
         default:
-          'border border-border bg-raised text-foreground hover:border-border-strong hover:bg-raised-hover active:bg-raised-active',
+          'border border-border bg-secondary text-foreground hover:border-input hover:bg-accent',
         // La seule surface pleine de l'interface : blanche sur graphite, noire sur blanc.
         primary:
-          'border border-foreground bg-foreground text-stage hover:border-foreground-muted hover:bg-foreground-muted active:border-foreground-muted active:bg-foreground-muted',
+          'border border-foreground bg-foreground text-stage hover:border-muted-foreground hover:bg-muted-foreground active:border-muted-foreground active:bg-muted-foreground',
         ghost:
-          'border border-transparent bg-transparent text-foreground-muted hover:bg-raised-hover hover:text-foreground active:bg-raised-active',
+          'border border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
         danger:
-          'border border-border bg-transparent text-danger hover:border-danger hover:bg-danger-soft active:bg-danger-soft',
+          'border border-border bg-transparent text-destructive hover:border-destructive hover:bg-destructive/14 active:bg-destructive/14',
       },
       // 26px de haut, c'est la taille d'un bouton de barre d'outils d'IDE.
       // Le produit se compare à des outils de design : on part de 30.

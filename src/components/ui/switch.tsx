@@ -18,11 +18,11 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
       className={cn(
         'inline-flex h-4 w-7 shrink-0 items-center rounded-full border px-0.5',
         'transition-[background,border-color] duration-150 ease-out',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground-muted',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
         'data-[state=checked]:border-foreground data-[state=checked]:bg-foreground',
-        'hover:data-[state=checked]:border-foreground-muted hover:data-[state=checked]:bg-foreground-muted',
-        'data-[state=unchecked]:border-border-strong data-[state=unchecked]:bg-inset',
-        'hover:data-[state=unchecked]:bg-raised-hover',
+        'hover:data-[state=checked]:border-muted-foreground hover:data-[state=checked]:bg-muted-foreground',
+        'data-[state=unchecked]:border-input data-[state=unchecked]:bg-muted',
+        'hover:data-[state=unchecked]:bg-accent',
         'disabled:pointer-events-none disabled:opacity-40',
       )}
     >
@@ -31,7 +31,7 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
         className={cn(
           'h-2.5 w-2.5 rounded-full transition-transform duration-150 ease-out',
           'data-[state=checked]:translate-x-3 data-[state=checked]:bg-stage',
-          'data-[state=unchecked]:translate-x-0 data-[state=unchecked]:bg-faint',
+          'data-[state=unchecked]:translate-x-0 data-[state=unchecked]:bg-muted-foreground',
         )}
       />
     </SwitchPrimitive.Root>

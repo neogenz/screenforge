@@ -6,81 +6,109 @@
 @source "./**/*.ts";
 
 /*
- * ScreenForge v5 — design system.
+ * ScreenForge — design system.
  *
- * Le chrome est neutre à chroma 0 : la seule couleur du produit vient des
- * artboards, et un chrome teinté fausserait le jugement de l'utilisateur sur
- * ses propres couleurs. Une exception, l'accent citron : il ne dit jamais
- * « action », il dit « ici » — outil actif, écran courant, focus, ligne
- * sélectionnée. L'action primaire, elle, reste un aplat clair : deux couleurs
- * qui crient font une interface sans hiérarchie.
+ * La nomenclature est celle de shadcn : `background`, `card`, `popover`,
+ * `muted`, `secondary`, `accent`, `border`, `input`, `ring`, `destructive`.
+ * Tout composant shadcn posé ici s'habille sans pont ni surcharge. Ce fichier
+ * n'ajoute que ce que shadcn n'a pas et que le produit exige : un fond de
+ * scène, une marque d'état, deux signaux non destructifs, le chrome d'artboard
+ * et un empilement nommé.
  *
- * Géométrie généreuse : rayons de 9px sur les contrôles, 14 sur les îlots,
- * 18 sur les modales, et le rayon intérieur vaut toujours l'extérieur moins la
- * marge. Séparation par la matière plutôt que par le trait : en sombre les
- * bordures s'effacent et c'est l'ombre portée qui détache les surfaces.
+ * Le chrome reste à chroma 0 : la seule couleur du produit vient des artboards,
+ * et un chrome teinté fausserait le jugement de l'utilisateur sur ses propres
+ * couleurs. Une exception, le citron `marker` : il ne dit jamais « action », il
+ * dit « ici » — outil actif, écran courant, focus, ligne sélectionnée. Il porte
+ * ce nom et non `accent` parce que chez shadcn `accent` est la surface de
+ * survol neutre ; garder le citron sous ce nom piégerait tout composant amont.
+ * L'action primaire, elle, reste un aplat clair : deux couleurs qui crient font
+ * une interface sans hiérarchie.
+ *
+ * Séparation par la matière plutôt que par le trait : en sombre les bordures
+ * s'effacent et c'est l'ombre portée qui détache les surfaces.
  * Typographie : Inter variable, une seule famille, chiffres tabulaires natifs.
- * Motion : ease-out expo, 120–200ms, transform/opacity uniquement.
+ * Motion : ease-out expo, 120–200ms, transform/opacité uniquement.
  */
-@theme {
-  --spacing: 0.25rem;
-
-  /* ── Neutres (dark, défaut) — chroma 0, le stage est le point le plus sombre ── */
+/* `static` et non `@theme` seul : par défaut Tailwind n'émet que les variables
+   dont une utilitaire est effectivement générée, ce qui laissait les paires
+   `*-foreground` absentes de `:root` alors que le bloc `.light`, écrit à la
+   main, les déclarait toutes. Le contrat shadcn doit être complet des deux
+   côtés — sans quoi « poser un composant amont sans pont » n'est vrai qu'après
+   qu'un fichier l'ait déjà référencé. */
+@theme static {
+  /* ── Surfaces (dark, défaut) — chroma 0, la scène est le point le plus sombre ── */
+  /* Ajout produit : shadcn n'a pas de fond de scène. C'est le fond derrière les
+     artboards, plus sombre que tout le reste, et il reste à 0.145 et non au noir
+     pur — un entourage noir maximise le contraste simultané autour d'un artboard
+     clair et fausse le jugement couleur, qui est la tâche du produit. */
   --color-stage: oklch(0.145 0 0);
   --color-background: oklch(0.175 0 0);
-  --color-panel: oklch(0.215 0 0);
-  /* En creux : plus sombre que le panneau qui le porte. C'est ce qui fait lire un champ. */
-  --color-inset: oklch(0.165 0 0);
-  /* En relief : au-dessus du panneau. Boutons, options actives, vignettes. */
-  --color-raised: oklch(0.26 0 0);
-  --color-raised-hover: oklch(0.3 0 0);
-  --color-raised-active: oklch(0.34 0 0);
+  --color-card: oklch(0.215 0 0);
+  --color-popover: oklch(0.215 0 0);
+  /* En creux : plus sombre que la carte qui le porte. C'est ce qui fait lire un champ. */
+  --color-muted: oklch(0.165 0 0);
+  /* En relief : au-dessus de la carte. Boutons au repos, options actives, vignettes. */
+  --color-secondary: oklch(0.26 0 0);
+  /* Un palier au-dessus du relief : c'est le rôle de `accent` chez shadcn, la
+     surface de survol neutre. L'état « sélectionné » ou « ouvert » redescend sur
+     `secondary`, comme le fait `data-[state=on]` en amont. */
+  --color-accent: oklch(0.3 0 0);
 
-  /* Luminances choisies pour tenir 4.5:1 sur stage, background, panel, inset et raised. */
+  /* Luminances choisies pour tenir 4.5:1 sur stage, background, card, muted et secondary. */
   --color-foreground: oklch(0.97 0 0);
-  --color-foreground-muted: oklch(0.78 0 0);
-  --color-faint: oklch(0.64 0 0);
+  --color-card-foreground: oklch(0.97 0 0);
+  --color-popover-foreground: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.78 0 0);
 
-  /* Bordures discrètes : en sombre c'est l'ombre qui détache, pas le trait. */
+  /* L'unique aplat plein de l'interface : blanc sur graphite, noir sur blanc. */
+  --color-primary: oklch(0.97 0 0);
+  --color-primary-foreground: oklch(0.145 0 0);
+
+  /* Bordures discrètes : en sombre c'est l'ombre qui détache, pas le trait.
+     `input` est la bordure marquée, celle d'un champ au survol. */
   --color-border: oklch(0.26 0 0);
-  --color-border-strong: oklch(0.36 0 0);
+  --color-input: oklch(0.36 0 0);
+  /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair. */
+  --color-ring: var(--color-marker-line);
 
-  /* ── Accent — l'état, jamais l'action ──
-     Employé en aplat, en anneau ou en pastille ; jamais comme couleur de texte,
+  --color-destructive: oklch(0.62 0.18 25);
+  --color-destructive-foreground: oklch(0.97 0 0);
+
+  /* ── Marque d'état — ajout produit ──
+     Employée en aplat, en anneau ou en pastille ; jamais comme couleur de texte,
      un citron lisible sur sombre ne l'est plus sur clair. Le texte posé dessus
-     est `accent-ink`, contrasté 12:1. */
-  --color-accent: oklch(0.87 0.2 124);
-  --color-accent-hover: oklch(0.92 0.2 124);
-  --color-accent-ink: oklch(0.24 0.05 124);
-  --color-accent-soft: oklch(0.87 0.2 124 / 0.11);
-  --color-accent-line: oklch(0.87 0.2 124 / 0.55);
+     est `marker-ink`, contrasté 12:1. */
+  --color-marker: oklch(0.87 0.2 124);
+  --color-marker-hover: oklch(0.92 0.2 124);
+  --color-marker-ink: oklch(0.24 0.05 124);
+  --color-marker-soft: oklch(0.87 0.2 124 / 0.11);
+  --color-marker-line: oklch(0.87 0.2 124 / 0.55);
 
-  /* Lasso de sélection. Le cadre des objets, lui, est figé dans `canvas-utils` :
-     posé sur le contenu de l'utilisateur, il ne peut pas suivre le thème. */
-  --color-selection: oklch(0.97 0 0);
-  --color-selection-soft: oklch(0.97 0 0 / 0.14);
-
-  /* Le rouge ne survit que comme signal destructif — jamais comme accent. */
-  --color-danger: oklch(0.62 0.18 25);
-  --color-danger-soft: oklch(0.62 0.18 25 / 0.14);
+  /* Signaux non destructifs : shadcn n'a que `destructive`. */
   --color-success: oklch(0.65 0.12 155);
   --color-warning: oklch(0.72 0.11 75);
 
-  /* Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
+  /* ── Chrome d'artboard — ajouts produit, lus par Fabric au runtime ──
+     Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
      dégradé violet fausse le jugement de l'utilisateur sur sa propre couleur.
      L'écran courant se signale par la valeur, pas par la teinte. */
   --color-artboard-ring: oklch(1 0 0 / 0.1);
   --color-artboard-ring-active: oklch(1 0 0 / 0.55);
   /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS. */
   --color-artboard-shadow: oklch(0 0 0 / 0.5);
-  --color-scrim: oklch(0.1 0 0 / 0.62);
+  /* Voile du lasso. Sa teinte suit `foreground`, seule son alpha change de thème. */
+  --color-selection-soft: oklch(0.97 0 0 / 0.14);
 
-  /* ── Élévation — large, basse en opacité, en trois couches ── */
-  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
+  /* ── Élévation — large, basse en opacité, en trois couches ──
+     Namespace shadcn : `shadow-md` pour un îlot, `shadow-lg` pour un menu,
+     `shadow-xl` pour une modale. */
+  --shadow-md: 0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
     0 24px 48px -24px oklch(0 0 0 / 0.55);
-  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
+  --shadow-lg: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
     0 32px 64px -32px oklch(0 0 0 / 0.6);
-  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
+  --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
   /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
   /* Lumière rasante sur l'arête haute d'un îlot. */
@@ -90,15 +118,17 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
 
-  /* ── Radius — le rayon intérieur vaut l'extérieur moins la marge ── */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 9px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-full: 9999px;
+  /* ── Radius — un seul réglage, la chaîne shadcn en dérive ──
+     0.625rem est la valeur amont : c'est la seule qui sorte des entiers
+     (4/6/8/10/14) quelle que soit la formule de dérivation. */
+  --radius: 0.625rem;
+  --radius-xs: calc(var(--radius) * 0.4);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 
-  /* ── z-index : 6 niveaux nommés, rien d'autre ── */
+  /* ── z-index : 6 niveaux nommés, rien d'autre — ajout produit ── */
   /* Le voile passe devant le canvas et derrière le chrome. Au même niveau que
      lui, seul l'ordre du DOM les départageait : ça casse au premier déplacement. */
   --z-stage-veil: 10;
@@ -160,94 +190,75 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 
-/* ── Tokens shadcn → pont vers les vars du design system ──
-   Les composants shadcn consomment ces alias ; la valeur reste pilotée par les
-   vars OKLCH ci-dessus (défaut sombre, `.light` les surcharge). Les noms déjà
-   définis par le design system (background, foreground, border, accent…)
-   ne sont pas redéclarés ici : shadcn les hérite tels quels. */
-@theme inline {
-  --color-primary: var(--color-foreground);
-  --color-primary-foreground: var(--color-stage);
-  --color-secondary: var(--color-raised);
-  --color-secondary-foreground: var(--color-foreground);
-  --color-muted: var(--color-inset);
-  --color-muted-foreground: var(--color-foreground-muted);
-  --color-card: var(--color-panel);
-  --color-card-foreground: var(--color-foreground);
-  --color-popover: var(--color-panel);
-  --color-popover-foreground: var(--color-foreground);
-  --color-destructive: var(--color-danger);
-  --color-destructive-foreground: var(--color-foreground);
-  --color-input: var(--color-border);
-  --color-ring: var(--color-accent-line);
-  --color-accent-foreground: var(--color-accent-ink);
-}
-
-/* ── Marques d'accent ──
+/* ── Marques d'état ──
    Déclarées en `@utility` et non en classe de composant : c'est ce qui permet
-   de les préfixer d'un variant (`data-[active=true]:accent-mark`). */
+   de les préfixer d'un variant (`data-[active=true]:marker-fill`). */
 
 /* Aplat citron, encre sombre — la marque forte : écran courant, coche. */
-@utility accent-fill {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
+@utility marker-fill {
+  background: var(--color-marker);
+  color: var(--color-marker-ink);
 }
 
 /* Marque discrète : voile et liseré, le texte garde sa couleur. */
-@utility accent-mark {
-  background: var(--color-accent-soft);
-  box-shadow: inset 0 0 0 1px var(--color-accent-line);
+@utility marker-soft {
+  background: var(--color-marker-soft);
+  box-shadow: inset 0 0 0 1px var(--color-marker-line);
 }
 
 /* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
   --color-stage: oklch(0.9 0 0);
   --color-background: oklch(0.955 0 0);
-  --color-panel: oklch(1 0 0);
-  /* En clair le creux doit rester sous `raised` : à 0.965 les deux se confondaient
+  --color-card: oklch(1 0 0);
+  --color-popover: oklch(1 0 0);
+  /* En clair le creux doit rester sous `secondary` : à 0.965 les deux se confondaient
      et une pastille active posée dans un conteneur en creux devenait invisible. */
-  --color-inset: oklch(0.945 0 0);
-  --color-raised: oklch(0.975 0 0);
-  --color-raised-hover: oklch(0.945 0 0);
-  --color-raised-active: oklch(0.915 0 0);
+  --color-muted: oklch(0.945 0 0);
+  --color-secondary: oklch(0.975 0 0);
+  --color-accent: oklch(0.945 0 0);
 
   --color-foreground: oklch(0.18 0 0);
-  /* Le stage clair (0.9) est le fond le plus exigeant : ces deux valeurs y tiennent 4.5:1. */
-  --color-foreground-muted: oklch(0.4 0 0);
-  --color-faint: oklch(0.48 0 0);
+  --color-card-foreground: oklch(0.18 0 0);
+  --color-popover-foreground: oklch(0.18 0 0);
+  --color-secondary-foreground: oklch(0.18 0 0);
+  --color-accent-foreground: oklch(0.18 0 0);
+  /* Le stage clair (0.9) est le fond le plus exigeant : cette valeur y tient 4.5:1. */
+  --color-muted-foreground: oklch(0.4 0 0);
+
+  --color-primary: oklch(0.18 0 0);
+  --color-primary-foreground: oklch(1 0 0);
 
   --color-border: oklch(0.915 0 0);
-  --color-border-strong: oklch(0.82 0 0);
+  --color-input: oklch(0.82 0 0);
+
+  --color-destructive: oklch(0.55 0.19 25);
+  --color-destructive-foreground: oklch(1 0 0);
 
   /* Même citron : il reste un aplat, et son encre sombre y tient 12:1 dans les
      deux thèmes. Ce qui change en clair, c'est le voile — 0.16 d'un citron très
      lumineux disparaît sur blanc. */
-  --color-accent: oklch(0.85 0.2 124);
-  --color-accent-hover: oklch(0.8 0.2 124);
-  --color-accent-ink: oklch(0.24 0.05 124);
+  --color-marker: oklch(0.85 0.2 124);
+  --color-marker-hover: oklch(0.8 0.2 124);
+  --color-marker-ink: oklch(0.24 0.05 124);
   /* 0.28 sur blanc virait au surligneur : la ligne sélectionnée pesait plus que
      tout le reste du panneau. 0.16 tient encore le « ici » sans crier. */
-  --color-accent-soft: oklch(0.8 0.2 124 / 0.16);
-  --color-accent-line: oklch(0.72 0.18 124 / 0.9);
+  --color-marker-soft: oklch(0.8 0.2 124 / 0.16);
+  --color-marker-line: oklch(0.72 0.18 124 / 0.9);
 
-  --color-selection: oklch(0.18 0 0);
-  --color-selection-soft: oklch(0.18 0 0 / 0.1);
-
-  --color-danger: oklch(0.55 0.19 25);
-  --color-danger-soft: oklch(0.55 0.19 25 / 0.1);
   --color-success: oklch(0.5 0.11 155);
   --color-warning: oklch(0.55 0.1 70);
 
   --color-artboard-ring: oklch(0 0 0 / 0.1);
   --color-artboard-ring-active: oklch(0 0 0 / 0.5);
   --color-artboard-shadow: oklch(0 0 0 / 0.16);
-  --color-scrim: oklch(0.3 0 0 / 0.35);
+  --color-selection-soft: oklch(0.18 0 0 / 0.1);
 
-  --shadow-island: 0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
+  --shadow-md: 0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
     0 24px 48px -24px oklch(0 0 0 / 0.14);
-  --shadow-menu: 0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
+  --shadow-lg: 0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
     0 32px 64px -32px oklch(0 0 0 / 0.16);
-  --shadow-modal: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
+  --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
   --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
@@ -285,14 +296,13 @@
   }
   ::selection {
     background: var(--color-foreground);
-    color: var(--color-panel);
+    color: var(--color-card);
   }
   button {
     font-family: inherit;
   }
-  /* Le focus est un état : c'est donc l'accent qui le porte, pas un gris clair. */
   :focus-visible {
-    outline: 2px solid var(--color-accent-line);
+    outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
 }
@@ -300,10 +310,10 @@
 @layer components {
   /* ── Îlot flottant : barre, drawers, filmstrip ── */
   .island {
-    background: var(--color-panel);
+    background: var(--color-card);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-island), var(--hairline-top);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md), var(--hairline-top);
   }
 
 
@@ -345,7 +355,7 @@
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0;
-    color: var(--color-faint);
+    color: var(--color-muted-foreground);
     line-height: 1.2;
   }
   /* Valeurs numériques : Inter a des chiffres tabulaires, pas besoin d'une mono. */
@@ -355,22 +365,22 @@
 
   /* ── Surfaces ── */
   .surface-inner {
-    background: var(--color-inset);
+    background: var(--color-muted);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
   }
   .surface-modal {
-    background: var(--color-panel);
+    background: var(--color-card);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-modal), var(--hairline-top);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl), var(--hairline-top);
   }
   .menu-shadow {
-    box-shadow: var(--shadow-menu), var(--hairline-top);
+    box-shadow: var(--shadow-lg), var(--hairline-top);
   }
-  /* Un champ se lit en creux : fond plus sombre que son panneau, ombre interne d'un pixel. */
+  /* Un champ se lit en creux : fond plus sombre que sa carte, ombre interne d'un pixel. */
   .field-surface {
-    background: var(--color-inset);
+    background: var(--color-muted);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-inset);
@@ -417,7 +427,7 @@
     font-size: 11px;
     font-weight: 500;
     line-height: 1.2;
-    color: var(--color-faint);
+    color: var(--color-muted-foreground);
   }
 }
 
@@ -440,11 +450,11 @@ input[type="number"] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
+  background: var(--color-input);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-foreground-muted);
+  background: var(--color-muted-foreground);
 }
 
 /* ── Reduced motion ── */

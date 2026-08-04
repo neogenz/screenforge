@@ -21,10 +21,10 @@ export function readChromeColors(): ChromeColors {
   const read = (token: string, fallback: string) =>
     styles.getPropertyValue(token).trim() || fallback
   return {
-    label: read('--color-foreground-muted', '#b8b8b8'),
+    label: read('--color-muted-foreground', '#b8b8b8'),
     artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
     activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
-    selection: read('--color-selection', '#f7f7f7'),
+    selection: read('--color-foreground', '#f7f7f7'),
     selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
   }
 }

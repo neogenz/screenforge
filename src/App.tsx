@@ -135,14 +135,14 @@ export default function App() {
         style={{
           zIndex: 'var(--z-toast)',
           fontFamily: 'var(--font-sans)',
-          '--normal-bg': 'var(--color-raised)',
+          '--normal-bg': 'var(--color-secondary)',
           '--normal-border': 'var(--color-border)',
           '--normal-text': 'var(--color-foreground)',
           '--border-radius': 'var(--radius-md)',
         } as CSSProperties}
         toastOptions={{
           style: {
-            boxShadow: 'var(--shadow-menu), var(--hairline-top)',
+            boxShadow: 'var(--shadow-lg), var(--hairline-top)',
             fontSize: '12.5px',
           },
         }}
@@ -181,7 +181,7 @@ function Overlays() {
 function LazyDialogFallback() {
   return (
     <>
-      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-scrim" />
+      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
       <div
         role="status"
         aria-live="polite"

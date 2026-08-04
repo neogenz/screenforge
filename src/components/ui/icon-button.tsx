@@ -5,15 +5,14 @@ import { Button, type ButtonProps } from '@/components/ui/button'
 
 const iconButtonVariants = cva(
   [
-    'border border-transparent bg-transparent text-foreground-muted',
-    'hover:bg-raised-hover hover:text-foreground',
-    'active:bg-raised-active',
-    'focus-visible:border-border-strong',
+    'border border-transparent bg-transparent text-muted-foreground',
+    'hover:bg-accent hover:text-foreground',
+    'focus-visible:border-input',
     'disabled:opacity-35',
     // Neutre, et non l'accent : ces boutons disent « ce panneau est ouvert »,
     // pas « c'est ici que vous travaillez ». L'accent est réservé à ce que
     // l'utilisateur édite — l'écran courant, le calque sélectionné, le focus.
-    'data-[active=true]:bg-raised-active data-[active=true]:text-foreground',
+    'data-[active=true]:bg-secondary data-[active=true]:text-foreground',
   ],
   {
     variants: {

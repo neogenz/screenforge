@@ -161,7 +161,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           {sortedStops.map((stop) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-inset p-2"
+              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-muted p-2"
             >
               <ColorPicker
                 value={stop.color}
@@ -173,7 +173,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
                 onClick={() => removeStop(stop.originalIndex)}
                 disabled={value.stops.length <= 2}
                 aria-label="Supprimer le stop"
-                className="shrink-0 hover:bg-danger-soft hover:text-danger"
+                className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
               >
                 <Trash2 size={13} strokeWidth={1.5} aria-hidden />
               </IconButton>

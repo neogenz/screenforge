@@ -49,7 +49,7 @@ function TemplatePickerContent() {
                 modèle choisi, que sa description a la place d'être lue. */}
             <div className="flex min-w-0 flex-col">
               <p className="truncate text-[12px] font-medium text-foreground">{selected.name}</p>
-              <p className="truncate text-[11.5px] text-foreground-muted">{selected.description}</p>
+              <p className="truncate text-[11.5px] text-muted-foreground">{selected.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="default" onClick={() => handleApply('current')}>
@@ -79,10 +79,10 @@ function TemplatePickerContent() {
               className={cn(
                 'group flex flex-col gap-2 self-start rounded-lg border p-2 text-left',
                 'transition-[border-color,background] duration-150 ease-out',
-                'focus-visible:outline-none focus-visible:border-foreground-muted',
+                'focus-visible:outline-none focus-visible:border-muted-foreground',
                 isSelected
-                  ? 'border-foreground-muted bg-raised'
-                  : 'border-border hover:border-border-strong hover:bg-raised-hover',
+                  ? 'border-muted-foreground bg-secondary'
+                  : 'border-border hover:border-input hover:bg-accent',
               )}
             >
               <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">

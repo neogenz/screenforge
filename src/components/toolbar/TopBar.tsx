@@ -59,7 +59,7 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
  * qui fait lire un groupe, d'où `mx-1.5` contre `gap-0.5` en intra-groupe.
  */
 function Divider() {
-  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-border-strong" />
+  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-input" />
 }
 
 /** Unique top bar: project identity, layer tools, workspace toggles, export. */
@@ -78,7 +78,7 @@ function ProjectSegment() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-foreground-muted" />
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-muted-foreground" />
       <ProjectName />
       <ProjectFileMenu />
       {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
@@ -87,7 +87,7 @@ function ProjectSegment() {
         aria-live="polite"
         className={cn(
           'hidden shrink-0 items-center gap-1.5 text-[11px] xl:flex',
-          saveStatus === 'error' ? 'text-danger' : 'text-faint',
+          saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
         {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
@@ -228,7 +228,7 @@ function ProjectName() {
       className={cn(
         'h-9 w-40 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
         'text-[14px] font-semibold tracking-[-0.012em] text-foreground transition-colors',
-        'hover:border-border focus:border-border-strong focus:bg-raised focus:outline-none',
+        'hover:border-border focus:border-input focus:bg-secondary focus:outline-none',
       )}
     />
   )
@@ -271,7 +271,7 @@ function ToolsSegment() {
 
       {/* Les quatre outils d'ajout forment un groupe : un rail en creux le dit
           mieux qu'un filet, et distingue « créer » de « défaire ». */}
-      <div className="flex items-center gap-[2px] rounded-md border border-border bg-inset p-[3px]">
+      <div className="flex items-center gap-[2px] rounded-md border border-border bg-muted p-[3px]">
         <IconButton
           size="sm"
           aria-label="Ajouter Texte"
@@ -363,8 +363,8 @@ function ActionsSegment() {
         title="Palette de commandes (⌘K)"
         onClick={() => useUIStore.getState().setShowCommandPalette(true)}
         className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-faint',
-          'transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground',
+          'flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
+          'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
         )}
       >
         <Kbd>⌘K</Kbd>

@@ -173,7 +173,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       {layer.importedBezel ? (
         <Field label="Bezel Apple">
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             {bezelUrl && (
               <img
                 src={bezelUrl}
@@ -197,7 +197,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               size="sm"
               disabled={bezelLoading}
               aria-label="Retirer le bezel Apple"
-              className="hover:text-danger"
+              className="hover:text-destructive"
               onClick={removeImportedBezel}
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
@@ -219,16 +219,16 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             href="https://developer.apple.com/design/resources/#product-bezels"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-foreground-muted underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
           >
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-[11px] leading-relaxed text-faint">Extraire le DMG, puis choisir un PNG transparent.</span>
+          <span className="text-[11px] leading-relaxed text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-[11px] leading-relaxed text-danger">
+        <p role="alert" className="text-[11px] leading-relaxed text-destructive">
           {bezelError}
         </p>
       )}
@@ -245,7 +245,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             >
               <span className="truncate">{config.modelName}</span>
               <span className="flex shrink-0 items-center gap-1.5">
-                <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
+                <span className="tabular text-[10px] text-muted-foreground">{config.screenSize}</span>
                 <ChevronDown
                   size={12}
                   strokeWidth={1.5}
@@ -292,7 +292,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       <Field label="Capture d’écran">
         {screenshotUrl ? (
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             <img
               src={screenshotUrl}
               alt="Capture importée"
@@ -309,7 +309,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             <IconButton
               size="sm"
               aria-label="Supprimer la capture"
-              className="hover:text-danger"
+              className="hover:text-destructive"
               onClick={() => onUpdate({ screenshotAssetId: undefined })}
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
@@ -322,7 +322,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
               'field-label transition-colors duration-150 ease-out',
-              'hover:border-border-strong hover:text-foreground',
+              'hover:border-input hover:text-foreground',
             )}
           >
             Aucune capture · importer un PNG/JPEG
@@ -337,14 +337,14 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
+          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-destructive">
             {screenshotError}
           </p>
         )}
       </Field>
 
       {layer.importedBezel ? (
-        <p className="text-[11px] leading-relaxed text-faint">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : <div className="flex flex-col gap-2">

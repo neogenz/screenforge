@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 const inputVariants = cva(
   [
     'field-surface h-8 w-full px-2.5',
-    'text-foreground placeholder:text-faint',
+    'text-foreground placeholder:text-muted-foreground',
     'transition-[border-color] duration-150 ease-out',
-    'hover:border-border-strong focus:border-foreground-muted',
+    'hover:border-input focus:border-muted-foreground',
     // L'invalidité se signale sur la bordure, jamais sur le fond.
-    'aria-invalid:border-danger aria-invalid:hover:border-danger aria-invalid:focus:border-danger',
+    'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
     'disabled:pointer-events-none disabled:opacity-40',
   ],
   {

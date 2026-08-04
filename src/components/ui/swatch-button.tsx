@@ -33,14 +33,14 @@ export function SwatchButton({
         'transition-[box-shadow] duration-150 ease-out',
         selected
           ? 'ring-2 ring-foreground'
-          : 'ring-1 ring-transparent hover:ring-border-strong',
+          : 'ring-1 ring-transparent hover:ring-input',
         className,
       )}
       {...props}
     >
       <span aria-hidden className="checkerboard block h-full w-full rounded-full">
         <span
-          className="block h-full w-full rounded-full ring-1 ring-inset ring-border-strong"
+          className="block h-full w-full rounded-full ring-1 ring-inset ring-input"
           style={{ backgroundColor: color }}
         />
       </span>

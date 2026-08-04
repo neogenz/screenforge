@@ -154,9 +154,9 @@ export function ScreensBar() {
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
           'mb-[26px] flex aspect-[1320/2868] shrink-0 items-center justify-center self-center',
-          'rounded-sm border border-border bg-raised',
-          'text-foreground-muted transition-colors duration-150 ease-out',
-          'hover:border-border-strong hover:bg-raised-hover hover:text-foreground',
+          'rounded-sm border border-border bg-secondary',
+          'text-muted-foreground transition-colors duration-150 ease-out',
+          'hover:border-input hover:bg-accent hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
         )}
       >
@@ -166,7 +166,7 @@ export function ScreensBar() {
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
-        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-[10.5px] text-faint">
+        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-[10.5px] text-muted-foreground">
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>
       )}

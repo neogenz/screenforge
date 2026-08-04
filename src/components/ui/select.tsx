@@ -80,8 +80,8 @@ export function Select({
           'field-surface relative flex h-8 w-full items-center gap-2 pl-2.5 pr-7 text-left outline-none',
           'text-[12.5px] text-foreground',
           'transition-[border-color] duration-150 ease-out',
-          'hover:border-border-strong focus:border-foreground-muted',
-          'aria-invalid:border-danger aria-invalid:hover:border-danger aria-invalid:focus:border-danger',
+          'hover:border-input focus:border-muted-foreground',
+          'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
           'disabled:pointer-events-none disabled:opacity-40',
           className,
         )}
@@ -92,7 +92,7 @@ export function Select({
           </span>
         )}
         <SelectPrimitive.Value className="min-w-0 flex-1 truncate" />
-        <SelectPrimitive.Icon className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-faint">
+        <SelectPrimitive.Icon className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
           <ChevronDown size={11} strokeWidth={1.5} aria-hidden />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
@@ -102,7 +102,7 @@ export function Select({
           sideOffset={4}
           className={cn(
             'menu-shadow z-(--z-popover) max-h-72 min-w-(--radix-select-trigger-width) overflow-y-auto',
-            'rounded-md border border-border bg-panel text-foreground',
+            'rounded-md border border-border bg-popover text-foreground',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           )}
@@ -118,7 +118,7 @@ export function Select({
                   'relative flex h-7 cursor-pointer items-center rounded-sm pr-7 pl-2 outline-none select-none',
                   'text-[12.5px]',
                   'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
-                  'data-[highlighted]:bg-raised-hover',
+                  'data-[highlighted]:bg-accent',
                 )}
               >
                 <SelectPrimitive.ItemText>{option.content}</SelectPrimitive.ItemText>

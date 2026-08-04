@@ -58,7 +58,7 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
             event.stopPropagation()
           }}
           className={cn(
-            'menu-shadow z-(--z-popover) min-w-[180px] animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-panel p-1',
+            'menu-shadow z-(--z-popover) min-w-[180px] animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-popover p-1',
           )}
         >
           {items.map((item, index) =>
@@ -76,14 +76,14 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
                   'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left text-[12.5px] outline-none transition-colors',
                   'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
                   item.danger
-                    ? 'text-danger data-[highlighted]:bg-danger-soft'
-                    : 'text-foreground data-[highlighted]:bg-raised-hover',
+                    ? 'text-destructive data-[highlighted]:bg-destructive/14'
+                    : 'text-foreground data-[highlighted]:bg-accent',
                 )}
               >
-                {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
+                {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.shortcut && (
-                  <span className="tabular ml-auto pl-4 text-[10px] text-faint">{item.shortcut}</span>
+                  <span className="tabular ml-auto pl-4 text-[10px] text-muted-foreground">{item.shortcut}</span>
                 )}
               </DropdownMenuPrimitive.Item>
             ),

@@ -157,8 +157,8 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
                   selected
-                    ? 'border-foreground-muted'
-                    : 'border-border hover:border-border-strong',
+                    ? 'border-muted-foreground'
+                    : 'border-border hover:border-input',
                 )}
               />
             )

@@ -86,14 +86,14 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-pressed={isActive}
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-sm bg-inset',
+          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-sm bg-muted',
           'border transition-[border-color,box-shadow,transform] duration-150 ease-out',
           'active:scale-[0.97]',
           // L'écran courant est un état : l'anneau d'accent le dit à distance,
           // là où deux gris voisins demandaient de comparer les vignettes.
           isActive
-            ? 'border-transparent shadow-[0_0_0_2px_var(--color-accent)]'
-            : 'border-border hover:border-border-strong',
+            ? 'border-transparent shadow-[0_0_0_2px_var(--color-marker)]'
+            : 'border-border hover:border-input',
         )}
       >
         {screen.thumbnail ? (
@@ -103,7 +103,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             className="img-outline h-full w-full object-cover"
           />
         ) : (
-          <div className="h-full w-full bg-raised" />
+          <div className="h-full w-full bg-secondary" />
         )}
       </button>
 
@@ -134,7 +134,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             // reste. Le recouvrement avec la vignette est sans effet — même action.
             'hit-40 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
             'text-[10.5px] leading-none transition-colors',
-            isActive ? 'text-foreground' : 'text-faint hover:text-foreground-muted',
+            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
           )}
         >
           <span className="tabular shrink-0 opacity-60">{String(index + 1).padStart(2, '0')}</span>
@@ -154,7 +154,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         }}
         className={cn(
           'hit-40 absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-xs',
-          'border border-border bg-panel/95 text-foreground-muted transition-opacity hover:text-foreground',
+          'border border-border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
             'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
         )}

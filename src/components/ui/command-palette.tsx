@@ -37,24 +37,24 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       }}
       label="Palette de commandes"
       loop
-      overlayClassName="fixed inset-0 z-(--z-popover) animate-fade-in bg-scrim"
+      overlayClassName="fixed inset-0 z-(--z-popover) animate-fade-in bg-black/50"
       contentClassName={cn(
         'surface-modal fixed left-1/2 top-[16vh] z-(--z-popover) w-[min(560px,92vw)]',
         '-translate-x-1/2 animate-palette-in overflow-hidden outline-none',
       )}
     >
       <div className="flex items-center gap-2 border-b border-border px-3">
-        <Search size={14} strokeWidth={1.75} className="shrink-0 text-faint" aria-hidden />
+        <Search size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
         <Command.Input
           aria-label="Rechercher une commande"
           placeholder="Rechercher une commande…"
-          className="h-10 w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-faint"
+          className="h-10 w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
         />
         <Kbd>esc</Kbd>
       </div>
 
       <Command.List label="Commandes" className="max-h-80 overflow-y-auto p-1.5">
-        <Command.Empty className="px-3 py-6 text-center text-[12.5px] text-faint">
+        <Command.Empty className="px-3 py-6 text-center text-[12.5px] text-muted-foreground">
           Aucune commande
         </Command.Empty>
         {sections.map((group) => (
@@ -67,8 +67,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 onSelect={() => runCommand(command)}
                 className={cn(
                   'flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-left',
-                  'text-foreground-muted transition-colors duration-75 ease-out',
-                  'data-[selected=true]:bg-raised-hover data-[selected=true]:text-foreground',
+                  'text-muted-foreground transition-colors duration-75 ease-out',
+                  'data-[selected=true]:bg-accent data-[selected=true]:text-foreground',
                 )}
               >
                 <span className="min-w-0 flex-1 truncate text-[12.5px]">{command.title}</span>

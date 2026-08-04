@@ -43,7 +43,7 @@ export function Dialog({
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-modal) animate-fade-in bg-scrim" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
         <DialogPrimitive.Content
           ref={contentRef}
           tabIndex={-1}

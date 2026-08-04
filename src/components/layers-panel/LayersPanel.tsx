@@ -104,7 +104,7 @@ export function LayersPanel() {
       <div className="shrink-0 px-3.5 pb-3 pt-3.5">
         <div className="flex items-center justify-between">
           <span className="panel-title">Calques</span>
-          <span className="tabular text-[11px] text-faint">
+          <span className="tabular text-[11px] text-muted-foreground">
             {String(layers.length).padStart(2, '0')}
           </span>
         </div>
@@ -113,7 +113,7 @@ export function LayersPanel() {
             size={13}
             strokeWidth={1.5}
             aria-hidden
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             font="sans"
@@ -137,9 +137,9 @@ export function LayersPanel() {
       >
         {layers.length === 0 && (
           <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
-            <Smartphone size={20} strokeWidth={1.5} className="text-faint" aria-hidden />
-            <p className="text-[12px] text-foreground-muted">Écran vide.</p>
-            <p className="max-w-[190px] text-[11px] leading-relaxed text-faint">
+            <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+            <p className="text-[12px] text-muted-foreground">Écran vide.</p>
+            <p className="max-w-[190px] text-[11px] leading-relaxed text-muted-foreground">
               Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
             </p>
             <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
@@ -149,7 +149,7 @@ export function LayersPanel() {
         )}
 
         {layers.length > 0 && layerGroups.length === 0 && (
-          <p className="py-6 text-center text-[11px] text-faint">
+          <p className="py-6 text-center text-[11px] text-muted-foreground">
             Aucun calque pour « {query.trim()} »
           </p>
         )}

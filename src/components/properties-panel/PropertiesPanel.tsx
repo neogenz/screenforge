@@ -48,7 +48,7 @@ export function PropertiesPanel() {
       <div className="flex h-12 shrink-0 items-center justify-between px-3.5">
         <span className="panel-title">{headerLabel}</span>
         {selectedLayers.length > 1 && (
-          <span className="tabular text-[11px] text-faint">
+          <span className="tabular text-[11px] text-muted-foreground">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
@@ -65,10 +65,10 @@ export function PropertiesPanel() {
         {selectedLayers.length > 1 && (
           <div className="px-3.5 pb-3.5">
             <div className="surface-inner px-4 py-7 text-center">
-              <p className="text-[12.5px] leading-relaxed text-foreground-muted">
+              <p className="text-[12.5px] leading-relaxed text-muted-foreground">
                 {selectedLayers.length} calques sélectionnés.
               </p>
-              <p className="mt-1 text-[11px] text-faint">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 Sélectionnez un seul calque pour éditer.
               </p>
             </div>
@@ -134,7 +134,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   return (
     // Une section est une carte posée dans le panneau, pas une bande séparée
     // par un filet : c'est la matière qui groupe, le trait ne faisait que hacher.
-    <div className="mx-3.5 mb-3 overflow-hidden rounded-md border border-border bg-inset/60">
+    <div className="mx-3.5 mb-3 overflow-hidden rounded-md border border-border bg-muted/60">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -150,7 +150,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
           strokeWidth={1.75}
           aria-hidden
           className={cn(
-            'shrink-0 text-faint transition-transform duration-150 ease-out',
+            'shrink-0 text-muted-foreground transition-transform duration-150 ease-out',
             open && 'rotate-90',
           )}
         />

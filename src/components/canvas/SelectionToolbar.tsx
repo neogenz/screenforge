@@ -149,7 +149,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
         size="sm"
         aria-label="Supprimer"
         title="Supprimer"
-        className="hover:text-danger"
+        className="hover:text-destructive"
         onClick={() => {
           for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
         }}

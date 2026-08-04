@@ -7,7 +7,7 @@ export function ToggleGroup({ className, role = 'group', ...props }: ComponentPr
     <ToggleGroupPrimitive.Root
       role={role}
       className={cn(
-        'inline-flex items-stretch gap-0.5 rounded-md border border-border bg-inset p-[3px]',
+        'inline-flex items-stretch gap-0.5 rounded-md border border-border bg-muted p-[3px]',
         className,
       )}
       {...props}
@@ -28,8 +28,8 @@ export function ToggleGroupItem({ className, role = 'button', ...props }: Compon
         'disabled:pointer-events-none disabled:opacity-40',
         // L'option active monte d'un palier : lisible sur panneau clair comme sombre,
         // là où une bordure claire seule disparaissait en thème clair.
-        'data-[state=on]:bg-raised data-[state=on]:text-foreground data-[state=on]:shadow-(--hairline-top)',
-        'data-[state=off]:text-foreground-muted hover:data-[state=off]:bg-raised-hover hover:data-[state=off]:text-foreground',
+        'data-[state=on]:bg-secondary data-[state=on]:text-foreground data-[state=on]:shadow-(--hairline-top)',
+        'data-[state=off]:text-muted-foreground hover:data-[state=off]:bg-accent hover:data-[state=off]:text-foreground',
         className,
       )}
       {...props}

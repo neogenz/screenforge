@@ -12,9 +12,9 @@ import { fileURLToPath } from 'node:url'
 const CSS = fileURLToPath(new URL('../src/index.css', import.meta.url))
 
 /** Encres à contrôler, dans l'ordre du plus foncé au plus discret. */
-const INKS = ['foreground', 'foreground-muted', 'faint']
+const INKS = ['foreground', 'muted-foreground']
 /** Surfaces sur lesquelles une encre peut se poser. */
-const SURFACES = ['stage', 'background', 'panel', 'inset', 'raised']
+const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']
 
 const MIN_RATIO = 4.5
 

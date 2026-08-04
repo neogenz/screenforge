@@ -139,15 +139,15 @@ export const LayerItem = memo(function LayerItem({
         // L'aplat pesait autant que le contenu du panneau et ne disait pas
         // « sélectionné », seulement « survolé un peu plus fort ».
         isSelected
-          ? 'accent-mark text-foreground'
-          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
+          ? 'marker-soft text-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       <GripVertical
         size={11}
         strokeWidth={1.5}
         aria-hidden
-        className="shrink-0 cursor-grab text-faint opacity-0 transition-opacity group-hover:opacity-100"
+        className="shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
       />
 
       <LayerTypeIcon type={layer.type} />
@@ -161,7 +161,7 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12.5px] focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[12.5px] focus:border-muted-foreground"
         />
       ) : (
         <span className="flex-1 truncate text-[12.5px]">
@@ -203,8 +203,8 @@ export const LayerItem = memo(function LayerItem({
 
       {(!layer.visible || layer.locked) && (
         <div className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden" aria-hidden>
-          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-faint" />}
-          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-faint" />}
+          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-muted-foreground" />}
+          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-muted-foreground" />}
         </div>
       )}
 
