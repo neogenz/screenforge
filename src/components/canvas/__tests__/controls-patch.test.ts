@@ -12,6 +12,9 @@ describe('installControlsPatch', () => {
 
     expect(installControlsPatch(target)).toBe(true)
     const patched = target._renderControls
+    expect((patched as ControlRenderer & Record<symbol, unknown>)[
+      Symbol.for('screenforge.controls-patch')
+    ]).toBe(original)
     expect(installControlsPatch(target)).toBe(true)
     expect(target._renderControls).toBe(patched)
 

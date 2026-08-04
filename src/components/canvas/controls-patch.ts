@@ -6,6 +6,7 @@ export const GHOST_INK = 'rgba(255,255,255,0.6)'
 export const GHOST_HALO = 'rgba(0,0,0,0.3)'
 
 const HALO_SPREAD = 1
+const PATCH_MARK = Symbol.for('screenforge.controls-patch')
 
 export type ControlRenderer = (
   ctx: CanvasRenderingContext2D,
@@ -14,9 +15,17 @@ export type ControlRenderer = (
 
 export type ControlHost = FabricObject & { _renderControls: ControlRenderer }
 
-const renderControlsPlain =
-  (FabricObject.prototype as unknown as Partial<ControlHost>)._renderControls
-const installed = new WeakSet<object>()
+type MarkedRenderer = ControlRenderer & Record<symbol, ControlRenderer | undefined>
+
+function originalRenderer(renderer: ControlRenderer | undefined): ControlRenderer | undefined {
+  return renderer
+    ? (renderer as MarkedRenderer)[PATCH_MARK] ?? renderer
+    : undefined
+}
+
+const renderControlsPlain = originalRenderer(
+  (FabricObject.prototype as unknown as Partial<ControlHost>)._renderControls,
+)
 
 function renderWith(
   renderer: ControlRenderer,
@@ -57,15 +66,21 @@ export function renderTwoTone(
 export function installControlsPatch(
   target = FabricObject.prototype as unknown as Partial<ControlHost>,
 ): boolean {
-  if (installed.has(target)) return true
-  const original = target._renderControls
-  if (typeof original !== 'function') {
+  const current = target._renderControls
+  if (typeof current !== 'function') {
     console.warn(`Fabric ${version}: _renderControls indisponible, cadre bicolore désactivé.`)
     return false
   }
-  target._renderControls = function renderTwoToneControls(ctx, styleOverride) {
-    renderWith(original, this as FabricObject, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
-  }
-  installed.add(target)
+  if ((current as MarkedRenderer)[PATCH_MARK]) return true
+  const original = originalRenderer(current)!
+  const patched: MarkedRenderer = function renderTwoToneControls(
+    this: FabricObject,
+    ctx: CanvasRenderingContext2D,
+    styleOverride?: Record<string, unknown>,
+  ) {
+    renderWith(original, this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
+  } as MarkedRenderer
+  patched[PATCH_MARK] = original
+  target._renderControls = patched
   return true
 }
