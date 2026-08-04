@@ -46,7 +46,7 @@ declare global {
     __sfCanvas?: Canvas
     __sfCrash?: () => void
     __sfStores?: {
-      useHistoryStore: { getState: () => { past: string[]; future: string[] } }
+      useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: { getState: () => {
         layers: { id: string; x: number; y: number; type?: string }[]
         selectedLayerIds: string[]
