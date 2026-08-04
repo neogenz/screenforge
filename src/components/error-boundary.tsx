@@ -1,6 +1,6 @@
 import { Component, createRef, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { deleteProject, saveCurrentProject } from '@/lib/storage'
+import { deleteProject } from '@/lib/storage'
 import { useProjectStore } from '@/stores/project.store'
 
 interface ErrorBoundaryProps {
@@ -43,7 +43,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
     this.setState({ resetting: true, resetError: false })
     try {
-      await saveCurrentProject()
       await deleteProject(projectId)
       window.location.reload()
     } catch (error) {

@@ -9,11 +9,14 @@ import {
 } from '@/lib/assets'
 import {
   deleteProject,
+  initAutoSave,
   listProjects,
   loadLatestProject,
   loadProject,
+  saveCurrentProject,
   saveProject,
 } from '@/lib/storage'
+import { useProjectStore } from '@/stores/project.store'
 import { useToastStore } from '@/stores/toast.store'
 import type { Layer, Project } from '@/types'
 
@@ -58,12 +61,14 @@ async function clearDatabase() {
   ])
   db.close()
   clearAssets()
+  useProjectStore.setState({ project: null })
   useToastStore.setState({ toasts: [] })
 }
 
 describe('storage', () => {
   beforeEach(async () => {
     vi.restoreAllMocks()
+    vi.useRealTimers()
     await clearDatabase()
   })
 
@@ -137,6 +142,49 @@ describe('storage', () => {
     const db = await database()
     expect(await db.count('projects')).toBe(0)
     expect(await db.count('assets')).toBe(0)
+    db.close()
+  })
+
+  it('deletes a project after an in-flight save fails', async () => {
+    await saveProject(project('Before'))
+    useProjectStore.getState().loadProject(project('After'))
+    const originalPut = IDBObjectStore.prototype.put
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      if (this.name === 'projects') throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      return originalPut.call(this, value, key)
+    })
+
+    const saving = saveCurrentProject().then(
+      () => null,
+      (error: unknown) => error,
+    )
+    await deleteProject('project')
+    expect(await saving).toMatchObject({ name: 'QuotaExceededError' })
+    put.mockRestore()
+
+    const db = await database()
+    expect(await db.get('projects', 'project')).toBeUndefined()
+    db.close()
+  })
+
+  it('cancels a scheduled save before deleting the project', async () => {
+    await saveProject(project('Before'))
+    useProjectStore.getState().loadProject(project('Before'))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const unsubscribe = initAutoSave()
+    useProjectStore.getState().updateProjectName('After')
+
+    await deleteProject('project')
+    await vi.advanceTimersByTimeAsync(2000)
+    unsubscribe()
+    vi.useRealTimers()
+
+    const db = await database()
+    expect(await db.get('projects', 'project')).toBeUndefined()
     db.close()
   })
 

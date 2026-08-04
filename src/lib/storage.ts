@@ -322,7 +322,21 @@ export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'cre
   return all.map(({ id, name, createdAt, updatedAt }) => ({ id, name, createdAt, updatedAt }))
 }
 
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingProject: Project | null = null
+let saveSequence = 0
+const inFlightSaves = new Map<Promise<void>, string>()
+
 export async function deleteProject(id: string): Promise<void> {
+  if (pendingProject?.id === id) {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = null
+    pendingProject = null
+  }
+  const activeSaves = [...inFlightSaves]
+    .flatMap(([save, projectId]) => projectId === id ? [save] : [])
+  await Promise.allSettled(activeSaves)
+
   const db = await getDB()
   const tx = db.transaction(['projects', 'assets'], 'readwrite')
   const assets = tx.objectStore('assets')
@@ -397,21 +411,21 @@ export async function importPortableProject(file: File): Promise<Project> {
   return imported.project
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-let pendingProject: Project | null = null
-let saveSequence = 0
-
 async function persist(project: Project): Promise<void> {
   const sequence = ++saveSequence
   useUIStore.getState().setSaveStatus('saving')
+  const operation = saveProject(project)
+  inFlightSaves.set(operation, project.id)
   try {
-    await saveProject(project)
+    await operation
     if (sequence === saveSequence) useUIStore.getState().setSaveStatus('saved')
   } catch (error) {
     if (sequence === saveSequence) useUIStore.getState().setSaveStatus('error')
     console.error('Could not save the project.', error)
     toast('Sauvegarde locale impossible. Vos modifications restent ouvertes.', 'error')
     throw error
+  } finally {
+    inFlightSaves.delete(operation)
   }
 }
 
