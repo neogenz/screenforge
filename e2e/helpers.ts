@@ -47,6 +47,16 @@ declare global {
   interface Window {
     __sfCanvas?: Canvas
     __sfCrash?: () => void
+    /**
+     * Le registre d'assets de l'application.
+     *
+     * À importer depuis la page par `import('/src/lib/assets.ts')`, on obtient
+     * une seconde instance : après un HMR, Vite horodate le spécificateur
+     * (`?t=…`) dans le code applicatif, et les deux URL ne partagent plus rien.
+     * Les assets enregistrés par le test devenaient alors invisibles au code
+     * testé, qui échouait en `missing-current-asset`.
+     */
+    __sfAssets?: typeof import('../src/lib/assets')
     __sfStores?: {
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: { getState: () => {
