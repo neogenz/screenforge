@@ -66,6 +66,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       onClose={handleClose}
       title="Export officiel"
       size="lg"
+      flush
       headerActions={<span className="field-label px-1">App Store</span>}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
@@ -89,11 +90,10 @@ function ExportDialogContent({ project }: { project: Project }) {
         </div>
       }
     >
-      {/* -m-4 cancels the Dialog body padding so the columns stay flush. */}
-      <div className="-m-4 flex flex-col">
+      <div className="flex flex-col">
         <div className="grid grid-cols-[minmax(0,1fr)_220px]">
           <section
-            className="max-h-[52dvh] overflow-y-auto border-r border-border px-5 py-4"
+            className="max-h-[52dvh] overflow-y-auto border-r border-border px-6 py-4"
             aria-labelledby="export-screens-title"
           >
             <div className="mb-3 flex items-center justify-between">
@@ -128,10 +128,10 @@ function ExportDialogContent({ project }: { project: Project }) {
           </section>
 
           <aside
-            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-4 py-4"
+            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-6 py-4"
             aria-label="Profil d’export"
           >
-            <div className="surface-inner p-3.5">
+            <div className="surface-inner p-4">
               <span className="field-label">Profil</span>
               <p className="mt-1.5 text-sm font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
               <p className="tabular mt-1 text-sm text-muted-foreground">
@@ -145,7 +145,7 @@ function ExportDialogContent({ project }: { project: Project }) {
               </ul>
             </div>
 
-            <div className="surface-inner p-3.5">
+            <div className="surface-inner p-4">
               <span className="field-label">Lot final</span>
               <p className="mt-1.5 text-xl font-medium tabular-nums text-foreground">
                 {selectedScreens.length}
@@ -158,7 +158,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         </div>
 
         {(progress || error || completedFiles.length > 0) && (
-          <div className="border-t border-border px-5 py-3" aria-live="polite">
+          <div className="border-t border-border px-6 py-4" aria-live="polite">
             {progress && (
               <div>
                 <div className="mb-2 flex items-center gap-2">

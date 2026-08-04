@@ -14,6 +14,11 @@ export interface DialogProps {
   size?: 'sm' | 'md' | 'lg'
   /** Extra content on the right side of the header, before the close button. */
   headerActions?: ReactNode
+  /**
+   * Contenu à fleur de bord, pour une boîte qui pose elle-même ses colonnes.
+   * Annulait son retrait par une marge négative, qui n'a jamais valu le retrait.
+   */
+  flush?: boolean
 }
 
 const SIZES = {
@@ -31,6 +36,7 @@ export function Dialog({
   footer,
   size = 'md',
   headerActions,
+  flush = false,
 }: DialogProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
@@ -73,7 +79,7 @@ export function Dialog({
             SIZES[size],
           )}
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-5 py-4">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-6 py-4">
             <DialogPrimitive.Title className="panel-title">
               {title}
             </DialogPrimitive.Title>
@@ -84,9 +90,9 @@ export function Dialog({
               </IconButton>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+          <div className={cn('min-h-0 flex-1 overflow-y-auto', !flush && 'p-6')}>{children}</div>
           {footer && (
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-5 py-3.5">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-6 py-4">
               {footer}
             </div>
           )}

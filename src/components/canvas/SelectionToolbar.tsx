@@ -40,13 +40,11 @@ import type { Layer, TextLayer } from '@/types'
 /**
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
  *
- * 48, la même géométrie que la barre du haut : 8 px au-dessus et en dessous de
- * contrôles qui en font 32. À 40 il n'en restait que 4, et un champ encadré —
- * la police, le corps — se lit alors comme collé aux deux bords, là où un
- * bouton-icône sans fond s'en accommode. Les deux barres n'ont pas de raison
- * de respirer différemment.
+ * 46 = contrôles de 32 + le retrait d'îlot (2×6) + son filet (2×1). La barre ne
+ * pose plus sa propre géométrie : elle prend celle que `.island` donne à toutes
+ * les autres, et cette constante ne fait que la répéter au calcul de position.
  */
-const BAR_HEIGHT = 48
+const BAR_HEIGHT = 46
 /** Écart entre la sélection et la barre. */
 const OFFSET = 10
 /** Marge minimale conservée contre les bords du stage. */
@@ -107,7 +105,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   return (
     <div
       className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
-        flex h-12 max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto px-2"
+        flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
       role="toolbar"
       aria-label="Actions de la sélection"
       style={{

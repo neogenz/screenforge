@@ -6,6 +6,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { TransformSection } from './TransformSection'
 import { TextSection } from './TextSection'
@@ -43,9 +44,9 @@ export function PropertiesPanel() {
 
   return (
     // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
-    <aside className="island flex max-h-full min-h-0 flex-col overflow-hidden">
+    <aside className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between px-3.5">
+      <div className="flex h-12 shrink-0 items-center justify-between px-3">
         <span className="panel-title">{headerLabel}</span>
         {selectedLayers.length > 1 && (
           <span className="tabular text-2xs text-muted-foreground">
@@ -55,38 +56,30 @@ export function PropertiesPanel() {
       </div>
 
       {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
-      <div className="min-h-0 overflow-y-auto">
-        {selectedLayers.length === 0 && (
-          <div className="px-3.5 pb-3.5">
-            <BackgroundSection />
-          </div>
-        )}
+      <ScrollArea className="px-3 pb-3" contentClassName="flex flex-col gap-2">
+        {selectedLayers.length === 0 && <BackgroundSection />}
 
         {selectedLayers.length > 1 && (
-          <div className="px-3.5 pb-3.5">
-            <div className="surface-inner px-4 py-7 text-center">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {selectedLayers.length} calques sélectionnés.
-              </p>
-              <p className="mt-1 text-2xs text-muted-foreground">
-                Sélectionnez un seul calque pour éditer.
-              </p>
-            </div>
+          <div className="surface-inner p-4 text-center">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {selectedLayers.length} calques sélectionnés.
+            </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              Sélectionnez un seul calque pour éditer.
+            </p>
           </div>
         )}
 
         {selectedLayer && (
           <>
             {/* Scope — screen-local or shared across all screens */}
-            <div className="px-3.5 pb-3">
-              <Segmented
-                ariaLabel="Portée du calque"
-                className="w-full"
-                options={SCOPE_OPTIONS}
-                value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
-                onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
-              />
-            </div>
+            <Segmented
+              ariaLabel="Portée du calque"
+              className="w-full"
+              options={SCOPE_OPTIONS}
+              value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
+              onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
+            />
 
             <Section title="Transformation" defaultOpen>
               <TransformSection layer={selectedLayer} />
@@ -117,7 +110,7 @@ export function PropertiesPanel() {
             )}
           </>
         )}
-      </div>
+      </ScrollArea>
     </aside>
   )
 }
@@ -134,12 +127,12 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   return (
     // Une section est une carte posée dans le panneau, pas une bande séparée
     // par un filet : c'est la matière qui groupe, le trait ne faisait que hacher.
-    <div className="mx-3.5 mb-3 overflow-hidden rounded-md border border-border bg-muted/60">
+    <div className="overflow-hidden rounded-md border border-border bg-muted/60">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-9 w-full items-center gap-1.5 px-2.5',
+          'flex h-9 w-full items-center gap-1.5 px-2',
           'section-title',
           'transition-colors duration-150 ease-out hover:text-foreground',
         )}
@@ -158,7 +151,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
       </button>
 
       {open && children && (
-        <div className="px-2.5 pb-3 pt-0.5">{children}</div>
+        <div className="px-2 pb-2">{children}</div>
       )}
     </div>
   )

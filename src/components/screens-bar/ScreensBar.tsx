@@ -114,7 +114,7 @@ export function ScreensBar() {
       role="listbox"
       aria-label="Écrans"
       style={{ height: FILMSTRIP_HEIGHT }}
-      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-center gap-2.5 overflow-x-auto px-2.5"
+      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-center gap-2 overflow-x-auto"
     >
       {list.map((screen, index) => (
         <div
@@ -153,7 +153,9 @@ export function ScreensBar() {
         type="button"
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'mb-[26px] flex aspect-[1320/2868] shrink-0 items-center justify-center self-center',
+          // `self-start` plutôt qu'un décalage calculé à la main : le bouton
+          // s'aligne sur le haut des vignettes quoi que devienne leur libellé.
+          'flex aspect-[1320/2868] shrink-0 items-center justify-center self-start',
           'rounded-sm border border-border bg-secondary',
           'text-muted-foreground transition-colors duration-150 ease-out',
           'hover:border-input hover:bg-accent hover:text-foreground',

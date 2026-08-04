@@ -3,6 +3,7 @@ import type { Background, ColorStop, GradientFill } from '@/types'
 import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
+import { Field } from '@/components/ui/field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
@@ -133,10 +134,9 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
       />
 
       {activeTab === 'solid' && (
-        <div className="flex flex-col gap-1.5">
-          <span className="field-label">Couleur</span>
+        <Field label="Couleur">
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
-        </div>
+        </Field>
       )}
 
       {activeTab === 'gradient' && <GradientEditor value={gradientFill} onChange={handleGradientChange} />}

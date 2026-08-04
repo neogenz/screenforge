@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer } from '@/lib/layer-factories'
@@ -100,15 +101,15 @@ export function LayersPanel() {
   return (
     // `max-h-full` sans `h-full` : l'îlot s'arrête sous sa dernière ligne et ne
     // défile qu'une fois le plafond du drawer atteint.
-    <div className="island flex max-h-full min-h-0 flex-col overflow-hidden">
-      <div className="shrink-0 px-3.5 pb-3 pt-3.5">
+    <div className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden">
+      <div className="shrink-0 px-3 pb-2 pt-3">
         <div className="flex items-center justify-between">
           <span className="panel-title">Calques</span>
           <span className="tabular text-2xs text-muted-foreground">
             {String(layers.length).padStart(2, '0')}
           </span>
         </div>
-        <div className="relative mt-3">
+        <div className="relative mt-2">
           <Search
             size={13}
             strokeWidth={1.5}
@@ -126,14 +127,14 @@ export function LayersPanel() {
         </div>
       </div>
 
-      <div
+      <ScrollArea
         // Pas de `flex-1` : sa base de 0 effondre la liste dans un conteneur à
         // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
         // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
-        className="min-h-0 overflow-y-auto px-2 pb-2"
+        className="px-2 pb-2"
         role="listbox"
         aria-label="Calques"
-        aria-multiselectable="true"
+        aria-multiselectable
       >
         {layers.length === 0 && (
           <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
@@ -156,7 +157,7 @@ export function LayersPanel() {
 
         {layerGroups.map((group) => (
           <div key={group.label} role="group" aria-label={group.label}>
-            <p className="field-label px-2 pb-1.5 pt-3">{group.label}</p>
+            <p className="field-label px-2 pb-2 pt-4">{group.label}</p>
             {group.layers.map((layer) => (
               <LayerItem
                 key={layer.id}
@@ -171,7 +172,7 @@ export function LayersPanel() {
             ))}
           </div>
         ))}
-      </div>
+      </ScrollArea>
     </div>
   )
 }

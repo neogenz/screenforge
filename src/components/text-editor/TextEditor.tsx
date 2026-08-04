@@ -65,7 +65,7 @@ export function TextEditor({ layer }: TextEditorProps) {
         .sort((a, b) => a.value - b.value)
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       <Field label="Contenu">
         <Textarea
           value={layer.content}

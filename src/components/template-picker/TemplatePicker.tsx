@@ -66,7 +66,7 @@ function TemplatePickerContent() {
       {/* Les vignettes portent le format de la planche (440×956) : à l'ancienne
           boîte carrée, l'aperçu flottait au centre de deux bandes vides plus
           larges que lui. Une colonne par modèle, la galerie tient d'un regard. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2">
         {TEMPLATES.map((template) => {
           const isSelected = selected?.id === template.id
           return (

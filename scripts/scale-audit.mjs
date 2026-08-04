@@ -14,9 +14,9 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:5199'
 
 /**
  * Au-delà, l'échelle est ouverte : les écarts ne se lisent plus comme une hiérarchie.
- * @type {['polices' | 'hauteurs' | 'rayons', number][]}
+ * @type {['polices' | 'hauteurs' | 'rayons' | 'ecarts', number][]}
  */
-const LIMITS = [['polices', 3], ['hauteurs', 2], ['rayons', 4]]
+const LIMITS = [['polices', 3], ['hauteurs', 2], ['rayons', 4], ['ecarts', 3]]
 /** Éléments affichés à titre d'exemple sous chaque valeur fautive. */
 const SAMPLES = 3
 
@@ -73,11 +73,14 @@ const readings = await page.evaluate(({ SAMPLES }) => {
   // La pellicule d'écrans dimensionne ses vignettes sur le ratio de l'artboard
   // (`THUMBNAIL_HEIGHT` dans `lib/stage.ts`), pas sur la grille des contrôles.
   const FILMSTRIP = '[role="listbox"][aria-label="Écrans"]'
+  // Le rythme vertical se juge dans les îlots flottants : c'est là qu'on empile.
+  const ISLANDS = '.island'
 
   /** @typedef {Map<string, {count: number, samples: string[]}>} Bucket */
   /** @type {Bucket} */ const polices = new Map()
   /** @type {Bucket} */ const hauteurs = new Map()
   /** @type {Bucket} */ const rayons = new Map()
+  /** @type {Bucket} */ const ecarts = new Map()
 
   /** @param {Element} el */
   const describe = (el) => {
@@ -132,12 +135,33 @@ const readings = await page.evaluate(({ SAMPLES }) => {
     tally(hauteurs, `${Math.round(boxOf(el).getBoundingClientRect().height)}px`, el)
   }
 
+  // Rythme vertical : le `row-gap` déclaré, et non la distance mesurée entre
+  // deux frères. C'est l'écart tel qu'il est écrit, donc celui qui dérive ;
+  // une distance, elle, mêlerait l'interlignage et les marges de texte.
+  for (const el of document.querySelectorAll(`${ISLANDS} *`)) {
+    if (!visible(el)) continue
+    const { display, flexDirection, flexWrap, rowGap } = getComputedStyle(el)
+    // Sur une rangée qui ne passe pas à la ligne, `row-gap` est déclaré mais ne
+    // sépare rien verticalement : le compter reviendrait à juger le rythme
+    // vertical sur des grappes de boutons alignées horizontalement.
+    const stacks = display.includes('grid')
+      || (display.includes('flex') && (flexDirection.startsWith('column') || flexWrap === 'wrap'))
+    if (!stacks || el.childElementCount < 2) continue
+    const px = Number.parseFloat(rowGap)
+    if (px > 0) tally(ecarts, `${px}px`, el)
+  }
+
   /** @param {Bucket} bucket */
   const serialise = (bucket) => [...bucket]
     .map(([value, entry]) => ({ value, ...entry }))
     .sort((a, b) => b.count - a.count)
 
-  return { polices: serialise(polices), hauteurs: serialise(hauteurs), rayons: serialise(rayons) }
+  return {
+    polices: serialise(polices),
+    hauteurs: serialise(hauteurs),
+    rayons: serialise(rayons),
+    ecarts: serialise(ecarts),
+  }
 }, { SAMPLES })
 
 await context.close()

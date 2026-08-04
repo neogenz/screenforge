@@ -139,6 +139,13 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
 
+  /* Retrait d'îlot, dérivé et non choisi : « rayon intérieur = rayon extérieur
+     − retrait » n'est vraie que si le retrait vaut l'écart entre les deux
+     rayons. À 6px, un contrôle en `rounded-md` posé contre le bord d'un îlot
+     en `rounded-xl` suit exactement sa courbe, et la règle tient toute seule
+     si `--radius` bouge. */
+  --island-padding: calc(var(--radius-xl) - var(--radius-md));
+
   /* ── z-index : 6 niveaux nommés, rien d'autre — ajout produit ── */
   /* Le voile passe devant le canvas et derrière le chrome. Au même niveau que
      lui, seul l'ordre du DOM les départageait : ça casse au premier déplacement. */
@@ -325,6 +332,21 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-md), var(--hairline-top);
+    /* L'îlot porte son retrait : laissé à chaque consommateur, il rendait 0, 0,
+       6, 8 et 10px selon la barre. */
+    padding: var(--island-padding);
+  }
+  /* Un drawer fait exception : son en-tête vient à fleur de bord, et c'est son
+     contenu qui porte le retrait. */
+  .island-flush {
+    padding: 0;
+  }
+
+  /* Bas de zone défilante : le contenu s'estompe tant qu'il en reste sous le
+     pli. Un masque ne peint pas, il ne mange donc pas la zone cliquable du
+     dernier contrôle. */
+  .scroll-fade[data-fade] {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
   }
 
 

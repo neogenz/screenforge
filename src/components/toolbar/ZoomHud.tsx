@@ -14,7 +14,7 @@ export function ZoomHud() {
   const resetZoom = useUIStore((s) => s.resetZoom)
 
   return (
-    <div className="island flex h-10 items-center gap-0.5 px-1.5">
+    <div className="island flex items-center gap-0.5">
       <IconButton size="sm" aria-label="Zoom arrière" title="Zoom arrière (⌘−)" onClick={zoomOut}>
         <Minus size={14} strokeWidth={1.75} />
       </IconButton>

@@ -65,7 +65,7 @@ function Divider() {
 /** Unique top bar: project identity, layer tools, workspace toggles, export. */
 export function TopBar() {
   return (
-    <div className="island relative flex h-12 items-center gap-1 px-2">
+    <div className="island relative flex items-center gap-1">
       <ProjectSegment />
       <ToolsSegment />
       <ActionsSegment />

@@ -72,7 +72,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
-      className="group/thumb relative flex shrink-0 flex-col gap-1.5"
+      className="group/thumb relative flex shrink-0 flex-col gap-2"
       onContextMenu={(event) => {
         event.preventDefault()
         setMenuPosition({ left: event.clientX, top: event.clientY })

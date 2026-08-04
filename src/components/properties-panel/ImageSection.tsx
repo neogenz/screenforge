@@ -40,7 +40,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       <div>
         <input
           ref={fileRef}

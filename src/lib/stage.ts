@@ -7,7 +7,8 @@
  */
 
 export const ISLAND_MARGIN = 12
-export const TOP_BAR_HEIGHT = 48
+/** Contrôle de 36 + le retrait d'îlot (2×6) + son filet (2×1). */
+export const TOP_BAR_HEIGHT = 50
 export const DRAWER_WIDTH_LAYERS = 280
 export const DRAWER_WIDTH_PROPS = 320
 
@@ -17,10 +18,13 @@ export const DRAWER_WIDTH_PROPS = 320
  * est le seul service que rend la bande.
  */
 export const THUMBNAIL_HEIGHT = 100
-/** Vignette + son libellé (20px) + l'écart (6px) + le rembourrage de l'îlot (2×10). */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + 20 + 6 + 20
+/**
+ * Vignette + son libellé (20) + l'écart (8) + le retrait d'îlot (2×6) + son
+ * filet (2×1). Sans le filet, la tuile débordait d'un pixel en haut et en bas.
+ */
+export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + 20 + 8 + 12 + 2
 
-/** Top bar (48px) + margins above and below. */
+/** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
 /** Filmstrip + margins. */
 export const STAGE_BOTTOM_INSET = FILMSTRIP_HEIGHT + ISLAND_MARGIN * 2

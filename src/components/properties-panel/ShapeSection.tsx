@@ -47,7 +47,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       <Segmented
         options={SHAPE_TYPE_OPTIONS}
         value={layer.shapeType}
