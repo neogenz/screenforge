@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { createDeviceLayer } from '@/lib/layer-factories'
+import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
 import type { Layer } from '@/types'
 
 /**
@@ -27,8 +27,11 @@ export function LayersPanel() {
   const normalizedQuery = query.trim().toLowerCase()
 
   const layerGroups = useMemo(() => {
+    // Le filtre porte sur le nom affiché : chercher « accrocheur » doit
+    // trouver le calque que la liste montre sous ce mot, pas rien du tout.
     const matches = (layer: Layer) =>
-      normalizedQuery.length === 0 || layer.name.toLowerCase().includes(normalizedQuery)
+      normalizedQuery.length === 0
+      || layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
     const byZIndexDesc = (first: Layer, second: Layer) => second.zIndex - first.zIndex
     return [
       {

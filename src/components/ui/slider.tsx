@@ -4,6 +4,15 @@ import { clampNumber } from '@/lib/number'
 import { cn } from '@/lib/utils'
 
 export interface SliderProps {
+  /**
+   * Libellé visible, posé au-dessus de la piste.
+   *
+   * Optionnel parce qu'un curseur posé dans une rangée — l'alpha à côté de sa
+   * pastille et de son hexadécimal — se nomme par son voisinage. Seul en
+   * colonne il ne se nomme plus : `ariaLabel` renseignait alors le lecteur
+   * d'écran et laissait l'œil deviner.
+   */
+  label?: string
   ariaLabel: string
   value: number
   onChange: (value: number) => void
@@ -19,6 +28,7 @@ export interface SliderProps {
 
 /** Slider with a filled track, a clear grab handle and a tabular readout. */
 export function Slider({
+  label,
   ariaLabel,
   value,
   onChange,
@@ -31,8 +41,8 @@ export function Slider({
   ref,
 }: SliderProps) {
   const current = clampNumber(value, min, max)
-  return (
-    <div className={cn('flex h-8 items-center gap-2', disabled && 'pointer-events-none opacity-40', className)}>
+  const track = (
+    <div className={cn('flex h-8 items-center gap-2', disabled && 'pointer-events-none opacity-40', !label && className)}>
       <SliderPrimitive.Root
         value={[current]}
         onValueChange={(values) => onChange(values[0] ?? current)}
@@ -62,6 +72,16 @@ export function Slider({
       <span className="field-surface tabular flex h-8 min-w-11 shrink-0 items-center justify-center px-2 text-2xs text-muted-foreground">
         {formatValue ? formatValue(current) : current}
       </span>
+    </div>
+  )
+
+  if (!label) return track
+
+  // Même grammaire que `AngleControl` : l'écart de 6 lie l'étiquette au contrôle.
+  return (
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      <span className="field-label">{label}</span>
+      {track}
     </div>
   )
 }

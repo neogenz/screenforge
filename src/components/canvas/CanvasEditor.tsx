@@ -5,6 +5,7 @@ import { ContextMenu } from '@/components/ui/ContextMenu'
 import { buildLayerMenuItems } from '@/components/layers-panel/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'
+import { layerDisplayName } from '@/lib/layer-factories'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 
@@ -38,7 +39,7 @@ export default function CanvasEditor() {
       {menu && menuLayer && (
         <ContextMenu
           position={{ left: menu.left, top: menu.top }}
-          label={`Actions de ${menuLayer.name}`}
+          label={`Actions de ${layerDisplayName(menuLayer)}`}
           onClose={() => setMenu(null)}
           items={buildLayerMenuItems(menuLayer, actions)}
         />

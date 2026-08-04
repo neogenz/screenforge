@@ -15,7 +15,9 @@ test.describe('command palette', () => {
     await page.keyboard.press('Enter')
     await expect(dialog).toBeHidden()
     await expect(layerRows(page)).toHaveCount(1)
-    await expect(layerRows(page).first()).toContainText('Texte')
+    // La ligne porte le contenu du calque, pas son type : un calque de texte
+    // jamais renommé s'annonce par ce qu'il dit.
+    await expect(layerRows(page).first()).toContainText('Titre accrocheur')
   })
 
   test('Escape closes the palette', async ({ page }) => {

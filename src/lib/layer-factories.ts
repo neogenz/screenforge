@@ -11,11 +11,33 @@ import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
  * toolbar tools, the layers panel and the command palette.
  */
 
+/** Nom d'usine d'un calque de texte, avant que l'utilisateur ne le renomme. */
+const DEFAULT_TEXT_NAME = 'Texte'
+
+/**
+ * Nom affiché d'un calque.
+ *
+ * Un calque de texte porte son contenu tant que personne ne l'a renommé : une
+ * liste de treize lignes « Texte » ne dit rien de la maquette, alors que
+ * « Titre accrocheur » se retrouve du premier coup d'œil. C'est le
+ * comportement de Figma et de Sketch.
+ *
+ * L'heuristique du « jamais renommé » est le nom d'usine lui-même : renommer
+ * un calque exactement « Texte » le remet donc sous son contenu. Le cas est
+ * sans conséquence, et le seul autre moyen serait de stocker un drapeau de
+ * renommage dans le fichier de projet.
+ */
+export function layerDisplayName(layer: { type: string; name: string; content?: string }): string {
+  if (layer.type !== 'text' || layer.name !== DEFAULT_TEXT_NAME) return layer.name
+  const firstLine = layer.content?.split('\n')[0]?.trim()
+  return firstLine || layer.name
+}
+
 export function createTextLayer(zIndex: number): TextLayer {
   return {
     id: crypto.randomUUID(),
     type: 'text',
-    name: 'Texte',
+    name: DEFAULT_TEXT_NAME,
     x: (SCREEN_WIDTH - 320) / 2,
     y: 160,
     width: 300,

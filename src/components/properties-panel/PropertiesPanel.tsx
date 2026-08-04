@@ -60,7 +60,7 @@ export function PropertiesPanel() {
         {selectedLayers.length === 0 && <BackgroundSection />}
 
         {selectedLayers.length > 1 && (
-          <div className="surface-inner p-4 text-center">
+          <div className="px-2 py-6 text-center">
             <p className="text-sm leading-relaxed text-muted-foreground">
               {selectedLayers.length} calques sélectionnés.
             </p>
@@ -125,14 +125,25 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    // Une section est une carte posée dans le panneau, pas une bande séparée
-    // par un filet : c'est la matière qui groupe, le trait ne faisait que hacher.
-    <div className="overflow-hidden rounded-md border border-border bg-muted/60">
+    /*
+     * Une bande, pas une carte.
+     *
+     * La carte creusée coûtait un troisième niveau de surface — l'îlot porte
+     * la carte, la carte porte le champ — et en thème clair les trois se
+     * lisaient comme des boîtes emboîtées. Elle coûtait aussi 18px de largeur
+     * à chaque champ, en bordure et en retrait redoublés.
+     *
+     * Ce que le filet seul ne fait pas, c'est grouper : c'est le rythme qui
+     * s'en charge. L'écart du conteneur (8) plus le retrait haut (8) posent
+     * 16px au-dessus du titre contre 4 en dessous, et un titre respire
+     * toujours vers ce qu'il annonce.
+     */
+    <div className="border-t border-border pt-2 first:border-t-0 first:pt-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex h-9 w-full items-center gap-1.5 px-2',
+          'flex h-8 w-full items-center gap-1.5',
           'section-title',
           'transition-colors duration-150 ease-out hover:text-foreground',
         )}
@@ -150,9 +161,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
         <span>{title}</span>
       </button>
 
-      {open && children && (
-        <div className="px-2 pb-2">{children}</div>
-      )}
+      {open && children && <div className="pb-1">{children}</div>}
     </div>
   )
 }

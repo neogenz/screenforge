@@ -14,6 +14,7 @@ import { ContextMenu } from '@/components/ui/ContextMenu'
 import { IconButton } from '@/components/ui/icon-button'
 import { buildLayerMenuItems } from './layer-menu'
 import { useLayerActions } from '@/hooks/use-layer-actions'
+import { layerDisplayName } from '@/lib/layer-factories'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
 
@@ -52,6 +53,7 @@ export const LayerItem = memo(function LayerItem({
   onDrop,
 }: LayerItemProps) {
   const actions = useLayerActions()
+  const displayName = layerDisplayName(layer)
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(layer.name)
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
@@ -64,13 +66,16 @@ export const LayerItem = memo(function LayerItem({
   }, [editing])
 
   function startRename() {
-    setEditName(layer.name)
+    // Le champ part de ce que la ligne affiche, pas du nom stocké : sur un
+    // calque de texte jamais renommé les deux diffèrent, et voir « Texte »
+    // apparaître à la place du titre qu'on vient de lire est incompréhensible.
+    setEditName(displayName)
     setEditing(true)
   }
 
   function commitRename() {
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== layer.name) actions.rename(layer, trimmed)
+    if (trimmed && trimmed !== displayName) actions.rename(layer, trimmed)
     setEditing(false)
   }
 
@@ -122,7 +127,7 @@ export const LayerItem = memo(function LayerItem({
       role="option"
       tabIndex={0}
       aria-selected={isSelected}
-      aria-label={`${layer.name}, ${layer.type}`}
+      aria-label={`${displayName}, ${layer.type}`}
       data-layer-id={layer.id}
       draggable
       onDragStart={(event) => onDragStart(layer, event)}
@@ -165,7 +170,7 @@ export const LayerItem = memo(function LayerItem({
         />
       ) : (
         <span className="flex-1 truncate text-sm">
-          {layer.name}
+          {displayName}
         </span>
       )}
 
@@ -211,7 +216,7 @@ export const LayerItem = memo(function LayerItem({
       {menuPosition && (
         <ContextMenu
           position={menuPosition}
-          label={`Actions de ${layer.name}`}
+          label={`Actions de ${displayName}`}
           onClose={() => setMenuPosition(null)}
           items={buildLayerMenuItems(layer, actions, { onRename: startRename })}
         />

@@ -18,7 +18,9 @@
 ## Components
 
 - Controls use the shared `Button`, `IconButton`, `Input`, `NumberField`, `Select`, `Slider`, `Switch`, `Dialog`, `Popover`, and related primitives.
-- Single-line controls carry inline labels; only composite or multiline controls stack labels.
+- Single-line controls carry inline labels; only composite or multiline controls stack labels, sliders included when nothing else names them.
+- Panel sections are hairline-separated bands, so no chrome stacks more than two surfaces; recessed cards remain a modal device.
+- Layer rows show a text layer's own content until it is renamed, and the filter searches what the rows display.
 - Dense control heights, tabular numeric values, one primary CTA per dialog, and 120–200ms transform/opacity motion are the default grammar.
 - Lazy dialogs immediately show a token-based modal loading surface with an announced status; reduced-motion users get the same feedback without animation.
 - If durable storage is unavailable, the editor remains usable in memory while the save status and a persistent alert disclose that closing the tab will lose the session.

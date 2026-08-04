@@ -7,6 +7,7 @@ import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Slider } from '@/components/ui/slider'
+import { formatPercent } from '@/lib/number'
 import type { Layer } from '@/types'
 
 interface TransformSectionProps {
@@ -169,6 +170,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
       {/* Opacity */}
       <Slider
+        label="Opacité"
         ariaLabel="Opacité"
         min={0}
         max={100}
@@ -176,7 +178,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
         value={Math.round(layer.opacity * 100)}
         onChange={handleOpacity}
         disabled={isOfficialBezel}
-        formatValue={(v) => `${Math.round(v)}%`}
+        formatValue={formatPercent}
       />
 
       {(isDevice || layer.type === 'image') && (

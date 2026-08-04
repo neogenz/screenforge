@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
+import { formatPercent } from '@/lib/number'
 
 interface ColorPickerProps {
   value: string
@@ -192,7 +193,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
             max={100}
             value={opacityInput}
             onChange={handleOpacityChange}
-            formatValue={(v) => `${v} %`}
+            formatValue={formatPercent}
             className="min-w-0 flex-1"
           />
         )}
