@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui'
+import * as ToggleGroupPrimitive from '@radix-ui/react-toggle-group'
 import { cn } from '@/lib/utils'
 
 export function ToggleGroup({ className, role = 'group', ...props }: ComponentProps<typeof ToggleGroupPrimitive.Root>) {

@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { cn } from '@/lib/utils'
 
 export interface ContextMenuItem {

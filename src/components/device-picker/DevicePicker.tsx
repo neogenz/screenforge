@@ -46,7 +46,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const [screenshotError, setScreenshotError] = useState<string | null>(null)
   const [bezelError, setBezelError] = useState<string | null>(null)
   const [bezelLoading, setBezelLoading] = useState(false)
-  const modelButtonRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bezelInputRef = useRef<HTMLInputElement>(null)
   const bezelRequestRef = useRef(0)
@@ -235,38 +234,36 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       )}
 
       {!layer.importedBezel && <Field label="Modèle">
-        <Button
-          ref={modelButtonRef}
-          variant="default"
-          className="w-full justify-between"
-          onClick={() => setModelOpen((open) => !open)}
-          aria-label="Modèle d’appareil"
-          aria-expanded={modelOpen}
-        >
-          <span className="truncate">{config.modelName}</span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
-            <ChevronDown
-              size={12}
-              strokeWidth={1.5}
-              aria-hidden
-              className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
-            />
-          </span>
-        </Button>
+        <Dropdown
+          open={modelOpen}
+          onOpenChange={setModelOpen}
+          trigger={(
+            <Button
+              variant="default"
+              className="w-full justify-between"
+              aria-label="Modèle d’appareil"
+            >
+              <span className="truncate">{config.modelName}</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
+                <ChevronDown
+                  size={12}
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
+                />
+              </span>
+            </Button>
+          )}
+          items={modelOptions.map((frame) => ({
+            id: frame.model,
+            label: frame.modelName,
+            meta: frame.screenSize,
+            onSelect: () => handleModelChange(frame.model),
+          }))}
+          ariaLabel="Modèle d’appareil"
+        />
       </Field>}
-      {!layer.importedBezel && <Dropdown
-        open={modelOpen}
-        anchor={modelButtonRef}
-        onClose={() => setModelOpen(false)}
-        items={modelOptions.map((frame) => ({
-          id: frame.model,
-          label: frame.modelName,
-          meta: frame.screenSize,
-          onSelect: () => handleModelChange(frame.model),
-        }))}
-        ariaLabel="Modèle d’appareil"
-      />}
 
       {!layer.importedBezel && <Field label="Couleur">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">

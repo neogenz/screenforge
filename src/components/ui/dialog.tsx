@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Dialog as DialogPrimitive } from 'radix-ui'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from '@/components/ui/icon-button'
@@ -33,6 +33,7 @@ export function Dialog({
   headerActions,
 }: DialogProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   return (
     <DialogPrimitive.Root
@@ -48,6 +49,9 @@ export function Dialog({
           tabIndex={-1}
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => {
+            returnFocusRef.current = document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
             // À défaut de cible désignée, c'est le panneau qui prend le focus, pas le
             // premier bouton venu : la croix de fermeture se retrouvait cerclée
             // d'accent à l'ouverture, soit l'élément le plus voyant de la boîte.
@@ -55,6 +59,12 @@ export function Dialog({
             const panel = contentRef.current
             const autofocus = panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel
             autofocus?.focus()
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            const target = returnFocusRef.current
+            returnFocusRef.current = null
+            if (target?.isConnected) target.focus()
           }}
           onEscapeKeyDown={(event) => event.stopPropagation()}
           className={cn(

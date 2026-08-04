@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
-import { Slot } from 'radix-ui'
+import * as SlotPrimitive from '@radix-ui/react-slot'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -58,7 +58,7 @@ export function Button({
   ref,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot.Root : 'button'
+  const Comp = asChild ? SlotPrimitive.Root : 'button'
   return (
     <Comp
       ref={ref}

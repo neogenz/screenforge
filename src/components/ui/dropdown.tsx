@@ -1,6 +1,5 @@
-import type { ReactNode, RefObject } from 'react'
-import { createPortal } from 'react-dom'
-import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
+import type { ReactElement, ReactNode } from 'react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { cn } from '@/lib/utils'
 import { Kbd } from '@/components/ui/kbd'
 
@@ -18,8 +17,8 @@ export interface MenuItem {
 
 export interface DropdownProps {
   open: boolean
-  anchor: RefObject<HTMLElement | null>
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
+  trigger: ReactElement
   items: MenuItem[]
   ariaLabel: string
   align?: 'start' | 'end'
@@ -27,52 +26,23 @@ export interface DropdownProps {
 }
 
 /** Keyboard-navigable action menu anchored to a trigger. */
-export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'start', className }: DropdownProps) {
-  // DropdownMenu n'a pas d'Anchor virtuel : un Trigger invisible, calé sur la
-  // ref externe, sert de point d'ancrage au popper.
-  const rect = open ? anchor.current?.getBoundingClientRect() : undefined
-
-  function handleOutside(event: { target: unknown; preventDefault: () => void }) {
-    if (anchor.current?.contains(event.target as Node)) event.preventDefault()
-  }
-
+export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align = 'start', className }: DropdownProps) {
   return (
     <DropdownMenuPrimitive.Root
       open={open}
       modal={false}
-      onOpenChange={(isOpen) => {
-        if (!isOpen) onClose()
-      }}
+      onOpenChange={onOpenChange}
     >
-      {createPortal(
-        <DropdownMenuPrimitive.Trigger asChild>
-          <span
-            className="pointer-events-none fixed"
-            style={{
-              left: rect?.left ?? 0,
-              top: rect?.top ?? 0,
-              width: rect?.width ?? 0,
-              height: rect?.height ?? 0,
-            }}
-          />
-        </DropdownMenuPrimitive.Trigger>,
-        document.body,
-      )}
+      <DropdownMenuPrimitive.Trigger asChild>{trigger}</DropdownMenuPrimitive.Trigger>
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
           aria-label={ariaLabel}
+          aria-labelledby={undefined}
           align={align}
           sideOffset={6}
           collisionPadding={8}
           loop
-          onCloseAutoFocus={(event) => {
-            // Pas de Trigger Radix : le focus revient manuellement au déclencheur.
-            event.preventDefault()
-            anchor.current?.focus()
-          }}
           onEscapeKeyDown={(event) => event.stopPropagation()}
-          onPointerDownOutside={handleOutside}
-          onInteractOutside={handleOutside}
           className={cn(
             'menu-shadow z-(--z-popover) min-w-44 animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-panel p-1',
             className,

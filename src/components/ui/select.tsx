@@ -1,7 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react'
 import type { ChangeEvent, ReactNode, Ref } from 'react'
 import { Children, isValidElement } from 'react'
-import { Select as SelectPrimitive } from 'radix-ui'
+import * as SelectPrimitive from '@radix-ui/react-select'
 import { cn } from '@/lib/utils'
 
 export interface SelectProps {

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
@@ -102,13 +102,7 @@ function ProjectSegment() {
 function ProjectFileMenu() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const closeMenu = useCallback(() => {
-    setOpen(false)
-    requestAnimationFrame(() => anchorRef.current?.focus())
-  }, [])
 
   async function downloadProject() {
     const project = useProjectStore.getState().project
@@ -140,25 +134,22 @@ function ProjectFileMenu() {
 
   return (
     <>
-      <IconButton
-        ref={anchorRef}
-        size="sm"
-        aria-label="Ouvrir le menu Projet"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-busy={busy}
-        active={open}
-        disabled={busy}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {busy
-          ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
-          : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
-      </IconButton>
       <Dropdown
         open={open}
-        anchor={anchorRef}
-        onClose={closeMenu}
+        onOpenChange={setOpen}
+        trigger={(
+          <IconButton
+            size="sm"
+            aria-label="Ouvrir le menu Projet"
+            aria-busy={busy}
+            active={open}
+            disabled={busy}
+          >
+            {busy
+              ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
+              : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
+          </IconButton>
+        )}
         ariaLabel="Fichier du projet"
         items={[
           {
@@ -392,7 +383,6 @@ function ActionsSegment() {
 
 function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void }) {
   const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
 
   const models = [...CURRENT_DEVICE_FRAMES].sort((a, b) =>
@@ -400,32 +390,27 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
   )
 
   return (
-    <>
-      <IconButton
-        ref={anchorRef}
-        size="sm"
-        aria-label="Ajouter un cadre iPhone"
-        title="Ajouter : cadre iPhone"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        active={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Smartphone size={16} strokeWidth={1.75} />
-        <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
-      </IconButton>
-      <Dropdown
-        open={open}
-        anchor={anchorRef}
-        onClose={() => setOpen(false)}
-        ariaLabel="Modèle d’iPhone"
-        items={models.map((frame) => ({
-          id: frame.model,
-          label: frame.modelName,
-          meta: frame.screenSize,
-          onSelect: () => onSelect(frame.model),
-        }))}
-      />
-    </>
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      trigger={(
+        <IconButton
+          size="sm"
+          aria-label="Ajouter un cadre iPhone"
+          title="Ajouter : cadre iPhone"
+          active={open}
+        >
+          <Smartphone size={16} strokeWidth={1.75} />
+          <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
+        </IconButton>
+      )}
+      ariaLabel="Modèle d’iPhone"
+      items={models.map((frame) => ({
+        id: frame.model,
+        label: frame.modelName,
+        meta: frame.screenSize,
+        onSelect: () => onSelect(frame.model),
+      }))}
+    />
   )
 }

@@ -1,5 +1,5 @@
 import type { Ref } from 'react'
-import { Slider as SliderPrimitive } from 'radix-ui'
+import * as SliderPrimitive from '@radix-ui/react-slider'
 import { clampNumber } from '@/lib/number'
 import { cn } from '@/lib/utils'
 

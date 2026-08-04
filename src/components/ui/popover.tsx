@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
-import { Popover as PopoverPrimitive } from 'radix-ui'
+import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '@/lib/utils'
 
 export interface PopoverProps {

@@ -64,6 +64,17 @@ test.describe('layers panel', () => {
     expect(object?.visible).toBe(false)
   })
 
+  test('device model menu uses its button as trigger and restores focus', async ({ page }) => {
+    await addDeviceLayer(page)
+    const trigger = page.getByRole('button', { name: 'Modèle d’appareil' })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+  })
+
   test('Meta+C and Meta+V copy every selected layer with new ids', async ({ page }) => {
     await addTextLayer(page)
     await addShapeLayer(page)
@@ -155,10 +166,15 @@ test.describe('layers panel', () => {
   })
 
   test('shortcuts help lists copy, cut and paste', async ({ page }) => {
+    const returnTarget = page.getByRole('button', { name: 'Ouvrir les modèles' })
+    await returnTarget.focus()
     await page.keyboard.press('?')
     const dialog = page.getByRole('dialog', { name: 'Raccourcis clavier' })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('Copier / couper / coller')).toBeVisible()
     await expect(dialog.getByText('⌘C / ⌘X / ⌘V')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(returnTarget).toBeFocused()
   })
 })
