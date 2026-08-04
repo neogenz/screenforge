@@ -14,7 +14,7 @@ import {
 
 interface BackgroundEditorProps {
   background: Background
-  onChange: (bg: Background) => void
+  onChange: (bg: Background, coalesceKey?: string) => void
 }
 
 type Tab = 'solid' | 'gradient' | 'presets'
@@ -94,11 +94,11 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
   const activeTab: Tab = showPresets ? 'presets' : tabFromBackground(background)
 
   function handleSolidColor(color: string) {
-    onChange({ type: 'solid', color })
+    onChange({ type: 'solid', color }, 'color')
   }
 
-  function handleGradientChange(fill: GradientFill) {
-    onChange(gradientFillToBackground(fill))
+  function handleGradientChange(fill: GradientFill, coalesceKey?: string) {
+    onChange(gradientFillToBackground(fill), coalesceKey)
   }
 
   function handlePresetClick(preset: Background) {
@@ -129,7 +129,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
         value={activeTab}
         onChange={handleTabChange}
         ariaLabel="Type d’arrière-plan"
-        className="w-full"
+        className="w-full [&>button]:min-w-0 [&>button]:flex-1"
       />
 
       {activeTab === 'solid' && (

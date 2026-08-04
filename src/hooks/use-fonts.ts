@@ -65,6 +65,16 @@ export const POPULAR_FONTS = [
   'Varela Round',
 ]
 
+export const FONT_WEIGHT_OPTIONS = [
+  { value: 300, label: '300 · Léger' },
+  { value: 400, label: '400 · Normal' },
+  { value: 500, label: '500 · Moyen' },
+  { value: 600, label: '600 · Semi-gras' },
+  { value: 700, label: '700 · Gras' },
+  { value: 800, label: '800 · Extra-gras' },
+  { value: 900, label: '900 · Black' },
+] as const
+
 function waitForStylesheet(link: HTMLLinkElement): Promise<void> {
   if (link.sheet) return Promise.resolve()
   return new Promise((resolve, reject) => {
@@ -111,8 +121,9 @@ async function loadFont(
       weights.map((weight) => document.fonts.load(`${weight} 16px "${family}"`)),
     )
     await document.fonts.ready
-    if (faces.every((result) => result.length === 0)) {
-      throw new Error(`No font face was returned for ${family}.`)
+    const missingWeights = weights.filter((_, index) => faces[index]?.length === 0)
+    if (missingWeights.length > 0) {
+      throw new Error(`No font face was returned for ${family} at ${missingWeights.join(', ')}.`)
     }
     loadedFonts.add(key)
     // Fabric mémorise la largeur de chaque glyphe, par famille et par graisse,
@@ -152,6 +163,10 @@ export async function waitForFonts(families: string[]): Promise<FontLoadResult[]
   return results
 }
 
-export function isFontLoaded(family: string): boolean {
-  return [...loadedFonts].some((key) => key.startsWith(`${family}:`))
+export function isFontLoaded(family: string, weights?: string[]): boolean {
+  const prefix = `${family}:`
+  if (!weights) return [...loadedFonts].some((key) => key.startsWith(prefix))
+  return weights.every((weight) => [...loadedFonts].some((key) =>
+    key.startsWith(prefix) && key.slice(prefix.length).split(',').includes(weight),
+  ))
 }

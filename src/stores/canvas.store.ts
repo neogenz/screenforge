@@ -27,7 +27,7 @@ interface CanvasState {
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
   updateLayer: (id: string, updates: Partial<Layer>, options?: EditOptions) => void
-  updateBackground: (background: Background) => void
+  updateBackground: (background: Background, options?: EditOptions) => void
   selectLayer: (id: string) => void
   selectLayers: (ids: string[]) => void
   clearSelection: () => void
@@ -298,10 +298,10 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screenId) }))
     },
 
-    updateBackground: (background) => {
+    updateBackground: (background, options) => {
       const screen = activeScreen(get().activeScreenId)
       if (!screen || JSON.stringify(screen.background) === JSON.stringify(background)) return
-      recordCurrent()
+      recordCurrent(options?.coalesceKey)
       persistScreen({
         kind: 'screen',
         screenId: screen.id,

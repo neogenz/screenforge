@@ -3,6 +3,7 @@ import { Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { Button } from '@/components/ui/button'
+import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Slider } from '@/components/ui/slider'
@@ -66,7 +67,11 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
   function handleRotation(value: number) {
     if (isOfficialBezel) return
-    update({ rotation: ((value % 360) + 360) % 360 })
+    updateLayer(
+      layer.id,
+      { rotation: ((value % 360) + 360) % 360 },
+      { coalesceKey: `layer:${layer.id}:rotation` },
+    )
   }
 
   function handleOpacity(value: number) {
@@ -154,11 +159,10 @@ export function TransformSection({ layer }: TransformSectionProps) {
       </div>
 
       {/* Rotation */}
-      <NumberField
-        label="Rot"
+      <AngleControl
+        label="Rotation"
         ariaLabel="Rotation"
-        step={1}
-        value={Math.round(layer.rotation)}
+        value={layer.rotation}
         onChange={handleRotation}
         disabled={isOfficialBezel}
       />

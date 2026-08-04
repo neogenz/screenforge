@@ -28,6 +28,13 @@ async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<v
   await page.waitForTimeout(900)
 }
 
+async function setRotation(page: Page, angle: number): Promise<void> {
+  const slider = page.getByRole('slider', { name: 'Rotation' })
+  await slider.focus()
+  await slider.press('Home')
+  for (let step = 0; step < angle; step += 1) await slider.press('ArrowRight')
+}
+
 /**
  * The reported bug: selection handles drift away from the layer after
  * transforms. These specs assert the object stays stable through the full
@@ -44,8 +51,7 @@ test.describe('canvas transforms', () => {
     const before = await activeObjectState(page)
     expect(before).not.toBeNull()
 
-    await transformInput(page, 4).fill('30')
-    await transformInput(page, 4).press('Enter')
+    await setRotation(page, 30)
     await page.waitForTimeout(700)
 
     const after = await activeObjectState(page)
@@ -131,8 +137,7 @@ test.describe('canvas transforms', () => {
 
   test('corner resize keeps angle and position', async ({ page }) => {
     await addDeviceLayer(page)
-    await transformInput(page, 4).fill('20')
-    await transformInput(page, 4).press('Enter')
+    await setRotation(page, 20)
     await page.waitForTimeout(600)
     const before = await activeObjectState(page)
 

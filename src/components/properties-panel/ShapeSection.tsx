@@ -68,7 +68,10 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         {fillIsGradient ? (
           <GradientEditor
             value={layer.fill as GradientFill}
-            onChange={(fill) => update({ fill }, { coalesceKey: `layer:${layer.id}:fill` })}
+            onChange={(fill, coalesceKey) => update(
+              { fill },
+              coalesceKey ? { coalesceKey: `layer:${layer.id}:fill:${coalesceKey}` } : undefined,
+            )}
           />
         ) : (
           <ColorPicker

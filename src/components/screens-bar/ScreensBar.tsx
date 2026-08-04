@@ -1,11 +1,13 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { toast } from '@/stores/toast.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { FILMSTRIP_HEIGHT, THUMBNAIL_HEIGHT } from '@/lib/stage'
+import type { Background } from '@/types'
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
@@ -14,6 +16,7 @@ export function ScreensBar() {
   const list = screens ?? []
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
   const dragSourceIndex = useRef<number | null>(null)
+  const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
 
   const handleSelect = useCallback((id: string) => {
     const { activeScreenId: current, setActiveScreenId } = useCanvasStore.getState()
@@ -47,6 +50,26 @@ export function ScreensBar() {
     const nextActiveId = useProjectStore.getState().removeScreen(id)
     if (nextActiveId) useCanvasStore.getState().setActiveScreenId(nextActiveId)
   }, [])
+
+  const handleCopySettings = useCallback((id: string) => {
+    const screen = useProjectStore.getState().project?.screens.find((candidate) => candidate.id === id)
+    if (!screen) return
+    setCopiedSettings(structuredClone(screen.background))
+    toast(`Réglages de ${screen.name} copiés.`, 'success')
+  }, [])
+
+  const handlePasteSettings = useCallback((id: string) => {
+    if (!copiedSettings) return
+    const screen = useProjectStore.getState().project?.screens.find((candidate) => candidate.id === id)
+    if (!screen) return
+    if (JSON.stringify(screen.background) === JSON.stringify(copiedSettings)) {
+      toast(`${screen.name} utilise déjà ces réglages.`)
+      return
+    }
+    useCanvasStore.getState().recordProjectHistory()
+    useProjectStore.getState().updateScreenBackground(id, copiedSettings)
+    toast(`Réglages appliqués à ${screen.name}.`, 'success')
+  }, [copiedSettings])
 
   const handleMove = useCallback((index: number, direction: -1 | 1) => {
     const project = useProjectStore.getState().project
@@ -109,6 +132,9 @@ export function ScreensBar() {
             onSelect={handleSelect}
             onRename={handleRename}
             onDuplicate={handleDuplicate}
+            canPasteSettings={copiedSettings !== null}
+            onCopySettings={handleCopySettings}
+            onPasteSettings={handlePasteSettings}
             onDelete={handleDelete}
             onMove={handleMove}
           />

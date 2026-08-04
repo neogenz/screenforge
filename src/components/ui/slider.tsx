@@ -17,7 +17,7 @@ export interface SliderProps {
   ref?: Ref<HTMLSpanElement>
 }
 
-/** Hairline slider with filled track and tabular readout. */
+/** Slider with a filled track, a clear grab handle and a tabular readout. */
 export function Slider({
   ariaLabel,
   value,
@@ -32,7 +32,7 @@ export function Slider({
 }: SliderProps) {
   const current = clampNumber(value, min, max)
   return (
-    <div className={cn('flex h-7 items-center gap-2', disabled && 'pointer-events-none opacity-40', className)}>
+    <div className={cn('flex h-8 items-center gap-2', disabled && 'pointer-events-none opacity-40', className)}>
       <SliderPrimitive.Root
         value={[current]}
         onValueChange={(values) => onChange(values[0] ?? current)}
@@ -42,7 +42,7 @@ export function Slider({
         disabled={disabled}
         className="relative flex h-full min-w-0 flex-1 touch-none items-center select-none"
       >
-        <SliderPrimitive.Track className="relative h-[3px] grow overflow-hidden rounded-full bg-border">
+        <SliderPrimitive.Track className="relative h-2 grow overflow-hidden rounded-full border border-border bg-inset shadow-(--shadow-inset)">
           <SliderPrimitive.Range className="absolute h-full bg-foreground-muted" />
         </SliderPrimitive.Track>
         <SliderPrimitive.Thumb
@@ -51,7 +51,7 @@ export function Slider({
           aria-valuetext={formatValue ? formatValue(current) : String(current)}
           aria-disabled={disabled || undefined}
           className={cn(
-            'block h-[11px] w-[11px] cursor-pointer rounded-full border-2 border-panel bg-foreground outline-none',
+            'block h-3.5 w-3.5 cursor-pointer rounded-full border-2 border-panel bg-foreground shadow-[0_1px_3px_oklch(0_0_0/0.35)] outline-none',
             'transition-[transform,box-shadow] duration-120 ease-out',
             'hover:scale-115 focus-visible:scale-115 active:scale-115',
             'focus-visible:shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-foreground)_16%,transparent)]',
@@ -59,7 +59,7 @@ export function Slider({
           )}
         />
       </SliderPrimitive.Root>
-      <span className="tabular w-9 shrink-0 text-right text-[11px] text-foreground-muted">
+      <span className="field-surface tabular flex h-7 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-foreground-muted">
         {formatValue ? formatValue(current) : current}
       </span>
     </div>

@@ -11,14 +11,13 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
+import { FONT_WEIGHT_OPTIONS } from '@/hooks/use-fonts'
 import { FontPicker } from './FontPicker'
 import type { GradientFill, Layer, TextLayer } from '@/types'
 
 interface TextEditorProps {
   layer: TextLayer
 }
-
-const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900]
 
 const DEFAULT_GRADIENT: GradientFill = {
   type: 'linear',
@@ -60,9 +59,10 @@ export function TextEditor({ layer }: TextEditorProps) {
   }
 
   // Keep legacy weights (pre-300–900 projects) selectable instead of blank.
-  const weights = FONT_WEIGHTS.includes(layer.fontWeight)
-    ? FONT_WEIGHTS
-    : [...FONT_WEIGHTS, layer.fontWeight].sort((a, b) => a - b)
+  const weights = FONT_WEIGHT_OPTIONS.some((option) => option.value === layer.fontWeight)
+    ? FONT_WEIGHT_OPTIONS
+    : [...FONT_WEIGHT_OPTIONS, { value: layer.fontWeight, label: String(layer.fontWeight) }]
+        .sort((a, b) => a.value - b.value)
 
   return (
     <div className="flex flex-col gap-3">
@@ -98,8 +98,8 @@ export function TextEditor({ layer }: TextEditorProps) {
         aria-label="Graisse de la police"
       >
         {weights.map((weight) => (
-          <option key={weight} value={weight}>
-            {weight}
+          <option key={weight.value} value={weight.value}>
+            {weight.label}
           </option>
         ))}
       </Select>
@@ -184,9 +184,10 @@ export function TextEditor({ layer }: TextEditorProps) {
         {layer.gradientFill && (
           <GradientEditor
             value={layer.gradientFill}
-            onChange={(gradientFill) =>
-              update({ gradientFill }, { coalesceKey: `layer:${layer.id}:gradient` })
-            }
+            onChange={(gradientFill, coalesceKey) => update(
+              { gradientFill },
+              coalesceKey ? { coalesceKey: `layer:${layer.id}:gradient:${coalesceKey}` } : undefined,
+            )}
           />
         )}
       </div>

@@ -195,7 +195,7 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
 
   await page.getByLabel('Largeur').fill('190')
   await expect.poll(async () => deviceLayer(page)).toMatchObject({ width: 190, height: 310 })
-  await expect(page.getByLabel('Rotation')).toBeDisabled()
+  await expect(page.getByRole('slider', { name: 'Rotation', exact: true })).toBeDisabled()
   await expect(page.getByLabel('Opacité')).toBeDisabled()
   await expect(page.getByLabel('Activer l’ombre de l’appareil')).toHaveCount(0)
   expect(await page.evaluate(() => window.__sfCanvas

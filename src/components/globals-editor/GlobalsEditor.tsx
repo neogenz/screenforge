@@ -11,17 +11,8 @@ import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
 import { Select } from '@/components/ui/select'
 import { SwatchButton } from '@/components/ui/swatch-button'
+import { FONT_WEIGHT_OPTIONS } from '@/hooks/use-fonts'
 import type { GlobalSettings, DeviceModel } from '@/types'
-
-const FONT_WEIGHTS: { value: number; label: string }[] = [
-  { value: 300, label: 'Léger' },
-  { value: 400, label: 'Normal' },
-  { value: 500, label: 'Moyen' },
-  { value: 600, label: 'Semi-gras' },
-  { value: 700, label: 'Gras' },
-  { value: 800, label: 'Extra-gras' },
-  { value: 900, label: 'Noir' },
-]
 
 export function GlobalsEditor() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
@@ -93,7 +84,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                   onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
                   aria-label="Graisse de police par défaut"
                 >
-                  {FONT_WEIGHTS.map((weight) => (
+                  {FONT_WEIGHT_OPTIONS.map((weight) => (
                     <option key={weight.value} value={weight.value}>{weight.label}</option>
                   ))}
                 </Select>

@@ -1,6 +1,7 @@
 import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
+import type { Background } from '../src/types'
 
 /**
  * E2E helpers driving the app through its real UI, plus a dev-only debug
@@ -54,7 +55,7 @@ declare global {
       } }
       useProjectStore: { getState: () => { project: {
         id: string
-        screens: { id: string; layers: Array<{
+        screens: { id: string; background: Background; layers: Array<{
           id: string
           x: number
           y: number
@@ -73,7 +74,9 @@ declare global {
           importedBezel?: { assetId: string }
         }>
         activeScreenId: string
-      } | null } }
+      } | null
+      updateScreenBackground: (screenId: string, background: Background) => void
+      } }
     }
   }
 }
@@ -279,8 +282,8 @@ export function expectClose(actual: number, expected: number, tolerance = 1): vo
   expect(Math.abs(actual - expected), `${actual} ≉ ${expected} (±${tolerance})`).toBeLessThanOrEqual(tolerance)
 }
 
-/** Number field of the transformation section by index: X Y W H ROT. */
-const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur', 'Rotation'] as const
+/** Number field of the transformation section by index: X Y W H. */
+const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur'] as const
 
 export function transformInput(page: Page, index: number) {
   return page.getByLabel(TRANSFORM_LABELS[index])

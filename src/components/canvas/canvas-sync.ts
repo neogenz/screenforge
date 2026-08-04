@@ -66,8 +66,9 @@ function applyLayoutInstance(
 }
 
 function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
-  if (layer.type !== 'text' || isFontLoaded(layer.fontFamily)) return
+  if (layer.type !== 'text') return
   const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
+  if (isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return
   if (runtime.fontLoadRequests.has(fontKey)) return
   runtime.fontLoadRequests.add(fontKey)
   void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
@@ -346,14 +347,14 @@ export async function patchCanvas(
     const object = objectsById.get(layerId)
     if (!layer || !object) return false
     if (needsFabricObjectRecreation(object, layer)) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
     applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
   }
 
   for (const layerId of change.layoutLayerIds) {
     const layer = project.layoutLayers.find((candidate) => candidate.id === layerId)
     if (!layer) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
     for (let index = 0; index < project.screens.length; index += 1) {
       const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
       if (!object) return false

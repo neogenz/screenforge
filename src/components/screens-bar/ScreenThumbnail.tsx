@@ -1,5 +1,14 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCopy,
+  ClipboardPaste,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { cn } from '@/lib/utils'
 import { THUMBNAIL_HEIGHT } from '@/lib/stage'
@@ -12,9 +21,12 @@ interface ScreenThumbnailProps {
   canDelete: boolean
   canMoveLeft: boolean
   canMoveRight: boolean
+  canPasteSettings: boolean
   onSelect: (id: string) => void
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
+  onCopySettings: (id: string) => void
+  onPasteSettings: (id: string) => void
   onDelete: (id: string) => void
   onMove: (index: number, direction: -1 | 1) => void
 }
@@ -26,9 +38,12 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
   canDelete,
   canMoveLeft,
   canMoveRight,
+  canPasteSettings,
   onSelect,
   onRename,
   onDuplicate,
+  onCopySettings,
+  onPasteSettings,
   onDelete,
   onMove,
 }: ScreenThumbnailProps) {
@@ -158,6 +173,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           items={[
             { label: 'Renommer', icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />, onSelect: startRename },
             { label: 'Dupliquer', icon: <Copy size={11} strokeWidth={1.5} aria-hidden />, onSelect: () => onDuplicate(screen.id) },
+            'separator',
+            { label: 'Copier les réglages', icon: <ClipboardCopy size={11} strokeWidth={1.5} aria-hidden />, onSelect: () => onCopySettings(screen.id) },
+            { label: 'Coller les réglages', icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />, disabled: !canPasteSettings, onSelect: () => onPasteSettings(screen.id) },
+            'separator',
             { label: 'Déplacer à gauche', icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveLeft, onSelect: () => onMove(index, -1) },
             { label: 'Déplacer à droite', icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveRight, onSelect: () => onMove(index, 1) },
             { label: 'Supprimer', icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />, danger: true, disabled: !canDelete, onSelect: () => onDelete(screen.id) },

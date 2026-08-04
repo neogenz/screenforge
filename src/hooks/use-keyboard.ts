@@ -22,6 +22,13 @@ function isEditingInput(): boolean {
   return false
 }
 
+function activeControlUsesArrowKeys(): boolean {
+  const el = document.activeElement
+  if (!(el instanceof HTMLElement)) return false
+  return el.matches('[role="slider"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]')
+    || Boolean(el.closest('[role="group"]'))
+}
+
 export function useKeyboard(): void {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
@@ -212,6 +219,7 @@ export function useKeyboard(): void {
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)
       ) {
+        if (activeControlUsesArrowKeys()) return
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
         const delta = shift ? 10 : 1

@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
+import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
@@ -11,7 +12,7 @@ import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
   value: GradientFill
-  onChange: (gradient: GradientFill) => void
+  onChange: (gradient: GradientFill, coalesceKey?: string) => void
 }
 
 type GradientType = GradientFill['type']
@@ -40,24 +41,30 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     onChange({ ...value, type })
   }
 
-  function setAngle(angle: number) {
+  function setAngle(angle: number, continuous = false) {
     const finiteAngle = Number.isFinite(angle) ? angle : 0
-    onChange({ ...value, angle: ((finiteAngle % 360) + 360) % 360 })
+    onChange(
+      { ...value, angle: ((finiteAngle % 360) + 360) % 360 },
+      continuous ? 'angle' : undefined,
+    )
   }
 
   function setCenter(axis: 'centerX' | 'centerY', percentage: number) {
     const finitePercentage = Number.isFinite(percentage) ? percentage : 50
-    onChange({
-      ...value,
-      [axis]: Math.min(100, Math.max(0, finitePercentage)),
-    })
+    onChange(
+      {
+        ...value,
+        [axis]: Math.min(100, Math.max(0, finitePercentage)),
+      },
+      axis,
+    )
   }
 
-  function updateStop(index: number, partial: Partial<ColorStop>) {
+  function updateStop(index: number, partial: Partial<ColorStop>, property: 'color' | 'offset') {
     const stops = value.stops.map((s: ColorStop, i: number) =>
       i === index ? { ...s, ...partial } : s,
     )
-    onChange({ ...value, stops })
+    onChange({ ...value, stops }, `stop:${index}:${property}`)
   }
 
   function addStop() {
@@ -105,12 +112,8 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
       {/* Angle (linear only) */}
       {value.type === 'linear' && (
-        <NumberField
-          label="Angle"
+        <AngleControl
           ariaLabel="Angle du dégradé"
-          min={0}
-          max={360}
-          step={1}
           value={value.angle ?? 90}
           onChange={setAngle}
         />
@@ -143,7 +146,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       <StopTrack
         gradient={value}
         stops={sortedStops}
-        onMove={(index, offset) => updateStop(index, { offset })}
+        onMove={(index, offset) => updateStop(index, { offset }, 'offset')}
       />
 
       {/* Stops */}
@@ -162,7 +165,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
             >
               <ColorPicker
                 value={stop.color}
-                onChange={(color) => updateStop(stop.originalIndex, { color })}
+                onChange={(color) => updateStop(stop.originalIndex, { color }, 'color')}
                 showOpacity
               />
               <IconButton
