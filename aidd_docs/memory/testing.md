@@ -19,6 +19,7 @@
 - E2E selectors use accessible French labels; development-only `window.__sfCanvas` and `window.__sfStores` are reserved for state contracts the UI cannot expose.
 - Canvas transforms must assert the canvas → store → sync round-trip does not drift after pointer release.
 - Any export-path change must retain the pixel-exact E2E contract.
+- `runtime-resilience.spec.ts` forces IndexedDB startup failure and delays a lazy chunk to cover the editable memory fallback, persistent warning, loading status, and final dialog focus.
 
 ## Run
 

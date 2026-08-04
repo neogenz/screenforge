@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
+import { LoaderCircle } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
@@ -42,24 +43,42 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    async function init() {
-      const stored = await loadLatestProject()
+    let disposed = false
+    let stopAutoSave: (() => void) | undefined
 
-      if (stored) {
-        useProjectStore.getState().loadProject(stored)
-        useUIStore.getState().setSaveStatus('saved')
-      } else {
+    async function init() {
+      try {
+        const stored = await loadLatestProject()
+        if (disposed) return
+        stopAutoSave = initAutoSave()
+        if (stored) {
+          useProjectStore.getState().loadProject(stored)
+          useUIStore.getState().setSaveStatus('saved')
+        } else {
+          clearAssets()
+          useProjectStore.getState().createProject('Projet sans titre')
+        }
+      } catch (error) {
+        if (disposed) return
+        stopAutoSave?.()
+        stopAutoSave = undefined
+        console.error('Could not initialize ScreenForge.', error)
         clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
+        useUIStore.getState().setSaveStatus('error')
+        toast(
+          'Stockage local indisponible. Ce projet restera en mémoire et sera perdu à la fermeture.',
+          'error',
+          { duration: Infinity },
+        )
       }
     }
 
-    void init().catch((error) => {
-      console.error('Could not initialize ScreenForge.', error)
-    })
-
-    const unsubscribe = initAutoSave()
-    return unsubscribe
+    void init()
+    return () => {
+      disposed = true
+      stopAutoSave?.()
+    }
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
@@ -150,11 +169,28 @@ function Overlays() {
         onClose={() => useUIStore.getState().setShowShortcuts(false)}
       />
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<LazyDialogFallback />}>
         {showExportDialog && <ExportDialog />}
         {showTemplatesPicker && <TemplatePicker />}
         {showGlobalsEditor && <GlobalsEditor />}
       </Suspense>
+    </>
+  )
+}
+
+function LazyDialogFallback() {
+  return (
+    <>
+      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-scrim" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Chargement de la fenêtre"
+        className="surface-modal fixed left-1/2 top-1/2 z-(--z-modal) flex -translate-x-1/2 -translate-y-1/2 animate-slide-up items-center gap-2.5 px-5 py-4 text-sm text-foreground motion-reduce:animate-none"
+      >
+        <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />
+        Chargement…
+      </div>
     </>
   )
 }
