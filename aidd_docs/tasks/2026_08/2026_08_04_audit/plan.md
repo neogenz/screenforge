@@ -1,6 +1,6 @@
 ---
 objective: "Les 17 findings de l’audit sont corrigés sur feat/shadcn-migration sans changer de stack ni dégrader l’éditeur ou l’export App Store."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Remédiation complète de l’audit ScreenForge
