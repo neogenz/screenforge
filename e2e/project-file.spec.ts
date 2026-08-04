@@ -215,6 +215,41 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
     project.screens[0].layers[0].width = 0
   })
+  const invalidOpacity = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
+    project.screens[0].layers[0].opacity = 2
+  })
+  const duplicateLayerId = await mutateManifest((manifest) => {
+    const project = manifest.project as {
+      screens: Array<{ layers: Array<Record<string, unknown>> }>
+      layoutLayers: Array<Record<string, unknown>>
+    }
+    project.layoutLayers[0].id = project.screens[0].layers[0].id
+  })
+  const legacyShape = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
+    project.screens[0].layers.push({
+      id: 'legacy-shape',
+      type: 'shape',
+      name: 'Legacy shape',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      zIndex: 3,
+      shapeType: 'rectangle',
+      fill: '#000',
+      gradientFill: {
+        type: 'linear',
+        angle: 90,
+        stops: [{ offset: 0, color: '#000' }, { offset: 1, color: '#fff' }],
+      },
+    })
+  })
   const oversizedCentralEntry = withCentralUncompressedSize(
     source,
     missingManifest.assets[0].path,
@@ -229,6 +264,9 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     readArchive(page, await unknownDirectory.generateAsync({ type: 'uint8array' })),
     readArchive(page, nullLayer),
     readArchive(page, invalidGeometry),
+    readArchive(page, invalidOpacity),
+    readArchive(page, duplicateLayerId),
+    readArchive(page, legacyShape),
     readArchive(page, oversizedCentralEntry),
   ])).toEqual([
     'unsupported-version',
@@ -238,6 +276,9 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     'unsafe-entry',
     'invalid-manifest',
     'invalid-manifest',
+    'invalid-manifest',
+    'invalid-manifest',
+    'ok',
     'asset-too-large',
   ])
 })

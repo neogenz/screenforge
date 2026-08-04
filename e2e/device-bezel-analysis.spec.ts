@@ -129,10 +129,10 @@ test('rejects oversized IHDR dimensions before decoding pixel data', async ({ pa
   })
 })
 
-test('normalizes legacy and malformed device layers safely', async ({ page }) => {
+test('migrates legacy device layers and rejects malformed bezels', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const modulePath = '/src/lib/storage.ts'
-    const { normalizeProject } = await import(modulePath) as typeof import('../src/lib/storage')
+    const modulePath = '/src/lib/project-validation.ts'
+    const { isProject, migrateProject } = await import(modulePath) as typeof import('../src/lib/project-validation')
     const layer = {
       id: 'device',
       type: 'device-frame',
@@ -152,7 +152,7 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
       screenshotAssetId: 'screenshot',
     }
     const project = (candidate: object) => {
-      const normalized = normalizeProject({
+      const migrated = migrateProject({
         id: 'project',
         name: 'Test',
         activeScreenId: 'screen',
@@ -174,9 +174,14 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
         layoutLayers: [],
         createdAt: 1,
         updatedAt: 1,
-      }).screens[0].layers[0]
-      if (normalized.type !== 'device-frame') throw new Error('Expected device layer')
-      return normalized
+      })
+      const candidateProject = migrated as {
+        screens: Array<{ layers: Array<Record<string, unknown>> }>
+      }
+      return {
+        valid: isProject(migrated),
+        layer: candidateProject.screens[0].layers[0],
+      }
     }
 
     const legacy = project({})
@@ -201,10 +206,12 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
     return { legacy, malformed, valid }
   })
 
-  expect(result.legacy).not.toHaveProperty('importedBezel')
-  expect(result.legacy.orientation).toBe('landscape')
-  expect(result.malformed).not.toHaveProperty('importedBezel')
-  expect(result.malformed.screenshotAssetId).toBe('screenshot')
-  expect(result.valid).toHaveProperty('importedBezel.assetId', 'bezel')
-  expect(result.valid.orientation).toBe('portrait')
+  expect(result.legacy.valid).toBe(true)
+  expect(result.legacy.layer).not.toHaveProperty('importedBezel')
+  expect(result.legacy.layer.orientation).toBe('landscape')
+  expect(result.malformed.valid).toBe(false)
+  expect(result.malformed.layer).toHaveProperty('importedBezel.assetId', 'bezel')
+  expect(result.valid.valid).toBe(true)
+  expect(result.valid.layer).toHaveProperty('importedBezel.assetId', 'bezel')
+  expect(result.valid.layer.orientation).toBe('portrait')
 })

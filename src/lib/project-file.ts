@@ -2,8 +2,8 @@ import type JSZip from 'jszip'
 import type { JSZipObject } from 'jszip'
 import { resolveAsset } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import type { Layer, Project } from '@/types'
+import { isProject, migrateProject } from '@/lib/project-validation'
+import type { Project } from '@/types'
 
 export const PROJECT_FILE_EXTENSION = '.screenforge.zip'
 export const PROJECT_FILE_MIME = 'application/zip'
@@ -163,10 +163,12 @@ export async function createProjectFile(project: Project): Promise<Blob> {
   const totalBytes = assets.reduce((total, asset) => total + asset.bytes.byteLength, 0)
   if (totalBytes > MAX_PROJECT_TOTAL_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
 
+  const serializedProject = projectWithoutThumbnails(project)
+  if (!isProject(serializedProject)) throw new ProjectFileError('invalid-manifest')
   const manifest: ProjectFileManifest = {
     format: PROJECT_FILE_FORMAT,
     version: PROJECT_FILE_VERSION,
-    project: projectWithoutThumbnails(project),
+    project: serializedProject,
     assets: assets.map(({ descriptor }) => descriptor),
   }
   const manifestJson = JSON.stringify(manifest, null, 2)
@@ -188,156 +190,6 @@ export async function createProjectFile(project: Project): Promise<Blob> {
   })
 }
 
-function isFiniteNumber(value: unknown, minimum = -Infinity): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= minimum
-}
-
-function isColorStops(value: unknown): boolean {
-  return Array.isArray(value)
-    && value.length >= 2
-    && value.every((stop) => isRecord(stop)
-      && isFiniteNumber(stop.offset, 0) && stop.offset <= 1
-      && typeof stop.color === 'string')
-}
-
-function isGradient(value: unknown): boolean {
-  if (!isRecord(value) || !['linear', 'radial'].includes(String(value.type))) return false
-  if (!isColorStops(value.stops)) return false
-  if (value.angle !== undefined && !isFiniteNumber(value.angle)) return false
-  if (value.centerX !== undefined && !isFiniteNumber(value.centerX)) return false
-  if (value.centerY !== undefined && !isFiniteNumber(value.centerY)) return false
-  return true
-}
-
-function isBackground(value: unknown): boolean {
-  if (!isRecord(value)) return false
-  if (value.type === 'solid') return typeof value.color === 'string'
-  if (value.type === 'linear-gradient') {
-    return isFiniteNumber(value.angle) && isColorStops(value.stops)
-  }
-  if (value.type !== 'radial-gradient' || !isColorStops(value.stops)) return false
-  if (value.centerX !== undefined && !isFiniteNumber(value.centerX)) return false
-  if (value.centerY !== undefined && !isFiniteNumber(value.centerY)) return false
-  return true
-}
-
-function isShadow(value: unknown): boolean {
-  return isRecord(value)
-    && isFiniteNumber(value.offsetX)
-    && isFiniteNumber(value.offsetY)
-    && isFiniteNumber(value.blur, 0)
-    && typeof value.color === 'string'
-}
-
-function isBaseLayer(value: Record<string, unknown>): boolean {
-  return typeof value.id === 'string' && Boolean(value.id)
-    && typeof value.name === 'string'
-    && isFiniteNumber(value.x)
-    && isFiniteNumber(value.y)
-    && isFiniteNumber(value.width, 0) && value.width > 0
-    && isFiniteNumber(value.height, 0) && value.height > 0
-    && isFiniteNumber(value.rotation)
-    && isFiniteNumber(value.opacity, 0) && value.opacity <= 1
-    && typeof value.locked === 'boolean'
-    && typeof value.visible === 'boolean'
-    && Number.isSafeInteger(value.zIndex)
-    && (value.scope === undefined || value.scope === 'layout')
-    && !('src' in value) && !('screenshotUrl' in value)
-}
-
-function isImportedBezel(value: unknown): boolean {
-  if (!isRecord(value) || !SAFE_ASSET_ID.test(String(value.assetId))) return false
-  if (typeof value.fileName !== 'string' || !value.fileName) return false
-  if (!isFiniteNumber(value.naturalWidth, 1) || !isFiniteNumber(value.naturalHeight, 1)) return false
-  const screen = value.screen
-  return isRecord(screen)
-    && isFiniteNumber(screen.x, 0)
-    && isFiniteNumber(screen.y, 0)
-    && isFiniteNumber(screen.width, 1)
-    && isFiniteNumber(screen.height, 1)
-    && screen.x + screen.width <= value.naturalWidth
-    && screen.y + screen.height <= value.naturalHeight
-}
-
-function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
-  if (!isRecord(value) || !isBaseLayer(value)) return false
-  if (scope === 'layout' ? value.scope !== 'layout' : value.scope !== undefined) return false
-  if (value.shadow !== undefined && !isShadow(value.shadow)) return false
-  if (value.gradientFill !== undefined && !isGradient(value.gradientFill)) return false
-  if (value.type === 'image') {
-    return SAFE_ASSET_ID.test(String(value.assetId))
-      && isFiniteNumber(value.originalWidth, 1)
-      && isFiniteNumber(value.originalHeight, 1)
-  }
-  if (value.type === 'device-frame') {
-    if (typeof value.deviceModel !== 'string' || !value.deviceModel) return false
-    if (typeof value.deviceColor !== 'string' || !value.deviceColor) return false
-    if (!['portrait', 'landscape'].includes(String(value.orientation))) return false
-    if (value.screenshotAssetId !== undefined
-      && !SAFE_ASSET_ID.test(String(value.screenshotAssetId))) return false
-    if (value.importedBezel !== undefined && !isImportedBezel(value.importedBezel)) return false
-    if (value.shadowEnabled !== undefined && typeof value.shadowEnabled !== 'boolean') return false
-    if (value.shadowBlur !== undefined && !isFiniteNumber(value.shadowBlur, 0)) return false
-    if (value.shadowColor !== undefined && typeof value.shadowColor !== 'string') return false
-    if (value.shadowOffsetX !== undefined && !isFiniteNumber(value.shadowOffsetX)) return false
-    if (value.shadowOffsetY !== undefined && !isFiniteNumber(value.shadowOffsetY)) return false
-    return true
-  }
-  if (value.type === 'text') {
-    return typeof value.content === 'string'
-      && typeof value.fontFamily === 'string' && Boolean(value.fontFamily)
-      && isFiniteNumber(value.fontSize, 1)
-      && isFiniteNumber(value.fontWeight, 1)
-      && typeof value.color === 'string'
-      && ['left', 'center', 'right'].includes(String(value.textAlign))
-      && isFiniteNumber(value.lineHeight, 0) && value.lineHeight > 0
-      && isFiniteNumber(value.letterSpacing)
-      && ['none', 'uppercase', 'lowercase', 'capitalize'].includes(String(value.textTransform))
-  }
-  if (value.type !== 'shape') return false
-  if (!['rectangle', 'circle', 'rounded-rect'].includes(String(value.shapeType))) return false
-  if (!(typeof value.fill === 'string' || isGradient(value.fill))) return false
-  if (value.stroke !== undefined && typeof value.stroke !== 'string') return false
-  if (value.strokeWidth !== undefined && !isFiniteNumber(value.strokeWidth, 0)) return false
-  if (value.borderRadius !== undefined && !isFiniteNumber(value.borderRadius, 0)) return false
-  return true
-}
-
-function isProject(value: unknown): value is Project {
-  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
-  if (typeof value.name !== 'string' || typeof value.activeScreenId !== 'string') return false
-  if (!Array.isArray(value.screens) || !Array.isArray(value.layoutLayers)) return false
-  if (!isRecord(value.globals) || !Number.isFinite(value.createdAt) || !Number.isFinite(value.updatedAt)) return false
-  if (value.screens.length < 1 || value.screens.length > MAX_PROJECT_SCREENS) return false
-  const globals = value.globals
-  if (
-    typeof globals.fontFamily !== 'string' || !globals.fontFamily
-    || !isFiniteNumber(globals.fontWeight, 1)
-    || !isFiniteNumber(globals.fontSize, 1)
-    || typeof globals.fontColor !== 'string'
-    || !isBackground(globals.background)
-    || typeof globals.deviceModel !== 'string' || !globals.deviceModel
-    || typeof globals.deviceColor !== 'string' || !globals.deviceColor
-  ) return false
-  const screenIds = new Set<string>()
-  const layerIds = new Set<string>()
-  for (const screen of value.screens) {
-    if (!isRecord(screen) || typeof screen.id !== 'string' || !screen.id) return false
-    if (screenIds.has(screen.id) || typeof screen.name !== 'string') return false
-    if (!Array.isArray(screen.layers) || !isBackground(screen.background) || 'thumbnail' in screen) return false
-    screenIds.add(screen.id)
-    for (const layer of screen.layers) {
-      if (!isLayer(layer, 'screen') || layerIds.has(layer.id)) return false
-      layerIds.add(layer.id)
-    }
-  }
-  for (const layer of value.layoutLayers) {
-    if (!isLayer(layer, 'layout') || layerIds.has(layer.id)) return false
-    layerIds.add(layer.id)
-  }
-  return screenIds.has(value.activeScreenId)
-}
-
 function parseDescriptor(value: unknown): ProjectAssetDescriptor {
   if (!isRecord(value)) throw new ProjectFileError('invalid-manifest')
   const { id, path, mimeType, byteLength, sha256: digest } = value
@@ -357,7 +209,8 @@ function parseManifest(value: unknown): ProjectFileManifest {
     throw new ProjectFileError('invalid-manifest')
   }
   if (value.version !== PROJECT_FILE_VERSION) throw new ProjectFileError('unsupported-version')
-  if (!isProject(value.project) || !Array.isArray(value.assets)) {
+  const project = migrateProject(value.project)
+  if (!isProject(project) || !Array.isArray(value.assets)) {
     throw new ProjectFileError('invalid-manifest')
   }
   const assets = value.assets.map(parseDescriptor)
@@ -368,7 +221,7 @@ function parseManifest(value: unknown): ProjectFileManifest {
   }
   const totalBytes = assets.reduce((total, asset) => total + asset.byteLength, 0)
   if (totalBytes > MAX_PROJECT_TOTAL_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
-  const referenced = collectProjectAssetIds(value.project)
+  const referenced = collectProjectAssetIds(project)
   if (
     referenced.length !== assets.length
     || referenced.some((id) => !ids.has(id))
@@ -376,7 +229,7 @@ function parseManifest(value: unknown): ProjectFileManifest {
   return {
     format: PROJECT_FILE_FORMAT,
     version: PROJECT_FILE_VERSION,
-    project: value.project,
+    project,
     assets,
   }
 }

@@ -1,6 +1,6 @@
 // ─── Layer Types ────────────────────────────────────────────────────────────
 
-export type LayerType = 'text' | 'device-frame' | 'image' | 'shape' | 'background'
+export type LayerType = 'text' | 'device-frame' | 'image' | 'shape'
 
 export interface BaseLayer {
   id: string
@@ -98,7 +98,6 @@ export interface ShapeLayer extends BaseLayer {
   strokeWidth?: number
   borderRadius?: number  // rounded-rect only
   shadow?: TextShadow
-  gradientFill?: GradientFill
 }
 
 export type Layer = TextLayer | DeviceFrameLayer | ImageLayer | ShapeLayer

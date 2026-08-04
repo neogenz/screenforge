@@ -225,18 +225,51 @@ describe('storage', () => {
     stored.close()
   })
 
+  it('migrates a legacy shape gradient before persisting the current model', async () => {
+    const legacy = structuredClone(project()) as unknown as {
+      screens: Array<{ layers: object[] }>
+    } & Record<string, unknown>
+    legacy.screens[0].layers = [{
+      id: 'shape',
+      type: 'shape',
+      name: 'Shape',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      zIndex: 0,
+      shapeType: 'rectangle',
+      fill: '#000',
+      gradientFill: {
+        type: 'linear',
+        angle: 90,
+        stops: [{ offset: 0, color: '#000' }, { offset: 1, color: '#fff' }],
+      },
+    }]
+    const db = await database()
+    await db.put('projects', legacy)
+    db.close()
+
+    const loaded = await loadProject('project')
+    expect(loaded?.screens[0].layers[0]).not.toHaveProperty('gradientFill')
+    expect(loaded?.screens[0].layers[0]).toHaveProperty('fill.type', 'linear')
+  })
+
   it('preserves an invalid latest record and loads the previous valid project', async () => {
     await saveProject(project('Valid'))
-    const invalid = {
-      id: 'invalid',
-      name: 'Invalid',
-      screens: 'broken',
-      activeScreenId: 'missing',
-      globals: {},
-      layoutLayers: [],
-      createdAt: 2,
-      updatedAt: 2,
-    }
+    const invalid = structuredClone(project('Invalid')) as unknown as Record<string, unknown>
+    invalid.id = 'invalid'
+    invalid.updatedAt = 2
+    const screens = invalid.screens as Array<{ layers: Array<Record<string, unknown>> }>
+    screens[0].layers = [{
+      id: 'shape', type: 'shape', name: 'Shape', x: 0, y: 0, width: 1, height: 1,
+      rotation: 0, opacity: 2, locked: false, visible: true, zIndex: 0,
+      shapeType: 'rectangle', fill: '#000',
+    }]
     const db = await database()
     await db.put('projects', invalid)
     db.close()
