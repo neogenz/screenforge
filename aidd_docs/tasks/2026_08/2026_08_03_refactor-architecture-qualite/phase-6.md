@@ -16,7 +16,7 @@ status: done
 │   └── error-boundary.spec.ts            ✅ fallback, focus et reset confirmé
 └── src/
     ├── components/
-    │   └── ErrorBoundary.tsx             ✅ écran global de reprise
+    │   └── error-boundary.tsx             ✅ écran global de reprise
     └── main.tsx                          ✏️ boundary racine et handle de crash DEV
 ```
 
