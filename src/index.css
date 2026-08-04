@@ -115,7 +115,6 @@
   --animate-fade-in: fade-in 0.14s var(--ease-out);
   --animate-slide-up: slide-up 0.2s var(--ease-out-expo);
   --animate-menu-in: menu-in 0.16s var(--ease-out-expo);
-  --animate-toast-in: toast-in 0.2s var(--ease-out-expo);
   --animate-palette-in: palette-in 0.16s var(--ease-out-expo);
 
   @keyframes fade-in {
@@ -144,16 +143,6 @@
     to {
       opacity: 1;
       transform: translateY(0);
-    }
-  }
-  @keyframes toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
     }
   }
   @keyframes palette-in {
@@ -420,6 +409,15 @@
   .hairline {
     height: 1px;
     background: var(--color-border);
+  }
+
+  /* En-tête de groupe cmdk : la grammaire field-label, posée par le composant. */
+  [cmdk-group-heading] {
+    padding: 10px 8px 4px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--color-faint);
   }
 }
 

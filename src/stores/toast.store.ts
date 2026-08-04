@@ -1,35 +1,14 @@
-import { create } from 'zustand'
+import { createElement } from 'react'
+import { toast as sonner } from 'sonner'
 
 export type ToastTone = 'info' | 'success' | 'error'
 
-export interface ToastItem {
-  id: number
-  message: string
-  tone: ToastTone
-}
-
-interface ToastState {
-  toasts: ToastItem[]
-  push: (message: string, tone: ToastTone) => void
-  dismiss: (id: number) => void
-}
-
-let nextToastId = 1
-const TOAST_DURATION = 3500
-
-export const useToastStore = create<ToastState>()((set) => ({
-  toasts: [],
-  push: (message, tone) => {
-    const id = nextToastId++
-    set((state) => ({ toasts: [...state.toasts.slice(-3), { id, message, tone }] }))
-    setTimeout(() => {
-      useToastStore.getState().dismiss(id)
-    }, TOAST_DURATION)
-  },
-  dismiss: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
-}))
-
 /** Fire-and-forget toast, callable from anywhere (stores, hooks, commands). */
 export function toast(message: string, tone: ToastTone = 'info') {
-  useToastStore.getState().push(message, tone)
+  // Le rôle vit dans le contenu : sonner n'en pose pas sur le toast lui-même,
+  // et les tests comme les lecteurs d'écran s'appuient sur status/alert.
+  const content = createElement('span', { role: tone === 'error' ? 'alert' : 'status' }, message)
+  if (tone === 'success') sonner.success(content)
+  else if (tone === 'error') sonner.error(content)
+  else sonner.info(content)
 }

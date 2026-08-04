@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
+import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
@@ -7,7 +8,6 @@ import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
-import { ToastViewport } from '@/components/ui/toast'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
@@ -114,6 +114,28 @@ export default function App() {
       />
 
       <Overlays />
+      <Toaster
+        theme={theme}
+        position="bottom-left"
+        duration={3500}
+        visibleToasts={4}
+        offset={16}
+        gap={8}
+        style={{
+          zIndex: 'var(--z-toast)',
+          fontFamily: 'var(--font-sans)',
+          '--normal-bg': 'var(--color-raised)',
+          '--normal-border': 'var(--color-border)',
+          '--normal-text': 'var(--color-foreground)',
+          '--border-radius': 'var(--radius-md)',
+        } as CSSProperties}
+        toastOptions={{
+          style: {
+            boxShadow: 'var(--shadow-menu), var(--hairline-top)',
+            fontSize: '12.5px',
+          },
+        }}
+      />
     </div>
   )
 }
@@ -135,7 +157,6 @@ function Overlays() {
         open={showShortcuts}
         onClose={() => useUIStore.getState().setShowShortcuts(false)}
       />
-      <ToastViewport />
 
       <Suspense fallback={null}>
         {showExportDialog && <ExportDialog />}

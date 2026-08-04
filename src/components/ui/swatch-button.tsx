@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, Ref } from 'react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export interface SwatchButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -18,23 +19,21 @@ export function SwatchButton({
   color,
   selected = false,
   className,
-  type = 'button',
   ref,
   ...props
 }: SwatchButtonProps) {
   return (
-    <button
+    <Button
       ref={ref}
-      type={type}
+      variant="ghost"
       aria-pressed={selected}
       className={cn(
         // L'anneau vit dans le padding : aucun décalage de mise en page à la sélection.
-        'h-8 w-8 shrink-0 rounded-full p-[3px] ring-inset',
+        'h-8 w-8 shrink-0 rounded-full p-[3px] ring-inset hover:bg-transparent',
         'transition-[box-shadow] duration-150 ease-out',
         selected
           ? 'ring-2 ring-foreground'
           : 'ring-1 ring-transparent hover:ring-border-strong',
-        'disabled:pointer-events-none disabled:opacity-40',
         className,
       )}
       {...props}
@@ -45,6 +44,6 @@ export function SwatchButton({
           style={{ backgroundColor: color }}
         />
       </span>
-    </button>
+    </Button>
   )
 }

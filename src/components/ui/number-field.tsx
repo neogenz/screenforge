@@ -118,18 +118,19 @@ export function NumberField({
       onPointerCancel={handlePointerUp}
       title={`${ariaLabel} — glisser pour ajuster`}
       className={cn(
-        'field-surface flex h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
+        'flex h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
+        'rounded-md border border-input bg-muted shadow-(--shadow-inset)',
         'transition-[border-color] duration-150 ease-out hover:border-border-strong',
         // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
-        'focus-within:border-foreground-muted focus-within:outline-[1.5px]',
-        'focus-within:outline-offset-2 focus-within:outline-foreground/55',
-        scrubbing && 'select-none border-foreground-muted',
+        'focus-within:border-ring focus-within:outline-[1.5px]',
+        'focus-within:outline-offset-2 focus-within:outline-ring',
+        scrubbing && 'select-none border-ring',
         disabled && 'pointer-events-none opacity-40',
         className,
       )}
     >
       {label && (
-        <span aria-hidden className="field-label shrink-0 select-none text-faint">
+        <span aria-hidden className="field-label shrink-0 select-none text-muted-foreground">
           {label}
         </span>
       )}

@@ -17,7 +17,6 @@ import {
   saveProject,
 } from '@/lib/storage'
 import { useProjectStore } from '@/stores/project.store'
-import { useToastStore } from '@/stores/toast.store'
 import type { Layer, Project } from '@/types'
 
 function project(name = 'Project', layers: Layer[] = []): Project {
@@ -62,7 +61,6 @@ async function clearDatabase() {
   db.close()
   clearAssets()
   useProjectStore.setState({ project: null })
-  useToastStore.setState({ toasts: [] })
 }
 
 describe('storage', () => {
