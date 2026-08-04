@@ -31,5 +31,12 @@ export interface InputProps
 }
 
 export function Input({ font, className, ref, ...props }: InputProps) {
-  return <input ref={ref} className={cn(inputVariants({ font }), className)} {...props} />
+  return (
+    <input
+      ref={ref}
+      data-slot="input"
+      className={cn(inputVariants({ font }), className)}
+      {...props}
+    />
+  )
 }

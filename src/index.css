@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @source "../index.html";
 @source "./**/*.tsx";
@@ -169,6 +170,29 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
+
+/* ── Tokens shadcn → pont vers les vars du design system ──
+   Les composants shadcn consomment ces alias ; la valeur reste pilotée par les
+   vars OKLCH ci-dessus (défaut sombre, `.light` les surcharge). Les noms déjà
+   définis par le design system (background, foreground, border, accent…)
+   ne sont pas redéclarés ici : shadcn les hérite tels quels. */
+@theme inline {
+  --color-primary: var(--color-foreground);
+  --color-primary-foreground: var(--color-stage);
+  --color-secondary: var(--color-raised);
+  --color-secondary-foreground: var(--color-foreground);
+  --color-muted: var(--color-inset);
+  --color-muted-foreground: var(--color-foreground-muted);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-foreground);
+  --color-popover: var(--color-panel);
+  --color-popover-foreground: var(--color-foreground);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-foreground);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-accent-line);
+  --color-accent-foreground: var(--color-accent-ink);
+}
 
 /* ── Marques d'accent ──
    Déclarées en `@utility` et non en classe de composant : c'est ce qui permet

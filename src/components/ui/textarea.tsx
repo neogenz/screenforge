@@ -10,6 +10,7 @@ export function Textarea({ className, ref, ...props }: TextareaProps) {
   return (
     <textarea
       ref={ref}
+      data-slot="textarea"
       className={cn(
         'field-surface w-full resize-y px-2 py-1.5',
         'text-[12.5px] leading-snug text-foreground placeholder:text-faint',

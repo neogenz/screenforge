@@ -1,6 +1,6 @@
 ---
 objective: "Toutes les primitives de src/components/ui/ sont basées sur shadcn/ui (Radix + Tailwind v4 + CVA), avec densité 28-36px, tokens OKLCH et contrats aria/e2e existants préservés."
-status: pending
+status: in-progress
 ---
 
 <!-- Fill or omit these sections; never add, rename, or reorder one. -->

@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
+import { Slot } from 'radix-ui'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   /** Refuse le clic et préfixe le contenu d'un indicateur, sans masquer le libellé. */
   loading?: boolean
+  asChild?: boolean
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -48,6 +50,7 @@ export function Button({
   variant,
   size,
   loading = false,
+  asChild = false,
   disabled,
   className,
   children,
@@ -55,11 +58,13 @@ export function Button({
   ref,
   ...props
 }: ButtonProps) {
+  const Comp = asChild ? Slot.Root : 'button'
   return (
-    <button
+    <Comp
       ref={ref}
-      type={type}
-      disabled={disabled || loading}
+      data-slot="button"
+      type={asChild ? undefined : type}
+      disabled={asChild ? undefined : disabled || loading}
       aria-busy={loading || undefined}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
@@ -74,6 +79,6 @@ export function Button({
         />
       )}
       {children}
-    </button>
+    </Comp>
   )
 }

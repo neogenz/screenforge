@@ -1,16 +1,15 @@
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { ButtonHTMLAttributes, Ref } from 'react'
+import type { Ref } from 'react'
 import { cn } from '@/lib/utils'
+import { Button, type ButtonProps } from '@/components/ui/button'
 
 const iconButtonVariants = cva(
   [
-    'inline-flex select-none items-center justify-center',
     'border border-transparent bg-transparent text-foreground-muted',
-    'transition-[background,color,border-color] duration-150 ease-out',
     'hover:bg-raised-hover hover:text-foreground',
     'active:bg-raised-active',
     'focus-visible:border-border-strong',
-    'disabled:pointer-events-none disabled:opacity-35',
+    'disabled:opacity-35',
     // Neutre, et non l'accent : ces boutons disent « ce panneau est ouvert »,
     // pas « c'est ici que vous travaillez ». L'accent est réservé à ce que
     // l'utilisateur édite — l'écran courant, le calque sélectionné, le focus.
@@ -19,8 +18,8 @@ const iconButtonVariants = cva(
   {
     variants: {
       size: {
-        sm: 'h-8 w-8 rounded-md',
-        md: 'h-9 w-9 rounded-md',
+        sm: 'h-8 w-8 rounded-md px-0',
+        md: 'h-9 w-9 rounded-md px-0',
       },
     },
     defaultVariants: { size: 'md' },
@@ -28,7 +27,7 @@ const iconButtonVariants = cva(
 )
 
 export interface IconButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends Omit<ButtonProps, 'size' | 'variant' | 'loading'>,
     VariantProps<typeof iconButtonVariants> {
   /** Every icon-only button must be labelled. */
   'aria-label': string
@@ -36,11 +35,12 @@ export interface IconButtonProps
   ref?: Ref<HTMLButtonElement>
 }
 
-export function IconButton({ size, active, className, type = 'button', ref, ...props }: IconButtonProps) {
+export function IconButton({ size, active, className, ref, ...props }: IconButtonProps) {
   return (
-    <button
+    <Button
       ref={ref}
-      type={type}
+      variant="ghost"
+      data-slot="icon-button"
       data-active={active || undefined}
       className={cn(iconButtonVariants({ size }), className)}
       {...props}
