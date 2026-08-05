@@ -24,10 +24,11 @@ for (const theme of ['dark', 'light']) {
     const page = await context.newPage()
 
     await page.goto(baseURL)
+    // Browser globals inside Playwright's page context.
     await page.evaluate((theme) => localStorage.setItem('screenforge-theme', theme), theme)
     await page.evaluate(() => new Promise((resolve) => {
       const request = indexedDB.deleteDatabase('screenforge')
-      request.onsuccess = request.onerror = request.onblocked = () => resolve()
+      request.onsuccess = request.onerror = request.onblocked = () => resolve(undefined)
     }))
     await page.reload()
     await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })

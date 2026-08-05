@@ -10,10 +10,13 @@ import {
   dragControl,
   expectClose,
   findObject,
+  lassoOverScreen,
   layerRows,
   screenCenter,
   transformInput,
   waitForApp,
+  waitForCanvasSettled,
+  type DebugObject,
 } from './helpers'
 
 async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
@@ -25,7 +28,33 @@ async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<v
   await page.mouse.down()
   await page.mouse.move(destination.x, destination.y, { steps: 12 })
   await page.mouse.up()
-  await page.waitForTimeout(900)
+  await waitForCanvasSettled(page)
+}
+
+/**
+ * Le centre de chaque calque dans le repère de la scène, lu par la matrice.
+ *
+ * Par la matrice et non par `left`/`top` : ceux-ci se lisent dans le repère du
+ * parent, et un calque pris dans une sélection multiple en a un. C'est
+ * précisément la confusion que ces tests surveillent.
+ */
+async function sceneCenters(page: Page): Promise<{ x: number; y: number }[]> {
+  return page.evaluate(() => (window.__sfCanvas?.getObjects() ?? [])
+    .filter((object) => {
+      const type = (object as DebugObject).data?.rendererType
+      return type !== undefined && type !== 'background' && type !== 'label'
+    })
+    .map((object) => {
+      const [, , , , x, y] = object.calcTransformMatrix()
+      return { x: Math.round(x), y: Math.round(y) }
+    }))
+}
+
+async function setRotation(page: Page, angle: number): Promise<void> {
+  const slider = page.getByRole('slider', { name: 'Rotation' })
+  await slider.focus()
+  await slider.press('Home')
+  for (let step = 0; step < angle; step += 1) await slider.press('ArrowRight')
 }
 
 /**
@@ -44,9 +73,8 @@ test.describe('canvas transforms', () => {
     const before = await activeObjectState(page)
     expect(before).not.toBeNull()
 
-    await transformInput(page, 4).fill('30')
-    await transformInput(page, 4).press('Enter')
-    await page.waitForTimeout(700)
+    await setRotation(page, 30)
+    await waitForCanvasSettled(page)
 
     const after = await activeObjectState(page)
     expectClose(after!.angle, 30, 0.5)
@@ -54,12 +82,79 @@ test.describe('canvas transforms', () => {
     expectClose(after!.top, before!.top, 0.5)
   })
 
+  test('scrubbing position X stays aligned through the store sync', async ({ page }) => {
+    await addDeviceLayer(page)
+    const before = await page.evaluate(() => {
+      const state = window.__sfStores?.useCanvasStore.getState()
+      const id = state?.selectedLayerIds[0]
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+      const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+        .find((candidate) => candidate.id === id)
+      const object = window.__sfCanvas?.getObjects().find((candidate) =>
+        (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+      return {
+        id,
+        x: layer?.x,
+        y: layer?.y,
+        renderedX: object?.left,
+        selectedIds: state?.selectedLayerIds ?? [],
+      }
+    })
+    expect(before.id).toBeTruthy()
+
+    const scrubBox = await transformInput(page, 0).evaluate((input) => {
+      const rect = input.parentElement?.getBoundingClientRect()
+      if (!rect) throw new Error('Scrub surface missing')
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    })
+    const start = {
+      x: scrubBox.x + scrubBox.width / 2,
+      y: scrubBox.y + scrubBox.height / 2,
+    }
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 24, start.y, { steps: 6 })
+    await page.mouse.up()
+
+    async function readState() {
+      return page.evaluate((id) => {
+        const state = window.__sfStores?.useCanvasStore.getState()
+        const project = window.__sfStores?.useProjectStore.getState().project
+        const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+        const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+          .find((candidate) => candidate.id === id)
+        const object = window.__sfCanvas?.getObjects().find((candidate) =>
+          (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+        return {
+          x: layer?.x,
+          y: layer?.y,
+          renderedX: object?.left,
+          selectedIds: state?.selectedLayerIds ?? [],
+        }
+      }, before.id!)
+    }
+
+    const immediate = await readState()
+    expectClose(immediate.x!, before.x! + 24, 1)
+    expectClose(immediate.y!, before.y!, 0.01)
+    expectClose(immediate.renderedX! - before.renderedX!, immediate.x! - before.x!, 1)
+    expect(immediate.selectedIds).toEqual([before.id])
+
+    await waitForCanvasSettled(page)
+    const settled = await readState()
+    expectClose(settled.x!, immediate.x!, 0.01)
+    expectClose(settled.y!, immediate.y!, 0.01)
+    expectClose(settled.renderedX!, immediate.renderedX!, 0.5)
+    expect(settled.selectedIds).toEqual([before.id])
+  })
+
   test('canvas rotation does not jump after sync', async ({ page }) => {
     await addDeviceLayer(page)
     await dragControl(page, 'mtr', 40, 0)
     // Immediately after release (pre-sync) and after the store round-trip.
     const immediate = await activeObjectState(page)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const settled = await activeObjectState(page)
     expect(immediate!.angle).toBeGreaterThan(2)
     expectClose(settled!.angle, immediate!.angle, 0.5)
@@ -69,13 +164,12 @@ test.describe('canvas transforms', () => {
 
   test('corner resize keeps angle and position', async ({ page }) => {
     await addDeviceLayer(page)
-    await transformInput(page, 4).fill('20')
-    await transformInput(page, 4).press('Enter')
-    await page.waitForTimeout(600)
+    await setRotation(page, 20)
+    await waitForCanvasSettled(page)
     const before = await activeObjectState(page)
 
     await dragControl(page, 'br', 30, 30)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const after = await activeObjectState(page)
     expectClose(after!.angle, before!.angle, 0.5)
     expect(after!.scaleX).toBeGreaterThan(before!.scaleX)
@@ -84,11 +178,11 @@ test.describe('canvas transforms', () => {
   test('dragging a rotated object keeps its angle', async ({ page }) => {
     await addDeviceLayer(page)
     await dragControl(page, 'mtr', 40, 0)
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     const rotated = await activeObjectState(page)
 
     await dragActiveBody(page, 60, 30)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     const dragged = await activeObjectState(page)
     expectClose(dragged!.angle, rotated!.angle, 0.3)
     expect(dragged!.left).toBeGreaterThan(rotated!.left + 20)
@@ -99,9 +193,9 @@ test.describe('canvas transforms', () => {
     await addTextLayer(page)
     const before = await activeObjectState(page)
     await dragActiveBody(page, 80, 40)
-    await page.waitForTimeout(800)
+    await waitForCanvasSettled(page)
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
     const layer = await findObject(page, 'text')
     expectClose(layer!.left!, before!.left, 1.5)
     expectClose(layer!.top!, before!.top, 1.5)
@@ -118,7 +212,9 @@ test.describe('canvas transforms', () => {
 
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.activeScreenId,
+    )).toBe(source.screenId)
     await layerRows(page).first().click()
 
     const before = await page.evaluate(() => ({
@@ -141,7 +237,7 @@ test.describe('canvas transforms', () => {
     expect(preview?.clipScreenIndex).toBe(1)
 
     await page.mouse.up()
-    await page.waitForTimeout(900)
+    await waitForCanvasSettled(page)
     const transferred = await page.evaluate((layerId) => {
       const project = window.__sfStores?.useProjectStore.getState().project
       const canvas = window.__sfCanvas
@@ -178,15 +274,13 @@ test.describe('canvas transforms', () => {
     transferred.viewport.forEach((value, index) => expectClose(value, before.viewport[index], 0.0001))
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(800)
-    const restored = await page.evaluate((layerId) => {
+    await expect.poll(() => page.evaluate((layerId) => {
       const project = window.__sfStores?.useProjectStore.getState().project
-      return {
+      return JSON.stringify({
         sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId).length,
         targetCount: project?.screens[1]?.layers.filter((candidate) => candidate.id === layerId).length,
-      }
-    }, source.layerId)
-    expect(restored).toEqual({ sourceCount: 1, targetCount: 0 })
+      })
+    }, source.layerId)).toBe(JSON.stringify({ sourceCount: 1, targetCount: 0 }))
   })
 
   test('dragging a multi-selection transfers every local layer', async ({ page }) => {
@@ -196,7 +290,7 @@ test.describe('canvas transforms', () => {
       window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.map((layer) => layer.id) ?? [])
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await layerRows(page).nth(1).click({ modifiers: ['Meta'] })
     expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
@@ -207,7 +301,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(destination.x, destination.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(900)
+    await waitForCanvasSettled(page)
 
     const result = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -222,13 +316,54 @@ test.describe('canvas transforms', () => {
     expect(new Set(result.selectedIds)).toEqual(new Set(layerIds))
   })
 
+  test('lasso-selecting another screen’s layers moves nothing', async ({ page }) => {
+    await addTextLayer(page)
+    await addShapeLayer(page)
+    await addScreen(page)
+    await waitForCanvasSettled(page)
+
+    const before = await sceneCenters(page)
+    expect(before.length).toBe(2)
+
+    await lassoOverScreen(page, 0)
+    await waitForCanvasSettled(page)
+
+    // Le lasso rend courante la planche qu'il vise, donc relance une passe de
+    // synchronisation pendant que la sélection multiple existe. Mesuré avant :
+    // les calques repartaient 1182px plus loin, hors de leur écrêtage, donc
+    // invisibles — et rien dans le projet ne l'avait demandé.
+    expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
+    expect(await sceneCenters(page)).toEqual(before)
+  })
+
+  test('nudging a multi-selection moves it by exactly one pixel', async ({ page }) => {
+    await addTextLayer(page)
+    await addShapeLayer(page)
+    await waitForCanvasSettled(page)
+    // Au lasso et non par la liste des calques : la flèche ne nudge que si le
+    // focus n'est pas sur un contrôle qui s'en sert lui-même, et une ligne de
+    // la liste en est un.
+    await lassoOverScreen(page, 0)
+    await waitForCanvasSettled(page)
+    expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
+
+    const before = await sceneCenters(page)
+    await page.keyboard.press('ArrowRight')
+    await waitForCanvasSettled(page)
+
+    // Même écriture de géométrie que le lasso, par le chemin `patch` cette
+    // fois : une flèche répétée sur une sélection multiple recalait chaque
+    // calque sur le centre de la sélection, à chaque appui.
+    expect(await sceneCenters(page)).toEqual(before.map((center) => ({ ...center, x: center.x + 1 })))
+  })
+
   test('dropping in the gutter keeps the source screen and restores clipping', async ({ page }) => {
     await addTextLayer(page)
     const layerId = await page.evaluate(() =>
       window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id)
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
 
     const [start, firstScreen, secondScreen] = await Promise.all([
@@ -241,7 +376,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(gutter.x, gutter.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
 
     const afterGutter = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -267,7 +402,7 @@ test.describe('canvas transforms', () => {
     await page.mouse.down()
     await page.mouse.move(firstScreen.x, firstScreen.y, { steps: 12 })
     await page.mouse.up()
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
     const afterReturn = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
       const object = window.__sfCanvas?.getObjects()
@@ -296,7 +431,7 @@ test.describe('canvas transforms', () => {
 
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await page.locator(`[data-layer-id="${layerId}"]`).click()
     const viewport = await page.evaluate(() => ({
       transform: [...(window.__sfCanvas?.viewportTransform ?? [])],
@@ -350,28 +485,26 @@ test.describe('canvas transforms', () => {
     await expectStableOwner(0)
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(800)
-    const undone = await page.evaluate((id) =>
+    await expect.poll(() => page.evaluate((id) =>
       window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)
-    expect(undone).toEqual([0, 1])
+        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([0, 1])
 
     await page.keyboard.press('Meta+Shift+z')
-    await page.waitForTimeout(800)
-    const redone = await page.evaluate((id) =>
+    await expect.poll(() => page.evaluate((id) =>
       window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)
-    expect(redone).toEqual([1, 0])
+        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([1, 0])
   })
 
   test('mixed local and shared selection transfers only the local layer', async ({ page }) => {
     await addDeviceLayer(page)
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await page.waitForTimeout(600)
+    await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await page.waitForTimeout(600)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+    )).toBe(1)
     await addTextLayer(page)
 
     const ids = await page.evaluate(() => {

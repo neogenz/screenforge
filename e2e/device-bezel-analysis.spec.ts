@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
   asBase64,
+  APP_STORE_BEZEL,
   corruptPng,
   makeDeviceBezelPng,
   MOCK_BEZEL,
@@ -23,14 +24,15 @@ function oversizedDeviceBezelHeader(): Buffer {
   bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
   bytes.writeUInt32BE(13, 8)
   bytes.write('IHDR', 12, 'ascii')
-  bytes.writeUInt32BE(10_000, 16)
-  bytes.writeUInt32BE(4_001, 20)
+  bytes.writeUInt32BE(4_001, 16)
+  bytes.writeUInt32BE(4_000, 20)
   return bytes
 }
 
 async function analyze(page: Page, bytes: Uint8Array): Promise<AnalysisResult> {
   return page.evaluate(async (base64) => {
-    const { analyzeDeviceBezel } = await import('/src/lib/device-bezel.ts')
+    const modulePath = '/src/lib/device-bezel.ts'
+    const { analyzeDeviceBezel } = await import(modulePath) as typeof import('../src/lib/device-bezel')
     const binary = atob(base64)
     const payload = Uint8Array.from(binary, (character) => character.charCodeAt(0))
     const file = new File([payload], 'iPhone Test - Portrait.png', { type: 'image/png' })
@@ -68,6 +70,18 @@ test('detects the enclosed transparent screen with exact geometry', async ({ pag
   expect(JSON.stringify(result.metadata)).not.toContain('data:image')
 })
 
+test('accepts an App Store-sized bezel below the 16 MP ceiling', async ({ page }) => {
+  const result = await analyze(page, makeDeviceBezelPng('valid', APP_STORE_BEZEL))
+  expect(result).toMatchObject({
+    ok: true,
+    metadata: {
+      naturalWidth: APP_STORE_BEZEL.width,
+      naturalHeight: APP_STORE_BEZEL.height,
+      screen: APP_STORE_BEZEL.screen,
+    },
+  })
+})
+
 test('does not confuse a real alpha 17 pixel with the flood-fill marker', async ({ page }) => {
   const result = await analyze(page, makeDeviceBezelPng('alpha-17-separator'))
 
@@ -93,7 +107,8 @@ test('rejects opaque, open and corrupt PNGs with stable errors', async ({ page }
 
 test('rejects an oversized file before reading it', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = await import('/src/lib/device-bezel.ts')
+    const modulePath = '/src/lib/device-bezel.ts'
+    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = await import(modulePath) as typeof import('../src/lib/device-bezel')
     let read = false
     const file = {
       name: 'huge.png',
@@ -103,7 +118,7 @@ test('rejects an oversized file before reading it', async ({ page }) => {
         read = true
         throw new Error('must not read')
       },
-    } as File
+    } as unknown as File
     try {
       await analyzeDeviceBezel(file)
       return { code: 'none', read }
@@ -127,9 +142,10 @@ test('rejects oversized IHDR dimensions before decoding pixel data', async ({ pa
   })
 })
 
-test('normalizes legacy and malformed device layers safely', async ({ page }) => {
+test('migrates legacy device layers and rejects malformed bezels', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const { normalizeProject } = await import('/src/lib/storage.ts')
+    const modulePath = '/src/lib/project-validation.ts'
+    const { isProject, migrateProject } = await import(modulePath) as typeof import('../src/lib/project-validation')
     const layer = {
       id: 'device',
       type: 'device-frame',
@@ -148,29 +164,38 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
       orientation: 'landscape',
       screenshotAssetId: 'screenshot',
     }
-    const project = (candidate: object) => normalizeProject({
-      id: 'project',
-      name: 'Test',
-      activeScreenId: 'screen',
-      screens: [{
-        id: 'screen',
-        name: 'Screen',
-        background: { type: 'solid', color: '#fff' },
-        layers: [{ ...layer, ...candidate }],
-      }],
-      globals: {
-        fontFamily: 'Inter',
-        fontWeight: 700,
-        fontSize: 48,
-        fontColor: '#000',
-        background: { type: 'solid', color: '#fff' },
-        deviceModel: 'iphone-17-pro-max',
-        deviceColor: 'silver',
-      },
-      layoutLayers: [],
-      createdAt: 1,
-      updatedAt: 1,
-    }).screens[0].layers[0]
+    const project = (candidate: object) => {
+      const migrated = migrateProject({
+        id: 'project',
+        name: 'Test',
+        activeScreenId: 'screen',
+        screens: [{
+          id: 'screen',
+          name: 'Screen',
+          background: { type: 'solid', color: '#fff' },
+          layers: [{ ...layer, ...candidate }],
+        }],
+        globals: {
+          fontFamily: 'Inter',
+          fontWeight: 700,
+          fontSize: 48,
+          fontColor: '#000',
+          background: { type: 'solid', color: '#fff' },
+          deviceModel: 'iphone-17-pro-max',
+          deviceColor: 'silver',
+        },
+        layoutLayers: [],
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      const candidateProject = migrated as {
+        screens: Array<{ layers: Array<Record<string, unknown>> }>
+      }
+      return {
+        valid: isProject(migrated),
+        layer: candidateProject.screens[0].layers[0],
+      }
+    }
 
     const legacy = project({})
     const malformed = project({
@@ -194,10 +219,12 @@ test('normalizes legacy and malformed device layers safely', async ({ page }) =>
     return { legacy, malformed, valid }
   })
 
-  expect(result.legacy).not.toHaveProperty('importedBezel')
-  expect(result.legacy.orientation).toBe('landscape')
-  expect(result.malformed).not.toHaveProperty('importedBezel')
-  expect(result.malformed.screenshotAssetId).toBe('screenshot')
-  expect(result.valid).toHaveProperty('importedBezel.assetId', 'bezel')
-  expect(result.valid.orientation).toBe('portrait')
+  expect(result.legacy.valid).toBe(true)
+  expect(result.legacy.layer).not.toHaveProperty('importedBezel')
+  expect(result.legacy.layer.orientation).toBe('landscape')
+  expect(result.malformed.valid).toBe(false)
+  expect(result.malformed.layer).toHaveProperty('importedBezel.assetId', 'bezel')
+  expect(result.valid.valid).toBe(true)
+  expect(result.valid.layer).toHaveProperty('importedBezel.assetId', 'bezel')
+  expect(result.valid.layer.orientation).toBe('portrait')
 })

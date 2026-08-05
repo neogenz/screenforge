@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   AlignCenter,
   AlignCenterHorizontal,
@@ -22,9 +23,15 @@ import { Popover } from '@/components/ui/popover'
 import { SwatchButton } from '@/components/ui/swatch-button'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
-import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
+import {
+  imageImportErrorMessage,
+  importImageFile,
+  SCREENSHOT_IMAGE_ACCEPT,
+  SCREENSHOT_IMAGE_TYPES,
+} from '@/lib/image'
 import { toast } from '@/stores/toast.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { SelectionFrame } from '@/hooks/use-canvas'
 import type { AlignMode } from '@/lib/align'
@@ -33,13 +40,11 @@ import type { Layer, TextLayer } from '@/types'
 /**
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
  *
- * 48, la même géométrie que la barre du haut : 8 px au-dessus et en dessous de
- * contrôles qui en font 32. À 40 il n'en restait que 4, et un champ encadré —
- * la police, le corps — se lit alors comme collé aux deux bords, là où un
- * bouton-icône sans fond s'en accommode. Les deux barres n'ont pas de raison
- * de respirer différemment.
+ * 46 = contrôles de 32 + le retrait d'îlot (2×6) + son filet (2×1). La barre ne
+ * pose plus sa propre géométrie : elle prend celle que `.island` donne à toutes
+ * les autres, et cette constante ne fait que la répéter au calcul de position.
  */
-const BAR_HEIGHT = 48
+const BAR_HEIGHT = 46
 /** Écart entre la sélection et la barre. */
 const OFFSET = 10
 /** Marge minimale conservée contre les bords du stage. */
@@ -82,7 +87,7 @@ interface SelectionToolbarProps {
  */
 export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   const propsOpen = useUIStore((state) => state.propsOpen)
-  const layers = useCanvasStore((state) => state.layers)
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
 
   if (propsOpen || !frame || selectedLayerIds.length === 0) return null
@@ -100,7 +105,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   return (
     <div
       className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
-        flex h-12 max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto px-2"
+        flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
       role="toolbar"
       aria-label="Actions de la sélection"
       style={{
@@ -142,7 +147,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
         size="sm"
         aria-label="Supprimer"
         title="Supprimer"
-        className="hover:text-danger"
+        className="hover:text-destructive"
         onClick={() => {
           for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
         }}
@@ -240,7 +245,7 @@ function LayerControls({ layer }: { layer: Layer }) {
         {colors.map((color) => (
           <SwatchButton
             key={color.name}
-            className="hit-40 h-7 w-7"
+            className="size-8"
             color={color.frame}
             selected={color.name === layer.deviceColor}
             aria-label={color.label}
@@ -306,16 +311,11 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (!isSupportedImageFile(file)) {
-      toast('Format non pris en charge. Utilisez un PNG ou un JPEG.', 'error')
-      return
-    }
     try {
-      const dataUrl = await readAsDataUrl(file)
-      await decodeImage(dataUrl)
-      onPick(registerAsset(dataUrl))
-    } catch {
-      toast('La capture est illisible ou endommagée.', 'error')
+      const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
+      onPick(registerAsset(image.dataUrl))
+    } catch (error) {
+      toast(imageImportErrorMessage(error), 'error')
     }
   }
 
@@ -332,7 +332,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
       <input
         ref={input}
         type="file"
-        accept="image/png,image/jpeg"
+        accept={SCREENSHOT_IMAGE_ACCEPT}
         className="hidden"
         onChange={handleChange}
       />
@@ -356,7 +356,7 @@ function ColorControl({
     <>
       <SwatchButton
         ref={anchor}
-        className="hit-40 h-7 w-7"
+        className="size-8"
         color={value}
         selected={open}
         aria-label={label}

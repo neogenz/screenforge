@@ -1,14 +1,17 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
+  Command,
   Download,
   FileDown,
   FolderOpen,
   ImageIcon,
   LayoutTemplate,
   LoaderCircle,
+  MoreHorizontal,
   Moon,
+  PenLine,
   PanelLeft,
   PanelRight,
   Redo2,
@@ -22,12 +25,14 @@ import {
 } from 'lucide-react'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore, type SaveStatus } from '@/stores/ui.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
+import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
+import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import {
   createProjectFile,
@@ -46,6 +51,9 @@ import {
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
 import type { DeviceModel, Layer } from '@/types'
 
+/** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
+const PROJECT_NAME_INPUT_ID = 'sf-project-name-input'
+
 const SAVE_LABELS: Record<SaveStatus, string> = {
   idle: 'Modifications non enregistrées',
   saving: 'Enregistrement…',
@@ -59,16 +67,43 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
  * qui fait lire un groupe, d'où `mx-1.5` contre `gap-0.5` en intra-groupe.
  */
 function Divider() {
-  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-border-strong" />
+  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-input" />
 }
 
-/** Unique top bar: project identity, layer tools, workspace toggles, export. */
+/**
+ * Unique top bar: project identity, layer tools, workspace toggles, export.
+ *
+ * Une grille, et non un groupe centré en absolu. Hors flux, le groupe d'outils
+ * ne réservait aucune largeur et ne pouvait donc pas être repoussé ; positionné,
+ * il passait aussi devant les bascules de panneaux au test de clic. Mesuré : le
+ * recouvrement commençait à 1023px, et à 900px la bascule Calques ne recevait
+ * plus aucun de ses 36px — cliquer dessus insérait un calque.
+ *
+ * `minmax(0,1fr)` à gauche, `1fr` à droite : les deux colonnes prennent la même
+ * part tant que l'espace le permet, donc le groupe central est exactement au
+ * milieu ; à l'étroit, la droite se cale sur son contenu minimal et c'est le
+ * nom du projet qui cède. Le centre glisse, il ne chevauche jamais.
+ */
 export function TopBar() {
+  // Deux paliers, parce que replier une fois ne suffit pas : sous le premier ce
+  // sont les actions secondaires qui passent au menu, sous le second les outils
+  // de création les y rejoignent. Le second est ce qui rend la fenêtre étroite
+  // habitable — voir `TOP_BAR_TOOLS_WIDTH`.
+  const compactActions = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
+  const compactTools = useMediaQuery(belowWidth(TOP_BAR_TOOLS_WIDTH))
+
   return (
-    <div className="island relative flex h-12 items-center gap-1 px-2">
+    // La colonne du projet plancher à `0` et non à `min-content` : un champ en
+    // `field-sizing-content` déclare son contenu comme min-content, donc
+    // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
+    // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
+    // le champ qui absorbe, pas la grille.
+    <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
       <ProjectSegment />
-      <ToolsSegment />
-      <ActionsSegment />
+      {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
+          garde le groupe central au milieu quand il revient. */}
+      {compactTools ? <span /> : <ToolsSegment />}
+      <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
     </div>
   )
 }
@@ -78,22 +113,35 @@ function ProjectSegment() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-[3px] bg-foreground-muted" />
       <ProjectName />
       <ProjectFileMenu />
-      {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
+      {/*
+        L'état informe, il n'alerte pas : casse normale, teinte faible.
+
+        Il ne se masque plus sous 1280px. Une application sans serveur qui
+        n'offre aucune preuve d'enregistrement n'est pas discrète, elle est
+        muette — et l'état qui disparaissait le premier était l'échec. Le libellé
+        seul se replie en `sr-only` : il reste dans l'arbre d'accessibilité, donc
+        la région live l'annonce toujours, ce qu'un `display:none` empêchait à
+        toute largeur. La pastille décorative qui occupait la place du témoin de
+        document modifié a disparu ; c'est ce témoin-ci qui la tient désormais.
+      */}
       <span
         role="status"
         aria-live="polite"
+        title={SAVE_LABELS[saveStatus]}
         className={cn(
-          'hidden shrink-0 items-center gap-1.5 text-[11px] xl:flex',
-          saveStatus === 'error' ? 'text-danger' : 'text-faint',
+          'flex shrink-0 items-center gap-1.5 text-2xs',
+          saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
+        {saveStatus === 'idle' && (
+          <span aria-hidden className="size-2 shrink-0 rounded-xs bg-muted-foreground" />
+        )}
         {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
         {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
         {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-        {SAVE_LABELS[saveStatus]}
+        <span className="sr-only xl:not-sr-only">{SAVE_LABELS[saveStatus]}</span>
       </span>
     </div>
   )
@@ -102,13 +150,7 @@ function ProjectSegment() {
 function ProjectFileMenu() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const closeMenu = useCallback(() => {
-    setOpen(false)
-    requestAnimationFrame(() => anchorRef.current?.focus())
-  }, [])
 
   async function downloadProject() {
     const project = useProjectStore.getState().project
@@ -140,27 +182,40 @@ function ProjectFileMenu() {
 
   return (
     <>
-      <IconButton
-        ref={anchorRef}
-        size="sm"
-        aria-label="Ouvrir le menu Projet"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-busy={busy}
-        active={open}
-        disabled={busy}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {busy
-          ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
-          : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
-      </IconButton>
       <Dropdown
         open={open}
-        anchor={anchorRef}
-        onClose={closeMenu}
+        onOpenChange={setOpen}
+        trigger={(
+          <IconButton
+            size="sm"
+            // La colonne de gauche est celle qui cède : sans cela le chevron
+            // s'écrasait à 17px avant que le nom n'ait commencé à se tronquer.
+            className="shrink-0"
+            aria-label="Ouvrir le menu Projet"
+            aria-busy={busy}
+            active={open}
+            aria-expanded={open}
+            disabled={busy}
+          >
+            {busy
+              ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
+              : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
+          </IconButton>
+        )}
         ariaLabel="Fichier du projet"
         items={[
+          {
+            id: 'rename-project',
+            label: 'Renommer le projet',
+            icon: <PenLine size={14} strokeWidth={1.75} />,
+            onSelect: () => {
+              const input = document.getElementById(PROJECT_NAME_INPUT_ID)
+              if (input instanceof HTMLInputElement) {
+                input.focus()
+                input.select()
+              }
+            },
+          },
           {
             id: 'download-project',
             label: 'Télécharger une copie',
@@ -232,12 +287,27 @@ function ProjectName() {
           inputRef.current?.blur()
         }
       }}
+      id={PROJECT_NAME_INPUT_ID}
       aria-label="Nom du projet"
+      // Un champ fixe de 160px coupait « Captures App Store — Onboarding v3 »
+      // au tiers, sans rien pour lire la suite. Il se dimensionne maintenant sur
+      // son contenu entre deux bornes, et le titre natif donne le nom complet.
+      title={name}
       spellCheck={false}
       className={cn(
-        'h-9 w-40 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
-        'text-[14px] font-semibold tracking-[-0.012em] text-foreground transition-colors',
-        'hover:border-border focus:border-border-strong focus:bg-raised focus:outline-none',
+        // `field-sizing-content` fixe la largeur : pas de `w-*` en plus, qui la
+        // reprendrait. Les deux bornes suffisent.
+        //
+        // Le plancher est nul, et c'est ce qui tient la barre : le nom est la
+        // seule chose ici qui puisse rétrécir sans se perdre, il tronque déjà et
+        // son infobulle donne le titre entier. Avec un plancher de 96px, la
+        // colonne cédait avant lui — le menu Projet et l'état d'enregistrement
+        // débordaient sur « Annuler », mesuré jusqu'à 24px de recouvrement à
+        // 768px de large.
+        'field-sizing-content h-9 min-w-0 max-w-[28ch] truncate',
+        'rounded-md border border-transparent bg-transparent px-2',
+        'text-sm font-semibold tracking-[-0.012em] text-foreground transition-colors',
+        'hover:border-border focus:border-input focus:bg-secondary focus:outline-none',
       )}
     />
   )
@@ -253,8 +323,12 @@ function ToolsSegment() {
     useCanvasStore.getState().addLayer(layer)
   }
 
+  function layerCount() {
+    return getProjectLayers(useProjectStore.getState().project).length
+  }
+
   return (
-    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+    <div className="flex items-center gap-1 justify-self-center">
       <IconButton
         aria-label="Annuler"
         title="Annuler (⌘Z)"
@@ -274,56 +348,230 @@ function ToolsSegment() {
 
       <Divider />
 
-      {/* Les quatre outils d'ajout forment un groupe : un rail en creux le dit
-          mieux qu'un filet, et distingue « créer » de « défaire ». */}
-      <div className="flex items-center gap-[2px] rounded-md border border-border bg-inset p-[3px]">
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Texte"
-          title="Ajouter : texte"
-          onClick={() => addLayer(createTextLayer(useCanvasStore.getState().layers.length))}
-        >
-          <Type size={16} strokeWidth={1.75} />
-        </IconButton>
-        <DeviceAddTool
-          onSelect={(model) =>
-            addLayer(createDeviceLayer(model, useCanvasStore.getState().layers.length))
-          }
-        />
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Image"
-          title="Ajouter : image"
-          onClick={() => document.getElementById('sf-image-import-input')?.click()}
-        >
-          <ImageIcon size={16} strokeWidth={1.75} />
-        </IconButton>
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Forme"
-          title="Ajouter : forme"
-          onClick={() => addLayer(createShapeLayer(useCanvasStore.getState().layers.length))}
-        >
-          <Square size={16} strokeWidth={1.75} />
-        </IconButton>
-      </div>
+      {/*
+        Les quatre outils d'ajout forment un groupe, et c'est le filet qui le
+        dit — comme partout ailleurs dans cette barre.
+
+        Le rail en creux qui les portait reproduisait mot pour mot le conteneur
+        de `ToggleGroup`, lequel veut dire « choisis-en un, un est allumé » dans
+        le contrôle Uni/Dégradé/Préréglages du même écran. Quatre actions sans
+        état n'ont pas cet habit. Il rendait par ailleurs à 1,10:1 sur la carte
+        en sombre, donc le groupement qu'il justifiait était invisible, et ses
+        40px de haut débordaient du retrait d'îlot.
+      */}
+      <IconButton
+        aria-label="Ajouter Texte"
+        title="Ajouter : texte"
+        onClick={() => addLayer(createTextLayer(layerCount()))}
+      >
+        <Type size={16} strokeWidth={1.75} />
+      </IconButton>
+      <DeviceAddTool
+        onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))}
+      />
+      <IconButton
+        aria-label="Ajouter Image"
+        title="Ajouter : image…"
+        onClick={() => document.getElementById('sf-image-import-input')?.click()}
+      >
+        <ImageIcon size={16} strokeWidth={1.75} />
+      </IconButton>
+      <IconButton
+        aria-label="Ajouter Forme"
+        title="Ajouter : forme"
+        onClick={() => addLayer(createShapeLayer(layerCount()))}
+      >
+        <Square size={16} strokeWidth={1.75} />
+      </IconButton>
     </div>
   )
 }
 
-function ActionsSegment() {
-  const layersOpen = useUIStore((s) => s.layersOpen)
-  const propsOpen = useUIStore((s) => s.propsOpen)
+/**
+ * Les actions secondaires, décrites une fois.
+ *
+ * Elles se rendent en rangée quand la barre a la place, et dans un menu quand
+ * elle ne l'a plus. Deux écritures parallèles auraient dérivé : c'est ce qui
+ * fait qu'une action finit par exister large et pas étroit.
+ */
+interface SecondaryAction {
+  id: string
+  /** Nom accessible et libellé de menu : le même mot dans les deux formes. */
+  label: string
+  hint: string
+  icon: React.ReactNode
+  /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
+  expanded?: boolean
+  disabled?: boolean
+  onSelect: () => void
+}
+
+/**
+ * Les outils de création, sous leur forme repliée.
+ *
+ * La rangée reste écrite à part, en face : elle porte un filet de groupe et un
+ * menu de modèles d'iPhone, que six entrées à plat ne rendraient pas. La seule
+ * chose que la forme repliée abandonne est justement ce choix de modèle — elle
+ * pose celui du projet, qui est déjà ce que la rangée propose en tête de liste.
+ */
+function useToolActions(): SecondaryAction[] {
+  const undo = useCanvasStore((s) => s.undo)
+  const redo = useCanvasStore((s) => s.redo)
+  const canUndo = useHistoryStore((s) => s.past.length > 0)
+  const canRedo = useHistoryStore((s) => s.future.length > 0)
+  const deviceModel = useProjectStore((s) => s.project?.globals.deviceModel)
+
+  function addLayer(create: (index: number) => Layer) {
+    useCanvasStore.getState().addLayer(
+      create(getProjectLayers(useProjectStore.getState().project).length),
+    )
+  }
+
+  return [
+    {
+      id: 'undo',
+      label: 'Annuler',
+      hint: 'Annuler (⌘Z)',
+      icon: <Undo2 size={16} strokeWidth={1.75} />,
+      disabled: !canUndo,
+      onSelect: () => undo(),
+    },
+    {
+      id: 'redo',
+      label: 'Rétablir',
+      hint: 'Rétablir (⌘⇧Z)',
+      icon: <Redo2 size={16} strokeWidth={1.75} />,
+      disabled: !canRedo,
+      onSelect: () => redo(),
+    },
+    {
+      id: 'add-text',
+      label: 'Ajouter Texte',
+      hint: 'Ajouter : texte',
+      icon: <Type size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer(createTextLayer),
+    },
+    {
+      id: 'add-device',
+      label: 'Ajouter un cadre iPhone',
+      hint: 'Ajouter : cadre iPhone',
+      icon: <Smartphone size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer((index) =>
+        createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index)),
+    },
+    {
+      id: 'add-image',
+      label: 'Ajouter Image',
+      hint: 'Ajouter : image…',
+      icon: <ImageIcon size={16} strokeWidth={1.75} />,
+      onSelect: () => document.getElementById('sf-image-import-input')?.click(),
+    },
+    {
+      id: 'add-shape',
+      label: 'Ajouter Forme',
+      hint: 'Ajouter : forme',
+      icon: <Square size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer(createShapeLayer),
+    },
+  ]
+}
+
+function useSecondaryActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const theme = useUIStore((s) => s.theme)
 
+  return [
+    {
+      id: 'templates',
+      label: 'Ouvrir les modèles',
+      hint: 'Modèles de mise en page',
+      icon: <LayoutTemplate size={16} strokeWidth={1.75} />,
+      expanded: showTemplatesPicker,
+      onSelect: () => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker),
+    },
+    {
+      id: 'globals',
+      label: 'Ouvrir les réglages globaux',
+      hint: 'Réglages globaux du projet',
+      icon: <Settings size={16} strokeWidth={1.75} />,
+      expanded: showGlobalsEditor,
+      onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
+    },
+    {
+      id: 'theme',
+      label: 'Changer de thème',
+      hint: theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre',
+      icon: theme === 'dark'
+        ? <Sun size={16} strokeWidth={1.75} />
+        : <Moon size={16} strokeWidth={1.75} />,
+      onSelect: () => useUIStore.getState().toggleTheme(),
+    },
+    {
+      id: 'palette',
+      label: 'Ouvrir la palette de commandes',
+      hint: 'Palette de commandes (⌘K)',
+      icon: <Command size={16} strokeWidth={1.75} />,
+      onSelect: () => useUIStore.getState().setShowCommandPalette(true),
+    },
+  ]
+}
+
+function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="ml-auto flex items-center gap-1">
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      trigger={(
+        <IconButton
+          aria-label="Ouvrir les autres actions"
+          title="Autres actions"
+          active={open}
+          aria-expanded={open}
+        >
+          <MoreHorizontal size={16} strokeWidth={1.75} />
+        </IconButton>
+      )}
+      ariaLabel="Autres actions"
+      items={actions.map((action) => ({
+        id: action.id,
+        label: action.label,
+        icon: action.icon,
+        disabled: action.disabled,
+        onSelect: action.onSelect,
+      }))}
+    />
+  )
+}
+
+function ActionsSegment({
+  compactActions,
+  compactTools,
+}: {
+  compactActions: boolean
+  compactTools: boolean
+}) {
+  const layersOpen = useUIStore((s) => s.layersOpen)
+  const propsOpen = useUIStore((s) => s.propsOpen)
+  const secondary = useSecondaryActions()
+  const tools = useToolActions()
+  // Le CTA principal reste, ce sont ses voisins qui cèdent — et les outils
+  // repliés arrivent en tête du menu, dans l'ordre de la rangée qu'ils quittent.
+  const compact = compactActions || compactTools
+  const actions = compactTools ? [...tools, ...secondary] : secondary
+
+  return (
+    <div className="flex items-center gap-1 justify-self-end">
+      {/* `aria-pressed` sur ce qui bascule, `aria-expanded` sur ce qui ouvre :
+          `data-active` ne peint que pour l'œil, il ne dit rien à un lecteur
+          d'écran, qui annonçait donc le même bouton dans les deux états. */}
       <IconButton
         aria-label="Basculer le panneau Calques"
         title="Panneau Calques (⌘⇧L)"
         active={layersOpen}
+        aria-pressed={layersOpen}
         onClick={() => useUIStore.getState().toggleLayers()}
       >
         <PanelLeft size={16} strokeWidth={1.75} />
@@ -332,6 +580,7 @@ function ActionsSegment() {
         aria-label="Basculer le panneau Propriétés"
         title="Panneau Propriétés (⌘⇧P)"
         active={propsOpen}
+        aria-pressed={propsOpen}
         onClick={() => useUIStore.getState().toggleProps()}
       >
         <PanelRight size={16} strokeWidth={1.75} />
@@ -339,41 +588,39 @@ function ActionsSegment() {
 
       <Divider />
 
-      <IconButton
-        aria-label="Ouvrir les modèles"
-        title="Modèles de mise en page"
-        active={showTemplatesPicker}
-        onClick={() => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker)}
-      >
-        <LayoutTemplate size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Ouvrir les réglages globaux"
-        title="Réglages globaux du projet"
-        active={showGlobalsEditor}
-        onClick={() => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor)}
-      >
-        <Settings size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Changer de thème"
-        title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        onClick={() => useUIStore.getState().toggleTheme()}
-      >
-        {theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
-      </IconButton>
-      <button
-        type="button"
-        aria-label="Ouvrir la palette de commandes"
-        title="Palette de commandes (⌘K)"
-        onClick={() => useUIStore.getState().setShowCommandPalette(true)}
-        className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-faint',
-          'transition-colors duration-150 ease-out hover:bg-raised-hover hover:text-foreground',
-        )}
-      >
-        <Kbd>⌘K</Kbd>
-      </button>
+      {compact ? (
+        <SecondaryActionsMenu actions={actions} />
+      ) : (
+        actions.map((action) =>
+          action.id === 'palette' ? (
+            <button
+              key={action.id}
+              type="button"
+              aria-label={action.label}
+              title={action.hint}
+              onClick={action.onSelect}
+              className={cn(
+                'flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
+                'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
+              )}
+            >
+              <Kbd>⌘K</Kbd>
+            </button>
+          ) : (
+            <IconButton
+              key={action.id}
+              aria-label={action.label}
+              title={action.hint}
+              active={action.expanded}
+              aria-expanded={action.expanded}
+              aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
+              onClick={action.onSelect}
+            >
+              {action.icon}
+            </IconButton>
+          ),
+        )
+      )}
 
       <Button
         variant="primary"
@@ -392,7 +639,6 @@ function ActionsSegment() {
 
 function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void }) {
   const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
 
   const models = [...CURRENT_DEVICE_FRAMES].sort((a, b) =>
@@ -400,32 +646,27 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
   )
 
   return (
-    <>
-      <IconButton
-        ref={anchorRef}
-        size="sm"
-        aria-label="Ajouter un cadre iPhone"
-        title="Ajouter : cadre iPhone"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        active={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Smartphone size={16} strokeWidth={1.75} />
-        <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
-      </IconButton>
-      <Dropdown
-        open={open}
-        anchor={anchorRef}
-        onClose={() => setOpen(false)}
-        ariaLabel="Modèle d’iPhone"
-        items={models.map((frame) => ({
-          id: frame.model,
-          label: frame.modelName,
-          meta: frame.screenSize,
-          onSelect: () => onSelect(frame.model),
-        }))}
-      />
-    </>
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      trigger={(
+        <IconButton
+          aria-label="Ajouter un cadre iPhone"
+          title="Ajouter : cadre iPhone"
+          active={open}
+          aria-expanded={open}
+        >
+          <Smartphone size={16} strokeWidth={1.75} />
+          <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
+        </IconButton>
+      )}
+      ariaLabel="Modèle d’iPhone"
+      items={models.map((frame) => ({
+        id: frame.model,
+        label: frame.modelName,
+        meta: frame.screenSize,
+        onSelect: () => onSelect(frame.model),
+      }))}
+    />
   )
 }

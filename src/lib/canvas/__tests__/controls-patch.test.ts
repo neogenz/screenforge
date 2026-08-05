@@ -3,7 +3,7 @@ import {
   installControlsPatch,
   type ControlHost,
   type ControlRenderer,
-} from '@/components/canvas/controls-patch'
+} from '@/lib/canvas/controls-patch'
 
 describe('installControlsPatch', () => {
   it('installs the two-pass renderer only once', () => {

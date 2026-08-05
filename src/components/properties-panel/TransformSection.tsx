@@ -3,9 +3,11 @@ import { Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { Button } from '@/components/ui/button'
+import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Slider } from '@/components/ui/slider'
+import { formatPercent } from '@/lib/number'
 import type { Layer } from '@/types'
 
 interface TransformSectionProps {
@@ -66,7 +68,11 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
   function handleRotation(value: number) {
     if (isOfficialBezel) return
-    update({ rotation: ((value % 360) + 360) % 360 })
+    updateLayer(
+      layer.id,
+      { rotation: ((value % 360) + 360) % 360 },
+      { coalesceKey: `layer:${layer.id}:rotation` },
+    )
   }
 
   function handleOpacity(value: number) {
@@ -102,7 +108,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       {/* X / Y */}
       <div className="grid grid-cols-2 gap-2">
         <NumberField
@@ -154,17 +160,17 @@ export function TransformSection({ layer }: TransformSectionProps) {
       </div>
 
       {/* Rotation */}
-      <NumberField
-        label="Rot"
+      <AngleControl
+        label="Rotation"
         ariaLabel="Rotation"
-        step={1}
-        value={Math.round(layer.rotation)}
+        value={layer.rotation}
         onChange={handleRotation}
         disabled={isOfficialBezel}
       />
 
       {/* Opacity */}
       <Slider
+        label="Opacité"
         ariaLabel="Opacité"
         min={0}
         max={100}
@@ -172,7 +178,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
         value={Math.round(layer.opacity * 100)}
         onChange={handleOpacity}
         disabled={isOfficialBezel}
-        formatValue={(v) => `${Math.round(v)}%`}
+        formatValue={formatPercent}
       />
 
       {(isDevice || layer.type === 'image') && (

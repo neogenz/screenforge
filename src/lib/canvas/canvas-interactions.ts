@@ -4,14 +4,15 @@ import {
   SCREEN_WIDTH,
   getScreenOffset,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
+} from '@/lib/canvas/canvas-utils'
 import type { Box, Guide } from '@/lib/snapping'
 import type { Project, Screen } from '@/types'
 
 export interface ChromeColors {
   label: string
+  labelActive: string
   artboardRing: string
-  activeRing: string
+  artboardShadow: string
   selection: string
   selectionSoft: string
 }
@@ -21,11 +22,47 @@ export function readChromeColors(): ChromeColors {
   const read = (token: string, fallback: string) =>
     styles.getPropertyValue(token).trim() || fallback
   return {
-    label: read('--color-foreground-muted', '#b8b8b8'),
+    label: read('--color-muted-foreground', '#b8b8b8'),
+    labelActive: read('--color-foreground', '#f7f7f7'),
     artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
-    activeRing: read('--color-artboard-ring-active', 'rgba(255,255,255,0.5)'),
-    selection: read('--color-selection', '#f7f7f7'),
+    artboardShadow: read('--color-artboard-shadow', 'rgba(0,0,0,0.5)'),
+    selection: read('--color-foreground', '#f7f7f7'),
     selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
+  }
+}
+
+/**
+ * L'aspect d'une planche selon qu'elle est courante ou non.
+ *
+ * Par l'élévation, jamais par un liseré. Le trait de l'anneau était posé sur
+ * l'arête même de la planche, donc dessous les calques : le premier téléphone
+ * qui touchait le bord le recouvrait, et l'anneau se lisait comme un cadre
+ * cassé. Une ombre, elle, est sous la planche — rien de ce que l'utilisateur y
+ * pose ne peut la traverser, et elle ne mange pas un pixel de son cadrage.
+ *
+ * Le liseré qui reste est structurel et identique partout : il dit où finit une
+ * planche blanche posée sur une scène presque blanche, il ne dit pas un état.
+ * Achromatique dans les deux cas, comme tout ce qui borde l'artboard.
+ */
+export function artboardStyle(
+  chrome: ChromeColors,
+  isActive: boolean,
+): {
+  stroke: string
+  strokeWidth: number
+  shadow: { color: string; blur: number; offsetY: number }
+  labelFill: string
+} {
+  return {
+    stroke: chrome.artboardRing,
+    strokeWidth: 1,
+    // La planche courante plane, les autres se posent. Le grain de la scène
+    // dit déjà qu'elles reposent sur quelque chose : leur ombre n'a plus à le
+    // dire, elle peut redescendre au simple contact et laisser l'écart parler.
+    shadow: isActive
+      ? { color: chrome.artboardShadow, blur: 56, offsetY: 18 }
+      : { color: chrome.artboardShadow, blur: 12, offsetY: 2 },
+    labelFill: isActive ? chrome.labelActive : chrome.label,
   }
 }
 

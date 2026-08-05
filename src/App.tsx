@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
+import { LoaderCircle } from 'lucide-react'
+import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
@@ -7,14 +9,16 @@ import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
-import { ToastViewport } from '@/components/ui/toast'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
+import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
+import { DUAL_DRAWER_MIN_WIDTH, FILMSTRIP_CENTERED_MIN_WIDTH } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { clearAssets } from '@/lib/assets'
+import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
-import { useProjectStore } from '@/stores/project.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -32,6 +36,12 @@ export default function App() {
   useKeyboard()
 
   const theme = useUIStore((s) => s.theme)
+  const exclusiveDrawers = useMediaQuery(belowWidth(DUAL_DRAWER_MIN_WIDTH))
+  const filmstripCentered = !useMediaQuery(belowWidth(FILMSTRIP_CENTERED_MIN_WIDTH))
+
+  useEffect(() => {
+    useUIStore.getState().setExclusiveDrawers(exclusiveDrawers)
+  }, [exclusiveDrawers])
 
   // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
   // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
@@ -42,49 +52,64 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    async function init() {
-      const stored = await loadLatestProject()
+    let disposed = false
+    let stopAutoSave: (() => void) | undefined
 
-      if (stored) {
-        useProjectStore.getState().loadProject(stored)
-        useUIStore.getState().setSaveStatus('saved')
-        const activeScreen = stored.screens.find((screen) => screen.id === stored.activeScreenId)
-          ?? stored.screens[0]
-        if (activeScreen) {
-          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
+    async function init() {
+      try {
+        const stored = await loadLatestProject()
+        if (disposed) return
+        stopAutoSave = initAutoSave()
+        if (stored) {
+          useProjectStore.getState().loadProject(stored)
+          useUIStore.getState().setSaveStatus('saved')
+        } else {
+          clearAssets()
+          useProjectStore.getState().createProject('Projet sans titre')
         }
-      } else {
+      } catch (error) {
+        if (disposed) return
+        stopAutoSave?.()
+        stopAutoSave = undefined
+        console.error('Could not initialize ScreenForge.', error)
         clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
-        const project = useProjectStore.getState().project
-        const activeScreen = project?.screens.find((screen) => screen.id === project.activeScreenId)
-          ?? project?.screens[0]
-        if (activeScreen) {
-          useCanvasStore.getState().setActiveScreenId(activeScreen.id)
-        }
+        useUIStore.getState().setSaveStatus('error')
+        toast(
+          'Stockage local indisponible. Ce projet restera en mémoire et sera perdu à la fermeture.',
+          'error',
+          { duration: Infinity },
+        )
       }
     }
 
-    void init().catch((error) => {
-      console.error('Could not initialize ScreenForge.', error)
-    })
-
-    const unsubscribe = initAutoSave()
-    return unsubscribe
+    void init()
+    return () => {
+      disposed = true
+      stopAutoSave?.()
+    }
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    const { layers, addLayer } = useCanvasStore.getState()
-    const result = await createImageLayerFromFile(file, layers.length)
+    const { addLayer } = useCanvasStore.getState()
+    const result = await createImageLayerFromFile(
+      file,
+      getProjectLayers(useProjectStore.getState().project).length,
+    )
     if (result.ok) addLayer(result.layer)
     else toast(result.error, 'error')
   }
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-stage">
+      {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
+          niveau 2 et le saut de titre ne renvoyait rien depuis la racine. Le
+          nom du projet vit dans son champ, qui se nomme déjà. */}
+      <h1 className="sr-only">ScreenForge</h1>
+
       {/* Stage: full-bleed canvas */}
       <main className="absolute inset-0">
         <CanvasEditor />
@@ -92,12 +117,19 @@ export default function App() {
       <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)" />
 
       {/* Floating chrome */}
-      <div className="absolute left-3 right-3 top-3 z-(--z-chrome)">
+      <header className="absolute left-3 right-3 top-3 z-(--z-chrome)">
         <TopBar />
-      </div>
+      </header>
       <LayersDrawer />
       <PropertiesDrawer />
-      <div className="absolute bottom-3 left-1/2 z-(--z-chrome) -translate-x-1/2">
+      {/* Centrée tant qu'elle peut encore rétrécir ; ancrée à gauche une fois au
+          plancher, pour ne pas venir chercher le HUD sous la fenêtre étroite. */}
+      <div
+        className={cn(
+          'absolute bottom-3 z-(--z-chrome)',
+          filmstripCentered ? 'left-1/2 -translate-x-1/2' : 'left-3',
+        )}
+      >
         <ScreensBar />
       </div>
       <div className="absolute bottom-3 right-3 z-(--z-chrome)">
@@ -114,6 +146,28 @@ export default function App() {
       />
 
       <Overlays />
+      <Toaster
+        theme={theme}
+        position="bottom-left"
+        duration={3500}
+        visibleToasts={4}
+        offset={16}
+        gap={8}
+        style={{
+          zIndex: 'var(--z-toast)',
+          fontFamily: 'var(--font-sans)',
+          '--normal-bg': 'var(--color-secondary)',
+          '--normal-border': 'var(--color-border)',
+          '--normal-text': 'var(--color-foreground)',
+          '--border-radius': 'var(--radius-md)',
+        } as CSSProperties}
+        toastOptions={{
+          style: {
+            boxShadow: 'var(--shadow-lg), var(--hairline-top)',
+            fontSize: '12.5px',
+          },
+        }}
+      />
     </div>
   )
 }
@@ -135,13 +189,29 @@ function Overlays() {
         open={showShortcuts}
         onClose={() => useUIStore.getState().setShowShortcuts(false)}
       />
-      <ToastViewport />
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<LazyDialogFallback />}>
         {showExportDialog && <ExportDialog />}
         {showTemplatesPicker && <TemplatePicker />}
         {showGlobalsEditor && <GlobalsEditor />}
       </Suspense>
+    </>
+  )
+}
+
+function LazyDialogFallback() {
+  return (
+    <>
+      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Chargement de la fenêtre"
+        className="surface-modal fixed left-1/2 top-1/2 z-(--z-modal) flex -translate-x-1/2 -translate-y-1/2 animate-slide-up items-center gap-2.5 px-5 py-4 text-sm text-foreground motion-reduce:animate-none"
+      >
+        <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />
+        Chargement…
+      </div>
     </>
   )
 }

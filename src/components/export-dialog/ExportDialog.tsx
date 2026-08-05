@@ -66,10 +66,11 @@ function ExportDialogContent({ project }: { project: Project }) {
       onClose={handleClose}
       title="Export officiel"
       size="lg"
+      flush
       headerActions={<span className="field-label px-1">App Store</span>}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-[10px] text-foreground-muted">
+          <p className="text-2xs text-muted-foreground">
             Aucun téléchargement partiel en cas d’échec.
           </p>
           <div className="flex shrink-0 items-center gap-2">
@@ -89,17 +90,16 @@ function ExportDialogContent({ project }: { project: Project }) {
         </div>
       }
     >
-      {/* -m-4 cancels the Dialog body padding so the columns stay flush. */}
-      <div className="-m-4 flex flex-col">
+      <div className="flex flex-col">
         <div className="grid grid-cols-[minmax(0,1fr)_220px]">
           <section
-            className="max-h-[52dvh] overflow-y-auto border-r border-border px-5 py-4"
+            className="max-h-[52dvh] overflow-y-auto border-r border-border px-6 py-4"
             aria-labelledby="export-screens-title"
           >
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h3 id="export-screens-title" className="section-title">Captures</h3>
-                <p className="mt-1 text-[11px] text-foreground-muted">
+                <p className="mt-1 text-2xs text-muted-foreground">
                   L’ordre du projet sera conservé dans le ZIP.
                 </p>
               </div>
@@ -128,29 +128,29 @@ function ExportDialogContent({ project }: { project: Project }) {
           </section>
 
           <aside
-            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-4 py-4"
+            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-6 py-4"
             aria-label="Profil d’export"
           >
-            <div className="surface-inner p-3.5">
+            <div className="surface-inner p-4">
               <span className="field-label">Profil</span>
-              <p className="mt-1.5 text-[13px] font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
-              <p className="tabular mt-1 text-[12px] text-foreground-muted">
+              <p className="mt-1.5 text-sm font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
+              <p className="tabular mt-1 text-sm text-muted-foreground">
                 {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
               </p>
               <div className="hairline my-3" />
-              <ul className="flex flex-col gap-2 text-[11px] text-foreground-muted">
+              <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
                 <li className="flex items-center gap-2"><Check size={12} aria-hidden /> PNG · 8 bits</li>
                 <li className="flex items-center gap-2"><Check size={12} aria-hidden /> RGB opaque · sans alpha</li>
                 <li className="flex items-center gap-2"><Check size={12} aria-hidden /> Cible interne &lt; 5 MB</li>
               </ul>
             </div>
 
-            <div className="surface-inner p-3.5">
+            <div className="surface-inner p-4">
               <span className="field-label">Lot final</span>
-              <p className="mt-1.5 text-[22px] font-medium tabular-nums text-foreground">
+              <p className="mt-1.5 text-xl font-medium tabular-nums text-foreground">
                 {selectedScreens.length}
               </p>
-              <p className="text-[11px] text-foreground-muted">
+              <p className="text-2xs text-muted-foreground">
                 fichier{selectedScreens.length > 1 ? 's' : ''} sous <span className="font-mono">6.9/</span>
               </p>
             </div>
@@ -158,13 +158,13 @@ function ExportDialogContent({ project }: { project: Project }) {
         </div>
 
         {(progress || error || completedFiles.length > 0) && (
-          <div className="border-t border-border px-5 py-3" aria-live="polite">
+          <div className="border-t border-border px-6 py-4" aria-live="polite">
             {progress && (
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <Loader size={13} className="animate-spin text-foreground" aria-hidden />
-                  <span className="text-[11px] text-foreground">{progress.label}</span>
-                  <span className="tabular ml-auto text-[10px] text-foreground-muted">
+                  <span className="text-2xs text-foreground">{progress.label}</span>
+                  <span className="tabular ml-auto text-2xs text-muted-foreground">
                     {progress.current}/{progress.total}
                   </span>
                 </div>
@@ -177,24 +177,24 @@ function ExportDialogContent({ project }: { project: Project }) {
               </div>
             )}
             {error && (
-              <div role="alert" className="flex items-start gap-2 text-[11px] text-danger">
+              <div role="alert" className="flex items-start gap-2 text-2xs text-destructive">
                 <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
                 <span>{error}</span>
               </div>
             )}
             {!isExporting && !error && completedFiles.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 text-[11px] text-foreground">
+                <div className="flex items-center gap-2 text-2xs text-foreground">
                   <FileCheck2 size={13} aria-hidden />
                   ZIP validé et téléchargé · {completedFiles.length} fichier{completedFiles.length > 1 ? 's' : ''}
                 </div>
                 <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
                   {completedFiles.map((file) => (
                     <li key={file.path} className="flex items-baseline justify-between gap-3">
-                      <span className="tabular min-w-0 truncate text-[10px] text-foreground-muted">
+                      <span className="tabular min-w-0 truncate text-2xs text-muted-foreground">
                         {file.path}
                       </span>
-                      <span className="tabular shrink-0 text-[10px] text-faint">
+                      <span className="tabular shrink-0 text-2xs text-muted-foreground">
                         {formatMegabytes(file.size)}
                       </span>
                     </li>
@@ -236,12 +236,12 @@ function ScreenChoice({
       className={cn(
         'flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2 text-left',
         'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
-        checked ? 'border-foreground bg-inset' : 'border-border hover:border-border-strong',
+        checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
       <span className={cn(
         'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
-        checked ? 'border-foreground bg-foreground text-panel' : 'border-border-strong bg-panel',
+        checked ? 'border-foreground bg-foreground text-card' : 'border-input bg-card',
       )}>
         {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
       </span>
@@ -249,15 +249,15 @@ function ScreenChoice({
         <img
           src={screen.thumbnail}
           alt=""
-          className="h-10 w-[18px] shrink-0 rounded-[2px] border border-border object-cover"
+          className="h-10 w-[18px] shrink-0 rounded-xs border border-border object-cover"
         />
       ) : (
-        <span className="h-10 w-[18px] shrink-0 rounded-[2px] border border-border bg-stage" />
+        <span className="h-10 w-[18px] shrink-0 rounded-xs border border-border bg-stage" />
       )}
-      <span className="tabular w-5 shrink-0 text-[10px] text-faint">
+      <span className="tabular w-5 shrink-0 text-2xs text-muted-foreground">
         {String(index + 1).padStart(2, '0')}
       </span>
-      <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">{screen.name}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-foreground">{screen.name}</span>
     </button>
   )
 }

@@ -8,6 +8,8 @@ const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true })
 const page = await context.newPage()
 await page.goto(baseURL)
+// Browser global inside Playwright's page context.
+ 
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 

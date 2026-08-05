@@ -3,6 +3,7 @@ import {
   FabricImage,
   FabricObject,
   Gradient,
+  Point,
   Rect,
   Shadow,
   Textbox,
@@ -10,7 +11,6 @@ import {
   util,
 } from 'fabric'
 import {
-  DEVICE_BLEED,
   DEVICE_RASTER_SCALE,
   generateDeviceFrameSVG,
   getDeviceFrame,
@@ -25,7 +25,7 @@ import {
   SELECTION_INK,
   renderTwoTone,
   type ControlHost,
-} from '@/components/canvas/controls-patch'
+} from '@/lib/canvas/controls-patch'
 import type {
   Background,
   BaseLayer,
@@ -324,14 +324,12 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
   const contentEnd = portraitSvg.lastIndexOf('</svg>')
   const content = portraitSvg.slice(contentStart, contentEnd)
   // Rotation de 90° autour de l'origine puis translation : (x, y) → (height - y, x).
-  // Le contenu portrait s'étend de -DEVICE_BLEED à width + DEVICE_BLEED en x,
-  // ce débordement se retrouve donc en y une fois couché.
   return {
     width: rendered.height,
     height: rendered.width,
     // Même facteur de rastérisation que le portrait : sinon un appareil couché
     // serait quatre fois moins net que le même appareil debout.
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-DEVICE_BLEED} ${config.height} ${rendered.width}" width="${config.height * DEVICE_RASTER_SCALE}" height="${rendered.width * DEVICE_RASTER_SCALE}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${config.height} ${rendered.width}" width="${config.height * DEVICE_RASTER_SCALE}" height="${rendered.width * DEVICE_RASTER_SCALE}"><g transform="translate(${config.height} 0) rotate(90)">${content}</g></svg>`,
   }
 }
 
@@ -517,12 +515,35 @@ export function applyLayerToFabricObject(
 
   // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
   const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))
-  object.set({
-    left: layer.x + screenOffset + size.width / 2,
-    top: layer.y + size.height / 2,
-  })
+  placeAtSceneCenter(
+    object,
+    layer.x + screenOffset + size.width / 2,
+    layer.y + size.height / 2,
+  )
 
   object.setCoords()
+}
+
+/**
+ * Pose un objet en un point de la scène, qu'il soit ou non pris dans une
+ * sélection multiple.
+ *
+ * `left`/`top` se lisent dans le repère du parent : dès qu'un objet appartient à
+ * une `ActiveSelection`, y écrire une coordonnée de scène le décale du centre de
+ * la sélection. Mesuré : sélectionner au lasso trois calques d'une planche qui
+ * n'était pas la planche courante change la planche courante, donc relance une
+ * passe de synchronisation, qui reposait ces trois calques 1182px plus loin —
+ * hors de leur écrêtage, donc invisibles, sans que rien n'ait été déplacé. La
+ * position fautive devenait vraie au premier `object:modified` suivant, qui lit
+ * la matrice. Le nudge au clavier sur une sélection multiple passait par le même
+ * chemin, en boucle.
+ *
+ * `setXY` fait la conversion vers le repère du parent. La branche est gardée
+ * pour laisser intact le chemin courant, où l'objet est fils du canevas.
+ */
+function placeAtSceneCenter(object: RenderedObject, x: number, y: number): void {
+  if (object.group) object.setXY(new Point(x, y), 'center', 'center')
+  else object.set({ left: x, top: y })
 }
 
 /**

@@ -4,6 +4,7 @@
 
 - Main branch: `main`
 - Platform: GitHub (`neogenz/screenforge`)
+- CI: `.github/workflows/quality.yml` runs the full release gate on pushes and pull requests.
 - Ticketing: none recorded in the repository; work records live under `aidd_docs/tasks/`.
 
 ## Branches

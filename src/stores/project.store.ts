@@ -3,7 +3,8 @@ import { getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { POPULAR_FONTS } from '@/lib/fonts'
+import { defaultScreenName } from '@/lib/screens'
 import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
 
 const DEFAULT_DEVICE_MODEL: DeviceModel = 'iphone-17-pro-max'
@@ -38,11 +39,22 @@ function withTimestamp(project: Project, updates: Partial<Project>): Project {
   }
 }
 
+export function getActiveScreen(project: Project | null): Screen | undefined {
+  return project?.screens.find((screen) => screen.id === project.activeScreenId)
+    ?? project?.screens[0]
+}
+
+export function getProjectLayers(project: Project | null): Layer[] {
+  const screen = getActiveScreen(project)
+  return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+}
+
 interface ProjectState {
   project: Project | null
 
   createProject: (name: string) => void
   loadProject: (project: Project) => void
+  setActiveScreenId: (id: string) => void
   updateProjectName: (name: string) => void
   addScreen: (content?: Pick<Screen, 'name' | 'layers' | 'background'>) => string | null
   removeScreen: (id: string) => string | null
@@ -67,7 +79,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   createProject: (name) => {
     const now = Date.now()
     const globals = structuredClone(DEFAULT_GLOBALS)
-    const screen = createDefaultScreen('Écran 1', globals)
+    const screen = createDefaultScreen(defaultScreenName(0), globals)
     set({
       project: {
         id: crypto.randomUUID(),
@@ -83,6 +95,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   },
 
   loadProject: (project) => set({ project }),
+
+  setActiveScreenId: (id) =>
+    set((state) => {
+      if (!state.project || state.project.activeScreenId === id) return state
+      if (!state.project.screens.some((screen) => screen.id === id)) return state
+      return { project: withTimestamp(state.project, { activeScreenId: id }) }
+    }),
 
   renameScreen: (id, name) =>
     set((state) => {
@@ -112,7 +131,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           layers: structuredClone(content.layers),
           background: structuredClone(content.background),
         }
-      : createDefaultScreen(`Écran ${project.screens.length + 1}`, project.globals)
+      : createDefaultScreen(defaultScreenName(project.screens.length), project.globals)
     set({
       project: withTimestamp(project, {
         screens: [...project.screens, screen],

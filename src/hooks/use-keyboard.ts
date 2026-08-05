@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
@@ -22,6 +23,13 @@ function isEditingInput(): boolean {
   return false
 }
 
+function activeControlUsesArrowKeys(): boolean {
+  const el = document.activeElement
+  if (!(el instanceof HTMLElement)) return false
+  return el.matches('[role="slider"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]')
+    || Boolean(el.closest('[role="group"]'))
+}
+
 export function useKeyboard(): void {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
@@ -40,7 +48,6 @@ export function useKeyboard(): void {
       if (isEditingInput()) return
 
       const {
-        layers,
         selectedLayerIds,
         setLayers,
         selectLayers,
@@ -48,6 +55,7 @@ export function useKeyboard(): void {
         undo,
         redo,
       } = useCanvasStore.getState()
+      const layers = getProjectLayers(useProjectStore.getState().project)
 
       const {
         zoomIn,
@@ -212,6 +220,7 @@ export function useKeyboard(): void {
       if (
         ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)
       ) {
+        if (activeControlUsesArrowKeys()) return
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
         const delta = shift ? 10 : 1

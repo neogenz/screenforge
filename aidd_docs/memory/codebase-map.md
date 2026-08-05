@@ -6,17 +6,21 @@ flowchart TD
     App --> Components["src/components"]
     Components --> Hooks["src/hooks"]
     Hooks --> Stores["src/stores"]
+    Components --> Stores
+    Components --> Lib["src/lib"]
+    Hooks --> Lib
     Stores --> Lib["src/lib"]
-    App --> Assets["src/assets"]
+    Components --> Assets["src/assets"]
+    Assets --> Lib
     Tests["src/**/__tests__ and e2e"] --> App
 ```
 
 ## Areas
 
-- `src/components/`: editor chrome, canvas integration, feature panels, dialogs, and UI primitives.
-- `src/hooks/`: canvas lifecycle, keyboard behavior, export orchestration, fonts, and layer actions.
+- `src/components/`: editor chrome, feature panels, dialogs, UI primitives, and JSX local to each feature.
+- `src/hooks/`: React lifecycle orchestration for canvas, keyboard, export, and layer actions.
 - `src/stores/`: project, canvas, history, UI, and toast state domains.
-- `src/lib/`: persistence, export, project-file, asset, dimension, and shared domain logic.
+- `src/lib/`: persistence, export, fonts, project-file, asset, dimension, shared domain logic, and Fabric helpers under `lib/canvas/`; the `install-*` modules isolate interactions, viewport and thumbnails with explicit cleanup. `lib` never imports components or hooks.
 - `src/assets/`: device-frame definitions, templates, and gradient presets.
 - `src/types/`: shared project and layer model.
 - `e2e/`: browser-level editor and pixel-exact export contracts.

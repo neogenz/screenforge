@@ -17,50 +17,50 @@ export interface DeviceFrameConfig {
   dynamicIsland: boolean
   /** 16e-style top notch instead of the Dynamic Island */
   notch?: boolean
-  colors: { name: DeviceColor; label: string; frame: string; bezel: string }[]
+  colors: { name: DeviceColor; label: string; frame: string }[]
 }
 
 // Dans chaque jeu, `colors[0]` est la couleur retenue par défaut : un neutre,
 // jamais une couleur vive. Les projets enregistrés stockent le nom, pas l'index.
 const PRO_17_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'silver', label: 'Argent', frame: '#E3E2DD', bezel: '#C8C7C2' },
-  { name: 'deep-blue', label: 'Bleu profond', frame: '#3A4B63', bezel: '#2C3A4E' },
-  { name: 'cosmic-orange', label: 'Orange cosmique', frame: '#C75B33', bezel: '#A84A28' },
+  { name: 'silver', label: 'Argent', frame: '#ffffff' },
+  { name: 'deep-blue', label: 'Bleu profond', frame: '#3A4B63' },
+  { name: 'cosmic-orange', label: 'Orange cosmique', frame: '#C75B33' },
 ]
 
 const IPHONE_17_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'black', label: 'Noir', frame: '#1C1C1C', bezel: '#111111' },
-  { name: 'white', label: 'Blanc', frame: '#F5F5F0', bezel: '#DDDDD8' },
-  { name: 'mist-blue', label: 'Bleu brume', frame: '#A8BCD2', bezel: '#8FA4BE' },
-  { name: 'sage', label: 'Sauge', frame: '#AEBE9C', bezel: '#96A484' },
-  { name: 'lavender', label: 'Lavande', frame: '#C8B8D8', bezel: '#AE9CC2' },
+  { name: 'white', label: 'Blanc', frame: '#ffffff' },
+  { name: 'black', label: 'Noir', frame: '#1C1C1C' },
+  { name: 'mist-blue', label: 'Bleu brume', frame: '#A8BCD2' },
+  { name: 'sage', label: 'Sauge', frame: '#AEBE9C' },
+  { name: 'lavender', label: 'Lavande', frame: '#C8B8D8' },
 ]
 
 const IPHONE_AIR_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'space-black', label: 'Noir sidéral', frame: '#232323', bezel: '#171717' },
-  { name: 'cloud-white', label: 'Blanc nuage', frame: '#F2F1EA', bezel: '#D8D7D0' },
-  { name: 'light-gold', label: 'Or clair', frame: '#E7D6B0', bezel: '#D4C096' },
-  { name: 'sky-blue', label: 'Bleu ciel', frame: '#A5CFE3', bezel: '#8ABAD2' },
+  { name: 'cloud-white', label: 'Blanc nuage', frame: '#ffffff' },
+  { name: 'space-black', label: 'Noir sidéral', frame: '#232323' },
+  { name: 'light-gold', label: 'Or clair', frame: '#E7D6B0' },
+  { name: 'sky-blue', label: 'Bleu ciel', frame: '#A5CFE3' },
 ]
 
 const IPHONE_16_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'black', label: 'Noir', frame: '#1C1C1C', bezel: '#111111' },
-  { name: 'white', label: 'Blanc', frame: '#F5F5F0', bezel: '#DDDDD8' },
-  { name: 'teal', label: 'Sarcelle', frame: '#5AAFCB', bezel: '#3E96B0' },
-  { name: 'ultramarine', label: 'Outremer', frame: '#4B50B5', bezel: '#363A96' },
-  { name: 'pink', label: 'Rose', frame: '#F5A5B8', bezel: '#DE8DA0' },
+  { name: 'white', label: 'Blanc', frame: '#ffffff' },
+  { name: 'black', label: 'Noir', frame: '#1C1C1C' },
+  { name: 'teal', label: 'Sarcelle', frame: '#5AAFCB' },
+  { name: 'ultramarine', label: 'Outremer', frame: '#4B50B5' },
+  { name: 'pink', label: 'Rose', frame: '#F5A5B8' },
 ]
 
 const IPHONE_16E_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'black', label: 'Noir', frame: '#1C1C1C', bezel: '#111111' },
-  { name: 'white', label: 'Blanc', frame: '#F5F5F0', bezel: '#DDDDD8' },
+  { name: 'white', label: 'Blanc', frame: '#ffffff' },
+  { name: 'black', label: 'Noir', frame: '#1C1C1C' },
 ]
 
 const TITANIUM_16_COLORS: DeviceFrameConfig['colors'] = [
-  { name: 'natural-titanium', label: 'Titane naturel', frame: '#8A8580', bezel: '#6E6A66' },
-  { name: 'black-titanium', label: 'Titane noir', frame: '#3C3C3C', bezel: '#2A2A2A' },
-  { name: 'white-titanium', label: 'Titane blanc', frame: '#E3E2DD', bezel: '#C8C7C2' },
-  { name: 'desert-titanium', label: 'Titane désert', frame: '#BFB5A5', bezel: '#A8A090' },
+  { name: 'white-titanium', label: 'Titane blanc', frame: '#ffffff' },
+  { name: 'natural-titanium', label: 'Titane naturel', frame: '#8A8580' },
+  { name: 'black-titanium', label: 'Titane noir', frame: '#3C3C3C' },
+  { name: 'desert-titanium', label: 'Titane désert', frame: '#BFB5A5' },
 ]
 
 /**
@@ -127,24 +127,9 @@ export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.curre
 export const DEFAULT_DEVICE: DeviceFrameConfig = DEVICE_FRAMES[0]
 
 /**
- * Marge de chaque côté du châssis, dans le viewBox, pour que les boutons
- * latéraux soient dessinés au lieu d'être rognés. Elle fait partie de la
- * taille rendue : tout calcul d'aspect ou d'échelle doit passer par
- * `getDeviceRenderSize`, jamais par `config.width` seul.
- */
-/**
- * Saillie d'un bouton latéral hors du châssis (~0,5 mm sur un vrai appareil).
- * Le demi-point est voulu : multiplié par `DEVICE_RASTER_SCALE`, il garde une
- * taille de bitmap entière, donc pas de demi-pixel sur le bord du gabarit.
- */
-const BUTTON_PROTRUSION = 1.25
-
-export const DEVICE_BLEED = BUTTON_PROTRUSION
-
-/**
  * Facteur de rastérisation du gabarit.
  *
- * Le SVG est converti en bitmap une fois, à sa taille naturelle (~184 unités de
+ * Le SVG est converti en bitmap une fois, à sa taille naturelle (~180 unités de
  * large), puis agrandi par Fabric : à l'export 1320×2868 un iPhone de taille
  * par défaut occupe ~740 px, soit quatre fois la source. D'où le flou, visible
  * à l'écran comme dans le PNG livré.
@@ -275,9 +260,9 @@ export function getDeviceFrame(model: DeviceModel): DeviceFrameConfig {
   return DEVICE_FRAMES.find((f) => f.model === model) ?? DEFAULT_DEVICE
 }
 
-/** Dimensions du SVG rendu, boutons latéraux compris. */
+/** Dimensions du SVG rendu. */
 export function getDeviceRenderSize(config: DeviceFrameConfig): { width: number; height: number } {
-  return { width: config.width + DEVICE_BLEED * 2, height: config.height }
+  return { width: config.width, height: config.height }
 }
 
 /** Canonical layer size for a model — official aspect, never user-distorted. */
@@ -287,31 +272,9 @@ export function getDefaultDeviceSize(model: DeviceModel): { width: number; heigh
   return { width: Math.round(height * (rendered.width / rendered.height)), height }
 }
 
-/**
- * Décale une couleur hex vers le blanc (`amount > 0`) ou le noir (`amount < 0`),
- * proportionnellement à la marge restante : un châssis clair s'éclaircit peu,
- * un châssis noir garde du contraste.
- */
-function shiftHex(hex: string, amount: number): string {
-  const value = Number.parseInt(hex.slice(1), 16)
-  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255]
-  return `#${channels
-    .map((channel) => {
-      const room = amount > 0 ? 255 - channel : channel
-      const next = Math.round(Math.min(255, Math.max(0, channel + amount * room)))
-      return next.toString(16).padStart(2, '0')
-    })
-    .join('')}`
-}
-
 export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: DeviceColor, screenshotUrl?: string): string {
   const color = config.colors.find((c) => c.name === colorName) ?? config.colors[0]
   const { width, height, screenX, screenY, screenWidth, screenHeight, cornerRadius, dynamicIsland } = config
-
-  // Le viewBox déborde du châssis : sans cette marge les boutons latéraux,
-  // dessinés au-delà des bords, seraient rognés au rendu.
-  const bleed = DEVICE_BLEED
-  const svgWidth = width + bleed * 2
 
   // Îlot dynamique, proportionné à la dalle et non au châssis : 125 pt de large
   // et 36,7 pt de haut sur une dalle de 402 pt, posé 11 pt sous son bord haut.
@@ -332,118 +295,22 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   const notchX = (width - notchWidth) / 2
   const notchRadius = notchHeight / 2
 
-  // Boutons latéraux : la moitié visible dépasse, l'autre passe sous la tranche
-  // pour que la pièce paraisse encastrée plutôt que collée sur le bord.
-  //
-  // Les positions et les longueurs sont des fractions de la hauteur du corps,
-  // relevées sur la gamme Pro actuelle. Elles forment une figure qu'on
-  // reconnaît sans y penser : à gauche le bouton d'action puis la paire de
-  // volume, en face le bouton latéral qui chevauche cette paire, et le Camera
-  // Control plus bas. Toute dérive sur l'un des cinq casse la figure entière.
-  const btnWidth = BUTTON_PROTRUSION * 2
-  const btnRadius = 0.8
-  // Bouton d'action (gauche), en haut de la série.
-  const actionY = height * 0.148
-  const actionH = height * 0.038
-  // Une seule longueur pour les deux touches de volume : sur l'appareil elles
-  // sont identiques, et c'est l'inégalité qui se voit en premier — l'ancien
-  // gabarit en donnait une à 7 % et l'autre à 10 % de la hauteur.
-  const volumeH = height * 0.058
-  const volUpY = height * 0.205
-  const volDownY = height * 0.276
-  // Bouton latéral (droite), face à la paire de volume.
-  const powerBtnY = height * 0.232
-  const powerBtnH = height * 0.098
-  // Camera Control (droite) : présent sur toute la gamme à îlot dynamique. Son
-  // absence est un des tells du gabarit générique.
-  const cameraCtlY = height * 0.4
-  const cameraCtlH = height * 0.05
-
   const screenClipId = `screen-clip-${config.model}`
-  const railId = `rail-${config.model}`
-  const glassId = `glass-${config.model}`
-  const buttonId = `button-${config.model}`
-
-  const specular = shiftHex(color.frame, 0.42)
-  const railEdge = shiftHex(color.bezel, -0.22)
-
-  // Vu de face, la tranche métal n'occupe qu'une part de la bordure : le reste
-  // est du bezel noir. L'ancien dessin faisait l'inverse — 7,5 unités de métal
-  // pour 2,5 de noir — d'où l'aspect « coque en plastique ».
-  const railWidth = Math.min(2.8, screenX * 0.45)
   const screenRadius = cornerRadius - screenX
-  const bezelRadius = cornerRadius - railWidth
-
-  // Les quatre contours sont les parallèles intérieures d'une seule silhouette,
-  // d'où `cornerRadius` passé partout : sans cette référence commune, chaque
-  // rectangle imbriqué creusait son propre coin et la bordure s'épaississait
-  // dans les angles.
-  const railPath = squircleRect(0.5, 0.5, width - 1, height - 1, cornerRadius - 0.5, cornerRadius)
-  const bezelPath = squircleRect(railWidth, railWidth, width - railWidth * 2, height - railWidth * 2, bezelRadius, cornerRadius)
+  const framePath = squircleRect(0, 0, width, height, cornerRadius)
   const screenPath = squircleRect(screenX, screenY, screenWidth, screenHeight, screenRadius, cornerRadius)
-  const innerPath = squircleRect(screenX + 0.4, screenY + 0.4, screenWidth - 0.8, screenHeight - 0.8, screenRadius - 0.4, cornerRadius)
 
-  const sideButton = (y: number, h: number, side: 'left' | 'right') =>
-    `<rect x="${round(side === 'left' ? -BUTTON_PROTRUSION : width - BUTTON_PROTRUSION)}" y="${round(y)}" width="${round(btnWidth)}" height="${round(h)}" rx="${btnRadius}" ry="${btnRadius}" fill="url(#${buttonId})"/>`
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-bleed} 0 ${svgWidth} ${height}" width="${svgWidth * DEVICE_RASTER_SCALE}" height="${height * DEVICE_RASTER_SCALE}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * DEVICE_RASTER_SCALE}" height="${height * DEVICE_RASTER_SCALE}">
   <defs>
     <clipPath id="${screenClipId}">
       <path d="${screenPath}"/>
     </clipPath>
-    <!-- Tranche métal : sombre aux arêtes, réflexion spéculaire près des bords. -->
-    <linearGradient id="${railId}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="${railEdge}"/>
-      <stop offset="0.035" stop-color="${color.bezel}"/>
-      <stop offset="0.11" stop-color="${specular}"/>
-      <stop offset="0.34" stop-color="${color.frame}"/>
-      <stop offset="0.66" stop-color="${color.frame}"/>
-      <stop offset="0.89" stop-color="${specular}"/>
-      <stop offset="0.965" stop-color="${color.bezel}"/>
-      <stop offset="1" stop-color="${railEdge}"/>
-    </linearGradient>
-    <linearGradient id="${buttonId}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="${railEdge}"/>
-      <stop offset="0.5" stop-color="${color.frame}"/>
-      <stop offset="1" stop-color="${railEdge}"/>
-    </linearGradient>
-    <!--
-      Reflet de verre serré contre le bord haut. Un lavis diagonal sur toute la
-      dalle donnait un écran gris qui semble incurvé sur les côtés : la lecture
-      immédiate est « Android à écran courbe », pas iPhone. De face, un iPhone
-      est un rectangle noir plat.
-    -->
-    <linearGradient id="${glassId}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.05"/>
-      <stop offset="0.06" stop-color="#ffffff" stop-opacity="0.012"/>
-      <stop offset="0.14" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
   </defs>
 
-  <!-- Boutons latéraux, sous la tranche pour paraître encastrés -->
-  ${sideButton(powerBtnY, powerBtnH, 'right')}
-  ${dynamicIsland ? sideButton(cameraCtlY, cameraCtlH, 'right') : ''}
-  ${sideButton(actionY, actionH, 'left')}
-  ${sideButton(volUpY, volumeH, 'left')}
-  ${sideButton(volDownY, volumeH, 'left')}
+  <path data-part="frame" d="${framePath}" fill="${color.frame}"/>
+  <path data-part="screen" d="${screenPath}" fill="#050506"/>
 
-  <!-- Tranche -->
-  <path d="${railPath}" fill="url(#${railId})" stroke="${railEdge}" stroke-width="0.6"/>
-
-  <!-- Bezel : noir sur tout appareil réel, quelle que soit la couleur du châssis -->
-  <path d="${bezelPath}" fill="#0B0B0D"/>
-
-  <!-- Dalle : noir profond, pas un gris. Un gris lit comme un rendu 3D. -->
-  <path d="${screenPath}" fill="#050506"/>
-
-  ${screenshotUrl ? `<!-- Capture -->
-  <image x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${escapeSvgAttribute(screenshotUrl)}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}
-
-  <!-- Verre -->
-  <path d="${screenPath}" fill="url(#${glassId})"/>
-
-  <!-- Liseré interne : sépare la dalle du bezel -->
-  <path d="${innerPath}" fill="none" stroke="#000000" stroke-opacity="0.55" stroke-width="0.8"/>
+  ${screenshotUrl ? `<image data-part="screenshot" x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${escapeSvgAttribute(screenshotUrl)}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}
 
   <!--
     Îlot dynamique, ou encoche.
@@ -459,12 +326,10 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
     l'app, et la capture ne porte donc aucun noir à cet endroit.
   -->
   ${!dynamicIsland
-    ? `<path d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
+    ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
     : screenshotUrl
       ? ''
-      : `<rect x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>
-  <circle cx="${round(pillX + pillWidth - pillHeight / 2 - 0.8)}" cy="${round(pillY + pillHeight / 2)}" r="${round(pillHeight * 0.19)}" fill="#101116"/>
-  <circle cx="${round(pillX + pillWidth - pillHeight / 2 - 0.8)}" cy="${round(pillY + pillHeight / 2)}" r="${round(pillHeight * 0.1)}" fill="#05050A"/>`}
+      : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`}
 </svg>`
 }
 

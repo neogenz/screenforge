@@ -11,6 +11,7 @@
 
 - Vitest for unit tests; `fake-indexeddb` supplies browser storage in tests.
 - Playwright runs Chromium serially against Vite on port 5199 and retains traces on failure.
+- `tsconfig.tools.json` type-checks Playwright specs/config, Vite config, and checked JavaScript scripts.
 
 ## Conventions
 
@@ -18,9 +19,11 @@
 - E2E selectors use accessible French labels; development-only `window.__sfCanvas` and `window.__sfStores` are reserved for state contracts the UI cannot expose.
 - Canvas transforms must assert the canvas → store → sync round-trip does not drift after pointer release.
 - Any export-path change must retain the pixel-exact E2E contract.
+- `runtime-resilience.spec.ts` forces IndexedDB startup failure and delays a lazy chunk to cover the editable memory fallback, persistent warning, loading status, and final dialog focus.
 
 ## Run
 
 - `pnpm run test:unit`: unit suite.
 - `pnpm run test:e2e`: Chromium E2E suite.
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
+- GitHub runs the release gate on every push and pull request and uploads Playwright diagnostics on failure.

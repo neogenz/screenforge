@@ -10,6 +10,11 @@ const INTERNAL_SIZE_TARGET = 5 * 1024 * 1024
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10]
 const FILE_PATTERN = /^6\.9\/(\d{2})_([a-z0-9_]+)\.png$/
 
+/**
+ * @typedef {{ width: number; height: number; bitDepth: number; colorType: number; byteLength: number }} PngMetadata
+ */
+
+/** @param {Uint8Array} bytes @param {string} path @returns {PngMetadata} */
 function readPngMetadata(bytes, path) {
   if (bytes.byteLength < 33 || !PNG_SIGNATURE.every((byte, index) => bytes[index] === byte)) {
     throw new Error(`${path}: signature PNG invalide`)
@@ -29,6 +34,7 @@ function readPngMetadata(bytes, path) {
   }
 }
 
+/** @param {PngMetadata} metadata @param {string} path */
 function assertPng(metadata, path) {
   if (metadata.width !== EXPECTED_WIDTH || metadata.height !== EXPECTED_HEIGHT) {
     throw new Error(
@@ -48,6 +54,7 @@ function assertPng(metadata, path) {
   }
 }
 
+/** @param {Uint8Array} zipBytes */
 export async function validateExportZip(zipBytes) {
   const zip = await JSZip.loadAsync(zipBytes)
   const files = Object.values(zip.files)

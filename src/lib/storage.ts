@@ -1,5 +1,4 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import {
   hydrateAssets,
   markAssetsClean,
@@ -9,12 +8,13 @@ import {
 } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
-import { createDefaultScreen, DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
+import { isProject, migrateProject } from '@/lib/project-validation'
+import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
-import type { GlobalSettings, ImportedDeviceBezel, Layer, Project, Screen } from '@/types'
+import type { Layer, Project } from '@/types'
 
 interface AssetRecord {
   id: string
@@ -66,175 +66,52 @@ export class InvalidProjectRecordError extends Error {
   }
 }
 
-function uniqueId(candidate: unknown, seen: Set<string>): string {
-  const id = typeof candidate === 'string' && candidate && !seen.has(candidate)
-    ? candidate
-    : crypto.randomUUID()
-  seen.add(id)
-  return id
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function normalizeImportedBezel(value: unknown): ImportedDeviceBezel | undefined {
-  if (!value || typeof value !== 'object') return undefined
-  const candidate = value as Partial<ImportedDeviceBezel>
-  const screen = candidate.screen
-  if (
-    typeof candidate.assetId !== 'string' || !candidate.assetId
-    || typeof candidate.fileName !== 'string' || !candidate.fileName
-    || !Number.isFinite(candidate.naturalWidth) || (candidate.naturalWidth ?? 0) <= 0
-    || !Number.isFinite(candidate.naturalHeight) || (candidate.naturalHeight ?? 0) <= 0
-    || !screen
-    || !Number.isFinite(screen.x) || screen.x < 0
-    || !Number.isFinite(screen.y) || screen.y < 0
-    || !Number.isFinite(screen.width) || screen.width <= 0
-    || !Number.isFinite(screen.height) || screen.height <= 0
-    || screen.x + screen.width > candidate.naturalWidth!
-    || screen.y + screen.height > candidate.naturalHeight!
-  ) return undefined
-
-  return {
-    assetId: candidate.assetId,
-    fileName: candidate.fileName,
-    naturalWidth: candidate.naturalWidth!,
-    naturalHeight: candidate.naturalHeight!,
-    screen: {
-      x: screen.x,
-      y: screen.y,
-      width: screen.width,
-      height: screen.height,
-    },
-  }
+interface InlineAssetMigration {
+  layer: Record<string, unknown>
+  field: 'assetId' | 'screenshotAssetId'
+  dataUrl: string
 }
 
-function normalizeLayer(
-  value: unknown,
-  seenIds: Set<string>,
-  zIndex: number,
-  scope?: 'layout',
-): Layer | null {
-  if (!value || typeof value !== 'object') return null
-  const candidate = structuredClone(value) as Partial<Layer> & {
-    src?: string
-    screenshotUrl?: string
-  }
-  if (!['text', 'device-frame', 'image', 'shape'].includes(candidate.type ?? '')) return null
-  const normalized = {
-    ...candidate,
-    id: uniqueId(candidate.id, seenIds),
-    zIndex: scope && typeof candidate.zIndex === 'number' && Number.isFinite(candidate.zIndex)
-      ? candidate.zIndex
-      : zIndex,
-    ...(scope ? { scope } : {}),
-  } as Layer
-  if (!scope) delete normalized.scope
-
-  // Migration: inline data URLs move out of the layer graph into the asset
-  // registry (v1 → v2). Layers keep only a short asset id.
-  if (normalized.type === 'image') {
-    const imageLayer = normalized as typeof normalized & { assetId?: string }
-    if (typeof candidate.src === 'string' && candidate.src) {
-      imageLayer.assetId = registerAsset(candidate.src)
-    }
-    delete (imageLayer as { src?: string }).src
-  }
-  if (normalized.type === 'device-frame') {
-    const deviceLayer = normalized as typeof normalized & { screenshotAssetId?: string }
-    if (typeof candidate.screenshotUrl === 'string' && candidate.screenshotUrl) {
-      deviceLayer.screenshotAssetId = registerAsset(candidate.screenshotUrl)
-    }
-    delete (deviceLayer as { screenshotUrl?: string }).screenshotUrl
-    const importedBezel = normalizeImportedBezel(deviceLayer.importedBezel)
-    if (importedBezel) {
-      deviceLayer.importedBezel = importedBezel
-      deviceLayer.orientation = 'portrait'
-    } else {
-      delete deviceLayer.importedBezel
+function prepareInlineAssets(value: unknown): InlineAssetMigration[] {
+  if (!isRecord(value)) return []
+  const collections = [
+    ...(Array.isArray(value.screens)
+      ? value.screens.flatMap((screen) => isRecord(screen) && Array.isArray(screen.layers)
+        ? [screen.layers]
+        : [])
+      : []),
+    ...(Array.isArray(value.layoutLayers) ? [value.layoutLayers] : []),
+  ]
+  const migrations: InlineAssetMigration[] = []
+  for (const layers of collections) {
+    for (const layer of layers) {
+      if (!isRecord(layer)) continue
+      if (layer.type !== 'image' && layer.type !== 'device-frame') continue
+      const source = layer.type === 'image' ? layer.src : layer.screenshotUrl
+      const field = layer.type === 'image' ? 'assetId' : 'screenshotAssetId'
+      if (typeof source !== 'string' || !source.startsWith('data:')) continue
+      layer[field] = `legacy_inline_${migrations.length}`
+      delete layer[layer.type === 'image' ? 'src' : 'screenshotUrl']
+      migrations.push({ layer, field, dataUrl: source })
     }
   }
-  return normalized
+  return migrations
 }
 
-function normalizeGlobals(value: unknown): GlobalSettings {
-  const candidate = value && typeof value === 'object'
-    ? value as Partial<GlobalSettings>
-    : {}
-  return {
-    ...structuredClone(DEFAULT_GLOBALS),
-    ...structuredClone(candidate),
-    background: candidate.background
-      ? structuredClone(candidate.background)
-      : structuredClone(DEFAULT_GLOBALS.background),
-  }
-}
-
-/** Convert legacy or partial IndexedDB values into a valid current project. */
+/** Migrate supported legacy fields, then enforce the current project contract. */
 export function normalizeProject(value: unknown): Project {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new InvalidProjectRecordError()
+  const migrated = migrateProject(value)
+  const inlineAssets = prepareInlineAssets(migrated)
+  if (!isProject(migrated)) throw new InvalidProjectRecordError()
+  for (const migration of inlineAssets) {
+    migration.layer[migration.field] = registerAsset(migration.dataUrl)
   }
-  const candidate = value as Partial<Project>
-  if (typeof candidate.id !== 'string' || !candidate.id || !Array.isArray(candidate.screens)
-    || candidate.screens.length === 0) {
-    throw new InvalidProjectRecordError()
-  }
-  const globals = normalizeGlobals(candidate.globals)
-  const screenIds = new Set<string>()
-  const layerIds = new Set<string>()
-  const rawScreens = Array.isArray(candidate.screens)
-    ? candidate.screens.slice(0, MAX_PROJECT_SCREENS)
-    : []
-
-  const screens: Screen[] = rawScreens.flatMap((rawScreen, screenIndex) => {
-    if (!rawScreen || typeof rawScreen !== 'object') return []
-    const screen = rawScreen as Partial<Screen>
-    const rawLayers = Array.isArray(screen.layers) ? screen.layers : []
-    const layers = rawLayers.flatMap((layer, index) => {
-      const normalized = normalizeLayer(layer, layerIds, index)
-      return normalized ? [normalized] : []
-    })
-    return [{
-      id: uniqueId(screen.id, screenIds),
-      name: typeof screen.name === 'string' && screen.name.trim()
-        ? screen.name
-        : `Écran ${screenIndex + 1}`,
-      layers,
-      background: screen.background
-        ? structuredClone(screen.background)
-        : structuredClone(globals.background),
-      ...(typeof screen.thumbnail === 'string' ? { thumbnail: screen.thumbnail } : {}),
-    }]
-  })
-
-  if (screens.length === 0) {
-    const screen = createDefaultScreen('Écran 1', globals)
-    screenIds.add(screen.id)
-    screens.push(screen)
-  }
-
-  const layoutLayers = Array.isArray(candidate.layoutLayers)
-    ? candidate.layoutLayers.flatMap((layer, index) => {
-        const normalized = normalizeLayer(layer, layerIds, index, 'layout')
-        return normalized ? [normalized] : []
-      })
-    : []
-
-  const now = Date.now()
-  const activeScreenId = typeof candidate.activeScreenId === 'string'
-    && screens.some((screen) => screen.id === candidate.activeScreenId)
-    ? candidate.activeScreenId
-    : screens[0].id
-  return {
-    id: typeof candidate.id === 'string' && candidate.id ? candidate.id : crypto.randomUUID(),
-    name: typeof candidate.name === 'string' && candidate.name.trim()
-      ? candidate.name
-      : 'Projet sans titre',
-    screens,
-    activeScreenId,
-    globals,
-    layoutLayers,
-    createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
-    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
-  }
+  if (!isProject(migrated)) throw new InvalidProjectRecordError()
+  return migrated
 }
 
 async function commitProject(
@@ -405,7 +282,7 @@ export async function importPortableProject(file: File): Promise<Project> {
 
   hydrateAssets(imported.assets)
   useProjectStore.getState().loadProject(imported.project)
-  useCanvasStore.getState().setActiveScreenId(imported.project.activeScreenId)
+  useCanvasStore.getState().clearSelection()
   useHistoryStore.getState().clear()
   useUIStore.getState().setSaveStatus('saved')
   return imported.project

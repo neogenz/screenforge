@@ -45,7 +45,7 @@ export function ShortcutsOverlay({ open, onClose }: { open: boolean; onClose: ()
             <ul className="flex flex-col gap-1.5">
               {group.entries.map((entry) => (
                 <li key={entry.keys} className="flex items-center justify-between gap-4">
-                  <span className="text-[12.5px] text-foreground-muted">{entry.label}</span>
+                  <span className="text-sm text-muted-foreground">{entry.label}</span>
                   <Kbd>{entry.keys}</Kbd>
                 </li>
               ))}

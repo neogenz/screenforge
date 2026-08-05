@@ -14,7 +14,12 @@ import { Switch } from '@/components/ui/switch'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
 import { analyzeDeviceBezel } from '@/lib/device-bezel'
-import { decodeImage, readAsDataUrl } from '@/lib/image'
+import {
+  imageImportErrorMessage,
+  importImageFile,
+  SCREENSHOT_IMAGE_ACCEPT,
+  SCREENSHOT_IMAGE_TYPES,
+} from '@/lib/image'
 import { cn } from '@/lib/utils'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
@@ -46,7 +51,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const [screenshotError, setScreenshotError] = useState<string | null>(null)
   const [bezelError, setBezelError] = useState<string | null>(null)
   const [bezelLoading, setBezelLoading] = useState(false)
-  const modelButtonRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bezelInputRef = useRef<HTMLInputElement>(null)
   const bezelRequestRef = useRef(0)
@@ -64,17 +68,12 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
     setScreenshotError(null)
     event.target.value = ''
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      setScreenshotError('Format non pris en charge. Utilisez un PNG ou un JPEG.')
-      return
-    }
 
     try {
-      const dataUrl = await readAsDataUrl(file)
-      await decodeImage(dataUrl)
-      onUpdate({ screenshotAssetId: registerAsset(dataUrl) })
-    } catch {
-      setScreenshotError("La capture est illisible ou endommagée.")
+      const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
+      onUpdate({ screenshotAssetId: registerAsset(image.dataUrl) })
+    } catch (error) {
+      setScreenshotError(imageImportErrorMessage(error))
     }
   }
 
@@ -174,7 +173,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       {layer.importedBezel ? (
         <Field label="Bezel Apple">
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             {bezelUrl && (
               <img
                 src={bezelUrl}
@@ -182,7 +181,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 className="h-8 w-8 shrink-0 object-contain"
               />
             )}
-            <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">
               {layer.importedBezel.fileName}
             </span>
             <Button
@@ -198,7 +197,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               size="sm"
               disabled={bezelLoading}
               aria-label="Retirer le bezel Apple"
-              className="hover:text-danger"
+              className="hover:text-destructive"
               onClick={removeImportedBezel}
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
@@ -220,53 +219,51 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             href="https://developer.apple.com/design/resources/#product-bezels"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-foreground-muted underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-2xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-[11px] leading-relaxed text-faint">Extraire le DMG, puis choisir un PNG transparent.</span>
+          <span className="text-2xs text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-[11px] leading-relaxed text-danger">
+        <p role="alert" className="text-2xs text-destructive">
           {bezelError}
         </p>
       )}
 
       {!layer.importedBezel && <Field label="Modèle">
-        <Button
-          ref={modelButtonRef}
-          variant="default"
-          className="w-full justify-between"
-          onClick={() => setModelOpen((open) => !open)}
-          aria-label="Modèle d’appareil"
-          aria-expanded={modelOpen}
-        >
-          <span className="truncate">{config.modelName}</span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            <span className="tabular text-[10px] text-faint">{config.screenSize}</span>
-            <ChevronDown
-              size={12}
-              strokeWidth={1.5}
-              aria-hidden
-              className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
-            />
-          </span>
-        </Button>
+        <Dropdown
+          open={modelOpen}
+          onOpenChange={setModelOpen}
+          trigger={(
+            <Button
+              variant="default"
+              className="w-full justify-between"
+              aria-label="Modèle d’appareil"
+            >
+              <span className="truncate">{config.modelName}</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <span className="tabular text-2xs text-muted-foreground">{config.screenSize}</span>
+                <ChevronDown
+                  size={12}
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
+                />
+              </span>
+            </Button>
+          )}
+          items={modelOptions.map((frame) => ({
+            id: frame.model,
+            label: frame.modelName,
+            meta: frame.screenSize,
+            onSelect: () => handleModelChange(frame.model),
+          }))}
+          ariaLabel="Modèle d’appareil"
+        />
       </Field>}
-      {!layer.importedBezel && <Dropdown
-        open={modelOpen}
-        anchor={modelButtonRef}
-        onClose={() => setModelOpen(false)}
-        items={modelOptions.map((frame) => ({
-          id: frame.model,
-          label: frame.modelName,
-          meta: frame.screenSize,
-          onSelect: () => handleModelChange(frame.model),
-        }))}
-        ariaLabel="Modèle d’appareil"
-      />}
 
       {!layer.importedBezel && <Field label="Couleur">
         <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
@@ -295,7 +292,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       <Field label="Capture d’écran">
         {screenshotUrl ? (
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-panel p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             <img
               src={screenshotUrl}
               alt="Capture importée"
@@ -312,7 +309,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             <IconButton
               size="sm"
               aria-label="Supprimer la capture"
-              className="hover:text-danger"
+              className="hover:text-destructive"
               onClick={() => onUpdate({ screenshotAssetId: undefined })}
             >
               <X size={13} strokeWidth={1.5} aria-hidden />
@@ -325,7 +322,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             className={cn(
               'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
               'field-label transition-colors duration-150 ease-out',
-              'hover:border-border-strong hover:text-foreground',
+              'hover:border-input hover:text-foreground',
             )}
           >
             Aucune capture · importer un PNG/JPEG
@@ -334,25 +331,25 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg"
+          accept={SCREENSHOT_IMAGE_ACCEPT}
           className="sr-only"
           aria-label="Importer la capture de l’app"
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
+          <p role="alert" className="mt-1.5 text-2xs text-destructive">
             {screenshotError}
           </p>
         )}
       </Field>
 
       {layer.importedBezel ? (
-        <p className="text-[11px] leading-relaxed text-faint">
+        <p className="text-2xs text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="section-title">Ombre</span>
+          <h3 className="section-title">Ombre</h3>
           <Switch
             checked={shadowEnabled}
             ariaLabel="Activer l’ombre de l’appareil"

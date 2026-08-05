@@ -1,6 +1,7 @@
 import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
+import type { Layer, Project } from '../src/types'
 
 /**
  * E2E helpers driving the app through its real UI, plus a dev-only debug
@@ -37,43 +38,44 @@ export interface DebugObject {
   type?: string
   visible?: boolean
   text?: string
+  isEditing?: boolean
   oCoords?: Record<string, { x: number; y: number }>
   getCenterPoint?: () => { x: number; y: number }
+  getBoundingRect?: () => { left: number; top: number; width: number; height: number }
 }
 
 declare global {
   interface Window {
     __sfCanvas?: Canvas
     __sfCrash?: () => void
+    /**
+     * Le registre d'assets de l'application.
+     *
+     * À importer depuis la page par `import('/src/lib/assets.ts')`, on obtient
+     * une seconde instance : après un HMR, Vite horodate le spécificateur
+     * (`?t=…`) dans le code applicatif, et les deux URL ne partagent plus rien.
+     * Les assets enregistrés par le test devenaient alors invisibles au code
+     * testé, qui échouait en `missing-current-asset`.
+     */
+    __sfAssets?: typeof import('../src/lib/assets')
     __sfStores?: {
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: { getState: () => {
-        layers: { id: string; x: number; y: number; type?: string }[]
         selectedLayerIds: string[]
-        activeScreenId: string
+        updateLayer: (id: string, updates: Partial<Layer>) => void
       } }
-      useProjectStore: { getState: () => { project: {
-        id: string
-        screens: { id: string; layers: Array<{
-          id: string
-          x: number
-          y: number
-          width?: number
-          height?: number
-          type?: string
-          assetId?: string
-          screenshotAssetId?: string
-          importedBezel?: { assetId: string }
-        }> }[]
-        layoutLayers: Array<{
-          id: string
-          type?: string
-          assetId?: string
-          screenshotAssetId?: string
-          importedBezel?: { assetId: string }
-        }>
-        activeScreenId: string
-      } | null } }
+      useProjectStore: { getState: () => {
+        project: Project | null
+        updateScreenBackground: (screenId: string, background: Project['globals']['background']) => void
+      } }
+      useUIStore: { getState: () => {
+        setZoom: (zoom: number) => void
+        zoomIn: () => void
+        zoomOut: () => void
+        toggleProps: () => void
+        layersOpen: boolean
+        propsOpen: boolean
+      } }
     }
   }
 }
@@ -87,13 +89,17 @@ export async function waitForApp(page: Page): Promise<void> {
 }
 
 export async function addTextLayer(page: Page): Promise<void> {
+  const count = await projectLayerCount(page)
   await page.locator('button[aria-label="Ajouter Texte"]').click()
-  await page.waitForTimeout(300)
+  await expect.poll(() => projectLayerCount(page)).toBe(count + 1)
+  await expect.poll(async () => Boolean(await findObject(page, 'text'))).toBe(true)
 }
 
 export async function addShapeLayer(page: Page): Promise<void> {
+  const count = await projectLayerCount(page)
   await page.locator('button[aria-label="Ajouter Forme"]').click()
-  await page.waitForTimeout(300)
+  await expect.poll(() => projectLayerCount(page)).toBe(count + 1)
+  await expect.poll(async () => Boolean(await findObject(page, 'shape'))).toBe(true)
 }
 
 export async function addDeviceLayer(page: Page): Promise<void> {
@@ -101,8 +107,12 @@ export async function addDeviceLayer(page: Page): Promise<void> {
   const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
   await expect(model).toBeVisible()
   await model.click()
-  await expect.poll(() => page.evaluate(() => window.__sfStores
-    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'device-frame'))).toBe(true)
+  await expect.poll(() => page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .some((layer) => layer.type === 'device-frame')
+  })).toBe(true)
 }
 
 export interface ExportedZipPng {
@@ -132,8 +142,50 @@ export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipP
 }
 
 export async function addScreen(page: Page): Promise<void> {
+  const count = await page.evaluate(() =>
+    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)
   await page.locator('button[aria-label="Ajouter un écran"]').click()
-  await page.waitForTimeout(600)
+  await expect.poll(() => page.evaluate(() =>
+    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)).toBe(count + 1)
+  await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(count + 1)
+}
+
+async function projectLayerCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    if (!project) return 0
+    return project.layoutLayers.length
+      + project.screens.reduce((total, screen) => total + screen.layers.length, 0)
+  })
+}
+
+/** Wait until project and rendered-object state stop changing across polls. */
+export async function waitForCanvasSettled(page: Page): Promise<void> {
+  let previous = ''
+  let stablePolls = 0
+  await expect.poll(async () => {
+    const current = await page.evaluate(() => JSON.stringify({
+      project: window.__sfStores?.useProjectStore.getState().project,
+      selection: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+      objects: window.__sfCanvas?.getObjects().map((object) => {
+        const debug = object as DebugObject
+        return {
+          data: debug.data,
+          left: debug.left,
+          top: debug.top,
+          angle: debug.angle,
+          scaleX: debug.scaleX,
+          scaleY: debug.scaleY,
+          visible: debug.visible,
+          text: debug.text,
+          isEditing: debug.isEditing,
+        }
+      }),
+    }))
+    stablePolls = current === previous ? stablePolls + 1 : 0
+    previous = current
+    return stablePolls >= 2
+  }, { timeout: 5_000, intervals: [50, 100, 200, 400] }).toBe(true)
 }
 
 export function layerRows(page: Page) {
@@ -267,6 +319,40 @@ export async function screenCenter(page: Page, index: number): Promise<{ x: numb
   return pos
 }
 
+/**
+ * Le lasso, dedans la planche : un rectangle tiré de coin à coin sur le fond
+ * d'une planche, qui n'est pas `evented` — le geste y commence donc une
+ * sélection au lieu de saisir un calque. Bordé à 2 % pour rester à l'intérieur
+ * du cadrage visible quel que soit l'ajustement, et Fabric sélectionne à
+ * l'intersection : tout calque de la planche y tombe.
+ */
+export async function lassoOverScreen(page: Page, screenIndex: number): Promise<void> {
+  const box = await page.evaluate((index) => {
+    const canvas = window.__sfCanvas
+    if (!canvas) return null
+    const background = (canvas.getObjects() as DebugObject[])
+      .filter((object) => object.data?.rendererType === 'background')
+      .sort((left, right) => (left.left ?? 0) - (right.left ?? 0))[index]
+    if (!background?.getBoundingRect) return null
+    const scene = background.getBoundingRect()
+    const element = canvas.upperCanvasEl.getBoundingClientRect()
+    const viewport = canvas.viewportTransform
+    const toPage = (x: number, y: number) => ({
+      x: element.left + x * viewport[0] + viewport[4],
+      y: element.top + y * viewport[3] + viewport[5],
+    })
+    return {
+      from: toPage(scene.left + scene.width * 0.02, scene.top + scene.height * 0.02),
+      to: toPage(scene.left + scene.width * 0.98, scene.top + scene.height * 0.98),
+    }
+  }, screenIndex)
+  if (!box) throw new Error(`Artboard ${screenIndex} not found`)
+  await page.mouse.move(box.from.x, box.from.y)
+  await page.mouse.down()
+  await page.mouse.move(box.to.x, box.to.y, { steps: 12 })
+  await page.mouse.up()
+}
+
 export async function dragActiveBody(page: Page, dx: number, dy: number): Promise<void> {
   const center = await activeCenter(page)
   await page.mouse.move(center.x, center.y)
@@ -279,8 +365,8 @@ export function expectClose(actual: number, expected: number, tolerance = 1): vo
   expect(Math.abs(actual - expected), `${actual} ≉ ${expected} (±${tolerance})`).toBeLessThanOrEqual(tolerance)
 }
 
-/** Number field of the transformation section by index: X Y W H ROT. */
-const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur', 'Rotation'] as const
+/** Number field of the transformation section by index: X Y W H. */
+const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur'] as const
 
 export function transformInput(page: Page, index: number) {
   return page.getByLabel(TRANSFORM_LABELS[index])

@@ -58,16 +58,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <section
           role="alert"
           aria-labelledby="error-boundary-title"
-          className="w-full max-w-md rounded-xl border border-border bg-panel p-6 shadow-modal"
+          className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
         >
           <h1 id="error-boundary-title" className="text-lg font-semibold">
             ScreenForge doit redémarrer
           </h1>
-          <p className="mt-2 text-sm leading-6 text-foreground-muted">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Une erreur inattendue a interrompu l’affichage. Votre projet local est conservé.
           </p>
           {this.state.resetError && (
-            <p role="status" className="mt-3 text-sm text-danger">
+            <p role="status" className="mt-3 text-sm text-destructive">
               La réinitialisation a échoué. Le projet a été conservé.
             </p>
           )}

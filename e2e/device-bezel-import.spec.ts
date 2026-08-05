@@ -33,10 +33,10 @@ interface DeviceLayerState {
 
 async function deviceLayer(page: Page): Promise<DeviceLayerState> {
   return page.evaluate(() => {
-    const stores = (window as unknown as {
-      __sfStores?: { useCanvasStore: { getState: () => { layers: Array<{ type: string }> } } }
-    }).__sfStores
-    const layer = stores?.useCanvasStore.getState().layers.find((item) => item.type === 'device-frame')
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .find((item) => item.type === 'device-frame')
     if (!layer) throw new Error('device layer missing')
     return JSON.parse(JSON.stringify(layer)) as DeviceLayerState
   })
@@ -78,7 +78,7 @@ interface PixelRegion {
 }
 
 function topDarkComponents(
-  image: { width: number; channels: number; data: Uint8Array | Uint16Array },
+  image: ReturnType<typeof decode>,
   region: PixelRegion,
 ): PixelBox[] {
   const pixelCount = region.width * region.height
@@ -188,6 +188,25 @@ test('imports, protects, deduplicates and removes an Apple bezel', async ({ page
   expect(await deviceLayer(page)).not.toHaveProperty('importedBezel')
 })
 
+test('rejects invalid and oversized captures without mutating the device', async ({ page }) => {
+  const input = page.getByLabel('Importer la capture de l’app')
+  await input.setInputFiles({
+    name: 'capture.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+  })
+  await expect(page.getByRole('alert')).toContainText('Format d’image non pris en charge')
+  expect(await deviceLayer(page)).not.toHaveProperty('screenshotAssetId')
+
+  await input.setInputFiles({
+    name: 'huge.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(16 * 1024 * 1024 + 1),
+  })
+  await expect(page.getByRole('alert')).toContainText('taille maximale de 16 Mio')
+  expect(await deviceLayer(page)).not.toHaveProperty('screenshotAssetId')
+})
+
 test('keeps the natural ratio, locks official artwork and persists both assets', async ({ page }) => {
   await uploadBezel(page, makeDeviceBezelPng(), 'Persistent Bezel.png')
   await uploadScreenshot(page)
@@ -195,7 +214,7 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
 
   await page.getByLabel('Largeur').fill('190')
   await expect.poll(async () => deviceLayer(page)).toMatchObject({ width: 190, height: 310 })
-  await expect(page.getByLabel('Rotation')).toBeDisabled()
+  await expect(page.getByRole('slider', { name: 'Rotation', exact: true })).toBeDisabled()
   await expect(page.getByLabel('Opacité')).toBeDisabled()
   await expect(page.getByLabel('Activer l’ombre de l’appareil')).toHaveCount(0)
   expect(await page.evaluate(() => window.__sfCanvas
@@ -228,20 +247,13 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
 
 test('falls back to the generated frame when an imported asset is missing', async ({ page }) => {
   await page.evaluate(() => {
-    const stores = (window as unknown as {
-      __sfStores?: {
-        useCanvasStore: {
-          getState: () => {
-            layers: Array<{ id: string; type: string }>
-            updateLayer: (id: string, updates: object) => void
-          }
-        }
-      }
-    }).__sfStores
-    const state = stores?.useCanvasStore.getState()
-    const layer = state?.layers.find((item) => item.type === 'device-frame')
+    const state = window.__sfStores?.useProjectStore.getState()
+    const project = state?.project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+      .find((item) => item.type === 'device-frame')
     if (!state || !layer) throw new Error('device layer missing')
-    state.updateLayer(layer.id, {
+    window.__sfStores?.useCanvasStore.getState().updateLayer(layer.id, {
       importedBezel: {
         assetId: 'missing',
         fileName: 'Missing.png',

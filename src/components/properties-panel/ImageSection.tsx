@@ -4,7 +4,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
 import { Button } from '@/components/ui/button'
 import { registerAsset } from '@/lib/assets'
-import { decodeImage, IMAGE_ACCEPT, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
+import { IMAGE_ACCEPT, imageImportErrorMessage, importImageFile } from '@/lib/image'
 import type { ImageLayer, Layer } from '@/types'
 
 interface ImageSectionProps {
@@ -26,26 +26,21 @@ export function ImageSection({ layer }: ImageSectionProps) {
 
     setFileError(null)
     e.target.value = ''
-    if (!isSupportedImageFile(file)) {
-      setFileError('Format non pris en charge. Utilisez un PNG, JPEG ou SVG.')
-      return
-    }
 
     try {
-      const dataUrl = await readAsDataUrl(file)
-      const dimensions = await decodeImage(dataUrl)
+      const image = await importImageFile(file)
       update({
-        assetId: registerAsset(dataUrl),
-        originalWidth: dimensions.width,
-        originalHeight: dimensions.height,
+        assetId: registerAsset(image.dataUrl),
+        originalWidth: image.width,
+        originalHeight: image.height,
       })
-    } catch {
-      setFileError("L'image est illisible ou endommagée.")
+    } catch (error) {
+      setFileError(imageImportErrorMessage(error))
     }
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       <div>
         <input
           ref={fileRef}
@@ -64,7 +59,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           Remplacer
         </Button>
         {fileError && (
-          <p role="alert" className="mt-1.5 text-[11px] leading-relaxed text-danger">
+          <p role="alert" className="mt-1.5 text-2xs text-destructive">
             {fileError}
           </p>
         )}

@@ -8,6 +8,7 @@ import {
   findObject,
   layerRows,
   waitForApp,
+  waitForCanvasSettled,
 } from './helpers'
 
 test.describe('layers panel', () => {
@@ -18,17 +19,32 @@ test.describe('layers panel', () => {
   test('context menu duplicates and deletes a layer', async ({ page }) => {
     await addTextLayer(page)
     await expect(layerRows(page)).toHaveCount(1)
+    const originalId = await layerRows(page).first().getAttribute('data-layer-id')
 
     // Duplicate via right-click menu.
     await layerRows(page).first().click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Dupliquer' }).click()
     await expect(layerRows(page)).toHaveCount(2)
     await expect(layerRows(page).filter({ hasText: 'copie' })).toHaveCount(1)
+    const duplicated = await page.evaluate(() => {
+      const canvas = window.__sfStores?.useCanvasStore.getState()
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layers = project?.screens.find((screen) => screen.id === project.activeScreenId)?.layers ?? []
+      return {
+        copyId: layers.find((layer) => layer.id !== layers[0]?.id)?.id,
+        selectedIds: canvas?.selectedLayerIds ?? [],
+      }
+    })
+    expect(duplicated.copyId).toBeTruthy()
+    expect(duplicated.copyId).not.toBe(originalId)
+    expect(duplicated.selectedIds).toEqual([duplicated.copyId])
 
     // Delete the copy via right-click menu.
     await layerRows(page).filter({ hasText: 'copie' }).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(1)
+    expect(await page.evaluate(() =>
+      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
   })
 
   test('cmd-click toggles multi-selection, menu acts on all selected', async ({ page }) => {
@@ -43,6 +59,8 @@ test.describe('layers panel', () => {
     await layerRows(page).nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(0)
+    expect(await page.evaluate(() =>
+      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
   })
 
   test('double-click renames a layer', async ({ page }) => {
@@ -59,9 +77,18 @@ test.describe('layers panel', () => {
     const row = layerRows(page).first()
     await row.hover()
     await row.locator('button[aria-label="Masquer le calque"]').click()
-    await page.waitForTimeout(500)
-    const object = await findObject(page, 'device-frame')
-    expect(object?.visible).toBe(false)
+    await expect.poll(async () => (await findObject(page, 'device-frame'))?.visible).toBe(false)
+  })
+
+  test('device model menu uses its button as trigger and restores focus', async ({ page }) => {
+    await addDeviceLayer(page)
+    const trigger = page.getByRole('button', { name: 'Modèle d’appareil' })
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toHaveCount(0)
+    await expect(trigger).toBeFocused()
   })
 
   test('Meta+C and Meta+V copy every selected layer with new ids', async ({ page }) => {
@@ -74,7 +101,9 @@ test.describe('layers panel', () => {
 
     await page.keyboard.press('Meta+c')
     await page.keyboard.press('Meta+v')
-    await page.waitForTimeout(700)
+    await expect.poll(() => page.evaluate(() =>
+      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
+    )).toBe(4)
 
     const state = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -99,22 +128,19 @@ test.describe('layers panel', () => {
       window.__sfStores?.useHistoryStore.getState().past.length ?? -1)
 
     await page.keyboard.press('Control+x')
-    await page.waitForTimeout(400)
-    const cut = await page.evaluate(() => ({
+    await expect.poll(() => page.evaluate(() => JSON.stringify({
       count: window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
       selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
       history: window.__sfStores?.useHistoryStore.getState().past.length,
-    }))
-    expect(cut).toEqual({ count: 0, selectedIds: [], history: historyBefore + 1 })
+    }))).toBe(JSON.stringify({ count: 0, selectedIds: [], history: historyBefore + 1 }))
 
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(600)
     await expect(layerRows(page)).toHaveCount(1)
     await layerRows(page).first().click()
     await page.keyboard.press('Control+x')
     await addScreen(page)
     await page.keyboard.press('Control+v')
-    await page.waitForTimeout(700)
+    await waitForCanvasSettled(page)
 
     const pasted = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -141,24 +167,30 @@ test.describe('layers panel', () => {
     await addTextLayer(page)
     const center = await activeCenter(page)
     await page.mouse.dblclick(center.x, center.y)
-    await page.waitForTimeout(300)
+    await expect.poll(() => page.evaluate(() =>
+      Boolean((window.__sfCanvas?.getActiveObject() as { isEditing?: boolean } | undefined)?.isEditing),
+    )).toBe(true)
     await page.keyboard.press('Meta+a')
     await page.keyboard.type('Texte natif')
     await page.keyboard.press('Meta+a')
     await page.keyboard.press('Meta+x')
     await page.keyboard.press('Meta+v')
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(600)
 
     await expect(layerRows(page)).toHaveCount(1)
-    expect((await findObject(page, 'text'))?.text).toBe('Texte natif')
+    await expect.poll(async () => (await findObject(page, 'text'))?.text).toBe('Texte natif')
   })
 
   test('shortcuts help lists copy, cut and paste', async ({ page }) => {
+    const returnTarget = page.getByRole('button', { name: 'Ouvrir les modèles' })
+    await returnTarget.focus()
     await page.keyboard.press('?')
     const dialog = page.getByRole('dialog', { name: 'Raccourcis clavier' })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('Copier / couper / coller')).toBeVisible()
     await expect(dialog.getByText('⌘C / ⌘X / ⌘V')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(returnTarget).toBeFocused()
   })
 })

@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { cn } from '@/lib/utils'
 import { Kbd } from '@/components/ui/kbd'
-import { Popover } from '@/components/ui/popover'
 
 export interface MenuItem {
   id: string
@@ -18,8 +17,8 @@ export interface MenuItem {
 
 export interface DropdownProps {
   open: boolean
-  anchor: RefObject<HTMLElement | null>
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
+  trigger: ReactElement
   items: MenuItem[]
   ariaLabel: string
   align?: 'start' | 'end'
@@ -27,80 +26,52 @@ export interface DropdownProps {
 }
 
 /** Keyboard-navigable action menu anchored to a trigger. */
-export function Dropdown({ open, anchor, onClose, items, ariaLabel, align = 'start', className }: DropdownProps) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const listRef = useRef<HTMLDivElement>(null)
-
-  // Reset the active item when the menu opens (derived state, no effect).
-  const [prevOpen, setPrevOpen] = useState(open)
-  if (open !== prevOpen) {
-    setPrevOpen(open)
-    if (open) setActiveIndex(Math.max(0, items.findIndex((item) => !item.disabled)))
-  }
-
-  useEffect(() => {
-    if (!open) return
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
-      ?.focus()
-  }, [open, activeIndex])
-
-  function handleKeyDown(event: React.KeyboardEvent) {
-    const enabledIndexes = items
-      .map((item, index) => ({ item, index }))
-      .filter(({ item }) => !item.disabled)
-      .map(({ index }) => index)
-    if (enabledIndexes.length === 0) return
-    const currentEnabled = enabledIndexes.indexOf(activeIndex)
-
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      const delta = event.key === 'ArrowDown' ? 1 : -1
-      const next = enabledIndexes[
-        (currentEnabled + delta + enabledIndexes.length) % enabledIndexes.length
-      ]
-      setActiveIndex(next)
-    } else if (event.key === 'Home') {
-      event.preventDefault()
-      setActiveIndex(enabledIndexes[0])
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      setActiveIndex(enabledIndexes[enabledIndexes.length - 1])
-    }
-  }
-
+export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align = 'start', className }: DropdownProps) {
   return (
-    <Popover open={open} anchor={anchor} onClose={onClose} align={align} role="menu" ariaLabel={ariaLabel} className={className}>
-      <div ref={listRef} onKeyDown={handleKeyDown} className="min-w-44 p-1">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            role="menuitem"
-            data-index={index}
-            disabled={item.disabled}
-            onClick={() => {
-              onClose()
-              item.onSelect()
-            }}
-            onMouseEnter={() => !item.disabled && setActiveIndex(index)}
-            className={cn(
-              'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left',
-              'transition-colors duration-100 ease-out',
-              'disabled:pointer-events-none disabled:opacity-40',
-              index === activeIndex && (item.danger ? 'bg-danger-soft' : 'bg-raised-hover'),
-              item.danger ? 'text-danger' : 'text-foreground',
-            )}
-          >
-            {item.icon && <span className="shrink-0 text-faint" aria-hidden>{item.icon}</span>}
-            <span className="min-w-0 flex-1 truncate text-[12.5px]">{item.label}</span>
-            {item.meta && (
-              <span className="tabular shrink-0 text-[10px] text-faint">{item.meta}</span>
-            )}
-            {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
-          </button>
-        ))}
-      </div>
-    </Popover>
+    <DropdownMenuPrimitive.Root
+      open={open}
+      modal={false}
+      onOpenChange={onOpenChange}
+    >
+      <DropdownMenuPrimitive.Trigger asChild>{trigger}</DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          aria-label={ariaLabel}
+          aria-labelledby={undefined}
+          align={align}
+          sideOffset={6}
+          collisionPadding={8}
+          loop
+          onEscapeKeyDown={(event) => event.stopPropagation()}
+          className={cn(
+            'menu-shadow z-(--z-popover) min-w-44 animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-popover p-1',
+            className,
+          )}
+        >
+          {items.map((item) => (
+            <DropdownMenuPrimitive.Item
+              key={item.id}
+              disabled={item.disabled}
+              onSelect={() => item.onSelect()}
+              className={cn(
+                'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left outline-none',
+                'transition-colors duration-100 ease-out',
+                'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
+                item.danger
+                  ? 'text-destructive data-[highlighted]:bg-destructive/14'
+                  : 'text-foreground data-[highlighted]:bg-accent',
+              )}
+            >
+              {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
+              <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+              {item.meta && (
+                <span className="tabular shrink-0 text-2xs text-muted-foreground">{item.meta}</span>
+              )}
+              {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
+            </DropdownMenuPrimitive.Item>
+          ))}
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
   )
 }

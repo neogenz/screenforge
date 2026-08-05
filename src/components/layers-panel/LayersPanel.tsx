@@ -4,9 +4,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
-import { createDeviceLayer } from '@/lib/layer-factories'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
+import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
 import type { Layer } from '@/types'
 
 /**
@@ -16,12 +17,8 @@ import type { Layer } from '@/types'
  * memoized LayerItems skip re-renders on unrelated state changes.
  */
 export function LayersPanel() {
-  const { layers, selectedLayerIds } = useCanvasStore(
-    useShallow((state) => ({
-      layers: state.layers,
-      selectedLayerIds: state.selectedLayerIds,
-    })),
-  )
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
+  const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
   const defaultDeviceModel = useProjectStore((state) => state.project?.globals.deviceModel)
 
   const [query, setQuery] = useState('')
@@ -30,8 +27,11 @@ export function LayersPanel() {
   const normalizedQuery = query.trim().toLowerCase()
 
   const layerGroups = useMemo(() => {
+    // Le filtre porte sur le nom affiché : chercher « accrocheur » doit
+    // trouver le calque que la liste montre sous ce mot, pas rien du tout.
     const matches = (layer: Layer) =>
-      normalizedQuery.length === 0 || layer.name.toLowerCase().includes(normalizedQuery)
+      normalizedQuery.length === 0
+      || layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
     const byZIndexDesc = (first: Layer, second: Layer) => second.zIndex - first.zIndex
     return [
       {
@@ -81,7 +81,8 @@ export function LayersPanel() {
   const handleDrop = useCallback((layer: Layer, event: React.DragEvent) => {
     event.preventDefault()
     const sourceId = dragSourceId.current
-    const { layers, reorderLayer } = useCanvasStore.getState()
+    const { reorderLayer } = useCanvasStore.getState()
+    const layers = getProjectLayers(useProjectStore.getState().project)
     const source = layers.find((candidate) => candidate.id === sourceId)
     if (source && source.id !== layer.id && source.scope === layer.scope) {
       reorderLayer(source.id, layer.zIndex)
@@ -95,27 +96,33 @@ export function LayersPanel() {
 
   const handleAddDevice = useCallback(() => {
     if (!defaultDeviceModel) return
-    const { layers, addLayer } = useCanvasStore.getState()
+    const { addLayer } = useCanvasStore.getState()
+    const layers = getProjectLayers(useProjectStore.getState().project)
     addLayer(createDeviceLayer(defaultDeviceModel, layers.length))
   }, [defaultDeviceModel])
 
   return (
     // `max-h-full` sans `h-full` : l'îlot s'arrête sous sa dernière ligne et ne
     // défile qu'une fois le plafond du drawer atteint.
-    <div className="island flex max-h-full min-h-0 flex-col overflow-hidden">
-      <div className="shrink-0 px-3.5 pb-3 pt-3.5">
+    // `aside` et non `div` : c'est un repère de navigation, et le panneau n'en
+    // était aucun — la carte du document s'arrêtait à « principal ».
+    <aside
+      aria-labelledby="sf-layers-panel-title"
+      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
+    >
+      <div className="shrink-0 px-3 pb-2 pt-3">
         <div className="flex items-center justify-between">
-          <span className="panel-title">Calques</span>
-          <span className="tabular text-[11px] text-faint">
+          <h2 id="sf-layers-panel-title" className="panel-title">Calques</h2>
+          <span className="tabular text-2xs text-muted-foreground">
             {String(layers.length).padStart(2, '0')}
           </span>
         </div>
-        <div className="relative mt-3">
+        <div className="relative mt-2">
           <Search
             size={13}
             strokeWidth={1.5}
             aria-hidden
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             font="sans"
@@ -128,20 +135,20 @@ export function LayersPanel() {
         </div>
       </div>
 
-      <div
+      <ScrollArea
         // Pas de `flex-1` : sa base de 0 effondre la liste dans un conteneur à
         // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
         // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
-        className="min-h-0 overflow-y-auto px-2 pb-2"
+        className="px-2 pb-2"
         role="listbox"
         aria-label="Calques"
-        aria-multiselectable="true"
+        aria-multiselectable
       >
         {layers.length === 0 && (
           <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
-            <Smartphone size={20} strokeWidth={1.5} className="text-faint" aria-hidden />
-            <p className="text-[12px] text-foreground-muted">Écran vide.</p>
-            <p className="max-w-[190px] text-[11px] leading-relaxed text-faint">
+            <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+            <p className="text-sm text-muted-foreground">Écran vide.</p>
+            <p className="max-w-[190px] text-2xs text-muted-foreground">
               Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
             </p>
             <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
@@ -151,14 +158,14 @@ export function LayersPanel() {
         )}
 
         {layers.length > 0 && layerGroups.length === 0 && (
-          <p className="py-6 text-center text-[11px] text-faint">
+          <p className="py-6 text-center text-2xs text-muted-foreground">
             Aucun calque pour « {query.trim()} »
           </p>
         )}
 
         {layerGroups.map((group) => (
           <div key={group.label} role="group" aria-label={group.label}>
-            <p className="field-label px-2 pb-1.5 pt-3">{group.label}</p>
+            <p className="field-label px-2 pb-2 pt-4">{group.label}</p>
             {group.layers.map((layer) => (
               <LayerItem
                 key={layer.id}
@@ -173,7 +180,7 @@ export function LayersPanel() {
             ))}
           </div>
         ))}
-      </div>
-    </div>
+      </ScrollArea>
+    </aside>
   )
 }

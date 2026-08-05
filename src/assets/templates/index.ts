@@ -1,5 +1,5 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
 
 const W = 440
@@ -38,7 +38,7 @@ function deviceLayer(
   id: string,
   name: string,
   geometry: Pick<DeviceFrameLayer, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex'>,
-  color: DeviceFrameLayer['deviceColor'] = 'black-titanium',
+  color: DeviceFrameLayer['deviceColor'] = 'white-titanium',
 ): DeviceFrameLayer {
   return {
     id,
@@ -115,7 +115,7 @@ export const TEMPLATES: TemplateDefinition[] = [
       }, { fontSize: 18, fontWeight: 400, color: '#5a5a57', letterSpacing: 0 }),
       deviceLayer('feature-device', 'iPhone', {
         x: 80, y: 318, width: 280, height: 591, rotation: 0, zIndex: 2,
-      }, 'white-titanium'),
+      }),
     ],
   },
   {
@@ -136,10 +136,10 @@ export const TEMPLATES: TemplateDefinition[] = [
       }, { fontSize: 46 }),
       deviceLayer('side-device-left', 'iPhone Left', {
         x: 8, y: 360, width: 196, height: 414, rotation: -7, zIndex: 1,
-      }, 'natural-titanium'),
+      }),
       deviceLayer('side-device-right', 'iPhone Right', {
         x: 236, y: 332, width: 196, height: 414, rotation: 7, zIndex: 2,
-      }, 'desert-titanium'),
+      }),
     ],
   },
   {
@@ -150,7 +150,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     layers: [
       deviceLayer('full-bleed-device', 'iPhone', {
         x: 20, y: 54, width: 400, height: 844, rotation: 0, zIndex: 0,
-      }, 'black-titanium'),
+      }),
       overlay,
       textLayer('full-bleed-title', 'Title', 'Titre sur l’image', {
         x: 32, y: 690, width: W - 64, height: 116, zIndex: 2,

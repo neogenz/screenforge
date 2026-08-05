@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
-import { createPortal } from 'react-dom'
+import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '@/lib/utils'
 
 export interface PopoverProps {
@@ -16,7 +16,7 @@ export interface PopoverProps {
   ariaLabel?: string
 }
 
-/** Anchored floating panel: portal, viewport-clamped, closes on outside press / Escape. */
+/** Anchored floating panel: Radix popper over a virtual anchor, collision-clamped. */
 export function Popover({
   open,
   anchor,
@@ -29,73 +29,46 @@ export function Popover({
   role,
   ariaLabel,
 }: PopoverProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const virtualRef = useRef({
+    getBoundingClientRect: () => anchor.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0),
+  })
 
-  useLayoutEffect(() => {
-    if (!open) return
+  function handleOutside(event: { target: unknown; preventDefault: () => void }) {
+    // Le déclencheur vit hors de l'arbre Radix : son propre onClick bascule
+    // l'ouverture, le press extérieur ne doit pas aussi fermer le panneau.
+    if (anchor.current?.contains(event.target as Node)) event.preventDefault()
+  }
 
-    function update() {
-      const anchorEl = anchor.current
-      const panel = panelRef.current
-      if (!anchorEl || !panel) return
-      const rect = anchorEl.getBoundingClientRect()
-      const { width, height } = panel.getBoundingClientRect()
-      const margin = 8
-      let left = align === 'start' ? rect.left : rect.right - width
-      let top = side === 'bottom' ? rect.bottom + offset : rect.top - height - offset
-      left = Math.min(Math.max(margin, left), window.innerWidth - width - margin)
-      top = Math.min(Math.max(margin, top), window.innerHeight - height - margin)
-      setPosition({ left, top })
-    }
-
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node
-      if (panelRef.current?.contains(target) || anchor.current?.contains(target)) return
-      onClose()
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        onClose()
-      }
-    }
-    document.addEventListener('pointerdown', handlePointerDown, true)
-    document.addEventListener('keydown', handleKeyDown, true)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update, true)
-      document.removeEventListener('pointerdown', handlePointerDown, true)
-      document.removeEventListener('keydown', handleKeyDown, true)
-    }
-  }, [open, anchor, align, side, offset, onClose])
-
-  if (!open) return null
-
-  return createPortal(
-    <div
-      ref={panelRef}
-      role={role}
-      aria-label={ariaLabel}
-      style={{
-        position: 'fixed',
-        left: position?.left ?? -9999,
-        top: position?.top ?? -9999,
-        visibility: position ? 'visible' : 'hidden',
+  return (
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose()
       }}
-      className={cn(
-        // Même grammaire que Dropdown et ContextMenu : rayon lg, ombre menu, fond panneau.
-        'menu-shadow z-(--z-popover) animate-menu-in overflow-hidden rounded-lg border border-border bg-panel',
-        side === 'bottom' ? 'origin-top' : 'origin-bottom',
-        className,
-      )}
     >
-      {children}
-    </div>,
-    document.body,
+      <PopoverPrimitive.Anchor virtualRef={virtualRef} />
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          role={role}
+          aria-label={ariaLabel}
+          align={align}
+          side={side}
+          sideOffset={offset}
+          collisionPadding={8}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => event.stopPropagation()}
+          onPointerDownOutside={handleOutside}
+          onInteractOutside={handleOutside}
+          className={cn(
+            // Même grammaire que Dropdown et ContextMenu : rayon lg, ombre menu, fond panneau.
+            'menu-shadow z-(--z-popover) animate-menu-in overflow-hidden rounded-lg border border-border bg-popover',
+            side === 'bottom' ? 'origin-top' : 'origin-bottom',
+            className,
+          )}
+        >
+          {children}
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   )
 }

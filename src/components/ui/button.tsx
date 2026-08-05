@@ -1,12 +1,13 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
+import * as SlotPrimitive from '@radix-ui/react-slot'
 import type { ButtonHTMLAttributes, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
   [
     'inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap',
-    'font-sans text-[12.5px] font-medium',
+    'font-sans text-sm font-medium',
     'transition-[background,color,border-color] duration-150 ease-out',
     'disabled:pointer-events-none disabled:opacity-40',
   ],
@@ -15,21 +16,21 @@ const buttonVariants = cva(
       variant: {
         // En relief sur son panneau : lisible au repos, sans attendre le survol.
         default:
-          'border border-border bg-raised text-foreground hover:border-border-strong hover:bg-raised-hover active:bg-raised-active',
+          'border border-border bg-secondary text-foreground hover:border-input hover:bg-accent',
         // La seule surface pleine de l'interface : blanche sur graphite, noire sur blanc.
         primary:
-          'border border-foreground bg-foreground text-stage hover:border-foreground-muted hover:bg-foreground-muted active:border-foreground-muted active:bg-foreground-muted',
+          'border border-foreground bg-foreground text-stage hover:border-muted-foreground hover:bg-muted-foreground active:border-muted-foreground active:bg-muted-foreground',
         ghost:
-          'border border-transparent bg-transparent text-foreground-muted hover:bg-raised-hover hover:text-foreground active:bg-raised-active',
+          'border border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
         danger:
-          'border border-border bg-transparent text-danger hover:border-danger hover:bg-danger-soft active:bg-danger-soft',
+          'border border-border bg-transparent text-destructive hover:border-destructive hover:bg-destructive/14 active:bg-destructive/14',
       },
       // 26px de haut, c'est la taille d'un bouton de barre d'outils d'IDE.
       // Le produit se compare à des outils de design : on part de 30.
       size: {
-        sm: 'h-[30px] rounded-md px-3',
-        md: 'h-[34px] rounded-md px-3.5',
-        lg: 'h-[40px] rounded-lg px-4',
+        sm: 'h-8 rounded-md px-3',
+        md: 'h-9 rounded-md px-4',
+        lg: 'h-10 rounded-md px-6',
       },
     },
     defaultVariants: { variant: 'default', size: 'md' },
@@ -41,6 +42,7 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   /** Refuse le clic et préfixe le contenu d'un indicateur, sans masquer le libellé. */
   loading?: boolean
+  asChild?: boolean
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -48,6 +50,7 @@ export function Button({
   variant,
   size,
   loading = false,
+  asChild = false,
   disabled,
   className,
   children,
@@ -55,11 +58,13 @@ export function Button({
   ref,
   ...props
 }: ButtonProps) {
+  const Comp = asChild ? SlotPrimitive.Root : 'button'
   return (
-    <button
+    <Comp
       ref={ref}
-      type={type}
-      disabled={disabled || loading}
+      data-slot="button"
+      type={asChild ? undefined : type}
+      disabled={asChild ? undefined : disabled || loading}
       aria-busy={loading || undefined}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
@@ -74,6 +79,6 @@ export function Button({
         />
       )}
       {children}
-    </button>
+    </Comp>
   )
 }

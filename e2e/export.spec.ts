@@ -42,10 +42,10 @@ test.describe('export', () => {
     })
 
     const state = await page.evaluate(() => {
-      const stores = (window as unknown as {
-        __sfStores?: { useCanvasStore: { getState: () => { layers: Array<Record<string, unknown>> } } }
-      }).__sfStores
-      return stores?.useCanvasStore.getState().layers.find((layer) => layer.type === 'device-frame') as {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+      return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
+        .find((layer) => layer.type === 'device-frame') as {
         x: number; y: number; width: number; height: number
       }
     })

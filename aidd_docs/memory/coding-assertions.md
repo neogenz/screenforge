@@ -4,7 +4,7 @@
 
 | Order | Command | Checks |
 | ----- | ------- | ------ |
-| 1 | `pnpm test` | Unit tests, TypeScript, and ESLint. |
+| 1 | `pnpm test` | Unit tests, application/tooling TypeScript, and ESLint. |
 
 ## Before push
 

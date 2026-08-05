@@ -5,10 +5,10 @@ import {
   type ProjectHistorySnapshot,
   type ScreenHistorySnapshot,
 } from '@/stores/history.store'
-import { useProjectStore } from '@/stores/project.store'
+import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
 import type { Background, Layer, Screen, TemplateDefinition } from '@/types'
@@ -19,15 +19,12 @@ interface EditOptions {
 }
 
 interface CanvasState {
-  /** Mirror of the active screen's layers for panels and keyboard commands. */
-  layers: Layer[]
   selectedLayerIds: string[]
-  activeScreenId: string
 
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
   updateLayer: (id: string, updates: Partial<Layer>, options?: EditOptions) => void
-  updateBackground: (background: Background) => void
+  updateBackground: (background: Background, options?: EditOptions) => void
   selectLayer: (id: string) => void
   selectLayers: (ids: string[]) => void
   clearSelection: () => void
@@ -37,8 +34,6 @@ interface CanvasState {
   setLayers: (layers: Layer[], options?: EditOptions) => void
   alignSelection: (mode: AlignMode) => void
   distributeSelection: (mode: DistributeMode) => void
-  setActiveScreenId: (id: string) => void
-  syncLayersFromProject: () => void
   recordHistory: () => void
   recordProjectHistory: () => void
   applyTemplate: (template: TemplateDefinition, mode: 'current' | 'new') => string | null
@@ -52,41 +47,16 @@ function withoutThumbnail(screen: Screen): Screen {
   return snapshot
 }
 
-function activeScreen(screenId: string): Screen | undefined {
-  return useProjectStore
-    .getState()
-    .project?.screens.find((screen) => screen.id === screenId)
+function activeScreen(): Screen | undefined {
+  return getActiveScreen(useProjectStore.getState().project)
 }
 
-function syncFromProject(screenId: string): Layer[] {
-  const project = useProjectStore.getState().project
-  return [
-    ...(project?.screens.find((screen) => screen.id === screenId)?.layers ?? []),
-    ...(project?.layoutLayers ?? []),
-  ]
-}
-
-/**
- * Identity-preserving mirror update: keeps the previous array (and lets
- * useShallow selectors skip the render) when every layer ref is unchanged.
- */
-function syncLayersPreservingIdentity(previous: Layer[], screenId: string): Layer[] {
-  const next = syncFromProject(screenId)
-  if (
-    previous.length === next.length
-    && previous.every((layer, index) => layer === next[index])
-  ) {
-    return previous
-  }
-  return next
-}
-
-function screenSnapshot(screenId: string): ScreenHistorySnapshot | null {
-  const screen = activeScreen(screenId)
+function screenSnapshot(screenId = activeScreen()?.id): ScreenHistorySnapshot | null {
+  const screen = useProjectStore.getState().project?.screens.find((candidate) => candidate.id === screenId)
   return screen
     ? {
-        kind: 'screen',
-        screenId,
+      kind: 'screen',
+        screenId: screen.id,
         layers: screen.layers,
         background: screen.background,
       }
@@ -106,9 +76,10 @@ function projectSnapshot(): ProjectHistorySnapshot | null {
     : null
 }
 
-function selectedLayers(state: Pick<CanvasState, 'layers' | 'selectedLayerIds'>): Layer[] {
+function selectedLayers(state: Pick<CanvasState, 'selectedLayerIds'>): Layer[] {
   const selected = new Set(state.selectedLayerIds)
-  return state.layers.filter((layer) => selected.has(layer.id) && !layer.locked)
+  return getProjectLayers(useProjectStore.getState().project)
+    .filter((layer) => selected.has(layer.id) && !layer.locked)
 }
 
 /**
@@ -119,14 +90,12 @@ function selectedLayers(state: Pick<CanvasState, 'layers' | 'selectedLayerIds'>)
  * Un calque partagé vit dans l'espace continu de la planche, qui saute les
  * gouttières : sa fenêtre est celle de l'écran actif, décalée d'autant.
  */
-function alignmentReference(
-  state: Pick<CanvasState, 'activeScreenId'>,
-  selected: Layer[],
-): Placeable {
+function alignmentReference(selected: Layer[]): Placeable {
   if (selected.length > 1) return boundsOf(selected)
-  const screens = useProjectStore.getState().project?.screens ?? []
+  const project = useProjectStore.getState().project
+  const screens = project?.screens ?? []
   const index = selected[0]?.scope === 'layout'
-    ? Math.max(0, screens.findIndex((screen) => screen.id === state.activeScreenId))
+    ? Math.max(0, screens.findIndex((screen) => screen.id === project?.activeScreenId))
     : 0
   return { x: index * SCREEN_WIDTH, y: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
 }
@@ -163,7 +132,7 @@ function applyGlobalsToNewLayer(layer: Layer): Layer {
 
 export const useCanvasStore = create<CanvasState>()((set, get) => {
   function recordCurrent(coalesceKey?: string) {
-    const snapshot = screenSnapshot(get().activeScreenId)
+    const snapshot = screenSnapshot()
     if (snapshot) useHistoryStore.getState().record(snapshot, coalesceKey)
   }
 
@@ -190,11 +159,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         updatedAt: nextTimestamp(project.updatedAt),
       },
     })
-    set({
-      activeScreenId: snapshot.screenId,
-      layers: syncFromProject(snapshot.screenId),
-      selectedLayerIds: [],
-    })
+    set({ selectedLayerIds: [] })
   }
 
   function persistProject(snapshot: ProjectHistorySnapshot) {
@@ -210,11 +175,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         updatedAt: nextTimestamp(current?.updatedAt ?? 0),
       },
     })
-    set({
-      activeScreenId,
-      layers: syncFromProject(activeScreenId),
-      selectedLayerIds: [],
-    })
+    set({ selectedLayerIds: [] })
   }
 
   function travel(direction: 'undo' | 'redo') {
@@ -232,12 +193,10 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
   }
 
   return {
-    layers: [],
     selectedLayerIds: [],
-    activeScreenId: '',
 
     addLayer: (layer) => {
-      const screenId = get().activeScreenId
+      const screenId = activeScreen()?.id
       if (!screenId) return
       const nextLayer = applyGlobalsToNewLayer(layer)
       if (nextLayer.scope === 'layout') {
@@ -252,12 +211,13 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         recordCurrent()
         useProjectStore.getState().addScreenLayer(screenId, nextLayer)
       }
-      set({ layers: syncFromProject(screenId), selectedLayerIds: [nextLayer.id] })
+      set({ selectedLayerIds: [nextLayer.id] })
     },
 
     removeLayer: (id) => {
-      const screenId = get().activeScreenId
-      const layer = get().layers.find((candidate) => candidate.id === id)
+      const screenId = activeScreen()?.id
+      const layer = getProjectLayers(useProjectStore.getState().project)
+        .find((candidate) => candidate.id === id)
       if (!screenId || !layer) return
       if (layer.scope === 'layout') {
         recordProject()
@@ -271,14 +231,14 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         useProjectStore.getState().removeScreenLayer(screenId, id)
       }
       set((state) => ({
-        layers: syncFromProject(screenId),
         selectedLayerIds: state.selectedLayerIds.filter((selectedId) => selectedId !== id),
       }))
     },
 
     updateLayer: (id, updates, options) => {
-      const screenId = get().activeScreenId
-      const layer = get().layers.find((candidate) => candidate.id === id)
+      const screenId = activeScreen()?.id
+      const layer = getProjectLayers(useProjectStore.getState().project)
+        .find((candidate) => candidate.id === id)
       if (!screenId || !layer) return
       const changed = Object.entries(updates).some(
         ([key, value]) => !Object.is(layer[key as keyof Layer], value),
@@ -295,13 +255,12 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         recordCurrent(options?.coalesceKey)
         useProjectStore.getState().updateScreenLayer(screenId, id, updates)
       }
-      set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screenId) }))
     },
 
-    updateBackground: (background) => {
-      const screen = activeScreen(get().activeScreenId)
+    updateBackground: (background, options) => {
+      const screen = activeScreen()
       if (!screen || JSON.stringify(screen.background) === JSON.stringify(background)) return
-      recordCurrent()
+      recordCurrent(options?.coalesceKey)
       persistScreen({
         kind: 'screen',
         screenId: screen.id,
@@ -319,9 +278,10 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     clearSelection: () => set({ selectedLayerIds: [] }),
 
     reorderLayer: (id, newIndex) => {
-      const screenId = get().activeScreenId
-      const layer = get().layers.find((candidate) => candidate.id === id)
-      const scopedLayers = get().layers.filter((candidate) => candidate.scope === layer?.scope)
+      const screenId = activeScreen()?.id
+      const layers = getProjectLayers(useProjectStore.getState().project)
+      const layer = layers.find((candidate) => candidate.id === id)
+      const scopedLayers = layers.filter((candidate) => candidate.scope === layer?.scope)
       const currentIndex = scopedLayers.findIndex((candidate) => candidate.id === id)
       if (!screenId || currentIndex === -1 || currentIndex === newIndex) return
       if (layer?.scope === 'layout') {
@@ -338,15 +298,16 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         recordCurrent()
         useProjectStore.getState().reorderScreenLayer(screenId, id, newIndex)
       }
-      set({ layers: syncFromProject(screenId), selectedLayerIds: [id] })
+      set({ selectedLayerIds: [id] })
     },
 
     duplicateLayer: (id) => {
-      const screenId = get().activeScreenId
+      const screenId = activeScreen()?.id
       if (!screenId) return
-      const source = get().layers.find((layer) => layer.id === id)
+      const layers = getProjectLayers(useProjectStore.getState().project)
+      const source = layers.find((layer) => layer.id === id)
       if (!source) return
-      const previousIds = new Set(get().layers.map((layer) => layer.id))
+      const previousIds = new Set(layers.map((layer) => layer.id))
       if (source.scope === 'layout') {
         recordProject()
         const project = useProjectStore.getState().project
@@ -367,17 +328,16 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         recordCurrent()
         useProjectStore.getState().duplicateScreenLayer(screenId, id)
       }
-      const layers = syncFromProject(screenId)
-      const duplicate = layers.find((layer) => !previousIds.has(layer.id))
+      const duplicate = getProjectLayers(useProjectStore.getState().project)
+        .find((layer) => !previousIds.has(layer.id))
       set({
-        layers,
         selectedLayerIds: duplicate ? [duplicate.id] : get().selectedLayerIds,
       })
     },
 
     setLayerScope: (id, scope) => {
       const project = useProjectStore.getState().project
-      const screenId = get().activeScreenId
+      const screenId = project?.activeScreenId
       const screenIndex = project?.screens.findIndex((screen) => screen.id === screenId) ?? -1
       if (!project || screenIndex === -1) return
       const screen = project.screens[screenIndex]
@@ -422,11 +382,11 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           updatedAt: nextTimestamp(project.updatedAt),
         },
       })
-      set({ layers: syncFromProject(screenId), selectedLayerIds: [id] })
+      set({ selectedLayerIds: [id] })
     },
 
     setLayers: (layers, options) => {
-      const screen = activeScreen(get().activeScreenId)
+      const screen = activeScreen()
       if (!screen) return
       recordProject(options?.coalesceKey)
       const project = useProjectStore.getState().project
@@ -441,56 +401,22 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
           updatedAt: nextTimestamp(project.updatedAt),
         },
       })
-      set((state) => ({ layers: syncLayersPreservingIdentity(state.layers, screen.id) }))
     },
 
     alignSelection: (mode) => {
       const selected = selectedLayers(get())
       if (selected.length === 0) return
-      const placements = alignTo(selected, mode, alignmentReference(get(), selected))
-      get().setLayers(placeLayers(get().layers, selected, placements))
+      const layers = getProjectLayers(useProjectStore.getState().project)
+      const placements = alignTo(selected, mode, alignmentReference(selected))
+      get().setLayers(placeLayers(layers, selected, placements))
     },
 
     distributeSelection: (mode) => {
       const selected = selectedLayers(get())
       // Deux calques sont déjà « répartis » : il n'y a pas d'intervalle intérieur.
       if (selected.length < 3) return
-      get().setLayers(placeLayers(get().layers, selected, distribute(selected, mode)))
-    },
-
-    setActiveScreenId: (id) => {
-      const project = useProjectStore.getState().project
-      const validId = project?.screens.some((screen) => screen.id === id)
-        ? id
-        : project?.screens.some((screen) => screen.id === project.activeScreenId)
-          ? project.activeScreenId
-          : project?.screens[0]?.id ?? ''
-      if (project && validId && project.activeScreenId !== validId) {
-        useProjectStore.setState({
-          project: {
-            ...project,
-            activeScreenId: validId,
-            updatedAt: nextTimestamp(project.updatedAt),
-          },
-        })
-      }
-      set({
-        activeScreenId: validId,
-        layers: syncFromProject(validId),
-        selectedLayerIds: [],
-      })
-    },
-
-    syncLayersFromProject: () => {
-      const project = useProjectStore.getState().project
-      const currentId = get().activeScreenId
-      const screenId = project?.screens.some((screen) => screen.id === currentId)
-        ? currentId
-        : project?.activeScreenId ?? project?.screens[0]?.id ?? ''
-      set((state) => ({
-        activeScreenId: screenId,
-        layers: syncLayersPreservingIdentity(state.layers, screenId),
-      }))
+      const layers = getProjectLayers(useProjectStore.getState().project)
+      get().setLayers(placeLayers(layers, selected, distribute(selected, mode)))
     },
 
     recordHistory: recordCurrent,
@@ -506,11 +432,11 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       })) as Layer[]
 
       if (mode === 'current') {
-        const screenId = get().activeScreenId || project.activeScreenId || project.screens[0]?.id
+        const screenId = project.activeScreenId || project.screens[0]?.id
         if (!screenId) return null
         recordCurrent()
         useProjectStore.getState().replaceScreenContent(screenId, template.background, layers)
-        set({ activeScreenId: screenId, layers: syncFromProject(screenId), selectedLayerIds: [] })
+        set({ selectedLayerIds: [] })
         return screenId
       }
 
@@ -522,11 +448,17 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         layers,
       })
       if (!screenId) return null
-      set({ activeScreenId: screenId, layers: syncFromProject(screenId), selectedLayerIds: [] })
+      set({ selectedLayerIds: [] })
       return screenId
     },
 
     undo: () => travel('undo'),
     redo: () => travel('redo'),
+  }
+})
+
+useProjectStore.subscribe((state, previous) => {
+  if (state.project?.activeScreenId !== previous.project?.activeScreenId) {
+    useCanvasStore.getState().clearSelection()
   }
 })

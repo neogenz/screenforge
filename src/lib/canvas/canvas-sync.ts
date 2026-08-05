@@ -11,17 +11,17 @@ import {
   layerToFabricObject,
   needsFabricObjectRecreation,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
+} from '@/lib/canvas/canvas-utils'
 import {
   applyLassoColors,
+  artboardStyle,
   readChromeColors,
   resolveSelectionObjects,
   sameIds,
-} from '@/components/canvas/canvas-interactions'
-import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
+} from '@/lib/canvas/canvas-interactions'
 import type { ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { isFontLoaded, loadGoogleFont } from '@/hooks/use-fonts'
+import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Project, Screen } from '@/types'
 
 type MutableValue<T> = { current: T }
@@ -66,8 +66,9 @@ function applyLayoutInstance(
 }
 
 function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
-  if (layer.type !== 'text' || isFontLoaded(layer.fontFamily)) return
+  if (layer.type !== 'text') return
   const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
+  if (isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return
   if (runtime.fontLoadRequests.has(fontKey)) return
   runtime.fontLoadRequests.add(fontKey)
   void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
@@ -134,7 +135,6 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           selectable: false,
           evented: false,
           strokeUniform: true,
-          shadow: new Shadow({ color: DEFAULT_CANVAS_SHADOW_COLOR, blur: 24, offsetY: 4 }),
         })
         background.set('data', {
           uid: backgroundId,
@@ -144,12 +144,14 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(background)
         objectsById.set(backgroundId, background)
       }
+      const artboard = artboardStyle(chrome, screen.id === activeScreenId)
       background.set({
         left: offset,
         top: 0,
         fill: backgroundToFabricFill(screen.background),
-        stroke: screen.id === activeScreenId ? chrome.activeRing : chrome.artboardRing,
-        strokeWidth: screen.id === activeScreenId ? 2 : 1,
+        stroke: artboard.stroke,
+        strokeWidth: artboard.strokeWidth,
+        shadow: new Shadow(artboard.shadow),
       })
       background.setCoords()
 
@@ -173,7 +175,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(label)
         objectsById.set(labelId, label)
       }
-      label.set({ left: offset, top: -26, text: screen.name, fill: chrome.label })
+      label.set({ left: offset, top: -26, text: screen.name, fill: artboard.labelFill })
       label.setCoords()
 
       for (const layer of screen.layers) {
@@ -346,14 +348,14 @@ export async function patchCanvas(
     const object = objectsById.get(layerId)
     if (!layer || !object) return false
     if (needsFabricObjectRecreation(object, layer)) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
     applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
   }
 
   for (const layerId of change.layoutLayerIds) {
     const layer = project.layoutLayers.find((candidate) => candidate.id === layerId)
     if (!layer) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily)) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
     for (let index = 0; index < project.screens.length; index += 1) {
       const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
       if (!object) return false

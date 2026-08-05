@@ -12,8 +12,9 @@ import {
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { IconButton } from '@/components/ui/icon-button'
-import { buildLayerMenuItems } from '@/components/ui/layer-menu'
+import { buildLayerMenuItems } from './layer-menu'
 import { useLayerActions } from '@/hooks/use-layer-actions'
+import { layerDisplayName } from '@/lib/layer-factories'
 import { cn } from '@/lib/utils'
 import type { Layer } from '@/types'
 
@@ -52,6 +53,7 @@ export const LayerItem = memo(function LayerItem({
   onDrop,
 }: LayerItemProps) {
   const actions = useLayerActions()
+  const displayName = layerDisplayName(layer)
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(layer.name)
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
@@ -64,13 +66,16 @@ export const LayerItem = memo(function LayerItem({
   }, [editing])
 
   function startRename() {
-    setEditName(layer.name)
+    // Le champ part de ce que la ligne affiche, pas du nom stocké : sur un
+    // calque de texte jamais renommé les deux diffèrent, et voir « Texte »
+    // apparaître à la place du titre qu'on vient de lire est incompréhensible.
+    setEditName(displayName)
     setEditing(true)
   }
 
   function commitRename() {
     const trimmed = editName.trim()
-    if (trimmed && trimmed !== layer.name) actions.rename(layer, trimmed)
+    if (trimmed && trimmed !== displayName) actions.rename(layer, trimmed)
     setEditing(false)
   }
 
@@ -122,7 +127,7 @@ export const LayerItem = memo(function LayerItem({
       role="option"
       tabIndex={0}
       aria-selected={isSelected}
-      aria-label={`${layer.name}, ${layer.type}`}
+      aria-label={`${displayName}, ${layer.type}`}
       data-layer-id={layer.id}
       draggable
       onDragStart={(event) => onDragStart(layer, event)}
@@ -139,15 +144,15 @@ export const LayerItem = memo(function LayerItem({
         // L'aplat pesait autant que le contenu du panneau et ne disait pas
         // « sélectionné », seulement « survolé un peu plus fort ».
         isSelected
-          ? 'accent-mark text-foreground'
-          : 'text-foreground-muted hover:bg-raised-hover hover:text-foreground',
+          ? 'marker-soft text-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       <GripVertical
         size={11}
         strokeWidth={1.5}
         aria-hidden
-        className="shrink-0 cursor-grab text-faint opacity-0 transition-opacity group-hover:opacity-100"
+        className="shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
       />
 
       <LayerTypeIcon type={layer.type} />
@@ -161,11 +166,11 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-raised px-1.5 py-0.5 text-[12.5px] focus:border-foreground-muted"
+          className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-1.5 py-0.5 text-sm focus:border-muted-foreground"
         />
       ) : (
-        <span className="flex-1 truncate text-[12.5px]">
-          {layer.name}
+        <span className="flex-1 truncate text-sm">
+          {displayName}
         </span>
       )}
 
@@ -203,15 +208,15 @@ export const LayerItem = memo(function LayerItem({
 
       {(!layer.visible || layer.locked) && (
         <div className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden" aria-hidden>
-          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-faint" />}
-          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-faint" />}
+          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-muted-foreground" />}
+          {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-muted-foreground" />}
         </div>
       )}
 
       {menuPosition && (
         <ContextMenu
           position={menuPosition}
-          label={`Actions de ${layer.name}`}
+          label={`Actions de ${displayName}`}
           onClose={() => setMenuPosition(null)}
           items={buildLayerMenuItems(layer, actions, { onRename: startRename })}
         />

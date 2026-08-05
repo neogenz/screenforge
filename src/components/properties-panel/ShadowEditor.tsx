@@ -1,4 +1,5 @@
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
+import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
 import { Switch } from '@/components/ui/switch'
 import { DEFAULT_SHADOW_COLOR } from '@/lib/content-defaults'
@@ -32,7 +33,7 @@ export function ShadowEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="section-title">{title}</span>
+        <h3 className="section-title">{title}</h3>
         <Switch
           ariaLabel={ariaLabel}
           checked={!!shadow}
@@ -67,14 +68,13 @@ export function ShadowEditor({
             min={0}
             max={500}
           />
-          <div className="flex flex-col gap-1.5">
-            <span className="field-label">Couleur</span>
+          <Field label="Couleur">
             <ColorPicker
               value={shadow.color}
               onChange={(color) => patch({ color })}
               showOpacity
             />
-          </div>
+          </Field>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
+import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
@@ -11,7 +12,7 @@ import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
   value: GradientFill
-  onChange: (gradient: GradientFill) => void
+  onChange: (gradient: GradientFill, coalesceKey?: string) => void
 }
 
 type GradientType = GradientFill['type']
@@ -40,24 +41,30 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     onChange({ ...value, type })
   }
 
-  function setAngle(angle: number) {
+  function setAngle(angle: number, continuous = false) {
     const finiteAngle = Number.isFinite(angle) ? angle : 0
-    onChange({ ...value, angle: ((finiteAngle % 360) + 360) % 360 })
+    onChange(
+      { ...value, angle: ((finiteAngle % 360) + 360) % 360 },
+      continuous ? 'angle' : undefined,
+    )
   }
 
   function setCenter(axis: 'centerX' | 'centerY', percentage: number) {
     const finitePercentage = Number.isFinite(percentage) ? percentage : 50
-    onChange({
-      ...value,
-      [axis]: Math.min(100, Math.max(0, finitePercentage)),
-    })
+    onChange(
+      {
+        ...value,
+        [axis]: Math.min(100, Math.max(0, finitePercentage)),
+      },
+      axis,
+    )
   }
 
-  function updateStop(index: number, partial: Partial<ColorStop>) {
+  function updateStop(index: number, partial: Partial<ColorStop>, property: 'color' | 'offset') {
     const stops = value.stops.map((s: ColorStop, i: number) =>
       i === index ? { ...s, ...partial } : s,
     )
-    onChange({ ...value, stops })
+    onChange({ ...value, stops }, `stop:${index}:${property}`)
   }
 
   function addStop() {
@@ -105,12 +112,8 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
       {/* Angle (linear only) */}
       {value.type === 'linear' && (
-        <NumberField
-          label="Angle"
+        <AngleControl
           ariaLabel="Angle du dégradé"
-          min={0}
-          max={360}
-          step={1}
           value={value.angle ?? 90}
           onChange={setAngle}
         />
@@ -143,7 +146,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       <StopTrack
         gradient={value}
         stops={sortedStops}
-        onMove={(index, offset) => updateStop(index, { offset })}
+        onMove={(index, offset) => updateStop(index, { offset }, 'offset')}
       />
 
       {/* Stops */}
@@ -158,11 +161,11 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           {sortedStops.map((stop) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-inset p-2"
+              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-muted p-2"
             >
               <ColorPicker
                 value={stop.color}
-                onChange={(color) => updateStop(stop.originalIndex, { color })}
+                onChange={(color) => updateStop(stop.originalIndex, { color }, 'color')}
                 showOpacity
               />
               <IconButton
@@ -170,7 +173,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
                 onClick={() => removeStop(stop.originalIndex)}
                 disabled={value.stops.length <= 2}
                 aria-label="Supprimer le stop"
-                className="shrink-0 hover:bg-danger-soft hover:text-danger"
+                className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
               >
                 <Trash2 size={13} strokeWidth={1.5} aria-hidden />
               </IconButton>
@@ -245,7 +248,7 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
     >
       <div
         aria-hidden
-        className="absolute inset-0 rounded-[8px]"
+        className="absolute inset-0 rounded-md"
         style={{ background: buildCssGradient(gradient) }}
       />
       {stops.map((stop, displayIndex) => (
@@ -261,8 +264,15 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
           onPointerDown={(event) => handlePointerDown(stop.originalIndex, event)}
           onKeyDown={(event) => handleKeyDown(stop.originalIndex, stop.offset, event)}
           style={{ left: `${stop.offset * 100}%`, background: stop.color }}
-          className="absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
-            rounded-full border-2 border-white shadow-[0_1px_3px_oklch(0_0_0/0.5)]
+          // `hit-24` : la poignée reste à 18px — c'est la piste qui doit rester
+          // lisible — mais la prise atteint le minimum de la 2.5.8. La piste ne
+          // déplace pas les arrêts, donc c'est bien ce bouton qui est la cible.
+          // `border-white` ne suit pas le thème, et c'est voulu : l'arrêt se
+          // pose sur le dégradé de l'utilisateur, pas sur une surface de chrome.
+          // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
+          // sombre. Même raison que `SELECTION_INK` sur le canevas.
+          className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
+            rounded-full border-2 border-white shadow-(--shadow-handle)
             transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
         />
       ))}

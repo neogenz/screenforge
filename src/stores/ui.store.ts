@@ -9,6 +9,11 @@ interface UIState {
   viewportResetKey: number
   layersOpen: boolean
   propsOpen: boolean
+  /**
+   * Un seul tiroir à la fois. Posé par la fenêtre, pas lu par le store : la
+   * largeur est une donnée du navigateur, pas un état du produit.
+   */
+  exclusiveDrawers: boolean
   activeTool: ActiveTool
   showExportDialog: boolean
   showTemplatesPicker: boolean
@@ -25,6 +30,7 @@ interface UIState {
   toggleLayers: () => void
   toggleProps: () => void
   closeDrawers: () => void
+  setExclusiveDrawers: (exclusive: boolean) => void
   setActiveTool: (tool: ActiveTool) => void
   setShowExportDialog: (show: boolean) => void
   setShowTemplatesPicker: (show: boolean) => void
@@ -58,6 +64,7 @@ export const useUIStore = create<UIState>()((set) => ({
   viewportResetKey: 0,
   layersOpen: true,
   propsOpen: true,
+  exclusiveDrawers: false,
   activeTool: 'select',
   showExportDialog: false,
   showTemplatesPicker: false,
@@ -76,13 +83,35 @@ export const useUIStore = create<UIState>()((set) => ({
   resetZoom: () =>
     set((s) => ({ zoom: 1, viewportResetKey: s.viewportResetKey + 1 })),
 
+  // Ouvrir chasse l'autre quand la fenêtre ne peut plus en porter deux ;
+  // fermer ne rouvre jamais rien.
   toggleLayers: () =>
-    set((state) => ({ layersOpen: !state.layersOpen })),
+    set((state) => {
+      const layersOpen = !state.layersOpen
+      return {
+        layersOpen,
+        propsOpen: layersOpen && state.exclusiveDrawers ? false : state.propsOpen,
+      }
+    }),
 
   toggleProps: () =>
-    set((state) => ({ propsOpen: !state.propsOpen })),
+    set((state) => {
+      const propsOpen = !state.propsOpen
+      return {
+        propsOpen,
+        layersOpen: propsOpen && state.exclusiveDrawers ? false : state.layersOpen,
+      }
+    }),
 
   closeDrawers: () => set({ layersOpen: false, propsOpen: false }),
+
+  // En passant sous le seuil avec les deux ouverts, Calques cède : Propriétés
+  // est la surface d'édition, Calques la navigation, et on garde ce qui édite.
+  setExclusiveDrawers: (exclusive) =>
+    set((state) => ({
+      exclusiveDrawers: exclusive,
+      layersOpen: exclusive && state.propsOpen ? false : state.layersOpen,
+    })),
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 

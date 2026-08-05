@@ -42,8 +42,9 @@ function withCentralUncompressedSize(
 
 async function portableFixture(page: Page): Promise<PortableFixture> {
   return page.evaluate(async () => {
-    const { clearAssets, registerAsset } = await import('/src/lib/assets.ts')
-    const { createProjectFile, readProjectFile } = await import('/src/lib/project-file.ts')
+    const projectFilePath = '/src/lib/project-file.ts'
+    const { clearAssets, registerAsset } = window.__sfAssets!
+    const { createProjectFile, readProjectFile } = await import(projectFilePath) as typeof import('../src/lib/project-file')
     clearAssets()
     const imageId = registerAsset('data:image/png;base64,aW1hZ2U=')
     const screenshotId = registerAsset('data:image/jpeg;base64,c2NyZWVuc2hvdA==')
@@ -138,7 +139,8 @@ async function portableFixture(page: Page): Promise<PortableFixture> {
 
 async function readArchive(page: Page, bytes: Uint8Array) {
   return page.evaluate(async (archive) => {
-    const { readProjectFile } = await import('/src/lib/project-file.ts')
+    const modulePath = '/src/lib/project-file.ts'
+    const { readProjectFile } = await import(modulePath) as typeof import('../src/lib/project-file')
     try {
       await readProjectFile(new File([Uint8Array.from(archive)], 'test.screenforge.zip'))
       return 'ok'
@@ -212,6 +214,41 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
     project.screens[0].layers[0].width = 0
   })
+  const invalidOpacity = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
+    project.screens[0].layers[0].opacity = 2
+  })
+  const duplicateLayerId = await mutateManifest((manifest) => {
+    const project = manifest.project as {
+      screens: Array<{ layers: Array<Record<string, unknown>> }>
+      layoutLayers: Array<Record<string, unknown>>
+    }
+    project.layoutLayers[0].id = project.screens[0].layers[0].id
+  })
+  const legacyShape = await mutateManifest((manifest) => {
+    const project = manifest.project as { screens: Array<{ layers: Array<Record<string, unknown>> }> }
+    project.screens[0].layers.push({
+      id: 'legacy-shape',
+      type: 'shape',
+      name: 'Legacy shape',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      zIndex: 3,
+      shapeType: 'rectangle',
+      fill: '#000',
+      gradientFill: {
+        type: 'linear',
+        angle: 90,
+        stops: [{ offset: 0, color: '#000' }, { offset: 1, color: '#fff' }],
+      },
+    })
+  })
   const oversizedCentralEntry = withCentralUncompressedSize(
     source,
     missingManifest.assets[0].path,
@@ -226,6 +263,9 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     readArchive(page, await unknownDirectory.generateAsync({ type: 'uint8array' })),
     readArchive(page, nullLayer),
     readArchive(page, invalidGeometry),
+    readArchive(page, invalidOpacity),
+    readArchive(page, duplicateLayerId),
+    readArchive(page, legacyShape),
     readArchive(page, oversizedCentralEntry),
   ])).toEqual([
     'unsupported-version',
@@ -235,30 +275,25 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     'unsafe-entry',
     'invalid-manifest',
     'invalid-manifest',
+    'invalid-manifest',
+    'invalid-manifest',
+    'ok',
     'asset-too-large',
   ])
 })
 
 test('rejects an invalid archive without mutating the open project or assets', async ({ page }) => {
-  const before = await page.evaluate(async () => {
-    const { registerAsset } = await import('/src/lib/assets.ts')
-    const { useProjectStore } = await import('/src/stores/project.store.ts')
-    return {
-      projectId: useProjectStore.getState().project?.id,
-      assetId: registerAsset('data:image/png;base64,c2VudGluZWw='),
-    }
-  })
+  const before = await page.evaluate(() => ({
+    projectId: window.__sfStores!.useProjectStore.getState().project?.id,
+    assetId: window.__sfAssets!.registerAsset('data:image/png;base64,c2VudGluZWw='),
+  }))
 
   expect(await readArchive(page, new TextEncoder().encode('not a zip'))).toBe('invalid-archive')
-  expect(await page.evaluate(async ({ projectId, assetId }) => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
-    const { useProjectStore } = await import('/src/stores/project.store.ts')
-    return {
-      projectId: useProjectStore.getState().project?.id,
-      asset: resolveAsset(assetId),
-      expectedProjectId: projectId,
-    }
-  }, before)).toEqual({
+  expect(await page.evaluate(({ projectId, assetId }) => ({
+    projectId: window.__sfStores!.useProjectStore.getState().project?.id,
+    asset: window.__sfAssets!.resolveAsset(assetId),
+    expectedProjectId: projectId,
+  }), before)).toEqual({
     projectId: before.projectId,
     expectedProjectId: before.projectId,
     asset: 'data:image/png;base64,c2VudGluZWw=',
@@ -280,7 +315,7 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await page.getByLabel('Nom du projet').press('Enter')
   await page.getByLabel('Ajouter Texte').click()
   await expect.poll(() => page.evaluate(() => window.__sfStores
-    ?.useCanvasStore.getState().layers.some((layer) => layer.type === 'text'))).toBe(true)
+    ?.useProjectStore.getState().project?.screens[0]?.layers.some((layer) => layer.type === 'text'))).toBe(true)
   await page.getByLabel('Importer une image').setInputFiles({
     name: 'hero.png',
     mimeType: 'image/png',
@@ -316,7 +351,7 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await expect(page.getByRole('status').filter({ hasText: 'Enregistré' })).toBeVisible()
 
   const imported = await page.evaluate(async () => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const { resolveAsset } = window.__sfAssets!
     const project = window.__sfStores?.useProjectStore.getState().project
     const layers = project
       ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
@@ -340,7 +375,7 @@ test('downloads, imports and reloads a complete portable project', async ({ page
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas))
   const afterReload = await page.evaluate(async () => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const { resolveAsset } = window.__sfAssets!
     const project = window.__sfStores?.useProjectStore.getState().project
     const layers = project
       ? [...project.layoutLayers, ...project.screens.flatMap((screen) => screen.layers)]
@@ -396,10 +431,11 @@ test('downloads, imports and reloads a complete portable project', async ({ page
 
 test('keeps the current session intact when UI import rejects a corrupt file', async ({ page }) => {
   const before = await page.evaluate(async () => {
-    const { registerAsset } = await import('/src/lib/assets.ts')
+    const { registerAsset } = window.__sfAssets!
+    const project = window.__sfStores?.useProjectStore.getState().project
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
-      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      activeScreenId: project?.activeScreenId,
       assetId: registerAsset('data:image/png;base64,c3RheQ=='),
     }
   })
@@ -408,12 +444,13 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
     mimeType: 'application/zip',
     buffer: Buffer.from('broken'),
   })
-  await expect(page.getByText('Archive projet invalide.')).toBeVisible()
+  await expect(page.getByRole('alert').filter({ hasText: 'Archive projet invalide.' })).toBeVisible()
   expect(await page.evaluate(async ({ assetId }) => {
-    const { resolveAsset } = await import('/src/lib/assets.ts')
+    const { resolveAsset } = window.__sfAssets!
+    const project = window.__sfStores?.useProjectStore.getState().project
     return {
       projectId: window.__sfStores?.useProjectStore.getState().project?.id,
-      activeScreenId: window.__sfStores?.useCanvasStore.getState().activeScreenId,
+      activeScreenId: project?.activeScreenId,
       asset: resolveAsset(assetId),
     }
   }, before)).toEqual({

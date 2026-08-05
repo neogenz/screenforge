@@ -7,6 +7,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
+import * as assets from '@/lib/assets'
 
 if (import.meta.env.DEV) {
   // Dev-only debug handle for e2e state assertions (coalescing, history…).
@@ -16,6 +17,10 @@ if (import.meta.env.DEV) {
     useHistoryStore,
     useUIStore,
   }
+  // Le registre d'assets, exposé pour la même raison que les stores : il est
+  // mutable, et un test qui l'importerait par URL depuis la page en obtiendrait
+  // une seconde instance dès que Vite horodate le spécificateur après un HMR.
+  ;(window as unknown as { __sfAssets?: unknown }).__sfAssets = assets
 }
 
 export function RootApp() {

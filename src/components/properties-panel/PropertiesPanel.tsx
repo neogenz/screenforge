@@ -3,8 +3,10 @@ import type { ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { TransformSection } from './TransformSection'
 import { TextSection } from './TextSection'
@@ -22,13 +24,13 @@ const SCOPE_OPTIONS: SegmentedOption<LayerScope>[] = [
 ]
 
 export function PropertiesPanel() {
-  const { layers, selectedLayerIds, setLayerScope } = useCanvasStore(
+  const { selectedLayerIds, setLayerScope } = useCanvasStore(
     useShallow((s) => ({
-      layers: s.layers,
       selectedLayerIds: s.selectedLayerIds,
       setLayerScope: s.setLayerScope,
     })),
   )
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
 
   const selectedLayers = selectedLayerIds
     .map((id) => layers.find((l) => l.id === id))
@@ -42,50 +44,47 @@ export function PropertiesPanel() {
 
   return (
     // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
-    <aside className="island flex max-h-full min-h-0 flex-col overflow-hidden">
+    // Le repère est nommé par son titre : l'intitulé change avec la sélection,
+    // et `aria-labelledby` suit sans qu'on ait à le recopier.
+    <aside
+      aria-labelledby="sf-properties-panel-title"
+      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
+    >
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between px-3.5">
-        <span className="panel-title">{headerLabel}</span>
+      <div className="flex h-12 shrink-0 items-center justify-between px-3">
+        <h2 id="sf-properties-panel-title" className="panel-title">{headerLabel}</h2>
         {selectedLayers.length > 1 && (
-          <span className="tabular text-[11px] text-faint">
+          <span className="tabular text-2xs text-muted-foreground">
             {String(selectedLayers.length).padStart(2, '0')}
           </span>
         )}
       </div>
 
       {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
-      <div className="min-h-0 overflow-y-auto">
-        {selectedLayers.length === 0 && (
-          <div className="px-3.5 pb-3.5">
-            <BackgroundSection />
-          </div>
-        )}
+      <ScrollArea className="px-3 pb-3" contentClassName="flex flex-col gap-2">
+        {selectedLayers.length === 0 && <BackgroundSection />}
 
         {selectedLayers.length > 1 && (
-          <div className="px-3.5 pb-3.5">
-            <div className="surface-inner px-4 py-7 text-center">
-              <p className="text-[12.5px] leading-relaxed text-foreground-muted">
-                {selectedLayers.length} calques sélectionnés.
-              </p>
-              <p className="mt-1 text-[11px] text-faint">
-                Sélectionnez un seul calque pour éditer.
-              </p>
-            </div>
+          <div className="px-2 py-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {selectedLayers.length} calques sélectionnés.
+            </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              Sélectionnez un seul calque pour éditer.
+            </p>
           </div>
         )}
 
         {selectedLayer && (
           <>
             {/* Scope — screen-local or shared across all screens */}
-            <div className="px-3.5 pb-3">
-              <Segmented
-                ariaLabel="Portée du calque"
-                className="w-full"
-                options={SCOPE_OPTIONS}
-                value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
-                onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
-              />
-            </div>
+            <Segmented
+              ariaLabel="Portée du calque"
+              className="w-full"
+              options={SCOPE_OPTIONS}
+              value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
+              onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
+            />
 
             <Section title="Transformation" defaultOpen>
               <TransformSection layer={selectedLayer} />
@@ -116,7 +115,7 @@ export function PropertiesPanel() {
             )}
           </>
         )}
-      </div>
+      </ScrollArea>
     </aside>
   )
 }
@@ -131,34 +130,48 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    // Une section est une carte posée dans le panneau, pas une bande séparée
-    // par un filet : c'est la matière qui groupe, le trait ne faisait que hacher.
-    <div className="mx-3.5 mb-3 overflow-hidden rounded-md border border-border bg-inset/60">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'flex h-9 w-full items-center gap-1.5 px-2.5',
-          'section-title',
-          'transition-colors duration-150 ease-out hover:text-foreground',
-        )}
-        aria-expanded={open}
-      >
-        <ChevronRight
-          size={12}
-          strokeWidth={1.75}
-          aria-hidden
+    /*
+     * Une bande, pas une carte.
+     *
+     * La carte creusée coûtait un troisième niveau de surface — l'îlot porte
+     * la carte, la carte porte le champ — et en thème clair les trois se
+     * lisaient comme des boîtes emboîtées. Elle coûtait aussi 18px de largeur
+     * à chaque champ, en bordure et en retrait redoublés.
+     *
+     * Ce que le filet seul ne fait pas, c'est grouper : c'est le rythme qui
+     * s'en charge. L'écart du conteneur (8) plus le retrait haut (8) posent
+     * 16px au-dessus du titre contre 4 en dessous, et un titre respire
+     * toujours vers ce qu'il annonce.
+     */
+    <div className="border-t border-border pt-2 first:border-t-0 first:pt-0">
+      {/* Un titre qui porte son bouton, motif d'accordéon de l'APG : le bouton
+          seul se parcourait à la tabulation mais restait invisible au saut de
+          titre, alors que c'est bien lui qui découpe le panneau. Le `h3` porte
+          la typographie, le bouton la mise en boîte. */}
+      <h3 className="section-title">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
           className={cn(
-            'shrink-0 text-faint transition-transform duration-150 ease-out',
-            open && 'rotate-90',
+            'flex h-8 w-full items-center gap-1.5',
+            'transition-colors duration-150 ease-out hover:text-foreground',
           )}
-        />
-        <span>{title}</span>
-      </button>
+          aria-expanded={open}
+        >
+          <ChevronRight
+            size={12}
+            strokeWidth={1.75}
+            aria-hidden
+            className={cn(
+              'shrink-0 text-muted-foreground transition-transform duration-150 ease-out',
+              open && 'rotate-90',
+            )}
+          />
+          <span>{title}</span>
+        </button>
+      </h3>
 
-      {open && children && (
-        <div className="px-2.5 pb-3 pt-0.5">{children}</div>
-      )}
+      {open && children && <div className="pb-1">{children}</div>}
     </div>
   )
 }

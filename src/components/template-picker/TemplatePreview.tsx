@@ -1,6 +1,6 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/components/canvas/canvas-utils'
+import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/lib/canvas/canvas-utils'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
 
 const WIDTH = SCREEN_WIDTH

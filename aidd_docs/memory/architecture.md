@@ -19,7 +19,8 @@ flowchart LR
 ## Key decisions
 
 - The app is local-first and backend-free to keep user projects private and eliminate recurring infrastructure cost.
-- Store state is authoritative; `src/hooks/use-canvas.ts` performs bidirectional granular synchronization with Fabric.
+- `project.store` alone owns the project graph, active screen and layers. `canvas.store` owns selection plus interaction/history commands and always reads domain data from the project at call time.
+- `src/hooks/use-canvas.ts` owns the Fabric instance and granular project synchronization. Flat installers under `src/lib/canvas/install-*` own interactions, viewport and cancellable thumbnail work; Fabric objects are never a second domain store.
 - Binary payloads live in `src/lib/assets.ts`, not layers, keeping history snapshots and sync diffs small.
 - Apple output dimensions come only from `src/lib/dimensions.ts`; export correctness takes priority over configurable formats.
 - Canvas objects disable caching and use render-time clipping rather than Fabric `clipPath` to avoid double-antialiased export edges.
@@ -27,5 +28,6 @@ flowchart LR
 ## Gotchas
 
 - Fabric object origins and post-transform synchronization can move objects unless changes flow through the established canvas/store path.
+- Every Fabric/DOM/store listener belongs to an installer cleanup so React StrictMode cannot duplicate gestures.
 - Any change that re-enables object caching or Fabric clip paths can soften both editor and exported edges.
 - Imported assets must be persisted atomically with their owning project; layer references alone are not durable.

@@ -3,6 +3,7 @@ import type { Background, ColorStop, GradientFill } from '@/types'
 import { cn } from '@/lib/utils'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
+import { Field } from '@/components/ui/field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
@@ -14,7 +15,7 @@ import {
 
 interface BackgroundEditorProps {
   background: Background
-  onChange: (bg: Background) => void
+  onChange: (bg: Background, coalesceKey?: string) => void
 }
 
 type Tab = 'solid' | 'gradient' | 'presets'
@@ -94,11 +95,11 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
   const activeTab: Tab = showPresets ? 'presets' : tabFromBackground(background)
 
   function handleSolidColor(color: string) {
-    onChange({ type: 'solid', color })
+    onChange({ type: 'solid', color }, 'color')
   }
 
-  function handleGradientChange(fill: GradientFill) {
-    onChange(gradientFillToBackground(fill))
+  function handleGradientChange(fill: GradientFill, coalesceKey?: string) {
+    onChange(gradientFillToBackground(fill), coalesceKey)
   }
 
   function handlePresetClick(preset: Background) {
@@ -129,14 +130,13 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
         value={activeTab}
         onChange={handleTabChange}
         ariaLabel="Type d’arrière-plan"
-        className="w-full"
+        className="w-full [&>button]:min-w-0 [&>button]:flex-1"
       />
 
       {activeTab === 'solid' && (
-        <div className="flex flex-col gap-1.5">
-          <span className="field-label">Couleur</span>
+        <Field label="Couleur">
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
-        </div>
+        </Field>
       )}
 
       {activeTab === 'gradient' && <GradientEditor value={gradientFill} onChange={handleGradientChange} />}
@@ -157,8 +157,8 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
                   selected
-                    ? 'border-foreground-muted'
-                    : 'border-border hover:border-border-strong',
+                    ? 'border-muted-foreground'
+                    : 'border-border hover:border-input',
                 )}
               />
             )

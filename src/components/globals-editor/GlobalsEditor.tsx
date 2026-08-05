@@ -11,17 +11,8 @@ import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
 import { Select } from '@/components/ui/select'
 import { SwatchButton } from '@/components/ui/swatch-button'
+import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import type { GlobalSettings, DeviceModel } from '@/types'
-
-const FONT_WEIGHTS: { value: number; label: string }[] = [
-  { value: 300, label: 'Léger' },
-  { value: 400, label: 'Normal' },
-  { value: 500, label: 'Moyen' },
-  { value: 600, label: 'Semi-gras' },
-  { value: 700, label: 'Gras' },
-  { value: 800, label: 'Extra-gras' },
-  { value: 900, label: 'Noir' },
-]
 
 export function GlobalsEditor() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
@@ -75,17 +66,17 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
         </>
       }
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
         {/* Typographie */}
         <section>
-          <h3 className="section-title mb-3">Typographie</h3>
-          <div className="flex flex-col gap-3">
+          <h3 className="section-title mb-2">Typographie</h3>
+          <div className="flex flex-col gap-2">
             <FontPicker
               label="Police"
               value={draft.fontFamily}
               onChange={(fontFamily) => update({ fontFamily })}
             />
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <div className="flex-1">
                 <Select
                   label="Graisse"
@@ -93,7 +84,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                   onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
                   aria-label="Graisse de police par défaut"
                 >
-                  {FONT_WEIGHTS.map((weight) => (
+                  {FONT_WEIGHT_OPTIONS.map((weight) => (
                     <option key={weight.value} value={weight.value}>{weight.label}</option>
                   ))}
                 </Select>
@@ -122,7 +113,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
 
         {/* Arrière-plan */}
         <section>
-          <h3 className="section-title mb-3">Arrière-plan</h3>
+          <h3 className="section-title mb-2">Arrière-plan</h3>
           <BackgroundEditor
             background={draft.background}
             onChange={(background) => update({ background })}
@@ -133,8 +124,8 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
 
         {/* Appareil */}
         <section>
-          <h3 className="section-title mb-3">Appareil</h3>
-          <div className="flex flex-col gap-3">
+          <h3 className="section-title mb-2">Appareil</h3>
+          <div className="flex flex-col gap-2">
             <Select
               label="Modèle"
               value={draft.deviceModel}

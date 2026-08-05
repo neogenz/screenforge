@@ -11,13 +11,35 @@ import { fileURLToPath } from 'node:url'
 
 const CSS = fileURLToPath(new URL('../src/index.css', import.meta.url))
 
-/** Encres à contrôler, dans l'ordre du plus foncé au plus discret. */
-const INKS = ['foreground', 'foreground-muted', 'faint']
+/**
+ * Encres à contrôler, dans l'ordre du plus foncé au plus discret.
+ *
+ * `stage-dot` n'y figure pas et n'y figurera pas : le grain de la scène ne porte
+ * aucune information, personne ne le lit. À 5% d'alpha il échouerait à 4.5:1 par
+ * construction, et le faire passer demanderait de l'assombrir jusqu'à ce qu'il
+ * cesse d'être un grain. Un motif décoratif n'est pas une encre.
+ */
+const INKS = ['foreground', 'muted-foreground']
 /** Surfaces sur lesquelles une encre peut se poser. */
-const SURFACES = ['stage', 'background', 'panel', 'inset', 'raised']
+const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']
+/**
+ * Couples fermés : une encre qui ne se pose que sur une surface, et pas sur la
+ * gamme. Les croiser avec `SURFACES` n'aurait aucun sens — `marker-ink` ne se
+ * pose jamais sur `card` — mais sans eux ces couples ne sont contrôlés nulle
+ * part. Le citron et son encre vivaient ainsi sur une valeur annoncée en
+ * commentaire et vérifiée par personne.
+ * @type {[string, string][]}
+ */
+const PAIRS = [['marker-ink', 'marker']]
 
 const MIN_RATIO = 4.5
 
+/**
+ * @param {number} lightness
+ * @param {number} chroma
+ * @param {number} hueDegrees
+ * @returns {number[]}
+ */
 function oklchToRgb(lightness, chroma, hueDegrees) {
   const hue = (hueDegrees * Math.PI) / 180
   const a = chroma * Math.cos(hue)
@@ -36,10 +58,12 @@ function oklchToRgb(lightness, chroma, hueDegrees) {
 }
 
 /** Luminance relative WCAG : les canaux linéaires sont déjà ce qu'elle demande. */
+/** @param {number[]} color */
 function luminance([r, g, b]) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
+/** @param {number[]} first @param {number[]} second */
 function contrast(first, second) {
   const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a)
   return (high + 0.05) / (low + 0.05)
@@ -54,7 +78,9 @@ function readTokens() {
   const lightStart = css.indexOf('.light {')
   if (lightStart === -1) throw new Error('bloc .light introuvable dans src/index.css')
 
+  /** @param {string} source */
   const parse = (source) => {
+    /** @type {Map<string, number[]>} */
     const tokens = new Map()
     const pattern = /--color-([a-z0-9-]+):\s*oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)\s*;/g
     for (const [, name, l, c, h] of source.matchAll(pattern)) {
@@ -72,18 +98,20 @@ const themes = readTokens()
 let failures = 0
 
 for (const [theme, tokens] of Object.entries(themes)) {
-  for (const ink of INKS) {
-    for (const surface of SURFACES) {
-      const foreground = tokens.get(ink)
-      const background = tokens.get(surface)
-      if (!foreground) throw new Error(`jeton --color-${ink} absent du thème ${theme}`)
-      if (!background) throw new Error(`jeton --color-${surface} absent du thème ${theme}`)
+  const couples = [
+    ...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])),
+    ...PAIRS,
+  ]
+  for (const [ink, surface] of couples) {
+    const foreground = tokens.get(ink)
+    const background = tokens.get(surface)
+    if (!foreground) throw new Error(`jeton --color-${ink} absent du thème ${theme}`)
+    if (!background) throw new Error(`jeton --color-${surface} absent du thème ${theme}`)
 
-      const ratio = contrast(foreground, background)
-      if (ratio < MIN_RATIO) {
-        console.log(`FAIL [${theme}] ${ink} sur ${surface} : ${ratio.toFixed(2)}:1`)
-        failures++
-      }
+    const ratio = contrast(foreground, background)
+    if (ratio < MIN_RATIO) {
+      console.log(`FAIL [${theme}] ${ink} sur ${surface} : ${ratio.toFixed(2)}:1`)
+      failures++
     }
   }
 }
@@ -94,8 +122,15 @@ if (failures > 0) {
 }
 
 const worst = Object.entries(themes).map(([theme, tokens]) => {
-  const ratios = INKS.flatMap((ink) =>
-    SURFACES.map((surface) => contrast(tokens.get(ink), tokens.get(surface))))
+  const ratios = [
+    ...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])),
+    ...PAIRS,
+  ].map(([ink, surface]) => {
+    const foreground = tokens.get(ink)
+    const background = tokens.get(surface)
+    if (!foreground || !background) throw new Error(`jeton absent du thème ${theme}`)
+    return contrast(foreground, background)
+  })
   return `${theme} ${Math.min(...ratios).toFixed(2)}:1`
 })
 console.log(`Contraste OK — pire cas : ${worst.join(', ')}`)

@@ -1,9 +1,9 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/components/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
-import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
-import { decodeImage, isSupportedImageFile, readAsDataUrl } from '@/lib/image'
-import { POPULAR_FONTS } from '@/hooks/use-fonts'
+import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { imageImportErrorMessage, importImageFile } from '@/lib/image'
+import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
 
 /**
@@ -11,11 +11,33 @@ import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
  * toolbar tools, the layers panel and the command palette.
  */
 
+/** Nom d'usine d'un calque de texte, avant que l'utilisateur ne le renomme. */
+const DEFAULT_TEXT_NAME = 'Texte'
+
+/**
+ * Nom affiché d'un calque.
+ *
+ * Un calque de texte porte son contenu tant que personne ne l'a renommé : une
+ * liste de treize lignes « Texte » ne dit rien de la maquette, alors que
+ * « Titre accrocheur » se retrouve du premier coup d'œil. C'est le
+ * comportement de Figma et de Sketch.
+ *
+ * L'heuristique du « jamais renommé » est le nom d'usine lui-même : renommer
+ * un calque exactement « Texte » le remet donc sous son contenu. Le cas est
+ * sans conséquence, et le seul autre moyen serait de stocker un drapeau de
+ * renommage dans le fichier de projet.
+ */
+export function layerDisplayName(layer: { type: string; name: string; content?: string }): string {
+  if (layer.type !== 'text' || layer.name !== DEFAULT_TEXT_NAME) return layer.name
+  const firstLine = layer.content?.split('\n')[0]?.trim()
+  return firstLine || layer.name
+}
+
 export function createTextLayer(zIndex: number): TextLayer {
   return {
     id: crypto.randomUUID(),
     type: 'text',
-    name: 'Texte',
+    name: DEFAULT_TEXT_NAME,
     x: (SCREEN_WIDTH - 320) / 2,
     y: 160,
     width: 300,
@@ -75,6 +97,11 @@ export function createDeviceLayer(model: DeviceModel, zIndex: number) {
     deviceModel: model,
     deviceColor: config.colors[0].name,
     orientation: 'portrait' as const,
+    shadowEnabled: true,
+    shadowBlur: 18,
+    shadowColor: DEFAULT_DEVICE_SHADOW_COLOR,
+    shadowOffsetX: 0,
+    shadowOffsetY: 10,
   }
 }
 
@@ -87,13 +114,9 @@ export async function createImageLayerFromFile(
   file: File,
   zIndex: number,
 ): Promise<ImageImportResult> {
-  if (!isSupportedImageFile(file)) {
-    return { ok: false, error: 'Format non pris en charge. Utilisez un PNG, JPEG ou SVG.' }
-  }
   try {
-    const dataUrl = await readAsDataUrl(file)
-    const image = await decodeImage(dataUrl)
-    const assetId = registerAsset(dataUrl)
+    const image = await importImageFile(file)
+    const assetId = registerAsset(image.dataUrl)
     const scale = Math.min(600 / image.width, 600 / image.height, 1)
     const width = Math.max(1, image.width * scale)
     const height = Math.max(1, image.height * scale)
@@ -117,7 +140,7 @@ export async function createImageLayerFromFile(
         originalHeight: image.height,
       },
     }
-  } catch {
-    return { ok: false, error: "L'image est illisible ou endommagée." }
+  } catch (error) {
+    return { ok: false, error: imageImportErrorMessage(error) }
   }
 }

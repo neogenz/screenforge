@@ -7,8 +7,8 @@ import {
   disposeFabricObjectResource,
   layerToFabricObject,
   type RenderedObject,
-} from '@/components/canvas/canvas-utils'
-import { loadGoogleFont } from '@/hooks/use-fonts'
+} from '@/lib/canvas/canvas-utils'
+import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Screen } from '@/types'
 
 export const INTERNAL_PNG_SIZE_TARGET = 5 * 1024 * 1024
@@ -53,7 +53,7 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
   const results = await Promise.all(
     [...requests.values()].map(({ family, weights }) => {
       const missingWeights = [...weights].filter(
-        (weight) => !document.fonts.check(`${weight} 16px "${family}"`),
+        (weight) => !isFontLoaded(family, [weight]),
       )
       return missingWeights.length === 0
         ? Promise.resolve({ family, status: 'loaded' as const })

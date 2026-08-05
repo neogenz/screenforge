@@ -1,22 +1,26 @@
 import { useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
 import { ContextMenu } from '@/components/ui/ContextMenu'
-import { buildLayerMenuItems } from '@/components/ui/layer-menu'
+import { buildLayerMenuItems } from '@/components/layers-panel/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'
+import { layerDisplayName } from '@/lib/layer-factories'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 
 export default function CanvasEditor() {
   const { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame } = useCanvas()
   const actions = useLayerActions()
-  const layers = useCanvasStore((state) => state.layers)
+  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
   const [menu, setMenu] = useState<{ left: number; top: number; layerId: string } | null>(null)
 
   function handleContextMenu(event: React.MouseEvent) {
     event.preventDefault()
     const layerId = getLayerIdAtPoint(event.nativeEvent)
     if (!layerId) return
-    const { layers: currentLayers, selectedLayerIds, selectLayer } = useCanvasStore.getState()
+    const { selectedLayerIds, selectLayer } = useCanvasStore.getState()
+    const currentLayers = getProjectLayers(useProjectStore.getState().project)
     if (!currentLayers.some((layer) => layer.id === layerId)) return
     if (!selectedLayerIds.includes(layerId)) selectLayer(layerId)
     setMenu({ left: event.clientX, top: event.clientY, layerId })
@@ -27,7 +31,9 @@ export default function CanvasEditor() {
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-stage"
+      // Le grain est porté par la scène et non par le canevas : Fabric peint
+      // par-dessus, donc un motif posé plus bas dans l'arbre serait recouvert.
+      className="stage-grain relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-stage"
       onContextMenu={handleContextMenu}
     >
       <canvas ref={canvasRef} />
@@ -35,7 +41,7 @@ export default function CanvasEditor() {
       {menu && menuLayer && (
         <ContextMenu
           position={{ left: menu.left, top: menu.top }}
-          label={`Actions de ${menuLayer.name}`}
+          label={`Actions de ${layerDisplayName(menuLayer)}`}
           onClose={() => setMenu(null)}
           items={buildLayerMenuItems(menuLayer, actions)}
         />

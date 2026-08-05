@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
+import { formatPercent } from '@/lib/number'
 
 interface ColorPickerProps {
   value: string
@@ -64,7 +65,7 @@ function isValidHex(hex: string): boolean {
 }
 
 /** Functional alpha cue: neutral checkerboard painted under translucent swatches. */
-const CHECKER_COLOR = 'color-mix(in oklch, var(--color-foreground-muted) 55%, transparent)'
+const CHECKER_COLOR = 'color-mix(in oklch, var(--color-muted-foreground) 55%, transparent)'
 const CHECKER_IMAGE = [
   `linear-gradient(45deg, ${CHECKER_COLOR} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR} 75%)`,
   `linear-gradient(45deg, ${CHECKER_COLOR} 25%, transparent 25%, transparent 75%, ${CHECKER_COLOR} 75%)`,
@@ -140,7 +141,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
+          className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
           onClick={() => nativeRef.current?.click()}
           aria-label="Ouvrir le sélecteur de couleur"
         >
@@ -149,7 +150,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               aria-hidden="true"
               className="absolute inset-0"
               style={{
-                backgroundColor: 'var(--color-panel)',
+                backgroundColor: 'var(--color-card)',
                 backgroundImage: CHECKER_IMAGE,
                 backgroundSize: '8px 8px',
                 backgroundPosition: '0 0, 4px 4px',
@@ -192,13 +193,13 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
             max={100}
             value={opacityInput}
             onChange={handleOpacityChange}
-            formatValue={(v) => `${v} %`}
+            formatValue={formatPercent}
             className="min-w-0 flex-1"
           />
         )}
       </div>
       {colorError && (
-        <p id={errorId} role="alert" className="text-[11px] leading-relaxed text-danger">
+        <p id={errorId} role="alert" className="text-2xs text-destructive">
           {colorError}
         </p>
       )}
@@ -212,7 +213,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               <button
                 key={color}
                 type="button"
-                className="h-5 w-5 cursor-pointer rounded-[4px] border border-border transition-[border-color] duration-150 ease-out hover:border-border-strong focus-visible:border-foreground-muted"
+                className="h-5 w-5 cursor-pointer rounded-xs border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
                 style={{ backgroundColor: color }}
                 onClick={() => {
                   addRecentColor(color)
