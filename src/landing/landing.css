@@ -16,3 +16,10 @@
 body {
   background: var(--color-stage);
 }
+
+/* Défilement doux vers les ancres, retiré dès que l'utilisateur s'en passe. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
