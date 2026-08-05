@@ -318,7 +318,19 @@ export function installViewport({
       return
     }
     if (state.zoom === previous.zoom || Math.abs(canvas.getZoom() - state.zoom) < 0.0001) return
-    canvas.zoomToPoint(canvas.getVpCenter(), state.zoom)
+    // `zoomToPoint` fige un point de l'écran, pas un point de la scène :
+    // « The point won't move ». `getVpCenter()` rend l'inverse, la coordonnée de
+    // scène sous le centre du canevas — à 25 % de zoom elle vaut des milliers de
+    // pixels, et chaque cran de zoom repoussait les planches d'autant. Trois
+    // crans suffisaient à les envoyer à 50 000px de la fenêtre.
+    // Le centre de la zone libre, et non celui du canevas : c'est déjà l'ancre
+    // de `fitAll` et de `recenter`, et c'est le seul point que l'utilisateur
+    // voit lorsqu'un tiroir mange un tiers de la largeur.
+    const { insets, width, height } = availableStage()
+    canvas.zoomToPoint(
+      new Point(insets.left + width / 2, insets.top + height / 2),
+      state.zoom,
+    )
     canvas.requestRenderAll()
   })
 

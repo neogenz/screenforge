@@ -94,6 +94,37 @@ test('keeps the artboards inside the free stage when the window is resized', asy
   }
 })
 
+test('garde les planches sous les yeux quand on zoome par paliers', async ({ page }) => {
+  await waitForApp(page)
+  await addDeviceLayer(page)
+  await waitForCanvasSettled(page)
+
+  // `zoomToPoint` fige un point de l'écran ; on lui passait la coordonnée de
+  // scène sous le centre du canevas, qui vaut des milliers de pixels à bas
+  // zoom. Trois crans emmenaient les planches à 50 000px de la fenêtre et la
+  // scène paraissait vide. Le zoom seul restait juste, d'où ce test sur le
+  // panoramique et non sur le facteur.
+  for (const step of ['zoomIn', 'zoomIn', 'zoomIn', 'zoomOut', 'zoomOut'] as const) {
+    await page.evaluate((name) => {
+      const ui = window.__sfStores?.useUIStore.getState()
+      if (name === 'zoomIn') ui?.zoomIn()
+      else ui?.zoomOut()
+    }, step)
+    await page.waitForTimeout(150)
+
+    const rect = await artboardRect(page)
+    expect(rect, `planches absentes après ${step}`).not.toBeNull()
+    if (!rect) return
+    const free = freeStage(rect)
+    // « Intersecte la zone libre » et non « centré » : à 100 % la rangée est
+    // plus large que la fenêtre, la recentrer serait un autre comportement.
+    expect(rect.right, `${step} : sorties à gauche`).toBeGreaterThan(free.left)
+    expect(rect.left, `${step} : sorties à droite`).toBeLessThan(free.right)
+    expect(rect.bottom, `${step} : sorties en haut`).toBeGreaterThan(free.top)
+    expect(rect.top, `${step} : sorties en bas`).toBeLessThan(free.bottom)
+  }
+})
+
 test('preserves a hand-set zoom while the content still fits', async ({ page }) => {
   await waitForApp(page)
   await addDeviceLayer(page)

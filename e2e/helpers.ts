@@ -69,6 +69,8 @@ declare global {
       } }
       useUIStore: { getState: () => {
         setZoom: (zoom: number) => void
+        zoomIn: () => void
+        zoomOut: () => void
         toggleProps: () => void
         layersOpen: boolean
         propsOpen: boolean
