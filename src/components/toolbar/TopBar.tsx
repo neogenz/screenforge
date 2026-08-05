@@ -86,6 +86,11 @@ function Divider() {
  */
 export function TopBar() {
   return (
+    // La colonne du projet plancher à `0` et non à `min-content` : un champ en
+    // `field-sizing-content` déclare son contenu comme min-content, donc
+    // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
+    // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
+    // le champ qui absorbe, pas la grille.
     <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
       <ProjectSegment />
       <ToolsSegment />
@@ -283,7 +288,14 @@ function ProjectName() {
       className={cn(
         // `field-sizing-content` fixe la largeur : pas de `w-*` en plus, qui la
         // reprendrait. Les deux bornes suffisent.
-        'field-sizing-content h-9 min-w-24 max-w-[28ch] truncate',
+        //
+        // Le plancher est nul, et c'est ce qui tient la barre : le nom est la
+        // seule chose ici qui puisse rétrécir sans se perdre, il tronque déjà et
+        // son infobulle donne le titre entier. Avec un plancher de 96px, la
+        // colonne cédait avant lui — le menu Projet et l'état d'enregistrement
+        // débordaient sur « Annuler », mesuré jusqu'à 24px de recouvrement à
+        // 768px de large.
+        'field-sizing-content h-9 min-w-0 max-w-[28ch] truncate',
         'rounded-md border border-transparent bg-transparent px-2',
         'text-sm font-semibold tracking-[-0.012em] text-foreground transition-colors',
         'hover:border-border focus:border-input focus:bg-secondary focus:outline-none',
