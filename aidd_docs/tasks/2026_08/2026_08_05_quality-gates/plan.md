@@ -1,6 +1,6 @@
 ---
 objective: "Every commit is locally gated by Prettier + ESLint on staged files, validated by commitlint (conventional, English), and every push passes typecheck."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Git quality gates (commitlint, Husky, lint-staged, Prettier)
