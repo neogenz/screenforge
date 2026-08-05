@@ -17,8 +17,13 @@ export const DRAWER_WIDTH_PROPS = 320
 /**
  * Hauteur de vignette dans la filmstrip. En deçà on ne distingue plus une mise
  * en page d'une autre, ce qui est le seul service que rend la bande.
+ *
+ * 116 et non 100 : la largeur en découle, et c'est elle qui décide de ce qu'un
+ * libellé peut dire. À 46 de large il tenait six caractères, à 53 il en tient
+ * neuf — la différence entre « Onboa… » et « Onboardi… ». Le gain se paie 16px
+ * de bande, que l'aperçu rend en lisibilité.
  */
-export const THUMBNAIL_HEIGHT = 100
+export const THUMBNAIL_HEIGHT = 116
 /**
  * Largeur de vignette, déduite et jamais choisie : la bande montre l'artboard,
  * donc elle en montre le cadrage. Une tuile plus large que ce rapport ne fait
@@ -63,15 +68,28 @@ export const THUMBNAIL_SLOT = THUMBNAIL_WIDTH + FILMSTRIP_GAP
  * `overflow-y: auto`, et l'anneau y ferait apparaître une barre de défilement.
  */
 export const FILMSTRIP_PADDING = 4
+/** Hauteur du libellé, et l'écart qui le lie à ce qu'il nomme — le 6 qui lie. */
+export const THUMBNAIL_LABEL_HEIGHT = 16
+export const THUMBNAIL_LABEL_GAP = 6
+export const THUMBNAIL_LABEL_ROW = THUMBNAIL_LABEL_GAP + THUMBNAIL_LABEL_HEIGHT
+
 /**
- * L'aperçu, son dégagement, et la place du soulèvement au-dessus de la rangée.
+ * L'aperçu, son dégagement, la place du soulèvement, et la rangée de libellés
+ * quand il y a quelque chose à y écrire.
  *
  * Le soulèvement ne s'ajoute qu'en haut : la tuile courante sort de la boîte
  * défilante par là, et `overflow-x: auto` forçant l'autre axe, elle s'y ferait
  * rogner. Le compter des deux côtés ne réserverait rien de plus et coûterait
  * 4px de canevas.
+ *
+ * La rangée de libellés, elle, n'est pas réservée : tant qu'aucun écran n'a été
+ * renommé, elle n'aurait à porter que « Écran 3 » sous un « 3 », et la bande
+ * prendrait 22px au canevas pour répéter le badge.
  */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT
+export function filmstripHeight(labelled: boolean): number {
+  return THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT
+    + (labelled ? THUMBNAIL_LABEL_ROW : 0)
+}
 
 /**
  * Gouttière réservée au HUD de zoom, de chaque côté de la pellicule centrée.
@@ -123,8 +141,18 @@ export const TOP_BAR_COMPACT_WIDTH = 768
 
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
-/** Filmstrip + margins. */
-export const STAGE_BOTTOM_INSET = FILMSTRIP_HEIGHT + ISLAND_MARGIN * 2
+/** Pellicule + marges, selon qu'elle porte ou non sa rangée de libellés. */
+export function stageBottomInset(labelled: boolean): number {
+  return filmstripHeight(labelled) + ISLAND_MARGIN * 2
+}
+/**
+ * Le pire cas, pour ce qui ne peut pas se recalculer à la volée.
+ *
+ * Les drawers bornent leur hauteur là-dessus : quand la bande est nue ils sont
+ * 22px plus courts qu'ils ne pourraient l'être, ce qui ne se voit pas, alors
+ * qu'un drawer trop long recouvrirait la pellicule dès le premier renommage.
+ */
+export const STAGE_BOTTOM_INSET_MAX = stageBottomInset(true)
 
 export interface StageInsets {
   left: number
@@ -140,12 +168,12 @@ export interface StageInsets {
  * dernière planche à moitié sous un panneau, ce que rien ne rattrape ensuite.
  */
 export function stageInsets(
-  open: { layers?: boolean; props?: boolean } = {},
+  open: { layers?: boolean; props?: boolean; labelled?: boolean } = {},
 ): StageInsets {
   return {
     left: ISLAND_MARGIN * 2 + (open.layers ? DRAWER_WIDTH_LAYERS : 0),
     right: ISLAND_MARGIN * 2 + (open.props ? DRAWER_WIDTH_PROPS : 0),
     top: STAGE_TOP_INSET,
-    bottom: STAGE_BOTTOM_INSET,
+    bottom: stageBottomInset(open.labelled ?? false),
   }
 }

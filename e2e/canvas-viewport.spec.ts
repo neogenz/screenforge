@@ -19,7 +19,7 @@ import { addDeviceLayer, waitForApp, waitForCanvasSettled } from './helpers'
 import {
   DRAWER_WIDTH_LAYERS,
   DRAWER_WIDTH_PROPS,
-  FILMSTRIP_HEIGHT,
+  filmstripHeight,
   ISLAND_MARGIN,
   TOP_BAR_HEIGHT,
 } from '../src/lib/stage'
@@ -56,11 +56,13 @@ async function artboardRect(page: Page) {
  * ouverts par défaut, donc leur largeur en fait partie.
  */
 function freeStage(rect: { canvasWidth: number; canvasHeight: number }) {
+  // `filmstripHeight(false)` : ces tests n'ont jamais renommé d'écran, la bande
+  // ne porte donc pas sa rangée de libellés.
   return {
     left: ISLAND_MARGIN * 2 + DRAWER_WIDTH_LAYERS,
     right: rect.canvasWidth - ISLAND_MARGIN * 2 - DRAWER_WIDTH_PROPS,
     top: TOP_BAR_HEIGHT + ISLAND_MARGIN * 2,
-    bottom: rect.canvasHeight - FILMSTRIP_HEIGHT - ISLAND_MARGIN * 2,
+    bottom: rect.canvasHeight - filmstripHeight(false) - ISLAND_MARGIN * 2,
   }
 }
 

@@ -4,6 +4,7 @@ import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/lib/fonts'
+import { defaultScreenName } from '@/lib/screens'
 import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
 
 const DEFAULT_DEVICE_MODEL: DeviceModel = 'iphone-17-pro-max'
@@ -19,11 +20,6 @@ export const DEFAULT_GLOBALS: GlobalSettings = {
   background: { type: 'solid', color: DEFAULT_SOLID_COLOR },
   deviceModel: DEFAULT_DEVICE_MODEL,
   deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
-}
-
-/** Nom d'usine d'un écran, avant que l'utilisateur ne le renomme. */
-export function defaultScreenName(index: number): string {
-  return `Écran ${index + 1}`
 }
 
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {

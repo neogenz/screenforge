@@ -6,7 +6,16 @@ import {
   getTotalWidth,
 } from '@/lib/canvas/canvas-utils'
 import { stageInsets } from '@/lib/stage'
+import { screenHasCustomName } from '@/lib/screens'
 import type { Project } from '@/types'
+
+/**
+ * La pellicule porte-t-elle sa rangée de libellés ? Elle change la hauteur de
+ * la bande, donc la zone libre — au même titre qu'un drawer qui s'ouvre.
+ */
+function hasLabelRow(project: Project | null): boolean {
+  return Boolean(project?.screens.some(screenHasCustomName))
+}
 
 interface MutableValue<T> {
   current: T
@@ -57,7 +66,11 @@ export function installViewport({
 
   function availableStage() {
     const { layersOpen, propsOpen } = getUi()
-    const insets = stageInsets({ layers: layersOpen, props: propsOpen })
+    const insets = stageInsets({
+      layers: layersOpen,
+      props: propsOpen,
+      labelled: hasLabelRow(getProject()),
+    })
     return {
       insets,
       width: Math.max(1, canvas.width - insets.left - insets.right),
@@ -207,6 +220,15 @@ export function installViewport({
   resizeObserver.observe(container)
 
   const unsubscribeProject = subscribeProject((project, previous) => {
+    // Le premier renommage fait apparaître la rangée de libellés, le dernier la
+    // fait disparaître : la bande change de hauteur sans que le conteneur bouge,
+    // exactement comme un drawer qui s'ouvre. Sans ce recentrage la dernière
+    // planche passait sous la pellicule.
+    if (hasLabelRow(project) !== hasLabelRow(previous)) {
+      recenter()
+      canvas.requestRenderAll()
+      return
+    }
     const activeScreenId = project?.activeScreenId
     if (!activeScreenId || activeScreenId === previous?.activeScreenId) return
     if (selectionFromCanvas.current) {

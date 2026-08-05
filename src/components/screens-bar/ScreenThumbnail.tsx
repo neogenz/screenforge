@@ -11,13 +11,22 @@ import {
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { cn } from '@/lib/utils'
-import { THUMBNAIL_BADGE_SIZE, THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
+import { screenHasCustomName } from '@/lib/screens'
+import {
+  THUMBNAIL_BADGE_SIZE,
+  THUMBNAIL_HEIGHT,
+  THUMBNAIL_LABEL_GAP,
+  THUMBNAIL_LABEL_HEIGHT,
+  THUMBNAIL_WIDTH,
+} from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ScreenThumbnailProps {
   screen: Screen
   isActive: boolean
   index: number
+  /** Décidé par la bande, jamais par la tuile : les dix rangées s'alignent ou aucune. */
+  showLabel: boolean
   canDelete: boolean
   canMoveLeft: boolean
   canMoveRight: boolean
@@ -35,6 +44,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
   screen,
   isActive,
   index,
+  showLabel,
   canDelete,
   canMoveLeft,
   canMoveRight,
@@ -169,10 +179,34 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         </span>
       </button>
 
+      {/* Le nom, quand il en est un. La bande réserve la rangée pour les dix dès
+          qu'un seul écran est renommé — sinon la moitié de la file sauterait de
+          22px à chaque renommage — mais seuls les écrans qui portent un nom
+          choisi y écrivent quelque chose. « Écran 2 » sous un badge « 2 » ne dit
+          rien de plus que le badge, et c'est précisément ce qui avait fait
+          retirer la rangée.
+
+          `aria-hidden` parce que le bouton annonce déjà le nom complet : lu deux
+          fois de suite, il devient du bruit. La troncature n'est donc jamais le
+          seul accès au nom — il reste entier sur l'infobulle, dans le menu
+          contextuel et au-dessus de la planche. */}
+      {showLabel && (
+        <span
+          aria-hidden
+          style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
+          className={cn(
+            'block truncate text-center text-2xs',
+            isActive ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          {screenHasCustomName(screen, index) ? screen.name : null}
+        </span>
+      )}
+
       {/* Le champ se pose sur le bas de l'aperçu : un `input` dans un `button`
           est invalide, et l'échanger dans le flux ferait sauter la rangée au
-          premier clic de renommage. Pleine largeur de la tuile, à l'opposé du
-          badge, qu'il ne recouvre donc jamais. */}
+          premier clic de renommage. Ancré depuis le haut et non depuis le bas,
+          sinon la rangée de libellés le pousserait sous l'aperçu. */}
       {editing && (
         <input
           ref={inputRef}
@@ -185,11 +219,11 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           }}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          style={{ height: THUMBNAIL_BADGE_SIZE }}
+          style={{ height: THUMBNAIL_BADGE_SIZE, top: THUMBNAIL_HEIGHT - THUMBNAIL_BADGE_SIZE }}
           // Pleine largeur, et le bas arrondi comme l'aperçu qu'il coiffe :
           // posé à plat il aurait débordé de deux angles vifs sur les coins
           // ronds de la tuile.
-          className="field-surface absolute inset-x-0 bottom-0 w-full rounded-b-md px-1 text-center text-2xs text-foreground outline-none"
+          className="field-surface absolute inset-x-0 w-full rounded-b-md px-1 text-center text-2xs text-foreground outline-none"
         />
       )}
 

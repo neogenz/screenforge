@@ -8,14 +8,15 @@ import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
+import { screenHasCustomName } from '@/lib/screens'
 import {
   FILMSTRIP_GAP,
-  FILMSTRIP_HEIGHT,
   FILMSTRIP_MAX_WIDTH,
   FILMSTRIP_PADDING,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_LIFT,
   THUMBNAIL_SLOT,
+  filmstripHeight,
 } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import type { Background } from '@/types'
@@ -43,6 +44,9 @@ export function ScreensBar() {
   })))
   const list = screens ?? []
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
+  // La rangée n'existe que si elle a quelque chose à dire. Sous un badge « 3 »,
+  // « Écran 3 » ne dit rien de plus et prendrait 22px au canevas pour le répéter.
+  const labelled = list.some(screenHasCustomName)
   const dragSourceIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
@@ -200,7 +204,7 @@ export function ScreensBar() {
       // courante sort de la boîte défilante par là, et `overflow-x: auto`
       // forçant l'autre axe, elle s'y ferait rogner.
       style={{
-        height: FILMSTRIP_HEIGHT,
+        height: filmstripHeight(labelled),
         paddingTop: FILMSTRIP_PADDING + THUMBNAIL_LIFT,
         paddingRight: FILMSTRIP_PADDING,
         paddingBottom: FILMSTRIP_PADDING,
@@ -244,6 +248,7 @@ export function ScreensBar() {
             screen={screen}
             isActive={screen.id === activeScreenId}
             index={index}
+            showLabel={labelled}
             canDelete={list.length > 1}
             canMoveLeft={index > 0}
             canMoveRight={index < list.length - 1}
