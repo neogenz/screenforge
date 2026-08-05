@@ -9,6 +9,9 @@
       content="Local-first editor for iPhone App Store screenshot sets. Pixel-exact exports, every accepted dimension, one ZIP ready for App Store Connect. No account, no upload."
     />
     <meta name="theme-color" content="#111111" />
+    <!-- TODO(déploiement): ajouter <link rel="canonical"> quand le domaine est
+         connu. hreflang ne s'applique pas : une seule URL, la langue bascule
+         côté client. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="ScreenForge — App Store screenshots, pixel-exact" />
     <meta
@@ -17,6 +20,32 @@
     />
     <meta property="og:image" content="/og-landing.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ScreenForge",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Web",
+        "description": "Local-first editor for iPhone App Store screenshot sets. Pixel-exact exports, one ZIP ready for App Store Connect.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Monthly",
+            "price": "9.99",
+            "priceCurrency": "USD",
+            "description": "Unlimited exports without watermark, billed monthly."
+          },
+          {
+            "@type": "Offer",
+            "name": "Lifetime",
+            "price": "39.99",
+            "priceCurrency": "USD",
+            "description": "One-time purchase, every future update included."
+          }
+        ]
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

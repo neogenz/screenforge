@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Conversion — pricing, FAQ, CTA final, footer, SEO
