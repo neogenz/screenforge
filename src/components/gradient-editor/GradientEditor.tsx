@@ -267,8 +267,12 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
           // `hit-24` : la poignée reste à 18px — c'est la piste qui doit rester
           // lisible — mais la prise atteint le minimum de la 2.5.8. La piste ne
           // déplace pas les arrêts, donc c'est bien ce bouton qui est la cible.
+          // `border-white` ne suit pas le thème, et c'est voulu : l'arrêt se
+          // pose sur le dégradé de l'utilisateur, pas sur une surface de chrome.
+          // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
+          // sombre. Même raison que `SELECTION_INK` sur le canevas.
           className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
-            rounded-full border-2 border-white shadow-[0_1px_3px_oklch(0_0_0/0.5)]
+            rounded-full border-2 border-white shadow-(--shadow-handle)
             transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
         />
       ))}

@@ -61,11 +61,10 @@ export function Slider({
           aria-valuetext={formatValue ? formatValue(current) : String(current)}
           aria-disabled={disabled || undefined}
           className={cn(
-            'block h-3.5 w-3.5 cursor-pointer rounded-full border-2 border-card bg-foreground shadow-[0_1px_3px_oklch(0_0_0/0.35)] outline-none',
+            'block h-3.5 w-3.5 cursor-pointer rounded-full border-2 border-card bg-foreground shadow-(--shadow-handle) outline-none',
             'transition-[transform,box-shadow] duration-120 ease-out',
             'hover:scale-115 focus-visible:scale-115 active:scale-115',
-            'focus-visible:shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-foreground)_16%,transparent)]',
-            'active:shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-foreground)_16%,transparent)]',
+            'focus-visible:shadow-(--shadow-handle-focus) active:shadow-(--shadow-handle-focus)',
           )}
         />
       </SliderPrimitive.Root>

@@ -8,7 +8,7 @@
 
 ## Tokens
 
-- `src/index.css` follows the shadcn token contract; only 13 tokens sit outside it, for concepts shadcn has no name for.
+- `src/index.css` follows the shadcn token contract; only 16 tokens sit outside it, for concepts shadcn has no name for, plus six named z-levels.
 - `src/index.css` defines OKLCH surfaces and ink, 4px spacing, typography, radii, elevation, named z-levels, and reduced-motion behavior.
 - Chrome surfaces are achromatic so they do not distort color judgment on the artboard.
 - Lime lives under `--color-marker`, reserved for location/state and focus; `accent` keeps its shadcn meaning of neutral hover surface. Primary actions use neutral fills, while red is reserved for destructive state.
@@ -25,6 +25,7 @@
 - Layer rows show a text layer's own content until it is renamed, and the filter searches what the rows display.
 - Filmstrip tiles are sized from the export target's ratio so the preview shows the real framing; the label under a tile carries the number alone, and the full screen name lives in the tooltip, the context menu and the artboard label on canvas.
 - Dense control heights, tabular numeric values, one primary CTA per dialog, and 120–200ms transform/opacity motion are the default grammar.
+- Grab handles share a contact-shadow token and a focus-ring token rather than inline shadow literals; they sit outside the island elevation scale because a handle detaches from its surface instead of floating above it. Ink that lands on user content, not on chrome, stays deliberately unthemed.
 - Lazy dialogs immediately show a token-based modal loading surface with an announced status; reduced-motion users get the same feedback without animation.
 - `index.html` paints a named boot skeleton inside `#root` — React clears the container on mount, so nothing has to remove it — and loads the font stylesheet off the critical path. The critical bundle is ~272 kB gzip and mostly Fabric, which a canvas editor needs on first paint; the fix is feedback, not further splitting.
 - If durable storage is unavailable, the editor remains usable in memory while the save status and a persistent alert disclose that closing the tab will lose the session.

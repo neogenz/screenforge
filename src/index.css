@@ -109,6 +109,16 @@
   --shadow-lg: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
     0 32px 64px -32px oklch(0 0 0 / 0.6);
   --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
+  /* Une poignée n'est pas un îlot : elle ne plane pas, elle se détache de ce
+     qu'elle touche. D'où une ombre de contact d'un pixel, et non les trois
+     couches de l'échelle ci-dessus. Deux copies de cette valeur vivaient dans
+     deux composants, à deux alphas différents — la différence était une dérive,
+     pas une intention. */
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.4);
+  /* L'anneau que prend la poignée sous le focus clavier et pendant la saisie :
+     le même dans les deux cas, parce que c'est le même état — « c'est celle-ci
+     que tu manipules ». */
+  --shadow-handle-focus: 0 0 0 4px color-mix(in oklch, var(--color-foreground) 16%, transparent);
   /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
   /* Lumière rasante sur l'arête haute d'un îlot. */
