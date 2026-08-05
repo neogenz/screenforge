@@ -41,6 +41,7 @@ export interface DebugObject {
   isEditing?: boolean
   oCoords?: Record<string, { x: number; y: number }>
   getCenterPoint?: () => { x: number; y: number }
+  getBoundingRect?: () => { left: number; top: number; width: number; height: number }
 }
 
 declare global {
@@ -316,6 +317,40 @@ export async function screenCenter(page: Page, index: number): Promise<{ x: numb
   }, index)
   if (!pos) throw new Error(`Screen ${index} not found`)
   return pos
+}
+
+/**
+ * Le lasso, dedans la planche : un rectangle tiré de coin à coin sur le fond
+ * d'une planche, qui n'est pas `evented` — le geste y commence donc une
+ * sélection au lieu de saisir un calque. Bordé à 2 % pour rester à l'intérieur
+ * du cadrage visible quel que soit l'ajustement, et Fabric sélectionne à
+ * l'intersection : tout calque de la planche y tombe.
+ */
+export async function lassoOverScreen(page: Page, screenIndex: number): Promise<void> {
+  const box = await page.evaluate((index) => {
+    const canvas = window.__sfCanvas
+    if (!canvas) return null
+    const background = (canvas.getObjects() as DebugObject[])
+      .filter((object) => object.data?.rendererType === 'background')
+      .sort((left, right) => (left.left ?? 0) - (right.left ?? 0))[index]
+    if (!background?.getBoundingRect) return null
+    const scene = background.getBoundingRect()
+    const element = canvas.upperCanvasEl.getBoundingClientRect()
+    const viewport = canvas.viewportTransform
+    const toPage = (x: number, y: number) => ({
+      x: element.left + x * viewport[0] + viewport[4],
+      y: element.top + y * viewport[3] + viewport[5],
+    })
+    return {
+      from: toPage(scene.left + scene.width * 0.02, scene.top + scene.height * 0.02),
+      to: toPage(scene.left + scene.width * 0.98, scene.top + scene.height * 0.98),
+    }
+  }, screenIndex)
+  if (!box) throw new Error(`Artboard ${screenIndex} not found`)
+  await page.mouse.move(box.from.x, box.from.y)
+  await page.mouse.down()
+  await page.mouse.move(box.to.x, box.to.y, { steps: 12 })
+  await page.mouse.up()
 }
 
 export async function dragActiveBody(page: Page, dx: number, dy: number): Promise<void> {

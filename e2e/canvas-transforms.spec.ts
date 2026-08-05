@@ -10,11 +10,13 @@ import {
   dragControl,
   expectClose,
   findObject,
+  lassoOverScreen,
   layerRows,
   screenCenter,
   transformInput,
   waitForApp,
   waitForCanvasSettled,
+  type DebugObject,
 } from './helpers'
 
 async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
@@ -27,6 +29,25 @@ async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<v
   await page.mouse.move(destination.x, destination.y, { steps: 12 })
   await page.mouse.up()
   await waitForCanvasSettled(page)
+}
+
+/**
+ * Le centre de chaque calque dans le repère de la scène, lu par la matrice.
+ *
+ * Par la matrice et non par `left`/`top` : ceux-ci se lisent dans le repère du
+ * parent, et un calque pris dans une sélection multiple en a un. C'est
+ * précisément la confusion que ces tests surveillent.
+ */
+async function sceneCenters(page: Page): Promise<{ x: number; y: number }[]> {
+  return page.evaluate(() => (window.__sfCanvas?.getObjects() ?? [])
+    .filter((object) => {
+      const type = (object as DebugObject).data?.rendererType
+      return type !== undefined && type !== 'background' && type !== 'label'
+    })
+    .map((object) => {
+      const [, , , , x, y] = object.calcTransformMatrix()
+      return { x: Math.round(x), y: Math.round(y) }
+    }))
 }
 
 async function setRotation(page: Page, angle: number): Promise<void> {
@@ -293,6 +314,47 @@ test.describe('canvas transforms', () => {
     expect(result.sourceIds).toEqual([])
     expect(new Set(result.targetIds)).toEqual(new Set(layerIds))
     expect(new Set(result.selectedIds)).toEqual(new Set(layerIds))
+  })
+
+  test('lasso-selecting another screen’s layers moves nothing', async ({ page }) => {
+    await addTextLayer(page)
+    await addShapeLayer(page)
+    await addScreen(page)
+    await waitForCanvasSettled(page)
+
+    const before = await sceneCenters(page)
+    expect(before.length).toBe(2)
+
+    await lassoOverScreen(page, 0)
+    await waitForCanvasSettled(page)
+
+    // Le lasso rend courante la planche qu'il vise, donc relance une passe de
+    // synchronisation pendant que la sélection multiple existe. Mesuré avant :
+    // les calques repartaient 1182px plus loin, hors de leur écrêtage, donc
+    // invisibles — et rien dans le projet ne l'avait demandé.
+    expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
+    expect(await sceneCenters(page)).toEqual(before)
+  })
+
+  test('nudging a multi-selection moves it by exactly one pixel', async ({ page }) => {
+    await addTextLayer(page)
+    await addShapeLayer(page)
+    await waitForCanvasSettled(page)
+    // Au lasso et non par la liste des calques : la flèche ne nudge que si le
+    // focus n'est pas sur un contrôle qui s'en sert lui-même, et une ligne de
+    // la liste en est un.
+    await lassoOverScreen(page, 0)
+    await waitForCanvasSettled(page)
+    expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
+
+    const before = await sceneCenters(page)
+    await page.keyboard.press('ArrowRight')
+    await waitForCanvasSettled(page)
+
+    // Même écriture de géométrie que le lasso, par le chemin `patch` cette
+    // fois : une flèche répétée sur une sélection multiple recalait chaque
+    // calque sur le centre de la sélection, à chaque appui.
+    expect(await sceneCenters(page)).toEqual(before.map((center) => ({ ...center, x: center.x + 1 })))
   })
 
   test('dropping in the gutter keeps the source screen and restores clipping', async ({ page }) => {

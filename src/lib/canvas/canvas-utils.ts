@@ -3,6 +3,7 @@ import {
   FabricImage,
   FabricObject,
   Gradient,
+  Point,
   Rect,
   Shadow,
   Textbox,
@@ -514,12 +515,35 @@ export function applyLayerToFabricObject(
 
   // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
   const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))
-  object.set({
-    left: layer.x + screenOffset + size.width / 2,
-    top: layer.y + size.height / 2,
-  })
+  placeAtSceneCenter(
+    object,
+    layer.x + screenOffset + size.width / 2,
+    layer.y + size.height / 2,
+  )
 
   object.setCoords()
+}
+
+/**
+ * Pose un objet en un point de la scène, qu'il soit ou non pris dans une
+ * sélection multiple.
+ *
+ * `left`/`top` se lisent dans le repère du parent : dès qu'un objet appartient à
+ * une `ActiveSelection`, y écrire une coordonnée de scène le décale du centre de
+ * la sélection. Mesuré : sélectionner au lasso trois calques d'une planche qui
+ * n'était pas la planche courante change la planche courante, donc relance une
+ * passe de synchronisation, qui reposait ces trois calques 1182px plus loin —
+ * hors de leur écrêtage, donc invisibles, sans que rien n'ait été déplacé. La
+ * position fautive devenait vraie au premier `object:modified` suivant, qui lit
+ * la matrice. Le nudge au clavier sur une sélection multiple passait par le même
+ * chemin, en boucle.
+ *
+ * `setXY` fait la conversion vers le repère du parent. La branche est gardée
+ * pour laisser intact le chemin courant, où l'objet est fils du canevas.
+ */
+function placeAtSceneCenter(object: RenderedObject, x: number, y: number): void {
+  if (object.group) object.setXY(new Point(x, y), 'center', 'center')
+  else object.set({ left: x, top: y })
 }
 
 /**
