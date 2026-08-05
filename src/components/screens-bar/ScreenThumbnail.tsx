@@ -130,13 +130,24 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // `scale` et non `transform` : Tailwind v4 écrit la propriété `scale`,
           // que l'ancienne liste ne nommait pas — l'enfoncement sautait.
           'active:scale-[0.97] motion-reduce:transition-none',
-          // L'aperçu porte le travail de l'utilisateur, et une part de l'état :
-          // l'ombre d'un cran au-dessus, jamais un anneau.
-          isActive ? 'shadow-md' : 'shadow-(--shadow-handle) hover:border-input',
+          // Seule la tuile courante se détache ; les autres reposent à plat sur
+          // la bande, leur bordure suffit à les découper. `shadow-md` est une
+          // élévation d'îlot : sa nappe basse descend d'une quarantaine de
+          // pixels sous une tuile qui en fait 116, et la boîte de défilement la
+          // tranchait net — `overflow-x: auto` force l'autre axe. L'ombre de
+          // contact tient dans les 8px que le dégagement et la levée laissent
+          // sous la tuile ; l'état, lui, est déjà porté par la pastille citron
+          // et par cette levée.
+          isActive ? 'shadow-(--shadow-handle)' : 'hover:border-input',
         )}
       >
+        {/* Pas d'`img-outline` ici : le liseré des images sert à détacher une
+            image posée à même une surface, or celle-ci est déjà encadrée par la
+            bordure de la tuile. Les deux traits cumulaient 2px de cadre sur 53
+            de large, et le liseré, rectangulaire, se faisait couper aux quatre
+            coins par l'écrêtage arrondi — d'où un aperçu qui paraissait rogné. */}
         {screen.thumbnail ? (
-          <img src={screen.thumbnail} alt="" className="img-outline h-full w-full object-cover" />
+          <img src={screen.thumbnail} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="block h-full w-full bg-secondary" />
         )}

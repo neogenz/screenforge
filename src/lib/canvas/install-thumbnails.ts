@@ -1,5 +1,6 @@
 import type { Canvas } from 'fabric'
-import { SCREEN_HEIGHT, SCREEN_WIDTH, type RenderedObject } from '@/lib/canvas/canvas-utils'
+import { type RenderedObject } from '@/lib/canvas/canvas-utils'
+import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ThumbnailInstallerOptions {
@@ -32,6 +33,16 @@ export function installThumbnails({
     const savedViewport = [...canvas.viewportTransform] as typeof canvas.viewportTransform
     const thumbnails: Record<string, string> = {}
 
+    // `renderCanvas` dessine les poignées dans le contexte du bas, celui que
+    // l'on recopie : le cadre de sélection se retrouvait cuit dans l'aperçu de
+    // l'écran courant. Fabric réserve ce drapeau à ce cas précis, « avoid
+    // toDataURL to export controls », et une capture est un export. Il est
+    // `protected` côté types seulement. L'écarter en vidant la sélection ferait
+    // au contraire remonter un `selection:cleared` jusqu'au panneau.
+    const controlHost = canvas as Canvas & { skipControlsDrawing: boolean }
+    const savedSkipControls = controlHost.skipControlsDrawing
+    controlHost.skipControlsDrawing = true
+
     try {
       let minX = Infinity
       let minY = Infinity
@@ -60,8 +71,13 @@ export function installThumbnails({
 
       const source = canvas.lowerCanvasEl
       const retinaScale = canvas.getRetinaScaling()
-      const thumbnailWidth = Math.round(SCREEN_WIDTH * 0.2)
-      const thumbnailHeight = Math.round(SCREEN_HEIGHT * 0.2)
+      // Taillé pour la tuile qui l'affiche, au double pour un écran à 2 dpr.
+      // Le facteur 0,2 donnait 88x191 pour une tuile rendue 106x232 en pixels
+      // physiques : l'aperçu était agrandi, donc mou. Le rapport de la tuile
+      // n'est pas exactement celui de la planche (arrondi au pixel entier), et
+      // c'est ce rapport-là qui prime — sinon `object-cover` en rogne l'écart.
+      const thumbnailWidth = THUMBNAIL_WIDTH * 2
+      const thumbnailHeight = THUMBNAIL_HEIGHT * 2
 
       for (const screen of screens) {
         if (expectedGeneration !== generation) return
@@ -91,6 +107,7 @@ export function installThumbnails({
     } catch (error) {
       console.error('Could not generate screen thumbnails.', error)
     } finally {
+      controlHost.skipControlsDrawing = savedSkipControls
       canvas.setViewportTransform(savedViewport)
       canvas.renderAll()
     }
