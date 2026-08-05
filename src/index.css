@@ -266,13 +266,21 @@
    ni un écart entre contrôles, ni une hauteur — et il n'a donc pas à tomber sur
    la grille de 4. Il se lit ici et nulle part ailleurs. */
 @utility stage-grain {
+  /* Les trois valeurs sont réécrites à chaque rendu du canevas, depuis la
+     transformation de viewport : le grain est ancré à la scène, pas à la
+     fenêtre. Posé fixe il glissait sous les planches au premier panoramique,
+     et c'est précisément le contraire de ce qu'un sol doit faire. Celles-ci
+     sont les valeurs de repos, avant que Fabric n'ait rendu une fois. */
   --stage-dot-step: 22px;
+  --stage-dot-x: 0px;
+  --stage-dot-y: 0px;
   background-image: radial-gradient(
     circle at 1px 1px,
     var(--color-stage-dot) 1px,
     transparent 0
   );
   background-size: var(--stage-dot-step) var(--stage-dot-step);
+  background-position: var(--stage-dot-x) var(--stage-dot-y);
 }
 
 /* ── Light — même structure, neutre vrai (chroma 0) ── */

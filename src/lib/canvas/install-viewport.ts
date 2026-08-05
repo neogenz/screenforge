@@ -17,6 +17,29 @@ function hasLabelRow(project: Project | null): boolean {
   return Boolean(project?.screens.some(screenHasCustomName))
 }
 
+/** Pas du grain à 100 %, en accord avec `--stage-dot-step` au repos. */
+const GRAIN_STEP = 22
+/**
+ * Bornes du pas rendu à l'écran.
+ *
+ * Le grain est ancré à la scène : il se dilate avec le zoom, sinon il flotterait
+ * au-dessus du contenu au lieu de lui servir de sol. Dilaté sans borne il
+ * devient un aplat gris à 10 % et un semis clairsemé à 400 %, d'où le doublement
+ * par octaves — le motif reste périodique, donc un point tombe toujours sur
+ * l'origine de la scène, seul un point sur deux disparaît.
+ */
+const GRAIN_MIN = 12
+const GRAIN_MAX = 44
+
+/** @param zoom facteur du viewport Fabric */
+function grainStep(zoom: number): number {
+  if (!(zoom > 0)) return GRAIN_STEP
+  let step = GRAIN_STEP * zoom
+  while (step < GRAIN_MIN) step *= 2
+  while (step > GRAIN_MAX) step /= 2
+  return step
+}
+
 interface MutableValue<T> {
   current: T
 }
@@ -127,6 +150,29 @@ export function installViewport({
       insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
     ])
   }
+
+  /**
+   * Le grain suit la scène, écrit sur l'élément et non dans un store.
+   *
+   * Un panoramique change la transformation à chaque image : la passer par un
+   * store ferait re-rendre React soixante fois par seconde pour deux nombres que
+   * seul le CSS lit. La clé évite les écritures identiques — `after:render` tire
+   * aussi sur un simple survol d'objet, où rien n'a bougé.
+   */
+  let grainKey = ''
+  const disposeGrain = canvas.on('after:render', () => {
+    const [zoom, , , , panX, panY] = canvas.viewportTransform
+    const step = grainStep(zoom)
+    // Le motif se répète : seule la position dans une maille compte, et la
+    // ramener évite d'écrire des offsets de plusieurs milliers de pixels.
+    const key = `${step} ${panX % step} ${panY % step}`
+    if (key === grainKey) return
+    grainKey = key
+    const [size, x, y] = key.split(' ')
+    container.style.setProperty('--stage-dot-step', `${size}px`)
+    container.style.setProperty('--stage-dot-x', `${x}px`)
+    container.style.setProperty('--stage-dot-y', `${y}px`)
+  })
 
   const disposeWheel = canvas.on('mouse:wheel', ({ e }: { e: WheelEvent }) => {
     e.preventDefault()
@@ -277,6 +323,7 @@ export function installViewport({
   })
 
   function cleanup(): void {
+    disposeGrain()
     disposeWheel()
     disposeMouseDown()
     disposeMouseMove()
