@@ -7,6 +7,7 @@ import {
   layerRows,
   waitForApp,
 } from './helpers'
+import { FILMSTRIP_PADDING, THUMBNAIL_SLOT, THUMBNAIL_WIDTH } from '../src/lib/stage'
 
 test.describe('smoke', () => {
   test('app loads and project name is editable', async ({ page }) => {
@@ -77,6 +78,21 @@ test.describe('smoke', () => {
       [...document.querySelectorAll('[role="group"][aria-label="Écrans"] > div[draggable]')]
         .map((tile) => getComputedStyle(tile).translate))
 
+    /** La barre d'insertion : sa distance au bord de la bande, ou `null`. */
+    const insertionBar = () => page.evaluate(() => {
+      const strip = document.querySelector('[role="group"][aria-label="Écrans"]')
+      const bar = strip?.querySelector<HTMLElement>(':scope > span[aria-hidden]')
+      if (!strip || !bar) return null
+      return {
+        offset: Math.round(bar.getBoundingClientRect().left - strip.getBoundingClientRect().left),
+        // Inerte au pointeur, sinon elle vole le `dragover` qui décide de la
+        // cible : elle est posée exactement là où le curseur se trouve.
+        inert: getComputedStyle(bar).pointerEvents === 'none',
+      }
+    })
+
+    expect(await insertionBar()).toBeNull()
+
     await fire(0, 'dragstart')
     await fire(2, 'dragover')
     // La tuile déplacée reste en place, les deux survolées reculent d'un pas.
@@ -84,10 +100,16 @@ test.describe('smoke', () => {
     const previewed = await shifts()
     expect(previewed[1]).toBe(previewed[2])
 
+    // La barre marque l'emplacement visé : le troisième rang, dans le vide que
+    // la rangée vient d'ouvrir.
+    const expected = FILMSTRIP_PADDING + 2 * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5
+    await expect.poll(insertionBar).toEqual({ offset: Math.round(expected), inert: true })
+
     await fire('strip', 'drop')
     await fire(0, 'dragend')
     await expect.poll(names).toEqual([before![1], before![2], before![0]])
     await expect.poll(shifts).toEqual(['0px', '0px', '0px'])
+    await expect.poll(insertionBar).toBeNull()
 
     // Le retour en arrière passe par la même mécanique, dans l'autre sens.
     await fire(2, 'dragstart')

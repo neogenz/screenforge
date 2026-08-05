@@ -16,6 +16,7 @@ import {
   THUMBNAIL_HEIGHT,
   THUMBNAIL_LIFT,
   THUMBNAIL_SLOT,
+  THUMBNAIL_WIDTH,
   filmstripHeight,
 } from '@/lib/stage'
 import { cn } from '@/lib/utils'
@@ -217,10 +218,32 @@ export function ScreensBar() {
       // des surfaces. Une carte autour d'eux empilait plateau, tuile et aperçu à
       // trois clartés voisines, et prenait 26px de hauteur au canevas pour
       // encadrer du vide. Ce sont les vignettes qui flottent.
-      className="flex animate-slide-up items-start overflow-x-auto"
+      className="relative flex animate-slide-up items-start overflow-x-auto"
       onDragOver={handleStripDragOver}
       onDrop={handleDrop}
     >
+      {/* Le décalage montre l'arrangement final, la barre nomme le point
+          d'insertion — deux choses différentes, et la seconde manque dès que la
+          place ouverte est en bord de bande ou hors du champ de vision.
+
+          Un seul élément, positionné depuis `drag.over` : dix barres
+          conditionnelles diraient la même chose en dix fois plus de DOM.
+          `pointer-events-none` n'est pas une précaution mais une condition —
+          posée dans le vide que la rangée vient d'ouvrir, elle est exactement là
+          où le curseur se trouve, et elle volerait le `dragover` qui décide de
+          la cible. */}
+      {drag && (
+        <span
+          aria-hidden
+          style={{
+            left: FILMSTRIP_PADDING + drag.over * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5,
+            top: FILMSTRIP_PADDING + THUMBNAIL_LIFT,
+            height: THUMBNAIL_HEIGHT,
+          }}
+          className="pointer-events-none absolute w-[3px] rounded-full bg-marker"
+        />
+      )}
+
       {list.map((screen, index) => (
         <div
           key={screen.id}
