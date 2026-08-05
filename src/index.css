@@ -98,10 +98,15 @@
   /* ── Chrome d'artboard — ajouts produit, lus par Fabric au runtime ──
      Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
      dégradé violet fausse le jugement de l'utilisateur sur sa propre couleur.
-     L'écran courant se signale par la valeur, pas par la teinte. */
+     L'écran courant se signale par la valeur, pas par la teinte.
+
+     Un seul liseré, le même partout : il dit où finit une planche blanche
+     posée sur une scène presque blanche, jamais lequel des écrans est courant.
+     La variante « active » a été retirée — posée sur l'arête, donc sous les
+     calques, le premier téléphone qui touchait le bord la recouvrait. */
   --color-artboard-ring: oklch(1 0 0 / 0.1);
-  --color-artboard-ring-active: oklch(1 0 0 / 0.55);
-  /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS. */
+  /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS,
+     et c'est cette ombre qui porte désormais l'état. */
   --color-artboard-shadow: oklch(0 0 0 / 0.5);
   /* Voile du lasso. Sa teinte suit `foreground`, seule son alpha change de thème. */
   --color-selection-soft: oklch(0.97 0 0 / 0.14);
@@ -342,7 +347,6 @@
   --color-warning: oklch(0.55 0.1 70);
 
   --color-artboard-ring: oklch(0 0 0 / 0.1);
-  --color-artboard-ring-active: oklch(0 0 0 / 0.5);
   --color-artboard-shadow: oklch(0 0 0 / 0.16);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
 

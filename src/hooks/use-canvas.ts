@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActiveSelection, Canvas, Point, Rect, util } from 'fabric'
+import { ActiveSelection, Canvas, Point, Rect, Shadow, util } from 'fabric'
 import {
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/canvas/canvas-utils'
 import {
   applyLassoColors,
+  artboardStyle,
   readChromeColors,
   type SelectionFrame,
 } from '@/lib/canvas/canvas-interactions'
@@ -214,13 +215,15 @@ export function useCanvas() {
     applyLassoColors(canvas, chrome)
     for (const object of canvas.getObjects() as RenderedObject[]) {
       const data = object.data
+      const isActive = data?.screenId === project.activeScreenId
       if (data?.rendererType === 'label') {
-        object.set('fill', chrome.label)
+        object.set('fill', artboardStyle(chrome, isActive).labelFill)
       } else if (data?.rendererType === 'background') {
-        const isActive = data.screenId === project.activeScreenId
+        const artboard = artboardStyle(chrome, isActive)
         object.set({
-          stroke: isActive ? chrome.activeRing : chrome.artboardRing,
-          strokeWidth: isActive ? 2 : 1,
+          stroke: artboard.stroke,
+          strokeWidth: artboard.strokeWidth,
+          shadow: new Shadow(artboard.shadow),
         })
       } else {
         applySelectionStyle(object)

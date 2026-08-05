@@ -14,11 +14,11 @@ import {
 } from '@/lib/canvas/canvas-utils'
 import {
   applyLassoColors,
+  artboardStyle,
   readChromeColors,
   resolveSelectionObjects,
   sameIds,
 } from '@/lib/canvas/canvas-interactions'
-import { DEFAULT_CANVAS_SHADOW_COLOR } from '@/lib/content-defaults'
 import type { ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
@@ -135,7 +135,6 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           selectable: false,
           evented: false,
           strokeUniform: true,
-          shadow: new Shadow({ color: DEFAULT_CANVAS_SHADOW_COLOR, blur: 24, offsetY: 4 }),
         })
         background.set('data', {
           uid: backgroundId,
@@ -145,12 +144,14 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(background)
         objectsById.set(backgroundId, background)
       }
+      const artboard = artboardStyle(chrome, screen.id === activeScreenId)
       background.set({
         left: offset,
         top: 0,
         fill: backgroundToFabricFill(screen.background),
-        stroke: screen.id === activeScreenId ? chrome.activeRing : chrome.artboardRing,
-        strokeWidth: screen.id === activeScreenId ? 2 : 1,
+        stroke: artboard.stroke,
+        strokeWidth: artboard.strokeWidth,
+        shadow: new Shadow(artboard.shadow),
       })
       background.setCoords()
 
@@ -174,7 +175,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(label)
         objectsById.set(labelId, label)
       }
-      label.set({ left: offset, top: -26, text: screen.name, fill: chrome.label })
+      label.set({ left: offset, top: -26, text: screen.name, fill: artboard.labelFill })
       label.setCoords()
 
       for (const layer of screen.layers) {
