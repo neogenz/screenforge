@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge reprend les partis pris visuels de la maquette qui tiennent — grain de scène, numéro dans la vignette, vignette qui se nomme, insertion visible — sans changer une seule fonction, sans jeton hors contrat shadcn et sans ouvrir les échelles fermées."
-status: in-progress
+status: implemented
 ---
 
 # Plan: reprise UI de la maquette « app-screen-preview-redesign »
