@@ -13,6 +13,16 @@ export const ISLAND_MARGIN = 12
 export const TOP_BAR_HEIGHT = 50
 export const DRAWER_WIDTH_LAYERS = 280
 export const DRAWER_WIDTH_PROPS = 320
+/**
+ * Largeur d'un tiroir, ramenée à ce que la fenêtre peut porter.
+ *
+ * Un tiroir est posé en `fixed` à une marge du bord : sous 344px de large, le
+ * plus grand des deux sortait de la fenêtre par l'autre bord. Il vaut mieux un
+ * tiroir étroit qu'un tiroir dont on ne voit pas la moitié droite.
+ */
+export function drawerWidth(width: number): string {
+  return `min(${width}px, calc(100vw - ${ISLAND_MARGIN * 2}px))`
+}
 
 /**
  * Hauteur de vignette dans la filmstrip. En deçà on ne distingue plus une mise
@@ -115,9 +125,33 @@ export function filmstripHeight(labelled: boolean): number {
  * prenait le clic destiné à la dernière vignette. 160 = le HUD (134 mesuré à
  * « 100 % ») + sa marge (12) + un écart franc (14).
  */
-export const FILMSTRIP_SIDE_GUTTER = 160
-/** Largeur maximale de la pellicule, bornée par les deux gouttières. */
-export const FILMSTRIP_MAX_WIDTH = `min(760px, calc(100vw - ${FILMSTRIP_SIDE_GUTTER * 2}px))`
+export const ZOOM_HUD_WIDTH = 134
+export const FILMSTRIP_SIDE_GUTTER = ZOOM_HUD_WIDTH + ISLAND_MARGIN + 14
+/**
+ * Largeur maximale de la pellicule, bornée par les deux gouttières — et jamais
+ * sous une tuile.
+ *
+ * Sans ce plancher la borne devient nulle à 320px de large puis négative en
+ * dessous : une `max-width` négative est invalide, la déclaration saute, et la
+ * bande reprend sa largeur naturelle par-dessus tout le reste. Une tuile et son
+ * dégagement, c'est le minimum qui reste défilable ; la gouttière du HUD n'est
+ * dépassée qu'en deçà de 361px, où il n'y a de toute façon plus de place pour
+ * les deux.
+ */
+export const FILMSTRIP_MIN_WIDTH = THUMBNAIL_SLOT + FILMSTRIP_PADDING * 2
+export const FILMSTRIP_MAX_WIDTH = `max(${FILMSTRIP_MIN_WIDTH}px, min(760px, calc(100vw - ${FILMSTRIP_SIDE_GUTTER * 2}px)))`
+/**
+ * Largeur sous laquelle la pellicule cesse d'être centrée sur la fenêtre.
+ *
+ * La gouttière suffit tant que la bande peut rétrécir ; une fois au plancher
+ * elle ne rétrécit plus, et la bande centrée finit par mordre sur le HUD ancré
+ * à droite — 27px mesurés à 320px de large, sur une bande qui n'a plus qu'une
+ * tuile à montrer, et c'est le HUD qui prend le clic. Sous ce seuil la bande
+ * s'ancre à gauche : elle a la place, le HUD ne bouge pas de là où on le
+ * cherche, et le centrage revient dès que la fenêtre le permet.
+ */
+export const FILMSTRIP_CENTERED_MIN_WIDTH =
+  FILMSTRIP_MIN_WIDTH + (ZOOM_HUD_WIDTH + ISLAND_MARGIN) * 2
 
 /**
  * Largeur de scène sous laquelle l'aperçu cesse de rendre service.
@@ -139,14 +173,6 @@ export const MIN_STAGE_WIDTH = 240
 export const DUAL_DRAWER_MIN_WIDTH =
   ISLAND_MARGIN * 3 + DRAWER_WIDTH_LAYERS + DRAWER_WIDTH_PROPS + MIN_STAGE_WIDTH
 /**
- * Plancher de l'éditeur : un tiroir et une scène utile, rien de moins.
- *
- * En dessous, ScreenForge annonce sa largeur minimale plutôt que de rendre une
- * barre dont les contrôles sortent de l'écran. Un échec déclaré vaut mieux
- * qu'un échec silencieux — c'était le second qui était en place.
- */
-export const MIN_APP_WIDTH = ISLAND_MARGIN * 3 + DRAWER_WIDTH_PROPS + MIN_STAGE_WIDTH
-/**
  * Largeur sous laquelle la barre supérieure replie ses actions secondaires.
  *
  * Mesurée et non déduite : le contenu de la barre plancherait à 654px, elle
@@ -154,6 +180,17 @@ export const MIN_APP_WIDTH = ISLAND_MARGIN * 3 + DRAWER_WIDTH_PROPS + MIN_STAGE_
  * l'écran. Arrondi au palier standard immédiatement au-dessus.
  */
 export const TOP_BAR_COMPACT_WIDTH = 768
+/**
+ * Largeur sous laquelle la barre replie aussi ses outils de création.
+ *
+ * Second palier, mesuré comme le premier : replier les seules actions
+ * secondaires ne suffit plus en dessous. À 375px de fenêtre, l'îlot dispose de
+ * 351px et la rangée en réclamait 526 — 253 d'outils, 257 d'actions, 16 de
+ * gouttières — et « Exporter » repartait 173px hors de l'écran. Sans les
+ * outils il en reste 273, de quoi porter la barre et un bout de nom de projet.
+ * Arrondi au-dessus du besoin réel (570) pour ne pas replier au ras.
+ */
+export const TOP_BAR_TOOLS_WIDTH = 640
 
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2

@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
-import { TOP_BAR_COMPACT_WIDTH } from '@/lib/stage'
+import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import {
   createProjectFile,
@@ -85,6 +85,13 @@ function Divider() {
  * nom du projet qui cède. Le centre glisse, il ne chevauche jamais.
  */
 export function TopBar() {
+  // Deux paliers, parce que replier une fois ne suffit pas : sous le premier ce
+  // sont les actions secondaires qui passent au menu, sous le second les outils
+  // de création les y rejoignent. Le second est ce qui rend la fenêtre étroite
+  // habitable — voir `TOP_BAR_TOOLS_WIDTH`.
+  const compactActions = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
+  const compactTools = useMediaQuery(belowWidth(TOP_BAR_TOOLS_WIDTH))
+
   return (
     // La colonne du projet plancher à `0` et non à `min-content` : un champ en
     // `field-sizing-content` déclare son contenu comme min-content, donc
@@ -93,8 +100,10 @@ export function TopBar() {
     // le champ qui absorbe, pas la grille.
     <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
       <ProjectSegment />
-      <ToolsSegment />
-      <ActionsSegment />
+      {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
+          garde le groupe central au milieu quand il revient. */}
+      {compactTools ? <span /> : <ToolsSegment />}
+      <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
     </div>
   )
 }
@@ -393,7 +402,78 @@ interface SecondaryAction {
   icon: React.ReactNode
   /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
   expanded?: boolean
+  disabled?: boolean
   onSelect: () => void
+}
+
+/**
+ * Les outils de création, sous leur forme repliée.
+ *
+ * La rangée reste écrite à part, en face : elle porte un filet de groupe et un
+ * menu de modèles d'iPhone, que six entrées à plat ne rendraient pas. La seule
+ * chose que la forme repliée abandonne est justement ce choix de modèle — elle
+ * pose celui du projet, qui est déjà ce que la rangée propose en tête de liste.
+ */
+function useToolActions(): SecondaryAction[] {
+  const undo = useCanvasStore((s) => s.undo)
+  const redo = useCanvasStore((s) => s.redo)
+  const canUndo = useHistoryStore((s) => s.past.length > 0)
+  const canRedo = useHistoryStore((s) => s.future.length > 0)
+  const deviceModel = useProjectStore((s) => s.project?.globals.deviceModel)
+
+  function addLayer(create: (index: number) => Layer) {
+    useCanvasStore.getState().addLayer(
+      create(getProjectLayers(useProjectStore.getState().project).length),
+    )
+  }
+
+  return [
+    {
+      id: 'undo',
+      label: 'Annuler',
+      hint: 'Annuler (⌘Z)',
+      icon: <Undo2 size={16} strokeWidth={1.75} />,
+      disabled: !canUndo,
+      onSelect: () => undo(),
+    },
+    {
+      id: 'redo',
+      label: 'Rétablir',
+      hint: 'Rétablir (⌘⇧Z)',
+      icon: <Redo2 size={16} strokeWidth={1.75} />,
+      disabled: !canRedo,
+      onSelect: () => redo(),
+    },
+    {
+      id: 'add-text',
+      label: 'Ajouter Texte',
+      hint: 'Ajouter : texte',
+      icon: <Type size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer(createTextLayer),
+    },
+    {
+      id: 'add-device',
+      label: 'Ajouter un cadre iPhone',
+      hint: 'Ajouter : cadre iPhone',
+      icon: <Smartphone size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer((index) =>
+        createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index)),
+    },
+    {
+      id: 'add-image',
+      label: 'Ajouter Image',
+      hint: 'Ajouter : image…',
+      icon: <ImageIcon size={16} strokeWidth={1.75} />,
+      onSelect: () => document.getElementById('sf-image-import-input')?.click(),
+    },
+    {
+      id: 'add-shape',
+      label: 'Ajouter Forme',
+      hint: 'Ajouter : forme',
+      icon: <Square size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer(createShapeLayer),
+    },
+  ]
 }
 
 function useSecondaryActions(): SecondaryAction[] {
@@ -459,19 +539,28 @@ function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
         id: action.id,
         label: action.label,
         icon: action.icon,
+        disabled: action.disabled,
         onSelect: action.onSelect,
       }))}
     />
   )
 }
 
-function ActionsSegment() {
+function ActionsSegment({
+  compactActions,
+  compactTools,
+}: {
+  compactActions: boolean
+  compactTools: boolean
+}) {
   const layersOpen = useUIStore((s) => s.layersOpen)
   const propsOpen = useUIStore((s) => s.propsOpen)
-  const actions = useSecondaryActions()
-  // Sous ce seuil la rangée débordait, et c'est « Exporter » qui quittait
-  // l'écran en premier : le CTA principal reste, ce sont ses voisins qui cèdent.
-  const compact = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
+  const secondary = useSecondaryActions()
+  const tools = useToolActions()
+  // Le CTA principal reste, ce sont ses voisins qui cèdent — et les outils
+  // repliés arrivent en tête du menu, dans l'ordre de la rangée qu'ils quittent.
+  const compact = compactActions || compactTools
+  const actions = compactTools ? [...tools, ...secondary] : secondary
 
   return (
     <div className="flex items-center gap-1 justify-self-end">

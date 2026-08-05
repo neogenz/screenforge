@@ -12,7 +12,6 @@ import { waitForApp } from './helpers'
  */
 import {
   DUAL_DRAWER_MIN_WIDTH,
-  MIN_APP_WIDTH,
   TOP_BAR_COMPACT_WIDTH,
 } from '../src/lib/stage'
 
@@ -51,18 +50,75 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   await expect(page.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
 })
 
-test('annonce sa largeur minimale au lieu de rendre un éditeur déformé', async ({ page }) => {
+test('tient dans une fenêtre étroite au lieu de refuser de rendre', async ({ page }) => {
   await waitForApp(page)
 
-  await page.setViewportSize({ width: MIN_APP_WIDTH - 40, height: HEIGHT })
-  await expect(page.getByRole('heading', { name: 'Fenêtre trop étroite' })).toBeVisible()
-  // La contrainte est chiffrée : « trop étroite » sans le nombre ne dit pas
-  // jusqu'où élargir.
-  await expect(page.getByText(String(MIN_APP_WIDTH), { exact: false })).toBeVisible()
-  await expect(page.getByLabel('Ouvrir l’export')).toHaveCount(0)
-
-  // Élargir rend l'éditeur, sans rechargement.
-  await page.setViewportSize({ width: 1280, height: HEIGHT })
+  // 375px : la largeur d'un iPhone, bien sous tout ce que l'éditeur vise. Il
+  // rend au mieux — ce qu'il ne peut pas faire, c'est pousser ses commandes
+  // hors de la fenêtre sans le dire.
+  await page.setViewportSize({ width: 375, height: HEIGHT })
   await expect(page.getByLabel('Ouvrir l’export')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Fenêtre trop étroite' })).toHaveCount(0)
+
+  const debordements = await page.evaluate(() => {
+    const dehors: string[] = []
+    const largeur = window.innerWidth
+    for (const [nom, sélecteur] of [
+      ['Exporter', '[aria-label="Ouvrir l’export"]'],
+      ['barre supérieure', 'header'],
+      ['pellicule', '[role="group"][aria-label="Écrans"]'],
+      ['HUD de zoom', '[aria-label="Ajuster le zoom aux écrans"]'],
+      ['tiroir', 'aside'],
+    ] as const) {
+      for (const élément of document.querySelectorAll(sélecteur)) {
+        if (élément.closest('[aria-hidden="true"]')) continue
+        const boîte = élément.getBoundingClientRect()
+        if (boîte.width === 0) continue
+        if (boîte.left < -0.5 || boîte.right > largeur + 0.5) {
+          dehors.push(`${nom} : ${Math.round(boîte.left)}…${Math.round(boîte.right)} pour ${largeur}`)
+        }
+      }
+    }
+    const bande = document.querySelector('[role="group"][aria-label="Écrans"]')?.getBoundingClientRect()
+    const hud = document.querySelector('[aria-label="Ajuster le zoom aux écrans"]')
+      ?.closest('div')?.getBoundingClientRect()
+    return {
+      dehors,
+      défilementHorizontal: document.documentElement.scrollWidth > largeur,
+      chevauchement: bande && hud ? Math.max(0, Math.round(bande.right - hud.left)) : -1,
+    }
+  })
+  expect(debordements.dehors).toEqual([])
+  expect(debordements.défilementHorizontal).toBe(false)
+  expect(debordements.chevauchement, 'le HUD reprend le clic des vignettes').toBe(0)
+
+  // Et le canevas rend toujours ses planches, il ne se replie pas en carte.
+  expect(await page.evaluate(() => window.__sfCanvas
+    ?.getObjects()
+    .some((object) => (object as { data?: { rendererType?: string } }).data?.rendererType === 'background')))
+    .toBe(true)
+})
+
+test('garde la pellicule cliquable quand elle touche son plancher', async ({ page }) => {
+  await waitForApp(page)
+
+  // 320px : la bande est à sa largeur minimale, donc elle ne peut plus céder
+  // à la gouttière du HUD. Centrée, elle mordait dessus de 27px — et c'est le
+  // HUD qui recevait le clic destiné à la vignette.
+  await page.setViewportSize({ width: 320, height: HEIGHT })
+  const mesure = await page.evaluate(() => {
+    const bande = document.querySelector('[role="group"][aria-label="Écrans"]')?.getBoundingClientRect()
+    const hud = document.querySelector('[aria-label="Ajuster le zoom aux écrans"]')
+      ?.closest('div')?.getBoundingClientRect()
+    if (!bande || !hud) return null
+    return {
+      chevauchement: Math.max(0, Math.round(bande.right - hud.left)),
+      bandeVisible: bande.left >= -0.5 && bande.width > 0,
+    }
+  })
+  expect(mesure).toEqual({ chevauchement: 0, bandeVisible: true })
+
+  // La dernière vignette reçoit bien son clic, pas le HUD.
+  const tuile = page.locator('button[aria-label^="Activer"]').last()
+  await tuile.click()
+  await expect(tuile).toHaveAttribute('aria-pressed', 'true')
 })

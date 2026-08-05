@@ -3,6 +3,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { cn } from '@/lib/utils'
 import {
   DRAWER_WIDTH_LAYERS,
+  drawerWidth,
   ISLAND_MARGIN,
   STAGE_BOTTOM_INSET_MAX,
   STAGE_TOP_INSET,
@@ -29,7 +30,7 @@ export function LayersDrawer() {
         left: ISLAND_MARGIN,
         top: STAGE_TOP_INSET,
         maxHeight: `calc(100dvh - ${STAGE_TOP_INSET + STAGE_BOTTOM_INSET_MAX}px)`,
-        width: DRAWER_WIDTH_LAYERS,
+        width: drawerWidth(DRAWER_WIDTH_LAYERS),
       }}
     >
       <LayersPanel />
