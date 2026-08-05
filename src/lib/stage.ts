@@ -113,8 +113,13 @@ export const THUMBNAIL_LABEL_ROW = THUMBNAIL_LABEL_GAP + THUMBNAIL_LABEL_HEIGHT
  * prendrait 22px au canevas pour répéter le badge.
  */
 export function filmstripHeight(labelled: boolean): number {
-  return THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT + FILMSTRIP_SCROLLBAR
-    + (labelled ? THUMBNAIL_LABEL_ROW : 0)
+  return (
+    THUMBNAIL_HEIGHT +
+    FILMSTRIP_PADDING * 2 +
+    THUMBNAIL_LIFT +
+    FILMSTRIP_SCROLLBAR +
+    (labelled ? THUMBNAIL_LABEL_ROW : 0)
+  )
 }
 
 /**

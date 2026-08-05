@@ -60,22 +60,31 @@ declare global {
     __sfAssets?: typeof import('../src/lib/assets')
     __sfStores?: {
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
-      useCanvasStore: { getState: () => {
-        selectedLayerIds: string[]
-        updateLayer: (id: string, updates: Partial<Layer>) => void
-      } }
-      useProjectStore: { getState: () => {
-        project: Project | null
-        updateScreenBackground: (screenId: string, background: Project['globals']['background']) => void
-      } }
-      useUIStore: { getState: () => {
-        setZoom: (zoom: number) => void
-        zoomIn: () => void
-        zoomOut: () => void
-        toggleProps: () => void
-        layersOpen: boolean
-        propsOpen: boolean
-      } }
+      useCanvasStore: {
+        getState: () => {
+          selectedLayerIds: string[]
+          updateLayer: (id: string, updates: Partial<Layer>) => void
+        }
+      }
+      useProjectStore: {
+        getState: () => {
+          project: Project | null
+          updateScreenBackground: (
+            screenId: string,
+            background: Project['globals']['background'],
+          ) => void
+        }
+      }
+      useUIStore: {
+        getState: () => {
+          setZoom: (zoom: number) => void
+          zoomIn: () => void
+          zoomOut: () => void
+          toggleProps: () => void
+          layersOpen: boolean
+          propsOpen: boolean
+        }
+      }
     }
   }
 }
@@ -83,9 +92,15 @@ declare global {
 export async function waitForApp(page: Page): Promise<void> {
   await page.goto('/', { waitUntil: 'networkidle' })
   await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 15_000 })
-  await expect.poll(() => page.evaluate(() => window.__sfCanvas
-    ?.getObjects()
-    .some((object) => (object as DebugObject).data?.rendererType === 'background'))).toBe(true)
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__sfCanvas
+          ?.getObjects()
+          .some((object) => (object as DebugObject).data?.rendererType === 'background'),
+      ),
+    )
+    .toBe(true)
 }
 
 export async function addTextLayer(page: Page): Promise<void> {
@@ -107,12 +122,17 @@ export async function addDeviceLayer(page: Page): Promise<void> {
   const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
   await expect(model).toBeVisible()
   await model.click()
-  await expect.poll(() => page.evaluate(() => {
-    const project = window.__sfStores?.useProjectStore.getState().project
-    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-    return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-      .some((layer) => layer.type === 'device-frame')
-  })).toBe(true)
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const project = window.__sfStores?.useProjectStore.getState().project
+        const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+        return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].some(
+          (layer) => layer.type === 'device-frame',
+        )
+      }),
+    )
+    .toBe(true)
 }
 
 export interface ExportedZipPng {
@@ -142,11 +162,17 @@ export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipP
 }
 
 export async function addScreen(page: Page): Promise<void> {
-  const count = await page.evaluate(() =>
-    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)
+  const count = await page.evaluate(
+    () => window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0,
+  )
   await page.locator('button[aria-label="Ajouter un écran"]').click()
-  await expect.poll(() => page.evaluate(() =>
-    window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0)).toBe(count + 1)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0,
+      ),
+    )
+    .toBe(count + 1)
   await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(count + 1)
 }
 
@@ -154,8 +180,10 @@ async function projectLayerCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     const project = window.__sfStores?.useProjectStore.getState().project
     if (!project) return 0
-    return project.layoutLayers.length
-      + project.screens.reduce((total, screen) => total + screen.layers.length, 0)
+    return (
+      project.layoutLayers.length +
+      project.screens.reduce((total, screen) => total + screen.layers.length, 0)
+    )
   })
 }
 
@@ -163,55 +191,62 @@ async function projectLayerCount(page: Page): Promise<number> {
 export async function waitForCanvasSettled(page: Page): Promise<void> {
   let previous = ''
   let stablePolls = 0
-  await expect.poll(async () => {
-    const current = await page.evaluate(() => JSON.stringify({
-      project: window.__sfStores?.useProjectStore.getState().project,
-      selection: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
-      objects: window.__sfCanvas?.getObjects().map((object) => {
-        const debug = object as DebugObject
-        return {
-          data: debug.data,
-          left: debug.left,
-          top: debug.top,
-          angle: debug.angle,
-          scaleX: debug.scaleX,
-          scaleY: debug.scaleY,
-          visible: debug.visible,
-          text: debug.text,
-          isEditing: debug.isEditing,
-        }
-      }),
-    }))
-    stablePolls = current === previous ? stablePolls + 1 : 0
-    previous = current
-    return stablePolls >= 2
-  }, { timeout: 5_000, intervals: [50, 100, 200, 400] }).toBe(true)
+  await expect
+    .poll(
+      async () => {
+        const current = await page.evaluate(() =>
+          JSON.stringify({
+            project: window.__sfStores?.useProjectStore.getState().project,
+            selection: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+            objects: window.__sfCanvas?.getObjects().map((object) => {
+              const debug = object as DebugObject
+              return {
+                data: debug.data,
+                left: debug.left,
+                top: debug.top,
+                angle: debug.angle,
+                scaleX: debug.scaleX,
+                scaleY: debug.scaleY,
+                visible: debug.visible,
+                text: debug.text,
+                isEditing: debug.isEditing,
+              }
+            }),
+          }),
+        )
+        stablePolls = current === previous ? stablePolls + 1 : 0
+        previous = current
+        return stablePolls >= 2
+      },
+      { timeout: 5_000, intervals: [50, 100, 200, 400] },
+    )
+    .toBe(true)
 }
 
 export function layerRows(page: Page) {
   return page.locator('[data-layer-id]')
 }
 
-export async function findObject(
-  page: Page,
-  rendererType: string,
-): Promise<DebugObject | null> {
+export async function findObject(page: Page, rendererType: string): Promise<DebugObject | null> {
   return page.evaluate((type) => {
     const canvas = window.__sfCanvas
-    const object = (canvas?.getObjects() as DebugObject[] | undefined)
-      ?.find((candidate) => candidate.data?.rendererType === type)
+    const object = (canvas?.getObjects() as DebugObject[] | undefined)?.find(
+      (candidate) => candidate.data?.rendererType === type,
+    )
     if (!object) return null
-    return JSON.parse(JSON.stringify({
-      data: object.data,
-      left: object.left,
-      top: object.top,
-      angle: object.angle,
-      scaleX: object.scaleX,
-      scaleY: object.scaleY,
-      type: object.type,
-      visible: object.visible,
-      text: object.text,
-    })) as DebugObject
+    return JSON.parse(
+      JSON.stringify({
+        data: object.data,
+        left: object.left,
+        top: object.top,
+        angle: object.angle,
+        scaleX: object.scaleX,
+        scaleY: object.scaleY,
+        type: object.type,
+        visible: object.visible,
+        text: object.text,
+      }),
+    ) as DebugObject
   }, rendererType)
 }
 
@@ -265,12 +300,7 @@ export async function controlPosition(
   }, name)
 }
 
-export async function dragControl(
-  page: Page,
-  name: string,
-  dx: number,
-  dy: number,
-): Promise<void> {
+export async function dragControl(page: Page, name: string, dx: number, dy: number): Promise<void> {
   const pos = await controlPosition(page, name)
   if (!pos) throw new Error(`Control ${name} not found — is an object selected?`)
   await page.mouse.move(pos.x, pos.y)
@@ -362,7 +392,10 @@ export async function dragActiveBody(page: Page, dx: number, dy: number): Promis
 }
 
 export function expectClose(actual: number, expected: number, tolerance = 1): void {
-  expect(Math.abs(actual - expected), `${actual} ≉ ${expected} (±${tolerance})`).toBeLessThanOrEqual(tolerance)
+  expect(
+    Math.abs(actual - expected),
+    `${actual} ≉ ${expected} (±${tolerance})`,
+  ).toBeLessThanOrEqual(tolerance)
 }
 
 /** Number field of the transformation section by index: X Y W H. */

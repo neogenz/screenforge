@@ -23,9 +23,13 @@ function addRecentColor(color: string) {
 
 function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } {
   const clean = hex.replace('#', '')
-  const full = clean.length === 3
-    ? clean.split('').map(c => c + c).join('')
-    : clean
+  const full =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : clean
   const r = parseInt(full.slice(0, 2), 16) || 0
   const g = parseInt(full.slice(2, 4), 16) || 0
   const b = parseInt(full.slice(4, 6), 16) || 0
@@ -47,13 +51,22 @@ function extractOpacity(color: string): number {
 function colorToHex6(color: string): string {
   if (color.startsWith('#')) {
     const c = color.replace('#', '')
-    if (c.length === 3) return '#' + c.split('').map(x => x + x).join('')
+    if (c.length === 3)
+      return (
+        '#' +
+        c
+          .split('')
+          .map((x) => x + x)
+          .join('')
+      )
     return '#' + c.slice(0, 6)
   }
   const rgb = color.match(/rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i)
   if (rgb) {
     const channels = rgb.slice(1, 4).map((channel) =>
-      Math.min(255, Math.max(0, Math.round(Number(channel)))).toString(16).padStart(2, '0'),
+      Math.min(255, Math.max(0, Math.round(Number(channel))))
+        .toString(16)
+        .padStart(2, '0'),
     )
     return `#${channels.join('')}`
   }

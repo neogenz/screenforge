@@ -1,0 +1,8 @@
+dist
+test-results
+playwright-report
+pnpm-lock.yaml
+.pnpm-store
+aidd_docs
+specs
+*.tsbuildinfo

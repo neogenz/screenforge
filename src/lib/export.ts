@@ -31,10 +31,7 @@ function encodeOpaquePng(imageData: ImageData): Blob {
     rgb[destination + 1] = data[source + 1]
     rgb[destination + 2] = data[source + 2]
   }
-  const png = encodePng(
-    { width, height, data: rgb, depth: 8, channels: 3 },
-    { zlib: { level: 3 } },
-  )
+  const png = encodePng({ width, height, data: rgb, depth: 8, channels: 3 }, { zlib: { level: 3 } })
   return new Blob([png.buffer as ArrayBuffer], { type: 'image/png' })
 }
 
@@ -52,9 +49,7 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
 
   const results = await Promise.all(
     [...requests.values()].map(({ family, weights }) => {
-      const missingWeights = [...weights].filter(
-        (weight) => !isFontLoaded(family, [weight]),
-      )
+      const missingWeights = [...weights].filter((weight) => !isFontLoaded(family, [weight]))
       return missingWeights.length === 0
         ? Promise.resolve({ family, status: 'loaded' as const })
         : loadGoogleFont(family, missingWeights)
@@ -62,7 +57,9 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
   )
   const unavailable = results.filter((result) => result.status === 'fallback')
   if (unavailable.length > 0) {
-    throw new Error(`Police indisponible : ${unavailable.map((result) => result.family).join(', ')}.`)
+    throw new Error(
+      `Police indisponible : ${unavailable.map((result) => result.family).join(', ')}.`,
+    )
   }
   await document.fonts.ready
 }
@@ -79,7 +76,7 @@ function sortedLayers(screen: Screen, layoutLayers: Layer[], screenIndex: number
 
 async function createRenderedObjects(layers: Layer[]): Promise<RenderedObject[]> {
   const results = await Promise.allSettled(layers.map((layer) => layerToFabricObject(layer)))
-  const objects = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+  const objects = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
   const failure = results.find((result) => result.status === 'rejected')
   if (failure?.status === 'rejected') {
     objects.forEach(disposeFabricObjectResource)
@@ -88,7 +85,11 @@ async function createRenderedObjects(layers: Layer[]): Promise<RenderedObject[]>
   return objects
 }
 
-async function convertCanvasPngToOpaqueRgb(blob: Blob, width: number, height: number): Promise<Blob> {
+async function convertCanvasPngToOpaqueRgb(
+  blob: Blob,
+  width: number,
+  height: number,
+): Promise<Blob> {
   const bitmap = await createImageBitmap(blob)
   try {
     const canvas = document.createElement('canvas')
@@ -115,7 +116,9 @@ export async function exportScreenToBlob(
   const scaleX = targetWidth / SCREEN_WIDTH
   const scaleY = targetHeight / SCREEN_HEIGHT
   if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
-    throw new Error(`Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`)
+    throw new Error(
+      `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
+    )
   }
 
   const layers = sortedLayers(screen, layoutLayers, screenIndex)

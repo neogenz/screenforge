@@ -13,10 +13,7 @@ test.describe('global error recovery', () => {
     const reload = page.getByRole('button', { name: 'Recharger l’application' })
     await expect(reload).toBeFocused()
 
-    await Promise.all([
-      page.waitForEvent('load'),
-      reload.click(),
-    ])
+    await Promise.all([page.waitForEvent('load'), reload.click()])
     await expect(page.getByLabel('Ouvrir l’export')).toBeVisible()
   })
 
@@ -53,10 +50,7 @@ test.describe('global error recovery', () => {
     expect(await storedRecords(page, ids)).toEqual({ project: true, asset: true })
 
     page.once('dialog', (dialog) => void dialog.accept())
-    await Promise.all([
-      page.waitForEvent('load'),
-      reset.click(),
-    ])
+    await Promise.all([page.waitForEvent('load'), reset.click()])
     expect(await storedRecords(page, ids)).toEqual({ project: false, asset: false })
   })
 })
@@ -72,11 +66,12 @@ async function storedRecords(
       request.onerror = () => reject(request.error)
     })
     const transaction = database.transaction(['projects', 'assets'])
-    const read = (store: string, key: string) => new Promise<boolean>((resolve, reject) => {
-      const request = transaction.objectStore(store).get(key)
-      request.onsuccess = () => resolve(Boolean(request.result))
-      request.onerror = () => reject(request.error)
-    })
+    const read = (store: string, key: string) =>
+      new Promise<boolean>((resolve, reject) => {
+        const request = transaction.objectStore(store).get(key)
+        request.onsuccess = () => resolve(Boolean(request.result))
+        request.onerror = () => reject(request.error)
+      })
     const [project, asset] = await Promise.all([
       read('projects', projectId),
       read('assets', assetId),

@@ -122,10 +122,9 @@ export function installThumbnails({
     timer = setTimeout(() => {
       timer = null
       if (typeof requestIdleCallback === 'function') {
-        const idleId = requestIdleCallback(
-          () => capture(screens, expectedGeneration),
-          { timeout: 1200 },
-        )
+        const idleId = requestIdleCallback(() => capture(screens, expectedGeneration), {
+          timeout: 1200,
+        })
         cancelIdle = () => cancelIdleCallback(idleId)
       } else {
         const idleId = setTimeout(() => capture(screens, expectedGeneration), 0)

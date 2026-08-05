@@ -32,7 +32,9 @@ function oversizedDeviceBezelHeader(): Buffer {
 async function analyze(page: Page, bytes: Uint8Array): Promise<AnalysisResult> {
   return page.evaluate(async (base64) => {
     const modulePath = '/src/lib/device-bezel.ts'
-    const { analyzeDeviceBezel } = await import(modulePath) as typeof import('../src/lib/device-bezel')
+    const { analyzeDeviceBezel } = (await import(
+      modulePath
+    )) as typeof import('../src/lib/device-bezel')
     const binary = atob(base64)
     const payload = Uint8Array.from(binary, (character) => character.charCodeAt(0))
     const file = new File([payload], 'iPhone Test - Portrait.png', { type: 'image/png' })
@@ -42,9 +44,8 @@ async function analyze(page: Page, bytes: Uint8Array): Promise<AnalysisResult> {
     } catch (error) {
       return {
         ok: false,
-        code: error && typeof error === 'object' && 'code' in error
-          ? String(error.code)
-          : 'unexpected',
+        code:
+          error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unexpected',
       }
     }
   }, asBase64(bytes))
@@ -108,7 +109,9 @@ test('rejects opaque, open and corrupt PNGs with stable errors', async ({ page }
 test('rejects an oversized file before reading it', async ({ page }) => {
   const result = await page.evaluate(async () => {
     const modulePath = '/src/lib/device-bezel.ts'
-    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = await import(modulePath) as typeof import('../src/lib/device-bezel')
+    const { analyzeDeviceBezel, MAX_DEVICE_BEZEL_FILE_BYTES } = (await import(
+      modulePath
+    )) as typeof import('../src/lib/device-bezel')
     let read = false
     const file = {
       name: 'huge.png',
@@ -124,9 +127,8 @@ test('rejects an oversized file before reading it', async ({ page }) => {
       return { code: 'none', read }
     } catch (error) {
       return {
-        code: error && typeof error === 'object' && 'code' in error
-          ? String(error.code)
-          : 'unexpected',
+        code:
+          error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unexpected',
         read,
       }
     }
@@ -145,7 +147,9 @@ test('rejects oversized IHDR dimensions before decoding pixel data', async ({ pa
 test('migrates legacy device layers and rejects malformed bezels', async ({ page }) => {
   const result = await page.evaluate(async () => {
     const modulePath = '/src/lib/project-validation.ts'
-    const { isProject, migrateProject } = await import(modulePath) as typeof import('../src/lib/project-validation')
+    const { isProject, migrateProject } = (await import(
+      modulePath
+    )) as typeof import('../src/lib/project-validation')
     const layer = {
       id: 'device',
       type: 'device-frame',
@@ -169,12 +173,14 @@ test('migrates legacy device layers and rejects malformed bezels', async ({ page
         id: 'project',
         name: 'Test',
         activeScreenId: 'screen',
-        screens: [{
-          id: 'screen',
-          name: 'Screen',
-          background: { type: 'solid', color: '#fff' },
-          layers: [{ ...layer, ...candidate }],
-        }],
+        screens: [
+          {
+            id: 'screen',
+            name: 'Screen',
+            background: { type: 'solid', color: '#fff' },
+            layers: [{ ...layer, ...candidate }],
+          },
+        ],
         globals: {
           fontFamily: 'Inter',
           fontWeight: 700,

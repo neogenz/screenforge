@@ -110,16 +110,60 @@ function frameConfig(
 
 // Current Apple lineup (apple.com/iphone/compare, July 2026), largest first.
 export const DEVICE_FRAMES: DeviceFrameConfig[] = [
-  frameConfig('iphone-17-pro-max', 'iPhone 17 Pro Max', '6.9"', 180, 379, { x: 5.5, y: 5.9 }, PRO_17_COLORS),
-  frameConfig('iphone-17-pro', 'iPhone 17 Pro', '6.3"', 172, 359, { x: 6.4, y: 6.3 }, PRO_17_COLORS),
+  frameConfig(
+    'iphone-17-pro-max',
+    'iPhone 17 Pro Max',
+    '6.9"',
+    180,
+    379,
+    { x: 5.5, y: 5.9 },
+    PRO_17_COLORS,
+  ),
+  frameConfig(
+    'iphone-17-pro',
+    'iPhone 17 Pro',
+    '6.3"',
+    172,
+    359,
+    { x: 6.4, y: 6.3 },
+    PRO_17_COLORS,
+  ),
   frameConfig('iphone-17', 'iPhone 17', '6.3"', 172, 358, { x: 5.9, y: 5.8 }, IPHONE_17_COLORS),
   frameConfig('iphone-air', 'iPhone Air', '6.5"', 172, 360, { x: 5.9, y: 5.9 }, IPHONE_AIR_COLORS),
-  frameConfig('iphone-16-plus', 'iPhone 16 Plus', '6.7"', 178, 368, { x: 7.5, y: 7.5 }, IPHONE_16_COLORS),
+  frameConfig(
+    'iphone-16-plus',
+    'iPhone 16 Plus',
+    '6.7"',
+    178,
+    368,
+    { x: 7.5, y: 7.5 },
+    IPHONE_16_COLORS,
+  ),
   frameConfig('iphone-16', 'iPhone 16', '6.1"', 170, 350, { x: 7.7, y: 7.7 }, IPHONE_16_COLORS),
-  frameConfig('iphone-16e', 'iPhone 16e', '6.1"', 170, 349, { x: 8.2, y: 8.2 }, IPHONE_16E_COLORS, { notch: true }),
+  frameConfig('iphone-16e', 'iPhone 16e', '6.1"', 170, 349, { x: 8.2, y: 8.2 }, IPHONE_16E_COLORS, {
+    notch: true,
+  }),
   // Legacy — old projects only
-  frameConfig('iphone-16-pro-max', 'iPhone 16 Pro Max', '6.9"', 180, 380, { x: 5.5, y: 5.4 }, TITANIUM_16_COLORS, { current: false }),
-  frameConfig('iphone-16-pro', 'iPhone 16 Pro', '6.3"', 170, 360, { x: 5.8, y: 5.8 }, TITANIUM_16_COLORS, { current: false }),
+  frameConfig(
+    'iphone-16-pro-max',
+    'iPhone 16 Pro Max',
+    '6.9"',
+    180,
+    380,
+    { x: 5.5, y: 5.4 },
+    TITANIUM_16_COLORS,
+    { current: false },
+  ),
+  frameConfig(
+    'iphone-16-pro',
+    'iPhone 16 Pro',
+    '6.3"',
+    170,
+    360,
+    { x: 5.8, y: 5.8 },
+    TITANIUM_16_COLORS,
+    { current: false },
+  ),
 ]
 
 export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.current)
@@ -155,7 +199,10 @@ const SQUIRCLE_EXPONENT = 4
 const SQUIRCLE_SPREAD = 1.528
 const SQUIRCLE_STEPS = 12
 
-interface Point { x: number; y: number }
+interface Point {
+  x: number
+  y: number
+}
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000
@@ -220,7 +267,8 @@ export function squircleRect(
   /** Rayon de la silhouette dont ce rectangle est la parallèle intérieure. */
   outerRadius: number = radius,
 ): string {
-  if (radius <= 0) return `M ${round(x)} ${round(y)} h ${round(width)} v ${round(height)} h ${round(-width)} Z`
+  if (radius <= 0)
+    return `M ${round(x)} ${round(y)} h ${round(width)} v ${round(height)} h ${round(-width)} Z`
 
   // Le coin s'étale sur `SQUIRCLE_SPREAD` fois le rayon nominal : c'est là que
   // la courbe rejoint le flanc droit, donc là que commencent les segments.
@@ -272,9 +320,22 @@ export function getDefaultDeviceSize(model: DeviceModel): { width: number; heigh
   return { width: Math.round(height * (rendered.width / rendered.height)), height }
 }
 
-export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: DeviceColor, screenshotUrl?: string): string {
+export function generateDeviceFrameSVG(
+  config: DeviceFrameConfig,
+  colorName: DeviceColor,
+  screenshotUrl?: string,
+): string {
   const color = config.colors.find((c) => c.name === colorName) ?? config.colors[0]
-  const { width, height, screenX, screenY, screenWidth, screenHeight, cornerRadius, dynamicIsland } = config
+  const {
+    width,
+    height,
+    screenX,
+    screenY,
+    screenWidth,
+    screenHeight,
+    cornerRadius,
+    dynamicIsland,
+  } = config
 
   // Îlot dynamique, proportionné à la dalle et non au châssis : 125 pt de large
   // et 36,7 pt de haut sur une dalle de 402 pt, posé 11 pt sous son bord haut.
@@ -298,7 +359,14 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
   const screenClipId = `screen-clip-${config.model}`
   const screenRadius = cornerRadius - screenX
   const framePath = squircleRect(0, 0, width, height, cornerRadius)
-  const screenPath = squircleRect(screenX, screenY, screenWidth, screenHeight, screenRadius, cornerRadius)
+  const screenPath = squircleRect(
+    screenX,
+    screenY,
+    screenWidth,
+    screenHeight,
+    screenRadius,
+    cornerRadius,
+  )
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * DEVICE_RASTER_SCALE}" height="${height * DEVICE_RASTER_SCALE}">
   <defs>
@@ -325,11 +393,13 @@ export function generateDeviceFrameSVG(config: DeviceFrameConfig, colorName: Dev
     encoche la découpe est physique, le tampon derrière contient le fond de
     l'app, et la capture ne porte donc aucun noir à cet endroit.
   -->
-  ${!dynamicIsland
-    ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
-    : screenshotUrl
-      ? ''
-      : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`}
+  ${
+    !dynamicIsland
+      ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
+      : screenshotUrl
+        ? ''
+        : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
+  }
 </svg>`
 }
 

@@ -15,7 +15,9 @@ export function BackgroundSection() {
   function handleChange(bg: Background, coalesceKey?: string) {
     updateBackground(
       bg,
-      coalesceKey ? { coalesceKey: `screen:${activeScreenId}:background:${coalesceKey}` } : undefined,
+      coalesceKey
+        ? { coalesceKey: `screen:${activeScreenId}:background:${coalesceKey}` }
+        : undefined,
     )
   }
 

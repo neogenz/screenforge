@@ -2,7 +2,11 @@ import type { ComponentProps } from 'react'
 import * as ToggleGroupPrimitive from '@radix-ui/react-toggle-group'
 import { cn } from '@/lib/utils'
 
-export function ToggleGroup({ className, role = 'group', ...props }: ComponentProps<typeof ToggleGroupPrimitive.Root>) {
+export function ToggleGroup({
+  className,
+  role = 'group',
+  ...props
+}: ComponentProps<typeof ToggleGroupPrimitive.Root>) {
   return (
     <ToggleGroupPrimitive.Root
       role={role}
@@ -15,7 +19,11 @@ export function ToggleGroup({ className, role = 'group', ...props }: ComponentPr
   )
 }
 
-export function ToggleGroupItem({ className, role = 'button', ...props }: ComponentProps<typeof ToggleGroupPrimitive.Item>) {
+export function ToggleGroupItem({
+  className,
+  role = 'button',
+  ...props
+}: ComponentProps<typeof ToggleGroupPrimitive.Item>) {
   return (
     <ToggleGroupPrimitive.Item
       role={role}

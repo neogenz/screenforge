@@ -6,9 +6,7 @@
  * calques de ne produire qu'un seul pas d'annulation.
  */
 
-export type AlignMode =
-  | 'left' | 'center-x' | 'right'
-  | 'top' | 'center-y' | 'bottom'
+export type AlignMode = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom'
 
 export type DistributeMode = 'horizontal' | 'vertical'
 
@@ -39,25 +37,23 @@ export function boundsOf(items: Placeable[]): Placeable {
  * @param reference l'artboard quand un seul calque est sélectionné, la boîte de
  * la sélection au-delà — aligner un calque isolé sur lui-même ne ferait rien.
  */
-export function alignTo(
-  items: Placeable[],
-  mode: AlignMode,
-  reference: Placeable,
-): Placement[] {
+export function alignTo(items: Placeable[], mode: AlignMode, reference: Placeable): Placement[] {
   return items.map((item) => {
     if (HORIZONTAL.includes(mode)) {
-      const x = mode === 'left'
-        ? reference.x
-        : mode === 'right'
-          ? reference.x + reference.width - item.width
-          : reference.x + (reference.width - item.width) / 2
+      const x =
+        mode === 'left'
+          ? reference.x
+          : mode === 'right'
+            ? reference.x + reference.width - item.width
+            : reference.x + (reference.width - item.width) / 2
       return { x, y: item.y }
     }
-    const y = mode === 'top'
-      ? reference.y
-      : mode === 'bottom'
-        ? reference.y + reference.height - item.height
-        : reference.y + (reference.height - item.height) / 2
+    const y =
+      mode === 'top'
+        ? reference.y
+        : mode === 'bottom'
+          ? reference.y + reference.height - item.height
+          : reference.y + (reference.height - item.height) / 2
     return { x: item.x, y }
   })
 }

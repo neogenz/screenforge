@@ -30,12 +30,14 @@ function project(layers: Layer[], layoutLayers: Layer[] = []): Project {
     id: 'project',
     name: 'Project',
     activeScreenId: 'screen',
-    screens: [{
-      id: 'screen',
-      name: 'Screen',
-      background: { type: 'solid', color: '#fff' },
-      layers,
-    }],
+    screens: [
+      {
+        id: 'screen',
+        name: 'Screen',
+        background: { type: 'solid', color: '#fff' },
+        layers,
+      },
+    ],
     layoutLayers,
     globals: {
       fontFamily: 'Inter',
@@ -55,7 +57,13 @@ describe('asset references', () => {
   beforeEach(clearAssets)
 
   it('collects image, screenshot and imported bezel ids across scopes', () => {
-    const image = { ...baseLayer('image'), type: 'image' as const, assetId: 'image-asset', originalWidth: 1, originalHeight: 1 }
+    const image = {
+      ...baseLayer('image'),
+      type: 'image' as const,
+      assetId: 'image-asset',
+      originalWidth: 1,
+      originalHeight: 1,
+    }
     const device = {
       ...baseLayer('device'),
       type: 'device-frame' as const,
@@ -83,11 +91,16 @@ describe('asset references', () => {
   it('keeps shared references and removes every orphan index', () => {
     const kept = registerAsset('data:image/png;base64,a2VwdA==')
     const removed = registerAsset('data:image/png;base64,b3JwaGFu')
-    const duplicateReference = { ...baseLayer('image'), type: 'image' as const, assetId: kept, originalWidth: 1, originalHeight: 1 }
-    const keepIds = collectAssetIds(project([
-      duplicateReference,
-      { ...duplicateReference, id: 'image-2' },
-    ]))
+    const duplicateReference = {
+      ...baseLayer('image'),
+      type: 'image' as const,
+      assetId: kept,
+      originalWidth: 1,
+      originalHeight: 1,
+    }
+    const keepIds = collectAssetIds(
+      project([duplicateReference, { ...duplicateReference, id: 'image-2' }]),
+    )
 
     expect(sweepAssets(keepIds)).toEqual([removed])
     expect(resolveAsset(kept)).toBeDefined()

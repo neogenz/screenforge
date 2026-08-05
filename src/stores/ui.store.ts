@@ -80,8 +80,7 @@ export const useUIStore = create<UIState>()((set) => ({
 
   zoomOut: () => set((state) => ({ zoom: clampZoom(state.zoom - ZOOM_STEP) })),
 
-  resetZoom: () =>
-    set((s) => ({ zoom: 1, viewportResetKey: s.viewportResetKey + 1 })),
+  resetZoom: () => set((s) => ({ zoom: 1, viewportResetKey: s.viewportResetKey + 1 })),
 
   // Ouvrir chasse l'autre quand la fenêtre ne peut plus en porter deux ;
   // fermer ne rouvre jamais rien.
@@ -115,27 +114,37 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
-  setShowExportDialog: (show) => set({
-    showExportDialog: show,
-    ...(show ? { showTemplatesPicker: false, showGlobalsEditor: false, showShortcuts: false } : {}),
-  }),
+  setShowExportDialog: (show) =>
+    set({
+      showExportDialog: show,
+      ...(show
+        ? { showTemplatesPicker: false, showGlobalsEditor: false, showShortcuts: false }
+        : {}),
+    }),
 
-  setShowTemplatesPicker: (show) => set({
-    showTemplatesPicker: show,
-    ...(show ? { showExportDialog: false, showGlobalsEditor: false, showShortcuts: false } : {}),
-  }),
+  setShowTemplatesPicker: (show) =>
+    set({
+      showTemplatesPicker: show,
+      ...(show ? { showExportDialog: false, showGlobalsEditor: false, showShortcuts: false } : {}),
+    }),
 
-  setShowGlobalsEditor: (show) => set({
-    showGlobalsEditor: show,
-    ...(show ? { showExportDialog: false, showTemplatesPicker: false, showShortcuts: false } : {}),
-  }),
+  setShowGlobalsEditor: (show) =>
+    set({
+      showGlobalsEditor: show,
+      ...(show
+        ? { showExportDialog: false, showTemplatesPicker: false, showShortcuts: false }
+        : {}),
+    }),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 
-  setShowShortcuts: (show) => set({
-    showShortcuts: show,
-    ...(show ? { showExportDialog: false, showTemplatesPicker: false, showGlobalsEditor: false } : {}),
-  }),
+  setShowShortcuts: (show) =>
+    set({
+      showShortcuts: show,
+      ...(show
+        ? { showExportDialog: false, showTemplatesPicker: false, showGlobalsEditor: false }
+        : {}),
+    }),
 
   toggleTheme: () =>
     set((state) => {

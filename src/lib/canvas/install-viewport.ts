@@ -61,9 +61,7 @@ interface ViewportInstallerOptions {
   subscribeProject: (
     listener: (project: Project | null, previous: Project | null) => void,
   ) => () => void
-  subscribeUi: (
-    listener: (state: ViewportUiState, previous: ViewportUiState) => void,
-  ) => () => void
+  subscribeUi: (listener: (state: ViewportUiState, previous: ViewportUiState) => void) => () => void
 }
 
 export interface ViewportController {
@@ -202,10 +200,10 @@ export function installViewport({
 
   function isTypingTarget(): boolean {
     const element = document.activeElement as HTMLElement | null
-    return Boolean(element && (
-      ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
-      || element.isContentEditable
-    ))
+    return Boolean(
+      element &&
+      (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable),
+    )
   }
 
   function handleKeyDown(event: KeyboardEvent): void {
@@ -239,10 +237,9 @@ export function installViewport({
     if (!panning || !panPoint) return
     const pointerEvent = event.e as MouseEvent | TouchEvent
     if (!('clientX' in pointerEvent)) return
-    canvas.relativePan(new Point(
-      pointerEvent.clientX - panPoint.x,
-      pointerEvent.clientY - panPoint.y,
-    ))
+    canvas.relativePan(
+      new Point(pointerEvent.clientX - panPoint.x, pointerEvent.clientY - panPoint.y),
+    )
     panPoint = { x: pointerEvent.clientX, y: pointerEvent.clientY }
   })
   const disposeMouseUp = canvas.on('mouse:up', () => {
@@ -327,10 +324,7 @@ export function installViewport({
     // de `fitAll` et de `recenter`, et c'est le seul point que l'utilisateur
     // voit lorsqu'un tiroir mange un tiers de la largeur.
     const { insets, width, height } = availableStage()
-    canvas.zoomToPoint(
-      new Point(insets.left + width / 2, insets.top + height / 2),
-      state.zoom,
-    )
+    canvas.zoomToPoint(new Point(insets.left + width / 2, insets.top + height / 2), state.zoom)
     canvas.requestRenderAll()
   })
 

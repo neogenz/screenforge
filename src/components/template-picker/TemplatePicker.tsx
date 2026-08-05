@@ -42,8 +42,8 @@ function TemplatePickerContent() {
       onClose={handleClose}
       title="Modèles de mise en page"
       size="lg"
-      footer={selected
-        ? (
+      footer={
+        selected ? (
           <div className="flex w-full items-center justify-between gap-3">
             {/* Le libellé de la vignette tient sur un mot : c'est ici, une fois le
                 modèle choisi, que sa description a la place d'être lue. */}
@@ -60,8 +60,8 @@ function TemplatePickerContent() {
               </Button>
             </div>
           </div>
-        )
-        : undefined}
+        ) : undefined
+      }
     >
       {/* Les vignettes portent le format de la planche (440×956) : à l'ancienne
           boîte carrée, l'aperçu flottait au centre de deux bandes vides plus

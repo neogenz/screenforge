@@ -33,7 +33,8 @@ const iconButtonVariants = cva(
 )
 
 export interface IconButtonProps
-  extends Omit<ButtonProps, 'size' | 'variant' | 'loading'>,
+  extends
+    Omit<ButtonProps, 'size' | 'variant' | 'loading'>,
     VariantProps<typeof iconButtonVariants> {
   /** Every icon-only button must be labelled. */
   'aria-label': string

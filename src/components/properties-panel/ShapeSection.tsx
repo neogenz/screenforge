@@ -7,7 +7,11 @@ import { NumberField } from '@/components/ui/number-field'
 import { Segmented } from '@/components/ui/segmented'
 import type { SegmentedOption } from '@/components/ui/segmented'
 import { Switch } from '@/components/ui/switch'
-import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO, DEFAULT_STROKE_COLOR } from '@/lib/content-defaults'
+import {
+  DEFAULT_GRADIENT_FROM,
+  DEFAULT_GRADIENT_TO,
+  DEFAULT_STROKE_COLOR,
+} from '@/lib/content-defaults'
 import type { GradientFill, Layer, ShapeLayer } from '@/types'
 
 interface ShapeSectionProps {
@@ -62,16 +66,22 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
           <h3 className="section-title">Remplissage</h3>
           <div className="flex items-center gap-2">
             <span className="field-label">Dégradé</span>
-            <Switch ariaLabel="Activer le dégradé" checked={fillIsGradient} onChange={handleGradientToggle} />
+            <Switch
+              ariaLabel="Activer le dégradé"
+              checked={fillIsGradient}
+              onChange={handleGradientToggle}
+            />
           </div>
         </div>
         {fillIsGradient ? (
           <GradientEditor
             value={layer.fill as GradientFill}
-            onChange={(fill, coalesceKey) => update(
-              { fill },
-              coalesceKey ? { coalesceKey: `layer:${layer.id}:fill:${coalesceKey}` } : undefined,
-            )}
+            onChange={(fill, coalesceKey) =>
+              update(
+                { fill },
+                coalesceKey ? { coalesceKey: `layer:${layer.id}:fill:${coalesceKey}` } : undefined,
+              )
+            }
           />
         ) : (
           <ColorPicker

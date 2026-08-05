@@ -8,18 +8,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isFiniteNumber(value: unknown, minimum = -Infinity, maximum = Infinity): value is number {
-  return typeof value === 'number'
-    && Number.isFinite(value)
-    && value >= minimum
-    && value <= maximum
+  return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
 }
 
 function isColorStops(value: unknown): boolean {
-  return Array.isArray(value)
-    && value.length >= 2
-    && value.every((stop) => isRecord(stop)
-      && isFiniteNumber(stop.offset, 0, 1)
-      && typeof stop.color === 'string')
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    value.every(
+      (stop) =>
+        isRecord(stop) && isFiniteNumber(stop.offset, 0, 1) && typeof stop.color === 'string',
+    )
+  )
 }
 
 function isGradient(value: unknown): boolean {
@@ -44,42 +44,50 @@ function isBackground(value: unknown): boolean {
 }
 
 function isShadow(value: unknown): boolean {
-  return isRecord(value)
-    && isFiniteNumber(value.offsetX)
-    && isFiniteNumber(value.offsetY)
-    && isFiniteNumber(value.blur, 0)
-    && typeof value.color === 'string'
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.offsetX) &&
+    isFiniteNumber(value.offsetY) &&
+    isFiniteNumber(value.blur, 0) &&
+    typeof value.color === 'string'
+  )
 }
 
 function isBaseLayer(value: Record<string, unknown>): boolean {
-  return typeof value.id === 'string' && Boolean(value.id)
-    && typeof value.name === 'string'
-    && isFiniteNumber(value.x)
-    && isFiniteNumber(value.y)
-    && isFiniteNumber(value.width, Number.EPSILON)
-    && isFiniteNumber(value.height, Number.EPSILON)
-    && isFiniteNumber(value.rotation)
-    && isFiniteNumber(value.opacity, 0, 1)
-    && typeof value.locked === 'boolean'
-    && typeof value.visible === 'boolean'
-    && Number.isSafeInteger(value.zIndex)
-    && (value.scope === undefined || value.scope === 'layout')
-    && !('src' in value)
-    && !('screenshotUrl' in value)
+  return (
+    typeof value.id === 'string' &&
+    Boolean(value.id) &&
+    typeof value.name === 'string' &&
+    isFiniteNumber(value.x) &&
+    isFiniteNumber(value.y) &&
+    isFiniteNumber(value.width, Number.EPSILON) &&
+    isFiniteNumber(value.height, Number.EPSILON) &&
+    isFiniteNumber(value.rotation) &&
+    isFiniteNumber(value.opacity, 0, 1) &&
+    typeof value.locked === 'boolean' &&
+    typeof value.visible === 'boolean' &&
+    Number.isSafeInteger(value.zIndex) &&
+    (value.scope === undefined || value.scope === 'layout') &&
+    !('src' in value) &&
+    !('screenshotUrl' in value)
+  )
 }
 
 function isImportedBezel(value: unknown): boolean {
   if (!isRecord(value) || !SAFE_ASSET_ID.test(String(value.assetId))) return false
   if (typeof value.fileName !== 'string' || !value.fileName) return false
-  if (!isFiniteNumber(value.naturalWidth, 1) || !isFiniteNumber(value.naturalHeight, 1)) return false
+  if (!isFiniteNumber(value.naturalWidth, 1) || !isFiniteNumber(value.naturalHeight, 1))
+    return false
   const screen = value.screen
-  return isRecord(screen)
-    && isFiniteNumber(screen.x, 0)
-    && isFiniteNumber(screen.y, 0)
-    && isFiniteNumber(screen.width, 1)
-    && isFiniteNumber(screen.height, 1)
-    && screen.x + screen.width <= value.naturalWidth
-    && screen.y + screen.height <= value.naturalHeight
+  return (
+    isRecord(screen) &&
+    isFiniteNumber(screen.x, 0) &&
+    isFiniteNumber(screen.y, 0) &&
+    isFiniteNumber(screen.width, 1) &&
+    isFiniteNumber(screen.height, 1) &&
+    screen.x + screen.width <= value.naturalWidth &&
+    screen.y + screen.height <= value.naturalHeight
+  )
 }
 
 function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
@@ -87,17 +95,22 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
   if (scope === 'layout' ? value.scope !== 'layout' : value.scope !== undefined) return false
 
   if (value.type === 'image') {
-    return SAFE_ASSET_ID.test(String(value.assetId))
-      && isFiniteNumber(value.originalWidth, 1)
-      && isFiniteNumber(value.originalHeight, 1)
-      && (value.shadow === undefined || isShadow(value.shadow))
+    return (
+      SAFE_ASSET_ID.test(String(value.assetId)) &&
+      isFiniteNumber(value.originalWidth, 1) &&
+      isFiniteNumber(value.originalHeight, 1) &&
+      (value.shadow === undefined || isShadow(value.shadow))
+    )
   }
   if (value.type === 'device-frame') {
     if (typeof value.deviceModel !== 'string' || !value.deviceModel) return false
     if (typeof value.deviceColor !== 'string' || !value.deviceColor) return false
     if (!['portrait', 'landscape'].includes(String(value.orientation))) return false
-    if (value.screenshotAssetId !== undefined
-      && !SAFE_ASSET_ID.test(String(value.screenshotAssetId))) return false
+    if (
+      value.screenshotAssetId !== undefined &&
+      !SAFE_ASSET_ID.test(String(value.screenshotAssetId))
+    )
+      return false
     if (value.importedBezel !== undefined && !isImportedBezel(value.importedBezel)) return false
     if (value.shadowEnabled !== undefined && typeof value.shadowEnabled !== 'boolean') return false
     if (value.shadowBlur !== undefined && !isFiniteNumber(value.shadowBlur, 0)) return false
@@ -107,17 +120,20 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
     return true
   }
   if (value.type === 'text') {
-    return typeof value.content === 'string'
-      && typeof value.fontFamily === 'string' && Boolean(value.fontFamily)
-      && isFiniteNumber(value.fontSize, 1)
-      && isFiniteNumber(value.fontWeight, 1)
-      && typeof value.color === 'string'
-      && ['left', 'center', 'right'].includes(String(value.textAlign))
-      && isFiniteNumber(value.lineHeight, Number.EPSILON)
-      && isFiniteNumber(value.letterSpacing)
-      && ['none', 'uppercase', 'lowercase', 'capitalize'].includes(String(value.textTransform))
-      && (value.shadow === undefined || isShadow(value.shadow))
-      && (value.gradientFill === undefined || isGradient(value.gradientFill))
+    return (
+      typeof value.content === 'string' &&
+      typeof value.fontFamily === 'string' &&
+      Boolean(value.fontFamily) &&
+      isFiniteNumber(value.fontSize, 1) &&
+      isFiniteNumber(value.fontWeight, 1) &&
+      typeof value.color === 'string' &&
+      ['left', 'center', 'right'].includes(String(value.textAlign)) &&
+      isFiniteNumber(value.lineHeight, Number.EPSILON) &&
+      isFiniteNumber(value.letterSpacing) &&
+      ['none', 'uppercase', 'lowercase', 'capitalize'].includes(String(value.textTransform)) &&
+      (value.shadow === undefined || isShadow(value.shadow)) &&
+      (value.gradientFill === undefined || isGradient(value.gradientFill))
+    )
   }
   if (value.type !== 'shape' || 'gradientFill' in value) return false
   if (!['rectangle', 'circle', 'rounded-rect'].includes(String(value.shapeType))) return false
@@ -133,20 +149,28 @@ export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
   if (typeof value.name !== 'string' || typeof value.activeScreenId !== 'string') return false
   if (!Array.isArray(value.screens) || !Array.isArray(value.layoutLayers)) return false
-  if (!isRecord(value.globals) || !isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) {
+  if (
+    !isRecord(value.globals) ||
+    !isFiniteNumber(value.createdAt) ||
+    !isFiniteNumber(value.updatedAt)
+  ) {
     return false
   }
   if (value.screens.length < 1 || value.screens.length > MAX_PROJECT_SCREENS) return false
   const globals = value.globals
   if (
-    typeof globals.fontFamily !== 'string' || !globals.fontFamily
-    || !isFiniteNumber(globals.fontWeight, 1)
-    || !isFiniteNumber(globals.fontSize, 1)
-    || typeof globals.fontColor !== 'string'
-    || !isBackground(globals.background)
-    || typeof globals.deviceModel !== 'string' || !globals.deviceModel
-    || typeof globals.deviceColor !== 'string' || !globals.deviceColor
-  ) return false
+    typeof globals.fontFamily !== 'string' ||
+    !globals.fontFamily ||
+    !isFiniteNumber(globals.fontWeight, 1) ||
+    !isFiniteNumber(globals.fontSize, 1) ||
+    typeof globals.fontColor !== 'string' ||
+    !isBackground(globals.background) ||
+    typeof globals.deviceModel !== 'string' ||
+    !globals.deviceModel ||
+    typeof globals.deviceColor !== 'string' ||
+    !globals.deviceColor
+  )
+    return false
 
   const screenIds = new Set<string>()
   const layerIds = new Set<string>()
@@ -174,9 +198,9 @@ export function migrateProject(value: unknown): unknown {
   if (!isRecord(project)) return project
   const collections = [
     ...(Array.isArray(project.screens)
-      ? project.screens.flatMap((screen) => isRecord(screen) && Array.isArray(screen.layers)
-        ? [screen.layers]
-        : [])
+      ? project.screens.flatMap((screen) =>
+          isRecord(screen) && Array.isArray(screen.layers) ? [screen.layers] : [],
+        )
       : []),
     ...(Array.isArray(project.layoutLayers) ? [project.layoutLayers] : []),
   ]

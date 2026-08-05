@@ -105,9 +105,7 @@ export function createDeviceLayer(model: DeviceModel, zIndex: number) {
   }
 }
 
-export type ImageImportResult =
-  | { ok: true; layer: ImageLayer }
-  | { ok: false; error: string }
+export type ImageImportResult = { ok: true; layer: ImageLayer } | { ok: false; error: string }
 
 /** Reads an image file into a centered, scaled-to-fit image layer. */
 export async function createImageLayerFromFile(

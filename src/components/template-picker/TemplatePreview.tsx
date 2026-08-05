@@ -30,12 +30,18 @@ export function TemplatePreview({ template }: TemplatePreviewProps) {
           <rect width={WIDTH} height={HEIGHT} />
         </clipPath>
         {gradientDefinition(backgroundId, backgroundGradient(template.background))}
-        {sortedLayers.map((layer) => layer.type === 'shape' && typeof layer.fill !== 'string'
-          ? gradientDefinition(`${template.id}-${layer.id}`, layer.fill)
-          : null)}
+        {sortedLayers.map((layer) =>
+          layer.type === 'shape' && typeof layer.fill !== 'string'
+            ? gradientDefinition(`${template.id}-${layer.id}`, layer.fill)
+            : null,
+        )}
       </defs>
       <g clipPath={`url(#${template.id}-clip)`}>
-        <rect width={WIDTH} height={HEIGHT} fill={paintForBackground(template.background, backgroundId)} />
+        <rect
+          width={WIDTH}
+          height={HEIGHT}
+          fill={paintForBackground(template.background, backgroundId)}
+        />
         {sortedLayers.map((layer) => (
           <TemplateLayer key={layer.id} templateId={template.id} layer={layer} />
         ))}
@@ -83,9 +89,7 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
   }
 
   if (layer.type === 'shape') {
-    const fill = typeof layer.fill === 'string'
-      ? layer.fill
-      : `url(#${templateId}-${layer.id})`
+    const fill = typeof layer.fill === 'string' ? layer.fill : `url(#${templateId}-${layer.id})`
     if (layer.shapeType === 'circle') {
       return (
         <ellipse
@@ -108,7 +112,7 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        rx={layer.shapeType === 'rounded-rect' ? layer.borderRadius ?? 8 : 0}
+        rx={layer.shapeType === 'rounded-rect' ? (layer.borderRadius ?? 8) : 0}
         fill={fill}
         stroke={layer.stroke}
         strokeWidth={layer.strokeWidth}

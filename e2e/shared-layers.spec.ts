@@ -24,9 +24,13 @@ test.describe('shared (layout) layers', () => {
     await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
-    )).toBe(1)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+        ),
+      )
+      .toBe(1)
 
     const state = await activeObjectState(page)
     expect(state).not.toBeNull()
@@ -40,9 +44,13 @@ test.describe('shared (layout) layers', () => {
     await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
-    )).toBe(1)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+        ),
+      )
+      .toBe(1)
 
     await dragControl(page, 'mtr', 50, 0)
     const immediate = await activeObjectState(page)

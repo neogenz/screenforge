@@ -30,7 +30,7 @@ class MockImage {
   onerror: (() => void) | null = null
 
   set src(_value: string) {
-    queueMicrotask(() => decodeFails ? this.onerror?.() : this.onload?.())
+    queueMicrotask(() => (decodeFails ? this.onerror?.() : this.onload?.()))
   }
 }
 
@@ -50,17 +50,20 @@ describe('image import', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('rejects unsupported and oversized files before reading bytes', async () => {
-    await expect(importImageFile(file('application/pdf')))
-      .rejects.toMatchObject({ code: 'invalid-format' })
-    await expect(importImageFile(file('image/png', MAX_IMAGE_FILE_BYTES + 1)))
-      .rejects.toMatchObject({ code: 'file-too-large' })
+    await expect(importImageFile(file('application/pdf'))).rejects.toMatchObject({
+      code: 'invalid-format',
+    })
+    await expect(
+      importImageFile(file('image/png', MAX_IMAGE_FILE_BYTES + 1)),
+    ).rejects.toMatchObject({ code: 'file-too-large' })
     expect(reads).toBe(0)
   })
 
   it('allows SVG content but not SVG device screenshots', async () => {
     await expect(importImageFile(file('image/svg+xml'))).resolves.toMatchObject(dimensions)
-    await expect(importImageFile(file('image/svg+xml'), SCREENSHOT_IMAGE_TYPES))
-      .rejects.toMatchObject({ code: 'invalid-format' })
+    await expect(
+      importImageFile(file('image/svg+xml'), SCREENSHOT_IMAGE_TYPES),
+    ).rejects.toMatchObject({ code: 'invalid-format' })
   })
 
   it('rejects decoded images above 16 megapixels', async () => {

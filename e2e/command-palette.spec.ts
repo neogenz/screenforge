@@ -46,25 +46,39 @@ test.describe('history coalescing', () => {
 
     // Burst: 5 nudges well inside the 1200ms coalesce window.
     for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowRight')
-    await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useHistoryStore.getState().past.length ?? -1,
-    )).toBe(pastBefore + 1)
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? -1),
+      )
+      .toBe(pastBefore + 1)
 
     // After the window expires, the next nudge starts a new entry.
     await page.clock.fastForward(1_400)
     await page.keyboard.press('ArrowRight')
-    await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useHistoryStore.getState().past.length ?? -1,
-    )).toBe(pastBefore + 2)
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? -1),
+      )
+      .toBe(pastBefore + 2)
 
     // Undo the last single nudge, then ONE undo reverts the whole burst.
     await page.keyboard.press('Meta+z')
-    await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
-    )).toBe(xBefore + 5)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
+        ),
+      )
+      .toBe(xBefore + 5)
     await page.keyboard.press('Meta+z')
-    await expect.poll(() => page.evaluate(
-      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
-    )).toBe(xBefore)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.x ?? -1,
+        ),
+      )
+      .toBe(xBefore)
   })
 })

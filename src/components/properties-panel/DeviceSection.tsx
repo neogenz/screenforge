@@ -12,9 +12,7 @@ export function DeviceSection({ layer }: DeviceSectionProps) {
   return (
     <DevicePicker
       layer={layer}
-      onUpdate={(updates, options) =>
-        updateLayer(layer.id, updates as Partial<Layer>, options)
-      }
+      onUpdate={(updates, options) => updateLayer(layer.id, updates as Partial<Layer>, options)}
     />
   )
 }

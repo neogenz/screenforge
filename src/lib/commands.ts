@@ -2,11 +2,7 @@ import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
-import {
-  createDeviceLayer,
-  createShapeLayer,
-  createTextLayer,
-} from '@/lib/layer-factories'
+import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
 import type { AlignMode, DistributeMode } from '@/lib/align'
 
 export interface Command {

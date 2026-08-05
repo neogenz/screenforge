@@ -27,9 +27,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
 
   const frame = getDeviceFrame(draft.deviceModel)
-  const modelOptions = frame.current
-    ? CURRENT_DEVICE_FRAMES
-    : [frame, ...CURRENT_DEVICE_FRAMES]
+  const modelOptions = frame.current ? CURRENT_DEVICE_FRAMES : [frame, ...CURRENT_DEVICE_FRAMES]
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))
@@ -85,7 +83,9 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                   aria-label="Graisse de police par défaut"
                 >
                   {FONT_WEIGHT_OPTIONS.map((weight) => (
-                    <option key={weight.value} value={weight.value}>{weight.label}</option>
+                    <option key={weight.value} value={weight.value}>
+                      {weight.label}
+                    </option>
                   ))}
                 </Select>
               </div>
@@ -139,7 +139,11 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
               ))}
             </Select>
             <Field label="Couleur">
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil par défaut">
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label="Couleur de l’appareil par défaut"
+              >
                 {frame.colors.map((color) => (
                   <SwatchButton
                     key={color.name}

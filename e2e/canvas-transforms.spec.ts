@@ -39,15 +39,17 @@ async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<v
  * précisément la confusion que ces tests surveillent.
  */
 async function sceneCenters(page: Page): Promise<{ x: number; y: number }[]> {
-  return page.evaluate(() => (window.__sfCanvas?.getObjects() ?? [])
-    .filter((object) => {
-      const type = (object as DebugObject).data?.rendererType
-      return type !== undefined && type !== 'background' && type !== 'label'
-    })
-    .map((object) => {
-      const [, , , , x, y] = object.calcTransformMatrix()
-      return { x: Math.round(x), y: Math.round(y) }
-    }))
+  return page.evaluate(() =>
+    (window.__sfCanvas?.getObjects() ?? [])
+      .filter((object) => {
+        const type = (object as DebugObject).data?.rendererType
+        return type !== undefined && type !== 'background' && type !== 'label'
+      })
+      .map((object) => {
+        const [, , , , x, y] = object.calcTransformMatrix()
+        return { x: Math.round(x), y: Math.round(y) }
+      }),
+  )
 }
 
 async function setRotation(page: Page, angle: number): Promise<void> {
@@ -89,10 +91,12 @@ test.describe('canvas transforms', () => {
       const id = state?.selectedLayerIds[0]
       const project = window.__sfStores?.useProjectStore.getState().project
       const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-      const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-        .find((candidate) => candidate.id === id)
-      const object = window.__sfCanvas?.getObjects().find((candidate) =>
-        (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+      const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+        (candidate) => candidate.id === id,
+      )
+      const object = window.__sfCanvas
+        ?.getObjects()
+        .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === id)
       return {
         id,
         x: layer?.x,
@@ -122,10 +126,12 @@ test.describe('canvas transforms', () => {
         const state = window.__sfStores?.useCanvasStore.getState()
         const project = window.__sfStores?.useProjectStore.getState().project
         const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-        const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-          .find((candidate) => candidate.id === id)
-        const object = window.__sfCanvas?.getObjects().find((candidate) =>
-          (candidate as { data?: { layerId?: string } }).data?.layerId === id)
+        const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+          (candidate) => candidate.id === id,
+        )
+        const object = window.__sfCanvas
+          ?.getObjects()
+          .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === id)
         return {
           x: layer?.x,
           y: layer?.y,
@@ -201,7 +207,9 @@ test.describe('canvas transforms', () => {
     expectClose(layer!.top!, before!.top, 1.5)
   })
 
-  test('dragging a layer to another screen transfers ownership without reframing', async ({ page }) => {
+  test('dragging a layer to another screen transfers ownership without reframing', async ({
+    page,
+  }) => {
     await addTextLayer(page)
     const source = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -212,9 +220,11 @@ test.describe('canvas transforms', () => {
 
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.activeScreenId,
-    )).toBe(source.screenId)
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.activeScreenId),
+      )
+      .toBe(source.screenId)
     await layerRows(page).first().click()
 
     const before = await page.evaluate(() => ({
@@ -229,9 +239,13 @@ test.describe('canvas transforms', () => {
     await page.mouse.move(destination.x, destination.y, { steps: 12 })
 
     const preview = await page.evaluate((layerId) => {
-      const object = window.__sfCanvas?.getObjects()
-        .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === layerId)
-      return (object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined)?.data
+      const object = window.__sfCanvas
+        ?.getObjects()
+        .find(
+          (candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === layerId,
+        )
+      return (object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined)
+        ?.data
     }, source.layerId)
     expect(preview?.screenIndex).toBe(1)
     expect(preview?.clipScreenIndex).toBe(1)
@@ -243,21 +257,30 @@ test.describe('canvas transforms', () => {
       const canvas = window.__sfCanvas
       const targetScreen = project?.screens[1]
       const layer = targetScreen?.layers.find((candidate) => candidate.id === layerId)
-      const object = canvas?.getObjects()
-        .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === layerId)
-      const background = canvas?.getObjects()
-        .filter((candidate) => (candidate as { data?: { rendererType?: string } }).data?.rendererType === 'background')
+      const object = canvas
+        ?.getObjects()
+        .find(
+          (candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === layerId,
+        )
+      const background = canvas
+        ?.getObjects()
+        .filter(
+          (candidate) =>
+            (candidate as { data?: { rendererType?: string } }).data?.rendererType === 'background',
+        )
         .sort((left, right) => left.left - right.left)[1]
       return {
-        sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId).length,
+        sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId)
+          .length,
         targetCount: targetScreen?.layers.filter((candidate) => candidate.id === layerId).length,
         activeScreenId: project?.activeScreenId,
         targetScreenId: targetScreen?.id,
         selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
         storedX: layer?.x,
-        renderedX: object && background
-          ? object.getBoundingRect().left - background.getBoundingRect().left
-          : undefined,
+        renderedX:
+          object && background
+            ? object.getBoundingRect().left - background.getBoundingRect().left
+            : undefined,
         history: window.__sfStores?.useHistoryStore.getState().past.length,
         viewport: [...(canvas?.viewportTransform ?? [])],
         zoom: canvas?.getZoom(),
@@ -271,28 +294,42 @@ test.describe('canvas transforms', () => {
     expect(transferred.history).toBe(before.history + 1)
     expectClose(transferred.zoom!, before.zoom, 0.0001)
     expect(transferred.viewport).toHaveLength(before.viewport.length)
-    transferred.viewport.forEach((value, index) => expectClose(value, before.viewport[index], 0.0001))
+    transferred.viewport.forEach((value, index) =>
+      expectClose(value, before.viewport[index], 0.0001),
+    )
 
     await page.keyboard.press('Meta+z')
-    await expect.poll(() => page.evaluate((layerId) => {
-      const project = window.__sfStores?.useProjectStore.getState().project
-      return JSON.stringify({
-        sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId).length,
-        targetCount: project?.screens[1]?.layers.filter((candidate) => candidate.id === layerId).length,
-      })
-    }, source.layerId)).toBe(JSON.stringify({ sourceCount: 1, targetCount: 0 }))
+    await expect
+      .poll(() =>
+        page.evaluate((layerId) => {
+          const project = window.__sfStores?.useProjectStore.getState().project
+          return JSON.stringify({
+            sourceCount: project?.screens[0]?.layers.filter((candidate) => candidate.id === layerId)
+              .length,
+            targetCount: project?.screens[1]?.layers.filter((candidate) => candidate.id === layerId)
+              .length,
+          })
+        }, source.layerId),
+      )
+      .toBe(JSON.stringify({ sourceCount: 1, targetCount: 0 }))
   })
 
   test('dragging a multi-selection transfers every local layer', async ({ page }) => {
     await addTextLayer(page)
     await addShapeLayer(page)
-    const layerIds = await page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.map((layer) => layer.id) ?? [])
+    const layerIds = await page.evaluate(
+      () =>
+        window.__sfStores?.useProjectStore
+          .getState()
+          .project?.screens[0]?.layers.map((layer) => layer.id) ?? [],
+    )
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
     await waitForCanvasSettled(page)
     await layerRows(page).first().click()
-    await layerRows(page).nth(1).click({ modifiers: ['Meta'] })
+    await layerRows(page)
+      .nth(1)
+      .click({ modifiers: ['Meta'] })
     expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
 
     const start = await activeCenter(page)
@@ -354,13 +391,16 @@ test.describe('canvas transforms', () => {
     // Même écriture de géométrie que le lasso, par le chemin `patch` cette
     // fois : une flèche répétée sur une sélection multiple recalait chaque
     // calque sur le centre de la sélection, à chaque appui.
-    expect(await sceneCenters(page)).toEqual(before.map((center) => ({ ...center, x: center.x + 1 })))
+    expect(await sceneCenters(page)).toEqual(
+      before.map((center) => ({ ...center, x: center.x + 1 })),
+    )
   })
 
   test('dropping in the gutter keeps the source screen and restores clipping', async ({ page }) => {
     await addTextLayer(page)
-    const layerId = await page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id)
+    const layerId = await page.evaluate(
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id,
+    )
     await addScreen(page)
     await page.locator('button[aria-label^="Activer"]').first().click()
     await waitForCanvasSettled(page)
@@ -380,9 +420,12 @@ test.describe('canvas transforms', () => {
 
     const afterGutter = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
-      const object = window.__sfCanvas?.getObjects()
+      const object = window.__sfCanvas
+        ?.getObjects()
         .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === id)
-      const data = (object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined)?.data
+      const data = (
+        object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined
+      )?.data
       return {
         sourceCount: project?.screens[0]?.layers.filter((layer) => layer.id === id).length,
         targetCount: project?.screens[1]?.layers.filter((layer) => layer.id === id).length,
@@ -405,9 +448,12 @@ test.describe('canvas transforms', () => {
     await waitForCanvasSettled(page)
     const afterReturn = await page.evaluate((id) => {
       const project = window.__sfStores?.useProjectStore.getState().project
-      const object = window.__sfCanvas?.getObjects()
+      const object = window.__sfCanvas
+        ?.getObjects()
         .find((candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === id)
-      const data = (object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined)?.data
+      const data = (
+        object as { data?: { screenIndex?: number; clipScreenIndex?: number } } | undefined
+      )?.data
       return {
         sourceCount: project?.screens[0]?.layers.filter((layer) => layer.id === id).length,
         targetCount: project?.screens[1]?.layers.filter((layer) => layer.id === id).length,
@@ -425,8 +471,9 @@ test.describe('canvas transforms', () => {
 
   test('repeated transfers stay stable through undo and redo', async ({ page }) => {
     await addTextLayer(page)
-    const layerId = await page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id)
+    const layerId = await page.evaluate(
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id,
+    )
     expect(layerId).toBeTruthy()
 
     await addScreen(page)
@@ -439,35 +486,48 @@ test.describe('canvas transforms', () => {
     }))
 
     async function expectStableOwner(ownerIndex: number) {
-      const state = await page.evaluate(({ id, index }) => {
-        const project = window.__sfStores?.useProjectStore.getState().project
-        const canvas = window.__sfCanvas
-        const owner = project?.screens[index]
-        const layer = owner?.layers.find((candidate) => candidate.id === id)
-        const object = canvas?.getObjects().find((candidate) =>
-          (candidate as { data?: { layerId?: string } }).data?.layerId === id)
-        const background = canvas?.getObjects()
-          .filter((candidate) =>
-            (candidate as { data?: { rendererType?: string } }).data?.rendererType === 'background')
-          .sort((left, right) => left.left - right.left)[index]
-        return {
-          counts: project?.screens.map((screen) =>
-            screen.layers.filter((candidate) => candidate.id === id).length),
-          activeScreenId: project?.activeScreenId,
-          ownerScreenId: owner?.id,
-          selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
-          storedX: layer?.x,
-          storedY: layer?.y,
-          renderedX: object && background
-            ? object.getBoundingRect().left - background.getBoundingRect().left
-            : undefined,
-          renderedY: object && background
-            ? object.getBoundingRect().top - background.getBoundingRect().top
-            : undefined,
-          viewport: [...(canvas?.viewportTransform ?? [])],
-          zoom: canvas?.getZoom() ?? -1,
-        }
-      }, { id: layerId!, index: ownerIndex })
+      const state = await page.evaluate(
+        ({ id, index }) => {
+          const project = window.__sfStores?.useProjectStore.getState().project
+          const canvas = window.__sfCanvas
+          const owner = project?.screens[index]
+          const layer = owner?.layers.find((candidate) => candidate.id === id)
+          const object = canvas
+            ?.getObjects()
+            .find(
+              (candidate) => (candidate as { data?: { layerId?: string } }).data?.layerId === id,
+            )
+          const background = canvas
+            ?.getObjects()
+            .filter(
+              (candidate) =>
+                (candidate as { data?: { rendererType?: string } }).data?.rendererType ===
+                'background',
+            )
+            .sort((left, right) => left.left - right.left)[index]
+          return {
+            counts: project?.screens.map(
+              (screen) => screen.layers.filter((candidate) => candidate.id === id).length,
+            ),
+            activeScreenId: project?.activeScreenId,
+            ownerScreenId: owner?.id,
+            selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+            storedX: layer?.x,
+            storedY: layer?.y,
+            renderedX:
+              object && background
+                ? object.getBoundingRect().left - background.getBoundingRect().left
+                : undefined,
+            renderedY:
+              object && background
+                ? object.getBoundingRect().top - background.getBoundingRect().top
+                : undefined,
+            viewport: [...(canvas?.viewportTransform ?? [])],
+            zoom: canvas?.getZoom() ?? -1,
+          }
+        },
+        { id: layerId!, index: ownerIndex },
+      )
       expect(state.counts).toEqual(ownerIndex === 0 ? [1, 0] : [0, 1])
       expect(state.activeScreenId).toBe(state.ownerScreenId)
       expect(state.selectedIds).toEqual([layerId])
@@ -476,7 +536,8 @@ test.describe('canvas transforms', () => {
       expectClose(state.zoom, viewport.zoom, 0.0001)
       expect(state.viewport).toHaveLength(viewport.transform.length)
       state.viewport.forEach((value, index) =>
-        expectClose(value, viewport.transform[index], 0.0001))
+        expectClose(value, viewport.transform[index], 0.0001),
+      )
     }
 
     await dragSelectionToScreen(page, 1)
@@ -485,14 +546,34 @@ test.describe('canvas transforms', () => {
     await expectStableOwner(0)
 
     await page.keyboard.press('Meta+z')
-    await expect.poll(() => page.evaluate((id) =>
-      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([0, 1])
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (id) =>
+            window.__sfStores?.useProjectStore
+              .getState()
+              .project?.screens.map(
+                (screen) => screen.layers.filter((layer) => layer.id === id).length,
+              ),
+          layerId,
+        ),
+      )
+      .toEqual([0, 1])
 
     await page.keyboard.press('Meta+Shift+z')
-    await expect.poll(() => page.evaluate((id) =>
-      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) =>
-        screen.layers.filter((layer) => layer.id === id).length), layerId)).toEqual([1, 0])
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (id) =>
+            window.__sfStores?.useProjectStore
+              .getState()
+              .project?.screens.map(
+                (screen) => screen.layers.filter((layer) => layer.id === id).length,
+              ),
+          layerId,
+        ),
+      )
+      .toEqual([1, 0])
   })
 
   test('mixed local and shared selection transfers only the local layer', async ({ page }) => {
@@ -502,15 +583,18 @@ test.describe('canvas transforms', () => {
     await waitForCanvasSettled(page)
     await layerRows(page).first().click()
     await page.locator('button', { hasText: 'Partager partout' }).click()
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
-    )).toBe(1)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__sfStores?.useProjectStore.getState().project?.layoutLayers.length ?? 0,
+        ),
+      )
+      .toBe(1)
     await addTextLayer(page)
 
     const ids = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project as
-        | { screens: { layers: { id: string }[] }[]; layoutLayers: { id: string }[] }
-        | undefined
+        { screens: { layers: { id: string }[] }[]; layoutLayers: { id: string }[] } | undefined
       return {
         local: project?.screens[0]?.layers[0]?.id,
         shared: project?.layoutLayers[0]?.id,
@@ -523,23 +607,29 @@ test.describe('canvas transforms', () => {
     expect((await activeObjectState(page))?.isActiveSelection).toBe(true)
 
     await dragSelectionToScreen(page, 1)
-    const result = await page.evaluate(({ localId, sharedId }) => {
-      const project = window.__sfStores?.useProjectStore.getState().project as
-        | {
-            screens: { layers: { id: string }[] }[]
-            layoutLayers: { id: string; scope?: string }[]
-          }
-        | undefined
-      return {
-        localCounts: project?.screens.map((screen) =>
-          screen.layers.filter((layer) => layer.id === localId).length),
-        sharedLocalCounts: project?.screens.map((screen) =>
-          screen.layers.filter((layer) => layer.id === sharedId).length),
-        sharedLayoutCount: project?.layoutLayers.filter((layer) =>
-          layer.id === sharedId && layer.scope === 'layout').length,
-        selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
-      }
-    }, { localId: ids.local!, sharedId: ids.shared! })
+    const result = await page.evaluate(
+      ({ localId, sharedId }) => {
+        const project = window.__sfStores?.useProjectStore.getState().project as
+          | {
+              screens: { layers: { id: string }[] }[]
+              layoutLayers: { id: string; scope?: string }[]
+            }
+          | undefined
+        return {
+          localCounts: project?.screens.map(
+            (screen) => screen.layers.filter((layer) => layer.id === localId).length,
+          ),
+          sharedLocalCounts: project?.screens.map(
+            (screen) => screen.layers.filter((layer) => layer.id === sharedId).length,
+          ),
+          sharedLayoutCount: project?.layoutLayers.filter(
+            (layer) => layer.id === sharedId && layer.scope === 'layout',
+          ).length,
+          selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+        }
+      },
+      { localId: ids.local!, sharedId: ids.shared! },
+    )
     expect(result.localCounts).toEqual([0, 1])
     expect(result.sharedLocalCounts).toEqual([0, 0])
     expect(result.sharedLayoutCount).toBe(1)

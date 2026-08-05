@@ -58,9 +58,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
-  const modelOptions = config.current
-    ? CURRENT_DEVICE_FRAMES
-    : [config, ...CURRENT_DEVICE_FRAMES]
+  const modelOptions = config.current ? CURRENT_DEVICE_FRAMES : [config, ...CURRENT_DEVICE_FRAMES]
 
   async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -129,9 +127,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   function handleModelChange(model: DeviceModel) {
     const next = getDeviceFrame(model)
     const canonical = getDefaultDeviceSize(model)
-    const size = orientation === 'portrait'
-      ? canonical
-      : { width: canonical.height, height: canonical.width }
+    const size =
+      orientation === 'portrait' ? canonical : { width: canonical.height, height: canonical.width }
     onUpdate({ deviceModel: model, deviceColor: next.colors[0].name, ...size })
   }
 
@@ -175,11 +172,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         <Field label="Bezel Apple">
           <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             {bezelUrl && (
-              <img
-                src={bezelUrl}
-                alt="Bezel importé"
-                className="h-8 w-8 shrink-0 object-contain"
-              />
+              <img src={bezelUrl} alt="Bezel importé" className="h-8 w-8 shrink-0 object-contain" />
             )}
             <span className="min-w-0 flex-1 truncate text-sm text-foreground">
               {layer.importedBezel.fileName}
@@ -224,7 +217,9 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-2xs text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
+          <span className="text-2xs text-muted-foreground">
+            Extraire le DMG, puis choisir un PNG transparent.
+          </span>
         </div>
       )}
       {bezelError && (
@@ -233,62 +228,73 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         </p>
       )}
 
-      {!layer.importedBezel && <Field label="Modèle">
-        <Dropdown
-          open={modelOpen}
-          onOpenChange={setModelOpen}
-          trigger={(
-            <Button
-              variant="default"
-              className="w-full justify-between"
-              aria-label="Modèle d’appareil"
-            >
-              <span className="truncate">{config.modelName}</span>
-              <span className="flex shrink-0 items-center gap-1.5">
-                <span className="tabular text-2xs text-muted-foreground">{config.screenSize}</span>
-                <ChevronDown
-                  size={12}
-                  strokeWidth={1.5}
-                  aria-hidden
-                  className={cn('transition-transform duration-150 ease-out', modelOpen && 'rotate-180')}
-                />
-              </span>
-            </Button>
-          )}
-          items={modelOptions.map((frame) => ({
-            id: frame.model,
-            label: frame.modelName,
-            meta: frame.screenSize,
-            onSelect: () => handleModelChange(frame.model),
-          }))}
-          ariaLabel="Modèle d’appareil"
-        />
-      </Field>}
+      {!layer.importedBezel && (
+        <Field label="Modèle">
+          <Dropdown
+            open={modelOpen}
+            onOpenChange={setModelOpen}
+            trigger={
+              <Button
+                variant="default"
+                className="w-full justify-between"
+                aria-label="Modèle d’appareil"
+              >
+                <span className="truncate">{config.modelName}</span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <span className="tabular text-2xs text-muted-foreground">
+                    {config.screenSize}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    strokeWidth={1.5}
+                    aria-hidden
+                    className={cn(
+                      'transition-transform duration-150 ease-out',
+                      modelOpen && 'rotate-180',
+                    )}
+                  />
+                </span>
+              </Button>
+            }
+            items={modelOptions.map((frame) => ({
+              id: frame.model,
+              label: frame.modelName,
+              meta: frame.screenSize,
+              onSelect: () => handleModelChange(frame.model),
+            }))}
+            ariaLabel="Modèle d’appareil"
+          />
+        </Field>
+      )}
 
-      {!layer.importedBezel && <Field label="Couleur">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
-          {config.colors.map((color) => (
-            <SwatchButton
-              key={color.name}
-              color={color.frame}
-              selected={deviceColor === color.name}
-              onClick={() => onUpdate({ deviceColor: color.name })}
-              title={color.label}
-              aria-label={color.label}
-            />
-          ))}
-        </div>
-      </Field>}
+      {!layer.importedBezel && (
+        <Field label="Couleur">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
+            {config.colors.map((color) => (
+              <SwatchButton
+                key={color.name}
+                color={color.frame}
+                selected={deviceColor === color.name}
+                onClick={() => onUpdate({ deviceColor: color.name })}
+                title={color.label}
+                aria-label={color.label}
+              />
+            ))}
+          </div>
+        </Field>
+      )}
 
-      {!layer.importedBezel && <Field label="Orientation">
-        <Segmented
-          options={ORIENTATION_OPTIONS}
-          value={orientation}
-          onChange={handleOrientationChange}
-          ariaLabel="Orientation"
-          className="w-full"
-        />
-      </Field>}
+      {!layer.importedBezel && (
+        <Field label="Orientation">
+          <Segmented
+            options={ORIENTATION_OPTIONS}
+            value={orientation}
+            onChange={handleOrientationChange}
+            ariaLabel="Orientation"
+            className="w-full"
+          />
+        </Field>
+      )}
 
       <Field label="Capture d’écran">
         {screenshotUrl ? (
@@ -347,55 +353,65 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         <p className="text-2xs text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
-      ) : <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title">Ombre</h3>
-          <Switch
-            checked={shadowEnabled}
-            ariaLabel="Activer l’ombre de l’appareil"
-            onChange={(checked) => onUpdate({ shadowEnabled: checked })}
-          />
-        </div>
-
-        {shadowEnabled && (
-          <div className="flex flex-col gap-2">
-            <NumberField
-              label="Flou"
-              ariaLabel="Flou de l’ombre"
-              value={shadowBlur}
-              onChange={(value) => onUpdate({ shadowBlur: value }, { coalesceKey: shadowCoalesceKey })}
-              min={0}
-              max={100}
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h3 className="section-title">Ombre</h3>
+            <Switch
+              checked={shadowEnabled}
+              ariaLabel="Activer l’ombre de l’appareil"
+              onChange={(checked) => onUpdate({ shadowEnabled: checked })}
             />
-            <div className="grid grid-cols-2 gap-2">
-              <NumberField
-                label="X"
-                ariaLabel="Décalage X de l’ombre"
-                value={shadowOffsetX}
-                onChange={(value) => onUpdate({ shadowOffsetX: value }, { coalesceKey: shadowCoalesceKey })}
-                min={-500}
-                max={500}
-              />
-              <NumberField
-                label="Y"
-                ariaLabel="Décalage Y de l’ombre"
-                value={shadowOffsetY}
-                onChange={(value) => onUpdate({ shadowOffsetY: value }, { coalesceKey: shadowCoalesceKey })}
-                min={-500}
-                max={500}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="field-label">Couleur</span>
-              <ColorPicker
-                value={shadowColor}
-                showOpacity
-                onChange={(color) => onUpdate({ shadowColor: color }, { coalesceKey: shadowCoalesceKey })}
-              />
-            </div>
           </div>
-        )}
-      </div>}
+
+          {shadowEnabled && (
+            <div className="flex flex-col gap-2">
+              <NumberField
+                label="Flou"
+                ariaLabel="Flou de l’ombre"
+                value={shadowBlur}
+                onChange={(value) =>
+                  onUpdate({ shadowBlur: value }, { coalesceKey: shadowCoalesceKey })
+                }
+                min={0}
+                max={100}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField
+                  label="X"
+                  ariaLabel="Décalage X de l’ombre"
+                  value={shadowOffsetX}
+                  onChange={(value) =>
+                    onUpdate({ shadowOffsetX: value }, { coalesceKey: shadowCoalesceKey })
+                  }
+                  min={-500}
+                  max={500}
+                />
+                <NumberField
+                  label="Y"
+                  ariaLabel="Décalage Y de l’ombre"
+                  value={shadowOffsetY}
+                  onChange={(value) =>
+                    onUpdate({ shadowOffsetY: value }, { coalesceKey: shadowCoalesceKey })
+                  }
+                  min={-500}
+                  max={500}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="field-label">Couleur</span>
+                <ColorPicker
+                  value={shadowColor}
+                  showOpacity
+                  onChange={(color) =>
+                    onUpdate({ shadowColor: color }, { coalesceKey: shadowCoalesceKey })
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

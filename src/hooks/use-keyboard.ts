@@ -26,8 +26,11 @@ function isEditingInput(): boolean {
 function activeControlUsesArrowKeys(): boolean {
   const el = document.activeElement
   if (!(el instanceof HTMLElement)) return false
-  return el.matches('[role="slider"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]')
-    || Boolean(el.closest('[role="group"]'))
+  return (
+    el.matches(
+      '[role="slider"], [role="menuitem"], [role="option"], [role="switch"], [role="tab"]',
+    ) || Boolean(el.closest('[role="group"]'))
+  )
 }
 
 export function useKeyboard(): void {
@@ -47,14 +50,8 @@ export function useKeyboard(): void {
 
       if (isEditingInput()) return
 
-      const {
-        selectedLayerIds,
-        setLayers,
-        selectLayers,
-        clearSelection,
-        undo,
-        redo,
-      } = useCanvasStore.getState()
+      const { selectedLayerIds, setLayers, selectLayers, clearSelection, undo, redo } =
+        useCanvasStore.getState()
       const layers = getProjectLayers(useProjectStore.getState().project)
 
       const {
@@ -217,17 +214,13 @@ export function useKeyboard(): void {
       }
 
       // Arrow nudge — burst-coalesced so holding a key is one undo step.
-      if (
-        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)
-      ) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
         if (activeControlUsesArrowKeys()) return
         if (selectedLayerIds.length === 0) return
         e.preventDefault()
         const delta = shift ? 10 : 1
-        const dx =
-          key === 'ArrowLeft' ? -delta : key === 'ArrowRight' ? delta : 0
-        const dy =
-          key === 'ArrowUp' ? -delta : key === 'ArrowDown' ? delta : 0
+        const dx = key === 'ArrowLeft' ? -delta : key === 'ArrowRight' ? delta : 0
+        const dy = key === 'ArrowUp' ? -delta : key === 'ArrowDown' ? delta : 0
         setLayers(
           layers.map((layer) =>
             selectedLayerIds.includes(layer.id)

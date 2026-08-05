@@ -23,13 +23,19 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
 const ExportDialog = lazy(() =>
-  import('@/components/export-dialog/ExportDialog').then((module) => ({ default: module.ExportDialog })),
+  import('@/components/export-dialog/ExportDialog').then((module) => ({
+    default: module.ExportDialog,
+  })),
 )
 const TemplatePicker = lazy(() =>
-  import('@/components/template-picker/TemplatePicker').then((module) => ({ default: module.TemplatePicker })),
+  import('@/components/template-picker/TemplatePicker').then((module) => ({
+    default: module.TemplatePicker,
+  })),
 )
 const GlobalsEditor = lazy(() =>
-  import('@/components/globals-editor/GlobalsEditor').then((module) => ({ default: module.GlobalsEditor })),
+  import('@/components/globals-editor/GlobalsEditor').then((module) => ({
+    default: module.GlobalsEditor,
+  })),
 )
 
 export default function App() {
@@ -114,7 +120,10 @@ export default function App() {
       <main className="absolute inset-0">
         <CanvasEditor />
       </main>
-      <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)" />
+      <div
+        aria-hidden
+        className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)"
+      />
 
       {/* Floating chrome */}
       <header className="absolute left-3 right-3 top-3 z-(--z-chrome)">
@@ -153,14 +162,16 @@ export default function App() {
         visibleToasts={4}
         offset={16}
         gap={8}
-        style={{
-          zIndex: 'var(--z-toast)',
-          fontFamily: 'var(--font-sans)',
-          '--normal-bg': 'var(--color-secondary)',
-          '--normal-border': 'var(--color-border)',
-          '--normal-text': 'var(--color-foreground)',
-          '--border-radius': 'var(--radius-md)',
-        } as CSSProperties}
+        style={
+          {
+            zIndex: 'var(--z-toast)',
+            fontFamily: 'var(--font-sans)',
+            '--normal-bg': 'var(--color-secondary)',
+            '--normal-border': 'var(--color-border)',
+            '--normal-text': 'var(--color-foreground)',
+            '--border-radius': 'var(--radius-md)',
+          } as CSSProperties
+        }
         toastOptions={{
           style: {
             boxShadow: 'var(--shadow-lg), var(--hairline-top)',

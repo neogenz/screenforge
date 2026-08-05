@@ -58,23 +58,31 @@ test.describe('smoke', () => {
     await waitForApp(page)
     await addScreen(page)
     await addScreen(page)
-    const names = () => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) => screen.name))
+    const names = () =>
+      page.evaluate(() =>
+        window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) => screen.name),
+      )
     const before = await names()
 
     const strip = '[role="group"][aria-label="Écrans"]'
 
     /** Un `dragstart` ou un `dragend` sur une tuile, qui les porte. */
     const fireOnTile = (index: number, type: string) =>
-      page.evaluate(([node, event]) => {
-        const tiles = [...document.querySelectorAll<HTMLElement>(
-          '[role="group"][aria-label="Écrans"] > div[draggable]')]
-        const scope = window as unknown as { __sfDrag?: DataTransfer }
-        scope.__sfDrag ??= new DataTransfer()
-        tiles[node as number].dispatchEvent(
-          new DragEvent(event as string, { bubbles: true, dataTransfer: scope.__sfDrag }),
-        )
-      }, [index, type] as const)
+      page.evaluate(
+        ([node, event]) => {
+          const tiles = [
+            ...document.querySelectorAll<HTMLElement>(
+              '[role="group"][aria-label="Écrans"] > div[draggable]',
+            ),
+          ]
+          const scope = window as unknown as { __sfDrag?: DataTransfer }
+          scope.__sfDrag ??= new DataTransfer()
+          tiles[node as number].dispatchEvent(
+            new DragEvent(event as string, { bubbles: true, dataTransfer: scope.__sfDrag }),
+          )
+        },
+        [index, type] as const,
+      )
 
     /**
      * Un `dragover` ou un `drop` sur la bande, au centre d'un emplacement.
@@ -85,44 +93,57 @@ test.describe('smoke', () => {
      * en tête — injoignable pendant tout le geste.
      */
     const fireOnStrip = (slot: number, type: string) =>
-      page.evaluate(([index, event, padding, slotWidth, width, height]) => {
-        const box = document.querySelector('[role="group"][aria-label="Écrans"]')
-        if (!box) throw new Error('bande introuvable')
-        const scope = window as unknown as { __sfDrag?: DataTransfer }
-        scope.__sfDrag ??= new DataTransfer()
-        const bounds = box.getBoundingClientRect()
-        const clientX = bounds.left - box.scrollLeft
-          + (padding as number) + (index as number) * (slotWidth as number) + (width as number) / 2
-        const clientY = bounds.top + (padding as number) + (height as number) / 2
-        // L'élément que le navigateur désigne à ce point, et non la bande : le
-        // voisin décalé passe *au-dessus* de la tuile déplacée, et c'est
-        // précisément ce recouvrement qui rendait le rang de départ injoignable.
-        // Viser la bande directement masquerait le défaut au lieu de le tester.
-        const target = document.elementFromPoint(clientX, clientY) ?? box
-        target.dispatchEvent(new DragEvent(event as string, {
-          bubbles: true,
-          clientX,
-          clientY,
-          dataTransfer: scope.__sfDrag,
-        }))
-      }, [slot, type, FILMSTRIP_PADDING, THUMBNAIL_SLOT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT] as const)
+      page.evaluate(
+        ([index, event, padding, slotWidth, width, height]) => {
+          const box = document.querySelector('[role="group"][aria-label="Écrans"]')
+          if (!box) throw new Error('bande introuvable')
+          const scope = window as unknown as { __sfDrag?: DataTransfer }
+          scope.__sfDrag ??= new DataTransfer()
+          const bounds = box.getBoundingClientRect()
+          const clientX =
+            bounds.left -
+            box.scrollLeft +
+            (padding as number) +
+            (index as number) * (slotWidth as number) +
+            (width as number) / 2
+          const clientY = bounds.top + (padding as number) + (height as number) / 2
+          // L'élément que le navigateur désigne à ce point, et non la bande : le
+          // voisin décalé passe *au-dessus* de la tuile déplacée, et c'est
+          // précisément ce recouvrement qui rendait le rang de départ injoignable.
+          // Viser la bande directement masquerait le défaut au lieu de le tester.
+          const target = document.elementFromPoint(clientX, clientY) ?? box
+          target.dispatchEvent(
+            new DragEvent(event as string, {
+              bubbles: true,
+              clientX,
+              clientY,
+              dataTransfer: scope.__sfDrag,
+            }),
+          )
+        },
+        [slot, type, FILMSTRIP_PADDING, THUMBNAIL_SLOT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT] as const,
+      )
 
-    const shifts = () => page.evaluate(() =>
-      [...document.querySelectorAll('[role="group"][aria-label="Écrans"] > div[draggable]')]
-        .map((tile) => getComputedStyle(tile).translate))
+    const shifts = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('[role="group"][aria-label="Écrans"] > div[draggable]')].map(
+          (tile) => getComputedStyle(tile).translate,
+        ),
+      )
 
     /** La barre d'insertion : sa distance au bord de la bande, ou `null`. */
-    const insertionBar = () => page.evaluate((selector) => {
-      const box = document.querySelector(selector)
-      const bar = box?.querySelector<HTMLElement>(':scope > span[aria-hidden]')
-      if (!box || !bar) return null
-      return {
-        offset: Math.round(bar.getBoundingClientRect().left - box.getBoundingClientRect().left),
-        // Inerte au pointeur, sinon elle vole le `dragover` qui décide de la
-        // cible : elle est posée exactement là où le curseur se trouve.
-        inert: getComputedStyle(bar).pointerEvents === 'none',
-      }
-    }, strip)
+    const insertionBar = () =>
+      page.evaluate((selector) => {
+        const box = document.querySelector(selector)
+        const bar = box?.querySelector<HTMLElement>(':scope > span[aria-hidden]')
+        if (!box || !bar) return null
+        return {
+          offset: Math.round(bar.getBoundingClientRect().left - box.getBoundingClientRect().left),
+          // Inerte au pointeur, sinon elle vole le `dragover` qui décide de la
+          // cible : elle est posée exactement là où le curseur se trouve.
+          inert: getComputedStyle(bar).pointerEvents === 'none',
+        }
+      }, strip)
 
     const barAtSlot = (slot: number) =>
       Math.round(FILMSTRIP_PADDING + slot * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5)
@@ -132,7 +153,9 @@ test.describe('smoke', () => {
     await fireOnTile(0, 'dragstart')
     await fireOnStrip(2, 'dragover')
     // La tuile déplacée reste en place, les deux survolées reculent d'un pas.
-    await expect.poll(shifts).toEqual(['0px', expect.not.stringMatching(/^0px$/), expect.anything()])
+    await expect
+      .poll(shifts)
+      .toEqual(['0px', expect.not.stringMatching(/^0px$/), expect.anything()])
     const previewed = await shifts()
     expect(previewed[1]).toBe(previewed[2])
     await expect.poll(insertionBar).toEqual({ offset: barAtSlot(2), inert: true })
@@ -158,7 +181,9 @@ test.describe('smoke', () => {
     await expect.poll(names).toEqual(before)
   })
 
-  test('screen settings can be copied, pasted and undone without replacing layers', async ({ page }) => {
+  test('screen settings can be copied, pasted and undone without replacing layers', async ({
+    page,
+  }) => {
     await waitForApp(page)
     await addTextLayer(page)
     await addScreen(page)
@@ -179,11 +204,15 @@ test.describe('smoke', () => {
     const screens = page.locator('button[aria-label^="Activer"]')
     await screens.first().click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Copier les réglages' }).click()
-    await expect(page.getByRole('status').filter({ hasText: 'Réglages de Écran 1 copiés' })).toBeVisible()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Réglages de Écran 1 copiés' }),
+    ).toBeVisible()
 
     await screens.nth(1).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Coller les réglages' }).click()
-    await expect(page.getByRole('status').filter({ hasText: 'Réglages appliqués à Écran 2' })).toBeVisible()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Réglages appliqués à Écran 2' }),
+    ).toBeVisible()
 
     const pasted = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -198,14 +227,19 @@ test.describe('smoke', () => {
     expect(pasted).toMatchObject({ sourceLayerCount: 1, targetLayerCount: 0 })
 
     await page.keyboard.press('Meta+z')
-    await expect.poll(async () => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[1]?.background.type,
-    )).toBe('solid')
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () => window.__sfStores?.useProjectStore.getState().project?.screens[1]?.background.type,
+        ),
+      )
+      .toBe('solid')
   })
 
   test('background gestures keep independent undo steps', async ({ page }) => {
     await waitForApp(page)
-    await page.getByRole('group', { name: 'Type d’arrière-plan' })
+    await page
+      .getByRole('group', { name: 'Type d’arrière-plan' })
       .getByRole('button', { name: 'Dégradé' })
       .click()
 
@@ -214,15 +248,16 @@ test.describe('smoke', () => {
     await angle.press('ArrowRight')
     await angle.press('ArrowRight')
     await expect(angle).toHaveAttribute('aria-valuenow', '137')
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useHistoryStore.getState().past.length,
-    )).toBe(2)
+    await expect
+      .poll(() => page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length))
+      .toBe(2)
 
     await page.keyboard.press('Meta+z')
     await expect(angle).toHaveAttribute('aria-valuenow', '135')
     await page.keyboard.press('Meta+z')
-    await expect(page.getByRole('group', { name: 'Type d’arrière-plan' })
-      .getByRole('button', { name: 'Uni' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(
+      page.getByRole('group', { name: 'Type d’arrière-plan' }).getByRole('button', { name: 'Uni' }),
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('export dialog opens with App Store dimensions', async ({ page }) => {

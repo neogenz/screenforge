@@ -42,16 +42,16 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Build | Vite 8 |
-| UI | React 19 + TypeScript |
-| Canvas | Fabric.js 7 |
-| State | Zustand 5 |
+| Layer   | Choice                     |
+| ------- | -------------------------- |
+| Build   | Vite 8                     |
+| UI      | React 19 + TypeScript      |
+| Canvas  | Fabric.js 7                |
+| State   | Zustand 5                  |
 | Styling | Tailwind CSS 4 (CSS-first) |
-| Storage | IndexedDB via `idb` |
-| Testing | Vitest + Playwright |
-| Export | JSZip |
+| Storage | IndexedDB via `idb`        |
+| Testing | Vitest + Playwright        |
+| Export  | JSZip                      |
 
 ## Getting started
 
@@ -64,17 +64,17 @@ pnpm dev
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Start the dev server |
-| `pnpm build` | Type-check + production build |
-| `pnpm test` | Unit tests + typecheck + lint |
-| `pnpm test:e2e` | Playwright E2E tests |
-| `pnpm test:release` | Full release gate (tests, build, E2E, audits) |
+| Command                              | Description                                      |
+| ------------------------------------ | ------------------------------------------------ |
+| `pnpm dev`                           | Start the dev server                             |
+| `pnpm build`                         | Type-check + production build                    |
+| `pnpm test`                          | Unit tests + typecheck + lint                    |
+| `pnpm test:e2e`                      | Playwright E2E tests                             |
+| `pnpm test:release`                  | Full release gate (tests, build, E2E, audits)    |
 | `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules |
-| `pnpm audit:contrast` | Design-system contrast audit (4.5:1 minimum) |
-| `pnpm audit:scale` | Spacing scale audit |
-| `pnpm probe:visual` | Capture visual probes (dark/light, density 2) |
+| `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)     |
+| `pnpm audit:scale`                   | Spacing scale audit                              |
+| `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)    |
 
 ## Project structure
 

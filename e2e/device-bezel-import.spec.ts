@@ -8,11 +8,7 @@ import {
   findObject,
   waitForApp,
 } from './helpers'
-import {
-  makeDeviceBezelPng,
-  makeSolidPng,
-  MOCK_BEZEL,
-} from './device-bezel-fixture'
+import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
 interface DeviceLayerState {
   width: number
@@ -35,8 +31,9 @@ async function deviceLayer(page: Page): Promise<DeviceLayerState> {
   return page.evaluate(() => {
     const project = window.__sfStores?.useProjectStore.getState().project
     const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-      .find((item) => item.type === 'device-frame')
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+      (item) => item.type === 'device-frame',
+    )
     if (!layer) throw new Error('device layer missing')
     return JSON.parse(JSON.stringify(layer)) as DeviceLayerState
   })
@@ -77,23 +74,22 @@ interface PixelRegion {
   height: number
 }
 
-function topDarkComponents(
-  image: ReturnType<typeof decode>,
-  region: PixelRegion,
-): PixelBox[] {
+function topDarkComponents(image: ReturnType<typeof decode>, region: PixelRegion): PixelBox[] {
   const pixelCount = region.width * region.height
   const visited = new Uint8Array(pixelCount)
   const queue = new Uint32Array(pixelCount)
   const components: PixelBox[] = []
   let tail = 0
   const isDark = (pixel: number) => {
-    const x = region.x + pixel % region.width
+    const x = region.x + (pixel % region.width)
     const y = region.y + Math.floor(pixel / region.width)
     const index = (y * image.width + x) * image.channels
-    return image.data[index] < 24
-      && image.data[index + 1] < 24
-      && image.data[index + 2] < 24
-      && (image.channels < 4 || image.data[index + 3] > 200)
+    return (
+      image.data[index] < 24 &&
+      image.data[index + 1] < 24 &&
+      image.data[index + 2] < 24 &&
+      (image.channels < 4 || image.data[index + 3] > 200)
+    )
   }
   const visit = (neighbor: number) => {
     if (visited[neighbor] || !isDark(neighbor)) return
@@ -135,9 +131,9 @@ function topDarkComponents(
     const width = maxX - minX + 1
     const height = maxY - minY + 1
     if (
-      width >= region.width * 0.2
-      && height >= region.height * 0.15
-      && area >= pixelCount * 0.02
+      width >= region.width * 0.2 &&
+      height >= region.height * 0.15 &&
+      area >= pixelCount * 0.02
     ) {
       components.push({
         x: region.x + minX,
@@ -207,7 +203,9 @@ test('rejects invalid and oversized captures without mutating the device', async
   expect(await deviceLayer(page)).not.toHaveProperty('screenshotAssetId')
 })
 
-test('keeps the natural ratio, locks official artwork and persists both assets', async ({ page }) => {
+test('keeps the natural ratio, locks official artwork and persists both assets', async ({
+  page,
+}) => {
   await uploadBezel(page, makeDeviceBezelPng(), 'Persistent Bezel.png')
   await uploadScreenshot(page)
   await selectDeviceLayer(page)
@@ -217,8 +215,9 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
   await expect(page.getByRole('slider', { name: 'Rotation', exact: true })).toBeDisabled()
   await expect(page.getByLabel('Opacité')).toBeDisabled()
   await expect(page.getByLabel('Activer l’ombre de l’appareil')).toHaveCount(0)
-  expect(await page.evaluate(() => window.__sfCanvas
-    ?.getActiveObject()?.isControlVisible('mtr'))).toBe(false)
+  expect(
+    await page.evaluate(() => window.__sfCanvas?.getActiveObject()?.isControlVisible('mtr')),
+  ).toBe(false)
 
   const corner = await controlPosition(page, 'br')
   expect(corner).not.toBeNull()
@@ -250,8 +249,9 @@ test('falls back to the generated frame when an imported asset is missing', asyn
     const state = window.__sfStores?.useProjectStore.getState()
     const project = state?.project
     const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-      .find((item) => item.type === 'device-frame')
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+      (item) => item.type === 'device-frame',
+    )
     if (!state || !layer) throw new Error('device layer missing')
     window.__sfStores?.useCanvasStore.getState().updateLayer(layer.id, {
       importedBezel: {
@@ -264,7 +264,8 @@ test('falls back to the generated frame when an imported asset is missing', asyn
     })
   })
 
-  await expect.poll(async () => (await findObject(page, 'device-frame'))?.data?.resourceKey)
+  await expect
+    .poll(async () => (await findObject(page, 'device-frame'))?.data?.resourceKey)
     .toContain('generated')
   await expect(page.getByText('Missing.png')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Retirer le bezel Apple' })).toBeVisible()
@@ -285,23 +286,43 @@ test('serializes bezel analysis and disables every import trigger while busy', a
   })
 
   await uploadBezel(page, makeDeviceBezelPng(), 'first.png')
-  await expect.poll(() => page.evaluate(() => (window as unknown as {
-    __bezelReadControl?: { reads: number }
-  }).__bezelReadControl?.reads)).toBe(1)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __bezelReadControl?: { reads: number }
+            }
+          ).__bezelReadControl?.reads,
+      ),
+    )
+    .toBe(1)
   const source = page.getByRole('group', { name: 'Source du cadre' })
   await expect(source.getByRole('button', { name: 'ScreenForge' })).toBeDisabled()
   await expect(source.getByRole('button', { name: 'Apple officiel' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Importer le PNG Apple' })).toBeDisabled()
 
   await uploadBezel(page, makeDeviceBezelPng(), 'second.png')
-  expect(await page.evaluate(() => (window as unknown as {
-    __bezelReadControl?: { reads: number }
-  }).__bezelReadControl?.reads)).toBe(1)
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __bezelReadControl?: { reads: number }
+          }
+        ).__bezelReadControl?.reads,
+    ),
+  ).toBe(1)
   expect(await deviceLayer(page)).not.toHaveProperty('importedBezel')
 
-  await page.evaluate(() => (window as unknown as {
-    __bezelReadControl?: { release?: () => void }
-  }).__bezelReadControl?.release?.())
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __bezelReadControl?: { release?: () => void }
+      }
+    ).__bezelReadControl?.release?.(),
+  )
   await expect(page.getByText('first.png')).toBeVisible()
   await expect(page.getByText('second.png')).toHaveCount(0)
 })
@@ -352,14 +373,12 @@ test('accepts a real Apple Product Bezel outside the repository', async ({ page 
   expect(names).toHaveLength(1)
   expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
   const exported = decode(png)
-  const exportScaleX = afterReload.width * 3 / afterReload.importedBezel!.naturalWidth
-  const exportScaleY = afterReload.height * 3 / afterReload.importedBezel!.naturalHeight
-  const outputScreenX = (afterReload.x + afterReload.width * (
-    screen.x / afterReload.importedBezel!.naturalWidth
-  )) * 3
-  const outputScreenY = (afterReload.y + afterReload.height * (
-    screen.y / afterReload.importedBezel!.naturalHeight
-  )) * 3
+  const exportScaleX = (afterReload.width * 3) / afterReload.importedBezel!.naturalWidth
+  const exportScaleY = (afterReload.height * 3) / afterReload.importedBezel!.naturalHeight
+  const outputScreenX =
+    (afterReload.x + afterReload.width * (screen.x / afterReload.importedBezel!.naturalWidth)) * 3
+  const outputScreenY =
+    (afterReload.y + afterReload.height * (screen.y / afterReload.importedBezel!.naturalHeight)) * 3
   const exportRegion = {
     x: Math.floor(outputScreenX + screenshotRegion.x * exportScaleX),
     y: Math.floor(outputScreenY),

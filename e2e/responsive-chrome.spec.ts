@@ -10,14 +10,13 @@ import { waitForApp } from './helpers'
  * mordait sur la pellicule. Les seuils viennent de `lib/stage.ts`, jamais d'une
  * copie — c'est la leçon de la constante de pellicule restée à 142.
  */
-import {
-  DUAL_DRAWER_MIN_WIDTH,
-  TOP_BAR_COMPACT_WIDTH,
-} from '../src/lib/stage'
+import { DUAL_DRAWER_MIN_WIDTH, TOP_BAR_COMPACT_WIDTH } from '../src/lib/stage'
 
 const HEIGHT = 900
 
-test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resserre', async ({ page }) => {
+test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resserre', async ({
+  page,
+}) => {
   await waitForApp(page)
 
   // Large : la rangée complète, les deux tiroirs.
@@ -28,10 +27,14 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   // Sous le seuil des deux tiroirs : il n'en reste qu'un, et c'est celui
   // qui édite.
   await page.setViewportSize({ width: DUAL_DRAWER_MIN_WIDTH - 40, height: HEIGHT })
-  await expect.poll(async () => page.evaluate(() => ({
-    layers: window.__sfStores?.useUIStore.getState().layersOpen,
-    props: window.__sfStores?.useUIStore.getState().propsOpen,
-  }))).toEqual({ layers: false, props: true })
+  await expect
+    .poll(async () =>
+      page.evaluate(() => ({
+        layers: window.__sfStores?.useUIStore.getState().layersOpen,
+        props: window.__sfStores?.useUIStore.getState().propsOpen,
+      })),
+    )
+    .toEqual({ layers: false, props: true })
 
   // Sous le seuil de la barre : les actions secondaires passent au menu, le
   // CTA principal reste sur la rangée et dans le viewport.
@@ -74,13 +77,19 @@ test('tient dans une fenêtre étroite au lieu de refuser de rendre', async ({ p
         const boîte = élément.getBoundingClientRect()
         if (boîte.width === 0) continue
         if (boîte.left < -0.5 || boîte.right > largeur + 0.5) {
-          dehors.push(`${nom} : ${Math.round(boîte.left)}…${Math.round(boîte.right)} pour ${largeur}`)
+          dehors.push(
+            `${nom} : ${Math.round(boîte.left)}…${Math.round(boîte.right)} pour ${largeur}`,
+          )
         }
       }
     }
-    const bande = document.querySelector('[role="group"][aria-label="Écrans"]')?.getBoundingClientRect()
-    const hud = document.querySelector('[aria-label="Ajuster le zoom aux écrans"]')
-      ?.closest('div')?.getBoundingClientRect()
+    const bande = document
+      .querySelector('[role="group"][aria-label="Écrans"]')
+      ?.getBoundingClientRect()
+    const hud = document
+      .querySelector('[aria-label="Ajuster le zoom aux écrans"]')
+      ?.closest('div')
+      ?.getBoundingClientRect()
     return {
       dehors,
       défilementHorizontal: document.documentElement.scrollWidth > largeur,
@@ -92,10 +101,16 @@ test('tient dans une fenêtre étroite au lieu de refuser de rendre', async ({ p
   expect(debordements.chevauchement, 'le HUD reprend le clic des vignettes').toBe(0)
 
   // Et le canevas rend toujours ses planches, il ne se replie pas en carte.
-  expect(await page.evaluate(() => window.__sfCanvas
-    ?.getObjects()
-    .some((object) => (object as { data?: { rendererType?: string } }).data?.rendererType === 'background')))
-    .toBe(true)
+  expect(
+    await page.evaluate(() =>
+      window.__sfCanvas
+        ?.getObjects()
+        .some(
+          (object) =>
+            (object as { data?: { rendererType?: string } }).data?.rendererType === 'background',
+        ),
+    ),
+  ).toBe(true)
 })
 
 test('garde la pellicule cliquable quand elle touche son plancher', async ({ page }) => {
@@ -106,9 +121,13 @@ test('garde la pellicule cliquable quand elle touche son plancher', async ({ pag
   // HUD qui recevait le clic destiné à la vignette.
   await page.setViewportSize({ width: 320, height: HEIGHT })
   const mesure = await page.evaluate(() => {
-    const bande = document.querySelector('[role="group"][aria-label="Écrans"]')?.getBoundingClientRect()
-    const hud = document.querySelector('[aria-label="Ajuster le zoom aux écrans"]')
-      ?.closest('div')?.getBoundingClientRect()
+    const bande = document
+      .querySelector('[role="group"][aria-label="Écrans"]')
+      ?.getBoundingClientRect()
+    const hud = document
+      .querySelector('[aria-label="Ajuster le zoom aux écrans"]')
+      ?.closest('div')
+      ?.getBoundingClientRect()
     if (!bande || !hud) return null
     return {
       chevauchement: Math.max(0, Math.round(bande.right - hud.left)),

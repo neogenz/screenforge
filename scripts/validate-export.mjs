@@ -72,7 +72,9 @@ export async function validateExportZip(zipBytes) {
     if (!match) throw new Error(`${entry.name}: chemin invalide, attendu 6.9/NN_nom.png`)
     const expectedIndex = index + 1
     if (Number(match[1]) !== expectedIndex) {
-      throw new Error(`${entry.name}: index ${match[1]}, attendu ${String(expectedIndex).padStart(2, '0')}`)
+      throw new Error(
+        `${entry.name}: index ${match[1]}, attendu ${String(expectedIndex).padStart(2, '0')}`,
+      )
     }
     const bytes = await entry.async('uint8array')
     const metadata = readPngMetadata(bytes, entry.name)

@@ -80,10 +80,16 @@ export function ContextMenu({ position, label, items, onClose }: ContextMenuProp
                     : 'text-foreground data-[highlighted]:bg-accent',
                 )}
               >
-                {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
+                {item.icon && (
+                  <span className="shrink-0 text-muted-foreground" aria-hidden>
+                    {item.icon}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.shortcut && (
-                  <span className="tabular ml-auto pl-4 text-2xs text-muted-foreground">{item.shortcut}</span>
+                  <span className="tabular ml-auto pl-4 text-2xs text-muted-foreground">
+                    {item.shortcut}
+                  </span>
                 )}
               </DropdownMenuPrimitive.Item>
             ),

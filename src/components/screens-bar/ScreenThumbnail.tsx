@@ -274,15 +274,48 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           label={`Actions de ${screen.name}`}
           onClose={() => setMenuPosition(null)}
           items={[
-            { label: 'Renommer', icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />, onSelect: startRename },
-            { label: 'Dupliquer', icon: <Copy size={11} strokeWidth={1.5} aria-hidden />, onSelect: () => onDuplicate(screen.id) },
+            {
+              label: 'Renommer',
+              icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />,
+              onSelect: startRename,
+            },
+            {
+              label: 'Dupliquer',
+              icon: <Copy size={11} strokeWidth={1.5} aria-hidden />,
+              onSelect: () => onDuplicate(screen.id),
+            },
             'separator',
-            { label: 'Copier les réglages', icon: <ClipboardCopy size={11} strokeWidth={1.5} aria-hidden />, onSelect: () => onCopySettings(screen.id) },
-            { label: 'Coller les réglages', icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />, disabled: !canPasteSettings, onSelect: () => onPasteSettings(screen.id) },
+            {
+              label: 'Copier les réglages',
+              icon: <ClipboardCopy size={11} strokeWidth={1.5} aria-hidden />,
+              onSelect: () => onCopySettings(screen.id),
+            },
+            {
+              label: 'Coller les réglages',
+              icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />,
+              disabled: !canPasteSettings,
+              onSelect: () => onPasteSettings(screen.id),
+            },
             'separator',
-            { label: 'Déplacer à gauche', icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveLeft, onSelect: () => onMove(index, -1) },
-            { label: 'Déplacer à droite', icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />, disabled: !canMoveRight, onSelect: () => onMove(index, 1) },
-            { label: 'Supprimer', icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />, danger: true, disabled: !canDelete, onSelect: () => onDelete(screen.id) },
+            {
+              label: 'Déplacer à gauche',
+              icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />,
+              disabled: !canMoveLeft,
+              onSelect: () => onMove(index, -1),
+            },
+            {
+              label: 'Déplacer à droite',
+              icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />,
+              disabled: !canMoveRight,
+              onSelect: () => onMove(index, 1),
+            },
+            {
+              label: 'Supprimer',
+              icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />,
+              danger: true,
+              disabled: !canDelete,
+              onSelect: () => onDelete(screen.id),
+            },
           ]}
         />
       )}

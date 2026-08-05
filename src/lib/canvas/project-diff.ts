@@ -13,14 +13,19 @@ export type ProjectChange =
 
 function screensHaveVisualChanges(current: Project, previous: Project | null): boolean {
   if (!previous || current.screens.length !== previous.screens.length) return true
-  if (current.layoutLayers !== previous.layoutLayers
-    || current.activeScreenId !== previous.activeScreenId) return true
+  if (
+    current.layoutLayers !== previous.layoutLayers ||
+    current.activeScreenId !== previous.activeScreenId
+  )
+    return true
   return current.screens.some((screen, index) => {
     const previousScreen = previous.screens[index]
-    return screen.id !== previousScreen.id
-      || screen.name !== previousScreen.name
-      || screen.layers !== previousScreen.layers
-      || screen.background !== previousScreen.background
+    return (
+      screen.id !== previousScreen.id ||
+      screen.name !== previousScreen.name ||
+      screen.layers !== previousScreen.layers ||
+      screen.background !== previousScreen.background
+    )
   })
 }
 
@@ -59,7 +64,10 @@ export function diffProjectChange(current: Project, previous: Project | null): P
     if (screen.id !== previousScreen.id) return { type: 'full' }
     if (screen === previousScreen) continue
     if (screen.name !== previousScreen.name) return { type: 'full' }
-    if (screen.layers !== previousScreen.layers || screen.background !== previousScreen.background) {
+    if (
+      screen.layers !== previousScreen.layers ||
+      screen.background !== previousScreen.background
+    ) {
       changedScreens.push({ screen, previousScreen })
     }
   }
@@ -78,9 +86,10 @@ export function diffProjectChange(current: Project, previous: Project | null): P
   }
 
   const { screen, previousScreen } = changedScreens[0]
-  const layerIds = screen.layers === previousScreen.layers
-    ? []
-    : changedLayerIds(screen.layers, previousScreen.layers)
+  const layerIds =
+    screen.layers === previousScreen.layers
+      ? []
+      : changedLayerIds(screen.layers, previousScreen.layers)
   if (!layerIds) return { type: 'full' }
   const backgroundChanged = screen.background !== previousScreen.background
 

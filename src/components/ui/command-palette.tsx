@@ -44,7 +44,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       )}
     >
       <div className="flex items-center gap-2 border-b border-border px-3">
-        <Search size={14} strokeWidth={1.75} className="shrink-0 text-muted-foreground" aria-hidden />
+        <Search
+          size={14}
+          strokeWidth={1.75}
+          className="shrink-0 text-muted-foreground"
+          aria-hidden
+        />
         <Command.Input
           aria-label="Rechercher une commande"
           placeholder="Rechercher une commande…"
@@ -80,8 +85,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       </Command.List>
 
       <div className="flex items-center gap-3 border-t border-border px-3 py-2">
-        <span className="field-label flex items-center gap-1"><Kbd>↑↓</Kbd> naviguer</span>
-        <span className="field-label flex items-center gap-1"><Kbd>↵</Kbd> exécuter</span>
+        <span className="field-label flex items-center gap-1">
+          <Kbd>↑↓</Kbd> naviguer
+        </span>
+        <span className="field-label flex items-center gap-1">
+          <Kbd>↵</Kbd> exécuter
+        </span>
       </div>
     </Command.Dialog>
   )

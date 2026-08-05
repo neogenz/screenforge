@@ -1,14 +1,4 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  Eye,
-  EyeOff,
-  Lock,
-  Pencil,
-  Trash2,
-  Unlock,
-} from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, Pencil, Trash2, Unlock } from 'lucide-react'
 import type { ContextMenuEntry } from '@/components/ui/ContextMenu'
 import type { LayerActions } from '@/hooks/use-layer-actions'
 import type { Layer } from '@/types'
@@ -45,17 +35,21 @@ export function buildLayerMenuItems(
 
   items.push({
     label: layer.visible ? 'Masquer' : 'Afficher',
-    icon: layer.visible
-      ? <EyeOff size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
-      : <Eye size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />,
+    icon: layer.visible ? (
+      <EyeOff size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+    ) : (
+      <Eye size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+    ),
     onSelect: () => actions.setVisibility(layer, !layer.visible),
   })
 
   items.push({
     label: layer.locked ? 'Déverrouiller' : 'Verrouiller',
-    icon: layer.locked
-      ? <Unlock size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
-      : <Lock size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />,
+    icon: layer.locked ? (
+      <Unlock size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+    ) : (
+      <Lock size={ICON_SIZE} strokeWidth={ICON_STROKE} aria-hidden />
+    ),
     onSelect: () => actions.setLocked(layer, !layer.locked),
   })
 

@@ -39,10 +39,12 @@ function slotShift(index: number, drag: { from: number; over: number } | null): 
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const { screens, activeScreenId } = useProjectStore(useShallow((state) => ({
-    screens: state.project?.screens,
-    activeScreenId: state.project?.activeScreenId ?? '',
-  })))
+  const { screens, activeScreenId } = useProjectStore(
+    useShallow((state) => ({
+      screens: state.project?.screens,
+      activeScreenId: state.project?.activeScreenId ?? '',
+    })),
+  )
   const list = screens ?? []
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
   // La rangée n'existe que si elle a quelque chose à dire. Sous un badge « 3 »,
@@ -86,24 +88,31 @@ export function ScreensBar() {
   }, [])
 
   const handleCopySettings = useCallback((id: string) => {
-    const screen = useProjectStore.getState().project?.screens.find((candidate) => candidate.id === id)
+    const screen = useProjectStore
+      .getState()
+      .project?.screens.find((candidate) => candidate.id === id)
     if (!screen) return
     setCopiedSettings(structuredClone(screen.background))
     toast(`Réglages de ${screen.name} copiés.`, 'success')
   }, [])
 
-  const handlePasteSettings = useCallback((id: string) => {
-    if (!copiedSettings) return
-    const screen = useProjectStore.getState().project?.screens.find((candidate) => candidate.id === id)
-    if (!screen) return
-    if (JSON.stringify(screen.background) === JSON.stringify(copiedSettings)) {
-      toast(`${screen.name} utilise déjà ces réglages.`)
-      return
-    }
-    useCanvasStore.getState().recordProjectHistory()
-    useProjectStore.getState().updateScreenBackground(id, copiedSettings)
-    toast(`Réglages appliqués à ${screen.name}.`, 'success')
-  }, [copiedSettings])
+  const handlePasteSettings = useCallback(
+    (id: string) => {
+      if (!copiedSettings) return
+      const screen = useProjectStore
+        .getState()
+        .project?.screens.find((candidate) => candidate.id === id)
+      if (!screen) return
+      if (JSON.stringify(screen.background) === JSON.stringify(copiedSettings)) {
+        toast(`${screen.name} utilise déjà ces réglages.`)
+        return
+      }
+      useCanvasStore.getState().recordProjectHistory()
+      useProjectStore.getState().updateScreenBackground(id, copiedSettings)
+      toast(`Réglages appliqués à ${screen.name}.`, 'success')
+    },
+    [copiedSettings],
+  )
 
   const handleMove = useCallback((index: number, direction: -1 | 1) => {
     const project = useProjectStore.getState().project
@@ -161,10 +170,8 @@ export function ScreensBar() {
     const count = useProjectStore.getState().project?.screens.length ?? 0
     if (count === 0) return
     const strip = event.currentTarget
-    const x = event.clientX
-      - strip.getBoundingClientRect().left
-      + strip.scrollLeft
-      - FILMSTRIP_PADDING
+    const x =
+      event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft - FILMSTRIP_PADDING
     const index = clampNumber(Math.floor(x / THUMBNAIL_SLOT), 0, count - 1)
     if (dragOverIndex.current === index) return
     dragOverIndex.current = index

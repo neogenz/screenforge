@@ -115,12 +115,12 @@ function projectWithoutThumbnails(project: Project): Project {
 async function sha256(bytes: Uint8Array): Promise<string> {
   const input = Uint8Array.from(bytes)
   const digest = await crypto.subtle.digest('SHA-256', input)
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-async function dataUrlBytes(dataUrl: string): Promise<{ mimeType: AssetMimeType; bytes: Uint8Array }> {
+async function dataUrlBytes(
+  dataUrl: string,
+): Promise<{ mimeType: AssetMimeType; bytes: Uint8Array }> {
   if (!dataUrl.startsWith('data:')) throw new ProjectFileError('missing-current-asset')
   const blob = await (await fetch(dataUrl)).blob()
   if (!isAssetMimeType(blob.type)) throw new ProjectFileError('invalid-manifest')
@@ -133,9 +133,10 @@ async function dataUrlBytes(dataUrl: string): Promise<{ mimeType: AssetMimeType;
 function blobAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => typeof reader.result === 'string'
-      ? resolve(reader.result)
-      : reject(new ProjectFileError('corrupt-asset'))
+    reader.onload = () =>
+      typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new ProjectFileError('corrupt-asset'))
     reader.onerror = () => reject(new ProjectFileError('corrupt-asset'))
     reader.readAsDataURL(blob)
   })
@@ -144,22 +145,24 @@ function blobAsDataUrl(blob: Blob): Promise<string> {
 export async function createProjectFile(project: Project): Promise<Blob> {
   const ids = collectProjectAssetIds(project)
   if (ids.length > MAX_PROJECT_FILE_ENTRIES - 1) throw new ProjectFileError('invalid-manifest')
-  const assets = await Promise.all(ids.map(async (id) => {
-    if (!SAFE_ASSET_ID.test(id)) throw new ProjectFileError('invalid-manifest')
-    const dataUrl = resolveAsset(id)
-    if (!dataUrl) throw new ProjectFileError('missing-current-asset')
-    const { mimeType, bytes } = await dataUrlBytes(dataUrl)
-    return {
-      descriptor: {
-        id,
-        path: assetPath(id, mimeType),
-        mimeType,
-        byteLength: bytes.byteLength,
-        sha256: await sha256(bytes),
-      } satisfies ProjectAssetDescriptor,
-      bytes,
-    }
-  }))
+  const assets = await Promise.all(
+    ids.map(async (id) => {
+      if (!SAFE_ASSET_ID.test(id)) throw new ProjectFileError('invalid-manifest')
+      const dataUrl = resolveAsset(id)
+      if (!dataUrl) throw new ProjectFileError('missing-current-asset')
+      const { mimeType, bytes } = await dataUrlBytes(dataUrl)
+      return {
+        descriptor: {
+          id,
+          path: assetPath(id, mimeType),
+          mimeType,
+          byteLength: bytes.byteLength,
+          sha256: await sha256(bytes),
+        } satisfies ProjectAssetDescriptor,
+        bytes,
+      }
+    }),
+  )
   const totalBytes = assets.reduce((total, asset) => total + asset.bytes.byteLength, 0)
   if (totalBytes > MAX_PROJECT_TOTAL_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
 
@@ -194,12 +197,17 @@ function parseDescriptor(value: unknown): ProjectAssetDescriptor {
   if (!isRecord(value)) throw new ProjectFileError('invalid-manifest')
   const { id, path, mimeType, byteLength, sha256: digest } = value
   if (
-    typeof id !== 'string' || !SAFE_ASSET_ID.test(id)
-    || !isAssetMimeType(mimeType)
-    || typeof path !== 'string' || path !== assetPath(id, mimeType)
-    || !Number.isSafeInteger(byteLength) || Number(byteLength) <= 0
-    || typeof digest !== 'string' || !SHA256.test(digest)
-  ) throw new ProjectFileError('invalid-manifest')
+    typeof id !== 'string' ||
+    !SAFE_ASSET_ID.test(id) ||
+    !isAssetMimeType(mimeType) ||
+    typeof path !== 'string' ||
+    path !== assetPath(id, mimeType) ||
+    !Number.isSafeInteger(byteLength) ||
+    Number(byteLength) <= 0 ||
+    typeof digest !== 'string' ||
+    !SHA256.test(digest)
+  )
+    throw new ProjectFileError('invalid-manifest')
   if (Number(byteLength) > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
   return { id, path, mimeType, byteLength: Number(byteLength), sha256: digest }
 }
@@ -222,10 +230,8 @@ function parseManifest(value: unknown): ProjectFileManifest {
   const totalBytes = assets.reduce((total, asset) => total + asset.byteLength, 0)
   if (totalBytes > MAX_PROJECT_TOTAL_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
   const referenced = collectProjectAssetIds(project)
-  if (
-    referenced.length !== assets.length
-    || referenced.some((id) => !ids.has(id))
-  ) throw new ProjectFileError('missing-asset')
+  if (referenced.length !== assets.length || referenced.some((id) => !ids.has(id)))
+    throw new ProjectFileError('missing-asset')
   return {
     format: PROJECT_FILE_FORMAT,
     version: PROJECT_FILE_VERSION,
@@ -239,8 +245,8 @@ function originalEntryName(entry: JSZipObject): string {
 }
 
 function uncompressedSize(entry: JSZipObject): number {
-  const size = (entry as JSZipObject & { _data?: { uncompressedSize?: unknown } })
-    ._data?.uncompressedSize
+  const size = (entry as JSZipObject & { _data?: { uncompressedSize?: unknown } })._data
+    ?.uncompressedSize
   if (!Number.isSafeInteger(size) || Number(size) < 0) {
     throw new ProjectFileError('invalid-archive')
   }
@@ -303,27 +309,37 @@ export async function readProjectFile(file: File): Promise<DecodedProjectFile> {
     throw new ProjectFileError('missing-asset')
   }
   const expectedPaths = new Set([MANIFEST_PATH, ...manifest.assets.map((asset) => asset.path)])
-  if (entries.some((entry) => !expectedPaths.has(entry.name)) || entries.length !== expectedPaths.size) {
+  if (
+    entries.some((entry) => !expectedPaths.has(entry.name)) ||
+    entries.length !== expectedPaths.size
+  ) {
     throw new ProjectFileError('unsafe-entry')
   }
 
-  const assets = await Promise.all(manifest.assets.map(async (descriptor) => {
-    const entry = zip.file(descriptor.path)
-    if (!entry) throw new ProjectFileError('missing-asset')
-    let bytes: Uint8Array
-    try {
-      bytes = await entry.async('uint8array')
-    } catch {
-      throw new ProjectFileError('corrupt-asset')
-    }
-    if (bytes.byteLength > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
-    if (bytes.byteLength !== descriptor.byteLength || await sha256(bytes) !== descriptor.sha256) {
-      throw new ProjectFileError('corrupt-asset')
-    }
-    return {
-      id: descriptor.id,
-      dataUrl: await blobAsDataUrl(new Blob([Uint8Array.from(bytes)], { type: descriptor.mimeType })),
-    }
-  }))
+  const assets = await Promise.all(
+    manifest.assets.map(async (descriptor) => {
+      const entry = zip.file(descriptor.path)
+      if (!entry) throw new ProjectFileError('missing-asset')
+      let bytes: Uint8Array
+      try {
+        bytes = await entry.async('uint8array')
+      } catch {
+        throw new ProjectFileError('corrupt-asset')
+      }
+      if (bytes.byteLength > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
+      if (
+        bytes.byteLength !== descriptor.byteLength ||
+        (await sha256(bytes)) !== descriptor.sha256
+      ) {
+        throw new ProjectFileError('corrupt-asset')
+      }
+      return {
+        id: descriptor.id,
+        dataUrl: await blobAsDataUrl(
+          new Blob([Uint8Array.from(bytes)], { type: descriptor.mimeType }),
+        ),
+      }
+    }),
+  )
   return { project: structuredClone(manifest.project), assets }
 }

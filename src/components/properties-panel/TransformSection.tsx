@@ -39,7 +39,8 @@ export function TransformSection({ layer }: TransformSectionProps) {
     if (isDevice) {
       const ratio = layer.importedBezel
         ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
-        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
+        : getDefaultDeviceSize(layer.deviceModel).width /
+          getDefaultDeviceSize(layer.deviceModel).height
       update({ width, height: Math.max(1, Math.round(width / ratio)) })
     } else if (!isText && lockAspect && layer.height > 0) {
       const ratio = layer.width / layer.height
@@ -56,7 +57,8 @@ export function TransformSection({ layer }: TransformSectionProps) {
     if (isDevice) {
       const ratio = layer.importedBezel
         ? layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
-        : getDefaultDeviceSize(layer.deviceModel).width / getDefaultDeviceSize(layer.deviceModel).height
+        : getDefaultDeviceSize(layer.deviceModel).width /
+          getDefaultDeviceSize(layer.deviceModel).height
       update({ width: Math.max(1, Math.round(height * ratio)), height })
     } else if (lockAspect && layer.width > 0) {
       const ratio = layer.width / layer.height
@@ -90,16 +92,14 @@ export function TransformSection({ layer }: TransformSectionProps) {
       if (layer.importedBezel) {
         const longSide = Math.max(canonical.width, canonical.height)
         const ratio = layer.importedBezel.naturalWidth / layer.importedBezel.naturalHeight
-        update(layer.importedBezel.naturalHeight >= layer.importedBezel.naturalWidth
-          ? { width: Math.round(longSide * ratio), height: longSide }
-          : { width: longSide, height: Math.round(longSide / ratio) })
+        update(
+          layer.importedBezel.naturalHeight >= layer.importedBezel.naturalWidth
+            ? { width: Math.round(longSide * ratio), height: longSide }
+            : { width: longSide, height: Math.round(longSide / ratio) },
+        )
       } else update(canonical)
     } else if (layer.type === 'image') {
-      const scale = Math.min(
-        600 / layer.originalWidth,
-        600 / layer.originalHeight,
-        1,
-      )
+      const scale = Math.min(600 / layer.originalWidth, 600 / layer.originalHeight, 1)
       update({
         width: Math.max(1, Math.round(layer.originalWidth * scale)),
         height: Math.max(1, Math.round(layer.originalHeight * scale)),
@@ -182,12 +182,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
       />
 
       {(isDevice || layer.type === 'image') && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetSize}
-          className="self-start"
-        >
+        <Button variant="ghost" size="sm" onClick={resetSize} className="self-start">
           Taille d'origine
         </Button>
       )}

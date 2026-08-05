@@ -15,21 +15,11 @@ import {
   readChromeColors,
   type SelectionFrame,
 } from '@/lib/canvas/canvas-interactions'
-import {
-  patchCanvas,
-  syncCanvas,
-  type CanvasSyncRuntime,
-} from '@/lib/canvas/canvas-sync'
+import { patchCanvas, syncCanvas, type CanvasSyncRuntime } from '@/lib/canvas/canvas-sync'
 import { installControlsPatch } from '@/lib/canvas/controls-patch'
 import { installInteractions } from '@/lib/canvas/install-interactions'
-import {
-  installThumbnails,
-  type ThumbnailScheduler,
-} from '@/lib/canvas/install-thumbnails'
-import {
-  installViewport,
-  type ViewportController,
-} from '@/lib/canvas/install-viewport'
+import { installThumbnails, type ThumbnailScheduler } from '@/lib/canvas/install-thumbnails'
+import { installViewport, type ViewportController } from '@/lib/canvas/install-viewport'
 import { diffProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
@@ -68,37 +58,43 @@ export function useCanvas() {
     return null
   }, [])
 
-  const sync = useCallback(async (project: Project) => {
-    const canvas = fabricRef.current
-    if (!canvas) return
-    await syncCanvas(project, {
-      canvas,
-      currentCanvas: () => fabricRef.current,
-      syncVersion,
-      syncing,
-      fontLoadRequests: fontLoadRequests.current,
-      layoutInstances,
-      generateThumbnails,
-    })
-  }, [generateThumbnails])
+  const sync = useCallback(
+    async (project: Project) => {
+      const canvas = fabricRef.current
+      if (!canvas) return
+      await syncCanvas(project, {
+        canvas,
+        currentCanvas: () => fabricRef.current,
+        syncVersion,
+        syncing,
+        fontLoadRequests: fontLoadRequests.current,
+        layoutInstances,
+        generateThumbnails,
+      })
+    },
+    [generateThumbnails],
+  )
 
-  const syncPatch = useCallback(async (
-    project: Project,
-    change: Extract<ReturnType<typeof diffProjectChange>, { type: 'patch' }>,
-  ): Promise<boolean> => {
-    const canvas = fabricRef.current
-    if (!canvas) return false
-    const runtime: CanvasSyncRuntime = {
-      canvas,
-      currentCanvas: () => fabricRef.current,
-      syncVersion,
-      syncing,
-      fontLoadRequests: fontLoadRequests.current,
-      layoutInstances,
-      generateThumbnails,
-    }
-    return patchCanvas(project, change, runtime)
-  }, [generateThumbnails])
+  const syncPatch = useCallback(
+    async (
+      project: Project,
+      change: Extract<ReturnType<typeof diffProjectChange>, { type: 'patch' }>,
+    ): Promise<boolean> => {
+      const canvas = fabricRef.current
+      if (!canvas) return false
+      const runtime: CanvasSyncRuntime = {
+        canvas,
+        currentCanvas: () => fabricRef.current,
+        syncVersion,
+        syncing,
+        fontLoadRequests: fontLoadRequests.current,
+        layoutInstances,
+        generateThumbnails,
+      }
+      return patchCanvas(project, change, runtime)
+    },
+    [generateThumbnails],
+  )
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
@@ -127,9 +123,7 @@ export function useCanvas() {
         if (!project) return
         const screens = project.screens.map((screen) => {
           const thumbnail = generated[screen.id]
-          return thumbnail && thumbnail !== screen.thumbnail
-            ? { ...screen, thumbnail }
-            : screen
+          return thumbnail && thumbnail !== screen.thumbnail ? { ...screen, thumbnail } : screen
         })
         if (screens.some((screen, index) => screen !== project.screens[index])) {
           useProjectStore.setState({ project: { ...project, screens } })
@@ -147,9 +141,10 @@ export function useCanvas() {
       setProject: (project) => useProjectStore.setState({ project }),
       setActiveScreenId: (screenId) => useProjectStore.getState().setActiveScreenId(screenId),
       getSelectedLayerIds: () => useCanvasStore.getState().selectedLayerIds,
-      subscribeSelection: (listener) => useCanvasStore.subscribe((state, previous) => {
-        listener(state.selectedLayerIds, previous.selectedLayerIds)
-      }),
+      subscribeSelection: (listener) =>
+        useCanvasStore.subscribe((state, previous) => {
+          listener(state.selectedLayerIds, previous.selectedLayerIds)
+        }),
       recordHistory: () => useCanvasStore.getState().recordHistory(),
       recordProjectHistory: () => useCanvasStore.getState().recordProjectHistory(),
       selectLayer: (layerId) => useCanvasStore.getState().selectLayer(layerId),
@@ -166,9 +161,10 @@ export function useCanvas() {
       getProject: () => useProjectStore.getState().project,
       getUi: () => useUIStore.getState(),
       setZoom: (zoom) => useUIStore.getState().setZoom(zoom),
-      subscribeProject: (listener) => useProjectStore.subscribe((state, previous) => {
-        listener(state.project, previous.project)
-      }),
+      subscribeProject: (listener) =>
+        useProjectStore.subscribe((state, previous) => {
+          listener(state.project, previous.project)
+        }),
       subscribeUi: (listener) => useUIStore.subscribe(listener),
     })
     viewport.current = viewportController
@@ -190,22 +186,26 @@ export function useCanvas() {
     }
   }, [sync])
 
-  useEffect(() => useProjectStore.subscribe((state, previous) => {
-    if (!fabricRef.current || !state.project) return
-    const change = diffProjectChange(state.project, previous.project)
-    if (change.type === 'none') return
-    if (change.type === 'patch') {
-      const project = state.project
-      void syncPatch(project, change).then((patched) => {
-        if (!patched) void sync(project)
-      })
-      return
-    }
-    const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
-    void sync(state.project).then(() => {
-      if (screenCountChanged) viewport.current?.fitAll()
-    })
-  }), [sync, syncPatch])
+  useEffect(
+    () =>
+      useProjectStore.subscribe((state, previous) => {
+        if (!fabricRef.current || !state.project) return
+        const change = diffProjectChange(state.project, previous.project)
+        if (change.type === 'none') return
+        if (change.type === 'patch') {
+          const project = state.project
+          void syncPatch(project, change).then((patched) => {
+            if (!patched) void sync(project)
+          })
+          return
+        }
+        const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
+        void sync(state.project).then(() => {
+          if (screenCountChanged) viewport.current?.fitAll()
+        })
+      }),
+    [sync, syncPatch],
+  )
 
   const applyThemeToCanvas = useCallback(() => {
     const canvas = fabricRef.current
@@ -232,10 +232,14 @@ export function useCanvas() {
     canvas.requestRenderAll()
   }, [])
 
-  useEffect(() => useUIStore.subscribe((state, previous) => {
-    if (state.theme === previous.theme) return
-    requestAnimationFrame(applyThemeToCanvas)
-  }), [applyThemeToCanvas])
+  useEffect(
+    () =>
+      useUIStore.subscribe((state, previous) => {
+        if (state.theme === previous.theme) return
+        requestAnimationFrame(applyThemeToCanvas)
+      }),
+    [applyThemeToCanvas],
+  )
 
   return { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame }
 }

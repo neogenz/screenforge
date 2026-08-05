@@ -55,9 +55,8 @@ export function Dialog({
           tabIndex={-1}
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => {
-            returnFocusRef.current = document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null
+            returnFocusRef.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null
             // À défaut de cible désignée, c'est le panneau qui prend le focus, pas le
             // premier bouton venu : la croix de fermeture se retrouvait cerclée
             // d'accent à l'ouverture, soit l'élément le plus voyant de la boîte.
@@ -80,9 +79,7 @@ export function Dialog({
           )}
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-6 py-4">
-            <DialogPrimitive.Title className="panel-title">
-              {title}
-            </DialogPrimitive.Title>
+            <DialogPrimitive.Title className="panel-title">{title}</DialogPrimitive.Title>
             <div className="flex items-center gap-1">
               {headerActions}
               <IconButton aria-label="Fermer" title="Fermer (Échap)" onClick={onClose} size="sm">
