@@ -12,8 +12,9 @@
 - `src/index.css` defines OKLCH surfaces and ink, 4px spacing, typography, radii, elevation, named z-levels, and reduced-motion behavior.
 - Chrome surfaces are achromatic so they do not distort color judgment on the artboard.
 - Lime lives under `--color-marker`, reserved for location/state and focus; `accent` keeps its shadcn meaning of neutral hover surface. Primary actions use neutral fills, while red is reserved for destructive state.
-- The rendered scales are closed and checked: three type sizes, two control heights, four radii, two vertical gaps.
-- Canvas geometry shared with floating chrome lives in `src/lib/stage.ts`; `.island` carries a 6px inset derived from the radius chain so the inner-radius rule holds by construction.
+- The rendered scales are closed and checked: three type sizes, two line-heights, two control heights, four radii, two vertical gaps.
+- Line-height is declared in px on a 4px grid, never as a ratio; the named ratio utilities are removed from the theme and the scale guard rejects any rendered value off the grid.
+- Canvas geometry shared with floating chrome lives in `src/lib/stage.ts`; `.island` carries a 6px inset derived from the radius chain so the inner-radius rule holds by construction. The filmstrip is a tray whose contents float, so it carries a wider inset than the inner gap.
 
 ## Components
 
@@ -21,6 +22,7 @@
 - Single-line controls carry inline labels; only composite or multiline controls stack labels, sliders included when nothing else names them.
 - Panel sections are hairline-separated bands, so no chrome stacks more than two surfaces; recessed cards remain a modal device.
 - Layer rows show a text layer's own content until it is renamed, and the filter searches what the rows display.
+- Filmstrip tiles are sized from the export target's ratio so the preview shows the real framing; the label under a tile carries the number alone, and the full screen name lives in the tooltip, the context menu and the artboard label on canvas.
 - Dense control heights, tabular numeric values, one primary CTA per dialog, and 120–200ms transform/opacity motion are the default grammar.
 - Lazy dialogs immediately show a token-based modal loading surface with an announced status; reduced-motion users get the same feedback without animation.
 - If durable storage is unavailable, the editor remains usable in memory while the save status and a persistent alert disclose that closing the tab will lose the session.

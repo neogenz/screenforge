@@ -17,6 +17,15 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:5199'
  * @type {['polices' | 'hauteurs' | 'rayons' | 'ecarts', number][]}
  */
 const LIMITS = [['polices', 3], ['hauteurs', 2], ['rayons', 4], ['ecarts', 3]]
+/**
+ * Le rythme vertical, lui, n'est pas une affaire de nombre de valeurs mais de
+ * graduation : une hauteur de ligne fractionnaire décale tout ce qui suit dans
+ * la colonne, qu'elle soit seule de son espèce ou non. Les jetons de taille
+ * portent désormais des px, et le namespace `--leading-*` nommé est retiré ;
+ * `leading-none` reste toutefois un utilitaire statique de Tailwind, donc
+ * atteignable. C'est ce que cette mesure attrape.
+ */
+const BASELINE = 4
 /** Éléments affichés à titre d'exemple sous chaque valeur fautive. */
 const SAMPLES = 3
 
@@ -72,7 +81,7 @@ const readings = await page.evaluate(({ SAMPLES }) => {
   const CONTROLS = 'button:not([role="switch"]):not([role="slider"]), input:not([type="file"]), [role="combobox"], [role="menuitem"], [role="option"]'
   // La pellicule d'écrans dimensionne ses vignettes sur le ratio de l'artboard
   // (`THUMBNAIL_HEIGHT` dans `lib/stage.ts`), pas sur la grille des contrôles.
-  const FILMSTRIP = '[role="listbox"][aria-label="Écrans"]'
+  const FILMSTRIP = '[role="group"][aria-label="Écrans"]'
   // Le rythme vertical se juge dans les îlots flottants : c'est là qu'on empile.
   const ISLANDS = '.island'
 
@@ -81,6 +90,7 @@ const readings = await page.evaluate(({ SAMPLES }) => {
   /** @type {Bucket} */ const hauteurs = new Map()
   /** @type {Bucket} */ const rayons = new Map()
   /** @type {Bucket} */ const ecarts = new Map()
+  /** @type {Bucket} */ const interlignes = new Map()
 
   /** @param {Element} el */
   const describe = (el) => {
@@ -108,7 +118,13 @@ const readings = await page.evaluate(({ SAMPLES }) => {
     // Police : seuls les éléments qui portent eux-mêmes du texte comptent, sinon
     // chaque conteneur ferait remonter la taille héritée de ses enfants.
     const ownsText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim())
-    if (ownsText) tally(polices, getComputedStyle(el).fontSize, el)
+    if (ownsText) {
+      const { fontSize, lineHeight } = getComputedStyle(el)
+      tally(polices, fontSize, el)
+      // `normal` est une hauteur que la fonte décide, donc fractionnaire et hors
+      // grille : elle compte comme telle plutôt que d'échapper à la mesure.
+      tally(interlignes, lineHeight === 'normal' ? 'normal' : `${Number.parseFloat(lineHeight)}px`, el)
+    }
 
     for (const corner of getComputedStyle(el).borderRadius.split(' ')) {
       const px = Number.parseFloat(corner)
@@ -161,6 +177,7 @@ const readings = await page.evaluate(({ SAMPLES }) => {
     hauteurs: serialise(hauteurs),
     rayons: serialise(rayons),
     ecarts: serialise(ecarts),
+    interlignes: serialise(interlignes),
   }
 }, { SAMPLES })
 
@@ -183,6 +200,18 @@ for (const [axis, limit] of LIMITS) {
     console.log(`  HORS ${value.padStart(6)} ×${count}`)
     for (const sample of samples) console.log(`         ${sample}`)
   }
+}
+
+console.log(`\ninterlignes — grille de ${BASELINE}px`)
+for (const { value, count, samples } of readings.interlignes) {
+  const px = Number.parseFloat(value)
+  if (Number.isFinite(px) && px % BASELINE === 0) {
+    console.log(`  ok   ${value.padStart(6)} ×${count}`)
+    continue
+  }
+  failures++
+  console.log(`  HORS ${value.padStart(6)} ×${count}`)
+  for (const sample of samples) console.log(`         ${sample}`)
 }
 
 if (failures > 0) {

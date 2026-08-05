@@ -59,7 +59,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           Remplacer
         </Button>
         {fileError && (
-          <p role="alert" className="mt-1.5 text-2xs leading-relaxed text-destructive">
+          <p role="alert" className="mt-1.5 text-2xs text-destructive">
             {fileError}
           </p>
         )}

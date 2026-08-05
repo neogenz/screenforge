@@ -7,7 +7,7 @@ import { toast } from '@/stores/toast.store'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import { FILMSTRIP_HEIGHT, THUMBNAIL_HEIGHT } from '@/lib/stage'
+import { FILMSTRIP_HEIGHT, FILMSTRIP_PADDING, THUMBNAIL_COLUMN_HEIGHT, THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
 import type { Background } from '@/types'
 
 /** Floating bottom-center screens strip. */
@@ -111,10 +111,14 @@ export function ScreensBar() {
 
   return (
     <div
-      role="listbox"
+      // `group` et non `listbox` : une liste de sélection doit contenir des
+      // `option`, ce que la bande n'a jamais eu — un lecteur d'écran annonçait
+      // donc une liste vide. Ce sont les vignettes qui portent la sélection,
+      // avec `aria-pressed`, et c'est exact pour des boutons.
+      role="group"
       aria-label="Écrans"
-      style={{ height: FILMSTRIP_HEIGHT }}
-      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-center gap-2 overflow-x-auto"
+      style={{ height: FILMSTRIP_HEIGHT, padding: FILMSTRIP_PADDING }}
+      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-start gap-2 overflow-x-auto"
     >
       {list.map((screen, index) => (
         <div
@@ -151,12 +155,15 @@ export function ScreensBar() {
         onClick={handleAdd}
         disabled={atCapacity}
         type="button"
-        style={{ height: THUMBNAIL_HEIGHT }}
+        style={{ height: THUMBNAIL_COLUMN_HEIGHT, width: THUMBNAIL_WIDTH }}
         className={cn(
-          // `self-start` plutôt qu'un décalage calculé à la main : le bouton
-          // s'aligne sur le haut des vignettes quoi que devienne leur libellé.
-          'flex aspect-[1320/2868] shrink-0 items-center justify-center self-start',
-          'rounded-sm border border-border bg-secondary',
+          // Largeur de vignette, hauteur de colonne. À la hauteur de la vignette
+          // seule, il portait le même cadre que ses voisines et se lisait comme
+          // un sixième écran ; en prenant toute la colonne — celle que les
+          // autres complètent avec leur numéro — il redevient l'emplacement qui
+          // termine la rangée, et ne laisse plus 28px de vide sous lui.
+          'flex shrink-0 items-center justify-center',
+          'rounded-md border border-border bg-secondary',
           'text-muted-foreground transition-colors duration-150 ease-out',
           'hover:border-input hover:bg-accent hover:text-foreground',
           'disabled:pointer-events-none disabled:opacity-30',
@@ -168,7 +175,14 @@ export function ScreensBar() {
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
-        <span className="tabular mb-[26px] shrink-0 self-center px-1 text-2xs text-muted-foreground">
+        <span
+          // Centré sur la hauteur de la tuile, et non sur celle de la colonne :
+          // la colonne porte aussi le libellé, ce qui décalait le compteur de
+          // 14px vers le bas — d'où la marge de 26px qui rattrapait à la main
+          // ce que cette boîte donne par construction.
+          style={{ height: THUMBNAIL_HEIGHT }}
+          className="tabular flex shrink-0 items-center px-1 text-2xs text-muted-foreground"
+        >
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>
       )}

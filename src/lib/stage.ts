@@ -6,6 +6,8 @@
  * so artboards never hide behind the chrome.
  */
 
+import { APP_STORE_TARGET } from './dimensions'
+
 export const ISLAND_MARGIN = 12
 /** Contrôle de 36 + le retrait d'îlot (2×6) + son filet (2×1). */
 export const TOP_BAR_HEIGHT = 50
@@ -13,16 +15,36 @@ export const DRAWER_WIDTH_LAYERS = 280
 export const DRAWER_WIDTH_PROPS = 320
 
 /**
- * Hauteur de vignette dans la filmstrip. Au ratio 1320×2868 elle donne ~39px
- * de large : en deçà on ne distingue plus une mise en page d'une autre, ce qui
- * est le seul service que rend la bande.
+ * Hauteur de vignette dans la filmstrip. En deçà on ne distingue plus une mise
+ * en page d'une autre, ce qui est le seul service que rend la bande.
  */
 export const THUMBNAIL_HEIGHT = 100
 /**
- * Vignette + son libellé (20) + l'écart (8) + le retrait d'îlot (2×6) + son
- * filet (2×1). Sans le filet, la tuile débordait d'un pixel en haut et en bas.
+ * Largeur de vignette, déduite et jamais choisie : la bande montre l'artboard,
+ * donc elle en montre le cadrage. Une tuile plus large que ce rapport ne fait
+ * pas une vignette plus lisible, elle fait une vignette qui ment — l'aperçu est
+ * en `object-cover`, et 14px de trop en largeur coupaient 21% de la hauteur de
+ * la composition, en haut et en bas.
  */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + 20 + 8 + 12 + 2
+export const THUMBNAIL_WIDTH = Math.round(
+  (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
+)
+/**
+ * Retrait propre à la pellicule, et non le retrait d'îlot. Les autres îlots
+ * portent des contrôles à fleur de bord, où 6px font la règle « rayon intérieur
+ * = rayon extérieur − retrait ». Ici le contenu ne touche pas le bord : c'est un
+ * plateau, les tuiles y flottent. À 6px la marge extérieure était plus serrée
+ * que l'écart entre deux tuiles (8), ce qui fait toujours lire un contenu comme
+ * à l'étroit dans sa boîte.
+ */
+export const FILMSTRIP_PADDING = 12
+/** Vignette + l'écart (8) + son libellé (20). */
+export const THUMBNAIL_COLUMN_HEIGHT = THUMBNAIL_HEIGHT + 8 + 20
+/**
+ * Colonne + le retrait (2×12) + le filet (2×1). Sans le filet, la tuile
+ * débordait d'un pixel en haut et en bas.
+ */
+export const FILMSTRIP_HEIGHT = THUMBNAIL_COLUMN_HEIGHT + FILMSTRIP_PADDING * 2 + 2
 
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2

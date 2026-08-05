@@ -199,7 +199,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         )}
       </div>
       {colorError && (
-        <p id={errorId} role="alert" className="text-2xs leading-relaxed text-destructive">
+        <p id={errorId} role="alert" className="text-2xs text-destructive">
           {colorError}
         </p>
       )}

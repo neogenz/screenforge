@@ -13,7 +13,7 @@ export function Textarea({ className, ref, ...props }: TextareaProps) {
       data-slot="textarea"
       className={cn(
         'field-surface w-full resize-y px-2 py-1.5',
-        'text-sm leading-snug text-foreground placeholder:text-muted-foreground',
+        'text-sm text-foreground placeholder:text-muted-foreground',
         'transition-[border-color] duration-150 ease-out',
         'hover:border-input focus:border-muted-foreground',
         'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',

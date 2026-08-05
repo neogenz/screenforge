@@ -10,12 +10,19 @@ import { addDeviceLayer, waitForApp, waitForCanvasSettled } from './helpers'
  * dérivaient hors de la zone libre sans que rien ne le rattrape.
  */
 
-/** Insets d'îlots, `src/lib/stage.ts`. Le test les répète pour rester lisible. */
-const ISLAND_MARGIN = 12
-const TOP_BAR_HEIGHT = 50
-const FILMSTRIP_HEIGHT = 142
-const DRAWER_WIDTH_LAYERS = 280
-const DRAWER_WIDTH_PROPS = 320
+/**
+ * Les insets viennent de l'application, jamais d'une copie. Recopiés « pour
+ * rester lisible », ils faisaient d'un changement de géométrie légitime un
+ * échec de test : la hauteur de la pellicule est passée de 142 à 154 et c'est
+ * la constante du test, restée à 142, qui a déclaré la planche décentrée.
+ */
+import {
+  DRAWER_WIDTH_LAYERS,
+  DRAWER_WIDTH_PROPS,
+  FILMSTRIP_HEIGHT,
+  ISLAND_MARGIN,
+  TOP_BAR_HEIGHT,
+} from '../src/lib/stage'
 
 /**
  * Rectangle occupé par les planches, en pixels d'écran.

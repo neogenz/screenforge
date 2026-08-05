@@ -21,6 +21,11 @@ export const DEFAULT_GLOBALS: GlobalSettings = {
   deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
 }
 
+/** Nom d'usine d'un écran, avant que l'utilisateur ne le renomme. */
+export function defaultScreenName(index: number): string {
+  return `Écran ${index + 1}`
+}
+
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {
   return {
     id: crypto.randomUUID(),
@@ -78,7 +83,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   createProject: (name) => {
     const now = Date.now()
     const globals = structuredClone(DEFAULT_GLOBALS)
-    const screen = createDefaultScreen('Écran 1', globals)
+    const screen = createDefaultScreen(defaultScreenName(0), globals)
     set({
       project: {
         id: crypto.randomUUID(),
@@ -130,7 +135,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           layers: structuredClone(content.layers),
           background: structuredClone(content.background),
         }
-      : createDefaultScreen(`Écran ${project.screens.length + 1}`, project.globals)
+      : createDefaultScreen(defaultScreenName(project.screens.length), project.globals)
     set({
       project: withTimestamp(project, {
         screens: [...project.screens, screen],

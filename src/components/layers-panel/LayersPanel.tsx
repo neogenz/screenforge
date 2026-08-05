@@ -143,7 +143,7 @@ export function LayersPanel() {
           <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
             <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
             <p className="text-sm text-muted-foreground">Écran vide.</p>
-            <p className="max-w-[190px] text-2xs leading-relaxed text-muted-foreground">
+            <p className="max-w-[190px] text-2xs text-muted-foreground">
               Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
             </p>
             <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>

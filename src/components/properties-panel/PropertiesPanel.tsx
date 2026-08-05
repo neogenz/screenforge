@@ -61,7 +61,7 @@ export function PropertiesPanel() {
 
         {selectedLayers.length > 1 && (
           <div className="px-2 py-6 text-center">
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {selectedLayers.length} calques sélectionnés.
             </p>
             <p className="mt-1 text-2xs text-muted-foreground">

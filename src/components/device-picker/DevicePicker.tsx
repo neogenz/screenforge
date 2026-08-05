@@ -224,11 +224,11 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-2xs leading-relaxed text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
+          <span className="text-2xs text-muted-foreground">Extraire le DMG, puis choisir un PNG transparent.</span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-2xs leading-relaxed text-destructive">
+        <p role="alert" className="text-2xs text-destructive">
           {bezelError}
         </p>
       )}
@@ -337,14 +337,14 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-2xs leading-relaxed text-destructive">
+          <p role="alert" className="mt-1.5 text-2xs text-destructive">
             {screenshotError}
           </p>
         )}
       </Field>
 
       {layer.importedBezel ? (
-        <p className="text-2xs leading-relaxed text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : <div className="flex flex-col gap-2">

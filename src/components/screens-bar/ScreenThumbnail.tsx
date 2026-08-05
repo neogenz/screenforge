@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { cn } from '@/lib/utils'
-import { THUMBNAIL_HEIGHT } from '@/lib/stage'
+import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ScreenThumbnailProps {
@@ -72,6 +72,9 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
+      // Largeur imposée par la vignette, et non par le libellé : c'est en
+      // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
+      style={{ width: THUMBNAIL_WIDTH }}
       className="group/thumb relative flex shrink-0 flex-col gap-2"
       onContextMenu={(event) => {
         event.preventDefault()
@@ -86,7 +89,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-pressed={isActive}
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'aspect-[1320/2868] cursor-pointer overflow-hidden rounded-sm bg-muted',
+          'w-full cursor-pointer overflow-hidden rounded-md bg-muted',
           'border transition-[border-color,box-shadow,transform] duration-150 ease-out',
           'active:scale-[0.97]',
           // L'écran courant est un état : l'anneau d'accent le dit à distance,
@@ -108,7 +111,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       </button>
 
       {/* Le numéro vit sous la vignette, pas dessus : à cette largeur une pastille
-          posée sur l'image en masquait le quart. */}
+          posée sur l'image en masquait le quart. Et le numéro seul : la tuile
+          fait la largeur de l'artboard, où un nom ne tient qu'amputé — « 03 O… »
+          ne dit rien de plus que « 03 ». Le nom complet reste sur l'infobulle,
+          dans le menu contextuel, et au-dessus de la planche sur le canevas. */}
       {editing ? (
         <input
           ref={inputRef}
@@ -129,6 +135,11 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           onClick={() => onSelect(screen.id)}
           onDoubleClick={startRename}
           title={`${screen.name} — double-clic pour renommer`}
+          // Doublon de la vignette au pointeur, et rien de plus : deux boutons
+          // « Activer Écran 1 » à la suite dans l'arbre d'accessibilité font
+          // deux arrêts de tabulation pour une seule action.
+          aria-hidden
+          tabIndex={-1}
           className={cn(
             // `hit-44` : le libellé fait 20px de haut mais se clique comme le
             // reste. Le recouvrement avec la vignette est sans effet — même action.
@@ -140,13 +151,12 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             // verticale. Ancrée en bas, elle ne déborde plus que sur la vignette,
             // qui déclenche la même action.
             'hit-44 after:top-auto after:bottom-0 after:[translate:-50%_0]',
-            'flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
-            'text-2xs leading-none transition-colors',
+            'flex h-5 w-full items-center justify-center rounded-xs px-0.5',
+            'text-2xs transition-colors',
             isActive ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
           )}
         >
-          <span className="tabular shrink-0 opacity-60">{String(index + 1).padStart(2, '0')}</span>
-          <span className="truncate">{screen.name}</span>
+          <span className="tabular">{String(index + 1).padStart(2, '0')}</span>
         </button>
       )}
 
