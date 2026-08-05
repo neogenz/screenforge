@@ -48,6 +48,55 @@ test.describe('smoke', () => {
     await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(2)
   })
 
+  test('dragging a screen previews the new order and keeps it on drop', async ({ page }) => {
+    await waitForApp(page)
+    await addScreen(page)
+    await addScreen(page)
+    const names = () => page.evaluate(() =>
+      window.__sfStores.useProjectStore.getState().project?.screens.map((screen) => screen.name))
+    const before = await names()
+
+    // Le décalage libère l'emplacement sous le curseur : au lâcher, celui-ci
+    // survole le vide, donc la bande — et non une tuile. C'est ce que ce test
+    // garde, le lâcher n'étant sinon accepté nulle part et l'ordre revenant à
+    // son état initial après l'animation.
+    const fire = (target: 'strip' | number, type: string) =>
+      page.evaluate(([node, event]) => {
+        const strip = document.querySelector('[role="group"][aria-label="Écrans"]')
+        if (!strip) throw new Error('bande introuvable')
+        const scope = window as unknown as { __sfDrag?: DataTransfer }
+        scope.__sfDrag ??= new DataTransfer()
+        const tiles = [...strip.querySelectorAll<HTMLElement>(':scope > div[draggable]')]
+        const receiver = node === 'strip' ? strip : tiles[node as number]
+        receiver.dispatchEvent(
+          new DragEvent(event as string, { bubbles: true, dataTransfer: scope.__sfDrag }),
+        )
+      }, [target, type] as const)
+
+    const shifts = () => page.evaluate(() =>
+      [...document.querySelectorAll('[role="group"][aria-label="Écrans"] > div[draggable]')]
+        .map((tile) => getComputedStyle(tile).translate))
+
+    await fire(0, 'dragstart')
+    await fire(2, 'dragover')
+    // La tuile déplacée reste en place, les deux survolées reculent d'un pas.
+    await expect.poll(shifts).toEqual(['0px', expect.not.stringMatching(/^0px$/), expect.anything()])
+    const previewed = await shifts()
+    expect(previewed[1]).toBe(previewed[2])
+
+    await fire('strip', 'drop')
+    await fire(0, 'dragend')
+    await expect.poll(names).toEqual([before![1], before![2], before![0]])
+    await expect.poll(shifts).toEqual(['0px', '0px', '0px'])
+
+    // Le retour en arrière passe par la même mécanique, dans l'autre sens.
+    await fire(2, 'dragstart')
+    await fire(0, 'dragover')
+    await fire('strip', 'drop')
+    await fire(2, 'dragend')
+    await expect.poll(names).toEqual(before)
+  })
+
   test('screen settings can be copied, pasted and undone without replacing layers', async ({ page }) => {
     await waitForApp(page)
     await addTextLayer(page)

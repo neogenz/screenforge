@@ -30,21 +30,47 @@ export const THUMBNAIL_WIDTH = Math.round(
   (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
 )
 /**
- * Retrait propre à la pellicule, et non le retrait d'îlot. Les autres îlots
- * portent des contrôles à fleur de bord, où 6px font la règle « rayon intérieur
- * = rayon extérieur − retrait ». Ici le contenu ne touche pas le bord : c'est un
- * plateau, les tuiles y flottent. À 6px la marge extérieure était plus serrée
- * que l'écart entre deux tuiles (8), ce qui fait toujours lire un contenu comme
- * à l'étroit dans sa boîte.
+ * Puce du numéro, ronde et détachée sous l'aperçu.
+ *
+ * Détachée, et c'est le point : collée à l'aperçu elle en devenait le socle,
+ * donc une seconde surface à faire tenir contre un aperçu presque toujours
+ * clair. Posée à même la scène, elle n'a plus qu'un fond à contraster.
  */
-export const FILMSTRIP_PADDING = 12
-/** Vignette + l'écart (8) + son libellé (20). */
-export const THUMBNAIL_COLUMN_HEIGHT = THUMBNAIL_HEIGHT + 8 + 20
+export const THUMBNAIL_BADGE_SIZE = 20
 /**
- * Colonne + le retrait (2×12) + le filet (2×1). Sans le filet, la tuile
- * débordait d'un pixel en haut et en bas.
+ * L'écart qui lie une étiquette à ce qu'elle nomme — la même valeur que dans
+ * les panneaux, où 6 lie et 8 sépare.
  */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_COLUMN_HEIGHT + FILMSTRIP_PADDING * 2 + 2
+export const THUMBNAIL_BADGE_GAP = 6
+/**
+ * La colonne : l'aperçu, l'écart, la puce.
+ *
+ * Les filets ne s'y ajoutent pas : ils sont portés par les deux éléments qui
+ * déclarent eux-mêmes leur hauteur, que `box-sizing: border-box` referme dessus.
+ * Compter deux pixels de plus laissait la boîte défilante plus haute que ce
+ * qu'elle contient, et l'anneau de focus décentré d'autant.
+ */
+export const THUMBNAIL_COLUMN_HEIGHT =
+  THUMBNAIL_HEIGHT + THUMBNAIL_BADGE_GAP + THUMBNAIL_BADGE_SIZE
+/**
+ * L'écart entre deux tuiles : le 8 qui sépare, dans l'échelle fermée.
+ *
+ * Déclaré plutôt que laissé à `gap-2` parce que le glisser-déposer en a besoin
+ * autant que la mise en page — c'est de combien une tuile se pousse pour faire
+ * place à celle qu'on déplace, et les deux valeurs ne peuvent pas diverger.
+ */
+export const FILMSTRIP_GAP = 8
+/** Le pas d'un rang à l'autre : la tuile et l'écart qui la suit. */
+export const THUMBNAIL_SLOT = THUMBNAIL_WIDTH + FILMSTRIP_GAP
+/**
+ * Dégagement de la pellicule — pas un retrait d'îlot, la bande n'en est plus
+ * un. C'est la place que la boîte défilante laisse à l'anneau de focus d'une
+ * tuile : 2px de trait, 2px d'écart. Sans elle `overflow-x: auto` force
+ * `overflow-y: auto`, et l'anneau y ferait apparaître une barre de défilement.
+ */
+export const FILMSTRIP_PADDING = 4
+/** Colonne + son dégagement. */
+export const FILMSTRIP_HEIGHT = THUMBNAIL_COLUMN_HEIGHT + FILMSTRIP_PADDING * 2
 
 /**
  * Gouttière réservée au HUD de zoom, de chaque côté de la pellicule centrée.

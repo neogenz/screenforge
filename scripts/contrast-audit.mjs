@@ -15,6 +15,15 @@ const CSS = fileURLToPath(new URL('../src/index.css', import.meta.url))
 const INKS = ['foreground', 'muted-foreground']
 /** Surfaces sur lesquelles une encre peut se poser. */
 const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']
+/**
+ * Couples fermés : une encre qui ne se pose que sur une surface, et pas sur la
+ * gamme. Les croiser avec `SURFACES` n'aurait aucun sens — `marker-ink` ne se
+ * pose jamais sur `card` — mais sans eux ces couples ne sont contrôlés nulle
+ * part. Le citron et son encre vivaient ainsi sur une valeur annoncée en
+ * commentaire et vérifiée par personne.
+ * @type {[string, string][]}
+ */
+const PAIRS = [['marker-ink', 'marker']]
 
 const MIN_RATIO = 4.5
 
@@ -82,18 +91,20 @@ const themes = readTokens()
 let failures = 0
 
 for (const [theme, tokens] of Object.entries(themes)) {
-  for (const ink of INKS) {
-    for (const surface of SURFACES) {
-      const foreground = tokens.get(ink)
-      const background = tokens.get(surface)
-      if (!foreground) throw new Error(`jeton --color-${ink} absent du thème ${theme}`)
-      if (!background) throw new Error(`jeton --color-${surface} absent du thème ${theme}`)
+  const couples = [
+    ...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])),
+    ...PAIRS,
+  ]
+  for (const [ink, surface] of couples) {
+    const foreground = tokens.get(ink)
+    const background = tokens.get(surface)
+    if (!foreground) throw new Error(`jeton --color-${ink} absent du thème ${theme}`)
+    if (!background) throw new Error(`jeton --color-${surface} absent du thème ${theme}`)
 
-      const ratio = contrast(foreground, background)
-      if (ratio < MIN_RATIO) {
-        console.log(`FAIL [${theme}] ${ink} sur ${surface} : ${ratio.toFixed(2)}:1`)
-        failures++
-      }
+    const ratio = contrast(foreground, background)
+    if (ratio < MIN_RATIO) {
+      console.log(`FAIL [${theme}] ${ink} sur ${surface} : ${ratio.toFixed(2)}:1`)
+      failures++
     }
   }
 }
@@ -104,13 +115,15 @@ if (failures > 0) {
 }
 
 const worst = Object.entries(themes).map(([theme, tokens]) => {
-  const ratios = INKS.flatMap((ink) =>
-    SURFACES.map((surface) => {
-      const foreground = tokens.get(ink)
-      const background = tokens.get(surface)
-      if (!foreground || !background) throw new Error(`jeton absent du thème ${theme}`)
-      return contrast(foreground, background)
-    }))
+  const ratios = [
+    ...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])),
+    ...PAIRS,
+  ].map(([ink, surface]) => {
+    const foreground = tokens.get(ink)
+    const background = tokens.get(surface)
+    if (!foreground || !background) throw new Error(`jeton absent du thème ${theme}`)
+    return contrast(foreground, background)
+  })
   return `${theme} ${Math.min(...ratios).toFixed(2)}:1`
 })
 console.log(`Contraste OK — pire cas : ${worst.join(', ')}`)

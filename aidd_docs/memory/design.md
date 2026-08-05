@@ -14,7 +14,7 @@
 - Lime lives under `--color-marker`, reserved for location/state and focus; `accent` keeps its shadcn meaning of neutral hover surface. Primary actions use neutral fills, while red is reserved for destructive state.
 - The rendered scales are closed and checked: three type sizes, two line-heights, two control heights, four radii, two vertical gaps.
 - Line-height is declared in px on a 4px grid, never as a ratio; the named ratio utilities are removed from the theme and the scale guard rejects any rendered value off the grid.
-- Canvas geometry shared with floating chrome lives in `src/lib/stage.ts`; `.island` carries a 6px inset derived from the radius chain so the inner-radius rule holds by construction. The filmstrip is a tray whose contents float, so it carries a wider inset than the inner gap.
+- Canvas geometry shared with floating chrome lives in `src/lib/stage.ts`; `.island` carries a 6px inset derived from the radius chain so the inner-radius rule holds by construction. The filmstrip is not an island: its padding is the clearance its scroll box owes a tile's focus ring, since `overflow-x: auto` forces the vertical axis too.
 - The same file derives the responsive thresholds: one drawer at a time below `DUAL_DRAWER_MIN_WIDTH`, a folded overflow menu in the top bar below `TOP_BAR_COMPACT_WIDTH`, and a stated minimum width below `MIN_APP_WIDTH`. The editor is desktop-class and declares its floor rather than pushing controls off-screen.
 
 ## Components
@@ -24,6 +24,7 @@
 - Panel sections are hairline-separated bands, so no chrome stacks more than two surfaces; recessed cards remain a modal device.
 - Layer rows show a text layer's own content until it is renamed, and the filter searches what the rows display.
 - Filmstrip tiles are sized from the export target's ratio so the preview shows the real framing; the label under a tile carries the number alone, and the full screen name lives in the tooltip, the context menu and the artboard label on canvas.
+- The filmstrip carries no surface of its own; the previews are the surfaces and a container around them would stack three neighbouring lightnesses. Each tile is a single button holding its preview and, below it, its number. The current screen is the one whose number wears a lime pastille; the others show the bare digit, and a ring is never used for state. The pastille carries the shared contact-shadow token and answers hover like any other control. Reordering is previewed during the drag itself: the row parts by one slot and the dragged tile hides, so the strip shows its post-drop shape rather than only reflowing after the release.
 - Dense control heights, tabular numeric values, one primary CTA per dialog, and 120–200ms transform/opacity motion are the default grammar.
 - Grab handles share a contact-shadow token and a focus-ring token rather than inline shadow literals; they sit outside the island elevation scale because a handle detaches from its surface instead of floating above it. Ink that lands on user content, not on chrome, stays deliberately unthemed.
 - Lazy dialogs immediately show a token-based modal loading surface with an announced status; reduced-motion users get the same feedback without animation.
