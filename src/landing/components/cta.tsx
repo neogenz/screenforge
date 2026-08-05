@@ -2,8 +2,12 @@ import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
 
 const base =
-  'inline-flex items-center justify-center rounded-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2'
+  'inline-flex items-center justify-center rounded-sm font-medium transition-[background-color,transform] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2'
 
+/*
+ * Primaire = citron plein, encre sombre : la couleur d'état de l'éditeur
+ * devient l'action de la vitrine. Le fantôme reste neutre pour la hiérarchie.
+ */
 export function CtaPrimary({
   href,
   size = 'md',
@@ -20,7 +24,7 @@ export function CtaPrimary({
       href={href}
       className={cn(
         base,
-        'bg-primary text-primary-foreground hover:bg-primary/90',
+        'bg-marker text-marker-ink hover:bg-marker-hover',
         size === 'sm' ? 'h-8 px-3.5 text-[13px]' : 'h-10 px-5 text-sm',
         className,
       )}

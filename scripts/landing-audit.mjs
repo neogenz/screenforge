@@ -60,6 +60,8 @@ const LANDING_PAIRS = [
   ['primary-foreground', 'primary'],
   ['secondary-foreground', 'secondary'],
   ['foreground', 'card'],
+  ['marker', 'stage'],
+  ['marker', 'background'],
 ]
 for (const [ink, surface] of LANDING_PAIRS) {
   const ratio = contrast(tokens.get(ink), tokens.get(surface))

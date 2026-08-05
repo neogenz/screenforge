@@ -17,6 +17,7 @@ export function ProofStrip() {
               (index > 0 ? ' border-t border-border/60 md:border-t-0' : '')
             }
           >
+            <span aria-hidden className="mb-5 h-1 w-6 bg-marker" />
             <dd className="order-1 text-4xl font-extrabold tracking-tight tabular-nums md:text-5xl">
               {item.value}
             </dd>

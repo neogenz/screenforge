@@ -22,11 +22,11 @@ export function DimensionNote({
           className,
         )}
       >
-        <span className="h-px w-2 bg-border" />
-        <span className="w-px flex-1 bg-border" />
+        <span className="h-px w-2 bg-marker-line" />
+        <span className="w-px flex-1 bg-marker-line" />
         <span className="[writing-mode:vertical-rl]">{value}</span>
-        <span className="w-px flex-1 bg-border" />
-        <span className="h-px w-2 bg-border" />
+        <span className="w-px flex-1 bg-marker-line" />
+        <span className="h-px w-2 bg-marker-line" />
       </div>
     )
   }
@@ -38,11 +38,11 @@ export function DimensionNote({
         className,
       )}
     >
-      <span className="h-2 w-px bg-border" />
-      <span className="h-px flex-1 bg-border" />
+      <span className="h-2 w-px bg-marker-line" />
+      <span className="h-px flex-1 bg-marker-line" />
       <span>{value}</span>
-      <span className="h-px flex-1 bg-border" />
-      <span className="h-2 w-px bg-border" />
+      <span className="h-px flex-1 bg-marker-line" />
+      <span className="h-2 w-px bg-marker-line" />
     </div>
   )
 }

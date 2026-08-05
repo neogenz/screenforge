@@ -17,7 +17,7 @@ export function Hero() {
       <div className="max-w-3xl">
         <Reveal>
           <SpecLabel>{t.spec.hero}</SpecLabel>
-          <h1 className="mt-6 text-[clamp(2.5rem,6vw,4.5rem)] leading-[1.04] font-extrabold tracking-[-0.03em] text-balance">
+          <h1 className="mt-6 text-[clamp(2.2rem,5.5vw,4.2rem)] leading-[1.02] font-black tracking-[-0.02em] text-balance uppercase">
             {t.hero.headline}
           </h1>
         </Reveal>

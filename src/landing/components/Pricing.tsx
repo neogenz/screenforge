@@ -42,13 +42,13 @@ export function Pricing() {
                     scope="col"
                     className={cn(
                       'px-4 pb-6 text-left align-bottom',
-                      plan.highlighted && 'bg-card',
+                      plan.highlighted && 'bg-marker-soft',
                     )}
                   >
                     <div className="flex items-baseline gap-2">
                       <SpecLabel>{plan.name}</SpecLabel>
                       {'badge' in plan && plan.badge ? (
-                        <span className="rounded-xs bg-secondary px-2 py-0.5 text-2xs font-medium text-secondary-foreground normal-case">
+                        <span className="rounded-xs bg-marker px-2 py-0.5 text-2xs font-semibold text-marker-ink normal-case">
                           {plan.badge}
                         </span>
                       ) : null}
@@ -76,7 +76,7 @@ export function Pricing() {
                       key={column}
                       className={cn(
                         'px-4 py-4 text-sm text-muted-foreground',
-                        column === 2 && 'bg-card text-foreground',
+                        column === 2 && 'bg-marker-soft text-foreground',
                       )}
                     >
                       {value}
@@ -87,7 +87,10 @@ export function Pricing() {
               <tr className="border-t border-border/60">
                 <td />
                 {plans.map((plan) => (
-                  <td key={plan.name} className={cn('px-4 py-6', plan.highlighted && 'bg-card')}>
+                  <td
+                    key={plan.name}
+                    className={cn('px-4 py-6', plan.highlighted && 'bg-marker-soft')}
+                  >
                     <a
                       href={plan.href}
                       className={cn(

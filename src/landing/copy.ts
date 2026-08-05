@@ -87,6 +87,13 @@ const en = {
     pricing: 'Pricing',
     faq: 'Questions',
   },
+  marquee: [
+    '1320×2868 px',
+    'PNG-24 · sRGB',
+    '10 screens per set',
+    'Validated ZIP export',
+    '$39.99 once',
+  ],
   faq: {
     title: 'Questions',
     items: [
@@ -224,6 +231,13 @@ const fr: Copy = {
     pricing: 'Tarifs',
     faq: 'Questions',
   },
+  marquee: [
+    '1320×2868 px',
+    'PNG-24 · sRGB',
+    '10 écrans par planche',
+    'Export ZIP validé',
+    '39,99 $ une fois',
+  ],
   faq: {
     title: 'Questions',
     items: [

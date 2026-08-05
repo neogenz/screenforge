@@ -3,6 +3,7 @@ import { Features } from './components/Features'
 import { FinalCta } from './components/FinalCta'
 import { Footer } from './components/Footer'
 import { Hero } from './components/Hero'
+import { Marquee } from './components/Marquee'
 import { Nav } from './components/Nav'
 import { Pricing } from './components/Pricing'
 import { ProofStrip } from './components/ProofStrip'
@@ -18,6 +19,7 @@ export function Landing() {
       <div className="mx-auto max-w-6xl border-x border-border/60">
         <main>
           <Hero />
+          <Marquee />
           <ProofStrip />
           <Features />
           <Pricing />

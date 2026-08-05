@@ -24,6 +24,30 @@ body {
   overflow-x: clip;
 }
 
+/* Le citron `marker` est la couleur d'état de l'éditeur (« tu es ici ») ; sur
+   la vitrine — dark-only, sans jugement couleur à préserver — il devient la
+   voix de la marque : CTA, cotes, numéros de section. Une seule couleur,
+   en aplat, jamais en glow ni en dégradé. */
+
+/* Le marquee cinétique : la fiche technique défile. Linéaire et lent, il se
+   fige dès que l'utilisateur préfère sans mouvement. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation: marquee 32s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
 /* Défilement doux vers les ancres, retiré dès que l'utilisateur s'en passe. */
 @media (prefers-reduced-motion: no-preference) {
   html {

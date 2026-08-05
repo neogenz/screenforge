@@ -14,7 +14,7 @@ export function Faq() {
         {t.faq.items.map((item, index) => (
           <details key={item.q} className="group border-b border-border/60 last:border-b-0">
             <summary className="flex cursor-pointer list-none items-baseline gap-5 py-5 [&::-webkit-details-marker]:hidden">
-              <span className="text-sm tabular-nums text-muted-foreground">04.{index + 1}</span>
+              <span className="text-sm font-semibold tabular-nums text-marker">04.{index + 1}</span>
               <span className="flex-1 text-[15px] font-medium">{item.q}</span>
               <ChevronDown
                 aria-hidden

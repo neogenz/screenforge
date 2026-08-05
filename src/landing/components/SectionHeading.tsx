@@ -7,7 +7,7 @@ import { SpecLabel } from './SpecLabel'
 export function SectionHeading({ index, title }: { index: string; title: string }) {
   return (
     <div className="flex items-baseline gap-4 border-b border-border/60 pb-4">
-      <span className="text-sm tabular-nums text-muted-foreground">{index}</span>
+      <span className="text-sm font-semibold tabular-nums text-marker">{index}</span>
       <SpecLabel>{title}</SpecLabel>
     </div>
   )
