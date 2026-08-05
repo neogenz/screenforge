@@ -44,10 +44,15 @@ export function PropertiesPanel() {
 
   return (
     // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
-    <aside className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden">
+    // Le repère est nommé par son titre : l'intitulé change avec la sélection,
+    // et `aria-labelledby` suit sans qu'on ait à le recopier.
+    <aside
+      aria-labelledby="sf-properties-panel-title"
+      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
+    >
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
-        <span className="panel-title">{headerLabel}</span>
+        <h2 id="sf-properties-panel-title" className="panel-title">{headerLabel}</h2>
         {selectedLayers.length > 1 && (
           <span className="tabular text-2xs text-muted-foreground">
             {String(selectedLayers.length).padStart(2, '0')}
@@ -139,27 +144,32 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
      * toujours vers ce qu'il annonce.
      */
     <div className="border-t border-border pt-2 first:border-t-0 first:pt-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'flex h-8 w-full items-center gap-1.5',
-          'section-title',
-          'transition-colors duration-150 ease-out hover:text-foreground',
-        )}
-        aria-expanded={open}
-      >
-        <ChevronRight
-          size={12}
-          strokeWidth={1.75}
-          aria-hidden
+      {/* Un titre qui porte son bouton, motif d'accordéon de l'APG : le bouton
+          seul se parcourait à la tabulation mais restait invisible au saut de
+          titre, alors que c'est bien lui qui découpe le panneau. Le `h3` porte
+          la typographie, le bouton la mise en boîte. */}
+      <h3 className="section-title">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
           className={cn(
-            'shrink-0 text-muted-foreground transition-transform duration-150 ease-out',
-            open && 'rotate-90',
+            'flex h-8 w-full items-center gap-1.5',
+            'transition-colors duration-150 ease-out hover:text-foreground',
           )}
-        />
-        <span>{title}</span>
-      </button>
+          aria-expanded={open}
+        >
+          <ChevronRight
+            size={12}
+            strokeWidth={1.75}
+            aria-hidden
+            className={cn(
+              'shrink-0 text-muted-foreground transition-transform duration-150 ease-out',
+              open && 'rotate-90',
+            )}
+          />
+          <span>{title}</span>
+        </button>
+      </h3>
 
       {open && children && <div className="pb-1">{children}</div>}
     </div>

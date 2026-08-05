@@ -349,7 +349,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         </p>
       ) : <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="section-title">Ombre</span>
+          <h3 className="section-title">Ombre</h3>
           <Switch
             checked={shadowEnabled}
             ariaLabel="Activer l’ombre de l’appareil"

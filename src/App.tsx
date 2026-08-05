@@ -108,6 +108,11 @@ export default function App() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-stage">
+      {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
+          niveau 2 et le saut de titre ne renvoyait rien depuis la racine. Le
+          nom du projet vit dans son champ, qui se nomme déjà. */}
+      <h1 className="sr-only">ScreenForge</h1>
+
       {/* Stage: full-bleed canvas */}
       <main className="absolute inset-0">
         <CanvasEditor />
@@ -115,9 +120,9 @@ export default function App() {
       <div aria-hidden className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)" />
 
       {/* Floating chrome */}
-      <div className="absolute left-3 right-3 top-3 z-(--z-chrome)">
+      <header className="absolute left-3 right-3 top-3 z-(--z-chrome)">
         <TopBar />
-      </div>
+      </header>
       <LayersDrawer />
       <PropertiesDrawer />
       <div className="absolute bottom-3 left-1/2 z-(--z-chrome) -translate-x-1/2">

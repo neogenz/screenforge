@@ -33,7 +33,7 @@ export function ShadowEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="section-title">{title}</span>
+        <h3 className="section-title">{title}</h3>
         <Switch
           ariaLabel={ariaLabel}
           checked={!!shadow}

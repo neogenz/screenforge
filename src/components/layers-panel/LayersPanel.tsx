@@ -104,10 +104,15 @@ export function LayersPanel() {
   return (
     // `max-h-full` sans `h-full` : l'îlot s'arrête sous sa dernière ligne et ne
     // défile qu'une fois le plafond du drawer atteint.
-    <div className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden">
+    // `aside` et non `div` : c'est un repère de navigation, et le panneau n'en
+    // était aucun — la carte du document s'arrêtait à « principal ».
+    <aside
+      aria-labelledby="sf-layers-panel-title"
+      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
+    >
       <div className="shrink-0 px-3 pb-2 pt-3">
         <div className="flex items-center justify-between">
-          <span className="panel-title">Calques</span>
+          <h2 id="sf-layers-panel-title" className="panel-title">Calques</h2>
           <span className="tabular text-2xs text-muted-foreground">
             {String(layers.length).padStart(2, '0')}
           </span>
@@ -176,6 +181,6 @@ export function LayersPanel() {
           </div>
         ))}
       </ScrollArea>
-    </div>
+    </aside>
   )
 }

@@ -32,5 +32,6 @@
 
 - Text/surface contrast must remain at least 4.5:1 and pass `pnpm run audit:contrast`; the rendered scales must pass `pnpm run audit:scale`.
 - Icon-only controls require accessible labels; dialogs trap and restore focus; menus, listboxes, switches, alerts, and live status use appropriate roles.
+- Heading levels are real elements, not classes: an `sr-only` `<h1>`, `<h2>` panel titles, `<h3>` section titles, and a collapsible section is an `<h3>` wrapping its `aria-expanded` button. The top bar is a `<header>` and each panel an `<aside aria-labelledby>`.
 - Keyboard operation and visible focus are baseline behavior. Under `prefers-reduced-motion` only movement is removed: `transform` leaves the transition list and sliding entrances become fades, so state feedback stays visible.
 - Chrome density keeps most controls at 32–36px; 44px hit areas are only applied where the extended zone cannot steal a neighbour's click.
