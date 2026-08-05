@@ -24,7 +24,8 @@
     "audit:scale": "node scripts/scale-audit.mjs",
     "probe:visual": "node scripts/visual-probe.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
