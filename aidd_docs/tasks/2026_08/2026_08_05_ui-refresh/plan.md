@@ -18,8 +18,15 @@ status: in-progress
 | --- | ---------------------------------------- | ---------------------------- |
 | 1   | La scène prend un grain                  | [`phase-1.md`](./phase-1.md) |
 | 2   | Le numéro rentre dans la vignette        | [`phase-2.md`](./phase-2.md) |
+| 5   | La scène claire remonte et les rayons s'ouvrent | [`phase-5.md`](./phase-5.md) |
 | 3   | La vignette dit ce qu'elle montre        | [`phase-3.md`](./phase-3.md) |
 | 4   | L'insertion se voit pendant le glissement | [`phase-4.md`](./phase-4.md) |
+
+La phase 5 a été ajoutée après coup et exécutée à sa place dans ce tableau, entre
+la 2 et la 3 : l'utilisateur a demandé, capture de la maquette à l'appui, de
+reprendre sa clarté de fond et ses arrondis, tous deux classés hors périmètre au
+départ. Les numéros de fichier n'ont pas été renumérotés — l'ordre d'exécution
+est celui de cette table, pas celui des noms.
 
 ## Resources
 
@@ -37,14 +44,14 @@ status: in-progress
 | Le numéro passe **dans** la vignette et la rangée de puces disparaît                              | Une puce posée sur la scène doit contraster avec deux thèmes et avec un aperçu presque toujours clair ; posée sur l'aperçu, elle n'a plus qu'une surface à contraster. Elle rend aussi les 26px de colonne que la rangée coûtait au canevas. Cela remplace le travail livré en `3884394`. |
 | La scène reste **achromatique**, points compris                                                   | La maquette teinte tout en `slate` (bleuté). Un outil de jugement colorimétrique ne peut pas teinter ce qui borde la planche : l'œil compense, et l'utilisateur corrige une dominante qui n'existe pas dans son export.                                                                    |
 | Aucun plateau, aucun verre dépoli sous la pellicule                                               | La carte de la maquette ne tient que parce que sa scène est texturée et teintée. La nôtre ne le sera qu'à moitié (points, mais neutre), et le plateau avait été retiré sur mesures : trois clartés voisines, 26px de canevas pour encadrer du vide.                                        |
-| Le rayon 26 et l'ombre `0 18px 50px -12px` de la maquette ne sont pas repris tels quels           | Ils ouvriraient l'échelle des rayons (fermée à 4 / 6 / 8 / 14) et court-circuiteraient `--shadow-md/lg/xl`. Seul le *caractère* de l'ombre est repris, dans les jetons existants.                                                                                                          |
+| Le rayon 26 et l'ombre `0 18px 50px -12px` de la maquette ne sont pas repris tels quels           | Ils court-circuiteraient `--shadow-md/lg/xl`. **Révisé en phase 5** : l'argument « ils ouvriraient l'échelle » était faux pour le rayon — la chaîne dérive d'un seul réglage amont, qu'on peut déplacer sans ouvrir quoi que ce soit. `--radius` est passé de 10 à 15px (6/9/12/15/21). L'ombre, elle, n'a pas bougé. |
 | Rien de ce qui relève de l'UX de la maquette n'entre dans ce plan                                 | Planche multi-écrans, sélecteur de disposition, écrans masqués, curseur de taille, panneau de notes : ce sont des fonctions, pas une peau. La demande est explicitement une note UI.                                                                                                       |
 
 ## Hors périmètre, et pourquoi
 
 | Élément de la maquette                          | Écarté parce que                                                                                                                             |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scène teintée `slate-50` / dominante bleutée     | Contredit « chroma 0 sur toute surface de chrome » — la règle existe pour cet outil précisément.                                              |
+| Dominante bleutée de la scène `slate-50`         | Contredit « chroma 0 sur toute surface de chrome » — la règle existe pour cet outil précisément, et elle a tenu. **Sa clarté, en revanche, a été reprise en phase 5** : la ligne d'origine confondait les deux, alors que seule la seconde touchait à une règle. |
 | Pastille citron sur la bascule « Libellés »      | Le citron ne dit jamais « action » : il dit « vous êtes ici ». Un jeton qui marque deux choses n'en marque plus aucune.                        |
 | Libellés capitales espacées (`ÉCRANS`, `NOTE…`)  | « No all-caps labels » est une règle écrite du projet ; les capitales espacées se lisent 15 à 20 % moins vite en libellé court.                |
 | Plateau en verre dépoli sous la pellicule        | Voir Decisions.                                                                                                                                |

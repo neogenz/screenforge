@@ -55,7 +55,15 @@ le canevas les récupère par STAGE_BOTTOM_INSET.
 > La colonne n'a plus de seconde rangée : tout ce qui la mesurait disparaît.
 
 1. Supprimer `THUMBNAIL_BADGE_GAP` et `THUMBNAIL_COLUMN_HEIGHT` de `lib/stage.ts`.
-2. `FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2`.
+2. `FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT`.
+
+   **Corrigé à l'exécution.** La formule écrite ici au départ (`+ FILMSTRIP_PADDING * 2`
+   seul, pour −26 exactement) s'excluait avec la tâche 3.3, qui demande de réserver
+   le soulèvement dans le rembourrage de la bande. Les deux ne peuvent pas tenir :
+   soit la bande rend 26px et la tuile courante se fait rogner en se soulevant, soit
+   elle en rend 22 et le soulèvement a sa place. C'est le second qui a été livré —
+   134 → 112 — le terme supplémentaire ne portant que le haut, puisque c'est par là
+   que la tuile sort de la boîte défilante.
 3. Recentrer le bouton « + » et le compteur sur `THUMBNAIL_HEIGHT` — ils s'y alignaient déjà, la constante intermédiaire disparaît seulement.
 4. Vérifier `STAGE_BOTTOM_INSET` : le canevas doit gagner exactement la différence, sans réajustement à la main.
 
@@ -85,7 +93,7 @@ le canevas les récupère par STAGE_BOTTOM_INSET.
 | Task | Acceptance criteria                                                                                                                       |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1    | Le numéro se lit sur un aperçu blanc et sur un aperçu noir, dans les deux thèmes ; le citron n'apparaît que sur l'écran courant.            |
-| 2    | `FILMSTRIP_HEIGHT` diminue de 26 exactement, `scrollHeight === clientHeight` sur la bande, et la planche remonte d'autant sans réglage.      |
+| 2    | `FILMSTRIP_HEIGHT` diminue de 22 (26 de rangée rendus, 4 repris pour le soulèvement — voir la tâche), `scrollHeight === clientHeight` sur la bande, et la planche remonte d'autant sans réglage. |
 | 3    | L'écran courant se distingue à 1× sans anneau ; sous `prefers-reduced-motion` il se distingue encore ; l'anneau de focus n'est pas rogné.    |
 | 4    | Double-clic ouvre le champ, `Entrée` valide, `Échap` annule, et le champ ne recouvre pas le badge.                                          |
 | 5    | `typecheck`, `lint`, `audit:contrast`, `audit:scale`, `test:unit` et `test:e2e` passent ; les deux documents décrivent ce qui est à l'écran. |
