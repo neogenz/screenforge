@@ -111,7 +111,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         data-thumbnail-preview
         style={{ height: THUMBNAIL_HEIGHT }}
         className={cn(
-          'relative block w-full cursor-pointer overflow-hidden rounded-xl bg-muted',
+          // `rounded-md` et non `rounded-xl` : le rayon d'îlot est calibré sur
+          // des surfaces larges, et 21 sur une tuile de 46 en fait une gélule —
+          // 46% de la largeur. La vignette montre un téléphone, pas une pilule.
+          'relative block w-full cursor-pointer overflow-hidden rounded-md bg-muted',
           'border border-border',
           'transition-[border-color,box-shadow,scale] duration-150 ease-out',
           // `scale` et non `transform` : Tailwind v4 écrit la propriété `scale`,
@@ -186,7 +189,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // Pleine largeur, et le bas arrondi comme l'aperçu qu'il coiffe :
           // posé à plat il aurait débordé de deux angles vifs sur les coins
           // ronds de la tuile.
-          className="field-surface absolute inset-x-0 bottom-0 w-full rounded-b-xl px-1 text-center text-2xs text-foreground outline-none"
+          className="field-surface absolute inset-x-0 bottom-0 w-full rounded-b-md px-1 text-center text-2xs text-foreground outline-none"
         />
       )}
 

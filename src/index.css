@@ -161,9 +161,11 @@
   --leading-*: initial;
 
   /* ── Radius — un seul réglage, la chaîne shadcn en dérive ──
-     0.625rem est la valeur amont : c'est la seule qui sorte des entiers
-     (4/6/8/10/14) quelle que soit la formule de dérivation. */
-  --radius: 0.625rem;
+     Les multiplicateurs sont des cinquièmes, donc toute valeur amont multiple
+     de 5px sort la chaîne entière en entiers. 15px donne 6/9/12/15/21 : des
+     îlots franchement arrondis sans que les contrôles de 32 deviennent des
+     gélules, ce que 20px (8/12/16/20/28) leur faisait. */
+  --radius: 0.9375rem;
   --radius-xs: calc(var(--radius) * 0.4);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -275,11 +277,22 @@
 
 /* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
-  --color-stage: oklch(0.9 0 0);
+  /* Deux niveaux, pas cinq : la scène est claire et les îlots sont blancs, et
+     c'est l'ombre qui les sépare, pas un écart de clarté. La rampe montait de
+     0.9 à 1.0 en cinq crans, ce qui donnait une scène grise sur laquelle tout
+     flottait par défaut ; à 0.965 la scène n'a plus qu'un cran d'avance sur le
+     blanc, et `--shadow-md` a d'autant plus de marge pour creuser qu'elle est
+     claire. Chroma 0 malgré la maquette, qui teinte tout en bleuté : l'œil
+     compense une dominante posée contre la planche, et l'utilisateur corrige
+     alors dans son export une couleur qui n'y est pas. */
+  --color-stage: oklch(0.965 0 0);
   /* Le point s'assombrit sur fond clair, là où il s'éclaircit sur fond sombre :
      c'est le seul jeton de grain, il change de sens et pas seulement de valeur. */
   --color-stage-dot: oklch(0 0 0 / 0.09);
-  --color-background: oklch(0.955 0 0);
+  /* Le fond du `body`, que `#root` recouvre entièrement : il n'apparaît qu'au
+     rebond de défilement et sous le squelette de démarrage. Aligné sur la scène
+     pour qu'aucun des deux ne s'annonce avant l'autre. */
+  --color-background: oklch(0.965 0 0);
   --color-card: oklch(1 0 0);
   --color-popover: oklch(1 0 0);
   /* En clair le creux doit rester sous `secondary` : à 0.965 les deux se confondaient
@@ -293,7 +306,8 @@
   --color-popover-foreground: oklch(0.18 0 0);
   --color-secondary-foreground: oklch(0.18 0 0);
   --color-accent-foreground: oklch(0.18 0 0);
-  /* Le stage clair (0.9) est le fond le plus exigeant : cette valeur y tient 4.5:1. */
+  /* Le creux (0.945) est désormais le fond le plus exigeant du thème clair, la
+     scène étant remontée au-dessus de lui : cette valeur y tient 4.5:1. */
   --color-muted-foreground: oklch(0.4 0 0);
 
   --color-primary: oklch(0.18 0 0);
