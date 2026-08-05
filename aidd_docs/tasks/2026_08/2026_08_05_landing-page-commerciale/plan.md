@@ -1,6 +1,6 @@
 ---
 objective: "Une landing page commerciale bilingue EN/FR, servie par un second entry Vite dans ce repo, présente ScreenForge et ses deux offres (9,99 $/mois, 39,99 $ lifetime) avec un niveau de finition « impeccable »."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Landing page commerciale ScreenForge
