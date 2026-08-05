@@ -1,16 +1,28 @@
 import { useLang } from '../i18n'
 
+/*
+ * Les trois nombres qui vendent, en très grand tabulaire, séparés par des
+ * filets pleine hauteur — une ligne de tableau de spécification.
+ */
 export function ProofStrip() {
   const { t } = useLang()
   return (
-    <section aria-label="Chiffres clés" className="border-y border-border">
-      <dl className="mx-auto grid max-w-6xl grid-cols-1 gap-y-10 px-5 py-14 md:grid-cols-3 md:gap-y-0 md:divide-x md:divide-border">
-        {t.proof.items.map((item) => (
-          <div key={item.value} className="flex flex-col md:px-10 md:first:pl-0 md:last:pr-0">
-            <dt className="order-2 mt-3 text-sm leading-5 text-muted-foreground">{item.label}</dt>
-            <dd className="order-1 text-3xl font-bold tracking-tight tabular-nums md:text-4xl">
+    <section aria-label="Chiffres clés" className="border-b border-border/60">
+      <dl className="grid grid-cols-1 md:grid-cols-3 md:divide-x md:divide-border/60">
+        {t.proof.items.map((item, index) => (
+          <div
+            key={item.value}
+            className={
+              'flex flex-col px-5 py-10 md:px-10 md:py-14' +
+              (index > 0 ? ' border-t border-border/60 md:border-t-0' : '')
+            }
+          >
+            <dd className="order-1 text-4xl font-extrabold tracking-tight tabular-nums md:text-5xl">
               {item.value}
             </dd>
+            <dt className="order-2 mt-3 max-w-[28ch] text-sm leading-5 text-muted-foreground">
+              {item.label}
+            </dt>
           </div>
         ))}
       </dl>

@@ -62,36 +62,30 @@ const en = {
     sub: 'Start free. Go unlimited monthly, or pay once and keep it forever.',
     currencyNote: 'USD, taxes included.',
     waitlistNote: 'Secure checkout is on its way — these buttons join the waitlist for now.',
-    free: {
-      name: 'Free',
-      price: '$0',
-      period: '',
-      features: [
-        'The full editor, all ten screens',
-        '3 exports per set',
-        'A small watermark on exports',
-      ],
-      cta: 'Open the app',
+    plans: {
+      free: { name: 'Free', price: '$0', period: '', cta: 'Open the app' },
+      monthly: { name: 'Monthly', price: '$9.99', period: '/month', cta: 'Get Monthly' },
+      lifetime: {
+        name: 'Lifetime',
+        price: '$39.99',
+        period: 'once',
+        badge: 'Best value',
+        cta: 'Get Lifetime',
+      },
     },
-    monthly: {
-      name: 'Monthly',
-      price: '$9.99',
-      period: '/month',
-      features: ['Unlimited exports, no watermark', 'Batch ZIP export', 'Cancel anytime'],
-      cta: 'Get Monthly',
-    },
-    lifetime: {
-      name: 'Lifetime',
-      price: '$39.99',
-      period: 'once',
-      badge: 'Best value',
-      features: [
-        'Everything in Monthly',
-        'Pay once, keep it forever',
-        'Every future update included',
-      ],
-      cta: 'Get Lifetime',
-    },
+    rows: [
+      { label: 'Exports', values: ['3 per set', 'Unlimited', 'Unlimited'] },
+      { label: 'Watermark', values: ['Small, on exports', 'None', 'None'] },
+      { label: 'Batch ZIP export', values: ['—', 'Included', 'Included'] },
+      { label: 'Updates', values: ['—', 'While subscribed', 'Forever'] },
+    ],
+  },
+  spec: {
+    hero: 'Screenshot spec — iPhone 6.9″ — 1320×2868',
+    editor: 'The editor',
+    export: 'The export',
+    pricing: 'Pricing',
+    faq: 'Questions',
   },
   faq: {
     title: 'Questions',
@@ -200,40 +194,35 @@ const fr: Copy = {
     currencyNote: 'USD, taxes incluses.',
     waitlistNote:
       'Le paiement sécurisé arrive — ces boutons rejoignent la liste d\u2019attente pour l\u2019instant.',
-    free: {
-      name: 'Gratuit',
-      price: '0 $',
-      period: '',
-      features: [
-        'L\u2019éditeur complet, les dix écrans',
-        '3 exports par planche',
-        'Un discret watermark sur les exports',
-      ],
-      cta: 'Ouvrir l\u2019app',
+    plans: {
+      free: { name: 'Gratuit', price: '0 $', period: '', cta: 'Ouvrir l\u2019app' },
+      monthly: {
+        name: 'Mensuel',
+        price: '9,99 $',
+        period: '/mois',
+        cta: 'Choisir le Mensuel',
+      },
+      lifetime: {
+        name: 'Lifetime',
+        price: '39,99 $',
+        period: 'une fois',
+        badge: 'Meilleure valeur',
+        cta: 'Choisir le Lifetime',
+      },
     },
-    monthly: {
-      name: 'Mensuel',
-      price: '9,99 $',
-      period: '/mois',
-      features: [
-        'Exports illimités, sans watermark',
-        'Export ZIP groupé',
-        'Résiliable à tout moment',
-      ],
-      cta: 'Choisir le Mensuel',
-    },
-    lifetime: {
-      name: 'Lifetime',
-      price: '39,99 $',
-      period: 'une fois',
-      badge: 'Meilleure valeur',
-      features: [
-        'Tout le Mensuel',
-        'Payez une fois, gardez pour toujours',
-        'Toutes les mises à jour incluses',
-      ],
-      cta: 'Choisir le Lifetime',
-    },
+    rows: [
+      { label: 'Exports', values: ['3 par planche', 'Illimités', 'Illimités'] },
+      { label: 'Watermark', values: ['Discret', 'Aucun', 'Aucun'] },
+      { label: 'Export ZIP groupé', values: ['—', 'Inclus', 'Inclus'] },
+      { label: 'Mises à jour', values: ['—', 'Pendant l\u2019abonnement', 'À vie'] },
+    ],
+  },
+  spec: {
+    hero: 'Spécification — iPhone 6,9″ — 1320×2868',
+    editor: 'L\u2019éditeur',
+    export: 'L\u2019export',
+    pricing: 'Tarifs',
+    faq: 'Questions',
   },
   faq: {
     title: 'Questions',

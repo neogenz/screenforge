@@ -5,8 +5,8 @@ import { LangLink } from './LangLink'
 export function Footer() {
   const { t, lang } = useLang()
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-4 px-5 py-10 text-sm text-muted-foreground">
+    <footer>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-10 text-sm text-muted-foreground md:px-10">
         <span className="font-semibold text-foreground">ScreenForge</span>
         <a className="transition-colors duration-150 hover:text-foreground" href={LINKS.contact}>
           {t.footer.contact}

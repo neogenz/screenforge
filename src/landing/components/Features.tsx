@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import { useLang } from '../i18n'
 import { Reveal } from './Reveal'
+import { SectionHeading } from './SectionHeading'
 import { Visual } from './visual'
 
 function FeatureBlock({
@@ -33,9 +34,7 @@ function FeatureBlock({
             ))}
           </ul>
         </div>
-        <div
-          className={reversed ? 'md:order-1 md:col-span-7 md:-ml-16' : 'md:col-span-7 md:-mr-16'}
-        >
+        <div className={reversed ? 'md:order-1 md:col-span-7' : 'md:col-span-7'}>
           <Visual src={visual} caption={caption} />
         </div>
       </div>
@@ -46,8 +45,12 @@ function FeatureBlock({
 export function Features() {
   const { t } = useLang()
   return (
-    <section id="features" className="mx-auto max-w-6xl scroll-mt-16 px-5 py-24 md:py-32">
-      <div className="flex flex-col gap-24 md:gap-32">
+    <section
+      id="features"
+      className="scroll-mt-16 border-b border-border/60 px-5 py-20 md:px-10 md:py-28"
+    >
+      <SectionHeading index="01" title={t.spec.editor} />
+      <div className="mt-14">
         <FeatureBlock
           title={t.features.editor.title}
           body={t.features.editor.body}
@@ -55,6 +58,11 @@ export function Features() {
           visual="/landing/editor.jpg"
           caption={t.features.editor.visualCaption}
         />
+      </div>
+      <div className="mt-24 md:mt-32">
+        <SectionHeading index="02" title={t.spec.export} />
+      </div>
+      <div className="mt-14">
         <FeatureBlock
           reversed
           title={t.features.export.title}
@@ -63,19 +71,19 @@ export function Features() {
           visual="/landing/export.jpg"
           caption={t.features.export.visualCaption}
         />
-        <Reveal>
-          <div className="border-t border-border pt-16 md:pt-20">
-            <div className="max-w-2xl">
-              <h3 className="text-2xl font-bold tracking-tight text-balance md:text-3xl">
-                {t.features.ownership.title}
-              </h3>
-              <p className="mt-4 text-[15px] leading-6 text-muted-foreground">
-                {t.features.ownership.body}
-              </p>
-            </div>
-          </div>
-        </Reveal>
       </div>
+      <Reveal>
+        <div className="mt-24 border-t border-border/60 pt-16 md:mt-32 md:pt-20">
+          <div className="max-w-2xl">
+            <h3 className="text-2xl font-bold tracking-tight text-balance md:text-4xl">
+              {t.features.ownership.title}
+            </h3>
+            <p className="mt-4 text-[15px] leading-6 text-muted-foreground">
+              {t.features.ownership.body}
+            </p>
+          </div>
+        </div>
+      </Reveal>
     </section>
   )
 }

@@ -7,19 +7,25 @@ import { Nav } from './components/Nav'
 import { Pricing } from './components/Pricing'
 import { ProofStrip } from './components/ProofStrip'
 
+/*
+ * Le cadre à filets (`border-x`) est la signature blueprint : toute la page
+ * se lit entre deux traits de plan, chaque section séparée d'un filet.
+ */
 export function Landing() {
   return (
     <>
       <Nav />
-      <main>
-        <Hero />
-        <ProofStrip />
-        <Features />
-        <Pricing />
-        <Faq />
-        <FinalCta />
-      </main>
-      <Footer />
+      <div className="mx-auto max-w-6xl border-x border-border/60">
+        <main>
+          <Hero />
+          <ProofStrip />
+          <Features />
+          <Pricing />
+          <Faq />
+          <FinalCta />
+        </main>
+        <Footer />
+      </div>
     </>
   )
 }
