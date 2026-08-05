@@ -11,9 +11,9 @@ status: done
 ```txt
 .
 ├── src/
-│   ├── index.css                       ✏️ jetons --color-stage-dot + --stage-dot-size, utilitaire .stage-grain
+│   ├── index.css                       ✏️ jeton --color-stage-dot, utilitaire .stage-grain qui porte son pas
 │   └── components/canvas/
-│       └── CanvasStage.tsx             ✏️ la scène porte .stage-grain
+│       └── CanvasEditor.tsx            ✏️ la scène porte .stage-grain
 ├── scripts/
 │   └── contrast-audit.mjs              ✏️ le point n'est pas une encre : exclu de la matrice, documenté comme tel
 └── aidd_docs/memory/design.md          ✏️ la scène n'est plus un aplat
@@ -41,8 +41,8 @@ status: done
 > Un point de grille n'est pas une encre de texte : il a son propre jeton, et il ne passe pas la matrice de contraste.
 
 1. Ajouter `--color-stage-dot` dans `@theme static` : sombre `oklch(1 0 0 / 0.055)`, clair `oklch(0 0 0 / 0.09)`. Le point s'éclaircit sur fond sombre et s'assombrit sur fond clair — la maquette n'en donne que la version claire.
-2. Ajouter `--stage-dot-size: 22px` à côté. La valeur vient de la maquette, elle n'appartient à aucune échelle fermée (ce n'est ni un rayon, ni un écart, ni une hauteur de contrôle) et le pas de grille n'a pas à tomber sur 4.
-3. Chroma 0 obligatoire sur les deux : c'est la surface qui borde la planche.
+2. Le pas de 22px vit dans l'utilitaire, pas dans `@theme` : il est lu à un seul endroit et ne change pas selon le thème, donc en faire un jeton n'aurait généré que des utilitaires Tailwind inutiles. La valeur vient de la maquette ; elle n'appartient à aucune échelle fermée (ni rayon, ni écart, ni hauteur de contrôle) et n'a donc pas à tomber sur 4.
+3. Chroma 0 obligatoire : c'est la surface qui borde la planche.
 
 ### `2)` Poser le grain
 
@@ -56,7 +56,7 @@ status: done
 
 > La maquette paraît plus chère surtout par ses ombres : très floues, très décalées vers le bas, très transparentes. C'est un réglage de jetons, pas une couche de plus.
 
-1. Comparer `--shadow-md/lg/xl` actuels à `0 18px 50px -12px oklch(0 0 0 / 0.35)`.
+1. Comparer `--shadow-md/lg/xl` actuels à `0 18px 50px -12px oklch(0 0 0 / 0.35)`. **Résultat : rien à changer.** La maquette n'a qu'une couche, les nôtres en ont trois, et `--shadow-md` porte déjà `0 24px 48px -24px / 55%` en couche basse. Ce n'est pas son ombre qui la rendait plus riche, c'est sa scène texturée.
 2. N'ajuster que le flou et le décalage vertical des trois jetons existants. **Aucun quatrième niveau.**
 3. Recapturer `probe:visual` avant/après et ne garder l'ajustement que s'il se voit à 1× — sinon, le laisser tel quel et l'écrire dans le rapport.
 
