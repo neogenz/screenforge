@@ -132,7 +132,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           className={cn(
             // `hit-44` : le libellé fait 20px de haut mais se clique comme le
             // reste. Le recouvrement avec la vignette est sans effet — même action.
-            'hit-44 flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
+            //
+            // La zone monte au lieu de se centrer. Centrée, elle dépassait de
+            // 6px sous le bord de la bande ; or `overflow-x: auto` force l'autre
+            // axe à `auto` lui aussi, et cette bande a une hauteur fixe : les
+            // 6px suffisaient à y faire apparaître une barre de défilement
+            // verticale. Ancrée en bas, elle ne déborde plus que sur la vignette,
+            // qui déclenche la même action.
+            'hit-44 after:top-auto after:bottom-0 after:[translate:-50%_0]',
+            'flex h-5 w-full items-center justify-center gap-1 rounded-xs px-0.5',
             'text-2xs leading-none transition-colors',
             isActive ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
           )}
