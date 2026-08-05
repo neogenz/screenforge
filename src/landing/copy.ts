@@ -7,7 +7,7 @@ const en = {
   meta: {
     title: 'ScreenForge — App Store screenshots, pixel-exact',
     description:
-      'Local-first editor for iPhone App Store screenshot sets. Pixel-exact exports, every accepted dimension, one ZIP ready for App Store Connect. No account, no upload.',
+      'Editor for iPhone App Store screenshot sets. Pixel-exact exports rendered on your machine, one ZIP ready for App Store Connect.',
   },
   nav: {
     features: 'Features',
@@ -19,7 +19,7 @@ const en = {
   },
   hero: {
     headline: 'App Store screenshots, down to the pixel.',
-    sub: 'ScreenForge is a local-first editor for iPhone screenshot sets. Compose up to ten screens, export pixel-exact PNGs, and upload a ZIP that passes App Store Connect validation the first time.',
+    sub: 'ScreenForge is an editor for iPhone screenshot sets. Compose up to ten screens, export pixel-exact PNGs rendered on your machine — no queue, no wait — and upload a ZIP that passes App Store Connect validation the first time.',
     ctaPrimary: 'Start designing — free',
     ctaSecondary: 'See pricing',
     visualCaption: 'A ten-screen set designed and exported in ScreenForge.',
@@ -28,7 +28,7 @@ const en = {
     items: [
       { value: '1320×2868', label: 'Pixel-exact at 6.9″ — Apple scales it to every smaller size' },
       { value: 'PNG-24', label: 'Opaque, sRGB, within App Store size limits' },
-      { value: '0 uploads', label: 'Your images never leave your machine' },
+      { value: '10 screens', label: 'One set — every change applies to all ten at once' },
     ],
   },
   features: {
@@ -52,9 +52,9 @@ const en = {
       ],
       visualCaption: 'One click: a validated ZIP, grouped by dimension.',
     },
-    local: {
-      title: 'Your screenshots stay on your machine',
-      body: 'ScreenForge runs entirely in your browser. No account, no upload, no server between you and your export.',
+    ownership: {
+      title: 'Rent the editor, or own it.',
+      body: 'Most screenshot tools are subscriptions. ScreenForge offers Monthly if you prefer — but Lifetime is $39.99 once, every future update included. Do the math.',
     },
   },
   pricing: {
@@ -109,8 +109,8 @@ const en = {
         a: 'Native 6.9″ (1320×2868), portrait or landscape — the largest size App Store Connect accepts. Apple derives every smaller iPhone size from it, so one set covers all iPhones.',
       },
       {
-        q: 'Where do my images go?',
-        a: 'Nowhere. ScreenForge runs entirely in your browser and stores projects locally on your machine. Nothing is uploaded, no account is needed.',
+        q: 'Is a subscription required?',
+        a: 'No. Monthly exists if you prefer paying as you go. Lifetime unlocks everything, forever, for $39.99. The free tier lets you judge the editor before spending anything.',
       },
       {
         q: 'Can I get a refund?',
@@ -137,7 +137,7 @@ const fr: Copy = {
   meta: {
     title: 'ScreenForge — des captures App Store au pixel près',
     description:
-      'Éditeur local-first pour planches de captures App Store iPhone. Exports au pixel près, toutes les dimensions acceptées, un ZIP prêt pour App Store Connect. Sans compte, sans upload.',
+      'Éditeur de planches de captures App Store iPhone. Exports au pixel près rendus sur votre machine, un ZIP prêt pour App Store Connect.',
   },
   nav: {
     features: 'Fonctionnalités',
@@ -149,7 +149,7 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures App Store, au pixel près.',
-    sub: "ScreenForge est un éditeur local-first pour planches de captures iPhone. Composez jusqu'à dix écrans, exportez des PNG au pixel près et déposez un ZIP validé par App Store Connect du premier coup.",
+    sub: "ScreenForge est un éditeur de planches de captures iPhone. Composez jusqu'à dix écrans, exportez des PNG au pixel près rendus sur votre machine — sans file d'attente — et déposez un ZIP validé par App Store Connect du premier coup.",
     ctaPrimary: "Commencer — c'est gratuit",
     ctaSecondary: 'Voir les tarifs',
     visualCaption: 'Une planche de dix écrans dessinée et exportée dans ScreenForge.',
@@ -161,9 +161,13 @@ const fr: Copy = {
         label: 'Au pixel près en 6,9″ — Apple le décline sur toutes les tailles',
       },
       { value: 'PNG-24', label: 'Opaque, sRGB, dans les limites App Store' },
-      { value: '0 upload', label: 'Vos images ne quittent jamais votre machine' },
+      {
+        value: '10 écrans',
+        label: 'Une planche — chaque changement s’applique aux dix d’un coup',
+      },
     ],
   },
+
   features: {
     editor: {
       title: 'Un vrai éditeur, pas un formulaire',
@@ -185,9 +189,9 @@ const fr: Copy = {
       ],
       visualCaption: 'Un clic : un ZIP validé, groupé par dimension.',
     },
-    local: {
-      title: 'Vos captures restent sur votre machine',
-      body: 'ScreenForge tourne entièrement dans votre navigateur. Pas de compte, pas d\u2019upload, pas de serveur entre vous et votre export.',
+    ownership: {
+      title: 'Louer l\u2019éditeur, ou le posséder.',
+      body: 'La plupart des outils de captures se louent au mois. ScreenForge propose un Mensuel si vous préférez — mais le Lifetime coûte 39,99 $, une fois, mises à jour incluses. Faites le calcul.',
     },
   },
   pricing: {
@@ -247,8 +251,8 @@ const fr: Copy = {
         a: 'Le 6,9″ natif (1320×2868), portrait ou paysage — la plus grande taille acceptée par App Store Connect. Apple en dérive toutes les tailles iPhone inférieures : une planche couvre tous les iPhone.',
       },
       {
-        q: 'Où vont mes images ?',
-        a: 'Nulle part. ScreenForge tourne entièrement dans votre navigateur et stocke les projets localement sur votre machine. Rien n\u2019est envoyé, aucun compte n\u2019est requis.',
+        q: 'L\u2019abonnement est-il obligatoire ?',
+        a: 'Non. Le Mensuel existe si vous préférez payer au fil de l\u2019eau. Le Lifetime débloque tout, pour toujours, pour 39,99 $. L\u2019offre gratuite permet de juger l\u2019éditeur avant de dépenser un centime.',
       },
       {
         q: 'Puis-je être remboursé ?',

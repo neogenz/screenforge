@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Copy v2 — des piliers qui resteront vrais quand le SaaS arrive

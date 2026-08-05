@@ -67,10 +67,10 @@ export function Features() {
           <div className="border-t border-border pt-16 md:pt-20">
             <div className="max-w-2xl">
               <h3 className="text-2xl font-bold tracking-tight text-balance md:text-3xl">
-                {t.features.local.title}
+                {t.features.ownership.title}
               </h3>
               <p className="mt-4 text-[15px] leading-6 text-muted-foreground">
-                {t.features.local.body}
+                {t.features.ownership.body}
               </p>
             </div>
           </div>
