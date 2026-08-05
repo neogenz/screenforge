@@ -26,6 +26,7 @@
 - Filmstrip tiles are sized from the export target's ratio so the preview shows the real framing; the label under a tile carries the number alone, and the full screen name lives in the tooltip, the context menu and the artboard label on canvas.
 - Dense control heights, tabular numeric values, one primary CTA per dialog, and 120–200ms transform/opacity motion are the default grammar.
 - Lazy dialogs immediately show a token-based modal loading surface with an announced status; reduced-motion users get the same feedback without animation.
+- `index.html` paints a named boot skeleton inside `#root` — React clears the container on mount, so nothing has to remove it — and loads the font stylesheet off the critical path. The critical bundle is ~272 kB gzip and mostly Fabric, which a canvas editor needs on first paint; the fix is feedback, not further splitting.
 - If durable storage is unavailable, the editor remains usable in memory while the save status and a persistent alert disclose that closing the tab will lose the session.
 
 ## Accessibility
