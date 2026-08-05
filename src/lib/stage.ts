@@ -68,6 +68,22 @@ export const THUMBNAIL_SLOT = THUMBNAIL_WIDTH + FILMSTRIP_GAP
  * `overflow-y: auto`, et l'anneau y ferait apparaître une barre de défilement.
  */
 export const FILMSTRIP_PADDING = 4
+/**
+ * La place rendue à la barre de défilement horizontale.
+ *
+ * Une barre classique se pose dans la boîte de rembourrage et rétrécit la zone
+ * de contenu d'autant. La bande faisant exactement la hauteur de ce qu'elle
+ * porte, le contenu ne tenait plus dès qu'elle apparaissait — et `overflow-x:
+ * auto` forçant l'autre axe, une barre verticale se levait sur une rangée d'une
+ * seule ligne. Le remède est de lui rendre sa hauteur, pas de la cacher : sur
+ * une fenêtre étroite elle dit qu'il reste des écrans à droite.
+ *
+ * 12 couvre une barre fine (`scrollbar-width: thin`) sur les moteurs qui la
+ * dimensionnent eux-mêmes. Réservée en permanence : sur une bande sans surface,
+ * douze pixels transparents ne se voient pas, alors qu'une hauteur qui change
+ * avec le nombre d'écrans ferait sauter la scène.
+ */
+export const FILMSTRIP_SCROLLBAR = 12
 /** Hauteur du libellé, et l'écart qui le lie à ce qu'il nomme — le 6 qui lie. */
 export const THUMBNAIL_LABEL_HEIGHT = 16
 export const THUMBNAIL_LABEL_GAP = 6
@@ -87,7 +103,7 @@ export const THUMBNAIL_LABEL_ROW = THUMBNAIL_LABEL_GAP + THUMBNAIL_LABEL_HEIGHT
  * prendrait 22px au canevas pour répéter le badge.
  */
 export function filmstripHeight(labelled: boolean): number {
-  return THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT
+  return THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT + FILMSTRIP_SCROLLBAR
     + (labelled ? THUMBNAIL_LABEL_ROW : 0)
 }
 

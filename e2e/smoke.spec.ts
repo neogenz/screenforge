@@ -7,7 +7,12 @@ import {
   layerRows,
   waitForApp,
 } from './helpers'
-import { FILMSTRIP_PADDING, THUMBNAIL_SLOT, THUMBNAIL_WIDTH } from '../src/lib/stage'
+import {
+  FILMSTRIP_PADDING,
+  THUMBNAIL_HEIGHT,
+  THUMBNAIL_SLOT,
+  THUMBNAIL_WIDTH,
+} from '../src/lib/stage'
 
 test.describe('smoke', () => {
   test('app loads and project name is editable', async ({ page }) => {
@@ -57,65 +62,99 @@ test.describe('smoke', () => {
       window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) => screen.name))
     const before = await names()
 
-    // Le décalage libère l'emplacement sous le curseur : au lâcher, celui-ci
-    // survole le vide, donc la bande — et non une tuile. C'est ce que ce test
-    // garde, le lâcher n'étant sinon accepté nulle part et l'ordre revenant à
-    // son état initial après l'animation.
-    const fire = (target: 'strip' | number, type: string) =>
+    const strip = '[role="group"][aria-label="Écrans"]'
+
+    /** Un `dragstart` ou un `dragend` sur une tuile, qui les porte. */
+    const fireOnTile = (index: number, type: string) =>
       page.evaluate(([node, event]) => {
-        const strip = document.querySelector('[role="group"][aria-label="Écrans"]')
-        if (!strip) throw new Error('bande introuvable')
+        const tiles = [...document.querySelectorAll<HTMLElement>(
+          '[role="group"][aria-label="Écrans"] > div[draggable]')]
         const scope = window as unknown as { __sfDrag?: DataTransfer }
         scope.__sfDrag ??= new DataTransfer()
-        const tiles = [...strip.querySelectorAll<HTMLElement>(':scope > div[draggable]')]
-        const receiver = node === 'strip' ? strip : tiles[node as number]
-        receiver.dispatchEvent(
+        tiles[node as number].dispatchEvent(
           new DragEvent(event as string, { bubbles: true, dataTransfer: scope.__sfDrag }),
         )
-      }, [target, type] as const)
+      }, [index, type] as const)
+
+    /**
+     * Un `dragover` ou un `drop` sur la bande, au centre d'un emplacement.
+     *
+     * La cible se lit désormais sur l'abscisse du curseur et non sur la tuile
+     * survolée : le voisin décalé recouvre l'emplacement d'origine, et le
+     * désigner rendait le rang de départ — donc le rang 0 pour une tuile prise
+     * en tête — injoignable pendant tout le geste.
+     */
+    const fireOnStrip = (slot: number, type: string) =>
+      page.evaluate(([index, event, padding, slotWidth, width, height]) => {
+        const box = document.querySelector('[role="group"][aria-label="Écrans"]')
+        if (!box) throw new Error('bande introuvable')
+        const scope = window as unknown as { __sfDrag?: DataTransfer }
+        scope.__sfDrag ??= new DataTransfer()
+        const bounds = box.getBoundingClientRect()
+        const clientX = bounds.left - box.scrollLeft
+          + (padding as number) + (index as number) * (slotWidth as number) + (width as number) / 2
+        const clientY = bounds.top + (padding as number) + (height as number) / 2
+        // L'élément que le navigateur désigne à ce point, et non la bande : le
+        // voisin décalé passe *au-dessus* de la tuile déplacée, et c'est
+        // précisément ce recouvrement qui rendait le rang de départ injoignable.
+        // Viser la bande directement masquerait le défaut au lieu de le tester.
+        const target = document.elementFromPoint(clientX, clientY) ?? box
+        target.dispatchEvent(new DragEvent(event as string, {
+          bubbles: true,
+          clientX,
+          clientY,
+          dataTransfer: scope.__sfDrag,
+        }))
+      }, [slot, type, FILMSTRIP_PADDING, THUMBNAIL_SLOT, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT] as const)
 
     const shifts = () => page.evaluate(() =>
       [...document.querySelectorAll('[role="group"][aria-label="Écrans"] > div[draggable]')]
         .map((tile) => getComputedStyle(tile).translate))
 
     /** La barre d'insertion : sa distance au bord de la bande, ou `null`. */
-    const insertionBar = () => page.evaluate(() => {
-      const strip = document.querySelector('[role="group"][aria-label="Écrans"]')
-      const bar = strip?.querySelector<HTMLElement>(':scope > span[aria-hidden]')
-      if (!strip || !bar) return null
+    const insertionBar = () => page.evaluate((selector) => {
+      const box = document.querySelector(selector)
+      const bar = box?.querySelector<HTMLElement>(':scope > span[aria-hidden]')
+      if (!box || !bar) return null
       return {
-        offset: Math.round(bar.getBoundingClientRect().left - strip.getBoundingClientRect().left),
+        offset: Math.round(bar.getBoundingClientRect().left - box.getBoundingClientRect().left),
         // Inerte au pointeur, sinon elle vole le `dragover` qui décide de la
         // cible : elle est posée exactement là où le curseur se trouve.
         inert: getComputedStyle(bar).pointerEvents === 'none',
       }
-    })
+    }, strip)
+
+    const barAtSlot = (slot: number) =>
+      Math.round(FILMSTRIP_PADDING + slot * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5)
 
     expect(await insertionBar()).toBeNull()
 
-    await fire(0, 'dragstart')
-    await fire(2, 'dragover')
+    await fireOnTile(0, 'dragstart')
+    await fireOnStrip(2, 'dragover')
     // La tuile déplacée reste en place, les deux survolées reculent d'un pas.
     await expect.poll(shifts).toEqual(['0px', expect.not.stringMatching(/^0px$/), expect.anything()])
     const previewed = await shifts()
     expect(previewed[1]).toBe(previewed[2])
+    await expect.poll(insertionBar).toEqual({ offset: barAtSlot(2), inert: true })
 
-    // La barre marque l'emplacement visé : le troisième rang, dans le vide que
-    // la rangée vient d'ouvrir.
-    const expected = FILMSTRIP_PADDING + 2 * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5
-    await expect.poll(insertionBar).toEqual({ offset: Math.round(expected), inert: true })
+    // Le retour à l'emplacement de départ, celui que la voisine décalée
+    // recouvre. Il était injoignable, et c'est ce qui bloquait le rang 0.
+    await fireOnStrip(0, 'dragover')
+    await expect.poll(insertionBar).toEqual({ offset: barAtSlot(0), inert: true })
+    await expect.poll(shifts).toEqual(['0px', '0px', '0px'])
 
-    await fire('strip', 'drop')
-    await fire(0, 'dragend')
+    await fireOnStrip(2, 'dragover')
+    await fireOnStrip(2, 'drop')
+    await fireOnTile(0, 'dragend')
     await expect.poll(names).toEqual([before![1], before![2], before![0]])
     await expect.poll(shifts).toEqual(['0px', '0px', '0px'])
     await expect.poll(insertionBar).toBeNull()
 
     // Le retour en arrière passe par la même mécanique, dans l'autre sens.
-    await fire(2, 'dragstart')
-    await fire(0, 'dragover')
-    await fire('strip', 'drop')
-    await fire(2, 'dragend')
+    await fireOnTile(2, 'dragstart')
+    await fireOnStrip(0, 'dragover')
+    await fireOnStrip(0, 'drop')
+    await fireOnTile(2, 'dragend')
     await expect.poll(names).toEqual(before)
   })
 

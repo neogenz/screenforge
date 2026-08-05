@@ -138,34 +138,37 @@ export function ScreensBar() {
   }, [])
 
   /**
-   * La cible pendant le geste, mise à jour par la tuile survolée.
+   * La cible pendant le geste, lue sur la position du curseur.
    *
-   * Elle cesse de changer dès que le curseur entre dans le vide que la rangée
-   * vient d'ouvrir, et c'est exactement ce qu'il faut : ce vide est la place
-   * visée, la cible ne doit plus bouger tant qu'on y reste.
+   * Et non sur la tuile survolée, comme auparavant : le voisin qui se décale
+   * vient couvrir exactement l'emplacement que la tuile déplacée occupe encore
+   * dans le flux, et c'est lui que `dragover` désigne. L'emplacement d'origine
+   * était donc injoignable — pour une tuile prise en première position, le
+   * rang 0 restait bloqué pour tout le geste, et le lâcher la ramenait où elle
+   * était. C'est le blocage signalé, photo à l'appui.
+   *
+   * La grille des emplacements est régulière et connue de `lib/stage.ts` : la
+   * lire directement supprime aussi les zones mortes des gouttières, et rend
+   * les deux extrémités atteignables en débordant la bande, où plus aucune
+   * tuile ne se trouve. Un seul gestionnaire suffit, `dragover` remontant
+   * depuis les tuiles — c'est aussi lui qui accepte le lâcher, le curseur
+   * survolant le vide au moment du relâchement et non une tuile.
    */
-  const handleTileDragOver = useCallback((index: number, event: React.DragEvent) => {
+  const handleStripDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (dragSourceIndex.current === null) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
+    const count = useProjectStore.getState().project?.screens.length ?? 0
+    if (count === 0) return
+    const strip = event.currentTarget
+    const x = event.clientX
+      - strip.getBoundingClientRect().left
+      + strip.scrollLeft
+      - FILMSTRIP_PADDING
+    const index = clampNumber(Math.floor(x / THUMBNAIL_SLOT), 0, count - 1)
     if (dragOverIndex.current === index) return
     dragOverIndex.current = index
     setDrag((current) => (current ? { ...current, over: index } : current))
-  }, [])
-
-  /**
-   * La bande accepte le lâcher, pas seulement les tuiles.
-   *
-   * Le décalage libère l'emplacement sous le curseur — c'est ce qui empêche
-   * `dragover` d'osciller — mais cela veut dire qu'au moment du lâcher le
-   * curseur est au-dessus du vide, donc de la bande. Sans ces deux gestionnaires
-   * ici, aucun `drop` n'était accepté et la rangée revenait à son ordre initial
-   * après l'animation.
-   */
-  const handleStripDragOver = useCallback((event: React.DragEvent) => {
-    if (dragSourceIndex.current === null) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
   }, [])
 
   const handleDragEnd = useCallback(() => {
@@ -218,7 +221,7 @@ export function ScreensBar() {
       // des surfaces. Une carte autour d'eux empilait plateau, tuile et aperçu à
       // trois clartés voisines, et prenait 26px de hauteur au canevas pour
       // encadrer du vide. Ce sont les vignettes qui flottent.
-      className="relative flex animate-slide-up items-start overflow-x-auto"
+      className="filmstrip-scroll relative flex animate-slide-up items-start"
       onDragOver={handleStripDragOver}
       onDrop={handleDrop}
     >
@@ -249,7 +252,6 @@ export function ScreensBar() {
           key={screen.id}
           draggable
           onDragStart={(event) => handleDragStart(index, event)}
-          onDragOver={(event) => handleTileDragOver(index, event)}
           onDragEnd={handleDragEnd}
           // La rangée montre la place plutôt que de la promettre : les tuiles
           // s'écartent d'un pas pendant le geste et la rangée prend déjà la

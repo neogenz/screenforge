@@ -288,6 +288,28 @@
   background-position: var(--stage-dot-x) var(--stage-dot-y);
 }
 
+/* ── Défilement de la pellicule ──
+   Horizontal seulement, et sa barre a sa place réservée.
+
+   La bande fait exactement la hauteur de son contenu — c'est ce que
+   `filmstripHeight` calcule et ce que la scène réserve. Une barre horizontale
+   classique prend une dizaine de pixels dans cette hauteur : le contenu ne
+   tient plus, et `overflow-x: auto` forçant l'autre axe, une barre verticale
+   apparaissait sur une rangée qui n'a qu'une ligne. `overflow-y: hidden` est le
+   seul appariement qui ne force rien, et `FILMSTRIP_SCROLLBAR` rend à la barre
+   horizontale la hauteur qu'elle prend.
+
+   Les propriétés standard plutôt que `::-webkit-scrollbar` : depuis Chromium
+   121 la première l'emporte sur la seconde, les déclarer toutes deux serait se
+   contredire. Une barre fine et neutre, sur une bande qui flotte au-dessus du
+   canevas et n'a pas de surface à elle. */
+@utility filmstrip-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
 /* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
   /* Deux niveaux, pas cinq : la scène est claire et les îlots sont blancs, et
