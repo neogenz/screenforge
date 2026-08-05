@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle, MonitorSmartphone } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
@@ -11,6 +11,8 @@ import { CommandPalette } from '@/components/ui/command-palette'
 import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
+import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
+import { DUAL_DRAWER_MIN_WIDTH, MIN_APP_WIDTH } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { clearAssets } from '@/lib/assets'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
@@ -33,6 +35,12 @@ export default function App() {
   useKeyboard()
 
   const theme = useUIStore((s) => s.theme)
+  const tooNarrow = useMediaQuery(belowWidth(MIN_APP_WIDTH))
+  const exclusiveDrawers = useMediaQuery(belowWidth(DUAL_DRAWER_MIN_WIDTH))
+
+  useEffect(() => {
+    useUIStore.getState().setExclusiveDrawers(exclusiveDrawers)
+  }, [exclusiveDrawers])
 
   // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
   // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
@@ -94,6 +102,10 @@ export default function App() {
     else toast(result.error, 'error')
   }
 
+  // Le projet a déjà été chargé par les effets ci-dessus : élargir la fenêtre
+  // rend l'éditeur à son état, sans recharger.
+  if (tooNarrow) return <ViewportFloor />
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-stage">
       {/* Stage: full-bleed canvas */}
@@ -147,6 +159,32 @@ export default function App() {
           },
         }}
       />
+    </div>
+  )
+}
+
+/**
+ * Le plancher de largeur, annoncé.
+ *
+ * Un éditeur canvas ne se replie pas en une colonne : sous ce seuil, la barre
+ * sortait ses contrôles de l'écran — « Exporter » compris — et les deux tiroirs
+ * s'empilaient l'un sur l'autre, sans que rien ne le signale. Dire la contrainte
+ * vaut mieux que rendre une interface qui ment sur ce qu'elle sait faire.
+ */
+function ViewportFloor() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-stage p-6">
+      <div className="island flex max-w-80 flex-col items-start gap-2 text-left">
+        <MonitorSmartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+        <h1 className="text-base font-semibold text-foreground">Fenêtre trop étroite</h1>
+        <p className="text-sm text-muted-foreground">
+          ScreenForge compose des captures 1320 × 2868 : il lui faut au moins {MIN_APP_WIDTH} px
+          de large pour poser une planche et son panneau côte à côte.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Élargissez la fenêtre : votre projet est enregistré, vous le retrouverez intact.
+        </p>
+      </div>
     </div>
   )
 }

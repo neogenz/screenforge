@@ -46,6 +46,54 @@ export const THUMBNAIL_COLUMN_HEIGHT = THUMBNAIL_HEIGHT + 8 + 20
  */
 export const FILMSTRIP_HEIGHT = THUMBNAIL_COLUMN_HEIGHT + FILMSTRIP_PADDING * 2 + 2
 
+/**
+ * Gouttière réservée au HUD de zoom, de chaque côté de la pellicule centrée.
+ *
+ * La pellicule est centrée sur la fenêtre et le HUD ancré à droite : sans
+ * réserve, les deux se recouvraient de 15px sous 430px de large et le HUD
+ * prenait le clic destiné à la dernière vignette. 160 = le HUD (134 mesuré à
+ * « 100 % ») + sa marge (12) + un écart franc (14).
+ */
+export const FILMSTRIP_SIDE_GUTTER = 160
+/** Largeur maximale de la pellicule, bornée par les deux gouttières. */
+export const FILMSTRIP_MAX_WIDTH = `min(760px, calc(100vw - ${FILMSTRIP_SIDE_GUTTER * 2}px))`
+
+/**
+ * Largeur de scène sous laquelle l'aperçu cesse de rendre service.
+ *
+ * Une planche 1320×2868 posée dans moins que cela se lit comme la vignette de
+ * la pellicule : on distingue une mise en page d'une autre, on ne juge plus
+ * rien. C'est le seuil qui décide combien de tiroirs tiennent à l'écran, et à
+ * partir d'où l'éditeur annonce sa largeur minimale au lieu de se déformer.
+ */
+export const MIN_STAGE_WIDTH = 240
+/**
+ * Largeur en deçà de laquelle les deux tiroirs ne peuvent plus coexister.
+ *
+ * Trois marges : celle de chaque bord, plus celle entre un tiroir et la scène.
+ * Sous ce seuil l'ouverture devient exclusive — mesuré avant : à 375px les deux
+ * tiroirs se recouvraient de 249px et le panneau Calques disparaissait sous
+ * Propriétés, sans que rien ne le dise.
+ */
+export const DUAL_DRAWER_MIN_WIDTH =
+  ISLAND_MARGIN * 3 + DRAWER_WIDTH_LAYERS + DRAWER_WIDTH_PROPS + MIN_STAGE_WIDTH
+/**
+ * Plancher de l'éditeur : un tiroir et une scène utile, rien de moins.
+ *
+ * En dessous, ScreenForge annonce sa largeur minimale plutôt que de rendre une
+ * barre dont les contrôles sortent de l'écran. Un échec déclaré vaut mieux
+ * qu'un échec silencieux — c'était le second qui était en place.
+ */
+export const MIN_APP_WIDTH = ISLAND_MARGIN * 3 + DRAWER_WIDTH_PROPS + MIN_STAGE_WIDTH
+/**
+ * Largeur sous laquelle la barre supérieure replie ses actions secondaires.
+ *
+ * Mesurée et non déduite : le contenu de la barre plancherait à 654px, elle
+ * tenait encore à 700 et débordait de 118px à 560, où « Exporter » quittait
+ * l'écran. Arrondi au palier standard immédiatement au-dessus.
+ */
+export const TOP_BAR_COMPACT_WIDTH = 768
+
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
 /** Filmstrip + margins. */

@@ -474,6 +474,24 @@
     min-height: 44px;
   }
 
+  /* Le minimum de la 2.5.8, pour les poignées qui se côtoient.
+     Une zone de 44 sur des arrêts de dégradé volerait la prise du voisin ;
+     à 24 elle ne mord que sur ce qui se chevauche déjà à l'œil. */
+  .hit-24 {
+    position: relative;
+  }
+  .hit-24::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: 100%;
+    min-width: 24px;
+    min-height: 24px;
+  }
+
   .hairline {
     height: 1px;
     background: var(--color-border);

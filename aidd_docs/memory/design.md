@@ -15,6 +15,7 @@
 - The rendered scales are closed and checked: three type sizes, two line-heights, two control heights, four radii, two vertical gaps.
 - Line-height is declared in px on a 4px grid, never as a ratio; the named ratio utilities are removed from the theme and the scale guard rejects any rendered value off the grid.
 - Canvas geometry shared with floating chrome lives in `src/lib/stage.ts`; `.island` carries a 6px inset derived from the radius chain so the inner-radius rule holds by construction. The filmstrip is a tray whose contents float, so it carries a wider inset than the inner gap.
+- The same file derives the responsive thresholds: one drawer at a time below `DUAL_DRAWER_MIN_WIDTH`, a folded overflow menu in the top bar below `TOP_BAR_COMPACT_WIDTH`, and a stated minimum width below `MIN_APP_WIDTH`. The editor is desktop-class and declares its floor rather than pushing controls off-screen.
 
 ## Components
 

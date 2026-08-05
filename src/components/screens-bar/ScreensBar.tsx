@@ -7,7 +7,12 @@ import { toast } from '@/stores/toast.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import { FILMSTRIP_HEIGHT, FILMSTRIP_PADDING, THUMBNAIL_HEIGHT } from '@/lib/stage'
+import {
+  FILMSTRIP_HEIGHT,
+  FILMSTRIP_MAX_WIDTH,
+  FILMSTRIP_PADDING,
+  THUMBNAIL_HEIGHT,
+} from '@/lib/stage'
 import type { Background } from '@/types'
 
 /** Floating bottom-center screens strip. */
@@ -117,8 +122,10 @@ export function ScreensBar() {
       // avec `aria-pressed`, et c'est exact pour des boutons.
       role="group"
       aria-label="Écrans"
-      style={{ height: FILMSTRIP_HEIGHT, padding: FILMSTRIP_PADDING }}
-      className="island flex max-w-[min(760px,58vw)] animate-slide-up items-start gap-2 overflow-x-auto"
+      // La largeur maximale réserve la gouttière du HUD de zoom : centrée sur la
+      // fenêtre, la bande passait sinon sous lui en fenêtre étroite.
+      style={{ height: FILMSTRIP_HEIGHT, padding: FILMSTRIP_PADDING, maxWidth: FILMSTRIP_MAX_WIDTH }}
+      className="island flex animate-slide-up items-start gap-2 overflow-x-auto"
     >
       {list.map((screen, index) => (
         <div

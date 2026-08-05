@@ -2,12 +2,14 @@ import { useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
+  Command,
   Download,
   FileDown,
   FolderOpen,
   ImageIcon,
   LayoutTemplate,
   LoaderCircle,
+  MoreHorizontal,
   Moon,
   PenLine,
   PanelLeft,
@@ -29,6 +31,8 @@ import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
+import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
+import { TOP_BAR_COMPACT_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import {
   createProjectFile,
@@ -362,12 +366,100 @@ function ToolsSegment() {
   )
 }
 
-function ActionsSegment() {
-  const layersOpen = useUIStore((s) => s.layersOpen)
-  const propsOpen = useUIStore((s) => s.propsOpen)
+/**
+ * Les actions secondaires, décrites une fois.
+ *
+ * Elles se rendent en rangée quand la barre a la place, et dans un menu quand
+ * elle ne l'a plus. Deux écritures parallèles auraient dérivé : c'est ce qui
+ * fait qu'une action finit par exister large et pas étroit.
+ */
+interface SecondaryAction {
+  id: string
+  /** Nom accessible et libellé de menu : le même mot dans les deux formes. */
+  label: string
+  hint: string
+  icon: React.ReactNode
+  /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
+  expanded?: boolean
+  onSelect: () => void
+}
+
+function useSecondaryActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const theme = useUIStore((s) => s.theme)
+
+  return [
+    {
+      id: 'templates',
+      label: 'Ouvrir les modèles',
+      hint: 'Modèles de mise en page',
+      icon: <LayoutTemplate size={16} strokeWidth={1.75} />,
+      expanded: showTemplatesPicker,
+      onSelect: () => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker),
+    },
+    {
+      id: 'globals',
+      label: 'Ouvrir les réglages globaux',
+      hint: 'Réglages globaux du projet',
+      icon: <Settings size={16} strokeWidth={1.75} />,
+      expanded: showGlobalsEditor,
+      onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
+    },
+    {
+      id: 'theme',
+      label: 'Changer de thème',
+      hint: theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre',
+      icon: theme === 'dark'
+        ? <Sun size={16} strokeWidth={1.75} />
+        : <Moon size={16} strokeWidth={1.75} />,
+      onSelect: () => useUIStore.getState().toggleTheme(),
+    },
+    {
+      id: 'palette',
+      label: 'Ouvrir la palette de commandes',
+      hint: 'Palette de commandes (⌘K)',
+      icon: <Command size={16} strokeWidth={1.75} />,
+      onSelect: () => useUIStore.getState().setShowCommandPalette(true),
+    },
+  ]
+}
+
+function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Dropdown
+      open={open}
+      onOpenChange={setOpen}
+      trigger={(
+        <IconButton
+          aria-label="Ouvrir les autres actions"
+          title="Autres actions"
+          active={open}
+          aria-expanded={open}
+        >
+          <MoreHorizontal size={16} strokeWidth={1.75} />
+        </IconButton>
+      )}
+      ariaLabel="Autres actions"
+      items={actions.map((action) => ({
+        id: action.id,
+        label: action.label,
+        icon: action.icon,
+        onSelect: action.onSelect,
+      }))}
+    />
+  )
+}
+
+function ActionsSegment() {
+  const layersOpen = useUIStore((s) => s.layersOpen)
+  const propsOpen = useUIStore((s) => s.propsOpen)
+  const actions = useSecondaryActions()
+  // Sous ce seuil la rangée débordait, et c'est « Exporter » qui quittait
+  // l'écran en premier : le CTA principal reste, ce sont ses voisins qui cèdent.
+  const compact = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
 
   return (
     <div className="flex items-center gap-1 justify-self-end">
@@ -395,45 +487,39 @@ function ActionsSegment() {
 
       <Divider />
 
-      <IconButton
-        aria-label="Ouvrir les modèles"
-        title="Modèles de mise en page"
-        active={showTemplatesPicker}
-        aria-expanded={showTemplatesPicker}
-        aria-haspopup="dialog"
-        onClick={() => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker)}
-      >
-        <LayoutTemplate size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Ouvrir les réglages globaux"
-        title="Réglages globaux du projet"
-        active={showGlobalsEditor}
-        aria-expanded={showGlobalsEditor}
-        aria-haspopup="dialog"
-        onClick={() => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor)}
-      >
-        <Settings size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Changer de thème"
-        title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        onClick={() => useUIStore.getState().toggleTheme()}
-      >
-        {theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
-      </IconButton>
-      <button
-        type="button"
-        aria-label="Ouvrir la palette de commandes"
-        title="Palette de commandes (⌘K)"
-        onClick={() => useUIStore.getState().setShowCommandPalette(true)}
-        className={cn(
-          'flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
-          'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
-        )}
-      >
-        <Kbd>⌘K</Kbd>
-      </button>
+      {compact ? (
+        <SecondaryActionsMenu actions={actions} />
+      ) : (
+        actions.map((action) =>
+          action.id === 'palette' ? (
+            <button
+              key={action.id}
+              type="button"
+              aria-label={action.label}
+              title={action.hint}
+              onClick={action.onSelect}
+              className={cn(
+                'flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
+                'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
+              )}
+            >
+              <Kbd>⌘K</Kbd>
+            </button>
+          ) : (
+            <IconButton
+              key={action.id}
+              aria-label={action.label}
+              title={action.hint}
+              active={action.expanded}
+              aria-expanded={action.expanded}
+              aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
+              onClick={action.onSelect}
+            >
+              {action.icon}
+            </IconButton>
+          ),
+        )
+      )}
 
       <Button
         variant="primary"
