@@ -53,7 +53,7 @@ test.describe('smoke', () => {
     await addScreen(page)
     await addScreen(page)
     const names = () => page.evaluate(() =>
-      window.__sfStores.useProjectStore.getState().project?.screens.map((screen) => screen.name))
+      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) => screen.name))
     const before = await names()
 
     // Le décalage libère l'emplacement sous le curseur : au lâcher, celui-ci
