@@ -1,6 +1,6 @@
 ---
 objective: "La landing passe au prerender (HTML complet servi, deux documents EN/FR avec hreflang) et adopte une direction specimen/blueprint qui lui donne un caractère propre, avec une copy honnête vis-à-vis du SaaS à venir."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Landing v2 — prerender SEO + direction specimen/blueprint
