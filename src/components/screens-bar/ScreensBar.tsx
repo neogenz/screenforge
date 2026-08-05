@@ -14,6 +14,7 @@ import {
   FILMSTRIP_MAX_WIDTH,
   FILMSTRIP_PADDING,
   THUMBNAIL_HEIGHT,
+  THUMBNAIL_LIFT,
   THUMBNAIL_SLOT,
 } from '@/lib/stage'
 import { cn } from '@/lib/utils'
@@ -195,9 +196,15 @@ export function ScreensBar() {
       aria-label="Écrans"
       // La largeur maximale réserve la gouttière du HUD de zoom : centrée sur la
       // fenêtre, la bande passait sinon sous lui en fenêtre étroite.
+      // Le haut porte le dégagement *et* la place du soulèvement : la tuile
+      // courante sort de la boîte défilante par là, et `overflow-x: auto`
+      // forçant l'autre axe, elle s'y ferait rogner.
       style={{
         height: FILMSTRIP_HEIGHT,
-        padding: FILMSTRIP_PADDING,
+        paddingTop: FILMSTRIP_PADDING + THUMBNAIL_LIFT,
+        paddingRight: FILMSTRIP_PADDING,
+        paddingBottom: FILMSTRIP_PADDING,
+        paddingLeft: FILMSTRIP_PADDING,
         maxWidth: FILMSTRIP_MAX_WIDTH,
         gap: FILMSTRIP_GAP,
       }}
@@ -254,9 +261,8 @@ export function ScreensBar() {
 
       {/* Un bouton, et non une tuile. À la taille des vignettes il en portait le
           cadre et se lisait comme un écran de plus, vide ; ajouter un écran est
-          une action, pas un emplacement. Centré sur l'aperçu et non sur la
-          colonne : c'est la rangée d'aperçus que l'œil suit, les puces sont
-          sous elle. */}
+          une action, pas un emplacement. Centré sur l'aperçu, comme le
+          compteur : c'est la rangée d'aperçus que l'œil suit. */}
       <div style={{ height: THUMBNAIL_HEIGHT }} className="flex shrink-0 items-center">
         <IconButton
           size="sm"

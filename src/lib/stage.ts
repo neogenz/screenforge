@@ -30,28 +30,22 @@ export const THUMBNAIL_WIDTH = Math.round(
   (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
 )
 /**
- * Puce du numéro, ronde et détachée sous l'aperçu.
+ * Puce du numéro, posée sur l'aperçu.
  *
- * Détachée, et c'est le point : collée à l'aperçu elle en devenait le socle,
- * donc une seconde surface à faire tenir contre un aperçu presque toujours
- * clair. Posée à même la scène, elle n'a plus qu'un fond à contraster.
+ * Sur l'aperçu et non sous lui : posée sur la scène, elle devait tenir contre
+ * deux thèmes et contre un aperçu presque toujours clair, et sa rangée coûtait
+ * 26px de canevas. Sur l'image, elle n'a plus qu'une surface à contraster, et
+ * son voile sombre l'y suffit quel que soit le contenu de la capture.
  */
-export const THUMBNAIL_BADGE_SIZE = 20
+export const THUMBNAIL_BADGE_SIZE = 16
 /**
- * L'écart qui lie une étiquette à ce qu'elle nomme — la même valeur que dans
- * les panneaux, où 6 lie et 8 sépare.
- */
-export const THUMBNAIL_BADGE_GAP = 6
-/**
- * La colonne : l'aperçu, l'écart, la puce.
+ * De combien l'écran courant se détache de la rangée.
  *
- * Les filets ne s'y ajoutent pas : ils sont portés par les deux éléments qui
- * déclarent eux-mêmes leur hauteur, que `box-sizing: border-box` referme dessus.
- * Compter deux pixels de plus laissait la boîte défilante plus haute que ce
- * qu'elle contient, et l'anneau de focus décentré d'autant.
+ * Un soulèvement plutôt qu'un anneau : mesuré, 2px de trait plein autour d'une
+ * tuile large de 46 est le trait le plus épais de l'interface et se lit comme
+ * un surligneur.
  */
-export const THUMBNAIL_COLUMN_HEIGHT =
-  THUMBNAIL_HEIGHT + THUMBNAIL_BADGE_GAP + THUMBNAIL_BADGE_SIZE
+export const THUMBNAIL_LIFT = 4
 /**
  * L'écart entre deux tuiles : le 8 qui sépare, dans l'échelle fermée.
  *
@@ -69,8 +63,15 @@ export const THUMBNAIL_SLOT = THUMBNAIL_WIDTH + FILMSTRIP_GAP
  * `overflow-y: auto`, et l'anneau y ferait apparaître une barre de défilement.
  */
 export const FILMSTRIP_PADDING = 4
-/** Colonne + son dégagement. */
-export const FILMSTRIP_HEIGHT = THUMBNAIL_COLUMN_HEIGHT + FILMSTRIP_PADDING * 2
+/**
+ * L'aperçu, son dégagement, et la place du soulèvement au-dessus de la rangée.
+ *
+ * Le soulèvement ne s'ajoute qu'en haut : la tuile courante sort de la boîte
+ * défilante par là, et `overflow-x: auto` forçant l'autre axe, elle s'y ferait
+ * rogner. Le compter des deux côtés ne réserverait rien de plus et coûterait
+ * 4px de canevas.
+ */
+export const FILMSTRIP_HEIGHT = THUMBNAIL_HEIGHT + FILMSTRIP_PADDING * 2 + THUMBNAIL_LIFT
 
 /**
  * Gouttière réservée au HUD de zoom, de chaque côté de la pellicule centrée.
