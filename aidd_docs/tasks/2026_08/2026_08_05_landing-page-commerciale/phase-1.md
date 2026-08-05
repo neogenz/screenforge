@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Socle landing — entry Vite, shell HTML, tokens, i18n EN/FR

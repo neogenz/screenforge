@@ -1,0 +1,18 @@
+/*
+ * Landing — socle. Consomme les tokens de marque de l'app, puis défait les
+ * verrous de l'éditeur : `#root` y est un viewport fixe sans défilement, la
+ * landing est une page qui défile. La règle non layérée l'emporte sur
+ * `@layer base` sans `!important`.
+ */
+@import '@/index.css';
+
+#root {
+  width: auto;
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+body {
+  background: var(--color-stage);
+}
