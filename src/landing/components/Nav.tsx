@@ -4,11 +4,12 @@ import { Menu } from 'lucide-react'
 import { useLang } from '../i18n'
 import { LINKS } from '../links'
 import { CtaPrimary } from './cta'
+import { LangLink } from './LangLink'
 
 const anchorClass = 'text-muted-foreground transition-colors duration-150 hover:text-foreground'
 
 export function Nav() {
-  const { t, lang, setLang } = useLang()
+  const { t } = useLang()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -58,22 +59,10 @@ export function Nav() {
           <div
             role="group"
             aria-label={t.nav.langSwitchLabel}
-            className="flex items-center gap-1 text-xs text-muted-foreground"
+            className="flex items-center gap-1 text-xs"
           >
-            {(['en', 'fr'] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                aria-pressed={lang === code}
-                onClick={() => setLang(code)}
-                className={cn(
-                  'rounded-xs px-1.5 py-1 uppercase transition-colors duration-150',
-                  lang === code ? 'text-foreground' : 'hover:text-foreground/80',
-                )}
-              >
-                {code}
-              </button>
-            ))}
+            <LangLink code="en" />
+            <LangLink code="fr" />
           </div>
           <CtaPrimary href={LINKS.app} size="sm">
             {t.nav.cta}

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Prerender — HTML complet, documents EN + FR, hreflang

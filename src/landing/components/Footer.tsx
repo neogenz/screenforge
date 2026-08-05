@@ -1,8 +1,9 @@
 import { useLang } from '../i18n'
 import { LINKS } from '../links'
+import { LangLink } from './LangLink'
 
 export function Footer() {
-  const { t, lang, setLang } = useLang()
+  const { t, lang } = useLang()
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-4 px-5 py-10 text-sm text-muted-foreground">
@@ -13,13 +14,7 @@ export function Footer() {
         {/* TODO(légal): pages Confidentialité/Conditions à publier avec le checkout */}
         <span className="text-muted-foreground">{t.footer.privacy}</span>
         <span className="text-muted-foreground">{t.footer.terms}</span>
-        <button
-          type="button"
-          onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
-          className="uppercase transition-colors duration-150 hover:text-foreground"
-        >
-          {lang === 'en' ? 'FR' : 'EN'}
-        </button>
+        <LangLink code={lang === 'en' ? 'fr' : 'en'} />
         <span className="ml-auto text-xs">{t.footer.copyright}</span>
       </div>
     </footer>
