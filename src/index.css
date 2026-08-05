@@ -42,6 +42,11 @@
      pur — un entourage noir maximise le contraste simultané autour d'un artboard
      clair et fausse le jugement couleur, qui est la tâche du produit. */
   --color-stage: oklch(0.145 0 0);
+  /* L'encre du grain de la scène. Décoratif et rien d'autre : il ne porte
+     aucune information, donc il ne passe pas la matrice de contraste — un alpha
+     de 5% y échouerait par construction, pour la seule raison qu'il n'est pas
+     du texte. Chroma 0 comme tout ce qui borde la planche. */
+  --color-stage-dot: oklch(1 0 0 / 0.055);
   --color-background: oklch(0.175 0 0);
   --color-card: oklch(0.215 0 0);
   --color-popover: oklch(0.215 0 0);
@@ -250,9 +255,30 @@
   box-shadow: inset 0 0 0 1px var(--color-marker-line);
 }
 
+/* ── Grain de la scène ──
+   Une grille de points derrière les planches. Un aplat ne donne aucune échelle :
+   la planche y flottait sans que rien ne dise à quelle distance on la regarde,
+   et son ombre était le seul indice qu'elle était posée sur quelque chose.
+
+   Le pas n'appartient à aucune échelle fermée du projet — ce n'est ni un rayon,
+   ni un écart entre contrôles, ni une hauteur — et il n'a donc pas à tomber sur
+   la grille de 4. Il se lit ici et nulle part ailleurs. */
+@utility stage-grain {
+  --stage-dot-step: 22px;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--color-stage-dot) 1px,
+    transparent 0
+  );
+  background-size: var(--stage-dot-step) var(--stage-dot-step);
+}
+
 /* ── Light — même structure, neutre vrai (chroma 0) ── */
 .light {
   --color-stage: oklch(0.9 0 0);
+  /* Le point s'assombrit sur fond clair, là où il s'éclaircit sur fond sombre :
+     c'est le seul jeton de grain, il change de sens et pas seulement de valeur. */
+  --color-stage-dot: oklch(0 0 0 / 0.09);
   --color-background: oklch(0.955 0 0);
   --color-card: oklch(1 0 0);
   --color-popover: oklch(1 0 0);

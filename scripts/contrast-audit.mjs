@@ -11,7 +11,14 @@ import { fileURLToPath } from 'node:url'
 
 const CSS = fileURLToPath(new URL('../src/index.css', import.meta.url))
 
-/** Encres à contrôler, dans l'ordre du plus foncé au plus discret. */
+/**
+ * Encres à contrôler, dans l'ordre du plus foncé au plus discret.
+ *
+ * `stage-dot` n'y figure pas et n'y figurera pas : le grain de la scène ne porte
+ * aucune information, personne ne le lit. À 5% d'alpha il échouerait à 4.5:1 par
+ * construction, et le faire passer demanderait de l'assombrir jusqu'à ce qu'il
+ * cesse d'être un grain. Un motif décoratif n'est pas une encre.
+ */
 const INKS = ['foreground', 'muted-foreground']
 /** Surfaces sur lesquelles une encre peut se poser. */
 const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']

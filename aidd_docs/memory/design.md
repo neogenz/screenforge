@@ -10,7 +10,7 @@
 
 - `src/index.css` follows the shadcn token contract; only 16 tokens sit outside it, for concepts shadcn has no name for, plus six named z-levels.
 - `src/index.css` defines OKLCH surfaces and ink, 4px spacing, typography, radii, elevation, named z-levels, and reduced-motion behavior.
-- Chrome surfaces are achromatic so they do not distort color judgment on the artboard.
+- Chrome surfaces are achromatic so they do not distort color judgment on the artboard. The stage carries a dot grain rather than a flat fill, from a token that lightens on dark and darkens on light; being decorative it is deliberately excluded from the contrast matrix.
 - Lime lives under `--color-marker`, reserved for location/state and focus; `accent` keeps its shadcn meaning of neutral hover surface. Primary actions use neutral fills, while red is reserved for destructive state.
 - The rendered scales are closed and checked: three type sizes, two line-heights, two control heights, four radii, two vertical gaps.
 - Line-height is declared in px on a 4px grid, never as a ratio; the named ratio utilities are removed from the theme and the scale guard rejects any rendered value off the grid.

@@ -31,7 +31,9 @@ export default function CanvasEditor() {
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-stage"
+      // Le grain est porté par la scène et non par le canevas : Fabric peint
+      // par-dessus, donc un motif posé plus bas dans l'arbre serait recouvert.
+      className="stage-grain relative h-full w-full min-h-0 min-w-0 overflow-hidden bg-stage"
       onContextMenu={handleContextMenu}
     >
       <canvas ref={canvasRef} />
