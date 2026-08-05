@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Finition impeccable — visuels réels, motion, audits, anti-slop

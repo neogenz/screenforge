@@ -1,14 +1,27 @@
 /*
- * Emplacement d'un visuel produit. Les captures réelles arrivent en phase 4 ;
- * le cadre porte déjà la graine de scène et la légende définitives, pour que
- * le remplacement soit un changement de `src`, pas de mise en page.
+ * Visuel produit : toujours une capture ou un export réel de l'app, généré
+ * par `scripts/landing-visuals.mjs`. Le cadre (hairline, ombre portée, grain
+ * de scène en retrait) reste identique quelle que soit l'image.
  */
-export function VisualPlaceholder({ caption }: { caption: string }) {
+export function Visual({
+  src,
+  caption,
+  eager = false,
+}: {
+  src: string
+  caption: string
+  eager?: boolean
+}) {
   return (
     <figure>
-      <div
-        aria-hidden
-        className="aspect-[16/10] w-full rounded-lg border border-border bg-background [background-image:radial-gradient(var(--color-stage-dot)_1px,transparent_1px)] [background-size:12px_12px]"
+      <img
+        src={src}
+        alt={caption}
+        width={2000}
+        height={1250}
+        loading={eager ? 'eager' : 'lazy'}
+        fetchPriority={eager ? 'high' : undefined}
+        className="aspect-[16/10] w-full rounded-lg border border-border object-cover shadow-lg"
       />
       <figcaption className="mt-3 text-xs text-muted-foreground">{caption}</figcaption>
     </figure>

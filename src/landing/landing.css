@@ -17,6 +17,13 @@ body {
   background: var(--color-stage);
 }
 
+/* Les visuels débordent volontairement la grille (marges négatives) : `clip`
+   autorise ce dépassement sans jamais rendre la page dérollable en largeur. */
+html,
+body {
+  overflow-x: clip;
+}
+
 /* Défilement doux vers les ancres, retiré dès que l'utilisateur s'en passe. */
 @media (prefers-reduced-motion: no-preference) {
   html {

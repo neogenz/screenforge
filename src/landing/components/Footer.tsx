@@ -11,8 +11,8 @@ export function Footer() {
           {t.footer.contact}
         </a>
         {/* TODO(légal): pages Confidentialité/Conditions à publier avec le checkout */}
-        <span className="text-muted-foreground/60">{t.footer.privacy}</span>
-        <span className="text-muted-foreground/60">{t.footer.terms}</span>
+        <span className="text-muted-foreground">{t.footer.privacy}</span>
+        <span className="text-muted-foreground">{t.footer.terms}</span>
         <button
           type="button"
           onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
