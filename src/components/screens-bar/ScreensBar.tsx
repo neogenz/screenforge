@@ -4,10 +4,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
+import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail } from './ScreenThumbnail'
-import { cn } from '@/lib/utils'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
-import { FILMSTRIP_HEIGHT, FILMSTRIP_PADDING, THUMBNAIL_COLUMN_HEIGHT, THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
+import { FILMSTRIP_HEIGHT, FILMSTRIP_PADDING, THUMBNAIL_HEIGHT } from '@/lib/stage'
 import type { Background } from '@/types'
 
 /** Floating bottom-center screens strip. */
@@ -147,30 +147,24 @@ export function ScreensBar() {
         </div>
       ))}
 
-      {/* Le bouton d'ajout prend la surface des vignettes : un contour en tirets
-          le faisait lire comme un emplacement vide, pas comme une action. */}
-      <button
-        title={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
-        aria-label="Ajouter un écran"
-        onClick={handleAdd}
-        disabled={atCapacity}
-        type="button"
-        style={{ height: THUMBNAIL_COLUMN_HEIGHT, width: THUMBNAIL_WIDTH }}
-        className={cn(
-          // Largeur de vignette, hauteur de colonne. À la hauteur de la vignette
-          // seule, il portait le même cadre que ses voisines et se lisait comme
-          // un sixième écran ; en prenant toute la colonne — celle que les
-          // autres complètent avec leur numéro — il redevient l'emplacement qui
-          // termine la rangée, et ne laisse plus 28px de vide sous lui.
-          'flex shrink-0 items-center justify-center',
-          'rounded-md border border-border bg-secondary',
-          'text-muted-foreground transition-colors duration-150 ease-out',
-          'hover:border-input hover:bg-accent hover:text-foreground',
-          'disabled:pointer-events-none disabled:opacity-30',
-        )}
-      >
-        <Plus size={16} strokeWidth={1.75} />
-      </button>
+      {/* Un bouton, et non une tuile. À la taille des vignettes il en portait le
+          cadre et se lisait comme un écran de plus, vide ; ajouter un écran est
+          une action, pas un emplacement. Centré sur la hauteur de la vignette,
+          la boîte le pose sur la ligne des tuiles sans décalage calculé. */}
+      <div style={{ height: THUMBNAIL_HEIGHT }} className="flex shrink-0 items-center">
+        <IconButton
+          size="sm"
+          title={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
+          aria-label="Ajouter un écran"
+          onClick={handleAdd}
+          disabled={atCapacity}
+          // Le rayon de la tuile, pas celui du contrôle : dans ce plateau il
+          // voisine des vignettes, pas des boutons de barre.
+          className="border-border bg-secondary hover:border-input"
+        >
+          <Plus size={16} strokeWidth={1.75} />
+        </IconButton>
+      </div>
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
