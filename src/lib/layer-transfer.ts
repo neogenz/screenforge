@@ -31,8 +31,7 @@ export function applyLayerTransfer({
   localTransfers,
   layoutUpdates,
 }: ApplyLayerTransferInput): LayerTransferResult {
-  const transfer = localTransfers.find((change) =>
-    change.sourceScreenId !== change.targetScreenId)
+  const transfer = localTransfers.find((change) => change.sourceScreenId !== change.targetScreenId)
   const changesBySource = new Map<string, Map<string, LocalLayerTransfer>>()
   const additionsByTarget = new Map<string, LocalLayerTransfer[]>()
 
@@ -69,23 +68,27 @@ export function applyLayerTransfer({
     )
     const moved = [...additions]
       .sort((left, right) => left.layer.zIndex - right.layer.zIndex)
-      .map((change, index) => ({
-        ...change.layer,
-        ...change.update,
-        zIndex: topZIndex + index + 1,
-      }) as Layer)
+      .map(
+        (change, index) =>
+          ({
+            ...change.layer,
+            ...change.update,
+            zIndex: topZIndex + index + 1,
+          }) as Layer,
+      )
     return { ...screen, layers: [...layers, ...moved] }
   })
   const updatesById = new Map(layoutUpdates.map((change) => [change.layerId, change.update]))
 
   return {
     screens: nextScreens,
-    layoutLayers: layoutUpdates.length > 0
-      ? layoutLayers.map((layer) => {
-          const update = updatesById.get(layer.id)
-          return update ? { ...layer, ...update, scope: 'layout' } as Layer : layer
-        })
-      : layoutLayers,
+    layoutLayers:
+      layoutUpdates.length > 0
+        ? layoutLayers.map((layer) => {
+            const update = updatesById.get(layer.id)
+            return update ? ({ ...layer, ...update, scope: 'layout' } as Layer) : layer
+          })
+        : layoutLayers,
     destinationScreenId: transfer?.targetScreenId,
   }
 }

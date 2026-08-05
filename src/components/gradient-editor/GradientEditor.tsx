@@ -90,10 +90,8 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
   const sortedStops = value.stops
     .map((s: ColorStop, originalIndex: number) => ({ ...s, originalIndex }))
     .sort(
-      (
-        a: ColorStop & { originalIndex: number },
-        b: ColorStop & { originalIndex: number },
-      ) => a.offset - b.offset,
+      (a: ColorStop & { originalIndex: number }, b: ColorStop & { originalIndex: number }) =>
+        a.offset - b.offset,
     )
 
   return (
@@ -112,11 +110,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
 
       {/* Angle (linear only) */}
       {value.type === 'linear' && (
-        <AngleControl
-          ariaLabel="Angle du dégradé"
-          value={value.angle ?? 90}
-          onChange={setAngle}
-        />
+        <AngleControl ariaLabel="Angle du dégradé" value={value.angle ?? 90} onChange={setAngle} />
       )}
 
       {/* Center (radial only) */}

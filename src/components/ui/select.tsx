@@ -34,14 +34,23 @@ interface ParsedOption {
 function parseOptions(children: ReactNode): ParsedOption[] {
   return Children.toArray(children).flatMap((child) => {
     if (!isValidElement(child)) return []
-    const props = child.props as { value?: string | number; children?: ReactNode; disabled?: boolean }
+    const props = child.props as {
+      value?: string | number
+      children?: ReactNode
+      disabled?: boolean
+    }
     if (props.value === undefined) return []
-    return [{
-      value: String(props.value),
-      content: props.children,
-      text: typeof props.children === 'string' ? props.children : String(props.children ?? props.value),
-      disabled: props.disabled,
-    }]
+    return [
+      {
+        value: String(props.value),
+        content: props.children,
+        text:
+          typeof props.children === 'string'
+            ? props.children
+            : String(props.children ?? props.value),
+        disabled: props.disabled,
+      },
+    ]
   })
 }
 

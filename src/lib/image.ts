@@ -9,10 +9,7 @@ export const IMAGE_ACCEPT = CONTENT_IMAGE_TYPES.join(',')
 export const SCREENSHOT_IMAGE_ACCEPT = SCREENSHOT_IMAGE_TYPES.join(',')
 
 export type ImageImportErrorCode =
-  | 'invalid-format'
-  | 'file-too-large'
-  | 'image-too-large'
-  | 'invalid-image'
+  'invalid-format' | 'file-too-large' | 'image-too-large' | 'invalid-image'
 
 const ERROR_MESSAGES: Record<ImageImportErrorCode, string> = {
   'invalid-format': 'Format d’image non pris en charge.',
@@ -37,9 +34,10 @@ export interface ImportedImage {
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => typeof reader.result === 'string'
-      ? resolve(reader.result)
-      : reject(new ImageImportError('invalid-image'))
+    reader.onload = () =>
+      typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new ImageImportError('invalid-image'))
     reader.onerror = () => reject(new ImageImportError('invalid-image'))
     reader.readAsDataURL(file)
   })

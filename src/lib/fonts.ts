@@ -100,11 +100,7 @@ function waitForStylesheet(link: HTMLLinkElement): Promise<void> {
   })
 }
 
-async function loadFont(
-  family: string,
-  weights: string[],
-  key: string,
-): Promise<FontLoadResult> {
+async function loadFont(family: string, weights: string[], key: string): Promise<FontLoadResult> {
   let link: HTMLLinkElement | null = null
   try {
     link = document.querySelector<HTMLLinkElement>(`link[data-font-key="${CSS.escape(key)}"]`)
@@ -161,9 +157,7 @@ export function loadGoogleFont(
 }
 
 export async function waitForFonts(families: string[]): Promise<FontLoadResult[]> {
-  const results = await Promise.all(
-    [...new Set(families)].map((family) => loadGoogleFont(family)),
-  )
+  const results = await Promise.all([...new Set(families)].map((family) => loadGoogleFont(family)))
   await document.fonts.ready
   return results
 }
@@ -171,7 +165,9 @@ export async function waitForFonts(families: string[]): Promise<FontLoadResult[]
 export function isFontLoaded(family: string, weights?: string[]): boolean {
   const prefix = `${family}:`
   if (!weights) return [...loadedFonts].some((key) => key.startsWith(prefix))
-  return weights.every((weight) => [...loadedFonts].some((key) =>
-    key.startsWith(prefix) && key.slice(prefix.length).split(',').includes(weight),
-  ))
+  return weights.every((weight) =>
+    [...loadedFonts].some(
+      (key) => key.startsWith(prefix) && key.slice(prefix.length).split(',').includes(weight),
+    ),
+  )
 }

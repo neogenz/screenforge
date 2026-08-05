@@ -66,7 +66,12 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
           {label && <span className="field-label shrink-0 select-none">{label}</span>}
           <span className="truncate">{value}</span>
         </span>
-        <ChevronDown size={12} strokeWidth={1.5} className="shrink-0 text-muted-foreground" aria-hidden />
+        <ChevronDown
+          size={12}
+          strokeWidth={1.5}
+          className="shrink-0 text-muted-foreground"
+          aria-hidden
+        />
       </Button>
 
       <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
@@ -161,7 +166,9 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
       style={fontLoaded ? { fontFamily: `"${family}", system-ui` } : undefined}
     >
       <span className="truncate">{family}</span>
-      {selected && <Check size={11} strokeWidth={2} className="shrink-0 text-foreground" aria-hidden />}
+      {selected && (
+        <Check size={11} strokeWidth={2} className="shrink-0 text-foreground" aria-hidden />
+      )}
     </button>
   )
 }

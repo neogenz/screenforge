@@ -1,12 +1,7 @@
 import 'fake-indexeddb/auto'
 import { openDB } from 'idb'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  clearAssets,
-  readDirtyAssets,
-  registerAsset,
-  resolveAsset,
-} from '@/lib/assets'
+import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib/assets'
 import {
   deleteProject,
   initAutoSave,
@@ -24,12 +19,14 @@ function project(name = 'Project', layers: Layer[] = []): Project {
     id: 'project',
     name,
     activeScreenId: 'screen',
-    screens: [{
-      id: 'screen',
-      name: 'Screen',
-      background: { type: 'solid', color: '#fff' },
-      layers,
-    }],
+    screens: [
+      {
+        id: 'screen',
+        name: 'Screen',
+        background: { type: 'solid', color: '#fff' },
+        layers,
+      },
+    ],
     layoutLayers: [],
     globals: {
       fontFamily: 'Inter',
@@ -53,11 +50,7 @@ async function database() {
 async function clearDatabase() {
   const db = await database()
   const tx = db.transaction(['projects', 'assets'], 'readwrite')
-  await Promise.all([
-    tx.objectStore('projects').clear(),
-    tx.objectStore('assets').clear(),
-    tx.done,
-  ])
+  await Promise.all([tx.objectStore('projects').clear(), tx.objectStore('assets').clear(), tx.done])
   db.close()
   clearAssets()
   useProjectStore.setState({ project: null })
@@ -106,7 +99,7 @@ describe('storage', () => {
     put.mockRestore()
 
     const db = await database()
-    expect((await db.get('projects', 'project') as Project).name).toBe('Before')
+    expect(((await db.get('projects', 'project')) as Project).name).toBe('Before')
     expect(await db.count('assets')).toBe(0)
     db.close()
     expect(readDirtyAssets().map((asset) => asset.id)).toEqual([assetId])
@@ -190,26 +183,32 @@ describe('storage', () => {
     const legacy = structuredClone(project()) as unknown as {
       screens: Array<{ layers: object[] }>
     } & Record<string, unknown>
-    legacy.screens[0].layers = [{
-      id: 'image',
-      type: 'image',
-      name: 'Image',
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-      rotation: 0,
-      opacity: 1,
-      locked: false,
-      visible: true,
-      zIndex: 0,
-      src: 'data:image/png;base64,bGVnYWN5',
-      originalWidth: 1,
-      originalHeight: 1,
-    }]
+    legacy.screens[0].layers = [
+      {
+        id: 'image',
+        type: 'image',
+        name: 'Image',
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        src: 'data:image/png;base64,bGVnYWN5',
+        originalWidth: 1,
+        originalHeight: 1,
+      },
+    ]
     const db = await database()
     await db.put('projects', legacy)
-    await db.put('assets', { id: 'orphan', projectId: 'project', dataUrl: 'data:image/png;base64,b2xk' })
+    await db.put('assets', {
+      id: 'orphan',
+      projectId: 'project',
+      dataUrl: 'data:image/png;base64,b2xk',
+    })
     db.close()
 
     const loaded = await loadProject('project')
@@ -219,7 +218,7 @@ describe('storage', () => {
     expect(resolveAsset(layer.assetId)).toBe('data:image/png;base64,bGVnYWN5')
 
     const stored = await database()
-    const record = await stored.get('projects', 'project') as Project
+    const record = (await stored.get('projects', 'project')) as Project
     expect(record.screens[0].layers[0]).not.toHaveProperty('src')
     expect(await stored.get('assets', 'orphan')).toBeUndefined()
     stored.close()
@@ -229,27 +228,32 @@ describe('storage', () => {
     const legacy = structuredClone(project()) as unknown as {
       screens: Array<{ layers: object[] }>
     } & Record<string, unknown>
-    legacy.screens[0].layers = [{
-      id: 'shape',
-      type: 'shape',
-      name: 'Shape',
-      x: 0,
-      y: 0,
-      width: 10,
-      height: 10,
-      rotation: 0,
-      opacity: 1,
-      locked: false,
-      visible: true,
-      zIndex: 0,
-      shapeType: 'rectangle',
-      fill: '#000',
-      gradientFill: {
-        type: 'linear',
-        angle: 90,
-        stops: [{ offset: 0, color: '#000' }, { offset: 1, color: '#fff' }],
+    legacy.screens[0].layers = [
+      {
+        id: 'shape',
+        type: 'shape',
+        name: 'Shape',
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        shapeType: 'rectangle',
+        fill: '#000',
+        gradientFill: {
+          type: 'linear',
+          angle: 90,
+          stops: [
+            { offset: 0, color: '#000' },
+            { offset: 1, color: '#fff' },
+          ],
+        },
       },
-    }]
+    ]
     const db = await database()
     await db.put('projects', legacy)
     db.close()
@@ -265,11 +269,24 @@ describe('storage', () => {
     invalid.id = 'invalid'
     invalid.updatedAt = 2
     const screens = invalid.screens as Array<{ layers: Array<Record<string, unknown>> }>
-    screens[0].layers = [{
-      id: 'shape', type: 'shape', name: 'Shape', x: 0, y: 0, width: 1, height: 1,
-      rotation: 0, opacity: 2, locked: false, visible: true, zIndex: 0,
-      shapeType: 'rectangle', fill: '#000',
-    }]
+    screens[0].layers = [
+      {
+        id: 'shape',
+        type: 'shape',
+        name: 'Shape',
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        rotation: 0,
+        opacity: 2,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        shapeType: 'rectangle',
+        fill: '#000',
+      },
+    ]
     const db = await database()
     await db.put('projects', invalid)
     db.close()

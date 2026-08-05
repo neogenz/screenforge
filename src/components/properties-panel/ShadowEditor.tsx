@@ -69,11 +69,7 @@ export function ShadowEditor({
             max={500}
           />
           <Field label="Couleur">
-            <ColorPicker
-              value={shadow.color}
-              onChange={(color) => patch({ color })}
-              showOpacity
-            />
+            <ColorPicker value={shadow.color} onChange={(color) => patch({ color })} showOpacity />
           </Field>
         </div>
       )}

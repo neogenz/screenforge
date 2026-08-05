@@ -26,13 +26,17 @@ export interface DropdownProps {
 }
 
 /** Keyboard-navigable action menu anchored to a trigger. */
-export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align = 'start', className }: DropdownProps) {
+export function Dropdown({
+  open,
+  onOpenChange,
+  trigger,
+  items,
+  ariaLabel,
+  align = 'start',
+  className,
+}: DropdownProps) {
   return (
-    <DropdownMenuPrimitive.Root
-      open={open}
-      modal={false}
-      onOpenChange={onOpenChange}
-    >
+    <DropdownMenuPrimitive.Root open={open} modal={false} onOpenChange={onOpenChange}>
       <DropdownMenuPrimitive.Trigger asChild>{trigger}</DropdownMenuPrimitive.Trigger>
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
@@ -62,7 +66,11 @@ export function Dropdown({ open, onOpenChange, trigger, items, ariaLabel, align 
                   : 'text-foreground data-[highlighted]:bg-accent',
               )}
             >
-              {item.icon && <span className="shrink-0 text-muted-foreground" aria-hidden>{item.icon}</span>}
+              {item.icon && (
+                <span className="shrink-0 text-muted-foreground" aria-hidden>
+                  {item.icon}
+                </span>
+              )}
               <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
               {item.meta && (
                 <span className="tabular shrink-0 text-2xs text-muted-foreground">{item.meta}</span>

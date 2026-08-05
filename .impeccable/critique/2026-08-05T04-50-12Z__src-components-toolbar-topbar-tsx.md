@@ -2,12 +2,13 @@
 target: la barre du haut
 total_score: 19
 max_score: 40
-na_heuristics: 
+na_heuristics:
 p0_count: 1
 p1_count: 3
 timestamp: 2026-08-05T04-50-12Z
 slug: src-components-toolbar-topbar-tsx
 ---
+
 Method: dual-agent (A: design review · B: detector + browser evidence)
 
 # Critique — top bar (`src/components/toolbar/TopBar.tsx`, `ZoomHud.tsx`)
@@ -16,19 +17,19 @@ Surface mode: **Operate**.
 
 ## Design Health Score
 
-| # | Heuristic | Score | Key issue |
-|---|-----------|-------|-----------|
-| 1 | Visibility of System Status | 1 | Save status is `display:none` below 1280px; the zoom readout shows 25% for a canvas at 21.6%; no `aria-pressed` on any toggle |
-| 2 | Match System / Real World | 2 | Nothing in the bar names the artefact; the device menu shows marketing diagonals, not 1320×2868 |
-| 3 | User Control and Freedom | 3 | Undo/redo correct, Escape reverts a rename — but "Nouveau projet" exists nowhere in the app |
-| 4 | Consistency and Standards | 2 | The add-tool rail reproduces `ToggleGroup`'s container verbatim for four one-shot actions; `title` differs from `aria-label` on all 13 title-bearing buttons |
-| 5 | Error Prevention | 1 | At ≤1023px the centred rail hit-tests over the panel toggles; at 900px the Layers toggle is 100% dead and clicking it inserts a layer |
-| 6 | Recognition Rather Than Recall | 2 | 11 icon-only controls with no visible label; every shortcut lives only in a native `title`, unreachable by keyboard |
-| 7 | Flexibility and Efficiency | 2 | ⌘K is well surfaced; but no `role="toolbar"` (14 tab stops), `canvas.tabIndex === -1` so focus never reaches the canvas, and no 100% zoom |
-| 8 | Aesthetic and Minimalist Design | 3 | Genuinely restrained; contrast never drops below 7.81:1 in either theme |
-| 9 | Error Recovery | 1 | `disabled:pointer-events-none` kills the tooltip on ghosted Undo; the save *error* state is what vanishes below 1280px, and its live region never announces |
-| 10 | Help and Documentation | 2 | A shortcuts overlay exists and ⌘K reaches it; the bar itself offers no entry point |
-| **Total** | | **19/40** | **Below the usual 20-32 band** |
+| #         | Heuristic                       | Score     | Key issue                                                                                                                                                    |
+| --------- | ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1         | Visibility of System Status     | 1         | Save status is `display:none` below 1280px; the zoom readout shows 25% for a canvas at 21.6%; no `aria-pressed` on any toggle                                |
+| 2         | Match System / Real World       | 2         | Nothing in the bar names the artefact; the device menu shows marketing diagonals, not 1320×2868                                                              |
+| 3         | User Control and Freedom        | 3         | Undo/redo correct, Escape reverts a rename — but "Nouveau projet" exists nowhere in the app                                                                  |
+| 4         | Consistency and Standards       | 2         | The add-tool rail reproduces `ToggleGroup`'s container verbatim for four one-shot actions; `title` differs from `aria-label` on all 13 title-bearing buttons |
+| 5         | Error Prevention                | 1         | At ≤1023px the centred rail hit-tests over the panel toggles; at 900px the Layers toggle is 100% dead and clicking it inserts a layer                        |
+| 6         | Recognition Rather Than Recall  | 2         | 11 icon-only controls with no visible label; every shortcut lives only in a native `title`, unreachable by keyboard                                          |
+| 7         | Flexibility and Efficiency      | 2         | ⌘K is well surfaced; but no `role="toolbar"` (14 tab stops), `canvas.tabIndex === -1` so focus never reaches the canvas, and no 100% zoom                    |
+| 8         | Aesthetic and Minimalist Design | 3         | Genuinely restrained; contrast never drops below 7.81:1 in either theme                                                                                      |
+| 9         | Error Recovery                  | 1         | `disabled:pointer-events-none` kills the tooltip on ghosted Undo; the save _error_ state is what vanishes below 1280px, and its live region never announces  |
+| 10        | Help and Documentation          | 2         | A shortcuts overlay exists and ⌘K reaches it; the bar itself offers no entry point                                                                           |
+| **Total** |                                 | **19/40** | **Below the usual 20-32 band**                                                                                                                               |
 
 ## Design Specificity Verdict
 
@@ -36,7 +37,7 @@ Surface mode: **Operate**.
 
 The proof sits one click away. The Export dialog names the target (1320×2868), shows three validation checks and promises no partial download. That dialog is authored. The bar that opens it says `Exporter` beside a download arrow, never mentions a screen count or a dimension, and carries **324px of empty space** between the project name and the centred tools at 1512px. The widest void in the layout sits next to the one element that is starving.
 
-**Deterministic scan**: `detect.mjs` returned `[]` (exit 0) on `src/components/toolbar` and on all six `ui/` primitives the bar consumes. A positive control on a deliberately bad file returned a finding, so the detector is live — but **the clean result is partly vacuous**: `loadDesignSystemForCwd` returns `null` for this repo, because the resolver only accepts `DESIGN.md`/`design.json` and this project's file is `.impeccable.md` with no YAML frontmatter. With no design system loaded, `allowedFontSizes` and `allowedRadii` are empty and the closed-scale rules **structurally cannot fire**. `[]` means "no generic anti-patterns"; it is not evidence of scale compliance. Scales were checked manually instead, and the *rendered* values do comply (heights 32/36, radius 8, type 14/11).
+**Deterministic scan**: `detect.mjs` returned `[]` (exit 0) on `src/components/toolbar` and on all six `ui/` primitives the bar consumes. A positive control on a deliberately bad file returned a finding, so the detector is live — but **the clean result is partly vacuous**: `loadDesignSystemForCwd` returns `null` for this repo, because the resolver only accepts `DESIGN.md`/`design.json` and this project's file is `.impeccable.md` with no YAML frontmatter. With no design system loaded, `allowedFontSizes` and `allowedRadii` are empty and the closed-scale rules **structurally cannot fire**. `[]` means "no generic anti-patterns"; it is not evidence of scale compliance. Scales were checked manually instead, and the _rendered_ values do comply (heights 32/36, radius 8, type 14/11).
 
 **Visual overlays**: not injected. Reported as browser measurement instead.
 
@@ -49,26 +50,26 @@ But nothing ships until the click-steal is fixed.
 ## What's Working
 
 1. **Derived island geometry, verified in the browser.** `--island-padding` = `--radius-xl − --radius-md` = 6px, so "inner radius = outer − inset" holds by construction rather than by assertion. Measured: island r=14 / pad=6, controls r=8.
-2. **⌘K rendered as its own keycap** (TopBar.tsx:360-371). The affordance *is* the shortcut — it teaches the key while staying clickable.
+2. **⌘K rendered as its own keycap** (TopBar.tsx:360-371). The affordance _is_ the shortcut — it teaches the key while staying clickable.
 3. **Achromatic discipline that survives contact.** Lowest measured contrast anywhere in the bar is 7.81:1; one full fill (Export, 13.9:1 light / 18.2:1 dark); lime only on the focus ring. Beside an artboard, this bar genuinely does not bias colour judgement.
 
 ## Priority Issues
 
 ### [P0] The centred tool rail steals clicks from the panel toggles
 
-`TopBar.tsx:252` — `absolute left-1/2 -translate-x-1/2`. Out of flow, so it reserves no width and cannot be pushed; positioned, so it paints *and hit-tests* above the statically-positioned actions.
+`TopBar.tsx:252` — `absolute left-1/2 -translate-x-1/2`. Out of flow, so it reserves no width and cannot be pushed; positioned, so it paints _and hit-tests_ above the statically-positioned actions.
 
 Measured: overlap begins at **≤1023px viewport width**. At 1000px the Layers toggle receives 20 of its 36px. At 900px it receives **0 of 36 — entirely dead** — and `elementFromPoint` returns `Ajouter Image` or `Ajouter Forme` across its whole span.
 
 **Why it matters**: clicking the Layers toggle silently inserts a shape or an image layer. Not a no-op — a document mutation the user did not ask for, in an app that autosaves. A half-screen window on a 1920 display is 960px, inside the broken range.
 
-**Fix**: replace the absolute centring with `grid grid-cols-[1fr_auto_1fr]` so the centre group centres *between* its flanks and can never reach them.
+**Fix**: replace the absolute centring with `grid grid-cols-[1fr_auto_1fr]` so the centre group centres _between_ its flanks and can never reach them.
 
 **Suggested command**: `/impeccable adapt`
 
 ### [P1] "Active" is a 1.075:1 fill, and it is not exposed to assistive tech
 
-Two measurements that look contradictory and are not. Ink contrast is excellent (8.77-17.5:1). But *state* is carried only by a surface change: active `bg-secondary` measures **1.075:1** against the card in light, while `hover:bg-accent` measures **1.19:1**. **Hovering an inactive button makes it look more selected than an open panel.**
+Two measurements that look contradictory and are not. Ink contrast is excellent (8.77-17.5:1). But _state_ is carried only by a surface change: active `bg-secondary` measures **1.075:1** against the card in light, while `hover:bg-accent` measures **1.19:1**. **Hovering an inactive button makes it look more selected than an open panel.**
 
 And no `aria-pressed` on either panel toggle — `data-active` is visual-only.
 
@@ -108,7 +109,7 @@ Three compounding execution failures: it renders at **1.10:1** against the card 
 
 **Jordan (first-timer) — indie dev, first submission.** Eleven glyphs with no visible label, two of them mirror images 40px apart. The recessed rail promises a mode picker and fires an action. "Ajouter Image" opens an OS file dialog with no `…` to warn. He cannot tell the project name is editable, and the menu where he would look to rename or start over offers neither. Nothing in the bar tells him he is producing 1320×2868 App Store screenshots until he opens Export.
 
-**Screen-reader / keyboard user.** The app's primary control surface is a bare `<div>` — no `<header>`, no `role="banner"`, no `role="toolbar"`, no `aria-label`. Every icon-only control *does* carry an `aria-label` (measured: zero unnamed controls), but `aria-label` wins over `title` in name computation, so the shortcuts written into `title` are never announced. Four toggles expose no `aria-pressed`. The save-status live region never announces. The theme button announces "Changer de thème" while its `title` says "Passer en mode clair" — direction is sighted-only.
+**Screen-reader / keyboard user.** The app's primary control surface is a bare `<div>` — no `<header>`, no `role="banner"`, no `role="toolbar"`, no `aria-label`. Every icon-only control _does_ carry an `aria-label` (measured: zero unnamed controls), but `aria-label` wins over `title` in name computation, so the shortcuts written into `title` are never announced. Four toggles expose no `aria-pressed`. The save-status live region never announces. The theme button announces "Changer de thème" while its `title` says "Passer en mode clair" — direction is sighted-only.
 
 ## Minor Observations
 

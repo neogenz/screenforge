@@ -31,10 +31,14 @@ interface LayerItemProps {
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
   const className = 'shrink-0'
   switch (type) {
-    case 'text': return <Type size={13} strokeWidth={1.5} className={className} aria-hidden />
-    case 'device-frame': return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
-    case 'image': return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
-    default: return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'text':
+      return <Type size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'device-frame':
+      return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'image':
+      return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
+    default:
+      return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
   }
 }
 
@@ -169,9 +173,7 @@ export const LayerItem = memo(function LayerItem({
           className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-1.5 py-0.5 text-sm focus:border-muted-foreground"
         />
       ) : (
-        <span className="flex-1 truncate text-sm">
-          {displayName}
-        </span>
+        <span className="flex-1 truncate text-sm">{displayName}</span>
       )}
 
       {/* Deux actions, pas quatre. À 32px pièce, quatre boutons couvraient le
@@ -187,9 +189,11 @@ export const LayerItem = memo(function LayerItem({
             actions.setVisibility(layer, !layer.visible)
           }}
         >
-          {layer.visible
-            ? <Eye size={11} strokeWidth={1.5} aria-hidden />
-            : <EyeOff size={11} strokeWidth={1.5} aria-hidden />}
+          {layer.visible ? (
+            <Eye size={11} strokeWidth={1.5} aria-hidden />
+          ) : (
+            <EyeOff size={11} strokeWidth={1.5} aria-hidden />
+          )}
         </IconButton>
         <IconButton
           size="sm"
@@ -200,15 +204,22 @@ export const LayerItem = memo(function LayerItem({
             actions.setLocked(layer, !layer.locked)
           }}
         >
-          {layer.locked
-            ? <Lock size={11} strokeWidth={1.5} aria-hidden />
-            : <Unlock size={11} strokeWidth={1.5} aria-hidden />}
+          {layer.locked ? (
+            <Lock size={11} strokeWidth={1.5} aria-hidden />
+          ) : (
+            <Unlock size={11} strokeWidth={1.5} aria-hidden />
+          )}
         </IconButton>
       </div>
 
       {(!layer.visible || layer.locked) && (
-        <div className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden" aria-hidden>
-          {!layer.visible && <EyeOff size={10} strokeWidth={1.5} className="text-muted-foreground" />}
+        <div
+          className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden"
+          aria-hidden
+        >
+          {!layer.visible && (
+            <EyeOff size={10} strokeWidth={1.5} className="text-muted-foreground" />
+          )}
           {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-muted-foreground" />}
         </div>
       )}

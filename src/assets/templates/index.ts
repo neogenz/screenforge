@@ -10,7 +10,18 @@ function textLayer(
   name: string,
   content: string,
   geometry: Pick<TextLayer, 'x' | 'y' | 'width' | 'height' | 'zIndex'>,
-  style: Partial<Pick<TextLayer, 'fontSize' | 'fontWeight' | 'color' | 'textAlign' | 'lineHeight' | 'letterSpacing' | 'textTransform'>> = {},
+  style: Partial<
+    Pick<
+      TextLayer,
+      | 'fontSize'
+      | 'fontWeight'
+      | 'color'
+      | 'textAlign'
+      | 'lineHeight'
+      | 'letterSpacing'
+      | 'textTransform'
+    >
+  > = {},
 ): TextLayer {
   return {
     id,
@@ -90,14 +101,39 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
     layers: [
-      textLayer('hero-title', 'Title', 'Titre de la capture', {
-        x: 30, y: 76, width: W - 60, height: 110, zIndex: 0,
-      }, { fontSize: 56 }),
-      textLayer('hero-subtitle', 'Subtitle', 'Description facultative', {
-        x: 52, y: 218, width: W - 104, height: 44, zIndex: 1,
-      }, { fontSize: 20, fontWeight: 500, color: '#5a5a57', letterSpacing: 0 }),
+      textLayer(
+        'hero-title',
+        'Title',
+        'Titre de la capture',
+        {
+          x: 30,
+          y: 76,
+          width: W - 60,
+          height: 110,
+          zIndex: 0,
+        },
+        { fontSize: 56 },
+      ),
+      textLayer(
+        'hero-subtitle',
+        'Subtitle',
+        'Description facultative',
+        {
+          x: 52,
+          y: 218,
+          width: W - 104,
+          height: 44,
+          zIndex: 1,
+        },
+        { fontSize: 20, fontWeight: 500, color: '#5a5a57', letterSpacing: 0 },
+      ),
       deviceLayer('hero-device', 'iPhone', {
-        x: 88, y: 340, width: 264, height: 557, rotation: -10, zIndex: 2,
+        x: 88,
+        y: 340,
+        width: 264,
+        height: 557,
+        rotation: -10,
+        zIndex: 2,
       }),
     ],
   },
@@ -107,14 +143,39 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
     layers: [
-      textLayer('feature-title', 'Title', 'Titre de la fonctionnalité', {
-        x: 32, y: 64, width: W - 64, height: 120, zIndex: 0,
-      }, { fontSize: 52, color: '#141413' }),
-      textLayer('feature-subtitle', 'Subtitle', 'Une phrase courte pour donner le contexte.', {
-        x: 48, y: 190, width: W - 96, height: 52, zIndex: 1,
-      }, { fontSize: 18, fontWeight: 400, color: '#5a5a57', letterSpacing: 0 }),
+      textLayer(
+        'feature-title',
+        'Title',
+        'Titre de la fonctionnalité',
+        {
+          x: 32,
+          y: 64,
+          width: W - 64,
+          height: 120,
+          zIndex: 0,
+        },
+        { fontSize: 52, color: '#141413' },
+      ),
+      textLayer(
+        'feature-subtitle',
+        'Subtitle',
+        'Une phrase courte pour donner le contexte.',
+        {
+          x: 48,
+          y: 190,
+          width: W - 96,
+          height: 52,
+          zIndex: 1,
+        },
+        { fontSize: 18, fontWeight: 400, color: '#5a5a57', letterSpacing: 0 },
+      ),
       deviceLayer('feature-device', 'iPhone', {
-        x: 80, y: 318, width: 280, height: 591, rotation: 0, zIndex: 2,
+        x: 80,
+        y: 318,
+        width: 280,
+        height: 591,
+        rotation: 0,
+        zIndex: 2,
       }),
     ],
   },
@@ -131,14 +192,34 @@ export const TEMPLATES: TemplateDefinition[] = [
       ],
     },
     layers: [
-      textLayer('side-title', 'Title', 'Deux vues. Un seul message.', {
-        x: 28, y: 72, width: W - 56, height: 100, zIndex: 0,
-      }, { fontSize: 46 }),
+      textLayer(
+        'side-title',
+        'Title',
+        'Deux vues. Un seul message.',
+        {
+          x: 28,
+          y: 72,
+          width: W - 56,
+          height: 100,
+          zIndex: 0,
+        },
+        { fontSize: 46 },
+      ),
       deviceLayer('side-device-left', 'iPhone Left', {
-        x: 8, y: 360, width: 196, height: 414, rotation: -7, zIndex: 1,
+        x: 8,
+        y: 360,
+        width: 196,
+        height: 414,
+        rotation: -7,
+        zIndex: 1,
       }),
       deviceLayer('side-device-right', 'iPhone Right', {
-        x: 236, y: 332, width: 196, height: 414, rotation: 7, zIndex: 2,
+        x: 236,
+        y: 332,
+        width: 196,
+        height: 414,
+        rotation: 7,
+        zIndex: 2,
       }),
     ],
   },
@@ -149,15 +230,40 @@ export const TEMPLATES: TemplateDefinition[] = [
     background: { type: 'solid', color: '#e4e6ec' },
     layers: [
       deviceLayer('full-bleed-device', 'iPhone', {
-        x: 20, y: 54, width: 400, height: 844, rotation: 0, zIndex: 0,
+        x: 20,
+        y: 54,
+        width: 400,
+        height: 844,
+        rotation: 0,
+        zIndex: 0,
       }),
       overlay,
-      textLayer('full-bleed-title', 'Title', 'Titre sur l’image', {
-        x: 32, y: 690, width: W - 64, height: 116, zIndex: 2,
-      }, { fontSize: 48, color: '#ffffff', textAlign: 'left' }),
-      textLayer('full-bleed-subtitle', 'Subtitle', 'Description facultative', {
-        x: 32, y: 820, width: W - 64, height: 42, zIndex: 3,
-      }, { fontSize: 18, fontWeight: 400, color: '#ffffff', textAlign: 'left', letterSpacing: 0 }),
+      textLayer(
+        'full-bleed-title',
+        'Title',
+        'Titre sur l’image',
+        {
+          x: 32,
+          y: 690,
+          width: W - 64,
+          height: 116,
+          zIndex: 2,
+        },
+        { fontSize: 48, color: '#ffffff', textAlign: 'left' },
+      ),
+      textLayer(
+        'full-bleed-subtitle',
+        'Subtitle',
+        'Description facultative',
+        {
+          x: 32,
+          y: 820,
+          width: W - 64,
+          height: 42,
+          zIndex: 3,
+        },
+        { fontSize: 18, fontWeight: 400, color: '#ffffff', textAlign: 'left', letterSpacing: 0 },
+      ),
     ],
   },
   {
@@ -166,17 +272,48 @@ export const TEMPLATES: TemplateDefinition[] = [
     description: 'Composition éditoriale simple, texte à gauche et appareil à droite.',
     background: { type: 'solid', color: '#ffffff' },
     layers: [
-      textLayer('minimal-label', 'Label', 'CATÉGORIE', {
-        x: 28, y: 166, width: 220, height: 30, zIndex: 0,
-      }, { fontSize: 13, color: '#5a5a57', textAlign: 'left', letterSpacing: 2, textTransform: 'uppercase' }),
+      textLayer(
+        'minimal-label',
+        'Label',
+        'CATÉGORIE',
+        {
+          x: 28,
+          y: 166,
+          width: 220,
+          height: 30,
+          zIndex: 0,
+        },
+        {
+          fontSize: 13,
+          color: '#5a5a57',
+          textAlign: 'left',
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+        },
+      ),
       // Colonne de texte de 180 px : au-delà le titre passe sous l'appareil,
       // posé en x=220. À cette largeur, 46 px ne tiennent qu'un mot par ligne —
       // la maquette éditoriale suppose une accroche courte, pas une phrase.
-      textLayer('minimal-title', 'Title', 'Titre\ncourt', {
-        x: 28, y: 210, width: 180, height: 180, zIndex: 1,
-      }, { fontSize: 46, color: '#141413', textAlign: 'left' }),
+      textLayer(
+        'minimal-title',
+        'Title',
+        'Titre\ncourt',
+        {
+          x: 28,
+          y: 210,
+          width: 180,
+          height: 180,
+          zIndex: 1,
+        },
+        { fontSize: 46, color: '#141413', textAlign: 'left' },
+      ),
       deviceLayer('minimal-device', 'iPhone', {
-        x: 220, y: 118, width: 210, height: 443, rotation: 4, zIndex: 2,
+        x: 220,
+        y: 118,
+        width: 210,
+        height: 443,
+        rotation: 4,
+        zIndex: 2,
       }),
     ],
   },

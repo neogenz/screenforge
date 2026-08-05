@@ -25,10 +25,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error('ScreenForge rendering failed.', error, info)
   }
 
-  componentDidUpdate(
-    _previousProps: ErrorBoundaryProps,
-    previousState: ErrorBoundaryState,
-  ): void {
+  componentDidUpdate(_previousProps: ErrorBoundaryProps, previousState: ErrorBoundaryState): void {
     if (!previousState.failed && this.state.failed) this.reloadButton.current?.focus()
   }
 

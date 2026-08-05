@@ -80,9 +80,9 @@ function prepareInlineAssets(value: unknown): InlineAssetMigration[] {
   if (!isRecord(value)) return []
   const collections = [
     ...(Array.isArray(value.screens)
-      ? value.screens.flatMap((screen) => isRecord(screen) && Array.isArray(screen.layers)
-        ? [screen.layers]
-        : [])
+      ? value.screens.flatMap((screen) =>
+          isRecord(screen) && Array.isArray(screen.layers) ? [screen.layers] : [],
+        )
       : []),
     ...(Array.isArray(value.layoutLayers) ? [value.layoutLayers] : []),
   ]
@@ -128,11 +128,13 @@ async function commitProject(
   const done = tx.done
   try {
     for (const asset of dirty) {
-      requests.push(assets.put({
-        id: asset.id,
-        projectId: normalized.id,
-        dataUrl: asset.dataUrl,
-      }))
+      requests.push(
+        assets.put({
+          id: asset.id,
+          projectId: normalized.id,
+          dataUrl: asset.dataUrl,
+        }),
+      )
     }
     for (const id of deleteAssetIds) requests.push(assets.delete(id))
     requests.push(projects.put(normalized))
@@ -163,7 +165,7 @@ async function loadProjectRecord(record: Project | undefined): Promise<Project |
   hydrateAssets(assets)
   const project = normalizeProject(record)
   const keepIds = collectAssetIds(project)
-  const orphanIds = assets.flatMap((asset) => keepIds.has(asset.id) ? [] : [asset.id])
+  const orphanIds = assets.flatMap((asset) => (keepIds.has(asset.id) ? [] : [asset.id]))
   sweepAssets(keepIds)
   // Rewrites legacy inline data and deletes orphans in the same durable commit.
   return commitProject(db, project, orphanIds)
@@ -193,7 +195,9 @@ export async function loadLatestProject(): Promise<Project | undefined> {
   return undefined
 }
 
-export async function listProjects(): Promise<Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]> {
+export async function listProjects(): Promise<
+  Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]
+> {
   const db = await getDB()
   const all = await db.getAll('projects')
   return all.map(({ id, name, createdAt, updatedAt }) => ({ id, name, createdAt, updatedAt }))
@@ -210,8 +214,9 @@ export async function deleteProject(id: string): Promise<void> {
     saveTimer = null
     pendingProject = null
   }
-  const activeSaves = [...inFlightSaves]
-    .flatMap(([save, projectId]) => projectId === id ? [save] : [])
+  const activeSaves = [...inFlightSaves].flatMap(([save, projectId]) =>
+    projectId === id ? [save] : [],
+  )
   await Promise.allSettled(activeSaves)
 
   const db = await getDB()
@@ -233,8 +238,7 @@ function remapLayerAssets(layer: Layer, ids: ReadonlyMap<string, string>): Layer
       copy.screenshotAssetId = ids.get(copy.screenshotAssetId) ?? copy.screenshotAssetId
     }
     if (copy.importedBezel) {
-      copy.importedBezel.assetId = ids.get(copy.importedBezel.assetId)
-        ?? copy.importedBezel.assetId
+      copy.importedBezel.assetId = ids.get(copy.importedBezel.assetId) ?? copy.importedBezel.assetId
     }
   }
   return copy
@@ -333,12 +337,10 @@ export async function saveCurrentProject(): Promise<void> {
 export function initAutoSave(): () => void {
   const unsubscribe = useProjectStore.subscribe((state, previous) => {
     if (
-      state.project
-      && (
-        !previous.project
-        || state.project.id !== previous.project.id
-        || state.project.updatedAt !== previous.project.updatedAt
-      )
+      state.project &&
+      (!previous.project ||
+        state.project.id !== previous.project.id ||
+        state.project.updatedAt !== previous.project.updatedAt)
     ) {
       scheduleSave(state.project)
     }

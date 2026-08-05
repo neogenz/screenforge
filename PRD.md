@@ -8,6 +8,7 @@
 ## Problem
 
 Creating App Store screenshots requires either:
+
 - **Paid SaaS** (AppScreens.com ~$15/mo, Previewed, Screenshots.pro) for basic drag & drop
 - **Figma/Sketch** — manual, no batch export at exact Apple dimensions
 - **Xcode screenshot automation** — developer-only, no design flexibility
@@ -34,38 +35,38 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 
 ### Production profile
 
-| Display Class | Orientation | Dimensions | Project limit |
-|---|---|---|---|
+| Display Class   | Orientation  | Dimensions         | Project limit      |
+| --------------- | ------------ | ------------------ | ------------------ |
 | **iPhone 6.9"** | **Portrait** | **1320 × 2868 px** | **10 screenshots** |
 
 ScreenForge deliberately omits smaller and legacy output choices. App Store Connect accepts the highest-resolution 6.9" set and scales it for smaller iPhone display classes.
 
 ### File Requirements
 
-| Spec | Requirement |
-|---|---|
-| **Format** | PNG (recommended) or JPEG |
-| **Color space** | sRGB (recommended) or Display P3 |
-| **Bit depth** | 8-bit RGB |
-| **Transparency** | Forbidden; every exported PNG is opaque |
-| **Max file size** | 50 MB per screenshot (aim for < 5 MB) |
-| **Min screenshots** | 1 |
-| **Max screenshots** | 10 per device class |
-| **Aspect ratio** | Must match EXACTLY — off by even a few pixels = rejection |
+| Spec                | Requirement                                               |
+| ------------------- | --------------------------------------------------------- |
+| **Format**          | PNG (recommended) or JPEG                                 |
+| **Color space**     | sRGB (recommended) or Display P3                          |
+| **Bit depth**       | 8-bit RGB                                                 |
+| **Transparency**    | Forbidden; every exported PNG is opaque                   |
+| **Max file size**   | 50 MB per screenshot (aim for < 5 MB)                     |
+| **Min screenshots** | 1                                                         |
+| **Max screenshots** | 10 per device class                                       |
+| **Aspect ratio**    | Must match EXACTLY — off by even a few pixels = rejection |
 
 ### Design Rules (Apple Review Guidelines + rejection data)
 
-| Rule | Detail |
-|---|---|
-| **Accuracy** | Screenshots must show REAL app functionality. Fabricated data = rejection (Guideline 2.3.7) |
-| **Status bar** | Include it — shows realistic context |
-| **Device frames** | Allowed and encouraged. Use a current generated frame or a current Apple Product Bezel imported locally |
-| **Text overlays** | Allowed. Must be accurate. No hyperbolic claims ("best app ever") |
-| **Language** | Text must match a language your app actually supports |
-| **No ratings/badges** | Don't show App Store ratings or award badges |
-| **No misleading content** | Don't show features behind paywalls without indicating cost |
-| **Consistent design** | All screenshots should share a coherent design language |
-| **No upscaled images** | Blurry / upscaled screenshots get rejected |
+| Rule                      | Detail                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Accuracy**              | Screenshots must show REAL app functionality. Fabricated data = rejection (Guideline 2.3.7)             |
+| **Status bar**            | Include it — shows realistic context                                                                    |
+| **Device frames**         | Allowed and encouraged. Use a current generated frame or a current Apple Product Bezel imported locally |
+| **Text overlays**         | Allowed. Must be accurate. No hyperbolic claims ("best app ever")                                       |
+| **Language**              | Text must match a language your app actually supports                                                   |
+| **No ratings/badges**     | Don't show App Store ratings or award badges                                                            |
+| **No misleading content** | Don't show features behind paywalls without indicating cost                                             |
+| **Consistent design**     | All screenshots should share a coherent design language                                                 |
+| **No upscaled images**    | Blurry / upscaled screenshots get rejected                                                              |
 
 ### Common Rejection Reasons (sourced from r/iOSProgramming, Apple Developer Forums, 2024-2026)
 
@@ -84,15 +85,16 @@ ScreenForge deliberately omits smaller and legacy output choices. App Store Conn
 
 Layer-based design surface:
 
-| Layer Type | Capabilities |
-|---|---|
-| **Text** | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill |
+| Layer Type       | Capabilities                                                                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Text**         | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill                                                 |
 | **Device Frame** | iPhone mockup with screenshot inside. Generated frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
-| **Image** | Import PNG/JPEG/SVG, crop, resize, opacity, shadow |
-| **Shape** | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow |
-| **Background** | Solid color, linear/radial gradient, image fill |
+| **Image**        | Import PNG/JPEG/SVG, crop, resize, opacity, shadow                                                                                              |
+| **Shape**        | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow                                                                                |
+| **Background**   | Solid color, linear/radial gradient, image fill                                                                                                 |
 
 **Interactions:**
+
 - Drag & drop repositioning
 - Resize handles (aspect ratio lock via Shift)
 - Rotation
@@ -129,19 +131,20 @@ Layer-based design surface:
 
 Built-in mockups:
 
-| Device | Status |
-|---|---|
-| iPhone 16 Pro Max | MVP |
-| iPhone 16 Pro | MVP |
-| iPhone 16 | MVP |
-| iPhone 15 Pro | v2 |
-| iPhone 15 | v2 |
+| Device            | Status |
+| ----------------- | ------ |
+| iPhone 16 Pro Max | MVP    |
+| iPhone 16 Pro     | MVP    |
+| iPhone 16         | MVP    |
+| iPhone 15 Pro     | v2     |
+| iPhone 15         | v2     |
 
 Apple Product Bezels are optional user-provided PNG overlays. The user downloads
 and extracts them from Apple's DMG; ScreenForge stores them only in the current
 project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
 
 **Controls:**
+
 - Device color variant (Silver, Black, Natural Titanium, etc.)
 - Orientation (portrait / landscape)
 - Sizing (contain / cover / fit)
@@ -153,13 +156,13 @@ project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
 
 Pre-built layouts:
 
-| Template | Description |
-|---|---|
-| **Hero** | Large title + tilted device with screenshot |
-| **Feature** | Text at top + device centered below |
-| **Side-by-side** | Two devices + descriptive text |
-| **Full bleed** | Screenshot fills entire frame, text overlay at bottom |
-| **Minimal** | Small device + large bold text |
+| Template         | Description                                           |
+| ---------------- | ----------------------------------------------------- |
+| **Hero**         | Large title + tilted device with screenshot           |
+| **Feature**      | Text at top + device centered below                   |
+| **Side-by-side** | Two devices + descriptive text                        |
+| **Full bleed**   | Screenshot fills entire frame, text overlay at bottom |
+| **Minimal**      | Small device + large bold text                        |
 
 Fully editable after applying.
 
@@ -177,15 +180,18 @@ Fully editable after applying.
 ### 7. Export
 
 **Single export:**
+
 - Current screen as an opaque portrait PNG at 1320 × 2868
 
 **Batch export (the killer feature):**
+
 - Select screens (checkboxes, default: all)
 - Fixed target: **iPhone 6.9" portrait (1320 × 2868)**
 - Format: PNG (default)
 - Output: ZIP with organized folders
 
 **Output structure:**
+
 ```
 iphone-6.9-portrait/
   01_hero.png
@@ -196,6 +202,7 @@ iphone-6.9-portrait/
 ```
 
 **Quality guarantees:**
+
 - Renders at exact target resolution via Fabric.js `multiplier` / `toBlob()` — zero upscaling
 - sRGB color space
 - PNG-24 (8-bit RGB, no alpha channel)
@@ -206,18 +213,18 @@ iphone-6.9-portrait/
 
 ## Tech Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| **Build** | Vite | Fast HMR, zero config |
-| **UI** | React 19 + TypeScript | Best ecosystem for canvas editors |
-| **Canvas** | Fabric.js v7 | IText, drag/resize/rotate, groups, high-DPI export, `toBlob()` for large exports |
-| **State** | Zustand | Lightweight, undo/redo via history middleware |
-| **Styling** | Tailwind CSS v4 | Rapid UI for editor panels |
-| **Storage** | IndexedDB (via idb) | Local-first, no backend |
-| **Fonts** | Google Fonts API | On-demand font loading |
-| **Icons** | Lucide React | Clean icon set |
-| **Export** | Fabric.js `toDataURL({ multiplier })` / `toBlob()` | Pixel-perfect at any resolution, `toBlob()` preferred for large exports |
-| **ZIP** | JSZip | Client-side ZIP for batch export |
+| Layer       | Choice                                             | Why                                                                              |
+| ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Build**   | Vite                                               | Fast HMR, zero config                                                            |
+| **UI**      | React 19 + TypeScript                              | Best ecosystem for canvas editors                                                |
+| **Canvas**  | Fabric.js v7                                       | IText, drag/resize/rotate, groups, high-DPI export, `toBlob()` for large exports |
+| **State**   | Zustand                                            | Lightweight, undo/redo via history middleware                                    |
+| **Styling** | Tailwind CSS v4                                    | Rapid UI for editor panels                                                       |
+| **Storage** | IndexedDB (via idb)                                | Local-first, no backend                                                          |
+| **Fonts**   | Google Fonts API                                   | On-demand font loading                                                           |
+| **Icons**   | Lucide React                                       | Clean icon set                                                                   |
+| **Export**  | Fabric.js `toDataURL({ multiplier })` / `toBlob()` | Pixel-perfect at any resolution, `toBlob()` preferred for large exports          |
+| **ZIP**     | JSZip                                              | Client-side ZIP for batch export                                                 |
 
 ### Not Angular
 
@@ -298,6 +305,7 @@ src/
 ## MVP Scope
 
 **In:**
+
 - Canvas editor with text, device frame, image, shape, background layers
 - Full text styling (Google Fonts, size, weight, color, shadow, gradient)
 - Background designer (solid + gradients + presets)
@@ -309,6 +317,7 @@ src/
 - Undo/redo + keyboard shortcuts
 
 **Out (v2):**
+
 - Localization / multi-language batch export
 - Older iPhone frames (15, 14, SE)
 - Image backgrounds with blur
@@ -331,8 +340,8 @@ src/
 
 ## Open Questions (resolved)
 
-| Question | Decision |
-|---|---|
-| Device frame assets? | Keep generated SVG fallbacks; official Apple PNGs are supplied and stored locally by each user, never bundled |
-| Font loading? | On-demand via Google Fonts API with preview picker |
-| Project format? | IndexedDB for autosave; versioned `.screenforge.zip` with `project.json` and referenced binary assets for portability |
+| Question             | Decision                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Device frame assets? | Keep generated SVG fallbacks; official Apple PNGs are supplied and stored locally by each user, never bundled         |
+| Font loading?        | On-demand via Google Fonts API with preview picker                                                                    |
+| Project format?      | IndexedDB for autosave; versioned `.screenforge.zip` with `project.json` and referenced binary assets for portability |

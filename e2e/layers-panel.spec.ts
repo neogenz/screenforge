@@ -29,7 +29,8 @@ test.describe('layers panel', () => {
     const duplicated = await page.evaluate(() => {
       const canvas = window.__sfStores?.useCanvasStore.getState()
       const project = window.__sfStores?.useProjectStore.getState().project
-      const layers = project?.screens.find((screen) => screen.id === project.activeScreenId)?.layers ?? []
+      const layers =
+        project?.screens.find((screen) => screen.id === project.activeScreenId)?.layers ?? []
       return {
         copyId: layers.find((layer) => layer.id !== layers[0]?.id)?.id,
         selectedIds: canvas?.selectedLayerIds ?? [],
@@ -43,8 +44,11 @@ test.describe('layers panel', () => {
     await layerRows(page).filter({ hasText: 'copie' }).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(1)
-    expect(await page.evaluate(() =>
-      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
+    expect(
+      await page.evaluate(
+        () => window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [],
+      ),
+    ).toEqual([])
   })
 
   test('cmd-click toggles multi-selection, menu acts on all selected', async ({ page }) => {
@@ -53,14 +57,19 @@ test.describe('layers panel', () => {
     await expect(layerRows(page)).toHaveCount(2)
 
     await layerRows(page).nth(0).click()
-    await layerRows(page).nth(1).click({ modifiers: ['Meta'] })
+    await layerRows(page)
+      .nth(1)
+      .click({ modifiers: ['Meta'] })
     await expect(page.locator('[data-layer-id][aria-selected="true"]')).toHaveCount(2)
 
     await layerRows(page).nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
     await expect(layerRows(page)).toHaveCount(0)
-    expect(await page.evaluate(() =>
-      window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])).toEqual([])
+    expect(
+      await page.evaluate(
+        () => window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [],
+      ),
+    ).toEqual([])
   })
 
   test('double-click renames a layer', async ({ page }) => {
@@ -95,15 +104,25 @@ test.describe('layers panel', () => {
     await addTextLayer(page)
     await addShapeLayer(page)
     await layerRows(page).first().click()
-    await layerRows(page).nth(1).click({ modifiers: ['Meta'] })
-    const originalIds = await page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.map((layer) => layer.id) ?? [])
+    await layerRows(page)
+      .nth(1)
+      .click({ modifiers: ['Meta'] })
+    const originalIds = await page.evaluate(
+      () =>
+        window.__sfStores?.useProjectStore
+          .getState()
+          .project?.screens[0]?.layers.map((layer) => layer.id) ?? [],
+    )
 
     await page.keyboard.press('Meta+c')
     await page.keyboard.press('Meta+v')
-    await expect.poll(() => page.evaluate(() =>
-      window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
-    )).toBe(4)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
+        ),
+      )
+      .toBe(4)
 
     const state = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
@@ -124,15 +143,22 @@ test.describe('layers panel', () => {
       const layer = window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]
       return { id: layer?.id, x: layer?.x, y: layer?.y }
     })
-    const historyBefore = await page.evaluate(() =>
-      window.__sfStores?.useHistoryStore.getState().past.length ?? -1)
+    const historyBefore = await page.evaluate(
+      () => window.__sfStores?.useHistoryStore.getState().past.length ?? -1,
+    )
 
     await page.keyboard.press('Control+x')
-    await expect.poll(() => page.evaluate(() => JSON.stringify({
-      count: window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
-      selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
-      history: window.__sfStores?.useHistoryStore.getState().past.length,
-    }))).toBe(JSON.stringify({ count: 0, selectedIds: [], history: historyBefore + 1 }))
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          JSON.stringify({
+            count: window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers.length,
+            selectedIds: window.__sfStores?.useCanvasStore.getState().selectedLayerIds,
+            history: window.__sfStores?.useHistoryStore.getState().past.length,
+          }),
+        ),
+      )
+      .toBe(JSON.stringify({ count: 0, selectedIds: [], history: historyBefore + 1 }))
 
     await page.keyboard.press('Meta+z')
     await expect(layerRows(page)).toHaveCount(1)
@@ -167,9 +193,16 @@ test.describe('layers panel', () => {
     await addTextLayer(page)
     const center = await activeCenter(page)
     await page.mouse.dblclick(center.x, center.y)
-    await expect.poll(() => page.evaluate(() =>
-      Boolean((window.__sfCanvas?.getActiveObject() as { isEditing?: boolean } | undefined)?.isEditing),
-    )).toBe(true)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(
+            (window.__sfCanvas?.getActiveObject() as { isEditing?: boolean } | undefined)
+              ?.isEditing,
+          ),
+        ),
+      )
+      .toBe(true)
     await page.keyboard.press('Meta+a')
     await page.keyboard.type('Texte natif')
     await page.keyboard.press('Meta+a')

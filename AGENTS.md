@@ -10,17 +10,17 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 
 ## Tech Stack
 
-| Layer | Choice | Version |
-|---|---|---|
-| Build | Vite | latest |
-| UI | React + TypeScript | React 19 |
-| Canvas | Fabric.js | v7 |
-| State | Zustand | v5+ |
-| Styling | Tailwind CSS | v4 (CSS-first config) |
-| Storage | IndexedDB via `idb` | — |
-| Fonts | Google Fonts API | on-demand |
-| Icons | Lucide React | — |
-| Export | Fabric.js `toDataURL({ multiplier })` / `toBlob()` + JSZip | — |
+| Layer   | Choice                                                     | Version               |
+| ------- | ---------------------------------------------------------- | --------------------- |
+| Build   | Vite                                                       | latest                |
+| UI      | React + TypeScript                                         | React 19              |
+| Canvas  | Fabric.js                                                  | v7                    |
+| State   | Zustand                                                    | v5+                   |
+| Styling | Tailwind CSS                                               | v4 (CSS-first config) |
+| Storage | IndexedDB via `idb`                                        | —                     |
+| Fonts   | Google Fonts API                                           | on-demand             |
+| Icons   | Lucide React                                               | —                     |
+| Export  | Fabric.js `toDataURL({ multiplier })` / `toBlob()` + JSZip | —                     |
 
 ## Commands
 

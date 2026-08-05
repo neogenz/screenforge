@@ -8,19 +8,27 @@ test.describe('canvas text editing', () => {
 
     const center = await page.evaluate(() => {
       const canvas = window.__sfCanvas
-      const object = (canvas?.getObjects() ?? [])
-        .find((candidate) => (candidate as DebugObject).data?.rendererType === 'text')
+      const object = (canvas?.getObjects() ?? []).find(
+        (candidate) => (candidate as DebugObject).data?.rendererType === 'text',
+      )
       if (!canvas || !object) return null
       const rect = canvas.upperCanvasEl.getBoundingClientRect()
       const viewport = canvas.viewportTransform
       const c = object.getCenterPoint()
-      return { x: rect.left + c.x * viewport[0] + viewport[4], y: rect.top + c.y * viewport[3] + viewport[5] }
+      return {
+        x: rect.left + c.x * viewport[0] + viewport[4],
+        y: rect.top + c.y * viewport[3] + viewport[5],
+      }
     })
     expect(center).not.toBeNull()
     await page.mouse.dblclick(center!.x, center!.y)
-    await expect.poll(() => page.evaluate(() =>
-      Boolean((window.__sfCanvas?.getActiveObject() as DebugObject | undefined)?.isEditing),
-    )).toBe(true)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean((window.__sfCanvas?.getActiveObject() as DebugObject | undefined)?.isEditing),
+        ),
+      )
+      .toBe(true)
     await page.keyboard.press('Meta+a')
     await page.keyboard.type('Nouveau titre')
     await page.keyboard.press('Escape')
@@ -55,12 +63,13 @@ test.describe('canvas text editing', () => {
       document.head.appendChild(link)
 
       const originalLoad = document.fonts.load.bind(document.fonts)
-      document.fonts.load = (font: string) => Promise.resolve(
-        font.startsWith('400 ') ? [{} as FontFace] : [],
-      )
+      document.fonts.load = (font: string) =>
+        Promise.resolve(font.startsWith('400 ') ? [{} as FontFace] : [])
       try {
         const moduleUrl = new URL('/src/lib/fonts.ts', window.location.href).href
-        const fonts = await import(/* @vite-ignore */ moduleUrl) as typeof import('../src/lib/fonts')
+        const fonts = (await import(
+          /* @vite-ignore */ moduleUrl
+        )) as typeof import('../src/lib/fonts')
         const load = await fonts.loadGoogleFont(family, ['400', '900'])
         return {
           status: load.status,
@@ -83,14 +92,19 @@ test.describe('angle controls', () => {
 
     const backgroundTabs = page.getByRole('group', { name: 'Type d’arrière-plan' })
     const tabsBox = await backgroundTabs.boundingBox()
-    const lastTabBox = await backgroundTabs.getByRole('button', { name: 'Préréglages' }).boundingBox()
+    const lastTabBox = await backgroundTabs
+      .getByRole('button', { name: 'Préréglages' })
+      .boundingBox()
     expect(tabsBox).not.toBeNull()
     expect(lastTabBox).not.toBeNull()
-    expect(Math.abs((tabsBox!.x + tabsBox!.width) - (lastTabBox!.x + lastTabBox!.width))).toBeLessThan(6)
+    expect(
+      Math.abs(tabsBox!.x + tabsBox!.width - (lastTabBox!.x + lastTabBox!.width)),
+    ).toBeLessThan(6)
 
     await backgroundTabs.getByRole('button', { name: 'Dégradé' }).click()
     const gradientAngle = page.getByRole('slider', { name: 'Angle du dégradé' })
-    await page.getByRole('group', { name: 'Angle du dégradé — angles principaux' })
+    await page
+      .getByRole('group', { name: 'Angle du dégradé — angles principaux' })
       .getByRole('button', { name: '270°' })
       .click()
     await expect(gradientAngle).toHaveAttribute('aria-valuenow', '270')
@@ -99,8 +113,11 @@ test.describe('angle controls', () => {
     const rotation = page.getByRole('slider', { name: 'Rotation' })
     await page.getByRole('switch', { name: 'Activer le dégradé du texte' }).click()
     await expect(page.getByRole('group', { name: 'Rotation — angles principaux' })).toBeVisible()
-    await expect(page.getByRole('group', { name: 'Angle du dégradé — angles principaux' })).toBeVisible()
-    await page.getByRole('group', { name: 'Rotation — angles principaux' })
+    await expect(
+      page.getByRole('group', { name: 'Angle du dégradé — angles principaux' }),
+    ).toBeVisible()
+    await page
+      .getByRole('group', { name: 'Rotation — angles principaux' })
       .getByRole('button', { name: '90°' })
       .click()
     await expect(rotation).toHaveAttribute('aria-valuenow', '90')
@@ -132,7 +149,8 @@ test.describe('device screenshot import', () => {
       mimeType: 'image/png',
       buffer: Buffer.from(pngBase64, 'base64'),
     })
-    await expect.poll(async () => (await findObject(page, 'device-frame'))?.data?.resourceKey)
+    await expect
+      .poll(async () => (await findObject(page, 'device-frame'))?.data?.resourceKey)
       .not.toBe(previousResource)
 
     const object = await findObject(page, 'device-frame')

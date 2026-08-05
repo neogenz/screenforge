@@ -20,15 +20,15 @@ export interface BaseLayer {
 }
 
 export interface ColorStop {
-  offset: number  // 0–1
-  color: string   // CSS color string
+  offset: number // 0–1
+  color: string // CSS color string
 }
 
 export interface GradientFill {
   type: 'linear' | 'radial'
-  angle?: number     // degrees, linear only
-  centerX?: number   // 0–100 percentage, radial only
-  centerY?: number   // 0–100 percentage, radial only
+  angle?: number // degrees, linear only
+  centerX?: number // 0–100 percentage, radial only
+  centerY?: number // 0–100 percentage, radial only
   stops: ColorStop[]
 }
 
@@ -96,7 +96,7 @@ export interface ShapeLayer extends BaseLayer {
   fill: string | GradientFill
   stroke?: string
   strokeWidth?: number
-  borderRadius?: number  // rounded-rect only
+  borderRadius?: number // rounded-rect only
   shadow?: TextShadow
 }
 
@@ -116,7 +116,7 @@ export interface Screen {
   name: string
   layers: Layer[]
   background: Background
-  thumbnail?: string  // data URL for screens bar
+  thumbnail?: string // data URL for screens bar
 }
 
 export interface GlobalSettings {
@@ -190,7 +190,7 @@ export type Orientation = 'portrait' | 'landscape'
 
 export interface DisplayClass {
   name: string
-  size: string  // e.g. '6.9"'
+  size: string // e.g. '6.9"'
   portrait: { width: number; height: number }
   landscape: { width: number; height: number }
   devices: string[]

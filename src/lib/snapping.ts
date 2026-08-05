@@ -43,9 +43,7 @@ function anchors(box: Box, axis: 'x' | 'y'): [number, number, number] {
 }
 
 function span(box: Box, axis: 'x' | 'y'): [number, number] {
-  return axis === 'x'
-    ? [box.top, box.top + box.height]
-    : [box.left, box.left + box.width]
+  return axis === 'x' ? [box.top, box.top + box.height] : [box.left, box.left + box.width]
 }
 
 function shifted(box: Box, dx: number, dy: number): Box {

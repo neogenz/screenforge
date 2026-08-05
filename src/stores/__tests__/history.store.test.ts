@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  useHistoryStore,
-  type ScreenHistorySnapshot,
-} from '@/stores/history.store'
+import { useHistoryStore, type ScreenHistorySnapshot } from '@/stores/history.store'
 import type { Background, Layer } from '@/types'
 
 const background: Background = { type: 'solid', color: '#000000' }
@@ -61,9 +58,11 @@ describe('history store', () => {
     history.record(snapshot('a'))
     history.record(snapshot('b'))
     history.record(snapshot('c'))
-    expect(useHistoryStore.getState().past.map((entry) => (
-      entry.kind === 'screen' ? entry.screenId : 'project'
-    ))).toEqual(['b', 'c'])
+    expect(
+      useHistoryStore
+        .getState()
+        .past.map((entry) => (entry.kind === 'screen' ? entry.screenId : 'project')),
+    ).toEqual(['b', 'c'])
 
     expect(useHistoryStore.getState().undo(snapshot('current'))).not.toBeNull()
     useHistoryStore.getState().record(snapshot('new'))

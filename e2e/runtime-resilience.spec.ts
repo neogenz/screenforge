@@ -13,10 +13,12 @@ test('keeps an editable memory project when IndexedDB is unavailable', async ({ 
   })
 
   await waitForApp(page)
-  await expect(page.getByRole('textbox', { name: 'Nom du projet' }))
-    .toHaveValue('Projet sans titre')
-  await expect(page.getByRole('status').filter({ hasText: 'Échec de l’enregistrement' }))
-    .toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Nom du projet' })).toHaveValue(
+    'Projet sans titre',
+  )
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Échec de l’enregistrement' }),
+  ).toBeVisible()
   const warning = page.getByRole('alert').filter({ hasText: 'Stockage local indisponible' })
   await expect(warning).toBeVisible()
 
@@ -25,17 +27,22 @@ test('keeps an editable memory project when IndexedDB is unavailable', async ({ 
   await expect(warning).toBeVisible()
 })
 
-test('announces a delayed lazy dialog before replacing it with the focused dialog', async ({ page }) => {
+test('announces a delayed lazy dialog before replacing it with the focused dialog', async ({
+  page,
+}) => {
   let release!: () => void
   let intercepted = false
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route(/\/src\/components\/export-dialog\/ExportDialog\.tsx(?:\?.*)?$/, async (route) => {
-    intercepted = true
-    await gate
-    await route.continue()
-  })
+  await page.route(
+    /\/src\/components\/export-dialog\/ExportDialog\.tsx(?:\?.*)?$/,
+    async (route) => {
+      intercepted = true
+      await gate
+      await route.continue()
+    },
+  )
 
   await waitForApp(page)
   await page.getByLabel('Ouvrir l’export').click()

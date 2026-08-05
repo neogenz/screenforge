@@ -11,7 +11,10 @@ import { waitForApp } from './helpers'
  * ne pouvait s'afficher avant un aller-retour vers une origine tierce.
  */
 
-test('peint un squelette nommé avant le montage, sans feuille bloquante', async ({ request, page }) => {
+test('peint un squelette nommé avant le montage, sans feuille bloquante', async ({
+  request,
+  page,
+}) => {
   const html = await (await request.get('/')).text()
 
   // Le squelette est dans le HTML, pas produit par le script qu'on attend.

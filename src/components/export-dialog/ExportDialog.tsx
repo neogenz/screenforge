@@ -26,9 +26,10 @@ function ExportDialogContent({ project }: { project: Project }) {
   const { exportBatch, isExporting, progress, error, completedFiles, clearError } = useExport()
 
   const selectedScreens = useMemo(
-    () => project.screens.flatMap((screen, screenIndex) =>
-      selectedScreenIds.includes(screen.id) ? [{ screen, screenIndex }] : [],
-    ),
+    () =>
+      project.screens.flatMap((screen, screenIndex) =>
+        selectedScreenIds.includes(screen.id) ? [{ screen, screenIndex }] : [],
+      ),
     [project.screens, selectedScreenIds],
   )
   const allScreensSelected = selectedScreenIds.length === project.screens.length
@@ -42,14 +43,15 @@ function ExportDialogContent({ project }: { project: Project }) {
     setSelectedScreenIds(allScreensSelected ? [] : project.screens.map((screen) => screen.id))
   }, [allScreensSelected, clearError, project.screens])
 
-  const toggleScreen = useCallback((id: string) => {
-    clearError()
-    setSelectedScreenIds((previous) =>
-      previous.includes(id)
-        ? previous.filter((screenId) => screenId !== id)
-        : [...previous, id],
-    )
-  }, [clearError])
+  const toggleScreen = useCallback(
+    (id: string) => {
+      clearError()
+      setSelectedScreenIds((previous) =>
+        previous.includes(id) ? previous.filter((screenId) => screenId !== id) : [...previous, id],
+      )
+    },
+    [clearError],
+  )
 
   const handleExport = useCallback(async () => {
     if (selectedScreens.length === 0) return
@@ -98,7 +100,9 @@ function ExportDialogContent({ project }: { project: Project }) {
           >
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h3 id="export-screens-title" className="section-title">Captures</h3>
+                <h3 id="export-screens-title" className="section-title">
+                  Captures
+                </h3>
                 <p className="mt-1 text-2xs text-muted-foreground">
                   L’ordre du projet sera conservé dans le ZIP.
                 </p>
@@ -133,15 +137,23 @@ function ExportDialogContent({ project }: { project: Project }) {
           >
             <div className="surface-inner p-4">
               <span className="field-label">Profil</span>
-              <p className="mt-1.5 text-sm font-medium text-foreground">iPhone {PRIMARY_DIMENSION.size}</p>
+              <p className="mt-1.5 text-sm font-medium text-foreground">
+                iPhone {PRIMARY_DIMENSION.size}
+              </p>
               <p className="tabular mt-1 text-sm text-muted-foreground">
                 {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
               </p>
               <div className="hairline my-3" />
               <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
-                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> PNG · 8 bits</li>
-                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> RGB opaque · sans alpha</li>
-                <li className="flex items-center gap-2"><Check size={12} aria-hidden /> Cible interne &lt; 5 MB</li>
+                <li className="flex items-center gap-2">
+                  <Check size={12} aria-hidden /> PNG · 8 bits
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check size={12} aria-hidden /> RGB opaque · sans alpha
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check size={12} aria-hidden /> Cible interne &lt; 5 MB
+                </li>
               </ul>
             </div>
 
@@ -151,7 +163,8 @@ function ExportDialogContent({ project }: { project: Project }) {
                 {selectedScreens.length}
               </p>
               <p className="text-2xs text-muted-foreground">
-                fichier{selectedScreens.length > 1 ? 's' : ''} sous <span className="font-mono">6.9/</span>
+                fichier{selectedScreens.length > 1 ? 's' : ''} sous{' '}
+                <span className="font-mono">6.9/</span>
               </p>
             </div>
           </aside>
@@ -186,7 +199,8 @@ function ExportDialogContent({ project }: { project: Project }) {
               <div>
                 <div className="flex items-center gap-2 text-2xs text-foreground">
                   <FileCheck2 size={13} aria-hidden />
-                  ZIP validé et téléchargé · {completedFiles.length} fichier{completedFiles.length > 1 ? 's' : ''}
+                  ZIP validé et téléchargé · {completedFiles.length} fichier
+                  {completedFiles.length > 1 ? 's' : ''}
                 </div>
                 <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
                   {completedFiles.map((file) => (
@@ -239,10 +253,12 @@ function ScreenChoice({
         checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
-      <span className={cn(
-        'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
-        checked ? 'border-foreground bg-foreground text-card' : 'border-input bg-card',
-      )}>
+      <span
+        className={cn(
+          'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
+          checked ? 'border-foreground bg-foreground text-card' : 'border-input bg-card',
+        )}
+      >
         {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
       </span>
       {screen.thumbnail ? (

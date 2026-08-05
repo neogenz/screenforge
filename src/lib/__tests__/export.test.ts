@@ -31,7 +31,9 @@ describe('inspectPng', () => {
   })
 
   it('rejects an invalid PNG signature or IHDR', async () => {
-    await expect(inspectPng(new Blob([new Uint8Array(33)]))).rejects.toThrow('Signature PNG invalide')
+    await expect(inspectPng(new Blob([new Uint8Array(33)]))).rejects.toThrow(
+      'Signature PNG invalide',
+    )
     const header = pngHeader()
     const bytes = new Uint8Array(await header.arrayBuffer())
     bytes[12] = 0

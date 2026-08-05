@@ -41,8 +41,9 @@ const MIN_GRABBABLE = 8
 function intersectsScreen(object: RenderedObject, screenIndex: number): boolean {
   const bounds = object.getBoundingRect()
   const windowLeft = getScreenOffset(screenIndex)
-  const overlapX = Math.min(bounds.left + bounds.width, windowLeft + SCREEN_WIDTH)
-    - Math.max(bounds.left, windowLeft)
+  const overlapX =
+    Math.min(bounds.left + bounds.width, windowLeft + SCREEN_WIDTH) -
+    Math.max(bounds.left, windowLeft)
   const overlapY = Math.min(bounds.top + bounds.height, SCREEN_HEIGHT) - Math.max(bounds.top, 0)
   return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
 }
@@ -54,11 +55,7 @@ export function ensureScreenClipPath(object: RenderedObject, screenIndex: number
   object.set('data', { ...object.data, clipScreenIndex: screenIndex })
 }
 
-function applyLayoutInstance(
-  object: RenderedObject,
-  layer: Layer,
-  screenIndex: number,
-): void {
+function applyLayoutInstance(object: RenderedObject, layer: Layer, screenIndex: number): void {
   applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH)
   ensureScreenClipPath(object, screenIndex)
   const visible = intersectsScreen(object, screenIndex)
@@ -262,12 +259,14 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       if (background) orderedObjects.push(background)
     }
     for (const screen of screens) {
-      const layers = [...screen.layers, ...layoutLayers]
-        .sort((left, right) => left.zIndex - right.zIndex)
+      const layers = [...screen.layers, ...layoutLayers].sort(
+        (left, right) => left.zIndex - right.zIndex,
+      )
       for (const layer of layers) {
-        const object = layer.scope === 'layout'
-          ? objectsById.get(`layout:${layer.id}:${screen.id}`)
-          : objectsById.get(layer.id)
+        const object =
+          layer.scope === 'layout'
+            ? objectsById.get(`layout:${layer.id}:${screen.id}`)
+            : objectsById.get(layer.id)
         if (object) orderedObjects.push(object)
       }
     }
@@ -276,23 +275,28 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       if (label) orderedObjects.push(label)
     }
     const wantedOrder = orderedObjects.map((object) => object.data?.uid ?? '')
-    const currentOrder = (canvas.getObjects() as RenderedObject[])
-      .map((object) => object.data?.uid ?? '')
+    const currentOrder = (canvas.getObjects() as RenderedObject[]).map(
+      (object) => object.data?.uid ?? '',
+    )
     if (!sameIds(currentOrder, wantedOrder)) {
       orderedObjects.forEach((object, index) => canvas.moveObjectTo(object, index))
     }
 
     const instances = new Map<string, RenderedObject[]>()
     for (const layer of layoutLayers) {
-      instances.set(layer.id, screens.flatMap((screen) => {
-        const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
-        return object ? [object] : []
-      }))
+      instances.set(
+        layer.id,
+        screens.flatMap((screen) => {
+          const object = objectsById.get(`layout:${layer.id}:${screen.id}`)
+          return object ? [object] : []
+        }),
+      )
     }
     runtime.layoutInstances.current = instances
 
     const selectedIds = useCanvasStore.getState().selectedLayerIds
-    const currentSelectionIds = canvas.getActiveObjects()
+    const currentSelectionIds = canvas
+      .getActiveObjects()
       .map((object) => {
         const data = (object as RenderedObject).data
         return data?.layerId ?? data?.uid
@@ -348,14 +352,16 @@ export async function patchCanvas(
     const object = objectsById.get(layerId)
     if (!layer || !object) return false
     if (needsFabricObjectRecreation(object, layer)) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
+      return false
     applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
   }
 
   for (const layerId of change.layoutLayerIds) {
     const layer = project.layoutLayers.find((candidate) => candidate.id === layerId)
     if (!layer) return false
-    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)])) return false
+    if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
+      return false
     for (let index = 0; index < project.screens.length; index += 1) {
       const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
       if (!object) return false

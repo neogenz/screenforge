@@ -18,9 +18,7 @@ export type ControlHost = FabricObject & { _renderControls: ControlRenderer }
 type MarkedRenderer = ControlRenderer & Record<symbol, ControlRenderer | undefined>
 
 function originalRenderer(renderer: ControlRenderer | undefined): ControlRenderer | undefined {
-  return renderer
-    ? (renderer as MarkedRenderer)[PATCH_MARK] ?? renderer
-    : undefined
+  return renderer ? ((renderer as MarkedRenderer)[PATCH_MARK] ?? renderer) : undefined
 }
 
 const renderControlsPlain = originalRenderer(

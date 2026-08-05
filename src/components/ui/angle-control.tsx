@@ -4,7 +4,7 @@ import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 
 const ANGLE_PRESETS = ['0', '90', '180', '270'] as const
-type AnglePreset = typeof ANGLE_PRESETS[number]
+type AnglePreset = (typeof ANGLE_PRESETS)[number]
 
 const PRESET_OPTIONS: SegmentedOption<AnglePreset>[] = ANGLE_PRESETS.map((angle) => ({
   value: angle,

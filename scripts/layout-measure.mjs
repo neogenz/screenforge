@@ -6,15 +6,15 @@ const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
 await page.goto(baseURL)
 // Browser globals inside Playwright's page context.
- 
+
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
 // Fresh project state: clear any stored project first.
- 
+
 await page.evaluate(() => indexedDB.deleteDatabase('screenforge'))
 await page.reload()
- 
+
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
@@ -42,9 +42,8 @@ await page.getByLabel('Position X').press('Enter')
 await page.waitForTimeout(1000)
 
 const report = await page.evaluate(() => {
-   
   const canvas = window.__sfCanvas
-   
+
   const stores = window.__sfStores
   if (!canvas || !stores) throw new Error('ScreenForge debug handles unavailable')
   /** @type {Array<import('../e2e/helpers').DebugObject & { clipPath?: { left?: number; top?: number } }>} */
@@ -65,7 +64,12 @@ const report = await page.evaluate(() => {
   const project = stores.useProjectStore.getState().project
   const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
   const layers = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].map((l) => ({
-    id: l.id, type: l.type, scope: l.scope, x: l.x, y: l.y, rotation: l.rotation,
+    id: l.id,
+    type: l.type,
+    scope: l.scope,
+    x: l.x,
+    y: l.y,
+    rotation: l.rotation,
   }))
   return { objects, layers, viewport: canvas.viewportTransform }
 })

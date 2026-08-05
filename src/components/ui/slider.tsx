@@ -42,7 +42,13 @@ export function Slider({
 }: SliderProps) {
   const current = clampNumber(value, min, max)
   const track = (
-    <div className={cn('flex h-8 items-center gap-2', disabled && 'pointer-events-none opacity-40', !label && className)}>
+    <div
+      className={cn(
+        'flex h-8 items-center gap-2',
+        disabled && 'pointer-events-none opacity-40',
+        !label && className,
+      )}
+    >
       <SliderPrimitive.Root
         value={[current]}
         onValueChange={(values) => onChange(values[0] ?? current)}

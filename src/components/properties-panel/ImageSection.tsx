@@ -50,11 +50,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           className="sr-only"
           aria-label="Remplacer le fichier image"
         />
-        <Button
-          variant="default"
-          className="w-full"
-          onClick={() => fileRef.current?.click()}
-        >
+        <Button variant="default" className="w-full" onClick={() => fileRef.current?.click()}>
           <Upload size={11} strokeWidth={1.5} aria-hidden />
           Remplacer
         </Button>

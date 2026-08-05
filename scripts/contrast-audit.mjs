@@ -98,10 +98,7 @@ const themes = readTokens()
 let failures = 0
 
 for (const [theme, tokens] of Object.entries(themes)) {
-  const couples = [
-    ...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])),
-    ...PAIRS,
-  ]
+  const couples = [...INKS.flatMap((ink) => SURFACES.map((surface) => [ink, surface])), ...PAIRS]
   for (const [ink, surface] of couples) {
     const foreground = tokens.get(ink)
     const background = tokens.get(surface)

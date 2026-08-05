@@ -15,10 +15,5 @@
     },
     "types": ["node"]
   },
-  "include": [
-    "e2e/**/*.ts",
-    "playwright.config.ts",
-    "vite.config.ts",
-    "scripts/**/*.mjs"
-  ]
+  "include": ["e2e/**/*.ts", "playwright.config.ts", "vite.config.ts", "scripts/**/*.mjs"]
 }

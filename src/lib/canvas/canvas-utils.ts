@@ -291,19 +291,22 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
   const importedUrl = resolveAsset(imported?.assetId)
   if (imported && importedUrl) {
     const screenshotUrl = resolveAsset(layer.screenshotAssetId)
-    const escape = (value: string) => value
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+    const escape = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
     const { naturalWidth: width, naturalHeight: height, screen } = imported
     return {
       width,
       height,
       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  ${screenshotUrl
-    ? `<image x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" href="${escape(screenshotUrl)}" preserveAspectRatio="xMidYMid slice"/>`
-    : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="${DEFAULT_DEVICE_SCREEN_COLOR}"/>`}
+  ${
+    screenshotUrl
+      ? `<image x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" href="${escape(screenshotUrl)}" preserveAspectRatio="xMidYMid slice"/>`
+      : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="${DEFAULT_DEVICE_SCREEN_COLOR}"/>`
+  }
   <image x="0" y="0" width="${width}" height="${height}" href="${escape(importedUrl)}"/>
 </svg>`,
     }
@@ -372,8 +375,9 @@ export function disposeFabricObjectResource(object: RenderedObject): void {
 }
 
 export function needsFabricObjectRecreation(object: RenderedObject, layer: Layer): boolean {
-  return object.data?.rendererType !== layer.type
-    || object.data?.resourceKey !== getResourceKey(layer)
+  return (
+    object.data?.rendererType !== layer.type || object.data?.resourceKey !== getResourceKey(layer)
+  )
 }
 
 export async function layerToFabricObject(layer: Layer): Promise<RenderedObject> {
@@ -383,9 +387,7 @@ export async function layerToFabricObject(layer: Layer): Promise<RenderedObject>
   if (layer.type === 'text') {
     object = new Textbox('', { width: Math.max(1, layer.width) })
   } else if (layer.type === 'shape') {
-    object = layer.shapeType === 'circle'
-      ? new Circle({ radius: 1 })
-      : new Rect()
+    object = layer.shapeType === 'circle' ? new Circle({ radius: 1 }) : new Rect()
   } else if (layer.type === 'image') {
     const src = resolveAsset(layer.assetId)
     if (!src) throw new Error('Image introuvable : asset manquant dans le registre.')
@@ -479,7 +481,7 @@ export function applyLayerToFabricObject(
         scaleY: layer.height / diameter,
       })
     } else if (object instanceof Rect) {
-      const radius = layer.shapeType === 'rounded-rect' ? layer.borderRadius ?? 8 : 0
+      const radius = layer.shapeType === 'rounded-rect' ? (layer.borderRadius ?? 8) : 0
       object.set({
         width: Math.max(1, layer.width),
         height: Math.max(1, layer.height),
@@ -500,14 +502,15 @@ export function applyLayerToFabricObject(
       lockRotation: officialBezel,
       scaleX: layer.width / Math.max(1, object.width),
       scaleY: layer.height / Math.max(1, object.height),
-      shadow: !officialBezel && layer.shadowEnabled
-        ? new Shadow({
-            blur: layer.shadowBlur ?? 20,
-            color: layer.shadowColor ?? DEFAULT_CANVAS_SHADOW_COLOR,
-            offsetX: layer.shadowOffsetX ?? 0,
-            offsetY: layer.shadowOffsetY ?? 12,
-          })
-        : null,
+      shadow:
+        !officialBezel && layer.shadowEnabled
+          ? new Shadow({
+              blur: layer.shadowBlur ?? 20,
+              color: layer.shadowColor ?? DEFAULT_CANVAS_SHADOW_COLOR,
+              offsetX: layer.shadowOffsetX ?? 0,
+              offsetY: layer.shadowOffsetY ?? 12,
+            })
+          : null,
     })
   }
 
@@ -515,11 +518,7 @@ export function applyLayerToFabricObject(
 
   // La taille vient d'être posée : le centre s'en déduit, jamais l'inverse.
   const size = scaledSize(object, Math.abs(object.scaleX), Math.abs(object.scaleY))
-  placeAtSceneCenter(
-    object,
-    layer.x + screenOffset + size.width / 2,
-    layer.y + size.height / 2,
-  )
+  placeAtSceneCenter(object, layer.x + screenOffset + size.width / 2, layer.y + size.height / 2)
 
   object.setCoords()
 }

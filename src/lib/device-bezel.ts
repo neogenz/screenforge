@@ -9,18 +9,14 @@ const MIN_SCREEN_AREA_RATIO = 0.1
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const
 
 export type DeviceBezelErrorCode =
-  | 'invalid-format'
-  | 'file-too-large'
-  | 'image-too-large'
-  | 'invalid-image'
-  | 'screen-not-found'
+  'invalid-format' | 'file-too-large' | 'image-too-large' | 'invalid-image' | 'screen-not-found'
 
 const ERROR_MESSAGES: Record<DeviceBezelErrorCode, string> = {
   'invalid-format': 'Le bezel doit être un PNG transparent.',
   'file-too-large': 'Le PNG dépasse la taille maximale de 32 Mio.',
   'image-too-large': 'Le PNG dépasse la limite de 16 mégapixels.',
   'invalid-image': 'Le PNG est illisible ou endommagé.',
-  'screen-not-found': "L’ouverture transparente de l’écran est introuvable.",
+  'screen-not-found': 'L’ouverture transparente de l’écran est introuvable.',
 }
 
 export class DeviceBezelError extends Error {
@@ -47,9 +43,10 @@ function decodeImage(src: string): Promise<HTMLImageElement> {
 function readBytes(file: File): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => reader.result instanceof ArrayBuffer
-      ? resolve(new Uint8Array(reader.result))
-      : reject(new DeviceBezelError('invalid-image'))
+    reader.onload = () =>
+      reader.result instanceof ArrayBuffer
+        ? resolve(new Uint8Array(reader.result))
+        : reject(new DeviceBezelError('invalid-image'))
     reader.onerror = () => reject(new DeviceBezelError('invalid-image'))
     reader.readAsArrayBuffer(file)
   })

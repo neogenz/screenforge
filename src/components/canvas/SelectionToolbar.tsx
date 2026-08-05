@@ -98,9 +98,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   // place, ce qui arrive dès qu'on travaille sur le bas d'un artboard.
   const below = frame.top + frame.height + OFFSET
   const flipped = below + BAR_HEIGHT + EDGE > frame.stageHeight
-  const top = flipped
-    ? Math.max(EDGE, frame.top - OFFSET - BAR_HEIGHT)
-    : below
+  const top = flipped ? Math.max(EDGE, frame.top - OFFSET - BAR_HEIGHT) : below
 
   return (
     <div
@@ -130,7 +128,11 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
       ))}
 
       <Divider />
-      {selected.length === 1 ? <LayerControls layer={selected[0]} /> : <MultiCount count={selected.length} />}
+      {selected.length === 1 ? (
+        <LayerControls layer={selected[0]} />
+      ) : (
+        <MultiCount count={selected.length} />
+      )}
       <Divider />
 
       <IconButton
@@ -169,16 +171,16 @@ function Divider() {
 
 function MultiCount({ count }: { count: number }) {
   return (
-    <span className="field-label tabular shrink-0 whitespace-nowrap px-1.5">
-      {count} calques
-    </span>
+    <span className="field-label tabular shrink-0 whitespace-nowrap px-1.5">{count} calques</span>
   )
 }
 
 /** Les réglages les plus utilisés du type sélectionné, jamais l'inventaire complet. */
 function LayerControls({ layer }: { layer: Layer }) {
   const update = (updates: Partial<Layer>, coalesceKey?: string) =>
-    useCanvasStore.getState().updateLayer(layer.id, updates, coalesceKey ? { coalesceKey } : undefined)
+    useCanvasStore
+      .getState()
+      .updateLayer(layer.id, updates, coalesceKey ? { coalesceKey } : undefined)
 
   if (layer.type === 'text') {
     return (
@@ -196,7 +198,8 @@ function LayerControls({ layer }: { layer: Layer }) {
             min={8}
             max={400}
             onChange={(fontSize) =>
-              update({ fontSize } as Partial<Layer>, `layer:${layer.id}:fontSize`)}
+              update({ fontSize } as Partial<Layer>, `layer:${layer.id}:fontSize`)
+            }
           />
         </div>
         <ColorControl
@@ -276,7 +279,8 @@ function LayerControls({ layer }: { layer: Layer }) {
               min={0}
               max={400}
               onChange={(borderRadius) =>
-                update({ borderRadius } as Partial<Layer>, `layer:${layer.id}:borderRadius`)}
+                update({ borderRadius } as Partial<Layer>, `layer:${layer.id}:borderRadius`)
+              }
             />
           </div>
         )}
@@ -292,8 +296,7 @@ function LayerControls({ layer }: { layer: Layer }) {
         value={Math.round(layer.opacity * 100)}
         min={0}
         max={100}
-        onChange={(percent) =>
-          update({ opacity: percent / 100 }, `layer:${layer.id}:opacity`)}
+        onChange={(percent) => update({ opacity: percent / 100 }, `layer:${layer.id}:opacity`)}
       />
     </div>
   )

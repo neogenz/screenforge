@@ -85,16 +85,18 @@ export function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] 
   const members = new Set<FabricObject>(
     moving instanceof ActiveSelection ? moving.getObjects() : [moving],
   )
-  const screenIndex = [...members]
-    .map((member) => (member as RenderedObject).data?.screenIndex)
-    .find((index) => index !== undefined) ?? 0
+  const screenIndex =
+    [...members]
+      .map((member) => (member as RenderedObject).data?.screenIndex)
+      .find((index) => index !== undefined) ?? 0
 
   const targets: Box[] = [
     { left: getScreenOffset(screenIndex), top: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
   ]
   for (const object of canvas.getObjects() as RenderedObject[]) {
     if (members.has(object) || object.data?.screenIndex !== screenIndex) continue
-    if (object.data?.rendererType === 'background' || object.data?.rendererType === 'label') continue
+    if (object.data?.rendererType === 'background' || object.data?.rendererType === 'label')
+      continue
     if (!object.visible) continue
     targets.push(boxOf(object))
   }
@@ -174,12 +176,14 @@ export function readSelectionFrame(canvas: Canvas): SelectionFrame | null {
 export function sameFrame(left: SelectionFrame | null, right: SelectionFrame | null): boolean {
   if (left === right) return true
   if (!left || !right) return false
-  return Math.round(left.left) === Math.round(right.left)
-    && Math.round(left.top) === Math.round(right.top)
-    && Math.round(left.width) === Math.round(right.width)
-    && Math.round(left.height) === Math.round(right.height)
-    && left.stageWidth === right.stageWidth
-    && left.stageHeight === right.stageHeight
+  return (
+    Math.round(left.left) === Math.round(right.left) &&
+    Math.round(left.top) === Math.round(right.top) &&
+    Math.round(left.width) === Math.round(right.width) &&
+    Math.round(left.height) === Math.round(right.height) &&
+    left.stageWidth === right.stageWidth &&
+    left.stageHeight === right.stageHeight
+  )
 }
 
 export function sameIds(left: string[], right: string[]): boolean {
@@ -192,8 +196,7 @@ export function resolveSelectionObjects(
   selectedIds: string[],
 ): RenderedObject[] {
   return selectedIds.flatMap((id) => {
-    const object = objectsById.get(id)
-      ?? objectsById.get(`layout:${id}:${project.activeScreenId}`)
+    const object = objectsById.get(id) ?? objectsById.get(`layout:${id}:${project.activeScreenId}`)
     return object ? [object] : []
   })
 }

@@ -71,8 +71,11 @@ export function useLayerActions() {
       if (ids.length === 1) {
         updateLayer(ids[0], { visible })
       } else {
-        setLayers(layers().map((candidate) =>
-          ids.includes(candidate.id) ? { ...candidate, visible } : candidate))
+        setLayers(
+          layers().map((candidate) =>
+            ids.includes(candidate.id) ? { ...candidate, visible } : candidate,
+          ),
+        )
       }
     }
 
@@ -82,8 +85,11 @@ export function useLayerActions() {
       if (ids.length === 1) {
         updateLayer(ids[0], { locked })
       } else {
-        setLayers(layers().map((candidate) =>
-          ids.includes(candidate.id) ? { ...candidate, locked } : candidate))
+        setLayers(
+          layers().map((candidate) =>
+            ids.includes(candidate.id) ? { ...candidate, locked } : candidate,
+          ),
+        )
       }
     }
 

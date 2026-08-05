@@ -37,21 +37,25 @@ interface HistoryState {
 }
 
 function sameProject(left: Project, right: Project): boolean {
-  return left.id === right.id
-    && left.name === right.name
-    && left.activeScreenId === right.activeScreenId
-    && left.globals === right.globals
-    && left.layoutLayers === right.layoutLayers
-    && left.createdAt === right.createdAt
-    && left.updatedAt === right.updatedAt
-    && left.screens.length === right.screens.length
-    && left.screens.every((screen, index) => {
+  return (
+    left.id === right.id &&
+    left.name === right.name &&
+    left.activeScreenId === right.activeScreenId &&
+    left.globals === right.globals &&
+    left.layoutLayers === right.layoutLayers &&
+    left.createdAt === right.createdAt &&
+    left.updatedAt === right.updatedAt &&
+    left.screens.length === right.screens.length &&
+    left.screens.every((screen, index) => {
       const other = right.screens[index]
-      return screen.id === other.id
-        && screen.name === other.name
-        && screen.layers === other.layers
-        && screen.background === other.background
+      return (
+        screen.id === other.id &&
+        screen.name === other.name &&
+        screen.layers === other.layers &&
+        screen.background === other.background
+      )
     })
+  )
 }
 
 function sameSnapshot(left: HistorySnapshot | undefined, right: HistorySnapshot): boolean {
@@ -59,11 +63,13 @@ function sameSnapshot(left: HistorySnapshot | undefined, right: HistorySnapshot)
   if (left.kind === 'project' && right.kind === 'project') {
     return sameProject(left.project, right.project)
   }
-  return left.kind === 'screen'
-    && right.kind === 'screen'
-    && left.screenId === right.screenId
-    && left.layers === right.layers
-    && left.background === right.background
+  return (
+    left.kind === 'screen' &&
+    right.kind === 'screen' &&
+    left.screenId === right.screenId &&
+    left.layers === right.layers &&
+    left.background === right.background
+  )
 }
 
 export const useHistoryStore = create<HistoryState>()((set, get) => ({
@@ -77,9 +83,9 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     set((state) => {
       const now = Date.now()
       if (
-        coalesceKey
-        && coalesceKey === state.lastCoalesceKey
-        && now - state.lastRecordedAt < COALESCE_WINDOW_MS
+        coalesceKey &&
+        coalesceKey === state.lastCoalesceKey &&
+        now - state.lastRecordedAt < COALESCE_WINDOW_MS
       ) {
         return { lastRecordedAt: now, future: [] }
       }

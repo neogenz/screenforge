@@ -89,10 +89,14 @@ export function installInteractions({
     syncTextCursors()
     if (syncing.current || applyingStoreSelection) return
     const renderedObjects = canvas.getActiveObjects() as RenderedObject[]
-    const ids = [...new Set(renderedObjects.flatMap((object) => {
-      const id = object.data?.layerId ?? object.data?.uid
-      return id ? [id] : []
-    }))]
+    const ids = [
+      ...new Set(
+        renderedObjects.flatMap((object) => {
+          const id = object.data?.layerId ?? object.data?.uid
+          return id ? [id] : []
+        }),
+      ),
+    ]
     const screenId = renderedObjects.find((object) => object.data?.screenId)?.data?.screenId
     if (screenId && screenId !== getProject()?.activeScreenId) {
       selectionFromCanvas.current = true
@@ -111,8 +115,11 @@ export function installInteractions({
     }
     const targets = resolveSelectionObjects(project, objectsById, getSelectedLayerIds())
     const activeObjects = canvas.getActiveObjects() as RenderedObject[]
-    if (activeObjects.length === targets.length
-      && targets.every((target) => activeObjects.includes(target))) return
+    if (
+      activeObjects.length === targets.length &&
+      targets.every((target) => activeObjects.includes(target))
+    )
+      return
     applyingStoreSelection = true
     if (targets.length === 0) canvas.discardActiveObject()
     else if (targets.length === 1) canvas.setActiveObject(targets[0])
@@ -127,18 +134,20 @@ export function installInteractions({
   const disposeModified = canvas.on('object:modified', (event) => {
     if (syncing.current || !event.target) return
     const target = event.target
-    const objects = target instanceof ActiveSelection
-      ? target.getObjects() as RenderedObject[]
-      : [target as RenderedObject]
+    const objects =
+      target instanceof ActiveSelection
+        ? (target.getObjects() as RenderedObject[])
+        : [target as RenderedObject]
     const project = getProject()
     if (!project) return
-    objects.sort((a, b) =>
-      Number(a.data?.screenId === project.activeScreenId)
-      - Number(b.data?.screenId === project.activeScreenId))
+    objects.sort(
+      (a, b) =>
+        Number(a.data?.screenId === project.activeScreenId) -
+        Number(b.data?.screenId === project.activeScreenId),
+    )
 
-    const dropScreenIndex = event.action === 'drag'
-      ? screenIndexAtPoint(project.screens, target.getCenterPoint())
-      : null
+    const dropScreenIndex =
+      event.action === 'drag' ? screenIndexAtPoint(project.screens, target.getCenterPoint()) : null
     const localUpdates: LocalLayerTransfer[] = []
     const layoutUpdates: LayoutLayerUpdate[] = []
     for (const object of objects) {
@@ -160,7 +169,9 @@ export function installInteractions({
       const sourceScreenIndex = dragSourceScreenIndexes.get(object) ?? screenIndex
       const targetScreenIndex = dropScreenIndex ?? sourceScreenIndex
       const targetScreen = project.screens[targetScreenIndex]
-      const layer = project.screens[screenIndex].layers.find((candidate) => candidate.id === layerId)
+      const layer = project.screens[screenIndex].layers.find(
+        (candidate) => candidate.id === layerId,
+      )
       if (!targetScreen || !layer) continue
       if (dropScreenIndex === null && object.data?.screenIndex !== sourceScreenIndex) {
         object.set('data', { ...object.data, screenIndex: sourceScreenIndex })
@@ -170,19 +181,20 @@ export function installInteractions({
         layer,
         sourceScreenId: screenId,
         targetScreenId: targetScreen.id,
-        update: fabricObjectToLayerUpdate(object, getScreenOffset(targetScreenIndex)) as Partial<Layer>,
+        update: fabricObjectToLayerUpdate(
+          object,
+          getScreenOffset(targetScreenIndex),
+        ) as Partial<Layer>,
       })
     }
     if (localUpdates.length === 0 && layoutUpdates.length === 0) return
 
     const transfer = localUpdates.find((change) => change.sourceScreenId !== change.targetScreenId)
-    const affectedScreenIds = new Set(localUpdates.flatMap((change) => [
-      change.sourceScreenId,
-      change.targetScreenId,
-    ]))
-    const changesProjectLayout = layoutUpdates.length > 0
-      || Boolean(transfer)
-      || affectedScreenIds.size > 1
+    const affectedScreenIds = new Set(
+      localUpdates.flatMap((change) => [change.sourceScreenId, change.targetScreenId]),
+    )
+    const changesProjectLayout =
+      layoutUpdates.length > 0 || Boolean(transfer) || affectedScreenIds.size > 1
     if (changesProjectLayout) recordProjectHistory()
     else recordHistory()
 
@@ -212,10 +224,14 @@ export function installInteractions({
       updatedAt: nextTimestamp(project.updatedAt),
     })
     if (destinationScreenId) {
-      selectLayers([...new Set(objects.flatMap((object) => {
-        const id = object.data?.layerId ?? object.data?.uid
-        return id ? [id] : []
-      }))])
+      selectLayers([
+        ...new Set(
+          objects.flatMap((object) => {
+            const id = object.data?.layerId ?? object.data?.uid
+            return id ? [id] : []
+          }),
+        ),
+      ])
     }
     dragSourceScreenIndexes.clear()
   })
@@ -245,9 +261,8 @@ export function installInteractions({
   const disposeMoving = canvas.on('object:moving', (event) => {
     const target = event.target as RenderedObject | undefined
     if (!target) return
-    const members = target instanceof ActiveSelection
-      ? target.getObjects() as RenderedObject[]
-      : [target]
+    const members =
+      target instanceof ActiveSelection ? (target.getObjects() as RenderedObject[]) : [target]
     const localMembers = members.filter((object) => !object.data?.layout)
     for (const object of localMembers) {
       const sourceIndex = object.data?.screenIndex
@@ -259,9 +274,10 @@ export function installInteractions({
       getProject()?.screens ?? [],
       target.getCenterPoint(),
     )
-    if (targetScreenIndex !== null && localMembers.some(
-      (object) => object.data?.screenIndex !== targetScreenIndex,
-    )) {
+    if (
+      targetScreenIndex !== null &&
+      localMembers.some((object) => object.data?.screenIndex !== targetScreenIndex)
+    ) {
       for (const object of localMembers) {
         object.set('data', { ...object.data, screenIndex: targetScreenIndex })
         ensureScreenClipPath(object, targetScreenIndex)
@@ -317,8 +333,9 @@ export function installInteractions({
     if (!layerId) return
     const project = getProject()
     const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-      .find((candidate) => candidate.id === layerId)
+    const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+      (candidate) => candidate.id === layerId,
+    )
     if (layer?.type === 'text' && layer.content !== target.text) {
       updateLayer(layerId, { content: target.text })
     }
@@ -333,10 +350,11 @@ export function installInteractions({
 
   function handleKeyDown(event: KeyboardEvent): void {
     const element = document.activeElement as HTMLElement | null
-    if (element && (
-      ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)
-      || element.isContentEditable
-    )) return
+    if (
+      element &&
+      (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable)
+    )
+      return
     if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.shiftKey) return
     const target = canvas.getActiveObject()
     if (!(target instanceof Textbox) || !target.selectable) return

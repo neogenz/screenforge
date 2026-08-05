@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @source "../index.html";
 @source "./**/*.tsx";
@@ -114,9 +114,11 @@
   /* ── Élévation — large, basse en opacité, en trois couches ──
      Namespace shadcn : `shadow-md` pour un îlot, `shadow-lg` pour un menu,
      `shadow-xl` pour une modale. */
-  --shadow-md: 0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
+  --shadow-md:
+    0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
     0 24px 48px -24px oklch(0 0 0 / 0.55);
-  --shadow-lg: 0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
+  --shadow-lg:
+    0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
     0 32px 64px -32px oklch(0 0 0 / 0.6);
   --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
   /* Une poignée n'est pas un îlot : elle ne plane pas, elle se détache de ce
@@ -144,8 +146,7 @@
      dans une bande de 5px, dont quatre séparées d'un pixel ou moins. À cet
      écart rien ne hiérarchise : ça se lit comme une inconstance, pas comme
      un niveau. */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --text-2xs: 11px;
   --text-2xs--line-height: 16px;
 
@@ -279,11 +280,7 @@
   --stage-dot-step: 22px;
   --stage-dot-x: 0px;
   --stage-dot-y: 0px;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    var(--color-stage-dot) 1px,
-    transparent 0
-  );
+  background-image: radial-gradient(circle at 1px 1px, var(--color-stage-dot) 1px, transparent 0);
   background-size: var(--stage-dot-step) var(--stage-dot-step);
   background-position: var(--stage-dot-x) var(--stage-dot-y);
 }
@@ -372,9 +369,11 @@
   --color-artboard-shadow: oklch(0 0 0 / 0.16);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
 
-  --shadow-md: 0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
+  --shadow-md:
+    0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
     0 24px 48px -24px oklch(0 0 0 / 0.14);
-  --shadow-lg: 0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
+  --shadow-lg:
+    0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
     0 32px 64px -32px oklch(0 0 0 / 0.16);
   --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
@@ -402,7 +401,10 @@
     letter-spacing: 0;
     font-optical-sizing: auto;
     /* cv05 l à empattement, cv08 majuscule I à empattement, ss03 esperluette simplifiée. */
-    font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
+    font-feature-settings:
+      'cv05' 1,
+      'cv08' 1,
+      'ss03' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -449,22 +451,13 @@
     mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
   }
 
-
   /* ── Scène : vignette discrète, les artboards portent la lumière ── */
   .stage-vignette {
     pointer-events: none;
-    background: radial-gradient(
-      120% 90% at 50% 42%,
-      transparent 60%,
-      oklch(0.08 0 0 / 0.35) 100%
-    );
+    background: radial-gradient(120% 90% at 50% 42%, transparent 60%, oklch(0.08 0 0 / 0.35) 100%);
   }
   .light .stage-vignette {
-    background: radial-gradient(
-      120% 90% at 50% 42%,
-      transparent 62%,
-      oklch(0.3 0 0 / 0.1) 100%
-    );
+    background: radial-gradient(120% 90% at 50% 42%, transparent 62%, oklch(0.3 0 0 / 0.1) 100%);
   }
 
   /* ── Hiérarchie de texte — trois niveaux, écarts francs ──
@@ -528,7 +521,11 @@
       linear-gradient(45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%),
       linear-gradient(-45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%);
     background-size: 8px 8px;
-    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    background-position:
+      0 0,
+      0 4px,
+      4px -4px,
+      -4px 0;
   }
 
   .img-outline {
@@ -547,7 +544,7 @@
     position: relative;
   }
   .hit-44::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 50%;
     top: 50%;
@@ -565,7 +562,7 @@
     position: relative;
   }
   .hit-24::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 50%;
     top: 50%;
@@ -592,12 +589,12 @@
 }
 
 /* ── Form primitives ── */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type="number"] {
+input[type='number'] {
   -moz-appearance: textfield;
 }
 
@@ -629,8 +626,8 @@ input[type="number"] {
   *::after {
     /* Une transition de `transform` est un déplacement : c'est elle qui gêne,
        pas la couleur ni l'opacité, qui restent à leur durée d'origine. */
-    transition-property: color, background-color, border-color, outline-color,
-      fill, stroke, opacity, box-shadow;
+    transition-property:
+      color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow;
   }
 
   /* Les trois entrées qui déplacent : elles gardent leur durée et leur courbe,

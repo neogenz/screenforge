@@ -43,11 +43,7 @@ import {
 import { importPortableProject, saveCurrentProject } from '@/lib/storage'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
-import {
-  createDeviceLayer,
-  createShapeLayer,
-  createTextLayer,
-} from '@/lib/layer-factories'
+import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
 import type { DeviceModel, Layer } from '@/types'
 
@@ -185,7 +181,7 @@ function ProjectFileMenu() {
       <Dropdown
         open={open}
         onOpenChange={setOpen}
-        trigger={(
+        trigger={
           <IconButton
             size="sm"
             // La colonne de gauche est celle qui cède : sans cela le chevron
@@ -197,11 +193,13 @@ function ProjectFileMenu() {
             aria-expanded={open}
             disabled={busy}
           >
-            {busy
-              ? <LoaderCircle size={13} className="animate-spin" aria-hidden />
-              : <ChevronDown size={13} strokeWidth={2} aria-hidden />}
+            {busy ? (
+              <LoaderCircle size={13} className="animate-spin" aria-hidden />
+            ) : (
+              <ChevronDown size={13} strokeWidth={2} aria-hidden />
+            )}
           </IconButton>
-        )}
+        }
         ariaLabel="Fichier du projet"
         items={[
           {
@@ -366,9 +364,7 @@ function ToolsSegment() {
       >
         <Type size={16} strokeWidth={1.75} />
       </IconButton>
-      <DeviceAddTool
-        onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))}
-      />
+      <DeviceAddTool onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))} />
       <IconButton
         aria-label="Ajouter Image"
         title="Ajouter : image…"
@@ -422,9 +418,9 @@ function useToolActions(): SecondaryAction[] {
   const deviceModel = useProjectStore((s) => s.project?.globals.deviceModel)
 
   function addLayer(create: (index: number) => Layer) {
-    useCanvasStore.getState().addLayer(
-      create(getProjectLayers(useProjectStore.getState().project).length),
-    )
+    useCanvasStore
+      .getState()
+      .addLayer(create(getProjectLayers(useProjectStore.getState().project).length))
   }
 
   return [
@@ -456,8 +452,10 @@ function useToolActions(): SecondaryAction[] {
       label: 'Ajouter un cadre iPhone',
       hint: 'Ajouter : cadre iPhone',
       icon: <Smartphone size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer((index) =>
-        createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index)),
+      onSelect: () =>
+        addLayer((index) =>
+          createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index),
+        ),
     },
     {
       id: 'add-image',
@@ -502,9 +500,12 @@ function useSecondaryActions(): SecondaryAction[] {
       id: 'theme',
       label: 'Changer de thème',
       hint: theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre',
-      icon: theme === 'dark'
-        ? <Sun size={16} strokeWidth={1.75} />
-        : <Moon size={16} strokeWidth={1.75} />,
+      icon:
+        theme === 'dark' ? (
+          <Sun size={16} strokeWidth={1.75} />
+        ) : (
+          <Moon size={16} strokeWidth={1.75} />
+        ),
       onSelect: () => useUIStore.getState().toggleTheme(),
     },
     {
@@ -524,7 +525,7 @@ function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
     <Dropdown
       open={open}
       onOpenChange={setOpen}
-      trigger={(
+      trigger={
         <IconButton
           aria-label="Ouvrir les autres actions"
           title="Autres actions"
@@ -533,7 +534,7 @@ function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
         >
           <MoreHorizontal size={16} strokeWidth={1.75} />
         </IconButton>
-      )}
+      }
       ariaLabel="Autres actions"
       items={actions.map((action) => ({
         id: action.id,
@@ -641,15 +642,15 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
   const [open, setOpen] = useState(false)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
 
-  const models = [...CURRENT_DEVICE_FRAMES].sort((a, b) =>
-    Number(b.model === preferredModel) - Number(a.model === preferredModel),
+  const models = [...CURRENT_DEVICE_FRAMES].sort(
+    (a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel),
   )
 
   return (
     <Dropdown
       open={open}
       onOpenChange={setOpen}
-      trigger={(
+      trigger={
         <IconButton
           aria-label="Ajouter un cadre iPhone"
           title="Ajouter : cadre iPhone"
@@ -659,7 +660,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
           <Smartphone size={16} strokeWidth={1.75} />
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
         </IconButton>
-      )}
+      }
       ariaLabel="Modèle d’iPhone"
       items={models.map((frame) => ({
         id: frame.model,

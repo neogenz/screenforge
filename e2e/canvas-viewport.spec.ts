@@ -34,8 +34,12 @@ async function artboardRect(page: Page) {
   return page.evaluate(() => {
     const canvas = window.__sfCanvas
     if (!canvas) return null
-    const boards = canvas.getObjects()
-      .filter((object) => (object as { data?: { rendererType?: string } }).data?.rendererType === 'background')
+    const boards = canvas
+      .getObjects()
+      .filter(
+        (object) =>
+          (object as { data?: { rendererType?: string } }).data?.rendererType === 'background',
+      )
       .map((object) => object.getBoundingRect())
     if (boards.length === 0) return null
     const [zoom, , , , panX, panY] = canvas.viewportTransform
@@ -71,10 +75,14 @@ test('keeps the artboards inside the free stage when the window is resized', asy
   await addDeviceLayer(page)
   await waitForCanvasSettled(page)
 
-  for (const size of [{ width: 1100, height: 720 }, { width: 1800, height: 1100 }]) {
+  for (const size of [
+    { width: 1100, height: 720 },
+    { width: 1800, height: 1100 },
+  ]) {
     await page.setViewportSize(size)
     // Le recadrage passe par un `ResizeObserver` débattu à 80ms.
-    await expect.poll(async () => (await artboardRect(page))?.canvasWidth, { timeout: 5_000 })
+    await expect
+      .poll(async () => (await artboardRect(page))?.canvasWidth, { timeout: 5_000 })
       .toBeGreaterThan(0)
     await page.waitForTimeout(400)
 

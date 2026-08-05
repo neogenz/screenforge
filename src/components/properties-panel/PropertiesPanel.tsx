@@ -52,7 +52,9 @@ export function PropertiesPanel() {
     >
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
-        <h2 id="sf-properties-panel-title" className="panel-title">{headerLabel}</h2>
+        <h2 id="sf-properties-panel-title" className="panel-title">
+          {headerLabel}
+        </h2>
         {selectedLayers.length > 1 && (
           <span className="tabular text-2xs text-muted-foreground">
             {String(selectedLayers.length).padStart(2, '0')}

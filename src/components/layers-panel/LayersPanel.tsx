@@ -30,8 +30,8 @@ export function LayersPanel() {
     // Le filtre porte sur le nom affiché : chercher « accrocheur » doit
     // trouver le calque que la liste montre sous ce mot, pas rien du tout.
     const matches = (layer: Layer) =>
-      normalizedQuery.length === 0
-      || layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
+      normalizedQuery.length === 0 ||
+      layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
     const byZIndexDesc = (first: Layer, second: Layer) => second.zIndex - first.zIndex
     return [
       {
@@ -112,7 +112,9 @@ export function LayersPanel() {
     >
       <div className="shrink-0 px-3 pb-2 pt-3">
         <div className="flex items-center justify-between">
-          <h2 id="sf-layers-panel-title" className="panel-title">Calques</h2>
+          <h2 id="sf-layers-panel-title" className="panel-title">
+            Calques
+          </h2>
           <span className="tabular text-2xs text-muted-foreground">
             {String(layers.length).padStart(2, '0')}
           </span>

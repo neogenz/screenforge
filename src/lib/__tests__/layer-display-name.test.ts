@@ -4,18 +4,21 @@ import { formatPercent } from '@/lib/number'
 
 describe('layerDisplayName', () => {
   it('shows the content of a text layer that was never renamed', () => {
-    expect(layerDisplayName({ type: 'text', name: 'Texte', content: 'Titre accrocheur' }))
-      .toBe('Titre accrocheur')
+    expect(layerDisplayName({ type: 'text', name: 'Texte', content: 'Titre accrocheur' })).toBe(
+      'Titre accrocheur',
+    )
   })
 
   it('keeps the first line of a multiline content', () => {
-    expect(layerDisplayName({ type: 'text', name: 'Texte', content: 'Titre\nSous-titre' }))
-      .toBe('Titre')
+    expect(layerDisplayName({ type: 'text', name: 'Texte', content: 'Titre\nSous-titre' })).toBe(
+      'Titre',
+    )
   })
 
   it('keeps a name the user chose', () => {
-    expect(layerDisplayName({ type: 'text', name: 'Accroche', content: 'Titre accrocheur' }))
-      .toBe('Accroche')
+    expect(layerDisplayName({ type: 'text', name: 'Accroche', content: 'Titre accrocheur' })).toBe(
+      'Accroche',
+    )
   })
 
   it('falls back to the name when the content is blank', () => {

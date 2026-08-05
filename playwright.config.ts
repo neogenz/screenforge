@@ -12,9 +12,7 @@ export default defineConfig({
     viewport: { width: 1600, height: 1000 },
     trace: 'retain-on-failure',
   },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'pnpm run dev --port 5199',
     url: 'http://localhost:5199',

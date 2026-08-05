@@ -1,7 +1,7 @@
 export interface ExportEntry {
-  dimension: string  // e.g. '6.9'
-  index: number      // 1-based
-  name: string       // screen name slugified
+  dimension: string // e.g. '6.9'
+  index: number // 1-based
+  name: string // screen name slugified
   blob: Blob
 }
 
@@ -27,10 +27,12 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 export function slugify(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '') || 'screen'
+  return (
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'screen'
+  )
 }

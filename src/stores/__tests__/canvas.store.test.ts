@@ -37,8 +37,9 @@ describe('canvas store domain boundaries', () => {
 
   it('mutates local and layout layers only in the project store', () => {
     useCanvasStore.getState().addLayer(shape())
-    expect(getProjectLayers(useProjectStore.getState().project).map((layer) => layer.id))
-      .toEqual(['shape'])
+    expect(getProjectLayers(useProjectStore.getState().project).map((layer) => layer.id)).toEqual([
+      'shape',
+    ])
 
     useCanvasStore.getState().updateLayer('shape', { x: 42 })
     expect(getProjectLayers(useProjectStore.getState().project)[0].x).toBe(42)
@@ -65,7 +66,8 @@ describe('canvas store domain boundaries', () => {
     expect(getProjectLayers(useProjectStore.getState().project)).toEqual([])
 
     useCanvasStore.getState().redo()
-    expect(getProjectLayers(useProjectStore.getState().project).map((layer) => layer.id))
-      .toEqual(['shape'])
+    expect(getProjectLayers(useProjectStore.getState().project).map((layer) => layer.id)).toEqual([
+      'shape',
+    ])
   })
 })

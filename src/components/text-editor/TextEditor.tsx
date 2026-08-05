@@ -29,9 +29,21 @@ const DEFAULT_GRADIENT: GradientFill = {
 }
 
 const ALIGN_OPTIONS: SegmentedOption<TextLayer['textAlign']>[] = [
-  { value: 'left', icon: <AlignLeft size={12} strokeWidth={1.5} aria-hidden />, ariaLabel: 'Aligner à gauche' },
-  { value: 'center', icon: <AlignCenter size={12} strokeWidth={1.5} aria-hidden />, ariaLabel: 'Centrer' },
-  { value: 'right', icon: <AlignRight size={12} strokeWidth={1.5} aria-hidden />, ariaLabel: 'Aligner à droite' },
+  {
+    value: 'left',
+    icon: <AlignLeft size={12} strokeWidth={1.5} aria-hidden />,
+    ariaLabel: 'Aligner à gauche',
+  },
+  {
+    value: 'center',
+    icon: <AlignCenter size={12} strokeWidth={1.5} aria-hidden />,
+    ariaLabel: 'Centrer',
+  },
+  {
+    value: 'right',
+    icon: <AlignRight size={12} strokeWidth={1.5} aria-hidden />,
+    ariaLabel: 'Aligner à droite',
+  },
 ]
 
 // Segmented forces labels to uppercase — casing glyphs must keep their own
@@ -61,8 +73,9 @@ export function TextEditor({ layer }: TextEditorProps) {
   // Keep legacy weights (pre-300–900 projects) selectable instead of blank.
   const weights = FONT_WEIGHT_OPTIONS.some((option) => option.value === layer.fontWeight)
     ? FONT_WEIGHT_OPTIONS
-    : [...FONT_WEIGHT_OPTIONS, { value: layer.fontWeight, label: String(layer.fontWeight) }]
-        .sort((a, b) => a.value - b.value)
+    : [...FONT_WEIGHT_OPTIONS, { value: layer.fontWeight, label: String(layer.fontWeight) }].sort(
+        (a, b) => a.value - b.value,
+      )
 
   return (
     <div className="flex flex-col gap-2">
@@ -175,7 +188,10 @@ export function TextEditor({ layer }: TextEditorProps) {
             onChange={(checked) =>
               update({
                 gradientFill: checked
-                  ? { ...DEFAULT_GRADIENT, stops: DEFAULT_GRADIENT.stops.map((stop) => ({ ...stop })) }
+                  ? {
+                      ...DEFAULT_GRADIENT,
+                      stops: DEFAULT_GRADIENT.stops.map((stop) => ({ ...stop })),
+                    }
                   : undefined,
               })
             }
@@ -184,10 +200,14 @@ export function TextEditor({ layer }: TextEditorProps) {
         {layer.gradientFill && (
           <GradientEditor
             value={layer.gradientFill}
-            onChange={(gradientFill, coalesceKey) => update(
-              { gradientFill },
-              coalesceKey ? { coalesceKey: `layer:${layer.id}:gradient:${coalesceKey}` } : undefined,
-            )}
+            onChange={(gradientFill, coalesceKey) =>
+              update(
+                { gradientFill },
+                coalesceKey
+                  ? { coalesceKey: `layer:${layer.id}:gradient:${coalesceKey}` }
+                  : undefined,
+              )
+            }
           />
         )}
       </div>

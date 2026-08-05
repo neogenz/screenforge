@@ -1,11 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { decode } from 'fast-png'
-import {
-  addDeviceLayer,
-  addTextLayer,
-  downloadFirstExportedPng,
-  waitForApp,
-} from './helpers'
+import { addDeviceLayer, addTextLayer, downloadFirstExportedPng, waitForApp } from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
 /**
@@ -27,7 +22,9 @@ test.describe('export', () => {
     expect(view.getUint8(25)).toBe(2) // color type RGB (opaque)
   })
 
-  test('official bezel export preserves screenshot, frame and transparent exterior', async ({ page }) => {
+  test('official bezel export preserves screenshot, frame and transparent exterior', async ({
+    page,
+  }) => {
     await waitForApp(page)
     await addDeviceLayer(page)
     await page.getByLabel('Importer un bezel Apple').setInputFiles({
@@ -44,9 +41,13 @@ test.describe('export', () => {
     const state = await page.evaluate(() => {
       const project = window.__sfStores?.useProjectStore.getState().project
       const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
-      return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])]
-        .find((layer) => layer.type === 'device-frame') as {
-        x: number; y: number; width: number; height: number
+      return [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
+        (layer) => layer.type === 'device-frame',
+      ) as {
+        x: number
+        y: number
+        width: number
+        height: number
       }
     })
     const { names, png } = await downloadFirstExportedPng(page)
@@ -64,10 +65,11 @@ test.describe('export', () => {
       const offset = (y * decoded.width + x) * decoded.channels
       return Array.from(decoded.data.slice(offset, offset + 3))
     }
-    const naturalPoint = (x: number, y: number) => pixel(
-      state.x + state.width * (x / MOCK_BEZEL.width),
-      state.y + state.height * (y / MOCK_BEZEL.height),
-    )
+    const naturalPoint = (x: number, y: number) =>
+      pixel(
+        state.x + state.width * (x / MOCK_BEZEL.width),
+        state.y + state.height * (y / MOCK_BEZEL.height),
+      )
 
     expect(naturalPoint(9.5, 14.5)).toEqual([232, 32, 48])
     expect(naturalPoint(3, 15)).toEqual([24, 88, 176])

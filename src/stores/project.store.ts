@@ -40,8 +40,9 @@ function withTimestamp(project: Project, updates: Partial<Project>): Project {
 }
 
 export function getActiveScreen(project: Project | null): Screen | undefined {
-  return project?.screens.find((screen) => screen.id === project.activeScreenId)
-    ?? project?.screens[0]
+  return (
+    project?.screens.find((screen) => screen.id === project.activeScreenId) ?? project?.screens[0]
+  )
 }
 
 export function getProjectLayers(project: Project | null): Layer[] {
@@ -70,7 +71,11 @@ interface ProjectState {
   updateScreenLayer: (screenId: string, layerId: string, updates: Partial<Layer>) => void
   reorderScreenLayer: (screenId: string, layerId: string, newIndex: number) => void
   duplicateScreenLayer: (screenId: string, layerId: string) => void
-  replaceScreenContent: (screenId: string, background: Screen['background'], layers: Layer[]) => void
+  replaceScreenContent: (
+    screenId: string,
+    background: Screen['background'],
+    layers: Layer[],
+  ) => void
 }
 
 export const useProjectStore = create<ProjectState>()((set, get) => ({
@@ -117,9 +122,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }),
 
   updateProjectName: (name) =>
-    set((state) => state.project
-      ? { project: withTimestamp(state.project, { name }) }
-      : state),
+    set((state) => (state.project ? { project: withTimestamp(state.project, { name }) } : state)),
 
   addScreen: (content) => {
     const project = get().project
@@ -147,39 +150,40 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     const index = project.screens.findIndex((screen) => screen.id === id)
     if (index === -1) return null
     const screens = project.screens.filter((screen) => screen.id !== id)
-    const activeScreenId = project.activeScreenId !== id
-      && screens.some((screen) => screen.id === project.activeScreenId)
-      ? project.activeScreenId
-      : screens[Math.min(index, screens.length - 1)].id
+    const activeScreenId =
+      project.activeScreenId !== id &&
+      screens.some((screen) => screen.id === project.activeScreenId)
+        ? project.activeScreenId
+        : screens[Math.min(index, screens.length - 1)].id
     set({ project: withTimestamp(project, { screens, activeScreenId }) })
     return activeScreenId
   },
 
   duplicateScreen: (id) => {
-      const project = get().project
-      if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
-      const sourceIndex = project.screens.findIndex((screen) => screen.id === id)
-      if (sourceIndex === -1) return null
-      const source = project.screens[sourceIndex]
-      const duplicate: Screen = {
-        ...structuredClone(source),
+    const project = get().project
+    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
+    const sourceIndex = project.screens.findIndex((screen) => screen.id === id)
+    if (sourceIndex === -1) return null
+    const source = project.screens[sourceIndex]
+    const duplicate: Screen = {
+      ...structuredClone(source),
+      id: crypto.randomUUID(),
+      name: `${source.name} copie`,
+      layers: source.layers.map((layer) => ({
+        ...structuredClone(layer),
         id: crypto.randomUUID(),
-        name: `${source.name} copie`,
-        layers: source.layers.map((layer) => ({
-          ...structuredClone(layer),
-          id: crypto.randomUUID(),
-        })),
-        thumbnail: undefined,
-      }
-      const screens = [...project.screens]
-      screens.splice(sourceIndex + 1, 0, duplicate)
-      set({
-        project: withTimestamp(project, {
-          screens,
-          activeScreenId: duplicate.id,
-        }),
-      })
-      return duplicate.id
+      })),
+      thumbnail: undefined,
+    }
+    const screens = [...project.screens]
+    screens.splice(sourceIndex + 1, 0, duplicate)
+    set({
+      project: withTimestamp(project, {
+        screens,
+        activeScreenId: duplicate.id,
+      }),
+    })
+    return duplicate.id
   },
 
   reorderScreens: (ids) =>
@@ -198,78 +202,96 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }),
 
   updateGlobals: (globals) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            globals: { ...state.project.globals, ...structuredClone(globals) },
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              globals: { ...state.project.globals, ...structuredClone(globals) },
+            }),
+          }
+        : state,
+    ),
 
   updateScreenBackground: (screenId, background) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            screens: state.project.screens.map((screen) => screen.id === screenId
-              ? { ...screen, background: structuredClone(background) }
-              : screen),
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              screens: state.project.screens.map((screen) =>
+                screen.id === screenId
+                  ? { ...screen, background: structuredClone(background) }
+                  : screen,
+              ),
+            }),
+          }
+        : state,
+    ),
 
   saveScreenLayers: (screenId, layers) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            screens: state.project.screens.map((screen) => screen.id === screenId
-              ? { ...screen, layers }
-              : screen),
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              screens: state.project.screens.map((screen) =>
+                screen.id === screenId ? { ...screen, layers } : screen,
+              ),
+            }),
+          }
+        : state,
+    ),
 
   saveLayoutLayers: (layers) =>
-    set((state) => state.project
-      ? { project: withTimestamp(state.project, { layoutLayers: layers }) }
-      : state),
+    set((state) =>
+      state.project ? { project: withTimestamp(state.project, { layoutLayers: layers }) } : state,
+    ),
 
   addScreenLayer: (screenId, layer) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            screens: state.project.screens.map((screen) => screen.id === screenId
-              ? { ...screen, layers: [...screen.layers, layer] }
-              : screen),
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              screens: state.project.screens.map((screen) =>
+                screen.id === screenId ? { ...screen, layers: [...screen.layers, layer] } : screen,
+              ),
+            }),
+          }
+        : state,
+    ),
 
   removeScreenLayer: (screenId, layerId) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            screens: state.project.screens.map((screen) => screen.id === screenId
-              ? { ...screen, layers: screen.layers.filter((layer) => layer.id !== layerId) }
-              : screen),
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              screens: state.project.screens.map((screen) =>
+                screen.id === screenId
+                  ? { ...screen, layers: screen.layers.filter((layer) => layer.id !== layerId) }
+                  : screen,
+              ),
+            }),
+          }
+        : state,
+    ),
 
   updateScreenLayer: (screenId, layerId, updates) =>
-    set((state) => state.project
-      ? {
-          project: withTimestamp(state.project, {
-            screens: state.project.screens.map((screen) => screen.id === screenId
-              ? {
-                  ...screen,
-                  layers: screen.layers.map((layer) => layer.id === layerId
-                    ? { ...layer, ...updates } as Layer
-                    : layer),
-                }
-              : screen),
-          }),
-        }
-      : state),
+    set((state) =>
+      state.project
+        ? {
+            project: withTimestamp(state.project, {
+              screens: state.project.screens.map((screen) =>
+                screen.id === screenId
+                  ? {
+                      ...screen,
+                      layers: screen.layers.map((layer) =>
+                        layer.id === layerId ? ({ ...layer, ...updates } as Layer) : layer,
+                      ),
+                    }
+                  : screen,
+              ),
+            }),
+          }
+        : state,
+    ),
 
   reorderScreenLayer: (screenId, layerId, newIndex) =>
     set((state) => {
@@ -318,14 +340,16 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       return {
         project: withTimestamp(state.project, {
           activeScreenId: screenId,
-          screens: state.project.screens.map((screen) => screen.id === screenId
-            ? {
-                ...screen,
-                background: structuredClone(background),
-                layers: structuredClone(layers),
-                thumbnail: undefined,
-              }
-            : screen),
+          screens: state.project.screens.map((screen) =>
+            screen.id === screenId
+              ? {
+                  ...screen,
+                  background: structuredClone(background),
+                  layers: structuredClone(layers),
+                  thumbnail: undefined,
+                }
+              : screen,
+          ),
         }),
       }
     }),

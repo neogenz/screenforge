@@ -47,7 +47,12 @@ function backgroundToGradientFill(bg: Background): GradientFill {
 
 function gradientFillToBackground(fill: GradientFill): Background {
   if (fill.type === 'radial') {
-    return { type: 'radial-gradient', centerX: fill.centerX, centerY: fill.centerY, stops: fill.stops }
+    return {
+      type: 'radial-gradient',
+      centerX: fill.centerX,
+      centerY: fill.centerY,
+      stops: fill.stops,
+    }
   }
   return { type: 'linear-gradient', angle: fill.angle ?? 135, stops: fill.stops }
 }
@@ -76,8 +81,10 @@ function tabFromBackground(bg: Background): Tab {
 }
 
 function stopsEqual(a: ColorStop[], b: ColorStop[]): boolean {
-  return a.length === b.length
-    && a.every((stop, index) => stop.offset === b[index].offset && stop.color === b[index].color)
+  return (
+    a.length === b.length &&
+    a.every((stop, index) => stop.offset === b[index].offset && stop.color === b[index].color)
+  )
 }
 
 function isPresetActive(preset: Background, current: Background): boolean {
@@ -139,7 +146,9 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
         </Field>
       )}
 
-      {activeTab === 'gradient' && <GradientEditor value={gradientFill} onChange={handleGradientChange} />}
+      {activeTab === 'gradient' && (
+        <GradientEditor value={gradientFill} onChange={handleGradientChange} />
+      )}
 
       {activeTab === 'presets' && (
         <div className="grid grid-cols-4 gap-1.5">
@@ -156,9 +165,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 style={buildPreviewStyle(preset.background)}
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
-                  selected
-                    ? 'border-muted-foreground'
-                    : 'border-border hover:border-input',
+                  selected ? 'border-muted-foreground' : 'border-border hover:border-input',
                 )}
               />
             )
