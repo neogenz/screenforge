@@ -9,6 +9,7 @@ import {
   LayoutTemplate,
   LoaderCircle,
   Moon,
+  PenLine,
   PanelLeft,
   PanelRight,
   Redo2,
@@ -46,6 +47,9 @@ import {
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
 import type { DeviceModel, Layer } from '@/types'
 
+/** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
+const PROJECT_NAME_INPUT_ID = 'sf-project-name-input'
+
 const SAVE_LABELS: Record<SaveStatus, string> = {
   idle: 'Modifications non enregistrées',
   saving: 'Enregistrement…',
@@ -62,10 +66,23 @@ function Divider() {
   return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-input" />
 }
 
-/** Unique top bar: project identity, layer tools, workspace toggles, export. */
+/**
+ * Unique top bar: project identity, layer tools, workspace toggles, export.
+ *
+ * Une grille, et non un groupe centré en absolu. Hors flux, le groupe d'outils
+ * ne réservait aucune largeur et ne pouvait donc pas être repoussé ; positionné,
+ * il passait aussi devant les bascules de panneaux au test de clic. Mesuré : le
+ * recouvrement commençait à 1023px, et à 900px la bascule Calques ne recevait
+ * plus aucun de ses 36px — cliquer dessus insérait un calque.
+ *
+ * `minmax(0,1fr)` à gauche, `1fr` à droite : les deux colonnes prennent la même
+ * part tant que l'espace le permet, donc le groupe central est exactement au
+ * milieu ; à l'étroit, la droite se cale sur son contenu minimal et c'est le
+ * nom du projet qui cède. Le centre glisse, il ne chevauche jamais.
+ */
 export function TopBar() {
   return (
-    <div className="island relative flex items-center gap-1">
+    <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
       <ProjectSegment />
       <ToolsSegment />
       <ActionsSegment />
@@ -78,22 +95,35 @@ function ProjectSegment() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-xs bg-muted-foreground" />
       <ProjectName />
       <ProjectFileMenu />
-      {/* L'état informe, il n'alerte pas : casse normale, teinte faible. */}
+      {/*
+        L'état informe, il n'alerte pas : casse normale, teinte faible.
+
+        Il ne se masque plus sous 1280px. Une application sans serveur qui
+        n'offre aucune preuve d'enregistrement n'est pas discrète, elle est
+        muette — et l'état qui disparaissait le premier était l'échec. Le libellé
+        seul se replie en `sr-only` : il reste dans l'arbre d'accessibilité, donc
+        la région live l'annonce toujours, ce qu'un `display:none` empêchait à
+        toute largeur. La pastille décorative qui occupait la place du témoin de
+        document modifié a disparu ; c'est ce témoin-ci qui la tient désormais.
+      */}
       <span
         role="status"
         aria-live="polite"
+        title={SAVE_LABELS[saveStatus]}
         className={cn(
-          'hidden shrink-0 items-center gap-1.5 text-2xs xl:flex',
+          'flex shrink-0 items-center gap-1.5 text-2xs',
           saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
+        {saveStatus === 'idle' && (
+          <span aria-hidden className="size-2 shrink-0 rounded-xs bg-muted-foreground" />
+        )}
         {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
         {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
         {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-        {SAVE_LABELS[saveStatus]}
+        <span className="sr-only xl:not-sr-only">{SAVE_LABELS[saveStatus]}</span>
       </span>
     </div>
   )
@@ -140,9 +170,13 @@ function ProjectFileMenu() {
         trigger={(
           <IconButton
             size="sm"
+            // La colonne de gauche est celle qui cède : sans cela le chevron
+            // s'écrasait à 17px avant que le nom n'ait commencé à se tronquer.
+            className="shrink-0"
             aria-label="Ouvrir le menu Projet"
             aria-busy={busy}
             active={open}
+            aria-expanded={open}
             disabled={busy}
           >
             {busy
@@ -152,6 +186,18 @@ function ProjectFileMenu() {
         )}
         ariaLabel="Fichier du projet"
         items={[
+          {
+            id: 'rename-project',
+            label: 'Renommer le projet',
+            icon: <PenLine size={14} strokeWidth={1.75} />,
+            onSelect: () => {
+              const input = document.getElementById(PROJECT_NAME_INPUT_ID)
+              if (input instanceof HTMLInputElement) {
+                input.focus()
+                input.select()
+              }
+            },
+          },
           {
             id: 'download-project',
             label: 'Télécharger une copie',
@@ -223,10 +269,18 @@ function ProjectName() {
           inputRef.current?.blur()
         }
       }}
+      id={PROJECT_NAME_INPUT_ID}
       aria-label="Nom du projet"
+      // Un champ fixe de 160px coupait « Captures App Store — Onboarding v3 »
+      // au tiers, sans rien pour lire la suite. Il se dimensionne maintenant sur
+      // son contenu entre deux bornes, et le titre natif donne le nom complet.
+      title={name}
       spellCheck={false}
       className={cn(
-        'h-9 w-40 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2',
+        // `field-sizing-content` fixe la largeur : pas de `w-*` en plus, qui la
+        // reprendrait. Les deux bornes suffisent.
+        'field-sizing-content h-9 min-w-24 max-w-[28ch] truncate',
+        'rounded-md border border-transparent bg-transparent px-2',
         'text-sm font-semibold tracking-[-0.012em] text-foreground transition-colors',
         'hover:border-border focus:border-input focus:bg-secondary focus:outline-none',
       )}
@@ -249,7 +303,7 @@ function ToolsSegment() {
   }
 
   return (
-    <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1">
+    <div className="flex items-center gap-1 justify-self-center">
       <IconButton
         aria-label="Annuler"
         title="Annuler (⌘Z)"
@@ -269,39 +323,41 @@ function ToolsSegment() {
 
       <Divider />
 
-      {/* Les quatre outils d'ajout forment un groupe : un rail en creux le dit
-          mieux qu'un filet, et distingue « créer » de « défaire ». */}
-      <div className="flex items-center gap-[2px] rounded-md border border-border bg-muted p-[3px]">
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Texte"
-          title="Ajouter : texte"
-          onClick={() => addLayer(createTextLayer(layerCount()))}
-        >
-          <Type size={16} strokeWidth={1.75} />
-        </IconButton>
-        <DeviceAddTool
-          onSelect={(model) =>
-            addLayer(createDeviceLayer(model, layerCount()))
-          }
-        />
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Image"
-          title="Ajouter : image"
-          onClick={() => document.getElementById('sf-image-import-input')?.click()}
-        >
-          <ImageIcon size={16} strokeWidth={1.75} />
-        </IconButton>
-        <IconButton
-          size="sm"
-          aria-label="Ajouter Forme"
-          title="Ajouter : forme"
-          onClick={() => addLayer(createShapeLayer(layerCount()))}
-        >
-          <Square size={16} strokeWidth={1.75} />
-        </IconButton>
-      </div>
+      {/*
+        Les quatre outils d'ajout forment un groupe, et c'est le filet qui le
+        dit — comme partout ailleurs dans cette barre.
+
+        Le rail en creux qui les portait reproduisait mot pour mot le conteneur
+        de `ToggleGroup`, lequel veut dire « choisis-en un, un est allumé » dans
+        le contrôle Uni/Dégradé/Préréglages du même écran. Quatre actions sans
+        état n'ont pas cet habit. Il rendait par ailleurs à 1,10:1 sur la carte
+        en sombre, donc le groupement qu'il justifiait était invisible, et ses
+        40px de haut débordaient du retrait d'îlot.
+      */}
+      <IconButton
+        aria-label="Ajouter Texte"
+        title="Ajouter : texte"
+        onClick={() => addLayer(createTextLayer(layerCount()))}
+      >
+        <Type size={16} strokeWidth={1.75} />
+      </IconButton>
+      <DeviceAddTool
+        onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))}
+      />
+      <IconButton
+        aria-label="Ajouter Image"
+        title="Ajouter : image…"
+        onClick={() => document.getElementById('sf-image-import-input')?.click()}
+      >
+        <ImageIcon size={16} strokeWidth={1.75} />
+      </IconButton>
+      <IconButton
+        aria-label="Ajouter Forme"
+        title="Ajouter : forme"
+        onClick={() => addLayer(createShapeLayer(layerCount()))}
+      >
+        <Square size={16} strokeWidth={1.75} />
+      </IconButton>
     </div>
   )
 }
@@ -314,11 +370,15 @@ function ActionsSegment() {
   const theme = useUIStore((s) => s.theme)
 
   return (
-    <div className="ml-auto flex items-center gap-1">
+    <div className="flex items-center gap-1 justify-self-end">
+      {/* `aria-pressed` sur ce qui bascule, `aria-expanded` sur ce qui ouvre :
+          `data-active` ne peint que pour l'œil, il ne dit rien à un lecteur
+          d'écran, qui annonçait donc le même bouton dans les deux états. */}
       <IconButton
         aria-label="Basculer le panneau Calques"
         title="Panneau Calques (⌘⇧L)"
         active={layersOpen}
+        aria-pressed={layersOpen}
         onClick={() => useUIStore.getState().toggleLayers()}
       >
         <PanelLeft size={16} strokeWidth={1.75} />
@@ -327,6 +387,7 @@ function ActionsSegment() {
         aria-label="Basculer le panneau Propriétés"
         title="Panneau Propriétés (⌘⇧P)"
         active={propsOpen}
+        aria-pressed={propsOpen}
         onClick={() => useUIStore.getState().toggleProps()}
       >
         <PanelRight size={16} strokeWidth={1.75} />
@@ -338,6 +399,8 @@ function ActionsSegment() {
         aria-label="Ouvrir les modèles"
         title="Modèles de mise en page"
         active={showTemplatesPicker}
+        aria-expanded={showTemplatesPicker}
+        aria-haspopup="dialog"
         onClick={() => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker)}
       >
         <LayoutTemplate size={16} strokeWidth={1.75} />
@@ -346,6 +409,8 @@ function ActionsSegment() {
         aria-label="Ouvrir les réglages globaux"
         title="Réglages globaux du projet"
         active={showGlobalsEditor}
+        aria-expanded={showGlobalsEditor}
+        aria-haspopup="dialog"
         onClick={() => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor)}
       >
         <Settings size={16} strokeWidth={1.75} />
@@ -399,10 +464,10 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       onOpenChange={setOpen}
       trigger={(
         <IconButton
-          size="sm"
           aria-label="Ajouter un cadre iPhone"
           title="Ajouter : cadre iPhone"
           active={open}
+          aria-expanded={open}
         >
           <Smartphone size={16} strokeWidth={1.75} />
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
