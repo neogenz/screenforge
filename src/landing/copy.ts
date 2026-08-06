@@ -79,16 +79,30 @@ const en = {
     currencyNote: 'USD, taxes included.',
     waitlistNote: 'Secure checkout is on its way — these buttons join the waitlist for now.',
     plans: {
-      free: { name: 'Free', price: '$0', period: '', cta: 'Open the app' },
-      monthly: { name: 'Monthly', price: '$9.99', period: '/month', cta: 'Get Monthly' },
+      free: {
+        name: 'Free',
+        price: '$0',
+        period: '',
+        tagline: 'To judge the editor',
+        cta: 'Open the app',
+      },
+      monthly: {
+        name: 'Monthly',
+        price: '$9.99',
+        period: '/month',
+        tagline: 'Cancel anytime',
+        cta: 'Get Monthly',
+      },
       lifetime: {
         name: 'Lifetime',
         price: '$39.99',
         period: 'once',
+        tagline: '4 months of Monthly — then never again',
         badge: 'Best value',
         cta: 'Get Lifetime',
       },
     },
+    compareLabel: 'Detailed comparison',
     rows: [
       { label: 'Exports', values: ['3 per set', 'Unlimited', 'Unlimited'] },
       { label: 'Watermark', values: ['Small, on exports', 'None', 'None'] },
@@ -234,21 +248,30 @@ const fr: Copy = {
     waitlistNote:
       'Le paiement sécurisé arrive — ces boutons rejoignent la liste d\u2019attente pour l\u2019instant.',
     plans: {
-      free: { name: 'Gratuit', price: '0 $', period: '', cta: 'Ouvrir l\u2019app' },
+      free: {
+        name: 'Gratuit',
+        price: '0 $',
+        period: '',
+        tagline: 'Pour juger l\u2019éditeur',
+        cta: 'Ouvrir l\u2019app',
+      },
       monthly: {
         name: 'Mensuel',
         price: '9,99 $',
         period: '/mois',
+        tagline: 'Résiliable à tout moment',
         cta: 'Choisir le Mensuel',
       },
       lifetime: {
         name: 'Lifetime',
         price: '39,99 $',
         period: 'une fois',
+        tagline: '4 mois de Mensuel — puis plus jamais',
         badge: 'Meilleure valeur',
         cta: 'Choisir le Lifetime',
       },
     },
+    compareLabel: 'Comparatif détaillé',
     rows: [
       { label: 'Exports', values: ['3 par planche', 'Illimités', 'Illimités'] },
       { label: 'Watermark', values: ['Discret', 'Aucun', 'Aucun'] },

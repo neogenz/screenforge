@@ -5,18 +5,67 @@ import { Reveal } from './Reveal'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
 
+type Plan = {
+  name: string
+  price: string
+  period: string
+  tagline: string
+  badge?: string
+  cta: string
+  href: string
+  highlighted: boolean
+}
+
 /*
- * Le pricing comme tableau de spécification : rangées de caractéristiques,
- * colonnes d'offres, la colonne Lifetime sur un palier plus clair. Aucune
- * carte — la grille de cartes identiques est le marqueur SaaS générique.
+ * Le pricing en deux temps : trois cartes de décision (prix, différenciant,
+ * CTA immédiat — la Lifetime ceinte d'un filet citron), puis le tableau de
+ * spécification pour le détail. La carte porte la vente, le tableau prouve.
  */
+function PlanCard({ plan }: { plan: Plan }) {
+  return (
+    <div
+      className={cn(
+        'flex h-full flex-col rounded-lg p-6 transition-[transform,box-shadow] duration-200 ease-out',
+        plan.highlighted
+          ? 'bg-marker-soft shadow-md ring-1 ring-marker-line hover:-translate-y-0.5 hover:shadow-lg'
+          : 'bg-background ring-1 ring-border hover:-translate-y-0.5 hover:shadow-md',
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <SpecLabel>{plan.name}</SpecLabel>
+        {plan.badge ? (
+          <span className="rounded-xs bg-marker px-2 py-0.5 text-2xs font-semibold text-marker-ink normal-case">
+            {plan.badge}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-5 flex items-baseline gap-1.5">
+        <span className="text-4xl font-extrabold tracking-tight tabular-nums">{plan.price}</span>
+        {plan.period ? <span className="text-sm text-muted-foreground">{plan.period}</span> : null}
+      </p>
+      <p className="mt-2 min-h-5 text-xs leading-4 text-muted-foreground">{plan.tagline}</p>
+      <a
+        href={plan.href}
+        className={cn(
+          'mt-6 inline-flex h-10 items-center justify-center rounded-sm text-sm font-medium transition-[background-color,transform] duration-150 active:scale-[0.96]',
+          plan.highlighted
+            ? 'bg-marker text-marker-ink hover:bg-marker-hover'
+            : 'shadow-[inset_0_0_0_1px_var(--color-input)] hover:bg-secondary',
+        )}
+      >
+        {plan.cta}
+      </a>
+    </div>
+  )
+}
+
 export function Pricing() {
   const { t } = useLang()
-  const plans = [
+  const plans: Plan[] = [
     { ...t.pricing.plans.free, href: LINKS.app, highlighted: false },
     { ...t.pricing.plans.monthly, href: LINKS.checkoutMonthly, highlighted: false },
     { ...t.pricing.plans.lifetime, href: LINKS.checkoutLifetime, highlighted: true },
-  ] as const
+  ]
 
   return (
     <section
@@ -30,85 +79,68 @@ export function Pricing() {
         </h2>
         <p className="mt-4 text-[15px] leading-6 text-muted-foreground">{t.pricing.sub}</p>
       </div>
+
       <Reveal delay={80}>
-        <div className="mt-14 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse">
-            <thead>
-              <tr>
-                <th scope="col" className="w-1/4" />
-                {plans.map((plan) => (
-                  <th
-                    key={plan.name}
-                    scope="col"
-                    className={cn(
-                      'px-4 pb-6 text-left align-bottom',
-                      plan.highlighted && 'bg-marker-soft',
-                    )}
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <SpecLabel>{plan.name}</SpecLabel>
-                      {'badge' in plan && plan.badge ? (
-                        <span className="rounded-xs bg-marker px-2 py-0.5 text-2xs font-semibold text-marker-ink normal-case">
-                          {plan.badge}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-3 flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold tracking-tight tabular-nums">
-                        {plan.price}
-                      </span>
-                      {plan.period ? (
-                        <span className="text-sm text-muted-foreground">{plan.period}</span>
-                      ) : null}
-                    </p>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {t.pricing.rows.map((row) => (
-                <tr key={row.label} className="border-t border-border/60">
-                  <th scope="row" className="py-4 pr-4 text-left text-sm font-medium">
-                    {row.label}
-                  </th>
-                  {row.values.map((value, column) => (
-                    <td
-                      key={column}
-                      className={cn(
-                        'px-4 py-4 text-sm text-muted-foreground',
-                        column === 2 && 'bg-marker-soft text-foreground',
-                      )}
-                    >
-                      {value}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              <tr className="border-t border-border/60">
-                <td />
-                {plans.map((plan) => (
-                  <td
-                    key={plan.name}
-                    className={cn('px-4 py-6', plan.highlighted && 'bg-marker-soft')}
-                  >
-                    <a
-                      href={plan.href}
-                      className={cn(
-                        'inline-flex h-10 w-full items-center justify-center rounded-sm text-sm font-medium transition-colors duration-150',
-                        plan.highlighted
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                          : 'shadow-[inset_0_0_0_1px_var(--color-input)] hover:bg-secondary',
-                      )}
-                    >
-                      {plan.cta}
-                    </a>
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+        <div className="mt-14 grid items-stretch gap-4 md:grid-cols-3">
+          <div className="max-md:order-2">
+            <PlanCard plan={plans[0]} />
+          </div>
+          <div className="max-md:order-3">
+            <PlanCard plan={plans[1]} />
+          </div>
+          <div className="max-md:order-1">
+            <PlanCard plan={plans[2]} />
+          </div>
         </div>
       </Reveal>
+
+      <Reveal delay={140}>
+        <div className="mt-16">
+          <SpecLabel>{t.pricing.compareLabel}</SpecLabel>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse">
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th scope="col" className="w-1/4" />
+                  {plans.map((plan) => (
+                    <th
+                      key={plan.name}
+                      scope="col"
+                      className={cn(
+                        'px-4 pb-3 text-left text-xs font-medium text-muted-foreground',
+                        plan.highlighted && 'text-foreground',
+                      )}
+                    >
+                      {plan.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {t.pricing.rows.map((row) => (
+                  <tr key={row.label} className="border-b border-border/60 last:border-b-0">
+                    <th scope="row" className="py-3.5 pr-4 text-left text-sm font-medium">
+                      {row.label}
+                    </th>
+                    {row.values.map((value, column) => (
+                      <td
+                        key={column}
+                        className={cn(
+                          'px-4 py-3.5 text-sm text-muted-foreground',
+                          column === 2 && 'bg-marker-soft/50 text-foreground',
+                        )}
+                      >
+                        {value}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Reveal>
+
       <p className="mt-8 text-xs leading-4 text-muted-foreground">
         {t.pricing.currencyNote} {t.pricing.waitlistNote}
       </p>
