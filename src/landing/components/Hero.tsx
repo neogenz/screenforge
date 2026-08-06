@@ -1,3 +1,4 @@
+import { DemoEditor } from '../demo/DemoEditor'
 import { useLang } from '../i18n'
 import { LINKS } from '../links'
 import { REVEAL_STAGGER_MS } from '../motion'
@@ -5,7 +6,6 @@ import { CtaGhost, CtaPrimary } from './cta'
 import { DimensionNote } from './DimensionNote'
 import { Reveal } from './Reveal'
 import { SpecLabel } from './SpecLabel'
-import { Visual } from './visual'
 
 export function Hero() {
   const { t } = useLang()
@@ -34,8 +34,11 @@ export function Hero() {
         </Reveal>
       </div>
       <Reveal delay={REVEAL_STAGGER_MS * 3} className="relative mt-16">
-        <Visual eager src="/landing/hero.jpg" caption={t.hero.visualCaption} />
-        <DimensionNote value="4 × 1320 px" className="mt-2" />
+        <figure>
+          <DemoEditor />
+          <figcaption className="mt-3 text-xs text-muted-foreground">{t.demo.caption}</figcaption>
+        </figure>
+        <DimensionNote value="1320 px" className="mt-2" />
         <DimensionNote
           orientation="vertical"
           value="2868 px"
