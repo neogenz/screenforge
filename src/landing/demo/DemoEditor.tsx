@@ -115,6 +115,14 @@ export function DemoEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const artboardRef = useRef<HTMLDivElement>(null)
   const dragLayer = useRef<DemoLayerId | null>(null)
+  const exportTimeout = useRef<number | undefined>(undefined)
+
+  useEffect(
+    () => () => {
+      if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
+    },
+    [],
+  )
 
   /* En reduced-motion la composition finale est servie figée — sauf si
      l'utilisateur a pris la main, auquel cas ses actions commandent. */
@@ -122,8 +130,11 @@ export function DemoEditor() {
   const playing = autoplay && !reduced
 
   const manual = (updates: Partial<DemoSceneState>) => {
+    /* Reduced-motion : la première action part de la composition finale
+       affichée, pas de la scène vide — sinon un clic viderait le board. */
+    const base = reduced && !touched ? FINAL_SCENE : rawScene
     setTouched(true)
-    setScene((s) => ({ ...s, ...updates }))
+    setScene({ ...base, ...updates })
   }
 
   useEffect(() => {
@@ -145,8 +156,11 @@ export function DemoEditor() {
       const root = containerRef.current
       const el = root?.querySelector(`[data-cursor-target="${name}"]`)
       if (!root || !el) return null
-      const box = root.getBoundingClientRect()
       const rect = el.getBoundingClientRect()
+      /* Une cible masquée (panneaux repliés sous md) mesure 0×0 : sans ce
+         garde-fou le curseur téléportait au coin haut-gauche du mock. */
+      if (rect.width === 0 && rect.height === 0) return null
+      const box = root.getBoundingClientRect()
       return {
         x: rect.left - box.left + rect.width / 2,
         y: rect.top - box.top + rect.height / 2,
@@ -155,9 +169,10 @@ export function DemoEditor() {
 
     const moveTo = async (name: CursorTarget) => {
       const point = targetPoint(name)
-      if (!point) return
+      if (!point) return false
       setCursor((pose) => ({ ...pose, x: point.x, y: point.y, down: false }))
       await sleep(CURSOR_TRAVEL_MS + 40)
+      return true
     }
     const click = async () => {
       setCursor((pose) => ({ ...pose, down: true }))
@@ -166,19 +181,26 @@ export function DemoEditor() {
       await sleep(CURSOR_CLICK_MS / 2)
     }
     /* Le curseur descend sur le calque, puis curseur et calque glissent
-       ensemble vers la destination — le drag est la preuve, pas un cut. */
+       ensemble vers la destination — le drag est la preuve, pas un cut.
+       La conversion %→px se mesure sur l'artboard : un facteur fixe ferait
+       diverger curseur et calque dès que la taille change. */
     const dragTextTo = async (toY: number) => {
       const start = targetPoint('text-layer')
-      if (!start) return
+      const board = artboardRef.current
+      if (!start || !board) return
       setCursor({ x: start.x, y: start.y, down: true })
       await sleep(CURSOR_TRAVEL_MS + 40)
       const fromY = EMPTY_SCENE.textPos.y
+      const pxPerPercent = board.getBoundingClientRect().height / 100
       const steps = 7
       for (let i = 1; i <= steps; i++) {
         if (cancelled) return
         const ratio = i / steps
         setScene((s) => ({ ...s, textPos: { x: 50, y: fromY + (toY - fromY) * ratio } }))
-        setCursor((pose) => ({ ...pose, y: start.y + (toY - fromY) * ratio * 2.2 }))
+        setCursor((pose) => ({
+          ...pose,
+          y: start.y + (toY - fromY) * ratio * pxPerPercent,
+        }))
         await sleep(70)
       }
       setCursor((pose) => ({ ...pose, down: false }))
@@ -213,14 +235,14 @@ export function DemoEditor() {
         await dragTextTo(14)
         if (cancelled) return
 
-        await moveTo('bg-swatches')
+        const swatchesReachable = await moveTo('bg-swatches')
         for (let g = 1; g < DEMO_GRADIENTS.length; g++) {
           if (cancelled) return
-          await click()
+          if (swatchesReachable) await click()
           setScene((s) => ({ ...s, bgIndex: g }))
           await sleep(650)
         }
-        await click()
+        if (swatchesReachable) await click()
         setScene((s) => ({ ...s, bgIndex: 0 }))
         await sleep(500)
         if (cancelled) return
@@ -254,6 +276,9 @@ export function DemoEditor() {
   }, [playing, visible, typed])
 
   const takeOver = () => {
+    /* Reduced-motion : la scène affichée est FINAL_SCENE ; sans la recopier
+       dans l'état manuel, un simple clic sur la scène viderait le board. */
+    if (reduced && !touched) setScene(FINAL_SCENE)
     setTouched(true)
     if (autoplay) {
       setAutoplay(false)
@@ -288,7 +313,13 @@ export function DemoEditor() {
 
   const runExport = () => {
     manual({ exportState: 'running' })
-    window.setTimeout(() => setScene((s) => ({ ...s, exportState: 'done' })), 900)
+    /* Le timeout est gardé en ref : un replay ou un démontage avant son
+       échéance ne doit pas faire réapparaître le toast sur la scène vide. */
+    if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
+    exportTimeout.current = window.setTimeout(
+      () => setScene((s) => ({ ...s, exportState: 'done' })),
+      900,
+    )
   }
 
   const layers: { id: DemoLayerId | 'background'; label: string }[] = [
@@ -505,6 +536,7 @@ export function DemoEditor() {
             aria-label={t.demo.replay}
             onClick={(event) => {
               event.stopPropagation()
+              if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
               setTouched(false)
               setScene(EMPTY_SCENE)
               setAutoplay(true)
