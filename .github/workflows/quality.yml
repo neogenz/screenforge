@@ -4,11 +4,38 @@ on:
   push:
   pull_request:
 
-jobs:
-  release-gate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+# Un push qui en remplace un autre sur la même branche annule le run devenu
+# obsolète : sans cela la file se remplit de vérifications d'un état que
+# personne ne fusionnera.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  # Ce que la compilation seule peut dire, et le plus vite possible.
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:unit
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run build
+
+  # Ce qu'il faut un vrai navigateur pour établir : le comportement e2e et les
+  # deux audits qui mesurent des pixels rendus.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -20,13 +47,39 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:release
+      - run: pnpm run test:e2e
+      - run: pnpm run audit:contrast
+      - run: pnpm run audit:scale
+      - run: pnpm run audit:landing
       - name: Upload Playwright diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-diagnostics
           path: |
-            playwright-report
-            test-results
+            apps/web/playwright-report
+            apps/web/test-results
           if-no-files-found: ignore
+
+  # Les migrations s'appliquent sur une base vierge, à chaque commit. C'est le
+  # seul endroit où une migration cassée se voit avant la production ; les tests
+  # RLS viendront s'ajouter ici en phase 2.
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start
+      - run: supabase migration up
+      - if: always()
+        run: supabase stop --no-backup
+# Emplacement réservé au job `api` (phase 4) : typecheck et tests unitaires de
+# `apps/api`, plus le grep qui vérifie que `service_role` n'apparaît nulle part
+# dans `apps/web`.
+#
+# Les secrets de cette phase (SUPABASE_SERVICE_ROLE_KEY, POLAR_ACCESS_TOKEN,
+# POLAR_WEBHOOK_SECRET) vivent dans GitHub Secrets et nulle part ailleurs : ni
+# dans le dépôt, ni dans un `.env` committé, ni dans le contexte d'un agent.

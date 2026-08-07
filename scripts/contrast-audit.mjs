@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const CSS = fileURLToPath(new URL('../src/index.css', import.meta.url))
+const CSS = fileURLToPath(new URL('../apps/web/src/index.css', import.meta.url))
 
 /**
  * Encres à contrôler, dans l'ordre du plus foncé au plus discret.

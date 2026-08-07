@@ -24,32 +24,42 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 
 ## Commands
 
+Every command runs from the repository root; the root scripts delegate to the
+workspace package that owns them (`pnpm --filter web …`). Never `cd apps/web`
+to run a script — the audits and probes in `scripts/` resolve their paths from
+the root and would read the wrong tree.
+
 ```bash
 # Dev
-npm run dev
+pnpm run dev
 
-# Build
-npm run build
+# Build (Vite + prerender of the two landing documents)
+pnpm run build
 
 # Preview production build
-npm run preview
+pnpm run preview
 
-# Lint
-npm run lint
+# Lint (one flat config at the root, covering every package)
+pnpm run lint
 
 # Type check
-npm run typecheck
+pnpm run typecheck
 
-# E2E tests (Playwright, requires chromium — `npx playwright install chromium` once)
-npm run test:e2e
+# E2E tests (Playwright, requires chromium — `pnpm exec playwright install chromium` once)
+pnpm run test:e2e
+
+# Local Supabase stack (Docker) — ports 544xx, not the CLI defaults
+pnpm run db:start
+pnpm run db:migrate
+pnpm run db:stop
 
 # Validate an exported ZIP against App Store rules
-npm run validate:export -- <file.zip>
+pnpm run validate:export -- <file.zip>
 ```
 
 ## Testing
 
-- E2E specs live in `e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
+- E2E specs live in `apps/web/e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
 - Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class. Panel inputs are located by aria-label ("Position X", "Largeur", "Rotation"…), never positionally.
 - `e2e/export.spec.ts` verifies the exported ZIP is pixel-exact (1320×2868, PNG-24 opaque) — the critical path.
 - `e2e/command-palette.spec.ts` covers the ⌘K palette and history coalescing (nudge burst = one undo step).
@@ -57,8 +67,34 @@ npm run validate:export -- <file.zip>
 
 ## Architecture
 
+### Workspace
+
 ```
-src/
+.                          # pnpm workspace root — tooling only, no product code
+  pnpm-workspace.yaml      # packages: apps/*
+  package.json             # root scripts delegate to --filter web; eslint/prettier/husky live here
+  eslint.config.js         # one flat config for every package (patterns are apps/*/…)
+  .env.example             # single env file for the whole stack; apps/web reads it via envDir
+  scripts/                 # audits and probes — resolve paths from the root, run from the root
+  supabase/                # config.toml + migrations (local stack on ports 544xx)
+  apps/
+    web/                   # the editor + the landing, the app that used to be the repository
+      index.html           # editor entry
+      landing.html         # marketing entry (prerendered per language at build)
+      e2e/ src/ public/
+```
+
+`@types/react` and `@types/react-dom` are declared **twice** on purpose: in
+`apps/web` because the app imports them, and at the root because a dependency's
+`.d.ts` that imports `react` without declaring `@types/react` as a peer (cmdk)
+resolves its types by walking up from `node_modules/.pnpm/`, a path that never
+crosses `apps/web/node_modules`. Without the root copy those props degrade to
+`any` silently, and `noImplicitAny` fails somewhere unrelated.
+
+### Application
+
+```
+apps/web/src/
   components/
     ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
                          # NumberField (scrub), Slider, Segmented, Switch, Field, Select,

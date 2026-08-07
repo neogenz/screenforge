@@ -22,7 +22,12 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(html).toMatch(/<div id="root">\s*<div class="boot"/)
 
   // La feuille de polices sort du chemin critique et y revient au chargement.
-  expect(html).toMatch(/rel="stylesheet"[\s\S]*?media="print"[\s\S]*?onload="this\.media='all'"/)
+  /* Les espaces autour du `=` sont ceux que Prettier met dans l'attribut : le
+     motif serré ne matchait plus depuis qu'il formate le HTML, et l'assertion
+     échouait sur une page pourtant correcte. */
+  expect(html).toMatch(
+    /rel="stylesheet"[\s\S]*?media="print"[\s\S]*?onload="this\.media\s*=\s*'all'"/,
+  )
   expect(html).toContain('rel="preload"')
 
   // Une fois monté, React a vidé le conteneur : rien à retirer à la main.

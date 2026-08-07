@@ -6,10 +6,10 @@ import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist', 'test-results', 'playwright-report'] },
+  { ignores: ['**/dist', '**/dist-ssr', '**/test-results', '**/playwright-report'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/*/src/**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -25,7 +25,7 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['e2e/**/*.ts'],
+    files: ['apps/*/e2e/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },
@@ -33,7 +33,7 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['*.config.ts'],
+    files: ['apps/*/*.config.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,

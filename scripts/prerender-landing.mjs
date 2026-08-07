@@ -14,7 +14,7 @@ import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+const root = fileURLToPath(new URL('../apps/web/', import.meta.url))
 const dist = join(root, 'dist')
 const ssrOut = join(root, 'dist-ssr')
 

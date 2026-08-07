@@ -24,27 +24,40 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 
 ## Commands
 
+Toujours depuis la racine : les scripts racine délèguent au paquet concerné
+(`pnpm --filter web …`), et les audits de `scripts/` résolvent leurs chemins
+depuis la racine.
+
 ```bash
 # Dev
-npm run dev
+pnpm run dev
 
 # Build
-npm run build
+pnpm run build
 
 # Preview production build
-npm run preview
+pnpm run preview
 
 # Lint
-npm run lint
+pnpm run lint
 
 # Type check
-npm run typecheck
+pnpm run typecheck
+
+# Stack Supabase local (Docker), ports 544xx
+pnpm run db:start
+pnpm run db:migrate
+pnpm run db:stop
 ```
 
 ## Architecture
 
+Espace de travail pnpm : la racine ne porte que l'outillage (scripts d'audit,
+eslint, prettier, husky, `supabase/`), le produit vit dans `apps/*`. Voir
+`AGENTS.md` pour l'arborescence de la racine.
+
 ```
-src/
+apps/web/src/
   components/
     ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
                          # NumberField (scrub), Slider, Segmented, Switch, Field, Dialog,

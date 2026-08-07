@@ -47,7 +47,15 @@ async function ensureServer() {
   if (reachable) return null
 
   const port = new URL(baseURL).port || '5199'
-  const child = spawn('pnpm', ['run', 'dev', '--port', port], { stdio: 'ignore' })
+  /* `detached` pour avoir un groupe de processus à tuer d'un bloc : `pnpm` n'est
+     qu'un lanceur, et un SIGTERM sur lui laissait Vite écouter le port. Le
+     serveur survivait à l'audit, et la passe e2e suivante le réutilisait
+     (`reuseExistingServer`) au lieu de démarrer le sien — un serveur d'une autre
+     exécution, qui faisait échouer la mesure de la pellicule à 320px. */
+  const child = spawn('pnpm', ['--filter', 'web', 'run', 'dev', '--port', port], {
+    stdio: 'ignore',
+    detached: true,
+  })
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
     if (
@@ -59,11 +67,25 @@ async function ensureServer() {
       return child
     await new Promise((resolve) => setTimeout(resolve, 300))
   }
-  child.kill()
+  stop(child)
   throw new Error(`serveur injoignable sur ${baseURL} après 30s`)
 }
 
+/**
+ * Tue le groupe de processus, pas le seul lanceur.
+ * @param {import('node:child_process').ChildProcess | null} child
+ */
+function stop(child) {
+  if (!child?.pid) return
+  try {
+    process.kill(-child.pid, 'SIGTERM')
+  } catch {
+    child.kill()
+  }
+}
+
 const server = await ensureServer()
+const stopServer = () => stop(server)
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
 const page = await context.newPage()
@@ -210,7 +232,7 @@ const readings = await page.evaluate(
 
 await context.close()
 await browser.close()
-server?.kill()
+stopServer()
 
 let failures = 0
 

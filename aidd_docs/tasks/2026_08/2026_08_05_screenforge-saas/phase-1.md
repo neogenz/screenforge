@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Fondations monorepo + tooling Supabase
@@ -97,3 +97,18 @@ flowchart TD
 | 3    | La CI passe avec les jobs `web`, `e2e`, `db` visibles séparément ; un second push sur la même branche annule le run précédent |
 | 4    | Le job `db` prouve que `supabase migration up` s'applique sur une base vierge                      |
 | 5    | `supabase start` démarre un stack local ; `.env.example` documente les deux variables `VITE_*`     |
+
+## Ce qui reste hors de portée du code
+
+**La protection de branche (tâche 4.6) n'est pas réglable en l'état.** Le dépôt
+est privé sur un compte GitHub gratuit ; l'API répond `403 « Upgrade to GitHub
+Pro or make this repository public »` aussi bien sur
+`branches/main/protection` que sur `rulesets`. Deux sorties, toutes deux hors
+du code : passer le dépôt en public, ou prendre GitHub Pro. Tant que ni l'une
+ni l'autre n'est choisie, la CI reste informative — elle signale, elle
+n'empêche pas de fusionner.
+
+Deux critères ne s'établissent qu'après un push, la CI étant le seul endroit
+où ils existent : les trois jobs visibles séparément avec annulation du run
+précédent (3), et l'application des migrations sur une base vierge dans le
+runner (4). En local, `supabase migration up` a bien tourné sur la base neuve.

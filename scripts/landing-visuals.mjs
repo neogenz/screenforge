@@ -7,13 +7,13 @@
  * quatrième capture 1200×630 sert d'image Open Graph.
  *
  * Prérequis : le serveur de dev sur :5199 (`npm run dev -- --port 5199`).
- * Sortie : public/landing/*.png et public/og-landing.png.
+ * Sortie : apps/web/public/landing/*.png et apps/web/public/og-landing.png.
  */
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 
 const baseURL = process.env.BASE_URL ?? 'http://localhost:5199'
-mkdirSync('public/landing', { recursive: true })
+mkdirSync('apps/web/public/landing', { recursive: true })
 
 const GRADIENTS = [
   {
@@ -104,24 +104,24 @@ await page.waitForTimeout(1500)
 // Hero : la scène avec la planche de quatre écrans.
 const canvasBox = await page.locator('canvas').first().boundingBox()
 await page.screenshot({
-  path: 'public/landing/hero.png',
+  path: 'apps/web/public/landing/hero.png',
   clip: canvasBox ?? undefined,
 })
-console.log('public/landing/hero.png')
+console.log('apps/web/public/landing/hero.png')
 
 // Feature éditeur : le panneau Calques ouvert sur la planche.
 await page.keyboard.press('Meta+Shift+L')
 await page.waitForTimeout(600)
-await page.screenshot({ path: 'public/landing/editor.png' })
-console.log('public/landing/editor.png')
+await page.screenshot({ path: 'apps/web/public/landing/editor.png' })
+console.log('apps/web/public/landing/editor.png')
 await page.keyboard.press('Escape')
 await page.waitForTimeout(300)
 
 // Feature export : le dialogue d'export.
 await page.click('button[aria-label="Ouvrir l’export"]')
 await page.waitForTimeout(800)
-await page.screenshot({ path: 'public/landing/export.png' })
-console.log('public/landing/export.png')
+await page.screenshot({ path: 'apps/web/public/landing/export.png' })
+console.log('apps/web/public/landing/export.png')
 await page.keyboard.press('Escape')
 
 // Open Graph : un cadrage 1200×630 dédié, densité 1.
@@ -135,7 +135,7 @@ await ogPage.evaluate(() => localStorage.setItem('screenforge-theme', 'dark'))
 await ogPage.reload()
 await ogPage.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await ogPage.waitForTimeout(1500)
-await ogPage.screenshot({ path: 'public/og-landing.png' })
-console.log('public/og-landing.png')
+await ogPage.screenshot({ path: 'apps/web/public/og-landing.png' })
+console.log('apps/web/public/og-landing.png')
 
 await browser.close()

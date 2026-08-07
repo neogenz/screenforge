@@ -15,5 +15,8 @@
     },
     "types": ["node"]
   },
-  "include": ["e2e/**/*.ts", "playwright.config.ts", "vite.config.ts", "scripts/**/*.mjs"]
+  /* Les scripts d'outillage restent à la racine : ils pilotent le dépôt entier
+     (audits, probes, prerender), pas le seul paquet web. C'est ici qu'ils sont
+     typés, parce que ce qu'ils manipulent — `e2e/helpers`, `src/lib` — vit ici. */
+  "include": ["e2e/**/*.ts", "playwright.config.ts", "vite.config.ts", "../../scripts/**/*.mjs"]
 }
