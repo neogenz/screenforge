@@ -4,6 +4,23 @@ status: pending
 
 # Instruction: Sync cloud (projets + assets)
 
+> **Amendée le 2026-08-07.** La sync n'est plus un acquis du compte : elle est
+> l'add-on **Cloud** à 39 $/an de
+> [`pricing.md`](../2026_08_06_offre-commerciale/pricing.md), et c'est la seule
+> fonction du produit qui consomme du serveur tous les mois — donc la seule qui
+> justifie un paiement récurrent. Un compte Licence est un compte **local**.
+>
+> Cette phase construit la mécanique ; la porte qui la garde est posée en
+> [phase 5](./phase-5.md) (`middleware/cloud.ts` côté API, `sync.ts` qui ne
+> démarre pas sans le droit). Deux conséquences ici : le `C{Connecté ?}` du
+> parcours ci-dessous se lit désormais **« droit cloud actif ? »**, et la sortie
+> `non` reste exactement le comportement actuel — aucune tentative réseau, aucun
+> `syncStatus`, jamais un état d'erreur pour une fonction que l'utilisateur n'a
+> pas achetée.
+>
+> Les phases 3 et 4 peuvent donc être développées dans l'ordre inverse sans
+> conflit : tant que la vente n'existe pas, le droit est simplement absent.
+
 ## Architecture projection
 
 > Tree of the final files. ✅ create · ✏️ modify · ❌ delete
