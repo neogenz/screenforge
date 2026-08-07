@@ -23,3 +23,7 @@ Thumbs.db
 # Playwright
 test-results/
 playwright-report/
+
+# Sources PNG des visuels de la landing : 3 Mo pièce, seuls les .webp
+# convertis dans public/landing/ sont servis.
+design-previews/
