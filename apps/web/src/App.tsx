@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
+import { initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -35,6 +36,11 @@ const TemplatePicker = lazy(() =>
 const GlobalsEditor = lazy(() =>
   import('@/components/globals-editor/GlobalsEditor').then((module) => ({
     default: module.GlobalsEditor,
+  })),
+)
+const AuthDialog = lazy(() =>
+  import('@/components/auth-dialog/AuthDialog').then((module) => ({
+    default: module.AuthDialog,
   })),
 )
 
@@ -93,6 +99,34 @@ export default function App() {
     return () => {
       disposed = true
       stopAutoSave?.()
+    }
+  }, [])
+
+  /**
+   * La session se branche au montage, pas au premier clic sur « Se connecter ».
+   *
+   * Deux choses en dépendent et arrivent avant ce clic : la session déjà
+   * enregistrée, qu'il faut restaurer pour ne pas proposer de se connecter à qui
+   * l'est, et le fragment `#access_token=…` que le retour d'un lien magique ou
+   * d'un fournisseur OAuth dépose dans l'URL — c'est la création du client qui
+   * le consomme, et personne d'autre ne le fera.
+   *
+   * Le coût est un module chargé à la volée sur une instance qui a un compte, et
+   * zéro sur une instance qui n'en a pas : `initAuth` sort immédiatement sans
+   * rien importer quand les variables manquent.
+   */
+  useEffect(() => {
+    let disposed = false
+    let stopAuth: (() => void) | undefined
+
+    void initAuth().then((stop) => {
+      if (disposed) stop()
+      else stopAuth = stop
+    })
+
+    return () => {
+      disposed = true
+      stopAuth?.()
     }
   }, [])
 
@@ -189,6 +223,7 @@ function Overlays() {
   const showExportDialog = useUIStore((s) => s.showExportDialog)
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
+  const showAuthDialog = useUIStore((s) => s.showAuthDialog)
 
   return (
     <>
@@ -205,6 +240,7 @@ function Overlays() {
         {showExportDialog && <ExportDialog />}
         {showTemplatesPicker && <TemplatePicker />}
         {showGlobalsEditor && <GlobalsEditor />}
+        {showAuthDialog && <AuthDialog />}
       </Suspense>
     </>
   )

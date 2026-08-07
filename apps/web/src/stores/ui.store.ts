@@ -18,6 +18,7 @@ interface UIState {
   showExportDialog: boolean
   showTemplatesPicker: boolean
   showGlobalsEditor: boolean
+  showAuthDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -35,6 +36,7 @@ interface UIState {
   setShowExportDialog: (show: boolean) => void
   setShowTemplatesPicker: (show: boolean) => void
   setShowGlobalsEditor: (show: boolean) => void
+  setShowAuthDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -69,6 +71,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showExportDialog: false,
   showTemplatesPicker: false,
   showGlobalsEditor: false,
+  showAuthDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -118,21 +121,51 @@ export const useUIStore = create<UIState>()((set) => ({
     set({
       showExportDialog: show,
       ...(show
-        ? { showTemplatesPicker: false, showGlobalsEditor: false, showShortcuts: false }
+        ? {
+            showTemplatesPicker: false,
+            showGlobalsEditor: false,
+            showAuthDialog: false,
+            showShortcuts: false,
+          }
         : {}),
     }),
 
   setShowTemplatesPicker: (show) =>
     set({
       showTemplatesPicker: show,
-      ...(show ? { showExportDialog: false, showGlobalsEditor: false, showShortcuts: false } : {}),
+      ...(show
+        ? {
+            showExportDialog: false,
+            showGlobalsEditor: false,
+            showAuthDialog: false,
+            showShortcuts: false,
+          }
+        : {}),
     }),
 
   setShowGlobalsEditor: (show) =>
     set({
       showGlobalsEditor: show,
       ...(show
-        ? { showExportDialog: false, showTemplatesPicker: false, showShortcuts: false }
+        ? {
+            showExportDialog: false,
+            showTemplatesPicker: false,
+            showAuthDialog: false,
+            showShortcuts: false,
+          }
+        : {}),
+    }),
+
+  setShowAuthDialog: (show) =>
+    set({
+      showAuthDialog: show,
+      ...(show
+        ? {
+            showExportDialog: false,
+            showTemplatesPicker: false,
+            showGlobalsEditor: false,
+            showShortcuts: false,
+          }
         : {}),
     }),
 
@@ -142,7 +175,12 @@ export const useUIStore = create<UIState>()((set) => ({
     set({
       showShortcuts: show,
       ...(show
-        ? { showExportDialog: false, showTemplatesPicker: false, showGlobalsEditor: false }
+        ? {
+            showExportDialog: false,
+            showTemplatesPicker: false,
+            showGlobalsEditor: false,
+            showAuthDialog: false,
+          }
         : {}),
     }),
 

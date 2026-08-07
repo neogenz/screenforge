@@ -161,11 +161,23 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# Le serveur de développement de Vite, pas le 3000 du gabarit : c'est la seule
+# origine d'où une connexion part en local, et un lien magique construit sur une
+# autre adresse ouvre une page qui n'existe pas.
+site_url = "http://localhost:5173"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# `editorUrl()` vise la racine avec sa barre finale, et Playwright sert sur 5199 :
+# les deux formes et les deux ports sont listés plutôt que devinés.
+additional_redirect_urls = [
+  "http://localhost:5173",
+  "http://localhost:5173/",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5173/",
+  "http://localhost:5199",
+  "http://localhost:5199/",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

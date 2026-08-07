@@ -1,7 +1,10 @@
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
+import { useAuthStore } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
+import { signOutAndReport } from '@/lib/auth'
+import { cloudConfigured } from '@/lib/supabase'
 import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
 import type { AlignMode, DistributeMode } from '@/lib/align'
 
@@ -32,6 +35,41 @@ const DISTRIBUTIONS = [
   { id: 'horizontal', title: 'Répartir horizontalement', mode: 'horizontal' },
   { id: 'vertical', title: 'Répartir verticalement', mode: 'vertical' },
 ] as const satisfies readonly { id: string; title: string; mode: DistributeMode }[]
+
+/**
+ * Connexion et déconnexion, ou aucune des deux.
+ *
+ * Une entrée à la fois, dont laquelle dépend de l'état : la palette se
+ * reconstruit à chaque ouverture, donc le titre juste est celui de l'instant.
+ * Sans instance configurée, le compte n'existe pas dans ce produit — pas même
+ * grisé, ce qui promettrait une fonctionnalité qu'aucun réglage ne débloque.
+ */
+function accountCommands(): Command[] {
+  if (!cloudConfigured) return []
+
+  if (useAuthStore.getState().status === 'signed-in') {
+    return [
+      {
+        id: 'sign-out',
+        title: 'Se déconnecter',
+        section: 'Projet',
+        keywords: ['compte', 'session', 'logout', 'déconnexion'],
+        run: () => void signOutAndReport(),
+      },
+    ]
+  }
+
+  return [
+    {
+      id: 'sign-in',
+      title: 'Se connecter…',
+      section: 'Projet',
+      keywords: ['compte', 'cloud', 'connexion', 'login', 'e-mail'],
+      enabled: () => useAuthStore.getState().status !== 'unknown',
+      run: () => useUIStore.getState().setShowAuthDialog(true),
+    },
+  ]
+}
 
 /**
  * Command registry for the ⌘K palette. Commands read stores imperatively
@@ -173,6 +211,7 @@ export function getCommands(): Command[] {
       keywords: ['défaut', 'global', 'réglages'],
       run: () => ui().setShowGlobalsEditor(true),
     },
+    ...accountCommands(),
     {
       id: 'toggle-theme',
       title: 'Basculer le thème',

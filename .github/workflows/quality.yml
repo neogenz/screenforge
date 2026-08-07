@@ -61,19 +61,34 @@ jobs:
             apps/web/test-results
           if-no-files-found: ignore
 
-  # Les migrations s'appliquent sur une base vierge, à chaque commit. C'est le
-  # seul endroit où une migration cassée se voit avant la production ; les tests
-  # RLS viendront s'ajouter ici en phase 2.
+  # Les migrations s'appliquent sur une base vierge, à chaque commit, et les
+  # policies RLS sont attaquées depuis un second compte. C'est le seul endroit
+  # où un trou d'autorisation se voit : une policy manquante ne casse rien, elle
+  # rend l'application plus permissive, en silence.
   db:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - run: pnpm install --frozen-lockfile
       - run: supabase start
       - run: supabase migration up
+      - run: pnpm run test:rls
+      # Le typage DB → client est régénéré depuis le schéma qui vient d'être
+      # appliqué : s'il diffère de celui qui est committé, la compilation du web
+      # tourne sur une forme de table qui n'existe plus.
+      - run: pnpm run gen:types
+      - run: git diff --exit-code -- apps/web/src/types/database.types.ts
       - if: always()
         run: supabase stop --no-backup
 # Emplacement réservé au job `api` (phase 4) : typecheck et tests unitaires de

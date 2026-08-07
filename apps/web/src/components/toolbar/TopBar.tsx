@@ -9,6 +9,7 @@ import {
   ImageIcon,
   LayoutTemplate,
   LoaderCircle,
+  LogOut,
   MoreHorizontal,
   Moon,
   PenLine,
@@ -22,7 +23,9 @@ import {
   TriangleAlert,
   Type,
   Undo2,
+  UserRound,
 } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
@@ -40,7 +43,9 @@ import {
   PROJECT_FILE_MIME,
   projectFileErrorMessage,
 } from '@/lib/project-file'
+import { signOutAndReport } from '@/lib/auth'
 import { importPortableProject, saveCurrentProject } from '@/lib/storage'
+import { cloudConfigured } from '@/lib/supabase'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
 import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
@@ -474,12 +479,58 @@ function useToolActions(): SecondaryAction[] {
   ]
 }
 
+/**
+ * L'entrée de compte, ou rien.
+ *
+ * Rien est le cas normal : sans instance Supabase configurée, ScreenForge est
+ * l'éditeur local-first qu'il a toujours été, et un bouton « Se connecter » qui
+ * ouvrirait une boîte incapable de connecter quiconque serait pire qu'absent.
+ * `cloudConfigured` étant une constante de compilation, la branche entière
+ * disparaît à l'élagage dans une build sans compte.
+ *
+ * Pendant `unknown` l'entrée est désactivée plutôt que masquée : la session se
+ * restaure de façon asynchrone, et faire apparaître un bouton après coup
+ * déplacerait la rangée sous le curseur. Désactivée, elle tient sa place sans
+ * accepter un clic dont on ne sait pas encore ce qu'il devrait faire.
+ */
+function useAccountAction(): SecondaryAction | null {
+  const showAuthDialog = useUIStore((s) => s.showAuthDialog)
+  const status = useAuthStore((s) => s.status)
+  const email = useAuthStore((s) => s.user?.email)
+
+  if (!cloudConfigured) return null
+
+  if (status === 'signed-in') {
+    return {
+      id: 'account',
+      label: 'Se déconnecter',
+      // Le seul endroit qui dit *quel* compte : la déconnexion est le geste
+      // qu'on regrette quand on s'est trompé de session.
+      hint: email ? `Connecté : ${email}` : 'Se déconnecter',
+      icon: <LogOut size={16} strokeWidth={1.75} />,
+      onSelect: () => void signOutAndReport(),
+    }
+  }
+
+  return {
+    id: 'account',
+    label: 'Se connecter',
+    hint: 'Se connecter à ScreenForge',
+    icon: <UserRound size={16} strokeWidth={1.75} />,
+    expanded: showAuthDialog,
+    disabled: status === 'unknown',
+    onSelect: () => useUIStore.getState().setShowAuthDialog(!showAuthDialog),
+  }
+}
+
 function useSecondaryActions(): SecondaryAction[] {
+  const account = useAccountAction()
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const theme = useUIStore((s) => s.theme)
 
   return [
+    ...(account ? [account] : []),
     {
       id: 'templates',
       label: 'Ouvrir les modèles',

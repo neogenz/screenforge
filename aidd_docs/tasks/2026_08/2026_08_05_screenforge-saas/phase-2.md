@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Auth SSO + schéma DB + RLS
@@ -129,3 +129,19 @@ flowchart TD
 | 4    | Le magic link e-mail aboutit à une session active ; "Se déconnecter" revient à l'état anonyme sans perte locale |
 | 5    | Le test RLS prouve qu'un user B ne peut pas lire/modifier/supprimer les projets du user A                      |
 | 6    | `database.types.ts` est régénéré en CI et toute divergence casse le typecheck                                  |
+
+## Vérifié
+
+- **1** — `supabase migration up` applique `20260807183549_projects.sql` ; le CLI impose `<horodatage>_nom.sql`, d'où le nom réel au lieu de `0001_projects.sql`.
+- **2** — sans `.env`, aucun bouton de compte dans la barre du haut et aucun `@supabase/supabase-js` dans `dist/` (`grep GoTrueClient` sur les 13 assets : rien). Avec `.env`, le SDK part dans son propre morceau de 204 Ko et `main` ne grossit que de 1,4 Ko.
+- **4** — lien magique de bout en bout sur le stack local : `POST /auth/v1/otp` → 200, message capté dans Mailpit, `verify` suivi, la barre du haut affiche `Connecté : maxime@screenforge.test`, le fragment de l'URL est consommé. Déconnexion : retour à « Se connecter », projet local intact.
+- **5** — `pnpm run test:rls` : 7 tests verts.
+- **6** — la CI régénère les types et casse sur `git diff --exit-code`.
+
+## Reste bloqué
+
+- **3** — Google et GitHub demandent la création d'applications OAuth dans la Google Cloud Console et sur GitHub, sous l'identité du propriétaire du produit. Le code des deux fournisseurs est en place (`signInWithProvider`) et ne sera vérifiable qu'une fois les deux jeux `client_id`/`client_secret` posés dans `supabase/config.toml` et dans les secrets du projet distant.
+
+## Écarts assumés
+
+- **Task 4** prévoyait « avatar + menu (Dropdown : e-mail, Se déconnecter) ». L'entrée de compte est une action secondaire simple : « Se déconnecter », avec l'adresse dans son infobulle. Sous `TOP_BAR_COMPACT_WIDTH` les actions secondaires se replient déjà dans un `Dropdown`, et un menu dans un menu n'y tient pas — c'est la même raison qui fait tomber le sous-menu de modèle d'iPhone dans la forme repliée.
