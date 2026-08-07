@@ -6,6 +6,66 @@
  */
 @import '@/index.css';
 
+/*
+ * Deux familles que l'éditeur n'a pas, et qui n'existent que sur la vitrine.
+ *
+ * L'app est en Inter partout, et le reste : c'est un outil de jugement
+ * couleur et forme, sa typographie doit disparaître. Une vitrine a le
+ * problème inverse — elle doit avoir une voix. Elle en prend donc deux, et
+ * la répartition est celle du dessin technique : la serif énonce, la mono
+ * relève. Un titre est une affirmation, `1320 × 2868` est une mesure, et les
+ * deux ne se disent pas dans la même bouche. Inter garde tout le reste, soit
+ * l'intégralité du texte courant.
+ *
+ * Gloock, et pas la display serif que tout le monde emploie : la première
+ * retenue figurait sur la liste des faces que `impeccable` refuse — celles sur
+ * lesquelles chaque vague de pages générées converge — ce qui est précisément
+ * le reproche qu'on cherchait à éviter. Gloock tient en plus mieux le fond
+ * sombre : ses fûts restent épais là où une didone pose des déliés d'un pixel
+ * qui disparaissent en blanc sur noir.
+ *
+ * Auto-hébergées, sous-ensemble latin, alors qu'Inter vient encore de Google.
+ * Trois raisons, dans l'ordre : la serif porte le `<h1>`, donc le LCP, et une
+ * police tierce y ajoute une résolution DNS plus une connexion TLS avant le
+ * premier octet ; `preload` ne fonctionne que sur une URL connue à l'écriture
+ * du document, ce que la CSS Google ne donne pas (elle est un niveau
+ * d'indirection au-dessus du fichier) ; et 35 ko pour trois graisses tient
+ * dans le budget qu'une seule requête tierce coûterait. Le sous-ensemble
+ * latin suffit : vérifié caractère par caractère sur `copy.ts`, EN et FR
+ * confondus, il ne manque rien — l'œ ligaturé (U+0153) y est.
+ */
+@font-face {
+  font-family: 'Gloock';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/gloock-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono-600.woff2') format('woff2');
+}
+
+/* `static` comme dans `index.css`, et pour la même raison : la valeur par
+   défaut élague les tokens non référencés, et le pré-rendu ne voit pas
+   toujours passer une classe. */
+@theme static {
+  --font-display: 'Gloock', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
 #root {
   width: auto;
   height: auto;
@@ -15,6 +75,65 @@
 
 body {
   background: var(--color-stage);
+}
+
+/*
+ * Le lavis, et pas l'image.
+ *
+ * Les deux textures sont des dégradés pastel — rose, crème, orangé. Posées en
+ * aplat, elles apportent une palette entière de plus dans une page qui n'en
+ * tient qu'une, le citron sur du presque noir. Ce que ça donnait : un panneau
+ * pêche entre deux panneaux citron, et un bandeau de 144 px raccordé au hero
+ * par une coupe nette. Deux images collées sur la page, pas une matière.
+ *
+ * `soft-light` retire la couleur et garde le geste. Le lavis ne pose plus de
+ * rose, il pose une variation de valeur de quelques pour cent : le citron
+ * reste citron, le noir reste noir, et l'aplat cesse d'être une gouache. Le
+ * masque supprime la coupe — la matière n'a plus de bord, donc plus rien à
+ * raccorder.
+ */
+.paint-hero,
+.paint-interlude {
+  background-position: center;
+  background-size: cover;
+  mix-blend-mode: soft-light;
+}
+
+.paint-hero {
+  background-image: url('/landing/texture-hero.webp');
+  opacity: 0.75;
+  mask-image: linear-gradient(to bottom, transparent 6%, black 55%);
+}
+
+/* Le masque part de zéro au bord haut : à pleine force dès le premier pixel,
+   le lavis rouvrait la coupe qu'il est là pour supprimer — un joint net entre
+   la section précédente, noire et plate, et celle-ci. */
+.paint-interlude {
+  background-image: url('/landing/texture-interlude.webp');
+  opacity: 0.55;
+  mask-image: linear-gradient(to bottom, transparent, black 30%, transparent 85%);
+}
+
+/* L'éventail conique dit la perspective. La couche
+   `repeating-linear-gradient` qui l'accompagnait traçait un filet horizontal
+   tous les 132 px sur toute la largeur du hero : à l'écran, des bandes
+   régulières que rien dans la page ne justifie, et qui se lisent comme un
+   défaut de rendu plutôt que comme un décor. Le rayonnement seul suffit. */
+.arcade-rays {
+  background-image: repeating-conic-gradient(
+    from 250deg at 50% 100%,
+    transparent 0 11.7deg,
+    oklch(0.2 0.025 125 / 0.28) 11.8deg 12deg
+  );
+  mask-image: linear-gradient(to bottom, black 8%, black 74%, transparent 100%);
+}
+
+.radial-grid {
+  background-image: repeating-conic-gradient(
+    from 238deg at 50% 108%,
+    transparent 0 11.6deg,
+    oklch(0.52 0 0 / 0.22) 11.7deg 11.9deg
+  );
 }
 
 /* Les visuels débordent volontairement la grille (marges négatives) : `clip`
@@ -53,4 +172,19 @@ body {
   html {
     scroll-behavior: smooth;
   }
+}
+
+/* `text-wrap: pretty` sur la prose : il empêche la dernière ligne d'un
+   paragraphe de tomber sur un mot seul. Les titres portent déjà `balance`
+   (deux ou trois lignes équilibrées), mais aucun paragraphe de la page ne
+   demandait quoi que ce soit — et un paragraphe qui finit sur un mot orphelin
+   est le défaut typographique le plus visible d'une page longue.
+   Sur les `<p>` seulement : `pretty` sur un conteneur se transmettrait aux
+   titres et écraserait leur `balance`. */
+main p,
+main dt,
+main dd,
+main li,
+main summary {
+  text-wrap: pretty;
 }

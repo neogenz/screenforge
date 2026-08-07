@@ -7,7 +7,7 @@
  * dégradé, liseré latéral, glassmorphism décorative, emoji en guise d'icône.
  * Aucun navigateur : la source fait foi.
  */
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -98,6 +98,22 @@ for (const file of sources) {
     if (ban.pattern.test(content)) {
       failures.push(`${file.replace(root, '')}: ${ban.label}`)
     }
+  }
+}
+
+/* ── Prérendu : la page livrée doit être lisible sans JavaScript ──
+   Une régression coûteuse et silencieuse : dix conteneurs d'apparition
+   sortaient du prerender en `opacity: 0`, titre principal compris. Le HTML
+   pesait ses 56 ko, le crawler et le lecteur sans JS voyaient une page noire.
+   Ne tourne qu'après un build ; si un `opacity-0` légitime apparaît un jour,
+   c'est ici qu'on le nomme, pas ici qu'on supprime le garde-fou. */
+for (const file of ['dist/landing.html', 'dist/landing-fr.html']) {
+  const path = join(root, file)
+  if (!existsSync(path)) continue
+  const doc = readFileSync(path, 'utf8')
+  if (!/<h1[^>]*>[^<]/.test(doc)) failures.push(`${file} : pas de <h1> pré-rendu`)
+  if (/class="[^"]*\bopacity-0\b/.test(doc)) {
+    failures.push(`${file} : contenu pré-rendu masqué (opacity-0), invisible sans JS`)
   }
 }
 

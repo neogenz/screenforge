@@ -1,7 +1,8 @@
 import { cn } from '@/lib/utils'
+import { Check, Cloud, HardDrive } from 'lucide-react'
 import { useLang } from '../i18n'
-import { LINKS } from '../links'
-import { Reveal } from './Reveal'
+import { LINKS, notify } from '../links'
+import { CostCompare } from './CostCompare'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
 
@@ -10,140 +11,253 @@ type Plan = {
   price: string
   period: string
   tagline: string
+  points: string[]
   badge?: string
+  note?: string
   cta: string
+  available: boolean
+  availabilityNote: string
   href: string
+  storage: string
+  cloud: boolean
   highlighted: boolean
 }
 
 /*
- * Le pricing en deux temps : trois cartes de décision (prix, différenciant,
- * CTA immédiat — la Lifetime ceinte d'un filet citron), puis le tableau de
- * spécification pour le détail. La carte porte la vente, le tableau prouve.
+ * Trois cartes, une seule décision : la Licence. Le Gratuit sert à juger,
+ * le Cloud est un complément, pas un concurrent — sans la règle « le Cloud
+ * exige la Licence », un mois d'abonnement achèterait ce que la Licence
+ * achète, et personne ne paierait 49 $.
+ *
+ * Chaque carte dit où vivent les projets : c'est la ligne de partage réelle
+ * entre les offres, et la seule fonction du produit qui coûte un serveur tous
+ * les mois — donc la seule qui se facture tous les ans.
+ *
+ * Les boutons payants ne prétendent pas encaisser : le checkout n'existe pas
+ * encore, et la mention vit sous le bouton concerné, pas en note de bas de
+ * section où personne ne la lit avant d'avoir cliqué.
+ *
+ * Le citron va au bouton qui marche, pas à la carte recommandée. La page
+ * apprend à l'œil pendant trois mille pixels que citron = « c'est ici qu'on
+ * clique » ; poser ce citron sur « Être prévenu à l'ouverture » braquait cet
+ * apprentissage sur une impasse et laissait la seule action réalisable en
+ * contour. La recommandation reste dite par la carte — fond, anneau, badge —
+ * qui sont des états, pas des actions.
  */
 function PlanCard({ plan }: { plan: Plan }) {
+  const StorageIcon = plan.cloud ? Cloud : HardDrive
   return (
     <div
       className={cn(
-        'flex h-full flex-col rounded-lg p-6 transition-[transform,box-shadow] duration-200 ease-out',
+        'flex h-full flex-col p-6 ring-1 transition-colors duration-200 ease-out',
         plan.highlighted
-          ? 'bg-marker-soft shadow-md ring-1 ring-marker-line hover:-translate-y-0.5 hover:shadow-lg'
-          : 'bg-background ring-1 ring-border hover:-translate-y-0.5 hover:shadow-md',
+          ? 'bg-marker-soft ring-marker-line hover:ring-marker'
+          : 'bg-card ring-border hover:ring-foreground/35',
       )}
     >
-      <div className="flex items-baseline justify-between gap-3">
+      {/* Hauteur réservée pour le badge : sans elle, la carte qui le porte
+          descend son prix de quatre pixels et les trois chiffres les plus
+          comparés de la page ne partagent plus de ligne de base. */}
+      <div className="flex min-h-5 items-center justify-between gap-3">
         <SpecLabel>{plan.name}</SpecLabel>
         {plan.badge ? (
-          <span className="rounded-xs bg-marker px-2 py-0.5 text-2xs font-semibold text-marker-ink normal-case">
+          <span className="bg-marker px-2 py-0.5 font-mono text-2xs font-semibold text-marker-ink uppercase">
             {plan.badge}
           </span>
         ) : null}
       </div>
       <p className="mt-5 flex items-baseline gap-1.5">
-        <span className="text-4xl font-extrabold tracking-tight tabular-nums">{plan.price}</span>
+        <span className="font-mono text-[2.1rem] leading-none font-normal tracking-[-0.02em]">
+          {plan.price}
+        </span>
         {plan.period ? <span className="text-sm text-muted-foreground">{plan.period}</span> : null}
       </p>
-      <p className="mt-2 min-h-5 text-xs leading-4 text-muted-foreground">{plan.tagline}</p>
-      <a
-        href={plan.href}
-        className={cn(
-          'mt-6 inline-flex h-10 items-center justify-center rounded-sm text-sm font-medium transition-[background-color,transform] duration-150 active:scale-[0.96]',
-          plan.highlighted
-            ? 'bg-marker text-marker-ink hover:bg-marker-hover'
-            : 'shadow-[inset_0_0_0_1px_var(--color-input)] hover:bg-secondary',
-        )}
-      >
-        {plan.cta}
-      </a>
+      <p className="mt-2 min-h-8 text-xs leading-4 text-muted-foreground">{plan.tagline}</p>
+      {/* Ligne réservée sur les trois cartes : seul le Cloud porte une note,
+          et sans réserve son séparateur et sa ligne « où vivent vos projets »
+          descendaient de 40 px — la seule ligne comparable des trois cartes ne
+          partageait plus de ligne de base. */}
+      <p className="mt-2 min-h-4 text-xs leading-4 font-medium">{plan.note ?? ' '}</p>
+
+      <p className="mt-5 flex min-h-12 items-start gap-2 border-t border-border/60 pt-4 text-xs leading-4">
+        <StorageIcon
+          aria-hidden
+          className={cn(
+            'mt-px size-3.5 shrink-0',
+            plan.cloud ? 'text-marker' : 'text-muted-foreground',
+          )}
+        />
+        {plan.storage}
+      </p>
+
+      {/* Ce que la carte achète. La Licence — la seule décision de la page —
+          n'énonçait aucun bénéfice : pour savoir ce que 49 $ donnent il fallait
+          descendre sous un tableau sur trois ans et un bloc de notes jusqu'à un
+          comparatif six cents pixels plus bas. Le vide que ça creusait au-dessus
+          du bouton se mesurait à 88 px sur la carte Gratuit. */}
+      <ul className="mt-4 flex flex-col gap-2">
+        {plan.points.map((point) => (
+          <li key={point} className="flex items-start gap-2 text-xs leading-4">
+            <Check
+              aria-hidden
+              className={cn(
+                'mt-px size-3.5 shrink-0',
+                plan.highlighted ? 'text-marker' : 'text-muted-foreground',
+              )}
+              strokeWidth={2.25}
+            />
+            {point}
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-auto pt-6">
+        <a
+          href={plan.href}
+          aria-label={`${plan.cta} (${plan.name})`}
+          className={cn(
+            'flex h-11 w-full items-center justify-center border font-mono text-[13px] font-semibold uppercase transition-[color,background-color,border-color,scale] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+            plan.available
+              ? 'border-marker bg-marker text-marker-ink hover:border-marker-hover hover:bg-marker-hover'
+              : 'border-foreground text-foreground hover:bg-foreground hover:text-background',
+          )}
+        >
+          {plan.cta}
+        </a>
+        {!plan.available ? (
+          <p className="mt-2 text-center font-mono text-2xs text-muted-foreground">
+            {plan.availabilityNote}
+          </p>
+        ) : null}
+      </div>
     </div>
   )
 }
 
 export function Pricing() {
-  const { t } = useLang()
+  const { lang, t } = useLang()
+  const p = t.pricing
   const plans: Plan[] = [
-    { ...t.pricing.plans.free, href: LINKS.app, highlighted: false },
-    { ...t.pricing.plans.monthly, href: LINKS.checkoutMonthly, highlighted: false },
-    { ...t.pricing.plans.lifetime, href: LINKS.checkoutLifetime, highlighted: true },
+    {
+      ...p.plans.free,
+      availabilityNote: p.availabilityShort,
+      href: LINKS.app,
+      storage: p.storageLocal,
+      cloud: false,
+      highlighted: false,
+    },
+    {
+      ...p.plans.licence,
+      availabilityNote: p.availabilityShort,
+      href: notify(lang, 'licence'),
+      storage: p.storageLocal,
+      cloud: false,
+      highlighted: true,
+    },
+    {
+      ...p.plans.cloud,
+      availabilityNote: p.availabilityShort,
+      href: notify(lang, 'cloud'),
+      storage: p.storageCloud,
+      cloud: true,
+      highlighted: false,
+    },
   ]
 
   return (
     <section
       id="pricing"
-      className="scroll-mt-16 border-b border-border/60 bg-background px-5 py-20 md:px-10 md:py-28"
+      aria-labelledby="pricing-title"
+      className="scroll-mt-20 border-b border-border/60 bg-background px-5 py-20 md:px-10 md:py-28"
     >
-      <SectionHeading index="03" title={t.spec.pricing} />
-      <div className="mt-14 max-w-2xl">
-        <h2 className="text-3xl font-extrabold tracking-tight text-balance md:text-4xl">
-          {t.pricing.title}
-        </h2>
-        <p className="mt-4 text-[15px] leading-6 text-muted-foreground">{t.pricing.sub}</p>
+      <SectionHeading id="pricing-title">{p.title}</SectionHeading>
+      <p className="mx-auto mt-6 max-w-[65ch] text-center text-[15px] leading-6 text-muted-foreground">
+        {p.sub}
+      </p>
+      <CostCompare />
+
+      <div className="mt-12 grid items-stretch gap-4 md:grid-cols-3">
+        <div className="max-md:order-2">
+          <PlanCard plan={plans[0]} />
+        </div>
+        <div className="max-md:order-1">
+          <PlanCard plan={plans[1]} />
+        </div>
+        <div className="max-md:order-3">
+          <PlanCard plan={plans[2]} />
+        </div>
       </div>
 
-      <Reveal delay={80}>
-        <div className="mt-14 grid items-stretch gap-4 md:grid-cols-3">
-          <div className="max-md:order-2">
-            <PlanCard plan={plans[0]} />
-          </div>
-          <div className="max-md:order-3">
-            <PlanCard plan={plans[1]} />
-          </div>
-          <div className="max-md:order-1">
-            <PlanCard plan={plans[2]} />
-          </div>
-        </div>
-      </Reveal>
+      <p className="mt-4 text-xs leading-4 text-muted-foreground">
+        {p.currencyNote} {p.availability}
+      </p>
 
-      <Reveal delay={140}>
-        <div className="mt-16">
-          <SpecLabel>{t.pricing.compareLabel}</SpecLabel>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse">
-              <thead>
-                <tr className="border-b border-border/60">
-                  <th scope="col" className="w-1/4" />
-                  {plans.map((plan) => (
-                    <th
-                      key={plan.name}
-                      scope="col"
+      <div className="mt-14">
+        {/* Sous 600px le tableau déborde et la colonne Licence — la seule qui
+            compte — sort de l'écran sans rien qui le dise. */}
+        <div className="flex items-baseline justify-between gap-4">
+          <SpecLabel id="compare-label">{p.compareLabel}</SpecLabel>
+          <span aria-hidden className="text-2xs text-muted-foreground md:hidden">
+            {p.compareHint} →
+          </span>
+        </div>
+        {/* Une zone défilante doit être atteignable au clavier : sans tabindex,
+            un utilisateur sans souris ne peut pas révéler les colonnes de
+            droite du comparatif sur un écran étroit. */}
+        <div
+          tabIndex={0}
+          role="group"
+          aria-labelledby="compare-label"
+          className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <table className="w-full min-w-[600px] border-collapse">
+            <thead>
+              <tr className="border-b border-border/60">
+                <th scope="col" className="w-1/4" />
+                {plans.map((plan) => (
+                  <th
+                    key={plan.name}
+                    scope="col"
+                    /* La teinte de la colonne recommandée commence à son
+                       en-tête : posée sur les seules cellules de corps, la
+                       bande se lisait détachée du nom qu'elle désigne. */
+                    className={cn(
+                      'w-1/4 px-4 pb-3 text-left text-xs font-medium text-muted-foreground',
+                      plan.highlighted && 'bg-marker-soft/50 text-foreground',
+                    )}
+                  >
+                    {plan.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {p.rows.map((row) => (
+                <tr key={row.label} className="border-b border-border/60 last:border-b-0">
+                  <th scope="row" className="py-3.5 pr-4 text-left text-sm font-medium">
+                    {row.label}
+                  </th>
+                  {row.values.map((value, column) => (
+                    <td
+                      key={column}
                       className={cn(
-                        'px-4 pb-3 text-left text-xs font-medium text-muted-foreground',
-                        plan.highlighted && 'text-foreground',
+                        'px-4 py-3.5 text-sm text-muted-foreground',
+                        column === 1 && 'bg-marker-soft/50 text-foreground',
                       )}
                     >
-                      {plan.name}
-                    </th>
+                      {value}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {t.pricing.rows.map((row) => (
-                  <tr key={row.label} className="border-b border-border/60 last:border-b-0">
-                    <th scope="row" className="py-3.5 pr-4 text-left text-sm font-medium">
-                      {row.label}
-                    </th>
-                    {row.values.map((value, column) => (
-                      <td
-                        key={column}
-                        className={cn(
-                          'px-4 py-3.5 text-sm text-muted-foreground',
-                          column === 2 && 'bg-marker-soft/50 text-foreground',
-                        )}
-                      >
-                        {value}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </Reveal>
-
-      <p className="mt-8 text-xs leading-4 text-muted-foreground">
-        {t.pricing.currencyNote} {t.pricing.waitlistNote}
-      </p>
+        {/* Le comparatif décrit l'offre à l'ouverture. Le Gratuit, lui, est
+            disponible aujourd'hui et sans restriction : sans cette ligne la
+            page décourage la seule action qu'elle sait conclure. */}
+        <p className="mt-3 text-xs leading-4 text-muted-foreground">{p.compareNote}</p>
+      </div>
     </section>
   )
 }
