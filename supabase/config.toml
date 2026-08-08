@@ -90,7 +90,11 @@ allowed_cidrs_v6 = ["::/0"]
 # enabled = true
 
 [realtime]
-enabled = true
+# Désactivé en local, pour la même raison qu'`analytics` plus bas : le conteneur
+# ne passe pas son health check quand un autre stack Supabase tourne déjà sur la
+# machine, et son échec annule tout le démarrage. Le projet ne s'y abonne nulle
+# part — la synchro est du HTTP vers PostgREST et Storage, pas un canal ouvert.
+enabled = false
 # Bind realtime via either IPv4 or IPv6. (default: IPv4)
 # ip_version = "IPv6"
 # The maximum length in bytes of HTTP request headers. (default: 4096)

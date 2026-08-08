@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { initAuth } from '@/stores/auth.store'
+import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useUIStore } from '@/stores/ui.store'
 
@@ -42,6 +42,11 @@ const GlobalsEditor = lazy(() =>
 const AuthDialog = lazy(() =>
   import('@/components/auth-dialog/AuthDialog').then((module) => ({
     default: module.AuthDialog,
+  })),
+)
+const PricingDialog = lazy(() =>
+  import('@/components/pricing-dialog/PricingDialog').then((module) => ({
+    default: module.PricingDialog,
   })),
 )
 
@@ -132,7 +137,12 @@ export default function App() {
 
     void initAuth().then((stop) => {
       if (disposed) stop()
-      else stopAuth = stop
+      else {
+        stopAuth = stop
+        // Après la session, pas avant : l'attente interroge `/me`, qui demande
+        // un jeton.
+        consumeCheckoutReturn()
+      }
     })
 
     return () => {
@@ -235,6 +245,7 @@ function Overlays() {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showAuthDialog = useUIStore((s) => s.showAuthDialog)
+  const showPricingDialog = useUIStore((s) => s.showPricingDialog)
 
   return (
     <>
@@ -252,6 +263,7 @@ function Overlays() {
         {showTemplatesPicker && <TemplatePicker />}
         {showGlobalsEditor && <GlobalsEditor />}
         {showAuthDialog && <AuthDialog />}
+        {showPricingDialog && <PricingDialog />}
       </Suspense>
     </>
   )

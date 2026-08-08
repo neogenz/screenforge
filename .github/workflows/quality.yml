@@ -91,10 +91,41 @@ jobs:
       - run: git diff --exit-code -- apps/web/src/types/database.types.ts
       - if: always()
         run: supabase stop --no-backup
-# Emplacement réservé au job `api` (phase 4) : typecheck et tests unitaires de
-# `apps/api`, plus le grep qui vérifie que `service_role` n'apparaît nulle part
-# dans `apps/web`.
-#
-# Les secrets de cette phase (SUPABASE_SERVICE_ROLE_KEY, POLAR_ACCESS_TOKEN,
-# POLAR_WEBHOOK_SECRET) vivent dans GitHub Secrets et nulle part ailleurs : ni
-# dans le dépôt, ni dans un `.env` committé, ni dans le contexte d'un agent.
+
+  # Le backend de vente. Aucun secret n'est nécessaire ici : `env()` est paresseux
+  # et les tests posent leurs propres variables, ce qui est délibéré — un job qui
+  # aurait besoin d'un jeton Polar pour compiler ne pourrait pas tourner sur une
+  # pull request venue d'un fork.
+  #
+  # Les secrets réels (SUPABASE_SERVICE_ROLE_KEY, POLAR_ACCESS_TOKEN,
+  # POLAR_WEBHOOK_SECRET) vivent dans les variables de l'hébergeur et nulle part
+  # ailleurs : ni dans le dépôt, ni dans un `.env` committé, ni dans le contexte
+  # d'un agent.
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter api run typecheck
+      - run: pnpm --filter api run test:unit
+
+      # La clé `service_role` court-circuite la RLS : dans un paquet compilé pour
+      # le navigateur, elle donnerait à n'importe quel visiteur les droits que ce
+      # backend existe pour garder. Le grep échoue sur la simple mention du mot,
+      # y compris dans un commentaire — la seule forme qu'une revue ne peut pas
+      # oublier de faire.
+      - name: Refuser service_role dans apps/web
+        run: |
+          if grep -rn --exclude-dir=node_modules --exclude-dir=dist \
+              -e 'service_role' -e 'SERVICE_ROLE' apps/web; then
+            echo "::error::La clé service_role ne doit jamais atteindre apps/web."
+            exit 1
+          fi

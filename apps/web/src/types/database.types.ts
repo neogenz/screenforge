@@ -28,6 +28,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      entitlements: {
+        Row: {
+          cloud_period_end: string | null
+          cloud_status: string | null
+          licence_granted_at: string | null
+          polar_customer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cloud_period_end?: string | null
+          cloud_status?: string | null
+          licence_granted_at?: string | null
+          polar_customer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cloud_period_end?: string | null
+          cloud_status?: string | null
+          licence_granted_at?: string | null
+          polar_customer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           created_at: string

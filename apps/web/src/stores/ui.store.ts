@@ -25,6 +25,7 @@ interface UIState {
   showTemplatesPicker: boolean
   showGlobalsEditor: boolean
   showAuthDialog: boolean
+  showPricingDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -44,11 +45,40 @@ interface UIState {
   setShowTemplatesPicker: (show: boolean) => void
   setShowGlobalsEditor: (show: boolean) => void
   setShowAuthDialog: (show: boolean) => void
+  setShowPricingDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
   setSaveStatus: (status: SaveStatus) => void
   setSyncStatus: (status: SyncStatus) => void
+}
+
+/**
+ * Les surfaces modales, qui s'excluent l'une l'autre.
+ *
+ * Une seule liste, parce que chaque setter énumérait auparavant tous ses
+ * voisins : à cinq boîtes, cela faisait vingt lignes à tenir d'accord, et la
+ * sixième en aurait demandé cinq de plus dans cinq fonctions différentes. Une
+ * seule oubliée et deux dialogues s'empilent.
+ *
+ * La palette de commandes n'en est pas : elle s'ouvre par-dessus n'importe quoi
+ * et c'est ce qui en fait une palette.
+ */
+const MODALS = [
+  'showExportDialog',
+  'showTemplatesPicker',
+  'showGlobalsEditor',
+  'showAuthDialog',
+  'showPricingDialog',
+  'showShortcuts',
+] as const
+
+type ModalFlag = (typeof MODALS)[number]
+
+/** Fermer ne ferme que soi ; ouvrir ferme tout le reste. */
+function onlyModal(flag: ModalFlag, show: boolean): Partial<Record<ModalFlag, boolean>> {
+  if (!show) return { [flag]: false }
+  return Object.fromEntries(MODALS.map((modal) => [modal, modal === flag]))
 }
 
 const ZOOM_STEP = 0.25
@@ -80,6 +110,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showTemplatesPicker: false,
   showGlobalsEditor: false,
   showAuthDialog: false,
+  showPricingDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -126,72 +157,19 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setActiveTool: (tool) => set({ activeTool: tool }),
 
-  setShowExportDialog: (show) =>
-    set({
-      showExportDialog: show,
-      ...(show
-        ? {
-            showTemplatesPicker: false,
-            showGlobalsEditor: false,
-            showAuthDialog: false,
-            showShortcuts: false,
-          }
-        : {}),
-    }),
+  setShowExportDialog: (show) => set(onlyModal('showExportDialog', show)),
 
-  setShowTemplatesPicker: (show) =>
-    set({
-      showTemplatesPicker: show,
-      ...(show
-        ? {
-            showExportDialog: false,
-            showGlobalsEditor: false,
-            showAuthDialog: false,
-            showShortcuts: false,
-          }
-        : {}),
-    }),
+  setShowTemplatesPicker: (show) => set(onlyModal('showTemplatesPicker', show)),
 
-  setShowGlobalsEditor: (show) =>
-    set({
-      showGlobalsEditor: show,
-      ...(show
-        ? {
-            showExportDialog: false,
-            showTemplatesPicker: false,
-            showAuthDialog: false,
-            showShortcuts: false,
-          }
-        : {}),
-    }),
+  setShowGlobalsEditor: (show) => set(onlyModal('showGlobalsEditor', show)),
 
-  setShowAuthDialog: (show) =>
-    set({
-      showAuthDialog: show,
-      ...(show
-        ? {
-            showExportDialog: false,
-            showTemplatesPicker: false,
-            showGlobalsEditor: false,
-            showShortcuts: false,
-          }
-        : {}),
-    }),
+  setShowAuthDialog: (show) => set(onlyModal('showAuthDialog', show)),
+
+  setShowPricingDialog: (show) => set(onlyModal('showPricingDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 
-  setShowShortcuts: (show) =>
-    set({
-      showShortcuts: show,
-      ...(show
-        ? {
-            showExportDialog: false,
-            showTemplatesPicker: false,
-            showGlobalsEditor: false,
-            showAuthDialog: false,
-          }
-        : {}),
-    }),
+  setShowShortcuts: (show) => set(onlyModal('showShortcuts', show)),
 
   toggleTheme: () =>
     set((state) => {

@@ -45,7 +45,9 @@ import {
   PROJECT_FILE_MIME,
   projectFileErrorMessage,
 } from '@/lib/project-file'
+import { billingConfigured } from '@/lib/api'
 import { signOutAndReport } from '@/lib/auth'
+import { planName } from '@/lib/plans'
 import { importPortableProject, saveCurrentProject } from '@/lib/storage'
 import { cloudConfigured } from '@/lib/supabase'
 import { downloadBlob, slugify } from '@/lib/zip'
@@ -569,13 +571,63 @@ function useAccountAction(): SecondaryAction | null {
   }
 }
 
+/**
+ * Le palier détenu, et l'entrée qui ouvre les offres.
+ *
+ * Une seule entrée pour les deux : le badge dit ce qu'on a, le clic montre ce
+ * qu'on peut avoir, et c'est le même geste. Absente sans API de vente
+ * configurée — `billingConfigured` étant une constante de compilation, la
+ * branche disparaît à l'élagage dans une build sans checkout.
+ *
+ * Elle reste visible hors session : c'est là que quelqu'un découvre qu'il y a
+ * quelque chose à acheter, et la boîte dit elle-même qu'il faut un compte.
+ */
+function usePlanAction(): SecondaryAction | null {
+  const showPricingDialog = useUIStore((s) => s.showPricingDialog)
+  const entitlements = useAuthStore((s) => s.entitlements)
+
+  if (!billingConfigured) return null
+
+  const plan = planName(entitlements)
+  return {
+    id: 'plan',
+    label: 'Voir les offres',
+    hint: `Palier ${plan} — voir les offres`,
+    icon: <BadgeIcon>{plan}</BadgeIcon>,
+    expanded: showPricingDialog,
+    onSelect: () => useUIStore.getState().setShowPricingDialog(!showPricingDialog),
+  }
+}
+
+/**
+ * Le palier s'écrit, il ne se pictographie pas.
+ *
+ * « Licence » et « Cloud » n'ont pas de glyphe que l'œil lise sans légende, et
+ * la rangée voisine est entièrement en icônes : un mot y devient le seul repère
+ * textuel, ce qui est exactement ce qu'on veut d'un état de compte. Le point
+ * citron marque le palier payant — même vocabulaire que « vous êtes ici »
+ * ailleurs dans l'application, jamais sur une action.
+ */
+function BadgeIcon({ children }: { children: string }) {
+  return (
+    <span className="flex items-center gap-1.5 px-0.5 text-2xs font-medium">
+      {children !== 'Gratuit' && (
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
+      )}
+      {children}
+    </span>
+  )
+}
+
 function useSecondaryActions(): SecondaryAction[] {
   const account = useAccountAction()
+  const plan = usePlanAction()
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const theme = useUIStore((s) => s.theme)
 
   return [
+    ...(plan ? [plan] : []),
     ...(account ? [account] : []),
     {
       id: 'templates',

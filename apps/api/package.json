@@ -1,0 +1,32 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "//exports": "Les sources, pas un build : `apps/web` importe `AppType` en `import type`, donc rien de ce paquet n'atteint le navigateur — seule sa forme traverse, et une route retirée casse le client à la compilation.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --watch src/server.ts",
+    "start": "node src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run src"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "@polar-sh/sdk": "^0.35.0",
+    "@supabase/supabase-js": "^2.112.2",
+    "hono": "^4.10.6",
+    "zod": "^4.1.14"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "standardwebhooks": "^1.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
