@@ -447,6 +447,11 @@ interface SecondaryAction {
   label: string
   hint: string
   icon: React.ReactNode
+  /**
+   * Appliqué au bouton de la rangée, jamais à l'entrée de menu : replié, le
+   * même contenu retombe dans une fente d'icône que le menu dimensionne.
+   */
+  className?: string
   /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
   expanded?: boolean
   disabled?: boolean
@@ -595,6 +600,11 @@ function usePlanAction(): SecondaryAction | null {
     label: 'Voir les offres',
     hint: `Palier ${plan} — voir les offres`,
     icon: <BadgeIcon>{plan}</BadgeIcon>,
+    /* Le seul de la rangée qui porte un mot. Une case de 36 est taillée pour un
+       glyphe de 16 : « Gratuit » y mesurait 39,6 px de large, donc l'aplat de
+       survol passait *sous* son propre texte et le débordait des deux côtés. La
+       largeur suit le mot, la hauteur reste celle de la rangée. */
+    className: 'w-auto px-2',
     expanded: showPricingDialog,
     onSelect: () => useUIStore.getState().setShowPricingDialog(!showPricingDialog),
   }
@@ -611,7 +621,7 @@ function usePlanAction(): SecondaryAction | null {
  */
 function BadgeIcon({ children }: { children: string }) {
   return (
-    <span className="flex items-center gap-1.5 px-0.5 text-2xs font-medium">
+    <span className="flex items-center gap-1.5 text-2xs font-medium">
       {children !== 'Gratuit' && (
         <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
       )}
@@ -766,6 +776,7 @@ function ActionsSegment({
               aria-expanded={action.expanded}
               aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
               onClick={action.onSelect}
+              className={action.className}
             >
               {action.icon}
             </IconButton>

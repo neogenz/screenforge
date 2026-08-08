@@ -244,9 +244,17 @@ export function Pricing() {
                       scope="col"
                       /* La teinte de la colonne recommandée commence à son
                          en-tête : posée sur les seules cellules de corps, la
-                         bande se lisait détachée du nom qu'elle désigne. */
+                         bande se lisait détachée du nom qu'elle désigne.
+
+                         Le retrait haut est celui d'une bande, pas celui d'une
+                         ligne d'en-tête : à `pt-1` le mot « Licence » démarrait
+                         à 4 px du bord teinté quand il en avait 13 dessous et 12
+                         dans chaque cellule du corps. Une épaule plus courte que
+                         tous les autres retraits se lit comme un débordement, et
+                         c'est le haut de la colonne qui décide — c'est là que
+                         l'œil entre. */
                       className={cn(
-                        'px-4 pt-1 pb-3 text-left',
+                        'px-4 pt-4 pb-3 text-left',
                         plan.highlighted && 'bg-marker-soft/50',
                       )}
                     >

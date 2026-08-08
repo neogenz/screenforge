@@ -59,7 +59,6 @@ const ENTRIES = [
   { day: 'Wed', value: '5h58', fill: 47 },
   { day: 'Tue', value: '7h11', fill: 64 },
   { day: 'Mon', value: '6h24', fill: 52 },
-  { day: 'Sun', value: '8h36', fill: 92 },
 ]
 
 /* Les trois phases d'une nuit, en proportions qui font 100. La barre empilée
@@ -278,7 +277,7 @@ function Dashboard({ label }: { label: string }) {
           sous les barres. Un graphe sans axe est un motif ; l'axe est ce qui en
           fait une donnée. */}
       <div className="flex flex-col" style={{ gap: '1.75cqw' }}>
-        <div className="flex items-end justify-between" style={{ height: '34cqw', gap: '2cqw' }}>
+        <div className="flex items-end justify-between" style={{ height: '46cqw', gap: '2cqw' }}>
           {NIGHTS.map((height, night) => (
             <span
               key={night}
@@ -336,14 +335,18 @@ function Dashboard({ label }: { label: string }) {
         </span>
       </div>
 
-      <div className="flex shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
-        {[0, 1, 2].map((row) => (
+      {/* Deux lignes, pas trois. Une ligne générique — pastille, deux barres, une
+          valeur — est le remplissage d'une maquette : la troisième n'ajoutait
+          aucune information, elle prenait la place que le reste de l'écran
+          réclamait pour respirer. */}
+      <div className="flex shrink-0 flex-col" style={{ gap: '7cqw' }}>
+        {[0, 1].map((row) => (
           <span key={row} className="flex items-center" style={{ gap: '3cqw' }}>
             <span
               style={{
-                width: '9cqw',
-                height: '9cqw',
-                borderRadius: '2.6cqw',
+                width: '11cqw',
+                height: '11cqw',
+                borderRadius: '3cqw',
                 background: row === 0 ? ACCENT_SOFT : '#f1f2f7',
               }}
             />
@@ -383,14 +386,19 @@ function Nights() {
           style={{ width: '8cqw', height: '8cqw', borderRadius: '2.4cqw', background: '#f1f2f7' }}
         />
       </div>
-      <div className="flex shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
+      <div className="flex shrink-0 flex-col" style={{ gap: '7cqw' }}>
         {ENTRIES.map((entry, row) => (
           <span
             key={entry.day}
             className="flex items-center"
             style={{
               gap: '3cqw',
-              padding: '3.5cqw 3cqw',
+              /* L'air de cette liste est entre les lignes, pas dedans : à
+                 `4.5cqw` de retrait interne les six lignes débordaient la coupe
+                 de 6,8cqw et la dernière était tranchée en deux. Le retrait
+                 revient au pas frère, l'écart inter-ligne garde le pas de bloc,
+                 et la pile atterrit sous le bord comme les deux autres écrans. */
+              padding: '3.5cqw',
               borderRadius: '3cqw',
               background: row === 0 ? ACCENT_SOFT : '#f7f8fb',
             }}
@@ -398,9 +406,9 @@ function Nights() {
             <span
               className="flex items-center justify-center"
               style={{
-                width: '9cqw',
-                height: '9cqw',
-                borderRadius: '2.6cqw',
+                width: '10cqw',
+                height: '10cqw',
+                borderRadius: '2.8cqw',
                 background: row === 0 ? ACCENT : '#dcdfea',
                 color: row === 0 ? '#ffffff' : '#6c7186',
                 fontSize: '4.2cqw',
@@ -463,8 +471,8 @@ function Goal() {
       <span
         className="flex items-center justify-center"
         style={{
-          width: '52cqw',
-          height: '52cqw',
+          width: '58cqw',
+          height: '58cqw',
           borderRadius: '99px',
           /* L'anneau : un dégradé conique coupé à 78 %, donc une vraie
              progression et pas un cercle plein. */
@@ -474,8 +482,8 @@ function Goal() {
         <span
           className="flex flex-col items-center justify-center"
           style={{
-            width: '39cqw',
-            height: '39cqw',
+            width: '43cqw',
+            height: '43cqw',
             borderRadius: '99px',
             background: '#ffffff',
             gap: '1.75cqw',
@@ -502,12 +510,12 @@ function Goal() {
       </span>
       <span
         className="flex w-full shrink-0 items-center justify-center"
-        style={{ height: '11cqw', borderRadius: '3cqw', background: ACCENT }}
+        style={{ height: '13cqw', borderRadius: '3.4cqw', background: ACCENT }}
       >
         <TextBar width={38} color="#ffffff" height={2.6} />
       </span>
 
-      <div className="flex w-full shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
+      <div className="flex w-full shrink-0 flex-col" style={{ gap: '7cqw' }}>
         {[0, 1, 2].map((row) => (
           <span
             key={row}
