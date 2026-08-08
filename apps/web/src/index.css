@@ -78,7 +78,11 @@
   /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair. */
   --color-ring: var(--color-marker-line);
 
-  --color-destructive: oklch(0.62 0.18 25);
+  /* 0.64 et non 0.62 : à 0.62 le rouge tombait à 4.41:1 sur `card`, la surface
+     où il porte du texte — messages d'erreur, compteur épuisé, suppression de
+     compte. L'écart est invisible à l'œil (#de4e4b → #e55551), le plancher ne
+     l'est pas. */
+  --color-destructive: oklch(0.64 0.18 25);
   --color-destructive-foreground: oklch(0.97 0 0);
 
   /* ── Marque d'état — ajout produit ──

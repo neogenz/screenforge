@@ -28,9 +28,19 @@ const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']
  * pose jamais sur `card` — mais sans eux ces couples ne sont contrôlés nulle
  * part. Le citron et son encre vivaient ainsi sur une valeur annoncée en
  * commentaire et vérifiée par personne.
+ * `destructive` y figure plutôt que dans `INKS` parce qu'il ne se pose pas sur
+ * toute la gamme : sur `accent` et `secondary` il n'apparaît qu'en icône, sous
+ * le survol d'un `IconButton` (`hover:text-destructive`), où le seuil est celui
+ * du non-textuel — 3:1, tenu. Le croiser avec ces deux surfaces demanderait
+ * d'éclaircir le rouge jusqu'à 0.69 pour un cas qui n'est pas du texte.
  * @type {[string, string][]}
  */
-const PAIRS = [['marker-ink', 'marker']]
+const PAIRS = [
+  ['marker-ink', 'marker'],
+  ...['card', 'background', 'stage', 'muted'].map(
+    /** @returns {[string, string]} */ (surface) => ['destructive', surface],
+  ),
+]
 
 const MIN_RATIO = 4.5
 
