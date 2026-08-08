@@ -170,93 +170,123 @@ export function Pricing() {
       aria-labelledby="pricing-title"
       className="scroll-mt-20 border-b border-border/60 bg-background px-5 py-20 md:px-10 md:py-28"
     >
-      <SectionHeading id="pricing-title">{p.title}</SectionHeading>
-      <p className="mx-auto mt-6 max-w-[65ch] text-center text-[15px] leading-6 text-muted-foreground">
-        {p.sub}
-      </p>
-      <CostCompare />
+      {/* La seule section de la page qui n'était pas bornée. Le Hero, les
+          fonctionnalités et la démo tiennent tous dans `max-w-7xl` ; les tarifs
+          s'étalaient sur toute la fenêtre, ce qui donnait au comparatif quatre
+          colonnes de 400 px pour y écrire « Non » et éloignait chaque valeur de
+          son intitulé de la largeur d'une carte. */}
+      <div className="mx-auto max-w-7xl">
+        <SectionHeading id="pricing-title">{p.title}</SectionHeading>
+        <p className="mx-auto mt-6 max-w-[65ch] text-center text-[15px] leading-6 text-muted-foreground">
+          {p.sub}
+        </p>
+        <CostCompare />
 
-      <div className="mt-12 grid items-stretch gap-4 md:grid-cols-3">
-        <div className="max-md:order-2">
-          <PlanCard plan={plans[0]} />
+        <div className="mt-12 grid items-stretch gap-4 md:grid-cols-3">
+          <div className="max-md:order-2">
+            <PlanCard plan={plans[0]} />
+          </div>
+          <div className="max-md:order-1">
+            <PlanCard plan={plans[1]} />
+          </div>
+          <div className="max-md:order-3">
+            <PlanCard plan={plans[2]} />
+          </div>
         </div>
-        <div className="max-md:order-1">
-          <PlanCard plan={plans[1]} />
-        </div>
-        <div className="max-md:order-3">
-          <PlanCard plan={plans[2]} />
-        </div>
-      </div>
 
-      <p className="mt-4 text-xs leading-4 text-muted-foreground">
-        {p.currencyNote} {p.availability}
-      </p>
+        <p className="mt-4 text-xs leading-4 text-muted-foreground">
+          {p.currencyNote} {p.availability}
+        </p>
 
-      <div className="mt-14">
-        {/* Sous 600px le tableau déborde et la colonne Licence — la seule qui
-            compte — sort de l'écran sans rien qui le dise. */}
-        <div className="flex items-baseline justify-between gap-4">
-          <SpecLabel id="compare-label">{p.compareLabel}</SpecLabel>
-          <span aria-hidden className="text-2xs text-muted-foreground md:hidden">
-            {p.compareHint} →
-          </span>
-        </div>
-        {/* Une zone défilante doit être atteignable au clavier : sans tabindex,
-            un utilisateur sans souris ne peut pas révéler les colonnes de
-            droite du comparatif sur un écran étroit. */}
-        <div
-          tabIndex={0}
-          role="group"
-          aria-labelledby="compare-label"
-          className="mt-4 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          <table className="w-full min-w-[600px] border-collapse">
-            <thead>
-              <tr className="border-b border-border/60">
-                <th scope="col" className="w-1/4" />
-                {plans.map((plan) => (
-                  <th
-                    key={plan.name}
-                    scope="col"
-                    /* La teinte de la colonne recommandée commence à son
-                       en-tête : posée sur les seules cellules de corps, la
-                       bande se lisait détachée du nom qu'elle désigne. */
-                    className={cn(
-                      'w-1/4 px-4 pb-3 text-left text-xs font-medium text-muted-foreground',
-                      plan.highlighted && 'bg-marker-soft/50 text-foreground',
-                    )}
-                  >
-                    {plan.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {p.rows.map((row) => (
-                <tr key={row.label} className="border-b border-border/60 last:border-b-0">
-                  <th scope="row" className="py-3.5 pr-4 text-left text-sm font-medium">
-                    {row.label}
-                  </th>
-                  {row.values.map((value, column) => (
-                    <td
-                      key={column}
+        <div className="mt-14">
+          {/* Sous 600px le tableau déborde et la colonne Licence — la seule qui
+              compte — sort de l'écran sans rien qui le dise. */}
+          <div className="flex items-baseline justify-between gap-4">
+            <SpecLabel id="compare-label">{p.compareLabel}</SpecLabel>
+            <span aria-hidden className="text-2xs text-muted-foreground md:hidden">
+              {p.compareHint} →
+            </span>
+          </div>
+          {/* Une zone défilante doit être atteignable au clavier : sans tabindex,
+              un utilisateur sans souris ne peut pas révéler les colonnes de
+              droite du comparatif sur un écran étroit. */}
+          <div
+            tabIndex={0}
+            role="group"
+            aria-labelledby="compare-label"
+            className="mt-4 max-w-5xl overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {/* Plus étroit que les cartes, et aligné à gauche : les cartes sont
+                la décision, ce tableau en est le détail, et une pleine largeur
+                lui donnait le même poids qu'elles. Il ne peut de toute façon
+                pas s'aligner sur elles — sa colonne d'intitulés décale ses
+                trois colonnes d'une carte entière.
+
+                L'intitulé pèse plus qu'une valeur : « Reprendre sur une autre
+                machine » fait quatre mots, « Inclus » en fait un. Quatre quarts
+                donnaient la même largeur aux deux et posaient chaque réponse à
+                plus de quatre cents pixels de sa question — c'est cette
+                distance, pas la hauteur des lignes, qui faisait perdre la
+                ligne à l'œil. */}
+            <table className="w-full min-w-[600px] table-fixed border-collapse">
+              <colgroup>
+                <col className="w-[31%]" />
+                <col className="w-[23%]" />
+                <col className="w-[23%]" />
+                <col className="w-[23%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th scope="col" />
+                  {plans.map((plan) => (
+                    <th
+                      key={plan.name}
+                      scope="col"
+                      /* La teinte de la colonne recommandée commence à son
+                         en-tête : posée sur les seules cellules de corps, la
+                         bande se lisait détachée du nom qu'elle désigne. */
                       className={cn(
-                        'px-4 py-3.5 text-sm text-muted-foreground',
-                        column === 1 && 'bg-marker-soft/50 text-foreground',
+                        'px-4 pt-1 pb-3 text-left',
+                        plan.highlighted && 'bg-marker-soft/50',
                       )}
                     >
-                      {value}
-                    </td>
+                      {/* Le même traitement que sur la carte : ce sont les
+                          trois mêmes offres, et deux typographies pour un seul
+                          nom en faisaient deux listes à rapprocher de tête. */}
+                      <SpecLabel className={cn(plan.highlighted && 'text-foreground')}>
+                        {plan.name}
+                      </SpecLabel>
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {p.rows.map((row) => (
+                  <tr key={row.label} className="border-b border-border/60 last:border-b-0">
+                    <th scope="row" className="py-3.5 pr-6 text-left text-sm font-medium">
+                      {row.label}
+                    </th>
+                    {row.values.map((value, column) => (
+                      <td
+                        key={column}
+                        className={cn(
+                          'px-4 py-3.5 text-sm text-muted-foreground',
+                          column === 1 && 'bg-marker-soft/50 text-foreground',
+                        )}
+                      >
+                        {value}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Le comparatif décrit l'offre à l'ouverture. Le Gratuit, lui, est
+              disponible aujourd'hui et sans restriction : sans cette ligne la
+              page décourage la seule action qu'elle sait conclure. */}
+          <p className="mt-3 text-xs leading-4 text-muted-foreground">{p.compareNote}</p>
         </div>
-        {/* Le comparatif décrit l'offre à l'ouverture. Le Gratuit, lui, est
-            disponible aujourd'hui et sans restriction : sans cette ligne la
-            page décourage la seule action qu'elle sait conclure. */}
-        <p className="mt-3 text-xs leading-4 text-muted-foreground">{p.compareNote}</p>
       </div>
     </section>
   )

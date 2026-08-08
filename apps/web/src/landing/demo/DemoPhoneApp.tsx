@@ -13,6 +13,22 @@
  * du cadre : la maquette reste nette et proportionnée que le téléphone fasse
  * 60 px sur un portable ou 120 px sur un grand écran, sans un point de rupture.
  *
+ * Une seule échelle verticale, trois pas de rapport 2 : 7cqw sépare deux blocs
+ * — c'est le retrait latéral, donc un seul module pour les deux axes —, 3.5cqw
+ * sépare deux frères d'une pile, 1.75cqw lie les deux lignes d'un même objet.
+ * Avant, les quatre écarts inter-blocs valaient tous 3.5cqw contre 2 à 3cqw en
+ * intra-bloc : un rapport de 1,17, donc un seul pas plat où l'écart censé
+ * séparer deux blocs ne séparait presque rien, pendant qu'un quart de l'écran
+ * restait blanc. Le bloc titre, lui, n'écrit rien : à `lineHeight: 0.86` le
+ * grand nombre porte déjà 2,3cqw de blanc dans sa boîte, donc tout écart écrit
+ * y rendrait plus large que le pas frère et se lirait comme une séparation.
+ *
+ * Le budget est fermé par le bas et il n'est écrit nulle part ailleurs : le
+ * cadre déborde volontairement de la planche (`DEVICE_HEIGHT_PCT` = 66 centré à
+ * 82 %, `demo-script.ts`), il reste 165cqw sous le haut du corps avant le bord,
+ * et la barre d'onglets est déjà dessous, à 0 % visible. Qui touche à ces deux
+ * constantes déplace les trois atterrissages.
+ *
  * Ce qui reste abstrait l'est par décision, pas par paresse : à la taille où le
  * cadre est réellement rendu, un mot de six lettres fait quatre pixels de haut
  * et devient une tache. Les libellés qui comptent — le titre, le grand nombre,
@@ -85,7 +101,7 @@ function StatusBar() {
   return (
     <div
       className="flex shrink-0 items-center justify-between"
-      style={{ padding: '5cqw 7cqw 0', gap: '4cqw' }}
+      style={{ padding: '3.5cqw 7cqw 0', gap: '4cqw' }}
     >
       {/* À cette échelle « 9:41 » ne serait pas un texte mais une tache. */}
       <span style={{ width: '13cqw', height: '2.5cqw', borderRadius: '99px', background: INK }} />
@@ -176,10 +192,10 @@ function Dashboard({ label }: { label: string }) {
   return (
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      style={{ padding: '4cqw 7cqw 0', gap: '3.5cqw' }}
+      style={{ padding: '7cqw 7cqw 0', gap: '7cqw' }}
     >
       <div className="flex shrink-0 items-center justify-between">
-        <span className="flex flex-col" style={{ gap: '1.6cqw' }}>
+        <span className="flex flex-col">
           <span
             style={{
               color: MUTED,
@@ -261,7 +277,7 @@ function Dashboard({ label }: { label: string }) {
       {/* La courbe : sept nuits, la dernière accentuée, les initiales des jours
           sous les barres. Un graphe sans axe est un motif ; l'axe est ce qui en
           fait une donnée. */}
-      <div className="flex flex-col" style={{ gap: '2cqw' }}>
+      <div className="flex flex-col" style={{ gap: '1.75cqw' }}>
         <div className="flex items-end justify-between" style={{ height: '34cqw', gap: '2cqw' }}>
           {NIGHTS.map((height, night) => (
             <span
@@ -293,7 +309,7 @@ function Dashboard({ label }: { label: string }) {
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-col" style={{ gap: '2.4cqw' }}>
+      <div className="flex shrink-0 flex-col" style={{ gap: '1.75cqw' }}>
         <span className="flex overflow-hidden" style={{ height: '4cqw', borderRadius: '99px' }}>
           {STAGES.map((stage) => (
             <span key={stage.label} style={{ width: `${stage.share}%`, background: stage.color }} />
@@ -320,7 +336,7 @@ function Dashboard({ label }: { label: string }) {
         </span>
       </div>
 
-      <div className="flex shrink-0 flex-col" style={{ gap: '3cqw' }}>
+      <div className="flex shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
         {[0, 1, 2].map((row) => (
           <span key={row} className="flex items-center" style={{ gap: '3cqw' }}>
             <span
@@ -331,7 +347,7 @@ function Dashboard({ label }: { label: string }) {
                 background: row === 0 ? ACCENT_SOFT : '#f1f2f7',
               }}
             />
-            <span className="flex flex-1 flex-col" style={{ gap: '1.6cqw' }}>
+            <span className="flex flex-1 flex-col" style={{ gap: '1.75cqw' }}>
               <TextBar width={[68, 54, 61][row]} color="#c3c7d6" />
               <TextBar width={[40, 46, 33][row]} color="#e0e2eb" height={2} />
             </span>
@@ -349,7 +365,7 @@ function Nights() {
   return (
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      style={{ padding: '4cqw 7cqw 0', gap: '3.4cqw' }}
+      style={{ padding: '7cqw 7cqw 0', gap: '7cqw' }}
     >
       <div className="flex shrink-0 items-center justify-between">
         <span
@@ -367,14 +383,14 @@ function Nights() {
           style={{ width: '8cqw', height: '8cqw', borderRadius: '2.4cqw', background: '#f1f2f7' }}
         />
       </div>
-      <div className="flex shrink-0 flex-col" style={{ gap: '2.6cqw' }}>
+      <div className="flex shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
         {ENTRIES.map((entry, row) => (
           <span
             key={entry.day}
             className="flex items-center"
             style={{
               gap: '3cqw',
-              padding: '2.6cqw 3cqw',
+              padding: '3.5cqw 3cqw',
               borderRadius: '3cqw',
               background: row === 0 ? ACCENT_SOFT : '#f7f8fb',
             }}
@@ -393,7 +409,7 @@ function Nights() {
             >
               {entry.day[0]}
             </span>
-            <span className="flex flex-1 flex-col" style={{ gap: '1.8cqw' }}>
+            <span className="flex flex-1 flex-col" style={{ gap: '1.75cqw' }}>
               <TextBar width={row === 0 ? 62 : 50} color={row === 0 ? ACCENT : '#c3c7d6'} />
               {/* La jauge : la même durée, dite deux fois — en chiffres et en
                   longueur. C'est ce que fait une ligne de liste utile. */}
@@ -442,7 +458,7 @@ function Goal() {
   return (
     <div
       className="flex min-h-0 flex-1 flex-col items-center overflow-hidden"
-      style={{ padding: '6cqw 7cqw 0', gap: '4cqw' }}
+      style={{ padding: '7cqw 7cqw 0', gap: '7cqw' }}
     >
       <span
         className="flex items-center justify-center"
@@ -462,7 +478,7 @@ function Goal() {
             height: '39cqw',
             borderRadius: '99px',
             background: '#ffffff',
-            gap: '1cqw',
+            gap: '1.75cqw',
           }}
         >
           <span
@@ -480,7 +496,7 @@ function Goal() {
           <TextBar width={52} color="#c3c7d6" height={2} />
         </span>
       </span>
-      <span className="flex w-full flex-col items-center" style={{ gap: '2.2cqw' }}>
+      <span className="flex w-full flex-col items-center" style={{ gap: '1.75cqw' }}>
         <TextBar width={68} color={INK} height={3} />
         <TextBar width={46} color="#c3c7d6" height={2.2} />
       </span>
@@ -491,14 +507,14 @@ function Goal() {
         <TextBar width={38} color="#ffffff" height={2.6} />
       </span>
 
-      <div className="flex w-full shrink-0 flex-col" style={{ gap: '2.4cqw' }}>
+      <div className="flex w-full shrink-0 flex-col" style={{ gap: '3.5cqw' }}>
         {[0, 1, 2].map((row) => (
           <span
             key={row}
             className="flex items-center"
             style={{
               gap: '3cqw',
-              padding: '2.8cqw 3cqw',
+              padding: '3.5cqw 3cqw',
               borderRadius: '3cqw',
               background: '#f7f8fb',
             }}
@@ -511,7 +527,7 @@ function Goal() {
                 background: '#dcdfea',
               }}
             />
-            <span className="flex flex-1 flex-col" style={{ gap: '1.6cqw' }}>
+            <span className="flex flex-1 flex-col" style={{ gap: '1.75cqw' }}>
               <TextBar width={[58, 46, 66][row]} color="#c3c7d6" />
               <TextBar width={[34, 40, 28][row]} color="#e0e2eb" height={2} />
             </span>

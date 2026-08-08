@@ -138,9 +138,16 @@ function Swatch({
 /* Une bande, pas une carte : le panneau est déjà une surface, un cadre autour
    de chaque groupe en ferait une troisième. Même règle que les sections de
    panneau de l'app. */
+/*
+ * Deux écarts, pas trois. Le libellé collait à son contrôle de 6 px et la
+ * section suivante n'en prenait que 10 : sur un panneau de 128 px, quatre
+ * relations différentes s'énonçaient à quatre pixels d'écart, et la colonne se
+ * lisait comme une seule pile continue. 6 px lie ce qui va ensemble, 12 px
+ * sépare ce qui n'y va pas — c'est la même règle que l'app, à son échelle.
+ */
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-border/60 pt-2.5 first:border-t-0 first:pt-0">
+    <div className="border-t border-border/60 pt-3 first:border-t-0 first:pt-0">
       <p className="text-[9px] text-muted-foreground">{title}</p>
       <div className="mt-1.5">{children}</div>
     </div>
@@ -574,12 +581,16 @@ export function DemoEditor() {
         {/* Calques — le panneau gauche de l'app, réduit à sa liste. */}
         <aside
           onPointerDown={takeOver}
-          className="hidden w-32 shrink-0 flex-col border-r border-border/60 bg-background md:flex"
+          className="hidden w-40 shrink-0 flex-col border-r border-border/60 bg-background md:flex"
         >
-          <p className="border-b border-border/60 px-2.5 py-1.5 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+          <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
             {t.demo.layers}
           </p>
-          <div className="flex flex-col gap-px p-1">
+          {/* 160 px et pas 128 : le nom d'un calque de texte est son contenu, et
+              à 128 la seule ligne que ce panneau existe pour montrer se coupait
+              en « Track your sl… ». Les lignes ne se touchent plus non plus —
+              `gap-px` les soudait en un bloc gris. */}
+          <div className="flex flex-col gap-0.5 p-1.5">
             {layers.map((layer) => {
               const hidden = layer.id !== 'background' && scene.hidden.includes(layer.id)
               return (
@@ -600,7 +611,7 @@ export function DemoEditor() {
                     onClick={() =>
                       manual({ selected: layer.id === 'background' ? null : layer.id })
                     }
-                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pl-1.5 text-left text-[10px]"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pl-2 text-left text-[10px]"
                   >
                     <layer.icon aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
                     <span className={cn('truncate', hidden && 'line-through opacity-50')}>
@@ -740,12 +751,12 @@ export function DemoEditor() {
         {/* Propriétés — le panneau droit : fonds, réglages du calque, cible. */}
         <aside
           onPointerDown={takeOver}
-          className="hidden w-32 shrink-0 flex-col border-l border-border/60 bg-background md:flex"
+          className="hidden w-40 shrink-0 flex-col border-l border-border/60 bg-background md:flex"
         >
-          <p className="border-b border-border/60 px-2.5 py-1.5 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+          <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
             {t.demo.properties}
           </p>
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-2.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
             <PanelSection title={t.demo.background}>
               <div className="flex gap-1.5">
                 {DEMO_GRADIENTS.map((gradient, index) => (
@@ -835,9 +846,9 @@ export function DemoEditor() {
             {/* La dimension de sortie, épinglée en bas comme dans l'app. Le
                 panneau tenait sur trois pastilles et deux champs, et la seule
                 mesure que la page répète cinq fois n'y figurait pas. */}
-            <div className="mt-auto border-t border-border/60 pt-2.5">
+            <div className="mt-auto border-t border-border/60 pt-3">
               <p className="text-[9px] text-muted-foreground uppercase">{t.demo.exportSize}</p>
-              <p className="mt-0.5 text-[10px] tabular-nums">
+              <p className="mt-1.5 text-[10px] tabular-nums">
                 {APP_STORE_TARGET.portrait.width} × {APP_STORE_TARGET.portrait.height}
               </p>
             </div>
