@@ -5,7 +5,9 @@
 - Co-located Vitest unit tests cover pure library logic and Zustand store contracts.
 - Playwright E2E tests drive the real French-labelled UI and cover editor interaction, persistence, accessibility recovery, and export.
 - Export tests and `scripts/validate-export.mjs` enforce exact dimensions, opaque PNG output, and ZIP structure.
-- `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions.
+- `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape.
+- `supabase/tests/*.test.mjs` run under `node --test` against the local Supabase stack and cover RLS from the attacker's point of view. They skip when the stack is down.
+- `apps/api` unit tests use fake Supabase and Polar clients, real webhook signatures and the real SDK parser, so only the database is in memory.
 
 ## Tools
 
@@ -24,6 +26,7 @@
 ## Run
 
 - `pnpm run test:unit`: unit suite.
-- `pnpm run test:e2e`: Chromium E2E suite.
+- `pnpm run test:e2e`: Chromium E2E suite. Playwright must be invoked from `apps/web` (`pnpm --filter web exec playwright test`) — run from the root it finds no config and loses `baseURL`.
+- `pnpm run test:rls`: RLS suite against the local stack (`pnpm run db:start` first).
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
 - GitHub runs the release gate on every push and pull request and uploads Playwright diagnostics on failure.

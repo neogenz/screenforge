@@ -3,7 +3,8 @@
 ## What it is
 
 - ScreenForge is a local-first browser editor for indie developers creating iPhone App Store screenshot sets.
-- It designs layered screens and exports App Store-ready PNG files without a hosted backend or subscription.
+- It designs layered screens and exports App Store-ready PNG files with the whole render running in the browser.
+- Three tiers: Free (3 watermarked exports per project), Licence ($49 once, clean and unlimited exports plus the ZIP), Cloud (+$39/year, adds project sync). Sold through Polar as Merchant of Record.
 
 ## Why it exists
 
@@ -19,6 +20,7 @@
 | Layout layer | A layer shared across every screen in a project. |
 | Device frame | An iPhone mockup containing an app screenshot; may use a generated frame or user-imported Apple bezel. |
 | Asset | Binary image payload stored outside the layer graph and referenced by ID. |
+| Entitlement | What an account has bought: `licence` (perpetual) and `cloud` (annual, requires the licence). Mirrored from Polar, never computed from a payment history. |
 | Production profile | The fixed iPhone 6.9-inch portrait output at 1320 × 2868. |
 
 ## Key features
@@ -27,3 +29,4 @@
 - Multi-screen project editing with templates, globals, shared layers, undo/redo, and keyboard commands.
 - Local persistence plus portable project import/export.
 - Validated single or batch PNG export in an organized ZIP.
+- Optional account (magic link and SSO) with cloud sync of projects and assets, and self-service account deletion.
