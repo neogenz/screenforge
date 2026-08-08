@@ -37,6 +37,28 @@ interface ScreenForgeDB extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<ScreenForgeDB>> | null = null
 
+type CommitListener = (project: Project) => void
+const commitListeners = new Set<CommitListener>()
+
+/**
+ * Le seul entonnoir par lequel la sync cloud apprend qu'il y a du neuf.
+ *
+ * Elle pourrait s'abonner au store comme l'autosave le fait, mais elle
+ * pousserait alors un état que le disque local n'a pas encore accepté : en cas
+ * d'échec de la transaction IndexedDB, le cloud porterait une version que ce
+ * navigateur ne saurait plus rouvrir. Ici, ce qui est notifié est ce qui est
+ * durable.
+ *
+ * L'inversion évite aussi un cycle d'imports : `sync.ts` a besoin de ce module
+ * pour écrire un projet tiré du cloud, ce module n'a besoin de rien de lui.
+ */
+export function onProjectCommitted(listener: CommitListener): () => void {
+  commitListeners.add(listener)
+  return () => {
+    commitListeners.delete(listener)
+  }
+}
+
 function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
   if (!dbPromise) {
     dbPromise = openDB<ScreenForgeDB>('screenforge', 2, {
@@ -149,6 +171,15 @@ async function commitProject(
     throw error
   }
   markAssetsClean(dirty.map((asset) => asset.id))
+  // Après le commit, jamais avant : un abonné qui échoue ne doit pas pouvoir
+  // annuler une sauvegarde locale déjà acquise.
+  for (const listener of commitListeners) {
+    try {
+      listener(normalized)
+    } catch (error) {
+      console.error('A project commit listener failed.', error)
+    }
+  }
   return normalized
 }
 
@@ -271,25 +302,53 @@ function importedProject(decoded: DecodedProjectFile): {
   return { project, assets }
 }
 
+/** Persists a project and its binaries in one transaction, then opens it. */
+async function installProject(project: Project, assets: AssetRecord[]): Promise<Project> {
+  const db = await getDB()
+  const tx = db.transaction(['projects', 'assets'], 'readwrite')
+  await Promise.all([
+    tx.objectStore('projects').put(project),
+    ...assets.map((asset) => tx.objectStore('assets').put(asset)),
+  ])
+  await tx.done
+
+  hydrateAssets(assets)
+  useProjectStore.getState().loadProject(project)
+  useCanvasStore.getState().clearSelection()
+  useHistoryStore.getState().clear()
+  useUIStore.getState().setSaveStatus('saved')
+  return project
+}
+
 /** Validates fully, then atomically persists and activates an independent project copy. */
 export async function importPortableProject(file: File): Promise<Project> {
   const decoded = await readProjectFile(file)
   await saveCurrentProject()
   const imported = importedProject(decoded)
-  const db = await getDB()
-  const tx = db.transaction(['projects', 'assets'], 'readwrite')
-  await Promise.all([
-    tx.objectStore('projects').put(imported.project),
-    ...imported.assets.map((asset) => tx.objectStore('assets').put(asset)),
-  ])
-  await tx.done
+  return installProject(imported.project, imported.assets)
+}
 
-  hydrateAssets(imported.assets)
-  useProjectStore.getState().loadProject(imported.project)
-  useCanvasStore.getState().clearSelection()
-  useHistoryStore.getState().clear()
-  useUIStore.getState().setSaveStatus('saved')
-  return imported.project
+/**
+ * Remplace le projet ouvert par la version tirée du cloud.
+ *
+ * Le flush préalable est ce qui rend l'opération non destructrice : si la
+ * version distante porte un autre `id` — le cas du second navigateur — le
+ * projet local reste en base sous le sien, et rien de ce qui n'avait pas encore
+ * touché le disque n'est perdu.
+ *
+ * L'historique repart de zéro, comme à l'import d'un fichier : une pile
+ * d'annulations qui traverserait un changement de document proposerait de
+ * revenir à l'état d'un projet qui n'est plus à l'écran.
+ */
+export async function adoptRemoteProject(
+  project: Project,
+  assets: readonly { id: string; dataUrl: string }[],
+): Promise<void> {
+  await saveCurrentProject()
+  await installProject(
+    project,
+    assets.map((asset) => ({ ...asset, projectId: project.id })),
+  )
 }
 
 async function persist(project: Project): Promise<void> {

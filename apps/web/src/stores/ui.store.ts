@@ -4,6 +4,12 @@ type ActiveTool = 'select' | 'text' | 'shape' | 'image'
 type Theme = 'light' | 'dark'
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
+/**
+ * `off` n'est pas un état d'erreur : c'est le mode par défaut du produit — pas
+ * d'instance configurée, ou pas de session. Le témoin ne se rend pas du tout.
+ */
+export type SyncStatus = 'off' | 'syncing' | 'synced' | 'offline' | 'error'
+
 interface UIState {
   zoom: number
   viewportResetKey: number
@@ -23,6 +29,7 @@ interface UIState {
   showShortcuts: boolean
   theme: Theme
   saveStatus: SaveStatus
+  syncStatus: SyncStatus
 
   setZoom: (zoom: number) => void
   zoomIn: () => void
@@ -41,6 +48,7 @@ interface UIState {
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
   setSaveStatus: (status: SaveStatus) => void
+  setSyncStatus: (status: SyncStatus) => void
 }
 
 const ZOOM_STEP = 0.25
@@ -76,6 +84,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showShortcuts: false,
   theme: getInitialTheme(),
   saveStatus: 'idle',
+  syncStatus: 'off',
 
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
 
@@ -196,4 +205,6 @@ export const useUIStore = create<UIState>()((set) => ({
     }),
 
   setSaveStatus: (saveStatus) => set({ saveStatus }),
+
+  setSyncStatus: (syncStatus) => set({ syncStatus }),
 }))

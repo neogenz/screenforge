@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
+  Cloud,
+  CloudOff,
   Command,
   Download,
   FileDown,
@@ -29,7 +31,7 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { useUIStore, type SaveStatus } from '@/stores/ui.store'
+import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
@@ -60,6 +62,13 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
   saving: 'Enregistrement…',
   saved: 'Enregistré',
   error: 'Échec de l’enregistrement',
+}
+
+const SYNC_LABELS: Record<Exclude<SyncStatus, 'off'>, string> = {
+  syncing: 'Synchronisation…',
+  synced: 'Synchronisé',
+  offline: 'Hors ligne — reprendra au retour du réseau',
+  error: 'Échec de la synchronisation',
 }
 
 /**
@@ -144,7 +153,44 @@ function ProjectSegment() {
         {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
         <span className="sr-only xl:not-sr-only">{SAVE_LABELS[saveStatus]}</span>
       </span>
+      <SyncIndicator />
     </div>
+  )
+}
+
+/**
+ * L'état du cloud, à côté de celui du disque.
+ *
+ * Il vit ici et non près du bouton de compte : ce n'est pas une action, c'est
+ * le même fait que « Enregistré » dit une seconde fois, un cran plus loin.
+ * Les deux se lisent d'affilée — « Enregistré · Synchronisé » — et un
+ * utilisateur qui cherche où est son travail regarde un seul endroit.
+ *
+ * Absent tant qu'il n'y a rien à dire : sans instance configurée ou sans
+ * session, la synchronisation n'existe pas, et un témoin barré permanent
+ * annoncerait une panne là où il n'y a qu'un produit local.
+ */
+function SyncIndicator() {
+  const syncStatus = useUIStore((s) => s.syncStatus)
+  if (syncStatus === 'off') return null
+
+  const label = SYNC_LABELS[syncStatus]
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      title={label}
+      className={cn(
+        'flex shrink-0 items-center gap-1.5 text-2xs',
+        syncStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
+      )}
+    >
+      {syncStatus === 'syncing' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
+      {syncStatus === 'synced' && <Cloud size={11} className="text-success" aria-hidden />}
+      {syncStatus === 'offline' && <CloudOff size={11} aria-hidden />}
+      {syncStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
+      <span className="sr-only xl:not-sr-only">{label}</span>
+    </span>
   )
 }
 

@@ -14,6 +14,7 @@ import { useKeyboard } from '@/hooks/use-keyboard'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { DUAL_DRAWER_MIN_WIDTH, FILMSTRIP_CENTERED_MIN_WIDTH } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
+import { initSync } from '@/lib/sync'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
@@ -66,6 +67,7 @@ export default function App() {
   useEffect(() => {
     let disposed = false
     let stopAutoSave: (() => void) | undefined
+    let stopSync: (() => void) | undefined
 
     async function init() {
       try {
@@ -79,6 +81,14 @@ export default function App() {
           clearAssets()
           useProjectStore.getState().createProject('Projet sans titre')
         }
+        /* La sync démarre une fois le projet local en place, et seulement sur
+           ce chemin. Elle compare des `updatedAt` : lancée avant, elle
+           comparerait la version distante à rien et adopterait le cloud alors
+           qu'un projet local était en train d'arriver. Sur le chemin d'échec
+           elle ne démarre pas du tout — sans stockage local, il n'y a pas de
+           version de référence à confronter, et pousser une mémoire volatile
+           vers le cloud écraserait la seule copie durable qui reste. */
+        stopSync = initSync()
       } catch (error) {
         if (disposed) return
         stopAutoSave?.()
@@ -98,6 +108,7 @@ export default function App() {
     void init()
     return () => {
       disposed = true
+      stopSync?.()
       stopAutoSave?.()
     }
   }, [])

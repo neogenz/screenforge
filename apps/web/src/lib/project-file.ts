@@ -101,7 +101,16 @@ export function collectProjectAssetIds(project: Project): string[] {
   return [...collectAssetIds(project)].sort()
 }
 
-function projectWithoutThumbnails(project: Project): Project {
+/**
+ * L'aperçu d'un écran est un cache de rendu, pas une donnée du projet.
+ *
+ * Il se régénère seul au premier rendu du canevas, il pèse quelques kilooctets
+ * de PNG en base64 par écran, et il change à chaque coup de pinceau. Tout ce qui
+ * sort de ce navigateur le laisse donc derrière : le fichier portable, comme la
+ * ligne poussée dans le cloud — sans quoi `projects.data` porterait des data URL
+ * et chaque sauvegarde renverrait dix vignettes que personne n'a demandées.
+ */
+export function projectWithoutThumbnails(project: Project): Project {
   return {
     ...structuredClone(project),
     screens: project.screens.map((screen) => {

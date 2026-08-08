@@ -5,6 +5,14 @@ export type ToastTone = 'info' | 'success' | 'error'
 
 interface ToastOptions {
   duration?: number
+  /**
+   * Le rattrapage d'un échec, là où l'échec est annoncé.
+   *
+   * Une panne de synchronisation n'a pas d'écran à elle : sans ce bouton, la
+   * seule reprise offerte serait de modifier quelque chose pour re-déclencher un
+   * cycle, ce qui demande à l'utilisateur de deviner la mécanique.
+   */
+  action?: { label: string; onClick: () => void }
 }
 
 /** Fire-and-forget toast, callable from anywhere (stores, hooks, commands). */

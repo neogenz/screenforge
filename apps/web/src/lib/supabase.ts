@@ -43,7 +43,19 @@ let client: Promise<SupabaseClient<Database>> | null = null
 export function getSupabase(): Promise<SupabaseClient<Database>> | null {
   if (!url || !anonKey) return null
   client ??= import('@supabase/supabase-js').then(({ createClient }) =>
-    createClient<Database>(url, anonKey),
+    createClient<Database>(url, anonKey, {
+      /*
+       * La clé de session est la nôtre, pas une dérivée de l'URL.
+       *
+       * Par défaut le SDK la fabrique avec `sb-{premier segment de l'hôte}-…`,
+       * ce qui donne `sb-127-auth-token` en local et autre chose en production.
+       * Une valeur explicite fixe l'emplacement quel que soit l'hôte, ce qui la
+       * rend adressable : c'est ce que `e2e/sync.spec.ts` sème pour ouvrir deux
+       * navigateurs sur le même compte, faute de pouvoir automatiser un lien
+       * magique reçu par courrier.
+       */
+      auth: { storageKey: 'screenforge-auth' },
+    }),
   )
   return client
 }
