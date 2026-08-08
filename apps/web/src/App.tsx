@@ -49,6 +49,16 @@ const PricingDialog = lazy(() =>
     default: module.PricingDialog,
   })),
 )
+const AccountDialog = lazy(() =>
+  import('@/components/account-dialog/AccountDialog').then((module) => ({
+    default: module.AccountDialog,
+  })),
+)
+const MigrateProjectsDialog = lazy(() =>
+  import('@/components/migrate-dialog/MigrateProjectsDialog').then((module) => ({
+    default: module.MigrateProjectsDialog,
+  })),
+)
 
 export default function App() {
   useKeyboard()
@@ -246,6 +256,8 @@ function Overlays() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showAuthDialog = useUIStore((s) => s.showAuthDialog)
   const showPricingDialog = useUIStore((s) => s.showPricingDialog)
+  const showAccountDialog = useUIStore((s) => s.showAccountDialog)
+  const showMigrateDialog = useUIStore((s) => s.showMigrateDialog)
 
   return (
     <>
@@ -264,6 +276,8 @@ function Overlays() {
         {showGlobalsEditor && <GlobalsEditor />}
         {showAuthDialog && <AuthDialog />}
         {showPricingDialog && <PricingDialog />}
+        {showAccountDialog && <AccountDialog />}
+        {showMigrateDialog && <MigrateProjectsDialog />}
       </Suspense>
     </>
   )

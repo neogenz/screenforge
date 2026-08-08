@@ -9,13 +9,14 @@
  * de compte. Ce fichier est donc écrit du point de vue de B, muni du chemin
  * exact d'un objet de A.
  *
- * Aucune clé `service_role` : le test ne s'accorde jamais un privilège que le
+ * La clé `service_role` n'apparaît que pour poser l'achat des deux comptes —
+ * déposer un binaire exige le droit `cloud` — et jamais dans une assertion :
+ * le test ne s'accorde aucun privilège de lecture ou d'écriture que le
  * navigateur n'a pas.
  */
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { after, before, describe, it } from 'node:test'
-import { createClient } from '@supabase/supabase-js'
+import { anonClient, backendClient, grantCloud, localStack } from './stack.mjs'
 
 const BUCKET = 'assets'
 
@@ -25,39 +26,16 @@ const PNG_1X1 = Buffer.from(
   'base64',
 )
 
-/**
- * @returns {{ url: string, anonKey: string } | null}
- */
-function localStack() {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    return { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY }
-  }
-  try {
-    const raw = execFileSync('supabase', ['status', '-o', 'json'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    const status = JSON.parse(raw)
-    return { url: status.API_URL, anonKey: status.ANON_KEY }
-  } catch {
-    return null
-  }
-}
-
 const stack = localStack()
 
 describe(
   'RLS sur le bucket assets',
   { skip: stack ? false : 'stack Supabase local arrêté' },
   () => {
-    const client = () =>
-      createClient(stack.url, stack.anonKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-
-    const alice = client()
-    const bob = client()
-    const anonyme = client()
+    const alice = anonClient(stack)
+    const bob = anonClient(stack)
+    const anonyme = anonClient(stack)
+    const backend = backendClient(stack)
 
     /** @type {string} */ let aliceId
     /** @type {string} */ let bobId
@@ -77,6 +55,13 @@ describe(
       aliceId = await inscrire(alice, 'alice')
       bobId = await inscrire(bob, 'bob')
 
+      /* Les deux achètent le Cloud : ce fichier mesure l'isolation entre
+         dossiers, pas la porte commerciale — celle-ci a son propre fichier. */
+      for (const id of [aliceId, bobId]) {
+        const { error } = await grantCloud(backend, id)
+        assert.equal(error, null, `octroi du Cloud : ${error?.message}`)
+      }
+
       objetDAlice = `${aliceId}/${crypto.randomUUID()}`
       const { error } = await alice.storage
         .from(BUCKET)
@@ -86,6 +71,7 @@ describe(
 
     after(async () => {
       await alice.storage.from(BUCKET).remove([objetDAlice])
+      await backend.from('entitlements').delete().in('user_id', [aliceId, bobId])
       await Promise.all([alice.auth.signOut(), bob.auth.signOut()])
     })
 

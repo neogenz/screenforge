@@ -1,0 +1,159 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  exportsLeft,
+  exportsUsed,
+  projectEntitlements,
+  recordExport,
+  rightsOf,
+  FREE_EXPORTS_PER_PROJECT,
+  type Entitlements,
+} from '@/lib/entitlements'
+
+const GRANTED = '2026-03-12T09:00:00Z'
+const NOW = new Date('2026-08-08T10:00:00Z')
+
+describe('projectEntitlements', () => {
+  it('sans ligne, aucun droit', () => {
+    expect(projectEntitlements(null, 'u1', NOW)).toEqual({
+      userId: 'u1',
+      licence: false,
+      licenceGrantedAt: null,
+      cloud: false,
+      cloudStatus: null,
+      cloudPeriodEnd: null,
+    })
+  })
+
+  it('la Licence est perpétuelle et n’a pas d’échéance', () => {
+    const rights = projectEntitlements(
+      { licence_granted_at: GRANTED, cloud_status: null, cloud_period_end: null },
+      'u1',
+      NOW,
+    )
+    expect(rights.licence).toBe(true)
+    expect(rights.licenceGrantedAt).toBe(GRANTED)
+    expect(rights.cloud).toBe(false)
+  })
+
+  it('le Cloud court jusqu’à la fin de la période payée, résiliation comprise', () => {
+    const résilié = projectEntitlements(
+      {
+        licence_granted_at: GRANTED,
+        cloud_status: 'canceled',
+        cloud_period_end: '2026-12-01T00:00:00Z',
+      },
+      'u1',
+      NOW,
+    )
+    expect(résilié.cloud).toBe(true)
+  })
+
+  it('la période terminée retire le Cloud, jamais la Licence', () => {
+    const expiré = projectEntitlements(
+      {
+        licence_granted_at: GRANTED,
+        cloud_status: 'active',
+        cloud_period_end: '2026-01-01T00:00:00Z',
+      },
+      'u1',
+      NOW,
+    )
+    expect(expiré.cloud).toBe(false)
+    expect(expiré.licence).toBe(true)
+  })
+
+  it('le Cloud n’existe jamais sans la Licence', () => {
+    /* La même règle qu'en SQL (`public.has_cloud()`) et que dans la projection
+       du webhook : un abonnement acheté hors de notre checkout ne doit pas
+       ouvrir la sync à un compte qui n'a pas la Licence. */
+    const orphelin = projectEntitlements(
+      { licence_granted_at: null, cloud_status: 'active', cloud_period_end: null },
+      'u1',
+      NOW,
+    )
+    expect(orphelin.cloud).toBe(false)
+  })
+})
+
+describe('rightsOf', () => {
+  const entitlements = (partial: Partial<Entitlements>): Entitlements => ({
+    userId: 'u1',
+    licence: false,
+    licenceGrantedAt: null,
+    cloud: false,
+    cloudStatus: null,
+    cloudPeriodEnd: null,
+    ...partial,
+  })
+
+  it('sans droits connus, tout est fermé', () => {
+    expect(rightsOf(null)).toEqual({ cleanExport: false, zip: false, sync: false })
+  })
+
+  it('la Licence ouvre l’export propre et le ZIP, jamais la sync', () => {
+    expect(rightsOf(entitlements({ licence: true }))).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: false,
+    })
+  })
+
+  it('le Cloud ouvre la sync par-dessus la Licence', () => {
+    expect(rightsOf(entitlements({ licence: true, cloud: true })).sync).toBe(true)
+  })
+})
+
+describe('le compteur d’exports du palier gratuit', () => {
+  const gratuit = rightsOf(null)
+  const licencié = rightsOf({
+    userId: 'u1',
+    licence: true,
+    licenceGrantedAt: GRANTED,
+    cloud: false,
+    cloudStatus: null,
+    cloudPeriodEnd: null,
+  })
+
+  /* La suite tourne en environnement Node : pas de `localStorage`. Un faux de
+     six lignes coûte moins qu'un jsdom pour toute la suite, et le compteur
+     n'utilise du stockage que `getItem`/`setItem`. */
+  beforeEach(() => {
+    const entries = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => entries.get(key) ?? null,
+      setItem: (key: string, value: string) => void entries.set(key, value),
+    })
+  })
+
+  it('part du quota plein et décompte projet par projet', () => {
+    expect(exportsLeft('projet-a', gratuit)).toBe(FREE_EXPORTS_PER_PROJECT)
+
+    recordExport('projet-a')
+    recordExport('projet-a')
+    expect(exportsUsed('projet-a')).toBe(2)
+    expect(exportsLeft('projet-a', gratuit)).toBe(1)
+
+    /* Critère 2 : un autre projet repart à trois. Le compteur est indexé par
+       identifiant de projet, jamais global — sinon trois essais videraient le
+       palier gratuit pour toujours. */
+    expect(exportsLeft('projet-b', gratuit)).toBe(FREE_EXPORTS_PER_PROJECT)
+  })
+
+  it('ne descend jamais sous zéro', () => {
+    for (let i = 0; i < FREE_EXPORTS_PER_PROJECT + 2; i += 1) recordExport('projet-a')
+    expect(exportsLeft('projet-a', gratuit)).toBe(0)
+  })
+
+  it('la Licence ne compte pas', () => {
+    recordExport('projet-a')
+    expect(exportsLeft('projet-a', licencié)).toBe(Infinity)
+  })
+
+  it('un stockage illisible se lit comme zéro export consommé', () => {
+    /* On ne bloque personne pour une panne de navigateur : le filigrane est une
+       politesse, pas un verrou. */
+    localStorage.setItem('screenforge-exports', 'pas du JSON')
+    expect(exportsUsed('projet-a')).toBe(0)
+    expect(exportsLeft('projet-a', gratuit)).toBe(FREE_EXPORTS_PER_PROJECT)
+  })
+})

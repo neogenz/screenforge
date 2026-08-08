@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Check, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { createCheckout, createPortalSession, type Entitlements } from '@/lib/api'
-import { PLANS, type Plan, type SellableProduct } from '@/lib/plans'
+import { createCheckout, createPortalSession } from '@/lib/api'
+import type { Entitlements } from '@/lib/entitlements'
+import { formatGrantDate, PLANS, type Plan, type SellableProduct } from '@/lib/plans'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from '@/stores/toast.store'
@@ -107,14 +108,6 @@ const CHECKOUT_ERRORS: Record<'licence-required' | 'unauthenticated' | 'failed',
   failed: 'Le paiement n’a pas pu s’ouvrir. Réessayez dans un instant.',
 }
 
-const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
-
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null
-  const time = Date.parse(iso)
-  return Number.isNaN(time) ? null : DATE.format(time)
-}
-
 /**
  * Ce qu'un palier détenu dit de lui-même : une date, pas un simple « oui ».
  *
@@ -125,11 +118,11 @@ function formatDate(iso: string | null): string | null {
  */
 function ownedNote(id: Plan['id'], entitlements: Entitlements | null): string | undefined {
   if (id === 'licence' && entitlements?.licence) {
-    const date = formatDate(entitlements.licenceGrantedAt)
+    const date = formatGrantDate(entitlements.licenceGrantedAt)
     return date ? `Acquise le ${date}` : 'Acquise'
   }
   if (id === 'cloud' && entitlements?.cloud) {
-    const date = formatDate(entitlements.cloudPeriodEnd)
+    const date = formatGrantDate(entitlements.cloudPeriodEnd)
     return date ? `Actif jusqu’au ${date}` : 'Actif'
   }
   return undefined

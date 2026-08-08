@@ -15,17 +15,22 @@
  * 2. **Rien n'est jamais bloquant.** Une panne de réseau, une session expirée
  *    ou un bucket indisponible changent une pastille et rien d'autre : l'édition
  *    continue, l'autosave local aussi.
- * 3. **Sans compte, ce module ne s'exécute pas.** `initSync` sort immédiatement
- *    quand l'instance n'est pas configurée, et n'importe alors rien du SDK.
- *
- * La porte commerciale — la sync est l'add-on Cloud, pas un acquis du compte —
- * se pose en phase 5 dans `syncAllowed()` : un seul endroit à resserrer.
+ * 3. **Sans compte ni droit `cloud`, ce module ne s'exécute pas.** `initSync`
+ *    sort immédiatement quand l'instance n'est pas configurée, et n'importe
+ *    alors rien du SDK.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { resolveAsset } from '@/lib/assets'
+import { rightsOf } from '@/lib/entitlements'
 import { projectWithoutThumbnails } from '@/lib/project-file'
-import { normalizeProject, adoptRemoteProject, onProjectCommitted } from '@/lib/storage'
+import {
+  normalizeProject,
+  adoptRemoteProject,
+  listProjects,
+  loadProject,
+  onProjectCommitted,
+} from '@/lib/storage'
 import { cloudConfigured, getSupabase } from '@/lib/supabase'
 import { readSyncRecord, syncKey, writeSyncRecord } from '@/lib/sync-queue'
 import { useAuthStore } from '@/stores/auth.store'
@@ -44,15 +49,21 @@ function setStatus(status: SyncStatus): void {
 }
 
 /**
- * Le point unique où se branchera la vente.
+ * Le point unique où la vente se branche.
  *
- * Aujourd'hui : « il y a une instance et une session ». En phase 5 : « …et le
- * droit `cloud` est actif ». Un utilisateur sans le droit doit retomber
- * exactement sur le comportement d'aujourd'hui — aucune requête, aucun
- * `syncStatus`, jamais une erreur pour une fonction qu'il n'a pas achetée.
+ * Une instance, une session, et le droit `cloud` — dans cet ordre. Un compte
+ * Licence est un compte local, pas un compte cloud en erreur : sans le droit,
+ * aucune requête ne part et aucun `syncStatus` ne s'affiche. La base refuserait
+ * l'écriture de toute façon (`public.has_cloud()` garde les policies), mais lui
+ * laisser dire non produirait une pastille rouge et un toast d'échec pour une
+ * fonction que l'utilisateur n'a simplement pas achetée.
+ *
+ * `entitlements` à `null` — droits pas encore lus, ou pas d'instance — vaut
+ * non : on ne tente rien tant qu'on ne sait pas. L'abonnement au store rallume
+ * la sync dès que la réponse arrive.
  */
-function syncAllowed(): boolean {
-  return cloudConfigured && useAuthStore.getState().status === 'signed-in'
+function syncAllowed(state = useAuthStore.getState()): boolean {
+  return cloudConfigured && state.status === 'signed-in' && rightsOf(state.entitlements).sync
 }
 
 function currentUserId(): string | null {
@@ -207,6 +218,92 @@ async function pullProject(client: Client, userId: string): Promise<boolean> {
   return true
 }
 
+// ─── Rattachement des projets locaux ─────────────────────────────────────────
+
+export interface LocalProject {
+  id: string
+  name: string
+  updatedAt: number
+}
+
+/**
+ * Les projets de ce navigateur que le compte courant n'a jamais envoyés.
+ *
+ * Le cycle ordinaire ne pousse que le projet ouvert : c'est ce qu'il faut pour
+ * une session de travail, et c'est insuffisant au premier login. Quelqu'un qui
+ * a construit cinq projets avant d'acheter le Cloud n'en verrait remonter qu'un,
+ * et rien ne le lui dirait.
+ *
+ * « Jamais envoyé » se lit dans la file de synchronisation, pas dans la base
+ * distante : `pushedUpdatedAt` à zéro pour cette paire compte/projet. Interroger
+ * le serveur donnerait la même réponse au prix d'un aller-retour, et se
+ * tromperait sur un projet poussé depuis un autre navigateur — qui n'a alors
+ * rien à rattacher ici non plus.
+ */
+export async function unattachedProjects(): Promise<LocalProject[]> {
+  const userId = currentUserId()
+  if (!userId || !syncAllowed()) return []
+  const local = await listProjects()
+  const records = await Promise.all(
+    local.map((project) => readSyncRecord(syncKey(userId, project.id))),
+  )
+  return local.flatMap((project, index) =>
+    records[index].pushedUpdatedAt === 0 && touched(project)
+      ? [{ id: project.id, name: project.name, updatedAt: project.updatedAt }]
+      : [],
+  )
+}
+
+/**
+ * A été ouvert par quelqu'un, pas seulement créé par l'application.
+ *
+ * `createdAt === updatedAt` est la signature du « Projet sans titre » que
+ * l'éditeur ouvre au démarrage faute d'en trouver un en base — la même que
+ * `pullTarget` utilise pour décider qu'il peut le remplacer. Sans ce filtre, un
+ * premier login proposerait de rattacher le document vide que l'application
+ * venait elle-même de fabriquer, et il le proposerait à chaque session.
+ */
+function touched(project: { createdAt: number; updatedAt: number }): boolean {
+  return project.createdAt !== project.updatedAt
+}
+
+/**
+ * Envoie les projets demandés, et rend ceux qui ont échoué.
+ *
+ * Dans la file plutôt qu'à côté : deux `upsert` concurrents sur la même ligne
+ * peuvent arriver dans le désordre, et le projet ouvert est presque toujours
+ * dans la liste à rattacher. Un échec par projet ne fait pas tomber les autres —
+ * une seule image manquante ne doit pas retenir quatre projets sains.
+ */
+export async function attachProjects(ids: string[]): Promise<string[]> {
+  const failed: string[] = []
+  const run = async () => {
+    const userId = currentUserId()
+    const pending = getSupabase()
+    if (!userId || !pending || !syncAllowed()) {
+      failed.push(...ids)
+      return
+    }
+    const client = await pending
+    setStatus('syncing')
+    for (const id of ids) {
+      try {
+        const project = await loadProject(id)
+        if (!project) continue
+        await pushProject(client, userId, project)
+      } catch (error) {
+        console.error('Could not attach a local project.', error)
+        failed.push(id)
+      }
+    }
+    setStatus(failed.length === ids.length ? 'error' : 'synced')
+  }
+
+  chain = chain.then(run)
+  await chain
+  return failed
+}
+
 // ─── Orchestration ───────────────────────────────────────────────────────────
 
 /** La file d'exécution : un cycle à la fois — voir `schedule`. */
@@ -289,20 +386,26 @@ export function initSync(): () => void {
     schedule()
   })
 
-  const stopAuth = useAuthStore.subscribe((state, previous) => {
-    if (state.status === previous.status) return
-    if (state.status === 'signed-in') {
-      /* Une nouvelle session repart d'un tirage : c'est le moment exact où
+  /* On suit le droit, pas le statut : les droits arrivent une requête après la
+     session, donc au moment où `signed-in` est posé la réponse est encore
+     `null`. Guetter le seul changement de statut laisserait la sync éteinte
+     jusqu'à la modification suivante — et un achat du Cloud en cours de session
+     ne l'allumerait jamais. */
+  let allowed = syncAllowed()
+  const stopAuth = useAuthStore.subscribe((state) => {
+    const next = syncAllowed(state)
+    if (next === allowed) return
+    allowed = next
+    if (next) {
+      /* Un droit qui s'ouvre repart d'un tirage : c'est le moment exact où
          « ouvrir l'app connecté » et « se connecter » deviennent le même geste. */
       pulled = false
       schedule()
       return
     }
-    if (state.status === 'signed-out') {
-      pulled = false
-      queued = null
-      setStatus('off')
-    }
+    pulled = false
+    queued = null
+    setStatus('off')
   })
 
   const onOnline = () => schedule()
@@ -315,11 +418,44 @@ export function initSync(): () => void {
   /* Le cas « la session était déjà restaurée avant cet abonnement » : sans ce
      coup d'envoi, un rechargement de page connecté ne tirerait jamais. */
   if (syncAllowed()) schedule()
+  const stopPrompt = promptForUnattachedProjects()
 
   return () => {
     stopCommits()
     stopAuth()
+    stopPrompt()
     window.removeEventListener('online', onOnline)
     window.removeEventListener('offline', onOffline)
   }
+}
+
+/**
+ * Propose le rattachement quand une session cloud trouve des projets orphelins.
+ *
+ * Le premier tirage passe avant : il peut installer un projet distant, et
+ * demander de rattacher pendant qu'on télécharge afficherait une liste qui
+ * change sous les yeux. On attend donc que le premier cycle soit retombé sur
+ * `synced`.
+ *
+ * Une seule fois par session ouverte : la boîte reparaît au login suivant, pas
+ * à chaque reconnexion réseau.
+ */
+function promptForUnattachedProjects(): () => void {
+  let asked = false
+
+  const consider = () => {
+    if (asked || useUIStore.getState().syncStatus !== 'synced') return
+    asked = true
+    void unattachedProjects().then((projects) => {
+      if (projects.length > 0) useUIStore.getState().setShowMigrateDialog(true)
+    })
+  }
+
+  consider()
+  return useUIStore.subscribe((state, previous) => {
+    if (state.syncStatus === previous.syncStatus) return
+    /* Une déconnexion réarme : le compte suivant a ses propres orphelins. */
+    if (state.syncStatus === 'off') asked = false
+    else consider()
+  })
 }

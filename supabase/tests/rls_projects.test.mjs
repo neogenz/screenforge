@@ -7,8 +7,11 @@
  * utilisateur B authentifié, muni de l'`id` d'une ligne de A — et il échoue si
  * B obtient quoi que ce soit.
  *
- * Aucune clé `service_role` ici : le test ne s'accorde jamais un privilège que
- * le navigateur n'a pas, sans quoi il mesurerait autre chose que ce qui est
+ * La clé `service_role` n'apparaît que pour poser l'achat des deux comptes,
+ * parce que l'écriture d'un projet exige désormais le droit `cloud` et que
+ * c'est là le geste exact du webhook Polar. Aucune assertion ne passe par elle :
+ * le test ne s'accorde jamais un privilège de lecture ou d'écriture que le
+ * navigateur n'a pas, sans quoi il mesurerait autre chose que ce qui est
  * exposé. Les comptes naissent par `signUp`, comme ceux des vrais visiteurs
  * (le stack local a `enable_confirmations = false`).
  *
@@ -16,44 +19,16 @@
  * rester exécutable sans Docker.
  */
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { after, before, describe, it } from 'node:test'
-import { createClient } from '@supabase/supabase-js'
-
-/**
- * @returns {{ url: string, anonKey: string } | null}
- */
-function localStack() {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    return { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY }
-  }
-  try {
-    /* `supabase status` échoue vite et fort quand rien ne tourne : c'est le
-       signal de saut, et il est plus fiable qu'un ping sur un port qu'un autre
-       projet Supabase pourrait très bien occuper. */
-    const raw = execFileSync('supabase', ['status', '-o', 'json'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    const status = JSON.parse(raw)
-    return { url: status.API_URL, anonKey: status.ANON_KEY }
-  } catch {
-    return null
-  }
-}
+import { anonClient, backendClient, grantCloud, localStack } from './stack.mjs'
 
 const stack = localStack()
 
 describe('RLS sur public.projects', { skip: stack ? false : 'stack Supabase local arrêté' }, () => {
-  /** Un client par identité, chacun avec sa propre session. */
-  const client = () =>
-    createClient(stack.url, stack.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-
-  const alice = client()
-  const bob = client()
-  const anonyme = client()
+  const alice = anonClient(stack)
+  const bob = anonClient(stack)
+  const anonyme = anonClient(stack)
+  const backend = backendClient(stack)
 
   /** @type {string} */ let aliceId
   /** @type {string} */ let bobId
@@ -76,6 +51,14 @@ describe('RLS sur public.projects', { skip: stack ? false : 'stack Supabase loca
     aliceId = await inscrire(alice, 'alice')
     bobId = await inscrire(bob, 'bob')
 
+    /* Les deux achètent le Cloud : ce fichier mesure l'isolation entre comptes,
+       pas la porte commerciale — celle-ci a son propre fichier. Sans cet achat,
+       chaque écriture échouerait pour la mauvaise raison. */
+    for (const id of [aliceId, bobId]) {
+      const { error } = await grantCloud(backend, id)
+      assert.equal(error, null, `octroi du Cloud : ${error?.message}`)
+    }
+
     const { data, error } = await alice
       .from('projects')
       .insert({ user_id: aliceId, name: 'Projet d’Alice', data: { screens: [] } })
@@ -87,6 +70,7 @@ describe('RLS sur public.projects', { skip: stack ? false : 'stack Supabase loca
 
   after(async () => {
     await alice.from('projects').delete().eq('id', projetDAlice)
+    await backend.from('entitlements').delete().in('user_id', [aliceId, bobId])
     await Promise.all([alice.auth.signOut(), bob.auth.signOut()])
   })
 

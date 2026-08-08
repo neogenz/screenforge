@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { env } from './env.ts'
+import { account } from './routes/account.ts'
 import { billing } from './routes/billing.ts'
 import { health } from './routes/health.ts'
 import { me } from './routes/me.ts'
@@ -36,7 +37,7 @@ base.use(
    ici, donc une route retirée casse le client web à la compilation. C'est aussi
    pourquoi l'application exportée est la version chaînée et non `base` — le
    type d'un `app.route()` appelé pour son effet de bord se perd. */
-export const app = base.route('/', health).route('/', me).route('/', billing)
+export const app = base.route('/', health).route('/', me).route('/', billing).route('/', account)
 
 export type AppType = typeof app
 

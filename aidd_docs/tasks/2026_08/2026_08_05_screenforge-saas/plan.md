@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge devient un SaaS : comptes SSO, sync cloud des projets, licence et add-on vendus via Merchant of Record, sans toucher au chemin critique d'export pixel-exact."
-status: in-progress
+status: done
 ---
 
 # Plan: ScreenForge SaaS — auth, sync cloud, billing
@@ -42,6 +42,21 @@ pas de date de fin, seul le Cloud en a une.
 | 3   | Sync cloud (projets + assets) — réservée au palier Cloud | [`phase-3.md`](./phase-3.md) |
 | 4   | Backend Hono + vente via Polar (Merchant of Record)     | [`phase-4.md`](./phase-4.md) |
 | 5   | Filigrane et quota d'export, compte & migration anonyme | [`phase-5.md`](./phase-5.md) |
+
+Les cinq phases sont livrées, avec leurs « Écarts assumés » et leur « Reste
+bloqué » propres. Ce qui manque encore ne s'écrit pas dans ce dépôt : trois
+comptes tiers qui n'appartiennent qu'au propriétaire du projet, plus les deux
+préalables commerciaux ci-dessous.
+
+1. **Applications OAuth Google et GitHub** (phase 2, critère 3). Le code du SSO
+   est en place et le lien magique fonctionne ; les deux fournisseurs demandent
+   des applications créées sous l'identité du propriétaire.
+2. **Compte Polar** : produits Licence et Cloud, bénéfice de licence,
+   `POLAR_ACCESS_TOKEN` et `POLAR_WEBHOOK_SECRET`. La réception est testée avec
+   des charges signées réelles ; ce qui reste à établir est la forme exacte du
+   `customer.state_changed` d'un achat véritable (phase 4, critères 3, 5, 7).
+3. **Déploiement de `apps/api` sur Railway**, puis le webhook Polar pointé sur
+   `<url publique>/billing/webhook` (phase 4, tasks 5.1 et 5.2).
 
 ## Bloquants avant d'encaisser
 

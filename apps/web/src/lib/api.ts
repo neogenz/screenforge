@@ -1,8 +1,12 @@
-import type { AppType, Entitlements } from 'api'
+import type { AppType } from 'api'
 import { getSupabase } from '@/lib/supabase'
 
 /**
  * Le client de l'API de vente, typé depuis `apps/api`.
+ *
+ * Uniquement ce qui ne peut pas se faire sans secret : ouvrir un checkout et
+ * ouvrir le portail client. Les droits, eux, se lisent dans le miroir — voir
+ * `lib/entitlements.ts`.
  *
  * `AppType` traverse la frontière en `import type` : rien du backend n'entre
  * dans le paquet du navigateur, seule sa forme. Une route retirée ou un champ
@@ -20,8 +24,6 @@ const baseUrl = import.meta.env.VITE_API_URL
  * qu'aucun checkout ne peut honorer.
  */
 export const billingConfigured = Boolean(baseUrl)
-
-export type { Entitlements }
 
 /**
  * Le jeton de la session courante, relu à chaque appel.
@@ -51,19 +53,6 @@ function api(): Promise<ApiClient> {
   return client
 }
 
-/**
- * Les droits du compte connecté, ou `null` quand il n'y a rien à demander —
- * pas d'API configurée, ou pas de session. `null` n'est pas « aucun droit » :
- * c'est « la question ne se pose pas », et l'appelant les distingue.
- */
-export async function fetchEntitlements(): Promise<Entitlements | null> {
-  if (!billingConfigured) return null
-  const response = await (await api()).me.$get()
-  if (response.status === 401) return null
-  if (!response.ok) throw new Error(`GET /me: ${response.status}`)
-  return response.json()
-}
-
 export type CheckoutOutcome =
   | { ok: true; url: string }
   /** Le Cloud demandé sans la Licence — refusé avant tout paiement. */
@@ -79,6 +68,19 @@ export async function createCheckout(product: 'licence' | 'cloud'): Promise<Chec
   if (!response.ok) return { ok: false, reason: 'failed' }
   const { url } = await response.json()
   return { ok: true, url }
+}
+
+/**
+ * Supprime le compte et purge ce qu'il a déposé.
+ *
+ * `false` couvre aussi bien un refus qu'une panne : dans les deux cas la seule
+ * suite utile est de le dire et de ne rien effacer localement. Distinguer les
+ * causes ici ne donnerait à l'utilisateur aucune action de plus.
+ */
+export async function deleteAccount(): Promise<boolean> {
+  if (!billingConfigured) return false
+  const response = await (await api()).account.$delete()
+  return response.ok
 }
 
 /** L'URL du portail client Polar — factures, moyen de paiement, résiliation. */

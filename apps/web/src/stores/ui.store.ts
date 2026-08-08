@@ -25,7 +25,9 @@ interface UIState {
   showTemplatesPicker: boolean
   showGlobalsEditor: boolean
   showAuthDialog: boolean
+  showAccountDialog: boolean
   showPricingDialog: boolean
+  showMigrateDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -45,7 +47,9 @@ interface UIState {
   setShowTemplatesPicker: (show: boolean) => void
   setShowGlobalsEditor: (show: boolean) => void
   setShowAuthDialog: (show: boolean) => void
+  setShowAccountDialog: (show: boolean) => void
   setShowPricingDialog: (show: boolean) => void
+  setShowMigrateDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -69,7 +73,9 @@ const MODALS = [
   'showTemplatesPicker',
   'showGlobalsEditor',
   'showAuthDialog',
+  'showAccountDialog',
   'showPricingDialog',
+  'showMigrateDialog',
   'showShortcuts',
 ] as const
 
@@ -110,7 +116,9 @@ export const useUIStore = create<UIState>()((set) => ({
   showTemplatesPicker: false,
   showGlobalsEditor: false,
   showAuthDialog: false,
+  showAccountDialog: false,
   showPricingDialog: false,
+  showMigrateDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -164,8 +172,10 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowGlobalsEditor: (show) => set(onlyModal('showGlobalsEditor', show)),
 
   setShowAuthDialog: (show) => set(onlyModal('showAuthDialog', show)),
+  setShowAccountDialog: (show) => set(onlyModal('showAccountDialog', show)),
 
   setShowPricingDialog: (show) => set(onlyModal('showPricingDialog', show)),
+  setShowMigrateDialog: (show) => set(onlyModal('showMigrateDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 

@@ -1,6 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { create } from 'zustand'
-import { fetchEntitlements, type Entitlements } from '@/lib/api'
+import { fetchEntitlements, type Entitlements } from '@/lib/entitlements'
 import { planName } from '@/lib/plans'
 import { getSupabase } from '@/lib/supabase'
 import { toast } from '@/stores/toast.store'

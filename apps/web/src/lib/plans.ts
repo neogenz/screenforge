@@ -1,4 +1,4 @@
-import type { Entitlements } from '@/lib/api'
+import type { Entitlements } from '@/lib/entitlements'
 
 /**
  * L'offre, dite une fois.
@@ -74,4 +74,20 @@ export function planName(entitlements: Entitlements | null): string {
   if (entitlements?.cloud) return 'Cloud'
   if (entitlements?.licence) return 'Licence'
   return 'Gratuit'
+}
+
+const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
+
+/**
+ * Une date de droit, ou `null` si elle ne dit rien.
+ *
+ * Deux boîtes affichent ces dates — les offres et le compte — et une date qui
+ * ne se formaterait pas pareil des deux côtés ferait douter de laquelle est la
+ * bonne. `null` couvre l'absence comme l'illisible : dans les deux cas il n'y a
+ * pas de date à montrer, et l'appelant a déjà une phrase pour ce cas.
+ */
+export function formatGrantDate(iso: string | null): string | null {
+  if (!iso) return null
+  const time = Date.parse(iso)
+  return Number.isNaN(time) ? null : DATE.format(time)
 }

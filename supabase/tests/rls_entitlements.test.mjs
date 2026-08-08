@@ -15,25 +15,8 @@
  * Se saute proprement si le stack local n'est pas démarré.
  */
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { after, before, describe, it } from 'node:test'
-import { createClient } from '@supabase/supabase-js'
-
-/**
- * @returns {{ url: string, anonKey: string, serviceKey: string } | null}
- */
-function localStack() {
-  try {
-    const raw = execFileSync('supabase', ['status', '-o', 'json'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    const status = JSON.parse(raw)
-    return { url: status.API_URL, anonKey: status.ANON_KEY, serviceKey: status.SERVICE_ROLE_KEY }
-  } catch {
-    return null
-  }
-}
+import { anonClient, backendClient, localStack } from './stack.mjs'
 
 const stack = localStack()
 
@@ -41,15 +24,10 @@ describe(
   'RLS sur public.entitlements',
   { skip: stack ? false : 'stack Supabase local arrêté' },
   () => {
-    const client = (key) =>
-      createClient(stack.url, key, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-
-    const alice = client(stack.anonKey)
-    const bob = client(stack.anonKey)
-    const anonyme = client(stack.anonKey)
-    const backend = client(stack.serviceKey)
+    const alice = anonClient(stack)
+    const bob = anonClient(stack)
+    const anonyme = anonClient(stack)
+    const backend = backendClient(stack)
 
     /** @type {string} */ let aliceId
     /** @type {string} */ let bobId

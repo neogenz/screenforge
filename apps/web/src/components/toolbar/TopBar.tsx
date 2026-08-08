@@ -11,7 +11,6 @@ import {
   ImageIcon,
   LayoutTemplate,
   LoaderCircle,
-  LogOut,
   MoreHorizontal,
   Moon,
   PenLine,
@@ -46,7 +45,6 @@ import {
   projectFileErrorMessage,
 } from '@/lib/project-file'
 import { billingConfigured } from '@/lib/api'
-import { signOutAndReport } from '@/lib/auth'
 import { planName } from '@/lib/plans'
 import { importPortableProject, saveCurrentProject } from '@/lib/storage'
 import { cloudConfigured } from '@/lib/supabase'
@@ -543,6 +541,7 @@ function useToolActions(): SecondaryAction[] {
  */
 function useAccountAction(): SecondaryAction | null {
   const showAuthDialog = useUIStore((s) => s.showAuthDialog)
+  const showAccountDialog = useUIStore((s) => s.showAccountDialog)
   const status = useAuthStore((s) => s.status)
   const email = useAuthStore((s) => s.user?.email)
 
@@ -551,12 +550,14 @@ function useAccountAction(): SecondaryAction | null {
   if (status === 'signed-in') {
     return {
       id: 'account',
-      label: 'Se déconnecter',
-      // Le seul endroit qui dit *quel* compte : la déconnexion est le geste
-      // qu'on regrette quand on s'est trompé de session.
-      hint: email ? `Connecté : ${email}` : 'Se déconnecter',
-      icon: <LogOut size={16} strokeWidth={1.75} />,
-      onSelect: () => void signOutAndReport(),
+      label: 'Mon compte',
+      // Le seul endroit qui dit *quel* compte, et il le dit avant d'ouvrir :
+      // c'est ce qu'on vérifie quand on se demande si on s'est trompé de
+      // session. La déconnexion vit dans la boîte, avec le reste du compte.
+      hint: email ? `Connecté : ${email}` : 'Mon compte',
+      icon: <UserRound size={16} strokeWidth={1.75} />,
+      expanded: showAccountDialog,
+      onSelect: () => useUIStore.getState().setShowAccountDialog(!showAccountDialog),
     }
   }
 

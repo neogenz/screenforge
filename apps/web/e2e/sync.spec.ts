@@ -11,34 +11,31 @@
  * courrier et l'autre passe par un fournisseur tiers. `storageKey` est fixé
  * explicitement dans `lib/supabase.ts` pour que cet emplacement soit connu.
  *
+ * L'abonnement Cloud est semé avec la session : depuis la phase 5, la sync est
+ * l'add-on payant — les policies exigent `has_cloud()` et l'éditeur ne tente
+ * rien sans le droit. Un compte fraîchement inscrit est un compte gratuit, donc
+ * ce fichier mesurerait la porte commerciale au lieu de la sync. L'octroi passe
+ * par `supabase/tests/stack.mjs`, hors de `apps/web` : la clé du backend n'a
+ * rien à faire dans le paquet du navigateur, et la CI refuse jusqu'à son nom
+ * ici — y compris dans un commentaire, ce qui est le prix d'un garde-fou par
+ * `grep` et se paie volontiers.
+ *
  * Se saute proprement quand le stack local est arrêté ou quand le serveur de
  * développement tourne sans variables Supabase : `pnpm run test:e2e` doit
  * rester exécutable sans Docker, comme aujourd'hui.
  */
-import { execFileSync } from 'node:child_process'
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import {
+  backendClient,
+  grantCloud,
+  grantLicence,
+  localStack,
+} from '../../../supabase/tests/stack.mjs'
 import { makeSolidPng } from './device-bezel-fixture'
 import { waitForApp } from './helpers'
 
 const STORAGE_KEY = 'screenforge-auth'
-
-function localStack(): { url: string; anonKey: string } | null {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    return { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY }
-  }
-  try {
-    const status = JSON.parse(
-      execFileSync('supabase', ['status', '-o', 'json'], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }),
-    ) as { API_URL: string; ANON_KEY: string }
-    return { url: status.API_URL, anonKey: status.ANON_KEY }
-  } catch {
-    return null
-  }
-}
 
 const stack = localStack()
 
@@ -51,6 +48,8 @@ const stack = localStack()
  * main : on branche le client sur un stockage en mémoire et on relit ce qu'il
  * y a déposé.
  */
+let accounts = 0
+
 async function signUpSession(url: string, anonKey: string) {
   const written = new Map<string, string>()
   const client = createClient(url, anonKey, {
@@ -65,7 +64,11 @@ async function signUpSession(url: string, anonKey: string) {
       },
     },
   })
-  const email = `sync-${Date.now()}-${process.pid}@screenforge.test`
+  /* Un compteur en plus de l'horodatage : deux inscriptions dans la même
+     milliseconde tomberaient sur la même adresse, et `signUp` rendrait alors un
+     utilisateur sans session. */
+  accounts += 1
+  const email = `sync-${Date.now()}-${process.pid}-${accounts}@screenforge.test`
   const { data, error } = await client.auth.signUp({ email, password: 'motdepasse-de-test' })
   expect(error, `inscription : ${error?.message}`).toBeNull()
   expect(data.session, 'aucune session après signUp').not.toBeNull()
@@ -84,6 +87,33 @@ async function openApp(browser: Browser, baseURL: string, seed: string): Promise
   const page = await context.newPage()
   await waitForApp(page)
   return page
+}
+
+/**
+ * L'entrée de compte, dans l'un ou l'autre de ses deux états.
+ *
+ * Sa présence est ce qui distingue « le serveur de développement tourne sans
+ * variables Supabase » d'un vrai échec : sans instance configurée, `TopBar` ne
+ * rend aucune entrée de compte, et tout ce fichier n'aurait rien à mesurer.
+ */
+const accountButton = /Se connecter|Mon compte/
+
+/**
+ * Attend l'entrée de compte au lieu de la compter tout de suite.
+ *
+ * `count()` ne patiente pas : appelé pendant que la barre du haut se monte, il
+ * rend zéro et fait sauter le test au lieu de l'exécuter. Un saut est
+ * silencieux — c'est exactement la panne qu'on ne verrait pas.
+ */
+function accountEntryPresent(page: Page): Promise<boolean> {
+  return page
+    .getByRole('button', { name: accountButton })
+    .first()
+    .waitFor({ state: 'attached', timeout: 10_000 })
+    .then(
+      () => true,
+      () => false,
+    )
 }
 
 /** Le témoin de la barre du haut, lisible quelle que soit la largeur. */
@@ -113,16 +143,22 @@ test.describe('Sync cloud', () => {
 
   let client: SupabaseClient
   let seed: string
+  let userId: string
   const createdRowIds: string[] = []
 
   test.beforeAll(async () => {
     const session = await signUpSession(stack!.url, stack!.anonKey)
     client = session.client
     seed = session.seed
+    userId = session.userId
+
+    const { error } = await grantCloud(backendClient(stack!), userId)
+    expect(error, `octroi du Cloud : ${error?.message}`).toBeNull()
   })
 
   test.afterAll(async () => {
     for (const id of createdRowIds) await client.from('projects').delete().eq('id', id)
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', userId)
     await client.auth.signOut()
   })
 
@@ -131,8 +167,8 @@ test.describe('Sync cloud', () => {
     baseURL,
   }) => {
     const a = await openApp(browser, baseURL!, seed)
-    const cloudReady = await a.getByRole('button', { name: /Se (connecter|déconnecter)/ }).count()
-    test.skip(cloudReady === 0, 'serveur de développement démarré sans variables Supabase')
+    const cloudReady = await accountEntryPresent(a)
+    test.skip(!cloudReady, 'serveur de développement démarré sans variables Supabase')
 
     await expect(syncBadge(a, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
@@ -198,10 +234,8 @@ test.describe('Sync cloud', () => {
     baseURL,
   }) => {
     const page = await openApp(browser, baseURL!, seed)
-    const cloudReady = await page
-      .getByRole('button', { name: /Se (connecter|déconnecter)/ })
-      .count()
-    test.skip(cloudReady === 0, 'serveur de développement démarré sans variables Supabase')
+    const cloudReady = await accountEntryPresent(page)
+    test.skip(!cloudReady, 'serveur de développement démarré sans variables Supabase')
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = `Projet hors ligne ${Date.now()}`
@@ -232,5 +266,241 @@ test.describe('Sync cloud', () => {
       .toBe(true)
 
     await page.context().close()
+  })
+})
+
+/**
+ * La porte commerciale, vue du navigateur.
+ *
+ * Les policies refusent déjà l'écriture d'un compte sans abonnement — c'est le
+ * verrou, et `supabase/tests/rls_cloud_gate.test.mjs` le tient. Ce qui se
+ * mesure ici est l'autre moitié : un compte Licence ne doit rien *tenter*. Lui
+ * laisser découvrir la porte par un refus produirait une pastille rouge et un
+ * toast d'échec pour une fonction qu'il n'a simplement pas achetée.
+ */
+test.describe('Porte Cloud côté client', () => {
+  test.skip(!stack, 'stack Supabase local arrêté')
+  test.setTimeout(120_000)
+
+  const backend = () => backendClient(stack!)
+
+  test('un compte Licence ne tente aucune synchronisation', async ({ browser, baseURL }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    const { error } = await grantLicence(backend(), session.userId)
+    expect(error, `octroi de la Licence : ${error?.message}`).toBeNull()
+
+    const page = await openApp(browser, baseURL!, session.seed)
+    const cloudReady = await accountEntryPresent(page)
+    test.skip(!cloudReady, 'serveur de développement démarré sans variables Supabase')
+
+    /* Toutes les requêtes vers les tables et le bucket, pas seulement celles du
+       chemin de sync : ce qui est promis est qu'aucune n'est tentée. La lecture
+       des droits (`entitlements`) en est une, et elle est légitime. */
+    const attempts: string[] = []
+    page.on('request', (request) => {
+      const url = request.url()
+      if (url.includes('/rest/v1/projects') || url.includes('/storage/v1/')) attempts.push(url)
+    })
+
+    await projectName(page).fill(`Projet licence ${Date.now()}`)
+    await projectName(page).press('Enter')
+    await page.getByLabel('Ajouter Texte').click()
+    /* Plus long que la temporisation de l'autosave (2 s) : c'est elle qui
+       déclencherait un cycle s'il y en avait un à déclencher. */
+    await page.waitForTimeout(5_000)
+
+    expect(attempts, `requêtes tentées : ${attempts.join(', ')}`).toEqual([])
+    /* `SyncIndicator` ne rend rien sur `off` : aucun des quatre libellés n'est
+       dans la page, donc pas même « Échec de la synchronisation ». */
+    await expect(page.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+
+    await page.context().close()
+    await backend().from('entitlements').delete().eq('user_id', session.userId)
+  })
+
+  test('la déconnexion rend l’éditeur au mode local, sans erreur', async ({ browser, baseURL }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backend(), session.userId)).error).toBeNull()
+
+    const page = await openApp(browser, baseURL!, session.seed)
+    const cloudReady = await accountEntryPresent(page)
+    test.skip(!cloudReady, 'serveur de développement démarré sans variables Supabase')
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const marker = `Projet déconnecté ${Date.now()}`
+    await projectName(page).fill(marker)
+    await projectName(page).press('Enter')
+    await expect
+      .poll(async () => Boolean(await remoteRow(session.client, marker)), { timeout: 15_000 })
+      .toBe(true)
+
+    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await page.getByRole('button', { name: 'Se déconnecter' }).click()
+    await expect(page.getByRole('button', { name: 'Se connecter' }).first()).toBeVisible()
+
+    /* Enregistrées après la déconnexion seulement : ce qui est promis porte sur
+       la suite, pas sur le cycle qui vient de se terminer. */
+    const attempts: string[] = []
+    page.on('request', (request) => {
+      const url = request.url()
+      if (url.includes('/rest/v1/') || url.includes('/storage/v1/')) attempts.push(url)
+    })
+
+    /* Critère 12 : le projet reste éditable et rien ne part. Plus long que
+       l'autosave (2 s), qui déclencherait le cycle s'il restait branché. */
+    await expect(projectName(page)).toHaveValue(marker)
+    await projectName(page).fill(`${marker} local`)
+    await projectName(page).press('Enter')
+    await page.getByLabel('Ajouter Texte').click()
+    await page.waitForTimeout(5_000)
+
+    expect(attempts, `requêtes tentées : ${attempts.join(', ')}`).toEqual([])
+    await expect(page.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(projectName(page)).toHaveValue(`${marker} local`)
+
+    const row = await remoteRow(session.client, marker)
+    if (row) await session.client.from('projects').delete().eq('id', row.id)
+    await page.context().close()
+    await backend().from('entitlements').delete().eq('user_id', session.userId)
+  })
+
+  test('la fin de période arrête la sync sans rien supprimer localement', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backend(), session.userId)).error).toBeNull()
+
+    const abonné = await openApp(browser, baseURL!, session.seed)
+    const cloudReady = await accountEntryPresent(abonné)
+    test.skip(!cloudReady, 'serveur de développement démarré sans variables Supabase')
+    await expect(syncBadge(abonné, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const marker = `Projet expiré ${Date.now()}`
+    await projectName(abonné).fill(marker)
+    await projectName(abonné).press('Enter')
+    await expect
+      .poll(async () => Boolean(await remoteRow(session.client, marker)), { timeout: 15_000 })
+      .toBe(true)
+
+    /* La période se termine telle que Polar la laisse : le statut reste
+       renseigné, c'est la date qui a passé. */
+    expect(
+      (
+        await backend()
+          .from('entitlements')
+          .update({ cloud_period_end: '2020-01-01T00:00:00Z' })
+          .eq('user_id', session.userId)
+      ).error,
+    ).toBeNull()
+
+    /* Le même contexte, rechargé : c'est la copie *locale* qui doit survivre à
+       la fin de l'abonnement, et un nouveau profil de navigateur n'en a pas —
+       il ne mesurerait que le tirage, justement désactivé. */
+    await waitForApp(abonné)
+
+    /* Critère 9 : la sync s'arrête, et le projet reste là, éditable. Le témoin
+       disparaît au lieu de passer au rouge. */
+    await expect(abonné.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(projectName(abonné)).toHaveValue(marker)
+    await projectName(abonné).fill(`${marker} modifié`)
+    await projectName(abonné).press('Enter')
+    await expect(projectName(abonné)).toHaveValue(`${marker} modifié`)
+    await expect(abonné.getByRole('alert')).toHaveCount(0)
+
+    const row = await remoteRow(session.client, marker)
+    if (row) await session.client.from('projects').delete().eq('id', row.id)
+    await abonné.context().close()
+    await backend().from('entitlements').delete().eq('user_id', session.userId)
+  })
+})
+
+/**
+ * Le premier login ne fait perdre aucun projet local.
+ *
+ * Le cycle ordinaire ne pousse que le projet ouvert. Quelqu'un qui a construit
+ * plusieurs projets avant d'acheter le Cloud n'en verrait donc remonter qu'un,
+ * et la perte serait silencieuse : rien à l'écran ne distingue « pas encore
+ * synchronisé » de « jamais synchronisé ».
+ */
+test.describe('Rattachement des projets locaux', () => {
+  test.skip(!stack, 'stack Supabase local arrêté')
+  test.setTimeout(120_000)
+
+  const migrateDialog = (page: Page) => page.getByRole('dialog', { name: 'Rattacher vos projets' })
+
+  /** Un projet nommé, modifié, et écrit sur le disque local. */
+  async function makeLocalProject(page: Page, name: string) {
+    await page.evaluate(
+      (projectName) => window.__sfStores?.useProjectStore.getState().createProject(projectName),
+      name,
+    )
+    /* Créé et jamais touché, un projet ne compte pas comme orphelin — c'est la
+       signature du « Projet sans titre » que l'éditeur ouvre au démarrage. Le
+       calque en fait un projet de quelqu'un. */
+    await page.getByLabel('Ajouter Texte').click()
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+  }
+
+  test('propose les projets orphelins, les rattache, et revient si on refuse', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+
+    /* Sans session d'abord : c'est l'ordre réel — on travaille en local, puis on
+       achète. Ouvrir déjà connecté ne produirait aucun orphelin. */
+    const context = await browser.newContext({ baseURL: baseURL! })
+    const page = await context.newPage()
+    await waitForApp(page)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+
+    const marque = Date.now()
+    const noms = [`Local A ${marque}`, `Local B ${marque}`]
+    for (const nom of noms) await makeLocalProject(page, nom)
+
+    await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
+      STORAGE_KEY,
+      session.seed,
+    ] as const)
+    await waitForApp(page)
+
+    /* Critère 10 : « Plus tard » n'efface rien et n'enregistre rien — la boîte
+       revient au login suivant. */
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    /* Seul le premier y figure, et c'est le résultat attendu : le second est le
+       projet ouvert, que le cycle ordinaire envoie de lui-même dès la session
+       établie. La boîte ne propose que ce qu'elle seule peut faire remonter. */
+    await expect(migrateDialog(page).getByText(noms[0])).toBeVisible()
+    await expect(migrateDialog(page).getByText(noms[1])).toHaveCount(0)
+    await page.getByRole('button', { name: 'Plus tard' }).click()
+    await expect(migrateDialog(page)).toHaveCount(0)
+
+    await waitForApp(page)
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+
+    /* Critère 8 : après « Tout rattacher », les deux projets existent côté
+       serveur — donc sur n'importe quelle autre machine du même compte. */
+    await page.getByRole('button', { name: 'Tout rattacher' }).click()
+    await expect(migrateDialog(page)).toHaveCount(0)
+    for (const nom of noms) {
+      await expect
+        .poll(async () => Boolean(await remoteRow(session.client, nom)), {
+          timeout: 30_000,
+        })
+        .toBe(true)
+    }
+
+    for (const nom of noms) {
+      const row = await remoteRow(session.client, nom)
+      if (row) await session.client.from('projects').delete().eq('id', row.id)
+    }
+    await context.close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
   })
 })
