@@ -47,7 +47,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # `billingConfigured` est un booléen de compilation tiré de `VITE_API_URL`
+      # (`lib/api.ts`), et sans lui l'éditeur rend la variante « sans API de
+      # vente » : le bouton d'export épuisé se grise au lieu de proposer la
+      # Licence. Cette variante existe, mais elle n'est pas celle qu'on livre,
+      # et la CI la testait seule pendant que le poste de développement, qui a
+      # son `.env`, testait l'autre. L'URL ne sert qu'à ce booléen — aucun test
+      # n'appelle l'API, et la boîte des offres est entièrement côté client.
       - run: pnpm run test:e2e
+        env:
+          VITE_API_URL: http://127.0.0.1:8787
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
