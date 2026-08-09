@@ -43,6 +43,8 @@ import type { Project } from '@/types'
 
 const BUCKET = 'assets'
 const PROJECT_DOWNLOAD_CONCURRENCY = 2
+const PROJECT_PAGE_SIZE = 500
+const ASSET_UPLOAD_CONCURRENCY = 4
 const ASSET_DOWNLOAD_CONCURRENCY = 4
 
 type Client = SupabaseClient<Database>
@@ -97,6 +99,21 @@ export async function mapBounded<T, R>(
   return results
 }
 
+/** Settle every item with bounded concurrency, preserving partial successes. */
+export function mapBoundedSettled<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  return mapBounded(values, concurrency, async (value) => {
+    try {
+      return { status: 'fulfilled', value: await mapper(value) } as const
+    } catch (reason) {
+      return { status: 'rejected', reason } as const
+    }
+  })
+}
+
 // ─── Binaires ────────────────────────────────────────────────────────────────
 
 /**
@@ -132,18 +149,16 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
      derrière lui les accusés de réception de ceux qui sont passés, sinon une
      coupure sur la dixième image fait recommencer les neuf premières à chaque
      tentative. */
-  const uploads = await Promise.allSettled(
-    missing.map(async (id) => {
-      const dataUrl = resolveAsset(id)
-      if (!dataUrl) throw new Error(`Missing local asset ${id}.`)
-      const blob = await dataUrlToBlob(dataUrl)
-      const { error } = await client.storage
-        .from(BUCKET)
-        .upload(`${userId}/${id}`, blob, { contentType: blob.type, upsert: true })
-      if (error) throw error
-      return id
-    }),
-  )
+  const uploads = await mapBoundedSettled(missing, ASSET_UPLOAD_CONCURRENCY, async (id) => {
+    const dataUrl = resolveAsset(id)
+    if (!dataUrl) throw new Error(`Missing local asset ${id}.`)
+    const blob = await dataUrlToBlob(dataUrl)
+    const { error } = await client.storage
+      .from(BUCKET)
+      .upload(`${userId}/${id}`, blob, { contentType: blob.type, upsert: true })
+    if (error) throw error
+    return id
+  })
   for (const upload of uploads) {
     if (upload.status === 'fulfilled') confirmed.add(upload.value)
   }
@@ -219,43 +234,119 @@ async function downloadAssets(
 interface PullProjectsResult {
   adopted: boolean
   failedProjectIds: string[]
+  preservedProject: Project | null
 }
 
 interface ProjectBundle {
   project: Project
   assets: { id: string; dataUrl: string }[]
+  remoteUpdatedAt: number
+}
+
+interface RemoteProjectRow {
+  id: string
+  data: Json
+  updated_at: string
+}
+
+/** Read every PostgREST page in one stable order without an unbounded request. */
+export async function fetchRemoteProjectRows(client: Client): Promise<RemoteProjectRow[]> {
+  const rows: RemoteProjectRow[] = []
+  for (let from = 0; ; from += PROJECT_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('projects')
+      .select('id, data, updated_at')
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, from + PROJECT_PAGE_SIZE - 1)
+    if (error) throw error
+    const page = (data ?? []) as RemoteProjectRow[]
+    rows.push(...page)
+    if (page.length < PROJECT_PAGE_SIZE) return rows
+  }
+}
+
+function sameVersion(
+  left: Pick<Project, 'id' | 'updatedAt'> | null,
+  right: Pick<Project, 'id' | 'updatedAt'> | null,
+): boolean {
+  return left?.id === right?.id && left?.updatedAt === right?.updatedAt
+}
+
+async function targetStillWins(
+  client: Client,
+  initialActive: Project | null,
+  bundle: ProjectBundle,
+): Promise<{ install: boolean; preserve: Project | null; retry: boolean }> {
+  const [localProjects, remoteVersion] = await Promise.all([
+    listProjects(),
+    client.from('projects').select('updated_at').eq('id', bundle.project.id).maybeSingle(),
+  ])
+  if (remoteVersion.error) throw remoteVersion.error
+
+  const active = useProjectStore.getState().project
+  const currentRemoteUpdatedAt = remoteVersion.data
+    ? Date.parse(remoteVersion.data.updated_at)
+    : Number.NaN
+  if (currentRemoteUpdatedAt !== bundle.remoteUpdatedAt) {
+    return { install: false, preserve: null, retry: true }
+  }
+
+  /* The user changed or switched the active document while bytes were in
+     flight. That commit belongs to the user, never to the pull being installed. */
+  if (!sameVersion(active, initialActive)) {
+    return { install: false, preserve: active, retry: false }
+  }
+
+  const persisted = localProjects.find((project) => project.id === bundle.project.id)
+  if ((persisted?.updatedAt ?? 0) >= bundle.remoteUpdatedAt) {
+    return {
+      install: false,
+      preserve: active?.id === bundle.project.id ? active : null,
+      retry: false,
+    }
+  }
+  return { install: true, preserve: null, retry: false }
 }
 
 async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
-  const { data: rows, error } = await client
-    .from('projects')
-    .select('id, data, updated_at')
-    .order('updated_at', { ascending: false })
-  if (error) throw error
-
-  const remote = rows ?? []
-  const targetId = pullTarget(remote, useProjectStore.getState().project)
+  const initialActive = useProjectStore.getState().project
+  const remote = await fetchRemoteProjectRows(client)
+  const targetId = pullTarget(remote, initialActive)
   const local = new Map((await listProjects()).map((project) => [project.id, project]))
   const failedProjectIds = new Set<string>()
-  const fresh: Project[] = []
+  const fresh: { project: Project; remoteUpdatedAt: number }[] = []
   for (const row of remote) {
-    if (Date.parse(row.updated_at) <= (local.get(row.id)?.updatedAt ?? 0)) continue
+    const remoteUpdatedAt = Date.parse(row.updated_at)
+    if (remoteUpdatedAt <= (local.get(row.id)?.updatedAt ?? 0)) continue
     try {
       const project = normalizeProject(row.data)
       if (project.id !== row.id) throw new Error('Remote project id does not match its row.')
-      fresh.push(project)
+      fresh.push({ project, remoteUpdatedAt })
     } catch (projectError) {
       failedProjectIds.add(row.id)
       console.error(`Could not normalize remote project ${row.id}.`, projectError)
     }
   }
   let targetBundle: ProjectBundle | null = null
-  await mapBounded(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (project) => {
+  let preservedProject: Project | null = null
+  await mapBounded(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (candidate) => {
+    const { project, remoteUpdatedAt } = candidate
     try {
-      const bundle = { project, assets: await downloadAssets(client, userId, project) }
+      const bundle = {
+        project,
+        assets: await downloadAssets(client, userId, project),
+        remoteUpdatedAt,
+      }
       if (!syncAllowed() || currentUserId() !== userId) return
       if (project.id === targetId) {
         targetBundle = bundle
+        return
+      }
+
+      const active = useProjectStore.getState().project
+      if (active?.id === project.id && active.updatedAt > (local.get(project.id)?.updatedAt ?? 0)) {
+        preservedProject = active
         return
       }
 
@@ -269,7 +360,7 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
     }
   })
   if (!syncAllowed() || currentUserId() !== userId) {
-    return { adopted: false, failedProjectIds: [] }
+    return { adopted: false, failedProjectIds: [], preservedProject: null }
   }
 
   let adopted = false
@@ -277,15 +368,30 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
   const target = targetBundle as ProjectBundle | null
   if (target) {
     try {
-      await adoptRemoteProject(target.project, target.assets)
-      await acknowledgePulledProject(userId, target.project, target.assets)
-      adopted = true
+      const decision = await targetStillWins(client, initialActive, target)
+      if (decision.preserve) preservedProject = decision.preserve
+      if (decision.retry) failedProjectIds.add(target.project.id)
+      if (decision.install) {
+        ignoredAdoptionCommit = {
+          id: target.project.id,
+          updatedAt: target.project.updatedAt,
+        }
+        await adoptRemoteProject(target.project, target.assets)
+        await acknowledgePulledProject(userId, target.project, target.assets)
+        adopted = true
+      }
     } catch (projectError) {
+      if (
+        ignoredAdoptionCommit?.id === target.project.id &&
+        ignoredAdoptionCommit.updatedAt === target.project.updatedAt
+      ) {
+        ignoredAdoptionCommit = null
+      }
       failedProjectIds.add(target.project.id)
       console.error(`Could not open remote project ${target.project.id}.`, projectError)
     }
   }
-  return { adopted, failedProjectIds: [...failedProjectIds] }
+  return { adopted, failedProjectIds: [...failedProjectIds], preservedProject }
 }
 
 function acknowledgePulledProject(
@@ -380,7 +486,6 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
     const client = await pending
     setStatus('syncing')
     const activeProjectId = useProjectStore.getState().project?.id
-    pulling = true
     try {
       for (const id of ids) {
         try {
@@ -396,11 +501,7 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
     } finally {
       /* `loadProject` remplace le registre binaire. Le restaurer est obligatoire
          même si un rattachement échoue : l'éditeur reste sur le projet actif. */
-      try {
-        if (activeProjectId) await loadProject(activeProjectId)
-      } finally {
-        pulling = false
-      }
+      if (activeProjectId) await loadProject(activeProjectId)
     }
     setStatus(failed.length === ids.length ? 'error' : 'synced')
   }
@@ -416,10 +517,15 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
 let chain: Promise<void> = Promise.resolve()
 /** Le dernier projet commité, en attente d'un cycle. */
 let queued: Project | null = null
-/** Vrai pendant un tirage : ce qu'il commite localement ne doit pas repartir. */
-let pulling = false
+/** The one autosave commit produced by a remote adoption, and no other commit. */
+let ignoredAdoptionCommit: Pick<Project, 'id' | 'updatedAt'> | null = null
 /** Le tirage n'a lieu qu'une fois par session ouverte, à l'ouverture. */
 let pulled = false
+
+function preserveProject(project: Project | null): void {
+  if (!project) return
+  if (!queued || queued.id !== project.id || queued.updatedAt < project.updatedAt) queued = project
+}
 
 function offline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false
@@ -437,19 +543,12 @@ async function cycle(): Promise<void> {
   let pullIncomplete = false
 
   if (!pulled) {
-    pulling = true
-    try {
-      const result = await pullProjects(client, userId)
-      if (result.adopted) toast('Version cloud chargée.', 'info')
-      if (result.failedProjectIds.length > 0) {
-        pullIncomplete = true
-        reportPullFailures(result.failedProjectIds)
-      }
-    } finally {
-      pulling = false
-      /* Le projet que le tirage vient d'installer sera commité par l'autosave ;
-         ce n'est pas une modification de l'utilisateur, elle n'a rien à renvoyer. */
-      queued = null
+    const result = await pullProjects(client, userId)
+    preserveProject(result.preservedProject)
+    if (result.adopted) toast('Version cloud chargée.', 'info')
+    if (result.failedProjectIds.length > 0) {
+      pullIncomplete = true
+      reportPullFailures(result.failedProjectIds)
     }
     pulled = !pullIncomplete
   }
@@ -458,17 +557,13 @@ async function cycle(): Promise<void> {
   const project = queued ?? useProjectStore.getState().project
   queued = null
   if (project && !(await pushProject(client, userId, project))) {
-    pulling = true
-    try {
-      const result = await pullProjects(client, userId)
-      if (result.adopted) toast('Version cloud plus récente chargée.', 'info')
-      if (result.failedProjectIds.length > 0) {
-        pullIncomplete = true
-        reportPullFailures(result.failedProjectIds)
-      }
-    } finally {
-      pulling = false
-      queued = null
+    const result = await pullProjects(client, userId)
+    preserveProject(result.preservedProject)
+    if (result.preservedProject) schedule()
+    if (result.adopted) toast('Version cloud plus récente chargée.', 'info')
+    if (result.failedProjectIds.length > 0) {
+      pullIncomplete = true
+      reportPullFailures(result.failedProjectIds)
     }
   }
   if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
@@ -509,7 +604,15 @@ export function initSync(): () => void {
   if (!cloudConfigured) return () => {}
 
   const stopCommits = onProjectCommitted((project) => {
-    if (pulling || !syncAllowed()) return
+    if (!syncAllowed()) return
+    if (
+      ignoredAdoptionCommit?.id === project.id &&
+      ignoredAdoptionCommit.updatedAt === project.updatedAt
+    ) {
+      ignoredAdoptionCommit = null
+      return
+    }
+    if (ignoredAdoptionCommit?.id === project.id) ignoredAdoptionCommit = null
     queued = project
     schedule()
   })

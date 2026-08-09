@@ -60,6 +60,15 @@ interface ExportJob {
   dimension: DisplayClass
 }
 
+/** Never release export UI while another Fabric worker is still active. */
+export async function waitForExportWorkers(workers: Promise<void>[]): Promise<void> {
+  const settled = await Promise.allSettled(workers)
+  const failed = settled.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  )
+  if (failed) throw failed.reason
+}
+
 export function useExport() {
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -136,7 +145,7 @@ export function useExport() {
       }
 
       try {
-        await Promise.all(
+        await waitForExportWorkers(
           Array.from({ length: Math.min(EXPORT_CONCURRENCY, jobs.length) }, () => worker()),
         )
 

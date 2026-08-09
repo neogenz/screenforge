@@ -21,6 +21,7 @@ const supabase = vi.hoisted(() => {
     deleteUser: 'none' as 'none' | 'before' | 'after',
     getUser: false,
     cancelJob: false,
+    raceCancelWithWorker: false,
   }
   let identityExists = true
 
@@ -39,12 +40,22 @@ const supabase = vi.hoisted(() => {
       return { error: fail.queue ? new Error('queue down') : null }
     },
     delete: () => ({
-      match: async ({ user_id: userId, status }: { user_id: string; status?: Job['status'] }) => {
-        calls.push('job:delete')
-        if (fail.cancelJob) return { error: new Error('database down') }
-        if (!status || jobs.get(userId)?.status === status) jobs.delete(userId)
-        return { error: null }
-      },
+      match: ({ user_id: userId, status }: { user_id: string; status?: Job['status'] }) => ({
+        select: async () => {
+          calls.push('job:delete')
+          if (fail.cancelJob) return { data: null, error: new Error('database down') }
+          if (fail.raceCancelWithWorker) {
+            const job = jobs.get(userId)
+            if (job) jobs.set(userId, { ...job, status: 'cleanup' })
+            identityExists = false
+          }
+          if (!status || jobs.get(userId)?.status === status) {
+            jobs.delete(userId)
+            return { data: [{ user_id: userId }], error: null }
+          }
+          return { data: [], error: null }
+        },
+      }),
       eq: async (_column: string, userId: string) => {
         calls.push('job:delete')
         jobs.delete(userId)
@@ -181,6 +192,7 @@ describe('DELETE /account', () => {
     supabase.fail.deleteUser = 'none'
     supabase.fail.getUser = false
     supabase.fail.cancelJob = false
+    supabase.fail.raceCancelWithWorker = false
     supabase.setIdentityExists(true)
     auth.user = { id: USER, email: 'moi@example.com' }
   })
@@ -322,6 +334,30 @@ describe('DELETE /account', () => {
     await resumeAccountDeletionJobs()
 
     expect(supabase.identityExists()).toBe(false)
+    expect(supabase.objects).toEqual([])
+    expect(supabase.jobs.size).toBe(0)
+  })
+
+  it('une annulation perdue contre un worker reste pending jusqu’à la purge', async () => {
+    supabase.fail.deleteUser = 'before'
+    supabase.fail.raceCancelWithWorker = true
+
+    const response = await remove()
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual({
+      deleted: false,
+      cleanupPending: true,
+      outcome: 'deletion-pending',
+    })
+    expect(supabase.identityExists()).toBe(false)
+    expect(supabase.jobs.get(USER)).toMatchObject({ status: 'cleanup', attempts: 1 })
+    expect(supabase.objects).toHaveLength(2)
+
+    supabase.fail.deleteUser = 'none'
+    supabase.fail.raceCancelWithWorker = false
+    await resumeAccountDeletionJobs()
+
     expect(supabase.objects).toEqual([])
     expect(supabase.jobs.size).toBe(0)
   })

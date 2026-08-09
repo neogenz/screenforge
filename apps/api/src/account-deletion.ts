@@ -49,11 +49,12 @@ export async function prepareAccountDeletion(userId: string): Promise<boolean> {
 
 /** Roll back the fence when Auth refused to delete the identity. */
 export async function cancelAccountDeletion(userId: string): Promise<boolean> {
-  const { error } = await serviceClient()
+  const { data, error } = await serviceClient()
     .from(TABLE)
     .delete()
     .match({ user_id: userId, status: 'prepared' })
-  return !error
+    .select('user_id')
+  return !error && data?.length === 1
 }
 
 /** Best-effort phase marker; the worker can also prove deletion through Auth. */

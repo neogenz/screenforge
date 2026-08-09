@@ -257,7 +257,8 @@ flowchart TD
   apparaît qu'en icône sous le survol d'un `IconButton`, où le seuil est celui
   du non-textuel — 3:1, tenu à 3.72. Les croiser demanderait d'éclaircir le
   rouge jusqu'à 0.69 pour un cas qui n'est pas du texte.
-- **Non-régression** — `pnpm run test:release` : 47 tests API, 102 tests web et
+- **Preuve historique avant la validation finale de phase 6** —
+  `pnpm run test:release` : 48 tests API, 103 tests web et
   29 tests RLS passent ; le profil billing compte 87 E2E passés et 1 sauté
   (`device-bezel-import.spec.ts`, fichier Apple externe au dépôt), puis le
   profil prélancement 2 E2E passés. `build:profiles` rend et audite d'abord la

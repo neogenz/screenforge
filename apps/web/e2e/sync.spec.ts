@@ -230,6 +230,124 @@ test.describe('Sync cloud', () => {
     await b.context().close()
   })
 
+  test('une édition locale pendant un téléchargement cloud n’est jamais remplacée', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+
+    const sourceContext = await browser.newContext({ baseURL })
+    const source = await sourceContext.newPage()
+    await waitForApp(source)
+    test.skip(!(await accountEntryPresent(source)), 'serveur démarré sans variables Supabase')
+    const remoteName = `Cloud retenu ${Date.now()}`
+    const fixture = await source.evaluate((name) => {
+      window.__sfStores?.useProjectStore.getState().createProject(name)
+      const created = window.__sfStores?.useProjectStore.getState()
+      const project = created?.project
+      if (!created || !project) return null
+      const assetId = crypto.randomUUID()
+      const remote = structuredClone(project)
+      remote.screens[0]!.layers.push({
+        id: crypto.randomUUID(),
+        type: 'image',
+        name: 'Téléchargement retenu',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        assetId,
+        originalWidth: 8,
+        originalHeight: 8,
+      })
+      remote.updatedAt = Date.now()
+      return {
+        project: remote,
+        assetId,
+      }
+    }, remoteName)
+    await sourceContext.close()
+    if (!fixture?.project) throw new Error('Could not create the retained remote fixture.')
+
+    expect(
+      (
+        await session.client.storage
+          .from('assets')
+          .upload(`${session.userId}/${fixture.assetId}`, makeSolidPng(8, 8, [59, 130, 246, 255]), {
+            contentType: 'image/png',
+            upsert: true,
+          })
+      ).error,
+    ).toBeNull()
+    expect(
+      (
+        await session.client.rpc('upsert_project_lww', {
+          project_id: fixture.project.id,
+          project_user_id: session.userId,
+          project_name: fixture.project.name,
+          project_data: fixture.project as never,
+          project_updated_at: new Date(fixture.project.updatedAt).toISOString(),
+        })
+      ).data,
+    ).toBe(true)
+
+    const context = await browser.newContext({ baseURL })
+    await context.addInitScript(([key, value]) => window.localStorage.setItem(key, value), [
+      STORAGE_KEY,
+      session.seed,
+    ] as const)
+    const page = await context.newPage()
+    let releaseDownload!: () => void
+    const heldDownload = new Promise<void>((resolve) => {
+      releaseDownload = resolve
+    })
+    let markDownloadStarted!: () => void
+    const downloadStarted = new Promise<void>((resolve) => {
+      markDownloadStarted = resolve
+    })
+    await page.route('**/storage/v1/object/**', async (route) => {
+      if (route.request().method() === 'GET' && route.request().url().includes(fixture.assetId)) {
+        markDownloadStarted()
+        await heldDownload
+      }
+      await route.continue()
+    })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(projectName(page)).toBeVisible()
+    await downloadStarted
+
+    const localName = `Édition locale ${Date.now()}`
+    await projectName(page).fill(localName)
+    await projectName(page).press('Enter')
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    releaseDownload()
+
+    await expect(projectName(page)).toHaveValue(localName, { timeout: 30_000 })
+    await expect
+      .poll(async () => Boolean(await remoteRow(session.client, localName)), { timeout: 30_000 })
+      .toBe(true)
+
+    const localRow = await remoteRow(session.client, localName)
+    await Promise.all([
+      session.client.from('projects').delete().eq('id', fixture.project.id),
+      localRow
+        ? session.client.from('projects').delete().eq('id', localRow.id)
+        : Promise.resolve({ error: null }),
+      session.client.storage.from('assets').remove([`${session.userId}/${fixture.assetId}`]),
+    ])
+    await context.close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await session.client.auth.signOut()
+  })
+
   test('deux clients livrés dans l’ordre inverse conservent la version récente', async () => {
     const other = createClient(stack!.url, stack!.anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },

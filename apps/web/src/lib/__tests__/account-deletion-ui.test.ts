@@ -14,5 +14,9 @@ describe('retour local après suppression de compte', () => {
     expect(close).toHaveBeenCalledOnce()
     expect(retry).not.toHaveBeenCalled()
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('Suppression en cours'), 'info')
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.stringContaining('reste actif'),
+      expect.anything(),
+    )
   })
 })
