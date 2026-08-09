@@ -8,6 +8,16 @@ import { polar, productId } from '../polar.ts'
 
 const checkoutBody = z.object({ product: z.enum(['licence', 'cloud']) })
 
+/** The Polar SDK keeps the verified JSON on schema failures. */
+function invalidEventType(error: unknown): string | null {
+  if (!(error instanceof Error) || !('rawValue' in error)) return null
+  const raw = error.rawValue
+  if (!raw || typeof raw !== 'object' || !('type' in raw) || typeof raw.type !== 'string') {
+    return null
+  }
+  return raw.type
+}
+
 export const billing = new Hono<{ Variables: AuthVariables }>()
 
   /**
@@ -83,11 +93,17 @@ export const billing = new Hono<{ Variables: AuthVariables }>()
       if (error instanceof WebhookVerificationError) {
         return c.json({ error: 'INVALID_SIGNATURE' as const }, 403)
       }
-      /* Un type d'événement inconnu du SDK fait aussi échouer l'analyse. Le
-         refuser en 400 ferait ré-essayer Polar en boucle sur un message qu'on
-         ne traitera jamais. */
-      console.warn('Unparseable Polar webhook.', error)
-      return c.json({ ignored: true as const })
+      /* Un type inconnu mais signé ne deviendra jamais pertinent en le rejouant.
+         En revanche, un `customer.state_changed` signé dont le schéma dérive
+         porte potentiellement une révocation : l'acquitter perdrait l'état
+         payant. Le 503 demande explicitement une nouvelle livraison. */
+      const type = invalidEventType(error)
+      if (type && type !== 'customer.state_changed') {
+        console.warn(`Ignored unsupported Polar webhook type: ${type}.`)
+        return c.json({ ignored: true as const })
+      }
+      console.error('Invalid Polar customer state; delivery must be retried.', error)
+      return c.json({ error: 'INVALID_CUSTOMER_STATE' as const }, 503)
     }
 
     if (event.type !== 'customer.state_changed') return c.json({ ignored: true as const })

@@ -255,6 +255,43 @@ describe('POST /billing/webhook', () => {
     expect(db.state.writes).toBe(0)
   })
 
+  it('demande de rejouer un customer.state_changed signé mais incomplet', async () => {
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const body = JSON.stringify({
+      type: 'customer.state_changed',
+      timestamp: '2026-08-08T10:00:00Z',
+      data: {},
+    })
+
+    const response = await post(body, sign(body, 'msg_invalid_state'))
+
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toEqual({ error: 'INVALID_CUSTOMER_STATE' })
+    expect(db.state.writes).toBe(0)
+    expect(report).toHaveBeenCalledWith(
+      'Invalid Polar customer state; delivery must be retried.',
+      expect.any(Error),
+    )
+  })
+
+  it('acquitte un type signé explicitement non pris en charge', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const body = JSON.stringify({
+      type: 'screenforge.future_event',
+      timestamp: '2026-08-08T10:00:00Z',
+      data: {},
+    })
+
+    const response = await post(body, sign(body, 'msg_irrelevant'))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ ignored: true })
+    expect(db.state.writes).toBe(0)
+    expect(warn).toHaveBeenCalledWith(
+      'Ignored unsupported Polar webhook type: screenforge.future_event.',
+    )
+  })
+
   it('ignores a customer that is attached to no account', async () => {
     const body = customerStateChanged({
       externalId: null,

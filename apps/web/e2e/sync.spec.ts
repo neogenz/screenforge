@@ -305,6 +305,89 @@ test.describe('Sync cloud', () => {
     await page.context().close()
   })
 
+  test('un projet distant corrompu ne bloque ni n’expose les projets sains', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+
+    /* On fabrique les deux documents avec le store réel pour rester aligné sur
+       le contrat courant, puis on les dépose directement comme le ferait un
+       autre navigateur. */
+    const sourceContext = await browser.newContext({ baseURL: baseURL! })
+    const source = await sourceContext.newPage()
+    await waitForApp(source)
+    test.skip(!(await accountEntryPresent(source)), 'serveur démarré sans variables Supabase')
+    const marker = Date.now()
+    const healthyName = `Cloud sain ${marker}`
+    const brokenName = `Cloud incomplet ${marker}`
+    const [healthy, broken] = await source.evaluate(
+      ([goodName, badName]) => {
+        const store = window.__sfStores?.useProjectStore.getState()
+        store?.createProject(goodName)
+        const good = structuredClone(window.__sfStores?.useProjectStore.getState().project ?? null)
+
+        window.__sfStores?.useProjectStore.getState().createProject(badName)
+        const badStore = window.__sfStores?.useProjectStore.getState()
+        const badProject = badStore?.project
+        if (badStore && badProject) {
+          badStore.addScreenLayer(badProject.activeScreenId, {
+            id: crypto.randomUUID(),
+            type: 'image',
+            name: 'Image distante absente',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            rotation: 0,
+            opacity: 1,
+            locked: false,
+            visible: true,
+            zIndex: 0,
+            assetId: 'missing-remote-asset',
+            originalWidth: 100,
+            originalHeight: 100,
+          })
+        }
+        const bad = structuredClone(window.__sfStores?.useProjectStore.getState().project ?? null)
+        return [good, bad]
+      },
+      [healthyName, brokenName] as const,
+    )
+    await sourceContext.close()
+    if (!healthy || !broken) throw new Error('Could not create remote project fixtures.')
+    healthy.updatedAt = marker + 1_000
+    broken.updatedAt = marker + 2_000
+
+    const pushFixture = (project: typeof healthy) =>
+      session.client.rpc('upsert_project_lww', {
+        project_id: project.id,
+        project_user_id: session.userId,
+        project_name: project.name,
+        project_data: project as never,
+        project_updated_at: new Date(project.updatedAt).toISOString(),
+      })
+    expect((await pushFixture(healthy)).data).toBe(true)
+    expect((await pushFixture(broken)).data).toBe(true)
+
+    const page = await openApp(browser, baseURL!, session.seed)
+    await expect(syncBadge(page, 'Échec de la synchronisation')).toBeAttached({ timeout: 30_000 })
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${brokenName} »` })).toHaveCount(0)
+    await page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` }).click()
+    await expect(projectName(page)).toHaveValue(healthyName)
+
+    await Promise.all([
+      session.client.from('projects').delete().eq('id', healthy.id),
+      session.client.from('projects').delete().eq('id', broken.id),
+    ])
+    await page.context().close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await session.client.auth.signOut()
+  })
+
   test('une modification hors ligne finit dans le cloud au retour du réseau', async ({
     browser,
     baseURL,

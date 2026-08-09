@@ -3,15 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 /**
  * La suppression de compte, et l'ordre dans lequel elle efface.
  *
- * Les binaires partent avant l'identité, et ce n'est pas un détail de style :
- * `storage.objects` ne référence pas `auth.users` — c'est le chemin
- * `{user_id}/{asset_id}` qui porte l'appartenance. Supprimer l'identité d'abord
- * laisserait des fichiers dont plus rien ne dirait à qui ils étaient, dans un
- * bucket privé que plus aucune policy ne rend lisible. Une fuite qui coûte du
- * stockage pour toujours et qu'aucun écran ne montre.
+ * Les chemins binaires sont capturés avant l'identité, mais leur suppression ne
+ * commence qu'après elle. Ainsi un échec Auth ne détruit rien ; un échec
+ * Storage tardif décrit honnêtement un nettoyage en attente et laisse une trace
+ * opérable avec l'identifiant du dossier.
  */
 const supabase = vi.hoisted(() => {
   const calls: string[] = []
+  const removedPaths: string[] = []
   const fail = { listOffset: null as number | null, remove: false, deleteUser: false }
   const objects = [{ name: 'a1' }, { name: 'a2' }]
   const client = {
@@ -28,6 +27,7 @@ const supabase = vi.hoisted(() => {
         },
         remove: async (paths: string[]) => {
           calls.push(`remove:${paths.join(',')}`)
+          if (!fail.remove) removedPaths.push(...paths)
           return { error: fail.remove ? new Error('storage down') : null }
         },
       }),
@@ -41,7 +41,7 @@ const supabase = vi.hoisted(() => {
       },
     },
   }
-  return { calls, fail, objects, client }
+  return { calls, removedPaths, fail, objects, client }
 })
 
 const auth = vi.hoisted(() => ({
@@ -77,6 +77,7 @@ function remove(token: string | null = 'jeton-valide') {
 describe('DELETE /account', () => {
   beforeEach(() => {
     supabase.calls.length = 0
+    supabase.removedPaths.length = 0
     supabase.fail.listOffset = null
     supabase.fail.remove = false
     supabase.fail.deleteUser = false
@@ -85,11 +86,11 @@ describe('DELETE /account', () => {
     auth.user = { id: USER, email: 'moi@example.com' }
   })
 
-  it('purge les binaires puis l’identité', async () => {
+  it('supprime l’identité puis les binaires préalablement listés', async () => {
     const response = await remove()
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ deleted: true })
-    expect(supabase.calls).toEqual(['list:0', `remove:${USER}/a1,${USER}/a2`, 'deleteUser'])
+    await expect(response.json()).resolves.toEqual({ deleted: true, cleanupPending: false })
+    expect(supabase.calls).toEqual(['list:0', 'deleteUser', `remove:${USER}/a1,${USER}/a2`])
   })
 
   it('ne demande pas de suppression quand il n’y a aucun binaire', async () => {
@@ -113,15 +114,18 @@ describe('DELETE /account', () => {
     expect(supabase.calls).toEqual([])
   })
 
-  it('une purge en échec laisse l’identité en place', async () => {
-    /* L'inverse — supprimer l'identité malgré l'échec du bucket — rendrait les
-       fichiers définitivement orphelins : plus aucun compte pour les réclamer,
-       et un chemin que plus aucune policy ne laisse lire. */
+  it('trace un nettoyage Storage en attente après la suppression de l’identité', async () => {
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {})
     supabase.fail.remove = true
     const response = await remove()
-    expect(response.status).toBe(502)
-    await expect(response.json()).resolves.toEqual({ error: 'PURGE_FAILED' })
-    expect(supabase.calls).not.toContain('deleteUser')
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual({ deleted: true, cleanupPending: true })
+    expect(supabase.calls).toEqual(['list:0', 'deleteUser', `remove:${USER}/a1,${USER}/a2`])
+    expect(report).toHaveBeenCalledWith(
+      'Account deleted with Storage cleanup pending.',
+      expect.objectContaining({ userId: USER, objectCount: 2 }),
+    )
+    report.mockRestore()
   })
 
   it('un bucket injoignable arrête tout avant la suppression', async () => {
@@ -131,7 +135,7 @@ describe('DELETE /account', () => {
     expect(supabase.calls).toEqual(['list:0'])
   })
 
-  it('purge plus de cent binaires avant de supprimer l’identité', async () => {
+  it('liste plus de cent binaires avant l’identité puis les purge', async () => {
     supabase.objects.length = 0
     for (let index = 0; index < 101; index += 1) {
       supabase.objects.push({ name: `asset-${index}` })
@@ -141,7 +145,7 @@ describe('DELETE /account', () => {
 
     expect(response.status).toBe(200)
     expect(supabase.calls.slice(0, 2)).toEqual(['list:0', 'list:100'])
-    expect(supabase.calls.at(-1)).toBe('deleteUser')
+    expect(supabase.calls[2]).toBe('deleteUser')
     expect(supabase.calls.find((call) => call.startsWith('remove:'))?.split(',')).toHaveLength(101)
   })
 
@@ -158,10 +162,13 @@ describe('DELETE /account', () => {
     expect(supabase.calls).toEqual(['list:0', 'list:100'])
   })
 
-  it('un échec de suppression de l’identité est signalé', async () => {
+  it('un échec de suppression de l’identité ne supprime aucun asset', async () => {
     supabase.fail.deleteUser = true
     const response = await remove()
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: 'DELETE_FAILED' })
+    expect(supabase.calls).toEqual(['list:0', 'deleteUser'])
+    expect(supabase.removedPaths).toEqual([])
+    expect(supabase.objects).toEqual([{ name: 'a1' }, { name: 'a2' }])
   })
 })

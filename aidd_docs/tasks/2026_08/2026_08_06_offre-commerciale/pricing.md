@@ -50,7 +50,7 @@ ligne des coûts.
 | Mises à jour | oui | à vie | à vie |
 | Compte | inutile | requis (porte la licence) | requis |
 | Projets synchronisés, multi-appareil | — | — | oui |
-| Sauvegarde hors navigateur, historique 30 j | — | — | oui |
+| Sauvegarde hors navigateur | — | — | oui |
 
 Trois décisions à défendre :
 

@@ -42,6 +42,8 @@ import type { Database, Json } from '@/types/database.types'
 import type { Project } from '@/types'
 
 const BUCKET = 'assets'
+const PROJECT_DOWNLOAD_CONCURRENCY = 2
+const ASSET_DOWNLOAD_CONCURRENCY = 4
 
 type Client = SupabaseClient<Database>
 
@@ -69,6 +71,25 @@ function syncAllowed(state = useAuthStore.getState()): boolean {
 
 function currentUserId(): string | null {
   return useAuthStore.getState().user?.id ?? null
+}
+
+/** Runs a catalogue without materializing every network operation at once. */
+async function mapConcurrent<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let next = 0
+  const worker = async () => {
+    while (next < values.length) {
+      const index = next
+      next += 1
+      results[index] = await mapper(values[index]!)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()))
+  return results
 }
 
 // ─── Binaires ────────────────────────────────────────────────────────────────
@@ -183,16 +204,19 @@ async function downloadAssets(
   userId: string,
   project: Project,
 ): Promise<{ id: string; dataUrl: string }[]> {
-  return Promise.all(
-    [...collectAssetIds(project)].map(async (id) => {
-      const { data, error } = await client.storage.from(BUCKET).download(`${userId}/${id}`)
-      if (error) throw error
-      return { id, dataUrl: await blobToDataUrl(data) }
-    }),
-  )
+  return mapConcurrent([...collectAssetIds(project)], ASSET_DOWNLOAD_CONCURRENCY, async (id) => {
+    const { data, error } = await client.storage.from(BUCKET).download(`${userId}/${id}`)
+    if (error) throw error
+    return { id, dataUrl: await blobToDataUrl(data) }
+  })
 }
 
-async function pullProjects(client: Client, userId: string): Promise<boolean> {
+interface PullProjectsResult {
+  adopted: boolean
+  failedProjectIds: string[]
+}
+
+async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
   const { data: rows, error } = await client
     .from('projects')
     .select('id, data, updated_at')
@@ -202,30 +226,64 @@ async function pullProjects(client: Client, userId: string): Promise<boolean> {
   const remote = rows ?? []
   const targetId = pullTarget(remote, useProjectStore.getState().project)
   const local = new Map((await listProjects()).map((project) => [project.id, project]))
-  const fresh = remote.flatMap((row) => {
-    const project = normalizeProject(row.data)
-    return Date.parse(row.updated_at) > (local.get(row.id)?.updatedAt ?? 0) ? [{ project }] : []
+  const failedProjectIds = new Set<string>()
+  const fresh: Project[] = []
+  for (const row of remote) {
+    if (Date.parse(row.updated_at) <= (local.get(row.id)?.updatedAt ?? 0)) continue
+    try {
+      const project = normalizeProject(row.data)
+      if (project.id !== row.id) throw new Error('Remote project id does not match its row.')
+      fresh.push(project)
+    } catch (projectError) {
+      failedProjectIds.add(row.id)
+      console.error(`Could not normalize remote project ${row.id}.`, projectError)
+    }
+  }
+  const downloads = await mapConcurrent(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (project) => {
+    try {
+      return {
+        ok: true as const,
+        bundle: { project, assets: await downloadAssets(client, userId, project) },
+      }
+    } catch (projectError) {
+      console.error(`Could not download remote project ${project.id}.`, projectError)
+      return { ok: false as const, projectId: project.id }
+    }
   })
-  const bundles = await Promise.all(
-    fresh.map(async ({ project }) => ({
-      project,
-      assets: await downloadAssets(client, userId, project),
-    })),
-  )
-  if (!syncAllowed() || currentUserId() !== userId) return false
+  const bundles: { project: Project; assets: { id: string; dataUrl: string }[] }[] = []
+  for (const download of downloads) {
+    if (download.ok) bundles.push(download.bundle)
+    else failedProjectIds.add(download.projectId)
+  }
+  if (!syncAllowed() || currentUserId() !== userId) {
+    return { adopted: false, failedProjectIds: [] }
+  }
 
   /* Chaque bundle est complet avant la première écriture IndexedDB : une image
      manquante ne laisse jamais un projet partiellement installé. */
   for (const bundle of bundles.filter(({ project }) => project.id !== targetId)) {
-    await storeRemoteProject(bundle.project, bundle.assets)
-    await acknowledgePulledProject(userId, bundle.project, bundle.assets)
+    try {
+      await storeRemoteProject(bundle.project, bundle.assets)
+      await acknowledgePulledProject(userId, bundle.project, bundle.assets)
+    } catch (projectError) {
+      failedProjectIds.add(bundle.project.id)
+      console.error(`Could not install remote project ${bundle.project.id}.`, projectError)
+    }
   }
 
   const target = bundles.find(({ project }) => project.id === targetId)
-  if (!target) return false
-  await adoptRemoteProject(target.project, target.assets)
-  await acknowledgePulledProject(userId, target.project, target.assets)
-  return true
+  let adopted = false
+  if (target) {
+    try {
+      await adoptRemoteProject(target.project, target.assets)
+      await acknowledgePulledProject(userId, target.project, target.assets)
+      adopted = true
+    } catch (projectError) {
+      failedProjectIds.add(target.project.id)
+      console.error(`Could not open remote project ${target.project.id}.`, projectError)
+    }
+  }
+  return { adopted, failedProjectIds: [...failedProjectIds] }
 }
 
 function acknowledgePulledProject(
@@ -238,6 +296,17 @@ function acknowledgePulledProject(
     pushedUpdatedAt: project.updatedAt,
     uploadedAssetIds: assets.map((asset) => asset.id),
   })
+}
+
+function reportPullFailures(projectIds: readonly string[]): void {
+  console.error(`Remote project catalogue incomplete: ${projectIds.join(', ')}.`)
+  const plural = projectIds.length > 1 ? 's' : ''
+  const verb = projectIds.length > 1 ? 'n’ont' : 'n’a'
+  toast(
+    `${projectIds.length} projet${plural} cloud ${verb} pas pu être récupéré${plural}. Les autres restent disponibles.`,
+    'error',
+    { action: { label: 'Réessayer', onClick: schedule } },
+  )
 }
 
 // ─── Rattachement des projets locaux ─────────────────────────────────────────
@@ -363,18 +432,24 @@ async function cycle(): Promise<void> {
 
   setStatus('syncing')
   const client = await pending
+  let pullIncomplete = false
 
   if (!pulled) {
     pulling = true
     try {
-      if (await pullProjects(client, userId)) toast('Version cloud chargée.', 'info')
+      const result = await pullProjects(client, userId)
+      if (result.adopted) toast('Version cloud chargée.', 'info')
+      if (result.failedProjectIds.length > 0) {
+        pullIncomplete = true
+        reportPullFailures(result.failedProjectIds)
+      }
     } finally {
       pulling = false
       /* Le projet que le tirage vient d'installer sera commité par l'autosave ;
          ce n'est pas une modification de l'utilisateur, elle n'a rien à renvoyer. */
       queued = null
     }
-    pulled = true
+    pulled = !pullIncomplete
   }
 
   if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
@@ -383,14 +458,19 @@ async function cycle(): Promise<void> {
   if (project && !(await pushProject(client, userId, project))) {
     pulling = true
     try {
-      if (await pullProjects(client, userId)) toast('Version cloud plus récente chargée.', 'info')
+      const result = await pullProjects(client, userId)
+      if (result.adopted) toast('Version cloud plus récente chargée.', 'info')
+      if (result.failedProjectIds.length > 0) {
+        pullIncomplete = true
+        reportPullFailures(result.failedProjectIds)
+      }
     } finally {
       pulling = false
       queued = null
     }
   }
   if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
-  setStatus('synced')
+  setStatus(pullIncomplete ? 'error' : 'synced')
 }
 
 function fail(error: unknown): void {
@@ -492,9 +572,14 @@ function promptForUnattachedProjects(): () => void {
   const consider = () => {
     if (asked || useUIStore.getState().syncStatus !== 'synced') return
     asked = true
-    void unattachedProjects().then((projects) => {
-      if (projects.length > 0) useUIStore.getState().setShowMigrateDialog(true)
-    })
+    void unattachedProjects()
+      .then((projects) => {
+        if (projects.length > 0) useUIStore.getState().setShowMigrateDialog(true)
+      })
+      .catch((error: unknown) => {
+        asked = false
+        console.error('Could not inspect local projects to attach.', error)
+      })
   }
 
   consider()

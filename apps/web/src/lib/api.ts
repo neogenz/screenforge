@@ -77,16 +77,23 @@ export async function createCheckout(product: 'licence' | 'cloud'): Promise<Chec
 /**
  * Supprime le compte et purge ce qu'il a déposé.
  *
- * `false` couvre aussi bien un refus qu'une panne : dans les deux cas la seule
- * suite utile est de le dire et de ne rien effacer localement. Distinguer les
- * causes ici ne donnerait à l'utilisateur aucune action de plus.
+ * Un résultat distinct garde l'interface honnête aux deux frontières ambiguës :
+ * la réponse peut se perdre après la suppression effective, et l'identité peut
+ * être supprimée alors que le nettoyage Storage doit être repris côté serveur.
  */
-export async function deleteAccount(): Promise<boolean> {
-  if (!billingConfigured) return false
+export type DeleteAccountOutcome = 'deleted' | 'cleanup-pending' | 'failed' | 'unknown'
+
+export async function deleteAccount(): Promise<DeleteAccountOutcome> {
+  if (!billingConfigured) return 'failed'
   try {
-    return (await (await api()).account.$delete()).ok
+    const response = await (await api()).account.$delete()
+    if (!response.ok) return 'failed'
+    const result = await response.json()
+    return result.cleanupPending ? 'cleanup-pending' : 'deleted'
   } catch {
-    return false
+    /* Une rupture réseau ne prouve ni l'échec ni le succès : le serveur peut
+       avoir supprimé l'identité avant que sa réponse ne traverse. */
+    return 'unknown'
   }
 }
 

@@ -29,22 +29,55 @@ function MigrateProjectsDialogContent() {
   const setShowMigrateDialog = useUIStore((s) => s.setShowMigrateDialog)
   const [projects, setProjects] = useState<LocalProject[] | null>(null)
   const [pending, setPending] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    void unattachedProjects().then((found) => {
-      if (!cancelled) setProjects(found)
-    })
+    void unattachedProjects()
+      .then((found) => {
+        if (!cancelled) setProjects(found)
+      })
+      .catch((error: unknown) => {
+        console.error('Could not list local projects to attach.', error)
+        if (!cancelled) {
+          setProjects([])
+          setLoadError(true)
+          toast('Liste des projets locaux indisponible. Vous pouvez réessayer.', 'error')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadAttempt])
+
+  function retryLoad() {
+    setProjects(null)
+    setLoadError(false)
+    setLoading(true)
+    setLoadAttempt((attempt) => attempt + 1)
+  }
 
   async function attachAll() {
     if (!projects) return
     setPending(true)
-    const failed = await attachProjects(projects.map((project) => project.id))
-    setPending(false)
+    let failed: string[]
+    try {
+      failed = await attachProjects(projects.map((project) => project.id))
+    } catch (error) {
+      console.error('Could not attach local projects.', error)
+      toast(
+        'Rattachement impossible. La copie locale est intacte ; vous pouvez réessayer.',
+        'error',
+      )
+      return
+    } finally {
+      setPending(false)
+    }
     setShowMigrateDialog(false)
 
     if (failed.length === 0) {
@@ -73,14 +106,20 @@ function MigrateProjectsDialogContent() {
           <Button variant="default" disabled={pending} onClick={() => setShowMigrateDialog(false)}>
             Plus tard
           </Button>
-          <Button
-            variant="primary"
-            loading={pending}
-            disabled={pending || !projects?.length}
-            onClick={() => void attachAll()}
-          >
-            Tout rattacher
-          </Button>
+          {loadError ? (
+            <Button variant="primary" loading={loading} disabled={loading} onClick={retryLoad}>
+              Réessayer
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              loading={pending || loading}
+              disabled={pending || loading || !projects?.length}
+              onClick={() => void attachAll()}
+            >
+              Tout rattacher
+            </Button>
+          )}
         </div>
       }
     >
@@ -89,6 +128,12 @@ function MigrateProjectsDialogContent() {
           Ces projets n’existent que dans ce navigateur. Rattachez-les à votre compte pour les
           retrouver sur vos autres machines.
         </p>
+
+        {loadError && (
+          <p role="alert" className="text-xs leading-4 text-destructive">
+            Impossible de lire les projets locaux. Rien n’a été modifié.
+          </p>
+        )}
 
         <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
           {projects?.map((project) => (

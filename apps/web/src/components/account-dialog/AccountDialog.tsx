@@ -57,11 +57,16 @@ function AccountDialogContent() {
 
   async function confirmDelete() {
     setPending('delete')
-    const deleted = await deleteAccount()
-    if (!deleted) {
+    const outcome = await deleteAccount()
+    if (outcome === 'failed' || outcome === 'unknown') {
       setPending(null)
       setConfirmingDelete(false)
-      toast('La suppression a échoué. Rien n’a été effacé.', 'error')
+      toast(
+        outcome === 'failed'
+          ? 'La suppression a échoué. Le compte reste actif.'
+          : 'Impossible de confirmer la suppression. Rechargez la page avant de réessayer.',
+        'error',
+      )
       return
     }
     /* La session ne survit pas au compte : sans cette déconnexion le client
@@ -70,7 +75,12 @@ function AccountDialogContent() {
        ils n'ont jamais appartenu au compte. */
     await signOut()
     setShowAccountDialog(false)
-    toast('Compte supprimé. Vos projets restent sur cette machine.', 'success')
+    toast(
+      outcome === 'cleanup-pending'
+        ? 'Compte supprimé. Le nettoyage de certains fichiers cloud reste en attente.'
+        : 'Compte supprimé. Vos projets restent sur cette machine.',
+      outcome === 'cleanup-pending' ? 'info' : 'success',
+    )
   }
 
   return (
