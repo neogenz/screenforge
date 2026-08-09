@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import { startAccountDeletionWorker } from './account-deletion.ts'
 import { app } from './index.ts'
 import { env } from './env.ts'
 
@@ -10,6 +11,7 @@ import { env } from './env.ts'
  * premier achat.
  */
 const { PORT } = env()
+startAccountDeletionWorker()
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
   console.log(`API listening on :${info.port}`)

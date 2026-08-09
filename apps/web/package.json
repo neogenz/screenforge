@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "test:unit": "vitest run src",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test && playwright test --config playwright.prelaunch.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",

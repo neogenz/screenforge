@@ -71,6 +71,7 @@ describe(
 
     after(async () => {
       await alice.storage.from(BUCKET).remove([objetDAlice])
+      await backend.from('account_deletion_jobs').delete().in('user_id', [aliceId, bobId])
       await backend.from('entitlements').delete().in('user_id', [aliceId, bobId])
       await Promise.all([alice.auth.signOut(), bob.auth.signOut()])
     })
@@ -131,6 +132,31 @@ describe(
         .upload(sien, PNG_1X1, { contentType: 'image/png' })
       assert.equal(error, null, `dépôt par Bob chez lui : ${error?.message}`)
       await bob.storage.from(BUCKET).remove([sien])
+    })
+
+    it('une demande durable bloque immédiatement les uploads, même avec l’ancien JWT', async () => {
+      const { error: queueError } = await backend
+        .from('account_deletion_jobs')
+        .insert({ user_id: aliceId, status: 'prepared' })
+      assert.equal(queueError, null, `mise en file : ${queueError?.message}`)
+
+      const blockedPath = `${aliceId}/${crypto.randomUUID()}`
+      const { error: uploadError } = await alice.storage
+        .from(BUCKET)
+        .upload(blockedPath, PNG_1X1, { contentType: 'image/png' })
+      assert.notEqual(uploadError, null, 'le vieux JWT a contourné la file de suppression')
+
+      const { data: queued, error: readError } = await backend
+        .from('account_deletion_jobs')
+        .select('user_id, status')
+        .eq('user_id', aliceId)
+        .single()
+      assert.equal(readError, null)
+      assert.deepEqual(queued, { user_id: aliceId, status: 'prepared' })
+
+      const { data: leaked } = await backend.storage.from(BUCKET).download(blockedPath)
+      assert.equal(leaked, null, 'un objet a été créé après la mise en file')
+      await backend.from('account_deletion_jobs').delete().eq('user_id', aliceId)
     })
 
     it('un visiteur sans session ne télécharge rien', async () => {

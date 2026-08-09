@@ -1,4 +1,10 @@
 import { Hono } from 'hono'
+import {
+  cancelAccountDeletion,
+  cleanupAccountDeletion,
+  markAccountDeleted,
+  prepareAccountDeletion,
+} from '../account-deletion.ts'
 import { requireAuth, type AuthVariables } from '../middleware/auth.ts'
 import { serviceClient } from '../supabase.ts'
 
@@ -11,14 +17,11 @@ import { serviceClient } from '../supabase.ts'
  * table depuis ici recréerait la même chaîne en TypeScript, avec le risque
  * qu'une table ajoutée demain n'y soit jamais inscrite.
  *
- * Les binaires de Storage, eux, ne cascadent pas : `storage.objects` ne
- * référence pas `auth.users` — c'est le chemin qui porte l'appartenance. Ils
- * sont donc listés avant la suppression de l'identité, puis retirés depuis les
- * chemins capturés. Cet ordre est intentionnel : un échec Auth ne doit jamais
- * laisser un compte vivant dont on aurait déjà détruit les binaires. Si
- * Storage échoue après la disparition de l'identité, la réponse et le journal
- * exposent ce nettoyage en attente au lieu de prétendre que le compte existe
- * encore.
+ * Les binaires de Storage ne cascadent pas. Une ligne durable, sans FK vers
+ * `auth.users`, est donc écrite avant l'identité : elle ferme immédiatement les
+ * uploads via RLS et survit au cascade. La purge reliste le dossier jusqu'à ce
+ * qu'il soit vide ; si Storage tombe, le worker du processus reprend la même
+ * opération idempotente au démarrage puis chaque minute.
  *
  * Le geste est irréversible et sans confirmation côté serveur : la double
  * confirmation vit dans l'interface, là où l'utilisateur est.
@@ -30,33 +33,22 @@ export const account = new Hono<{ Variables: AuthVariables }>().delete(
     const userId = c.get('user').id
     const client = serviceClient()
 
-    const objects: { name: string }[] = []
-    const pageSize = 100
-    for (let offset = 0; ; offset += pageSize) {
-      const { data, error } = await client.storage
-        .from('assets')
-        .list(userId, { limit: pageSize, offset })
-      if (error) return c.json({ error: 'PURGE_FAILED' as const }, 502)
-      objects.push(...data)
-      if (data.length < pageSize) break
+    if (!(await prepareAccountDeletion(userId))) {
+      return c.json({ error: 'QUEUE_FAILED' as const }, 502)
     }
+
     const { error } = await client.auth.admin.deleteUser(userId)
-    if (error) return c.json({ error: 'DELETE_FAILED' as const }, 502)
-
-    if (objects.length > 0) {
-      const { error: removeError } = await client.storage
-        .from('assets')
-        .remove(objects.map((object) => `${userId}/${object.name}`))
-      if (removeError) {
-        console.error('Account deleted with Storage cleanup pending.', {
-          userId,
-          objectCount: objects.length,
-          error: removeError,
-        })
-        return c.json({ deleted: true as const, cleanupPending: true as const }, 202)
+    if (error) {
+      if (!(await cancelAccountDeletion(userId))) {
+        console.error('Could not roll back account deletion queue.', { userId })
       }
+      return c.json({ error: 'DELETE_FAILED' as const }, 502)
     }
 
-    return c.json({ deleted: true as const, cleanupPending: false as const })
+    await markAccountDeleted(userId)
+    const cleaned = await cleanupAccountDeletion(userId)
+    return cleaned
+      ? c.json({ deleted: true as const, cleanupPending: false as const })
+      : c.json({ deleted: true as const, cleanupPending: true as const }, 202)
   },
 )

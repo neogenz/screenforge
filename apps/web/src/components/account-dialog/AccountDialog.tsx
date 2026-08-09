@@ -77,7 +77,7 @@ function AccountDialogContent() {
     setShowAccountDialog(false)
     toast(
       outcome === 'cleanup-pending'
-        ? 'Compte supprimé. Le nettoyage de certains fichiers cloud reste en attente.'
+        ? 'Compte supprimé. Le nettoyage cloud restant reprendra automatiquement.'
         : 'Compte supprimé. Vos projets restent sur cette machine.',
       outcome === 'cleanup-pending' ? 'info' : 'success',
     )

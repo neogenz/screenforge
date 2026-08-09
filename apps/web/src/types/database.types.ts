@@ -28,6 +28,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          last_error: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       entitlements: {
         Row: {
           cloud_period_end: string | null
@@ -90,6 +117,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      account_deletion_pending: { Args: never; Returns: boolean }
       apply_entitlements_if_newer: {
         Args: {
           p_cloud_period_end: string

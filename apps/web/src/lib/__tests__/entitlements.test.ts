@@ -89,12 +89,21 @@ describe('rightsOf', () => {
     ...partial,
   })
 
-  it('sans droits connus, tout est fermé', () => {
-    expect(rightsOf(null)).toEqual({ cleanExport: false, zip: false, sync: false })
+  it('au lancement du billing, sans droits connus tout est fermé', () => {
+    expect(rightsOf(null, true)).toEqual({ cleanExport: false, zip: false, sync: false })
+  })
+
+  it('avant le billing, garde les exports historiques mais jamais la sync', () => {
+    expect(rightsOf(null, false)).toEqual({ cleanExport: true, zip: true, sync: false })
+    expect(rightsOf(entitlements({ licence: true, cloud: true }), false)).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: false,
+    })
   })
 
   it('la Licence ouvre l’export propre et le ZIP, jamais la sync', () => {
-    expect(rightsOf(entitlements({ licence: true }))).toEqual({
+    expect(rightsOf(entitlements({ licence: true }), true)).toEqual({
       cleanExport: true,
       zip: true,
       sync: false,
@@ -102,7 +111,7 @@ describe('rightsOf', () => {
   })
 
   it('le Cloud ouvre la sync par-dessus la Licence', () => {
-    expect(rightsOf(entitlements({ licence: true, cloud: true })).sync).toBe(true)
+    expect(rightsOf(entitlements({ licence: true, cloud: true }), true).sync).toBe(true)
   })
 })
 
@@ -153,15 +162,18 @@ describe('cache de droits par compte', () => {
 })
 
 describe('le compteur d’exports du palier gratuit', () => {
-  const gratuit = rightsOf(null)
-  const licencié = rightsOf({
-    userId: 'u1',
-    licence: true,
-    licenceGrantedAt: GRANTED,
-    cloud: false,
-    cloudStatus: null,
-    cloudPeriodEnd: null,
-  })
+  const gratuit = rightsOf(null, true)
+  const licencié = rightsOf(
+    {
+      userId: 'u1',
+      licence: true,
+      licenceGrantedAt: GRANTED,
+      cloud: false,
+      cloudStatus: null,
+      cloudPeriodEnd: null,
+    },
+    true,
+  )
 
   /* La suite tourne en environnement Node : pas de `localStorage`. Un faux de
      six lignes coûte moins qu'un jsdom pour toute la suite, et le compteur

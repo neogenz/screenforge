@@ -73,8 +73,8 @@ function currentUserId(): string | null {
   return useAuthStore.getState().user?.id ?? null
 }
 
-/** Runs a catalogue without materializing every network operation at once. */
-async function mapConcurrent<T, R>(
+/** Runs a bounded queue and never returns while a rejected worker is still active. */
+export async function mapBounded<T, R>(
   values: readonly T[],
   concurrency: number,
   mapper: (value: T) => Promise<R>,
@@ -88,7 +88,12 @@ async function mapConcurrent<T, R>(
       results[index] = await mapper(values[index]!)
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()))
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, () => worker())
+  const settled = await Promise.allSettled(workers)
+  const failed = settled.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  )
+  if (failed) throw failed.reason
   return results
 }
 
@@ -204,7 +209,7 @@ async function downloadAssets(
   userId: string,
   project: Project,
 ): Promise<{ id: string; dataUrl: string }[]> {
-  return mapConcurrent([...collectAssetIds(project)], ASSET_DOWNLOAD_CONCURRENCY, async (id) => {
+  return mapBounded([...collectAssetIds(project)], ASSET_DOWNLOAD_CONCURRENCY, async (id) => {
     const { data, error } = await client.storage.from(BUCKET).download(`${userId}/${id}`)
     if (error) throw error
     return { id, dataUrl: await blobToDataUrl(data) }
@@ -214,6 +219,11 @@ async function downloadAssets(
 interface PullProjectsResult {
   adopted: boolean
   failedProjectIds: string[]
+}
+
+interface ProjectBundle {
+  project: Project
+  assets: { id: string; dataUrl: string }[]
 }
 
 async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
@@ -239,40 +249,32 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
       console.error(`Could not normalize remote project ${row.id}.`, projectError)
     }
   }
-  const downloads = await mapConcurrent(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (project) => {
+  let targetBundle: ProjectBundle | null = null
+  await mapBounded(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (project) => {
     try {
-      return {
-        ok: true as const,
-        bundle: { project, assets: await downloadAssets(client, userId, project) },
+      const bundle = { project, assets: await downloadAssets(client, userId, project) }
+      if (!syncAllowed() || currentUserId() !== userId) return
+      if (project.id === targetId) {
+        targetBundle = bundle
+        return
       }
+
+      /* Each complete non-target bundle is committed by its own bounded worker.
+         Only the target bundle stays in memory until all workers finish. */
+      await storeRemoteProject(bundle.project, bundle.assets)
+      await acknowledgePulledProject(userId, bundle.project, bundle.assets)
     } catch (projectError) {
-      console.error(`Could not download remote project ${project.id}.`, projectError)
-      return { ok: false as const, projectId: project.id }
+      failedProjectIds.add(project.id)
+      console.error(`Could not install remote project ${project.id}.`, projectError)
     }
   })
-  const bundles: { project: Project; assets: { id: string; dataUrl: string }[] }[] = []
-  for (const download of downloads) {
-    if (download.ok) bundles.push(download.bundle)
-    else failedProjectIds.add(download.projectId)
-  }
   if (!syncAllowed() || currentUserId() !== userId) {
     return { adopted: false, failedProjectIds: [] }
   }
 
-  /* Chaque bundle est complet avant la première écriture IndexedDB : une image
-     manquante ne laisse jamais un projet partiellement installé. */
-  for (const bundle of bundles.filter(({ project }) => project.id !== targetId)) {
-    try {
-      await storeRemoteProject(bundle.project, bundle.assets)
-      await acknowledgePulledProject(userId, bundle.project, bundle.assets)
-    } catch (projectError) {
-      failedProjectIds.add(bundle.project.id)
-      console.error(`Could not install remote project ${bundle.project.id}.`, projectError)
-    }
-  }
-
-  const target = bundles.find(({ project }) => project.id === targetId)
   let adopted = false
+  /* TypeScript does not follow assignments made inside the async worker closure. */
+  const target = targetBundle as ProjectBundle | null
   if (target) {
     try {
       await adoptRemoteProject(target.project, target.assets)

@@ -1,4 +1,5 @@
 import type { Entitlements } from 'api'
+import { billingConfigured } from '@/lib/api'
 import { getSupabase } from '@/lib/supabase'
 
 export type { Entitlements }
@@ -134,7 +135,15 @@ export interface Rights {
   sync: boolean
 }
 
-export function rightsOf(entitlements: Entitlements | null): Rights {
+export function rightsOf(
+  entitlements: Entitlements | null,
+  billingOpen = billingConfigured,
+): Rights {
+  /* Before billing launches, the historical product remains the whole product:
+     clean unlimited ZIP exports, but never paid cloud sync. The same compile-
+     time flag hides checkout and pricing, so the offer and enforcement switch
+     together instead of creating a free tier with no way to upgrade. */
+  if (!billingOpen) return { cleanExport: true, zip: true, sync: false }
   const licence = entitlements?.licence ?? false
   return {
     cleanExport: licence,
