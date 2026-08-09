@@ -123,11 +123,50 @@ describe('RLS sur public.projects', { skip: stack ? false : 'stack Supabase loca
     assert.notEqual(error, null, 'le `with check` de l’UPDATE ne mord pas')
   })
 
+  it('l’écriture atomique garde la version la plus récente et son propriétaire', async () => {
+    const newer = '2099-08-09T12:00:00Z'
+    const older = '2099-08-09T11:00:00Z'
+    const args = (userId, name, updatedAt) => ({
+      project_id: projetDAlice,
+      project_user_id: userId,
+      project_name: name,
+      project_data: { revision: name },
+      project_updated_at: updatedAt,
+    })
+
+    const latest = await alice.rpc('upsert_project_lww', args(aliceId, 'Version récente', newer))
+    assert.equal(latest.error, null, `écriture récente : ${latest.error?.message}`)
+    assert.equal(latest.data, true)
+
+    const stale = await alice.rpc('upsert_project_lww', args(aliceId, 'Version ancienne', older))
+    assert.equal(stale.error, null, `écriture ancienne : ${stale.error?.message}`)
+    assert.equal(stale.data, false)
+
+    const theft = await bob.rpc(
+      'upsert_project_lww',
+      args(bobId, 'Version volée', '2099-08-09T13:00:00Z'),
+    )
+    assert.ok(theft.error !== null || theft.data === false, 'Bob a réécrit la ligne d’Alice')
+
+    const { data, error } = await alice.from('projects').select('name, data').eq('id', projetDAlice)
+    assert.equal(error, null)
+    assert.deepEqual(data, [{ name: 'Version récente', data: { revision: 'Version récente' } }])
+  })
+
   it('un visiteur sans session ne voit rien', async () => {
     const { data, error } = await anonyme.from('projects').select()
     /* Le rôle `anon` n'a aucun GRANT : PostgREST répond une erreur de
        permission. Une liste vide serait acceptable aussi — ce qui ne l'est
        pas, c'est une ligne. */
     assert.ok(error !== null || data.length === 0, 'le rôle anon a lu des lignes')
+
+    const rpc = await anonyme.rpc('upsert_project_lww', {
+      project_id: projetDAlice,
+      project_user_id: aliceId,
+      project_name: 'anonyme',
+      project_data: {},
+      project_updated_at: '2099-08-09T14:00:00Z',
+    })
+    assert.notEqual(rpc.error, null, 'le rôle anon peut exécuter la fonction')
   })
 })

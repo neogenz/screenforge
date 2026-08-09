@@ -34,6 +34,7 @@ export type Database = {
           cloud_status: string | null
           licence_granted_at: string | null
           polar_customer_id: string
+          source_updated_at: string | null
           updated_at: string
           user_id: string
         }
@@ -42,6 +43,7 @@ export type Database = {
           cloud_status?: string | null
           licence_granted_at?: string | null
           polar_customer_id: string
+          source_updated_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -50,6 +52,7 @@ export type Database = {
           cloud_status?: string | null
           licence_granted_at?: string | null
           polar_customer_id?: string
+          source_updated_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -87,7 +90,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_entitlements_if_newer: {
+        Args: {
+          p_cloud_period_end: string
+          p_cloud_status: string
+          p_licence_granted_at: string
+          p_polar_customer_id: string
+          p_source_updated_at: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       has_cloud: { Args: never; Returns: boolean }
+      upsert_project_lww: {
+        Args: {
+          project_data: Json
+          project_id: string
+          project_name: string
+          project_updated_at: string
+          project_user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

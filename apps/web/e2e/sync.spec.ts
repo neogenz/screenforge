@@ -69,13 +69,14 @@ async function signUpSession(url: string, anonKey: string) {
      utilisateur sans session. */
   accounts += 1
   const email = `sync-${Date.now()}-${process.pid}-${accounts}@screenforge.test`
-  const { data, error } = await client.auth.signUp({ email, password: 'motdepasse-de-test' })
+  const password = 'motdepasse-de-test'
+  const { data, error } = await client.auth.signUp({ email, password })
   expect(error, `inscription : ${error?.message}`).toBeNull()
   expect(data.session, 'aucune session après signUp').not.toBeNull()
 
   const seed = written.get(STORAGE_KEY)
   expect(seed, 'le SDK n’a rien écrit sous la clé de session').toBeTruthy()
-  return { client, userId: data.user!.id, seed: seed! }
+  return { client, userId: data.user!.id, seed: seed!, email, password }
 }
 
 async function openApp(browser: Browser, baseURL: string, seed: string): Promise<Page> {
@@ -229,6 +230,81 @@ test.describe('Sync cloud', () => {
     await b.context().close()
   })
 
+  test('deux clients livrés dans l’ordre inverse conservent la version récente', async () => {
+    const other = createClient(stack!.url, stack!.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+    expect((await other.auth.signInWithPassword(session)).error).toBeNull()
+
+    const id = crypto.randomUUID()
+    const recent = '2030-08-09T12:00:00Z'
+    const stale = '2030-08-09T11:00:00Z'
+    const write = (name: string, updatedAt: string) => ({
+      project_id: id,
+      project_user_id: session.userId,
+      project_name: name,
+      project_data: { name, revision: updatedAt },
+      project_updated_at: updatedAt,
+    })
+
+    expect((await session.client.rpc('upsert_project_lww', write('Récent', recent))).data).toBe(
+      true,
+    )
+    expect((await other.rpc('upsert_project_lww', write('Ancien', stale))).data).toBe(false)
+    const { data, error } = await session.client
+      .from('projects')
+      .select('name, data, updated_at')
+      .eq('id', id)
+      .single()
+    expect(error).toBeNull()
+    expect(data).toMatchObject({ name: 'Récent', data: { revision: recent } })
+    expect(Date.parse(data!.updated_at)).toBe(Date.parse(recent))
+
+    await session.client.from('projects').delete().eq('id', id)
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await Promise.all([session.client.auth.signOut(), other.auth.signOut()])
+  })
+
+  test('un asset absent reste non confirmé et met la synchronisation en échec', async ({
+    browser,
+    baseURL,
+  }) => {
+    const page = await openApp(browser, baseURL!, seed)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const marker = `Projet asset absent ${Date.now()}`
+    await page.evaluate((name) => {
+      window.__sfStores?.useProjectStore.getState().createProject(name)
+      const store = window.__sfStores?.useProjectStore.getState()
+      const project = store?.project
+      if (!project) return
+      store.addScreenLayer(project.activeScreenId, {
+        id: crypto.randomUUID(),
+        type: 'image',
+        name: 'Image absente',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        assetId: 'missing-asset',
+        originalWidth: 100,
+        originalHeight: 100,
+      })
+    }, marker)
+
+    await expect(syncBadge(page, 'Échec de la synchronisation')).toBeAttached({ timeout: 15_000 })
+    expect(await remoteRow(client, marker)).toBeNull()
+    await page.context().close()
+  })
+
   test('une modification hors ligne finit dans le cloud au retour du réseau', async ({
     browser,
     baseURL,
@@ -314,6 +390,33 @@ test.describe('Porte Cloud côté client', () => {
        dans la page, donc pas même « Échec de la synchronisation ». */
     await expect(page.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
+
+    await page.context().close()
+    await backend().from('entitlements').delete().eq('user_id', session.userId)
+  })
+
+  test('une Licence déjà lue reste disponible si sa relecture réseau échoue', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantLicence(backend(), session.userId)).error).toBeNull()
+    const page = await openApp(browser, baseURL!, session.seed)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements?.licence),
+      )
+      .toBe(true)
+    await page.route('**/rest/v1/entitlements*', (route) => route.abort())
+    await waitForApp(page)
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements?.licence),
+      )
+      .toBe(true)
 
     await page.context().close()
     await backend().from('entitlements').delete().eq('user_id', session.userId)
@@ -463,6 +566,21 @@ test.describe('Rattachement des projets locaux', () => {
     const marque = Date.now()
     const noms = [`Local A ${marque}`, `Local B ${marque}`]
     for (const nom of noms) await makeLocalProject(page, nom)
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'active.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [59, 130, 246, 255]),
+    })
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const activeAssetId = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
 
     await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
       STORAGE_KEY,
@@ -495,11 +613,28 @@ test.describe('Rattachement des projets locaux', () => {
         })
         .toBe(true)
     }
+    expect(activeAssetId).not.toBeNull()
+    expect(
+      await page.evaluate(
+        (id) => Boolean(id && window.__sfAssets?.resolveAsset(id)),
+        activeAssetId,
+      ),
+    ).toBe(true)
+
+    const fresh = await openApp(browser, baseURL!, session.seed)
+    await expect(syncBadge(fresh, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await fresh.getByLabel('Ouvrir le menu Projet').click()
+    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[0]} »` }).click()
+    await expect(projectName(fresh)).toHaveValue(noms[0])
+    await fresh.getByLabel('Ouvrir le menu Projet').click()
+    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[1]} »` }).click()
+    await expect(projectName(fresh)).toHaveValue(noms[1])
 
     for (const nom of noms) {
       const row = await remoteRow(session.client, nom)
       if (row) await session.client.from('projects').delete().eq('id', row.id)
     }
+    await fresh.context().close()
     await context.close()
     await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
   })

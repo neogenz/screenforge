@@ -3,6 +3,52 @@ import { getSupabase } from '@/lib/supabase'
 
 export type { Entitlements }
 
+const CACHE_PREFIX = 'screenforge-entitlements:'
+
+function nullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
+}
+
+function isCachedEntitlements(value: unknown, userId: string): value is Entitlements {
+  if (!value || typeof value !== 'object') return false
+  const cached = value as Partial<Entitlements>
+  return (
+    cached.userId === userId &&
+    typeof cached.licence === 'boolean' &&
+    nullableString(cached.licenceGrantedAt) &&
+    typeof cached.cloud === 'boolean' &&
+    nullableString(cached.cloudStatus) &&
+    nullableString(cached.cloudPeriodEnd)
+  )
+}
+
+/** The last verified rights, isolated by account for offline startup. */
+export function readCachedEntitlements(userId: string): Entitlements | null {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(`${CACHE_PREFIX}${userId}`) ?? 'null')
+    if (!isCachedEntitlements(parsed, userId)) return null
+    const periodEnd = parsed.cloudPeriodEnd ? Date.parse(parsed.cloudPeriodEnd) : null
+    return {
+      ...parsed,
+      cloud:
+        parsed.licence &&
+        parsed.cloudStatus !== null &&
+        (periodEnd === null || periodEnd > Date.now()),
+    }
+  } catch (error) {
+    console.warn('Could not read cached entitlements.', error)
+    return null
+  }
+}
+
+export function cacheEntitlements(entitlements: Entitlements): void {
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${entitlements.userId}`, JSON.stringify(entitlements))
+  } catch (error) {
+    console.warn('Could not cache entitlements.', error)
+  }
+}
+
 /**
  * Les droits du compte connecté, lus dans le miroir plutôt que demandés à l'API.
  *

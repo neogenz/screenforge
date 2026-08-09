@@ -302,22 +302,38 @@ function importedProject(decoded: DecodedProjectFile): {
   return { project, assets }
 }
 
-/** Persists a project and its binaries in one transaction, then opens it. */
-async function installProject(project: Project, assets: AssetRecord[]): Promise<Project> {
+/** Persists a complete project bundle without touching the active asset registry. */
+export async function storeRemoteProject(
+  project: Project,
+  assets: readonly { id: string; dataUrl: string }[],
+): Promise<void> {
   const db = await getDB()
+  const previousAssetIds = await db.getAllKeysFromIndex('assets', 'by-project', project.id)
+  const keep = new Set(assets.map((asset) => asset.id))
   const tx = db.transaction(['projects', 'assets'], 'readwrite')
   await Promise.all([
     tx.objectStore('projects').put(project),
-    ...assets.map((asset) => tx.objectStore('assets').put(asset)),
+    ...assets.map((asset) => tx.objectStore('assets').put({ ...asset, projectId: project.id })),
+    ...previousAssetIds.flatMap((id) =>
+      keep.has(String(id)) ? [] : [tx.objectStore('assets').delete(id)],
+    ),
   ])
   await tx.done
+}
 
+function activateProject(project: Project, assets: readonly AssetRecord[]): Project {
   hydrateAssets(assets)
   useProjectStore.getState().loadProject(project)
   useCanvasStore.getState().clearSelection()
   useHistoryStore.getState().clear()
   useUIStore.getState().setSaveStatus('saved')
   return project
+}
+
+/** Persists a project and its binaries in one transaction, then opens it. */
+async function installProject(project: Project, assets: AssetRecord[]): Promise<Project> {
+  await storeRemoteProject(project, assets)
+  return activateProject(project, assets)
 }
 
 /** Validates fully, then atomically persists and activates an independent project copy. */
@@ -349,6 +365,20 @@ export async function adoptRemoteProject(
     project,
     assets.map((asset) => ({ ...asset, projectId: project.id })),
   )
+}
+
+/** Saves the current document, then opens another project already in IndexedDB. */
+export async function openStoredProject(id: string): Promise<Project | undefined> {
+  if (useProjectStore.getState().project?.id === id)
+    return useProjectStore.getState().project ?? undefined
+  await saveCurrentProject()
+  const project = await loadProject(id)
+  if (!project) return undefined
+  useProjectStore.getState().loadProject(project)
+  useCanvasStore.getState().clearSelection()
+  useHistoryStore.getState().clear()
+  useUIStore.getState().setSaveStatus('saved')
+  return project
 }
 
 async function persist(project: Project): Promise<void> {

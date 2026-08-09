@@ -17,12 +17,24 @@ const db = vi.hoisted(() => {
   const client = {
     from: () => ({
       ...query,
-      upsert: async (row: Record<string, unknown>) => {
-        state.writes += 1
-        state.row = { ...row }
-        return { error: null }
-      },
     }),
+    rpc: async (_name: string, args: Record<string, unknown>) => {
+      const incoming = Date.parse(String(args.p_source_updated_at))
+      const current = state.row ? Date.parse(String(state.row.source_updated_at)) : null
+      if (current !== null && incoming <= current) {
+        return { data: incoming < current ? 'ignored' : 'unchanged', error: null }
+      }
+      state.writes += 1
+      state.row = {
+        user_id: args.p_user_id,
+        polar_customer_id: args.p_polar_customer_id,
+        licence_granted_at: args.p_licence_granted_at,
+        cloud_status: args.p_cloud_status,
+        cloud_period_end: args.p_cloud_period_end,
+        source_updated_at: args.p_source_updated_at,
+      }
+      return { data: 'written', error: null }
+    },
   }
   return { state, client }
 })
@@ -49,6 +61,7 @@ interface Fixture {
   externalId?: string | null
   licenceGrantedAt?: string | null
   cloud?: { status: string; currentPeriodEnd: string; endsAt: string | null } | null
+  timestamp?: string
 }
 
 /** Un `customer.state_changed` tel que Polar le sérialise (snake_case). */
@@ -56,10 +69,11 @@ function customerStateChanged({
   externalId = USER,
   licenceGrantedAt = null,
   cloud = null,
+  timestamp = '2026-08-08T10:00:00Z',
 }: Fixture): string {
   return JSON.stringify({
     type: 'customer.state_changed',
-    timestamp: '2026-08-08T10:00:00Z',
+    timestamp,
     data: {
       id: 'cus_1',
       created_at: '2026-03-12T09:00:00Z',
@@ -181,6 +195,7 @@ describe('POST /billing/webhook', () => {
     const withCloud = customerStateChanged({
       licenceGrantedAt: '2026-03-12T09:00:00Z',
       cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
+      timestamp: '2026-08-08T11:00:00Z',
     })
     const response = await post(withCloud, sign(withCloud, 'msg_2'))
 
@@ -190,6 +205,21 @@ describe('POST /billing/webhook', () => {
       cloud_status: 'active',
       cloud_period_end: '2027-03-12T09:00:00.000Z',
     })
+  })
+
+  it('ignores an older state delivered after a licence revocation', async () => {
+    const revoked = customerStateChanged({ timestamp: '2026-08-08T12:00:00Z' })
+    await post(revoked, sign(revoked, 'msg_new'))
+
+    const staleGrant = customerStateChanged({
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+      timestamp: '2026-08-08T11:00:00Z',
+    })
+    const response = await post(staleGrant, sign(staleGrant, 'msg_old'))
+
+    await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
+    expect(db.state.writes).toBe(1)
+    expect(db.state.row).toMatchObject({ licence_granted_at: null, cloud_status: null })
   })
 
   /* Critère 8 : Polar accorde le Cloud, la projection le refuse et le journalise. */

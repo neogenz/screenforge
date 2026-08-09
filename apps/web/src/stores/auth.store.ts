@@ -1,6 +1,11 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { create } from 'zustand'
-import { fetchEntitlements, type Entitlements } from '@/lib/entitlements'
+import {
+  cacheEntitlements,
+  fetchEntitlements,
+  readCachedEntitlements,
+  type Entitlements,
+} from '@/lib/entitlements'
 import { planName } from '@/lib/plans'
 import { getSupabase } from '@/lib/supabase'
 import { toast } from '@/stores/toast.store'
@@ -35,9 +40,28 @@ export const useAuthStore = create<AuthState>()((set) => ({
   entitlements: null,
 
   setSession: (session) =>
-    set({ session, user: session?.user ?? null, status: session ? 'signed-in' : 'signed-out' }),
+    set((state) => {
+      const user = session?.user ?? null
+      const userId = user?.id ?? null
+      return {
+        session,
+        user,
+        status: session ? 'signed-in' : 'signed-out',
+        entitlements:
+          userId === (state.user?.id ?? null)
+            ? state.entitlements
+            : userId
+              ? readCachedEntitlements(userId)
+              : null,
+      }
+    }),
 
-  setEntitlements: (entitlements) => set({ entitlements }),
+  setEntitlements: (entitlements) =>
+    set((state) => {
+      if (entitlements && entitlements.userId !== state.user?.id) return state
+      if (entitlements) cacheEntitlements(entitlements)
+      return { entitlements }
+    }),
 }))
 
 /**
@@ -48,12 +72,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
  * L'échec n'écrase rien — un réseau coupé ne doit pas retirer une licence.
  */
 export async function refreshEntitlements(): Promise<void> {
-  if (useAuthStore.getState().status !== 'signed-in') {
+  const userId = useAuthStore.getState().user?.id
+  if (useAuthStore.getState().status !== 'signed-in' || !userId) {
     useAuthStore.getState().setEntitlements(null)
     return
   }
   try {
-    useAuthStore.getState().setEntitlements(await fetchEntitlements())
+    const entitlements = await fetchEntitlements()
+    if (useAuthStore.getState().user?.id === userId) {
+      useAuthStore.getState().setEntitlements(entitlements)
+    }
   } catch (error) {
     console.warn('Could not read the account entitlements.', error)
   }

@@ -10,6 +10,7 @@ import {
   loadProject,
   saveCurrentProject,
   saveProject,
+  storeRemoteProject,
 } from '@/lib/storage'
 import { useProjectStore } from '@/stores/project.store'
 import type { Layer, Project } from '@/types'
@@ -134,6 +135,20 @@ describe('storage', () => {
     expect(await db.count('projects')).toBe(0)
     expect(await db.count('assets')).toBe(0)
     db.close()
+  })
+
+  it('installe un projet distant sans remplacer les assets du projet actif', async () => {
+    const activeAsset = registerAsset('data:image/png;base64,YWN0aWY=')
+    await saveProject(project('Actif'))
+    const remote = { ...project('Distant'), id: 'remote' }
+
+    await storeRemoteProject(remote, [
+      { id: 'remote-asset', dataUrl: 'data:image/png;base64,ZGlzdGFudA==' },
+    ])
+
+    expect(resolveAsset(activeAsset)).toBe('data:image/png;base64,YWN0aWY=')
+    expect(resolveAsset('remote-asset')).toBeUndefined()
+    expect((await listProjects()).map(({ id }) => id)).toContain('remote')
   })
 
   it('deletes a project after an in-flight save fails', async () => {

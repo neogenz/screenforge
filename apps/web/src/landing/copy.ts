@@ -220,7 +220,7 @@ const en = {
         points: [
           'Everything the Licence gives you',
           'Pick a project up on another machine',
-          '30-day history, outside your browser',
+          'Cloud backup, outside your browser',
         ],
         /* Le « + » et la ligne « complément » ne suffisaient pas : lu en
            colonne, le Cloud avait plus de cases « inclus » que la Licence à
@@ -246,7 +246,7 @@ const en = {
         values: ['On your machine', 'On your machine', 'Machine + cloud'],
       },
       { label: 'Pick up on another machine', values: ['No', 'No', 'Included'] },
-      { label: 'Backup outside the browser', values: ['No', 'No', '30-day history'] },
+      { label: 'Backup outside the browser', values: ['No', 'No', 'Included'] },
       { label: 'Account', values: ['Not needed', 'Required', 'Required'] },
       { label: 'Updates', values: ['Included', 'Included, forever', 'Included, forever'] },
     ],
@@ -495,7 +495,7 @@ const fr: Copy = {
         points: [
           'Tout ce que donne la Licence',
           'Reprendre un projet sur une autre machine',
-          'Historique 30 jours, hors du navigateur',
+          'Sauvegarde cloud, hors du navigateur',
         ],
         note: '88 $ la première année avec la Licence, puis 39 $ par an.',
         cta: 'Être prévenu à l’ouverture',
@@ -521,7 +521,7 @@ const fr: Copy = {
         values: ['Sur votre machine', 'Sur votre machine', 'Machine + cloud'],
       },
       { label: 'Reprise sur une autre machine', values: ['Non', 'Non', 'Incluse'] },
-      { label: 'Sauvegarde hors navigateur', values: ['Non', 'Non', 'Historique 30 jours'] },
+      { label: 'Sauvegarde hors navigateur', values: ['Non', 'Non', 'Incluse'] },
       { label: 'Compte', values: ['Inutile', 'Requis', 'Requis'] },
       { label: 'Mises à jour', values: ['Incluses', 'Incluses, à vie', 'Incluses, à vie'] },
     ],

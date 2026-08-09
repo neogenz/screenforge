@@ -45,8 +45,21 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      - run: supabase start
+      - run: supabase migration up
+      - name: Exposer le stack local à Vite et Playwright
+        run: |
+          status="$(supabase status -o json)"
+          echo "SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -r .SERVICE_ROLE_KEY <<<"$status")" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
       # `billingConfigured` est un booléen de compilation tiré de `VITE_API_URL`
       # (`lib/api.ts`), et sans lui l'éditeur rend la variante « sans API de
       # vente » : le bouton d'export épuisé se grise au lieu de proposer la
@@ -60,6 +73,8 @@ jobs:
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
+      - if: always()
+        run: supabase stop --no-backup
       - name: Upload Playwright diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

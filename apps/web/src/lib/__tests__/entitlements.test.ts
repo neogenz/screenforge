@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  cacheEntitlements,
   exportsLeft,
   exportsUsed,
   projectEntitlements,
+  readCachedEntitlements,
   recordExport,
   rightsOf,
   FREE_EXPORTS_PER_PROJECT,
   type Entitlements,
 } from '@/lib/entitlements'
+import { useAuthStore } from '@/stores/auth.store'
 
 const GRANTED = '2026-03-12T09:00:00Z'
 const NOW = new Date('2026-08-08T10:00:00Z')
@@ -100,6 +103,52 @@ describe('rightsOf', () => {
 
   it('le Cloud ouvre la sync par-dessus la Licence', () => {
     expect(rightsOf(entitlements({ licence: true, cloud: true })).sync).toBe(true)
+  })
+})
+
+describe('cache de droits par compte', () => {
+  const entries = new Map<string, string>()
+  const entitlement = (userId: string, licence: boolean, cloud = false): Entitlements => ({
+    userId,
+    licence,
+    licenceGrantedAt: licence ? GRANTED : null,
+    cloud,
+    cloudStatus: cloud ? 'active' : null,
+    cloudPeriodEnd: cloud ? '2099-01-01T00:00:00Z' : null,
+  })
+
+  beforeEach(() => {
+    entries.clear()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => entries.get(key) ?? null,
+      setItem: (key: string, value: string) => void entries.set(key, value),
+    })
+    useAuthStore.setState({ status: 'signed-out', session: null, user: null, entitlements: null })
+  })
+
+  it('restaure la Licence hors ligne pour le même utilisateur seulement', () => {
+    cacheEntitlements(entitlement('u1', true))
+
+    expect(readCachedEntitlements('u1')?.licence).toBe(true)
+    expect(readCachedEntitlements('u2')).toBeNull()
+  })
+
+  it('remplace les droits dès le changement de compte et ignore une ancienne réponse', () => {
+    const first = entitlement('u1', true)
+    const second = entitlement('u2', false)
+    cacheEntitlements(second)
+    useAuthStore.setState({
+      status: 'signed-in',
+      session: null,
+      user: { id: 'u1' } as never,
+      entitlements: first,
+    })
+
+    useAuthStore.getState().setSession({ user: { id: 'u2' } } as never)
+    expect(useAuthStore.getState().entitlements).toEqual(second)
+
+    useAuthStore.getState().setEntitlements(first)
+    expect(useAuthStore.getState().entitlements).toEqual(second)
   })
 })
 

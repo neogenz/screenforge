@@ -92,10 +92,14 @@ export const billing = new Hono<{ Variables: AuthVariables }>()
 
     if (event.type !== 'customer.state_changed') return c.json({ ignored: true as const })
 
-    const { outcome, cloudRefusedWithoutLicence } = await applyCustomerState(event.data, {
-      licenceBenefitId: env().POLAR_LICENCE_BENEFIT_ID,
-      cloudProductId: env().POLAR_CLOUD_PRODUCT_ID,
-    })
+    const { outcome, cloudRefusedWithoutLicence } = await applyCustomerState(
+      event.data,
+      {
+        licenceBenefitId: env().POLAR_LICENCE_BENEFIT_ID,
+        cloudProductId: env().POLAR_CLOUD_PRODUCT_ID,
+      },
+      event.timestamp,
+    )
 
     if (cloudRefusedWithoutLicence) {
       /* Ni une erreur ni un silence : soit un achat effectué hors de notre

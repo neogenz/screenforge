@@ -26,8 +26,16 @@ export const account = new Hono<{ Variables: AuthVariables }>().delete(
     const userId = c.get('user').id
     const client = serviceClient()
 
-    const { data: objects, error: listError } = await client.storage.from('assets').list(userId)
-    if (listError) return c.json({ error: 'PURGE_FAILED' as const }, 502)
+    const objects: { name: string }[] = []
+    const pageSize = 100
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await client.storage
+        .from('assets')
+        .list(userId, { limit: pageSize, offset })
+      if (error) return c.json({ error: 'PURGE_FAILED' as const }, 502)
+      objects.push(...data)
+      if (data.length < pageSize) break
+    }
     if (objects.length > 0) {
       const { error: removeError } = await client.storage
         .from('assets')

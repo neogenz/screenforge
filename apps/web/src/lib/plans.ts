@@ -58,7 +58,7 @@ export const PLANS: Plan[] = [
     points: [
       'Tout ce que donne la Licence',
       'Reprendre un projet sur une autre machine',
-      'Historique 30 jours, hors du navigateur',
+      'Sauvegarde cloud, hors du navigateur',
     ],
   },
 ]

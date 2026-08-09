@@ -31,21 +31,17 @@ export async function readEntitlements(userId: string, now = new Date()): Promis
 export type ApplyOutcome = 'unchanged' | 'written' | 'ignored'
 
 /**
- * Écrit le miroir, et seulement s'il change.
+ * Écrit le miroir si le message signé par Polar est plus récent.
  *
- * C'est ce qui rend un rejeu inoffensif sans table d'événements à tenir : la
- * projection porte l'état complet, donc deux livraisons du même webhook
- * calculent la même ligne, et la seconde ne produit aucune écriture — pas même
- * un `updated_at` qui bougerait. Une table de déduplication dirait la même
- * chose en ajoutant une ligne par événement reçu, à vie.
- *
- * Ce que cette forme n'attrape pas : deux états livrés dans le désordre, où
- * l'ancien écraserait le récent. Polar sert l'état complet à chaque fois, donc
- * l'événement suivant corrige — le risque est une fenêtre, pas une dérive.
+ * La comparaison est atomique dans Postgres. Lire puis écrire ici laisserait
+ * deux requêtes concurrentes passer le même contrôle avant de s'écraser dans
+ * l'ordre réseau. `sourceUpdatedAt` vient du corps vérifié par Standard Webhooks,
+ * jamais de l'heure de réception de ce serveur.
  */
 export async function applyCustomerState(
   state: CustomerStateInput,
   config: ProjectionConfig,
+  sourceUpdatedAt: Date,
 ): Promise<{ outcome: ApplyOutcome; cloudRefusedWithoutLicence: boolean }> {
   const userId = state.externalId
   /* Sans `external_customer_id`, le client Polar n'est rattaché à aucun compte.
@@ -54,32 +50,20 @@ export async function applyCustomerState(
   if (!userId) return { outcome: 'ignored', cloudRefusedWithoutLicence: false }
 
   const { row, cloudRefusedWithoutLicence } = projectCustomerState(userId, state, config)
-  const current = await readRow(userId)
-  if (current && sameRow(current, row)) {
-    return { outcome: 'unchanged', cloudRefusedWithoutLicence }
-  }
-
-  const { error } = await serviceClient()
-    .from('entitlements')
-    .upsert({ ...row, updated_at: new Date().toISOString() })
+  const { data, error } = await serviceClient().rpc('apply_entitlements_if_newer', {
+    p_user_id: row.user_id,
+    p_polar_customer_id: row.polar_customer_id,
+    p_licence_granted_at: row.licence_granted_at,
+    p_cloud_status: row.cloud_status,
+    p_cloud_period_end: row.cloud_period_end,
+    p_source_updated_at: sourceUpdatedAt.toISOString(),
+  })
   if (error) throw new Error(`Could not write entitlements: ${error.message}`)
-  return { outcome: 'written', cloudRefusedWithoutLicence }
-}
-
-function sameRow(a: EntitlementsRow, b: EntitlementsRow): boolean {
-  return (
-    a.polar_customer_id === b.polar_customer_id &&
-    sameInstant(a.licence_granted_at, b.licence_granted_at) &&
-    a.cloud_status === b.cloud_status &&
-    sameInstant(a.cloud_period_end, b.cloud_period_end)
-  )
-}
-
-/* Postgres rend `2026-03-12T09:00:00+00:00` là où la projection a écrit
-   `2026-03-12T09:00:00.000Z` : comparer les chaînes ferait voir un changement
-   à chaque livraison, et le « ne rien écrire si rien ne change » ne tiendrait
-   plus jamais. */
-function sameInstant(a: string | null, b: string | null): boolean {
-  if (a === null || b === null) return a === b
-  return Date.parse(a) === Date.parse(b)
+  if (data !== 'written' && data !== 'unchanged' && data !== 'ignored') {
+    throw new Error('Could not write entitlements: invalid database outcome')
+  }
+  return {
+    outcome: data,
+    cloudRefusedWithoutLicence: data === 'written' && cloudRefusedWithoutLicence,
+  }
 }

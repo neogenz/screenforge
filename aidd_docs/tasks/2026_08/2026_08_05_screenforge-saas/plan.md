@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge devient un SaaS : comptes SSO, sync cloud des projets, licence et add-on vendus via Merchant of Record, sans toucher au chemin critique d'export pixel-exact."
-status: done
+status: in-progress
 ---
 
 # Plan: ScreenForge SaaS — auth, sync cloud, billing
@@ -42,9 +42,11 @@ pas de date de fin, seul le Cloud en a une.
 | 3   | Sync cloud (projets + assets) — réservée au palier Cloud | [`phase-3.md`](./phase-3.md) |
 | 4   | Backend Hono + vente via Polar (Merchant of Record)     | [`phase-4.md`](./phase-4.md) |
 | 5   | Filigrane et quota d'export, compte & migration anonyme | [`phase-5.md`](./phase-5.md) |
+| 6   | Corrections de revue et validation finale               | [`phase-6.md`](./phase-6.md) |
 
-Les cinq phases sont livrées, avec leurs « Écarts assumés » et leur « Reste
-bloqué » propres. Ce qui manque encore ne s'écrit pas dans ce dépôt : trois
+Les cinq phases initiales sont livrées. La phase 6 ferme les écarts établis par
+la revue statique du 2026-08-09 contre `main`, puis rejoue les contrôles de
+release. Ce qui restera ensuite hors du dépôt concerne trois
 comptes tiers qui n'appartiennent qu'au propriétaire du projet, plus les deux
 préalables commerciaux ci-dessous.
 

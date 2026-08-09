@@ -60,7 +60,10 @@ declare global {
      */
     __sfAssets?: typeof import('../src/lib/assets')
     __sfStores?: {
-      useAuthStore: { setState: (partial: { entitlements: Entitlements | null }) => void }
+      useAuthStore: {
+        setState: (partial: { entitlements: Entitlements | null }) => void
+        getState: () => { entitlements: Entitlements | null }
+      }
       useHistoryStore: { getState: () => { past: unknown[]; future: unknown[] } }
       useCanvasStore: {
         getState: () => {
@@ -72,6 +75,7 @@ declare global {
         getState: () => {
           project: Project | null
           createProject: (name: string) => void
+          addScreenLayer: (screenId: string, layer: Layer) => void
           updateScreenBackground: (
             screenId: string,
             background: Project['globals']['background'],

@@ -30,6 +30,7 @@ import {
   listProjects,
   loadProject,
   onProjectCommitted,
+  storeRemoteProject,
 } from '@/lib/storage'
 import { cloudConfigured, getSupabase } from '@/lib/supabase'
 import { readSyncRecord, syncKey, writeSyncRecord } from '@/lib/sync-queue'
@@ -92,10 +93,10 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 // ─── Push ────────────────────────────────────────────────────────────────────
 
-async function pushProject(client: Client, userId: string, project: Project): Promise<void> {
+async function pushProject(client: Client, userId: string, project: Project): Promise<boolean> {
   const key = syncKey(userId, project.id)
   const record = await readSyncRecord(key)
-  if (project.updatedAt <= record.pushedUpdatedAt) return
+  if (project.updatedAt <= record.pushedUpdatedAt) return true
 
   const assetIds = [...collectAssetIds(project)]
   const confirmed = new Set(record.uploadedAssetIds.filter((id) => assetIds.includes(id)))
@@ -108,10 +109,7 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
   const uploads = await Promise.allSettled(
     missing.map(async (id) => {
       const dataUrl = resolveAsset(id)
-      /* Un `assetId` référencé mais absent du registre est un projet déjà
-         abîmé localement ; le signaler ici en échouant bloquerait la sync du
-         reste sans rien réparer. */
-      if (!dataUrl) return id
+      if (!dataUrl) throw new Error(`Missing local asset ${id}.`)
       const blob = await dataUrlToBlob(dataUrl)
       const { error } = await client.storage
         .from(BUCKET)
@@ -132,20 +130,26 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
 
   /* La ligne part après ses images : l'inverse laisserait une fenêtre où un
      second navigateur tire un projet dont les binaires ne sont pas encore là. */
-  const { error } = await client.from('projects').upsert({
-    id: project.id,
-    user_id: userId,
-    name: project.name,
-    data: projectWithoutThumbnails(project) as unknown as Json,
-    updated_at: new Date(project.updatedAt).toISOString(),
+  const { data: written, error } = await client.rpc('upsert_project_lww', {
+    project_id: project.id,
+    project_user_id: userId,
+    project_name: project.name,
+    project_data: projectWithoutThumbnails(project) as unknown as Json,
+    project_updated_at: new Date(project.updatedAt).toISOString(),
   })
   if (error) throw error
+
+  if (!written) {
+    await writeSyncRecord({ ...record, uploadedAssetIds: [...confirmed] })
+    return false
+  }
 
   await writeSyncRecord({
     key,
     pushedUpdatedAt: project.updatedAt,
     uploadedAssetIds: [...confirmed],
   })
+  return true
 }
 
 // ─── Pull ────────────────────────────────────────────────────────────────────
@@ -174,48 +178,66 @@ function pullTarget(
   return rows[0].id
 }
 
-async function pullProject(client: Client, userId: string): Promise<boolean> {
-  const { data: rows, error } = await client
-    .from('projects')
-    .select('id, updated_at')
-    .order('updated_at', { ascending: false })
-  if (error) throw error
-
-  const targetId = pullTarget(rows ?? [], useProjectStore.getState().project)
-  if (!targetId) return false
-
-  const { data: row, error: rowError } = await client
-    .from('projects')
-    .select('data')
-    .eq('id', targetId)
-    .single()
-  if (rowError) throw rowError
-
-  const project = normalizeProject(row.data)
-  const assetIds = [...collectAssetIds(project)]
-  /* Tout ou rien : un binaire manquant fait échouer le tirage entier plutôt
-     que d'installer un projet troué par-dessus celui de l'utilisateur. La
-     tentative suivante repartira du même point. */
-  const assets = await Promise.all(
-    assetIds.map(async (id) => {
-      const { data, error: downloadError } = await client.storage
-        .from(BUCKET)
-        .download(`${userId}/${id}`)
-      if (downloadError) throw downloadError
+async function downloadAssets(
+  client: Client,
+  userId: string,
+  project: Project,
+): Promise<{ id: string; dataUrl: string }[]> {
+  return Promise.all(
+    [...collectAssetIds(project)].map(async (id) => {
+      const { data, error } = await client.storage.from(BUCKET).download(`${userId}/${id}`)
+      if (error) throw error
       return { id, dataUrl: await blobToDataUrl(data) }
     }),
   )
+}
 
-  await adoptRemoteProject(project, assets)
-  /* Le projet fraîchement installé sera commité par l'autosave, donc notifié :
-     sans cet enregistrement il repartirait aussitôt vers le serveur qui vient
-     de le fournir. */
-  await writeSyncRecord({
+async function pullProjects(client: Client, userId: string): Promise<boolean> {
+  const { data: rows, error } = await client
+    .from('projects')
+    .select('id, data, updated_at')
+    .order('updated_at', { ascending: false })
+  if (error) throw error
+
+  const remote = rows ?? []
+  const targetId = pullTarget(remote, useProjectStore.getState().project)
+  const local = new Map((await listProjects()).map((project) => [project.id, project]))
+  const fresh = remote.flatMap((row) => {
+    const project = normalizeProject(row.data)
+    return Date.parse(row.updated_at) > (local.get(row.id)?.updatedAt ?? 0) ? [{ project }] : []
+  })
+  const bundles = await Promise.all(
+    fresh.map(async ({ project }) => ({
+      project,
+      assets: await downloadAssets(client, userId, project),
+    })),
+  )
+  if (!syncAllowed() || currentUserId() !== userId) return false
+
+  /* Chaque bundle est complet avant la première écriture IndexedDB : une image
+     manquante ne laisse jamais un projet partiellement installé. */
+  for (const bundle of bundles.filter(({ project }) => project.id !== targetId)) {
+    await storeRemoteProject(bundle.project, bundle.assets)
+    await acknowledgePulledProject(userId, bundle.project, bundle.assets)
+  }
+
+  const target = bundles.find(({ project }) => project.id === targetId)
+  if (!target) return false
+  await adoptRemoteProject(target.project, target.assets)
+  await acknowledgePulledProject(userId, target.project, target.assets)
+  return true
+}
+
+function acknowledgePulledProject(
+  userId: string,
+  project: Project,
+  assets: readonly { id: string }[],
+): Promise<void> {
+  return writeSyncRecord({
     key: syncKey(userId, project.id),
     pushedUpdatedAt: project.updatedAt,
-    uploadedAssetIds: assetIds,
+    uploadedAssetIds: assets.map((asset) => asset.id),
   })
-  return true
 }
 
 // ─── Rattachement des projets locaux ─────────────────────────────────────────
@@ -286,14 +308,27 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
     }
     const client = await pending
     setStatus('syncing')
-    for (const id of ids) {
+    const activeProjectId = useProjectStore.getState().project?.id
+    pulling = true
+    try {
+      for (const id of ids) {
+        try {
+          const project = await loadProject(id)
+          if (!project || !(await pushProject(client, userId, project))) {
+            failed.push(id)
+          }
+        } catch (error) {
+          console.error('Could not attach a local project.', error)
+          failed.push(id)
+        }
+      }
+    } finally {
+      /* `loadProject` remplace le registre binaire. Le restaurer est obligatoire
+         même si un rattachement échoue : l'éditeur reste sur le projet actif. */
       try {
-        const project = await loadProject(id)
-        if (!project) continue
-        await pushProject(client, userId, project)
-      } catch (error) {
-        console.error('Could not attach a local project.', error)
-        failed.push(id)
+        if (activeProjectId) await loadProject(activeProjectId)
+      } finally {
+        pulling = false
       }
     }
     setStatus(failed.length === ids.length ? 'error' : 'synced')
@@ -332,7 +367,7 @@ async function cycle(): Promise<void> {
   if (!pulled) {
     pulling = true
     try {
-      if (await pullProject(client, userId)) toast('Version cloud chargée.', 'info')
+      if (await pullProjects(client, userId)) toast('Version cloud chargée.', 'info')
     } finally {
       pulling = false
       /* Le projet que le tirage vient d'installer sera commité par l'autosave ;
@@ -342,13 +377,24 @@ async function cycle(): Promise<void> {
     pulled = true
   }
 
+  if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
   const project = queued ?? useProjectStore.getState().project
   queued = null
-  if (project) await pushProject(client, userId, project)
+  if (project && !(await pushProject(client, userId, project))) {
+    pulling = true
+    try {
+      if (await pullProjects(client, userId)) toast('Version cloud plus récente chargée.', 'info')
+    } finally {
+      pulling = false
+      queued = null
+    }
+  }
+  if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
   setStatus('synced')
 }
 
 function fail(error: unknown): void {
+  if (!syncAllowed()) return setStatus('off')
   console.error('Cloud sync failed.', error)
   if (offline()) return setStatus('offline')
   setStatus('error')

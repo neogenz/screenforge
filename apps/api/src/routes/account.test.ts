@@ -12,16 +12,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  */
 const supabase = vi.hoisted(() => {
   const calls: string[] = []
-  const fail = { list: false, remove: false, deleteUser: false }
+  const fail = { listOffset: null as number | null, remove: false, deleteUser: false }
   const objects = [{ name: 'a1' }, { name: 'a2' }]
   const client = {
     storage: {
       from: () => ({
-        list: async () => {
-          calls.push('list')
-          return fail.list
+        list: async (_path: string, options: { limit: number; offset: number }) => {
+          calls.push(`list:${options.offset}`)
+          return fail.listOffset === options.offset
             ? { data: null, error: new Error('storage down') }
-            : { data: objects, error: null }
+            : {
+                data: objects.slice(options.offset, options.offset + options.limit),
+                error: null,
+              }
         },
         remove: async (paths: string[]) => {
           calls.push(`remove:${paths.join(',')}`)
@@ -74,7 +77,7 @@ function remove(token: string | null = 'jeton-valide') {
 describe('DELETE /account', () => {
   beforeEach(() => {
     supabase.calls.length = 0
-    supabase.fail.list = false
+    supabase.fail.listOffset = null
     supabase.fail.remove = false
     supabase.fail.deleteUser = false
     supabase.objects.length = 0
@@ -86,14 +89,14 @@ describe('DELETE /account', () => {
     const response = await remove()
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ deleted: true })
-    expect(supabase.calls).toEqual(['list', `remove:${USER}/a1,${USER}/a2`, 'deleteUser'])
+    expect(supabase.calls).toEqual(['list:0', `remove:${USER}/a1,${USER}/a2`, 'deleteUser'])
   })
 
   it('ne demande pas de suppression quand il n’y a aucun binaire', async () => {
     supabase.objects.length = 0
     const response = await remove()
     expect(response.status).toBe(200)
-    expect(supabase.calls).toEqual(['list', 'deleteUser'])
+    expect(supabase.calls).toEqual(['list:0', 'deleteUser'])
   })
 
   it('sans jeton, rien n’est touché', async () => {
@@ -122,10 +125,37 @@ describe('DELETE /account', () => {
   })
 
   it('un bucket injoignable arrête tout avant la suppression', async () => {
-    supabase.fail.list = true
+    supabase.fail.listOffset = 0
     const response = await remove()
     expect(response.status).toBe(502)
-    expect(supabase.calls).toEqual(['list'])
+    expect(supabase.calls).toEqual(['list:0'])
+  })
+
+  it('purge plus de cent binaires avant de supprimer l’identité', async () => {
+    supabase.objects.length = 0
+    for (let index = 0; index < 101; index += 1) {
+      supabase.objects.push({ name: `asset-${index}` })
+    }
+
+    const response = await remove()
+
+    expect(response.status).toBe(200)
+    expect(supabase.calls.slice(0, 2)).toEqual(['list:0', 'list:100'])
+    expect(supabase.calls.at(-1)).toBe('deleteUser')
+    expect(supabase.calls.find((call) => call.startsWith('remove:'))?.split(',')).toHaveLength(101)
+  })
+
+  it('une page intermédiaire en échec ne supprime rien', async () => {
+    supabase.objects.length = 0
+    for (let index = 0; index < 150; index += 1) {
+      supabase.objects.push({ name: `asset-${index}` })
+    }
+    supabase.fail.listOffset = 100
+
+    const response = await remove()
+
+    expect(response.status).toBe(502)
+    expect(supabase.calls).toEqual(['list:0', 'list:100'])
   })
 
   it('un échec de suppression de l’identité est signalé', async () => {

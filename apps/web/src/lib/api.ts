@@ -62,12 +62,16 @@ export type CheckoutOutcome =
 
 export async function createCheckout(product: 'licence' | 'cloud'): Promise<CheckoutOutcome> {
   if (!billingConfigured) return { ok: false, reason: 'failed' }
-  const response = await (await api()).billing.checkout.$post({ json: { product } })
-  if (response.status === 401) return { ok: false, reason: 'unauthenticated' }
-  if (response.status === 403) return { ok: false, reason: 'licence-required' }
-  if (!response.ok) return { ok: false, reason: 'failed' }
-  const { url } = await response.json()
-  return { ok: true, url }
+  try {
+    const response = await (await api()).billing.checkout.$post({ json: { product } })
+    if (response.status === 401) return { ok: false, reason: 'unauthenticated' }
+    if (response.status === 403) return { ok: false, reason: 'licence-required' }
+    if (!response.ok) return { ok: false, reason: 'failed' }
+    const { url } = await response.json()
+    return { ok: true, url }
+  } catch {
+    return { ok: false, reason: 'failed' }
+  }
 }
 
 /**
@@ -79,15 +83,22 @@ export async function createCheckout(product: 'licence' | 'cloud'): Promise<Chec
  */
 export async function deleteAccount(): Promise<boolean> {
   if (!billingConfigured) return false
-  const response = await (await api()).account.$delete()
-  return response.ok
+  try {
+    return (await (await api()).account.$delete()).ok
+  } catch {
+    return false
+  }
 }
 
 /** L'URL du portail client Polar — factures, moyen de paiement, résiliation. */
 export async function createPortalSession(): Promise<string | null> {
   if (!billingConfigured) return null
-  const response = await (await api()).billing.portal.$post()
-  if (!response.ok) return null
-  const { url } = await response.json()
-  return url
+  try {
+    const response = await (await api()).billing.portal.$post()
+    if (!response.ok) return null
+    const { url } = await response.json()
+    return url
+  } catch {
+    return null
+  }
 }

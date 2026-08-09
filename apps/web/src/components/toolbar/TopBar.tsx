@@ -46,7 +46,12 @@ import {
 } from '@/lib/project-file'
 import { billingConfigured } from '@/lib/api'
 import { planName } from '@/lib/plans'
-import { importPortableProject, saveCurrentProject } from '@/lib/storage'
+import {
+  importPortableProject,
+  listProjects,
+  openStoredProject,
+  saveCurrentProject,
+} from '@/lib/storage'
 import { cloudConfigured } from '@/lib/supabase'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
@@ -197,7 +202,18 @@ function SyncIndicator() {
 function ProjectFileMenu() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [projects, setProjects] = useState<Awaited<ReturnType<typeof listProjects>>>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const currentProjectId = useProjectStore((s) => s.project?.id)
+
+  async function refreshProjects() {
+    try {
+      setProjects(await listProjects())
+    } catch (error) {
+      console.error('Could not list local projects.', error)
+      toast('Liste des projets indisponible.', 'error')
+    }
+  }
 
   async function downloadProject() {
     const project = useProjectStore.getState().project
@@ -215,7 +231,7 @@ function ProjectFileMenu() {
     }
   }
 
-  async function openProject(file: File) {
+  async function importProject(file: File) {
     setBusy(true)
     try {
       await importPortableProject(file)
@@ -227,11 +243,69 @@ function ProjectFileMenu() {
     }
   }
 
+  async function openProject(id: string) {
+    setBusy(true)
+    try {
+      const project = await openStoredProject(id)
+      if (!project) throw new Error('Project not found.')
+    } catch (error) {
+      console.error('Could not open the local project.', error)
+      toast('Ouverture du projet impossible.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const items = [
+    {
+      id: 'rename-project',
+      label: 'Renommer le projet',
+      icon: <PenLine size={14} strokeWidth={1.75} />,
+      onSelect: () => {
+        const input = document.getElementById(PROJECT_NAME_INPUT_ID)
+        if (input instanceof HTMLInputElement) {
+          input.focus()
+          input.select()
+        }
+      },
+    },
+    {
+      id: 'download-project',
+      label: 'Télécharger une copie',
+      icon: <FileDown size={14} strokeWidth={1.75} />,
+      disabled: busy,
+      onSelect: () => void downloadProject(),
+    },
+    ...projects.flatMap((project) =>
+      project.id === currentProjectId
+        ? []
+        : [
+            {
+              id: `open-${project.id}`,
+              label: `Ouvrir « ${project.name} »`,
+              icon: <FolderOpen size={14} strokeWidth={1.75} />,
+              disabled: busy,
+              onSelect: () => void openProject(project.id),
+            },
+          ],
+    ),
+    {
+      id: 'import-project',
+      label: 'Importer un fichier…',
+      icon: <FolderOpen size={14} strokeWidth={1.75} />,
+      disabled: busy,
+      onSelect: () => inputRef.current?.click(),
+    },
+  ]
+
   return (
     <>
       <Dropdown
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (next) void refreshProjects()
+        }}
         trigger={
           <IconButton
             size="sm"
@@ -252,34 +326,7 @@ function ProjectFileMenu() {
           </IconButton>
         }
         ariaLabel="Fichier du projet"
-        items={[
-          {
-            id: 'rename-project',
-            label: 'Renommer le projet',
-            icon: <PenLine size={14} strokeWidth={1.75} />,
-            onSelect: () => {
-              const input = document.getElementById(PROJECT_NAME_INPUT_ID)
-              if (input instanceof HTMLInputElement) {
-                input.focus()
-                input.select()
-              }
-            },
-          },
-          {
-            id: 'download-project',
-            label: 'Télécharger une copie',
-            icon: <FileDown size={14} strokeWidth={1.75} />,
-            disabled: busy,
-            onSelect: () => void downloadProject(),
-          },
-          {
-            id: 'open-project',
-            label: 'Ouvrir un projet…',
-            icon: <FolderOpen size={14} strokeWidth={1.75} />,
-            disabled: busy,
-            onSelect: () => inputRef.current?.click(),
-          },
-        ]}
+        items={items}
       />
       <input
         ref={inputRef}
@@ -291,7 +338,7 @@ function ProjectFileMenu() {
         onChange={(event) => {
           const file = event.target.files?.[0]
           event.target.value = ''
-          if (file) void openProject(file)
+          if (file) void importProject(file)
         }}
       />
     </>
