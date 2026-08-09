@@ -34,4 +34,13 @@ describe('API billing hors réseau', () => {
 
     await expect(deleteAccount()).resolves.toBe('cleanup-pending')
   })
+
+  it('ne prétend pas que le compte est supprimé quand Auth reste ambigu', async () => {
+    requests.deleteAccount.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ deleted: false, cleanupPending: true, outcome: 'unknown' }),
+    })
+
+    await expect(deleteAccount()).resolves.toBe('unknown')
+  })
 })

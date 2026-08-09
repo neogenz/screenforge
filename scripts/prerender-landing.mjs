@@ -76,7 +76,6 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
      données structurées, pas du texte, et ils ne se traduisent pas. */
   const plans = copy[lang].pricing.plans
   const OFFER_PRICES = { free: '0', licence: '49', cloud: '39' }
-  const OFFER_AVAILABILITY = { free: 'InStock', licence: 'PreOrder', cloud: 'PreOrder' }
   const software = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -89,7 +88,7 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
       name: plans[key].name,
       price: OFFER_PRICES[key],
       priceCurrency: 'USD',
-      availability: `https://schema.org/${OFFER_AVAILABILITY[key]}`,
+      availability: `https://schema.org/${plans[key].available ? 'InStock' : 'PreOrder'}`,
       description: [plans[key].tagline, ...plans[key].points].join('. '),
     })),
   }

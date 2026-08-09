@@ -229,15 +229,17 @@ flowchart TD
 - **10** — même test e2e : « Plus tard » ferme sans rien écrire, le rechargement
   ramène la boîte. Aucune préférence « ne plus demander » n'est enregistrée, par
   construction : elle ferait taire exactement les projets qu'elle protège.
-- **11** — `apps/api/src/routes/account.test.ts`, sept tests, dont l'ordre :
-  `['list', 'remove:{user}/a1,{user}/a2', 'deleteUser']`. Les binaires partent
-  **avant** l'identité parce que `storage.objects` ne référence pas `auth.users`
-  — c'est le chemin `{user_id}/{asset_id}` qui porte l'appartenance, donc
-  supprimer l'identité d'abord laisserait des fichiers que plus aucune policy ne
-  rend lisibles et que plus aucun compte ne réclame. Une purge en échec laisse
-  l'identité en place (502 `PURGE_FAILED`, `deleteUser` jamais appelé) ; sans
-  jeton ou avec un jeton forgé, rien n'est touché. Le versant client — retour
-  immédiat au mode local — n'est pas couvert en e2e : voir « Reste non couvert ».
+- **11** — `apps/api/src/routes/account.test.ts` prouve désormais le protocole
+  durable dans son ordre réel : création state-preserving du job, suppression
+  de l'identité, passage en `cleanup`, puis purge Storage par pages relues à
+  l'offset zéro. La ligne sans FK ferme les uploads dès la demande et survit à
+  `auth.users` ; une panne Storage la conserve pour le worker Railway. Deux
+  DELETE concurrents, une réponse Auth perdue et un résultat `getUserById`
+  ambigu couvrent les frontières de retry : seule une identité confirmée encore
+  présente autorise l'annulation, sinon le worker reprend aussi le job
+  `prepared` jusqu'à identité absente et dossier vide. Sans jeton ou avec un
+  jeton forgé, rien n'est touché. Le versant client — retour immédiat au mode
+  local — n'est pas couvert en e2e : voir « Reste non couvert ».
 - **12** — `e2e/sync.spec.ts`, « la déconnexion rend l'éditeur au mode local,
   sans erreur » : compte Cloud, projet poussé, déconnexion **par l'interface**
   (Mon compte → Se déconnecter), puis enregistrement des requêtes. Le projet est
@@ -255,17 +257,15 @@ flowchart TD
   apparaît qu'en icône sous le survol d'un `IconButton`, où le seuil est celui
   du non-textuel — 3:1, tenu à 3.72. Les croiser demanderait d'éclaircir le
   rouge jusqu'à 0.69 pour un cas qui n'est pas du texte.
-- **Non-régression** — `pnpm run test:rls` : 27 tests (7 projets, 8 storage,
-  6 entitlements, 6 porte Cloud). `pnpm --filter api run test:unit` : 37.
-  `pnpm --filter web run test:unit` : 93. `pnpm --filter web exec playwright
-  test` : 82 passés, 1 sauté (`device-bezel-import.spec.ts` « accepts a real
-  Apple Product Bezel outside the repository », qui demande un fichier hors du
-  dépôt — antérieur à cette phase). `pnpm run typecheck`, `pnpm run lint`,
-  `pnpm run audit:contrast` (pire cas dark 4.78:1, light 4.55:1),
-  `pnpm run audit:scale` (« Échelles fermées ») : verts.
-  `grep -rn -e service_role -e SERVICE_ROLE apps/web` : aucune occurrence.
-  `pnpm run build` : `AccountDialog` et `MigrateProjectsDialog` sortent chacun
-  dans leur propre morceau, hors du paquet principal.
+- **Non-régression** — `pnpm run test:release` : 47 tests API, 102 tests web et
+  29 tests RLS passent ; le profil billing compte 87 E2E passés et 1 sauté
+  (`device-bezel-import.spec.ts`, fichier Apple externe au dépôt), puis le
+  profil prélancement 2 E2E passés. `build:profiles` rend et audite d'abord la
+  landing prélancement, puis la landing lancement ; les deux profils sont
+  cohérents jusque dans le JSON-LD. Typecheck, lint, contraste (pire cas dark
+  4.78:1, light 4.55:1), échelles fermées et audit landing sont verts.
+  `AccountDialog` et `MigrateProjectsDialog` restent chacun dans leur propre
+  morceau, hors du paquet principal.
 
 ## Écarts assumés
 
@@ -302,10 +302,12 @@ flowchart TD
   le document projet — ce dernier point étant la seule contrainte réelle de la
   task, et il est tenu. Un stockage illisible se lit comme « zéro export
   consommé » : on ne bloque personne pour une panne de navigateur.
-- **Le palier gratuit s'applique même sans API de vente configurée.** Seuls les
-  boutons « Voir les offres » et « Acheter » sont conditionnés à
-  `billingConfigured` : un build sans variables reste un produit cohérent, pas
-  un produit gratuit par accident.
+- **Le lancement commercial est un profil de build unique.** Sans
+  `VITE_API_URL`, l'éditeur conserve les exports propres illimités et le ZIP,
+  coupe la sync, et la landing garde les offres fermées avec notification. Avec
+  cette variable, la même constante ouvre quota/filigrane/checkout dans
+  l'éditeur et disponibilité/CTA d'achat sur la landing. `build:profiles` rend
+  puis audite les deux documents pré-rendus pour empêcher leur divergence.
 - **`unattachedProjects()` ignore les projets jamais ouverts**
   (`createdAt === updatedAt`), la même signature que `pullTarget` emploie déjà.
   Sans ce filtre, le premier login proposait de rattacher le « Projet sans

@@ -8,6 +8,8 @@
  * landing.html, dans le calcul de `CostCompare` et dans la carte sociale
  * (`pnpm exec node scripts/og-card.mjs`).
  */
+import { commercialLaunch } from '@/lib/commercial-launch'
+
 const en = {
   meta: {
     title: 'ScreenForge — App Store screenshots, pixel-exact',
@@ -178,9 +180,10 @@ const en = {
     title: 'Pay once. That’s the whole model.',
     sub: 'The editor runs on your machine. It costs nothing to serve, so you buy it once. Only the cloud, which does cost something every month, is billed yearly.',
     currencyNote: 'Prices in USD, tax included.',
-    availability:
-      'The paid plans open together with accounts. Until then their buttons add you to the list. Nothing is charged.',
-    availabilityShort: 'Not open yet',
+    availability: commercialLaunch
+      ? 'The paid plans are open. Purchases start in the editor, where they can be attached to your account.'
+      : 'The paid plans open together with accounts. Until then their buttons add you to the list. Nothing is charged.',
+    availabilityShort: commercialLaunch ? 'Open now' : 'Not open yet',
     storageLabel: 'Where your projects live',
     storageLocal: 'On your machine',
     storageCloud: 'On your machine, mirrored to the cloud',
@@ -190,11 +193,17 @@ const en = {
         price: '$0',
         period: '',
         tagline: 'Judge the editor before paying anything',
-        points: [
-          'The complete editor, every frame and font',
-          '3 exports per project, watermarked',
-          'No account, nothing to install',
-        ],
+        points: commercialLaunch
+          ? [
+              'The complete editor, every frame and font',
+              '3 exports per project, watermarked',
+              'No account, nothing to install',
+            ]
+          : [
+              'The complete editor, every frame and font',
+              'Unlimited clean exports and grouped ZIP',
+              'No account, nothing to install',
+            ],
         cta: 'Open the editor',
         available: true,
       },
@@ -209,8 +218,8 @@ const en = {
           'Updates forever, nothing to renew',
         ],
         badge: 'Recommended',
-        cta: 'Get notified at launch',
-        available: false,
+        cta: commercialLaunch ? 'Buy the Licence' : 'Get notified at launch',
+        available: commercialLaunch,
       },
       cloud: {
         name: 'Cloud',
@@ -227,20 +236,28 @@ const en = {
            dix dollars de moins, et se lisait comme une alternative. Le total
            réel de la première année règle la question sur la carte même. */
         note: '$88 the first year with the Licence, then $39 a year.',
-        cta: 'Get notified at launch',
-        available: false,
+        cta: commercialLaunch ? 'Add Cloud' : 'Get notified at launch',
+        available: commercialLaunch,
       },
     },
     compareLabel: 'Detailed comparison',
     compareHint: 'scroll sideways',
-    compareNote:
-      'The Free column is shown as it will be once accounts open. Today the editor has no cap, no watermark, and the grouped ZIP export.',
+    compareNote: commercialLaunch
+      ? 'These are the plans currently enforced by the editor and checkout.'
+      : 'Until accounts open, Free has no cap or watermark and includes the grouped ZIP export.',
     rows: [
       {
         label: 'Exports',
-        values: ['3 per project, watermarked', 'Unlimited, clean', 'Unlimited, clean'],
+        values: [
+          commercialLaunch ? '3 per project, watermarked' : 'Unlimited, clean',
+          'Unlimited, clean',
+          'Unlimited, clean',
+        ],
       },
-      { label: 'Grouped ZIP export', values: ['No', 'Included', 'Included'] },
+      {
+        label: 'Grouped ZIP export',
+        values: [commercialLaunch ? 'No' : 'Included', 'Included', 'Included'],
+      },
       {
         label: 'Projects stored',
         values: ['On your machine', 'On your machine', 'Machine + cloud'],
@@ -263,11 +280,15 @@ const en = {
     items: [
       {
         q: 'What does the free tier include?',
-        a: 'Today, everything: the complete editor, every frame, every font, every background, unlimited clean exports, and no account. The three-export cap and the watermark arrive with accounts, at the same time as the paid plans. Until then the free tier is the whole product.',
+        a: commercialLaunch
+          ? 'The complete editor, every frame, font and background, plus three watermarked exports per project. The Licence removes the cap and watermark and adds the grouped ZIP.'
+          : 'Today, everything: the complete editor, every frame, every font, every background, unlimited clean exports, the grouped ZIP, and no account. Until the paid plans open, the free tier is the whole product.',
       },
       {
         q: 'Is the editor in English?',
-        a: 'Not yet. The marketing pages are bilingual, the editor interface is currently French only. English is coming before the paid plans open. Nothing about the exported PNGs depends on it.',
+        a: commercialLaunch
+          ? 'Not yet. The marketing pages are bilingual and the editor interface is currently French only. English is planned; exported PNGs do not depend on the interface language.'
+          : 'Not yet. The marketing pages are bilingual, the editor interface is currently French only. English is coming before the paid plans open. Nothing about the exported PNGs depends on it.',
       },
       {
         q: 'Why one price instead of a subscription?',
@@ -287,7 +308,9 @@ const en = {
       },
       {
         q: 'Can I get a refund?',
-        a: 'Yes, once the Licence opens: email us within 14 days of purchase for a full refund, no questions. The free tier exists so you can decide before spending anything.',
+        a: commercialLaunch
+          ? 'Yes. Email us within 14 days of purchase for a full refund, no questions. The free tier exists so you can decide before spending anything.'
+          : 'Yes, once the Licence opens: email us within 14 days of purchase for a full refund, no questions. The free tier exists so you can decide before spending anything.',
       },
     ],
   },
@@ -295,7 +318,7 @@ const en = {
     headline: 'Your next screenshot set, ten minutes from now.',
     body: 'No account, no upload, no card. The editor opens on an empty artboard.',
     cta: 'Open the editor for free',
-    ctaLicence: 'Tell me when the Licence opens',
+    ctaLicence: commercialLaunch ? 'Buy the Licence' : 'Tell me when the Licence opens',
   },
   footer: {
     contact: 'Contact',
@@ -453,9 +476,10 @@ const fr: Copy = {
     title: 'On paie une fois. C’est tout le modèle.',
     sub: 'L’éditeur tourne sur votre machine : il ne coûte rien à servir, vous l’achetez une fois. Seul le cloud, qui coûte quelque chose tous les mois, se paie tous les ans.',
     currencyNote: 'Prix en dollars américains, taxes comprises.',
-    availability:
-      'Les offres payantes ouvriront en même temps que les comptes. D’ici là leurs boutons vous ajoutent à la liste. Rien n’est débité.',
-    availabilityShort: 'Pas encore ouvert',
+    availability: commercialLaunch
+      ? 'Les offres payantes sont ouvertes. L’achat démarre dans l’éditeur, où il peut être rattaché à votre compte.'
+      : 'Les offres payantes ouvriront en même temps que les comptes. D’ici là leurs boutons vous ajoutent à la liste. Rien n’est débité.',
+    availabilityShort: commercialLaunch ? 'Ouvert' : 'Pas encore ouvert',
     storageLabel: 'Où vivent vos projets',
     storageLocal: 'Sur votre machine',
     storageCloud: 'Sur votre machine, recopiés dans le cloud',
@@ -465,11 +489,17 @@ const fr: Copy = {
         price: '0 $',
         period: '',
         tagline: 'Pour juger l’éditeur avant de dépenser un centime',
-        points: [
-          'L’éditeur complet, tous les cadres et polices',
-          '3 exports par projet, filigranés',
-          'Sans compte, rien à installer',
-        ],
+        points: commercialLaunch
+          ? [
+              'L’éditeur complet, tous les cadres et polices',
+              '3 exports par projet, filigranés',
+              'Sans compte, rien à installer',
+            ]
+          : [
+              'L’éditeur complet, tous les cadres et polices',
+              'Exports propres illimités et ZIP groupé',
+              'Sans compte, rien à installer',
+            ],
         cta: 'Ouvrir l’éditeur',
         available: true,
       },
@@ -484,8 +514,8 @@ const fr: Copy = {
           'Mises à jour à vie, rien à renouveler',
         ],
         badge: 'Recommandé',
-        cta: 'Être prévenu à l’ouverture',
-        available: false,
+        cta: commercialLaunch ? 'Acheter la Licence' : 'Être prévenu à l’ouverture',
+        available: commercialLaunch,
       },
       cloud: {
         name: 'Cloud',
@@ -498,24 +528,28 @@ const fr: Copy = {
           'Sauvegarde cloud, hors du navigateur',
         ],
         note: '88 $ la première année avec la Licence, puis 39 $ par an.',
-        cta: 'Être prévenu à l’ouverture',
-        available: false,
+        cta: commercialLaunch ? 'Ajouter le Cloud' : 'Être prévenu à l’ouverture',
+        available: commercialLaunch,
       },
     },
     compareLabel: 'Comparatif détaillé',
     compareHint: 'faites défiler',
-    compareNote:
-      'La colonne Gratuit est présentée telle qu’elle sera à l’ouverture des comptes. Aujourd’hui l’éditeur n’a ni plafond ni filigrane, et le ZIP groupé y est.',
+    compareNote: commercialLaunch
+      ? 'Ce sont les paliers actuellement appliqués par l’éditeur et le checkout.'
+      : 'Avant l’ouverture des comptes, le Gratuit n’a ni plafond ni filigrane et inclut le ZIP groupé.',
     rows: [
       {
         label: 'Exports',
         values: [
-          '3 par projet, filigranés',
+          commercialLaunch ? '3 par projet, filigranés' : 'Illimités, sans filigrane',
           'Illimités, sans filigrane',
           'Illimités, sans filigrane',
         ],
       },
-      { label: 'Export ZIP groupé', values: ['Non', 'Inclus', 'Inclus'] },
+      {
+        label: 'Export ZIP groupé',
+        values: [commercialLaunch ? 'Non' : 'Inclus', 'Inclus', 'Inclus'],
+      },
       {
         label: 'Projets stockés',
         values: ['Sur votre machine', 'Sur votre machine', 'Machine + cloud'],
@@ -538,11 +572,15 @@ const fr: Copy = {
     items: [
       {
         q: 'Que comprend l’offre gratuite ?',
-        a: 'Aujourd’hui, tout : l’éditeur complet, tous les cadres, toutes les polices, tous les fonds, les exports illimités et sans filigrane, et aucun compte. Le plafond de trois exports et le filigrane arriveront avec les comptes, en même temps que les offres payantes. D’ici là le gratuit, c’est le produit entier.',
+        a: commercialLaunch
+          ? 'L’éditeur complet, tous les cadres, polices et fonds, plus trois exports filigranés par projet. La Licence retire le plafond et le filigrane et ajoute le ZIP groupé.'
+          : 'Aujourd’hui, tout : l’éditeur complet, tous les cadres, toutes les polices, tous les fonds, les exports propres illimités, le ZIP groupé et aucun compte. Jusqu’à l’ouverture des offres, le gratuit est le produit entier.',
       },
       {
         q: 'L’éditeur est-il en anglais ?',
-        a: 'Pas encore. Les pages de présentation sont bilingues, l’interface de l’éditeur est pour l’instant uniquement en français. L’anglais arrivera avant l’ouverture des offres payantes. Les PNG exportés n’en dépendent pas.',
+        a: commercialLaunch
+          ? 'Pas encore. Les pages de présentation sont bilingues et l’interface de l’éditeur est uniquement en français. L’anglais est prévu ; les PNG exportés ne dépendent pas de la langue de l’interface.'
+          : 'Pas encore. Les pages de présentation sont bilingues, l’interface de l’éditeur est pour l’instant uniquement en français. L’anglais arrivera avant l’ouverture des offres payantes. Les PNG exportés n’en dépendent pas.',
       },
       {
         q: 'Pourquoi un prix unique plutôt qu’un abonnement ?',
@@ -562,7 +600,9 @@ const fr: Copy = {
       },
       {
         q: 'Puis-je être remboursé ?',
-        a: 'Oui, dès l’ouverture de la Licence : écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’offre gratuite existe pour que vous décidiez avant de dépenser.',
+        a: commercialLaunch
+          ? 'Oui. Écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’offre gratuite existe pour que vous décidiez avant de dépenser.'
+          : 'Oui, dès l’ouverture de la Licence : écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’offre gratuite existe pour que vous décidiez avant de dépenser.',
       },
     ],
   },
@@ -570,7 +610,9 @@ const fr: Copy = {
     headline: 'Votre prochaine planche, dans dix minutes.',
     body: 'Sans compte, sans téléversement, sans carte. L’éditeur s’ouvre sur une planche vide.',
     cta: 'Ouvrir l’éditeur gratuitement',
-    ctaLicence: 'Prévenez-moi à l’ouverture de la Licence',
+    ctaLicence: commercialLaunch
+      ? 'Acheter la Licence'
+      : 'Prévenez-moi à l’ouverture de la Licence',
   },
   footer: {
     contact: 'Contact',

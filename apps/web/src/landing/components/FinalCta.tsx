@@ -1,12 +1,14 @@
+import { commercialLaunch } from '@/lib/commercial-launch'
 import { useLang } from '../i18n'
-import { LINKS, notify } from '../links'
+import { LINKS, offerHref } from '../links'
 import { CtaGhost, CtaPrimary } from './cta'
 
 /*
  * Deux actions, parce que la page en a deux à conclure. Elle défend un prix
  * sur trois sections puis terminait sur « ouvrir gratuitement » : le dernier
- * temps rétractait l'argument commercial. Le gratuit reste l'action première —
- * c'est la seule qui aboutit aujourd'hui — mais la Licence obtient sa demande.
+ * temps rétractait l'argument commercial. Le gratuit reste l'action première ;
+ * la Licence ouvre une notification avant lancement, puis les offres de
+ * l'éditeur dans le profil lancé.
  *
  * Le seul aplat citron de la page, et il est ici.
  *
@@ -58,14 +60,16 @@ export function FinalCta() {
         </CtaPrimary>
         <div className="flex flex-col">
           <CtaGhost
-            href={notify(lang, 'licence')}
+            href={offerHref(lang, 'licence')}
             className="border-marker-ink text-marker-ink hover:bg-marker-ink hover:text-marker focus-visible:outline-marker-ink"
           >
             {t.finalCta.ctaLicence}
           </CtaGhost>
-          <p className="mt-2 text-center font-mono text-2xs text-marker-ink">
-            {t.pricing.availabilityShort}
-          </p>
+          {!commercialLaunch && (
+            <p className="mt-2 text-center font-mono text-2xs text-marker-ink">
+              {t.pricing.availabilityShort}
+            </p>
+          )}
         </div>
       </div>
     </section>

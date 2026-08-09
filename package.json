@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "pnpm --filter web run dev",
     "build": "pnpm --filter web run build",
+    "build:profiles": "VITE_API_URL= pnpm --filter web run build && node scripts/commercial-profile-audit.mjs prelaunch && VITE_API_URL=http://127.0.0.1:8787 pnpm --filter web run build && node scripts/commercial-profile-audit.mjs launch",
     "preview": "pnpm --filter web run preview",
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
@@ -14,7 +15,7 @@
     "test:unit": "pnpm -r run test:unit",
     "test:rls": "node --test supabase/tests/*.test.mjs",
     "test:e2e": "pnpm --filter web run test:e2e",
-    "test:release": "pnpm test && pnpm run build && pnpm run test:e2e && pnpm run audit:contrast && pnpm run audit:scale && pnpm run audit:landing",
+    "test:release": "pnpm test && pnpm run build:profiles && pnpm run test:e2e && pnpm run audit:contrast && pnpm run audit:scale && pnpm run audit:landing",
     "validate:export": "node scripts/validate-export.mjs",
     "audit:contrast": "node scripts/contrast-audit.mjs",
     "audit:scale": "node scripts/scale-audit.mjs",

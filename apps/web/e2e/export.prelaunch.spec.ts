@@ -12,6 +12,19 @@ function row(png: ReturnType<typeof decode>, y: number): Uint8Array {
   return Uint8Array.from(png.data.slice(start, start + png.width * png.channels))
 }
 
+test('avant le billing, la landing annonce le produit entier et des notifications', async ({
+  page,
+}) => {
+  await page.goto('/landing.html')
+
+  await expect(page.getByText('Not open yet').first()).toBeVisible()
+  await expect(page.getByText('Unlimited clean exports and grouped ZIP').first()).toBeVisible()
+  await expect(page.getByText('The paid plans are open')).toHaveCount(0)
+  await expect(
+    page.getByRole('link', { name: 'Get notified at launch (Licence)' }),
+  ).toHaveAttribute('href', /^mailto:hello@screenforge\.app/)
+})
+
 test('avant le billing, exporte un ZIP propre et illimité comme annoncé', async ({ page }) => {
   await waitForApp(page)
   const projectId = await page.evaluate(

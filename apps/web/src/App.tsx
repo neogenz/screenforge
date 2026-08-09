@@ -19,6 +19,7 @@ import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
+import { commercialLaunch } from '@/lib/commercial-launch'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
@@ -66,6 +67,15 @@ export default function App() {
   const theme = useUIStore((s) => s.theme)
   const exclusiveDrawers = useMediaQuery(belowWidth(DUAL_DRAWER_MIN_WIDTH))
   const filmstripCentered = !useMediaQuery(belowWidth(FILMSTRIP_CENTERED_MIN_WIDTH))
+
+  useEffect(() => {
+    if (!commercialLaunch) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('offers') !== 'open') return
+    useUIStore.getState().setShowPricingDialog(true)
+    url.searchParams.delete('offers')
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
 
   useEffect(() => {
     useUIStore.getState().setExclusiveDrawers(exclusiveDrawers)

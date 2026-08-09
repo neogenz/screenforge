@@ -14,13 +14,19 @@ const supabase = vi.hoisted(() => {
   const calls: string[] = []
   const objects: { name: string }[] = []
   const jobs = new Map<string, Job>()
-  const fail = { queue: false, list: false, remove: false, deleteUser: false }
+  const fail = {
+    queue: false,
+    list: false,
+    remove: false,
+    deleteUser: 'none' as 'none' | 'before' | 'after',
+    getUser: false,
+  }
   let identityExists = true
 
   const jobsTable = {
     upsert: async (row: Partial<Job> & { user_id: string }) => {
       calls.push('job:upsert')
-      if (!fail.queue) {
+      if (!fail.queue && !jobs.has(row.user_id)) {
         jobs.set(row.user_id, {
           user_id: row.user_id,
           status: row.status ?? 'prepared',
@@ -32,6 +38,11 @@ const supabase = vi.hoisted(() => {
       return { error: fail.queue ? new Error('queue down') : null }
     },
     delete: () => ({
+      match: async ({ user_id: userId, status }: { user_id: string; status?: Job['status'] }) => {
+        calls.push('job:delete')
+        if (!status || jobs.get(userId)?.status === status) jobs.delete(userId)
+        return { error: null }
+      },
       eq: async (_column: string, userId: string) => {
         calls.push('job:delete')
         jobs.delete(userId)
@@ -53,9 +64,19 @@ const supabase = vi.hoisted(() => {
               maybeSingle: async () => ({ data: jobs.get(userId) ?? null, error: null }),
             }),
           }
-        : {
-            order: async () => ({ data: [...jobs.values()], error: null }),
-          },
+        : columns === 'user_id, status'
+          ? {
+              eq: (_column: string, userId: string) => ({
+                maybeSingle: async () => {
+                  calls.push('job:read')
+                  return { data: jobs.get(userId) ?? null, error: null }
+                },
+              }),
+              order: async () => ({ data: [...jobs.values()], error: null }),
+            }
+          : {
+              order: async () => ({ data: [...jobs.values()], error: null }),
+            },
   }
 
   const client = {
@@ -86,12 +107,16 @@ const supabase = vi.hoisted(() => {
       admin: {
         deleteUser: async () => {
           calls.push('deleteUser')
-          if (fail.deleteUser) return { error: new Error('auth down') }
+          if (!identityExists) return { error: new Error('User not found') }
+          if (fail.deleteUser === 'before') return { error: new Error('auth down') }
           identityExists = false
-          return { error: null }
+          return { error: fail.deleteUser === 'after' ? new Error('response lost') : null }
         },
         getUserById: async () => {
           calls.push('getUserById')
+          if (fail.getUser) {
+            return { data: { user: null }, error: { status: 503, message: 'auth unavailable' } }
+          }
           return identityExists
             ? { data: { user: { id: USER } }, error: null }
             : { data: { user: null }, error: { status: 404, message: 'User not found' } }
@@ -109,6 +134,7 @@ const supabase = vi.hoisted(() => {
     setIdentityExists: (value: boolean) => {
       identityExists = value
     },
+    identityExists: () => identityExists,
   }
 })
 
@@ -130,7 +156,7 @@ process.env.POLAR_CLOUD_PRODUCT_ID = 'prod_cloud'
 process.env.POLAR_LICENCE_BENEFIT_ID = 'ben_licence'
 process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'
 
-const [{ app }, { resumeAccountDeletionJobs }] = await Promise.all([
+const [{ app }, { prepareAccountDeletion, resumeAccountDeletionJobs }] = await Promise.all([
   import('../index.ts'),
   import('../account-deletion.ts'),
 ])
@@ -150,7 +176,8 @@ describe('DELETE /account', () => {
     supabase.fail.queue = false
     supabase.fail.list = false
     supabase.fail.remove = false
-    supabase.fail.deleteUser = false
+    supabase.fail.deleteUser = 'none'
+    supabase.fail.getUser = false
     supabase.setIdentityExists(true)
     auth.user = { id: USER, email: 'moi@example.com' }
   })
@@ -162,6 +189,7 @@ describe('DELETE /account', () => {
     await expect(response.json()).resolves.toEqual({ deleted: true, cleanupPending: false })
     expect(supabase.calls).toEqual([
       'job:upsert',
+      'job:read',
       'deleteUser',
       'job:update:cleanup',
       'list:0',
@@ -181,6 +209,7 @@ describe('DELETE /account', () => {
     expect(response.status).toBe(200)
     expect(supabase.calls).toEqual([
       'job:upsert',
+      'job:read',
       'deleteUser',
       'job:update:cleanup',
       'list:0',
@@ -188,15 +217,84 @@ describe('DELETE /account', () => {
     ])
   })
 
-  it('un échec deleteUser retire la demande et ne touche aucun asset', async () => {
-    supabase.fail.deleteUser = true
+  it('un échec deleteUser confirmé avant suppression retire la demande sans toucher aux assets', async () => {
+    supabase.fail.deleteUser = 'before'
 
     const response = await remove()
 
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: 'DELETE_FAILED' })
-    expect(supabase.calls).toEqual(['job:upsert', 'deleteUser', 'job:delete'])
+    expect(supabase.calls).toEqual([
+      'job:upsert',
+      'job:read',
+      'deleteUser',
+      'getUserById',
+      'job:delete',
+    ])
     expect(supabase.objects).toEqual([{ name: 'a1' }, { name: 'a2' }])
+    expect(supabase.jobs.size).toBe(0)
+  })
+
+  it('préserve un job cleanup quand une nouvelle requête prépare le même compte', async () => {
+    supabase.jobs.set(USER, {
+      user_id: USER,
+      status: 'cleanup',
+      attempts: 3,
+      last_error: 'storage down',
+      created_at: '2026-08-09T12:00:00.000Z',
+    })
+
+    await expect(prepareAccountDeletion(USER)).resolves.toBe(true)
+
+    expect(supabase.jobs.get(USER)).toMatchObject({
+      status: 'cleanup',
+      attempts: 3,
+      last_error: 'storage down',
+    })
+  })
+
+  it('traite deux DELETE concurrents sans perdre la file ni répéter la purge', async () => {
+    const responses = await Promise.all([remove(), remove()])
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200])
+    expect(supabase.calls.filter((call) => call === 'deleteUser')).toHaveLength(1)
+    expect(supabase.objects).toEqual([])
+    expect(supabase.jobs.size).toBe(0)
+    expect(supabase.identityExists()).toBe(false)
+  })
+
+  it('une suppression réussie dont la réponse se perd est réconciliée jusqu’à zéro objet', async () => {
+    supabase.fail.deleteUser = 'after'
+
+    const response = await remove()
+
+    expect(response.status).toBe(200)
+    expect(supabase.calls).toContain('getUserById')
+    expect(supabase.identityExists()).toBe(false)
+    expect(supabase.objects).toEqual([])
+    expect(supabase.jobs.size).toBe(0)
+  })
+
+  it('un résultat Auth ambigu conserve le job prepared et ne touche aucun asset', async () => {
+    supabase.fail.deleteUser = 'before'
+    supabase.fail.getUser = true
+
+    const response = await remove()
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual({
+      deleted: false,
+      cleanupPending: true,
+      outcome: 'unknown',
+    })
+    expect(supabase.jobs.get(USER)).toMatchObject({ status: 'prepared', attempts: 1 })
+    expect(supabase.objects).toEqual([{ name: 'a1' }, { name: 'a2' }])
+
+    supabase.fail.deleteUser = 'none'
+    supabase.fail.getUser = false
+    await resumeAccountDeletionJobs()
+    expect(supabase.identityExists()).toBe(false)
+    expect(supabase.objects).toEqual([])
     expect(supabase.jobs.size).toBe(0)
   })
 
@@ -256,7 +354,7 @@ describe('DELETE /account', () => {
     expect(supabase.objects).toEqual([])
   })
 
-  it('le worker ne purge jamais un job préparé dont l’identité existe encore', async () => {
+  it('le worker reprend un job prepared jusqu’à supprimer identité et Storage', async () => {
     supabase.jobs.set(USER, {
       user_id: USER,
       status: 'prepared',
@@ -267,9 +365,10 @@ describe('DELETE /account', () => {
 
     await resumeAccountDeletionJobs()
 
-    expect(supabase.calls).toEqual(['getUserById'])
-    expect(supabase.objects).toHaveLength(2)
-    expect(supabase.jobs.has(USER)).toBe(true)
+    expect(supabase.calls).toContain('deleteUser')
+    expect(supabase.identityExists()).toBe(false)
+    expect(supabase.objects).toEqual([])
+    expect(supabase.jobs.size).toBe(0)
   })
 
   it('sans jeton, rien d’irréversible ne commence', async () => {

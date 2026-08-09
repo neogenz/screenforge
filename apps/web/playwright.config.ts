@@ -15,7 +15,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'pnpm run dev --port 5199',
+    command: 'VITE_API_URL=http://127.0.0.1:8787 pnpm run dev --port 5199',
     url: 'http://localhost:5199',
     reuseExistingServer: true,
     timeout: 30_000,

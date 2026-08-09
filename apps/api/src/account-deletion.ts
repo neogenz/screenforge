@@ -10,6 +10,10 @@ interface DeletionJob {
   status: 'prepared' | 'cleanup'
 }
 
+export type AccountDeletionOutcome = 'deleted' | 'cleanup-pending' | 'failed' | 'unknown'
+
+const userOperations = new Map<string, Promise<void>>()
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -29,19 +33,25 @@ async function recordFailure(userId: string, error: unknown): Promise<void> {
 
 /** Persist the upload fence before any irreversible operation. */
 export async function prepareAccountDeletion(userId: string): Promise<boolean> {
-  const { error } = await serviceClient().from(TABLE).upsert({
-    user_id: userId,
-    status: 'prepared',
-    attempts: 0,
-    last_error: null,
-    updated_at: new Date().toISOString(),
-  })
+  const { error } = await serviceClient().from(TABLE).upsert(
+    {
+      user_id: userId,
+      status: 'prepared',
+      attempts: 0,
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id', ignoreDuplicates: true },
+  )
   return !error
 }
 
 /** Roll back the fence when Auth refused to delete the identity. */
 export async function cancelAccountDeletion(userId: string): Promise<boolean> {
-  const { error } = await serviceClient().from(TABLE).delete().eq('user_id', userId)
+  const { error } = await serviceClient()
+    .from(TABLE)
+    .delete()
+    .match({ user_id: userId, status: 'prepared' })
   return !error
 }
 
@@ -93,7 +103,84 @@ function missingUser(error: unknown, user: unknown): boolean {
   return errorMessage(error).toLowerCase().includes('not found')
 }
 
-/** Resume every deletion that is known to be past identity removal. */
+async function readJob(userId: string): Promise<DeletionJob | null> {
+  const { data, error } = await serviceClient()
+    .from(TABLE)
+    .select('user_id, status')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data as DeletionJob | null
+}
+
+async function identityState(userId: string): Promise<'present' | 'absent' | 'unknown'> {
+  const { data, error } = await serviceClient().auth.admin.getUserById(userId)
+  if (data.user) return 'present'
+  return missingUser(error, data.user) ? 'absent' : 'unknown'
+}
+
+/** Keep route and worker attempts for one identity from racing each other. */
+async function forUser<T>(userId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = userOperations.get(userId) ?? Promise.resolve()
+  let release!: () => void
+  const hold = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const current = previous.then(() => hold)
+  userOperations.set(userId, current)
+  await previous
+  try {
+    return await operation()
+  } finally {
+    release()
+    if (userOperations.get(userId) === current) userOperations.delete(userId)
+  }
+}
+
+async function finishCleanup(userId: string): Promise<AccountDeletionOutcome> {
+  return (await cleanupAccountDeletion(userId)) ? 'deleted' : 'cleanup-pending'
+}
+
+async function reconcilePreparedJob(
+  userId: string,
+  cancelIfIdentityExists: boolean,
+): Promise<AccountDeletionOutcome> {
+  const { error } = await serviceClient().auth.admin.deleteUser(userId)
+  if (!error) {
+    await markAccountDeleted(userId)
+    return finishCleanup(userId)
+  }
+
+  const state = await identityState(userId)
+  if (state === 'absent') {
+    await markAccountDeleted(userId)
+    return finishCleanup(userId)
+  }
+  if (state === 'present') {
+    if (cancelIfIdentityExists) await cancelAccountDeletion(userId)
+    else await recordFailure(userId, error)
+    return 'failed'
+  }
+
+  /* A lost response can hide a committed deletion. Keeping the fence is the
+     only safe answer; the worker will ask Auth again and finish either way. */
+  await recordFailure(userId, error)
+  return 'unknown'
+}
+
+/** Immediate request path, serialized with retries for the same account. */
+export function requestAccountDeletion(userId: string): Promise<AccountDeletionOutcome> {
+  return forUser(userId, async () => {
+    const job = await readJob(userId)
+    if (!job) {
+      const state = await identityState(userId)
+      return state === 'absent' ? 'deleted' : state === 'present' ? 'failed' : 'unknown'
+    }
+    return job.status === 'cleanup' ? finishCleanup(userId) : reconcilePreparedJob(userId, true)
+  })
+}
+
+/** Resume prepared identity deletion as well as post-Auth Storage cleanup. */
 export async function resumeAccountDeletionJobs(): Promise<void> {
   const client = serviceClient()
   const { data, error } = await client
@@ -103,16 +190,12 @@ export async function resumeAccountDeletionJobs(): Promise<void> {
   if (error) throw error
 
   for (const job of (data ?? []) as DeletionJob[]) {
-    if (job.status === 'prepared') {
-      const { data: identity, error: identityError } = await client.auth.admin.getUserById(
-        job.user_id,
-      )
-      if (!missingUser(identityError, identity.user)) {
-        if (identityError) await recordFailure(job.user_id, identityError)
-        continue
-      }
-    }
-    await cleanupAccountDeletion(job.user_id)
+    await forUser(job.user_id, async () => {
+      const current = await readJob(job.user_id)
+      if (!current) return
+      if (current.status === 'cleanup') await cleanupAccountDeletion(job.user_id)
+      else await reconcilePreparedJob(job.user_id, false)
+    })
   }
 }
 

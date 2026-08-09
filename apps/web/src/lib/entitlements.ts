@@ -1,5 +1,5 @@
 import type { Entitlements } from 'api'
-import { billingConfigured } from '@/lib/api'
+import { commercialLaunch } from '@/lib/commercial-launch'
 import { getSupabase } from '@/lib/supabase'
 
 export type { Entitlements }
@@ -137,7 +137,7 @@ export interface Rights {
 
 export function rightsOf(
   entitlements: Entitlements | null,
-  billingOpen = billingConfigured,
+  billingOpen = commercialLaunch,
 ): Rights {
   /* Before billing launches, the historical product remains the whole product:
      clean unlimited ZIP exports, but never paid cloud sync. The same compile-

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Check, Cloud, HardDrive } from 'lucide-react'
 import { useLang } from '../i18n'
-import { LINKS, notify } from '../links'
+import { LINKS, offerHref } from '../links'
 import { CostCompare } from './CostCompare'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
@@ -33,9 +33,8 @@ type Plan = {
  * entre les offres, et la seule fonction du produit qui coûte un serveur tous
  * les mois — donc la seule qui se facture tous les ans.
  *
- * Les boutons payants ne prétendent pas encaisser : le checkout n'existe pas
- * encore, et la mention vit sous le bouton concerné, pas en note de bas de
- * section où personne ne la lit avant d'avoir cliqué.
+ * Le même build-time switch que l'éditeur choisit entre notification et boîte
+ * d'achat. La mention d'indisponibilité vit sous le bouton concerné.
  *
  * Le citron va au bouton qui marche, pas à la carte recommandée. La page
  * apprend à l'œil pendant trois mille pixels que citron = « c'est ici qu'on
@@ -149,7 +148,7 @@ export function Pricing() {
     {
       ...p.plans.licence,
       availabilityNote: p.availabilityShort,
-      href: notify(lang, 'licence'),
+      href: offerHref(lang, 'licence'),
       storage: p.storageLocal,
       cloud: false,
       highlighted: true,
@@ -157,7 +156,7 @@ export function Pricing() {
     {
       ...p.plans.cloud,
       availabilityNote: p.availabilityShort,
-      href: notify(lang, 'cloud'),
+      href: offerHref(lang, 'cloud'),
       storage: p.storageCloud,
       cloud: true,
       highlighted: false,
@@ -290,9 +289,8 @@ export function Pricing() {
               </tbody>
             </table>
           </div>
-          {/* Le comparatif décrit l'offre à l'ouverture. Le Gratuit, lui, est
-              disponible aujourd'hui et sans restriction : sans cette ligne la
-              page décourage la seule action qu'elle sait conclure. */}
+          {/* La note tranche le seul écart de profil du tableau : Gratuit est
+              illimité avant lancement, puis applique quota et filigrane. */}
           <p className="mt-3 text-xs leading-4 text-muted-foreground">{p.compareNote}</p>
         </div>
       </div>

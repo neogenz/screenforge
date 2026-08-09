@@ -1,4 +1,5 @@
 import type { AppType } from 'api'
+import { commercialLaunch } from '@/lib/commercial-launch'
 import { getSupabase } from '@/lib/supabase'
 
 /**
@@ -23,7 +24,7 @@ const baseUrl = import.meta.env.VITE_API_URL
  * garde disparaît à l'élagage. Sans elle, l'éditeur afficherait des tarifs
  * qu'aucun checkout ne peut honorer.
  */
-export const billingConfigured = Boolean(baseUrl)
+export const billingConfigured = commercialLaunch
 
 /**
  * Le jeton de la session courante, relu à chaque appel.
@@ -89,6 +90,7 @@ export async function deleteAccount(): Promise<DeleteAccountOutcome> {
     const response = await (await api()).account.$delete()
     if (!response.ok) return 'failed'
     const result = await response.json()
+    if (!result.deleted) return 'unknown'
     return result.cleanupPending ? 'cleanup-pending' : 'deleted'
   } catch {
     /* Une rupture réseau ne prouve ni l'échec ni le succès : le serveur peut

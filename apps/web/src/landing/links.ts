@@ -1,16 +1,13 @@
 /*
- * Cibles des liens de la landing. Le checkout n'existe pas encore : il relève
- * du plan SaaS (comptes + paiement). Tant qu'il n'est pas livré, les offres
- * payantes mènent à une inscription à la liste, et les libellés des boutons le
- * disent. Au branchement, seul `notify()` change — jamais un composant, jamais
- * un libellé.
+ * Cibles des liens de la landing. Avant le lancement, une offre payante ouvre
+ * la demande de notification. Après, elle entre dans l'éditeur et ouvre sa
+ * boîte d'offres, seul endroit qui détient session et checkout.
  *
  * L'objet du mail suit la langue de la page : le sujet était figé en français
  * et s'ouvrait tel quel dans le client mail d'un visiteur anglophone, au seul
  * moment de la page où il a la plus forte intention.
  */
-// TODO(checkout): remplacer notify() par les liens de paiement
-// — voir aidd_docs/tasks/2026_08/2026_08_06_offre-commerciale/pricing.md
+import { commercialLaunch } from '@/lib/commercial-launch'
 import type { Lang } from './i18n'
 
 const ADDRESS = 'mailto:hello@screenforge.app'
@@ -27,6 +24,10 @@ const SUBJECTS = {
 
 export function notify(lang: Lang, plan: 'licence' | 'cloud') {
   return `${ADDRESS}?subject=${encodeURIComponent(SUBJECTS[lang][plan])}`
+}
+
+export function offerHref(lang: Lang, plan: 'licence' | 'cloud') {
+  return commercialLaunch ? '/?offers=open' : notify(lang, plan)
 }
 
 export const LINKS = {

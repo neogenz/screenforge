@@ -1,12 +1,6 @@
 import { Hono } from 'hono'
-import {
-  cancelAccountDeletion,
-  cleanupAccountDeletion,
-  markAccountDeleted,
-  prepareAccountDeletion,
-} from '../account-deletion.ts'
+import { prepareAccountDeletion, requestAccountDeletion } from '../account-deletion.ts'
 import { requireAuth, type AuthVariables } from '../middleware/auth.ts'
-import { serviceClient } from '../supabase.ts'
 
 /**
  * La suppression du compte, et de tout ce qui y pend.
@@ -31,23 +25,20 @@ export const account = new Hono<{ Variables: AuthVariables }>().delete(
   requireAuth,
   async (c) => {
     const userId = c.get('user').id
-    const client = serviceClient()
 
     if (!(await prepareAccountDeletion(userId))) {
       return c.json({ error: 'QUEUE_FAILED' as const }, 502)
     }
 
-    const { error } = await client.auth.admin.deleteUser(userId)
-    if (error) {
-      if (!(await cancelAccountDeletion(userId))) {
-        console.error('Could not roll back account deletion queue.', { userId })
-      }
-      return c.json({ error: 'DELETE_FAILED' as const }, 502)
+    const outcome = await requestAccountDeletion(userId)
+    if (outcome === 'failed') return c.json({ error: 'DELETE_FAILED' as const }, 502)
+    if (outcome === 'unknown') {
+      return c.json(
+        { deleted: false as const, cleanupPending: true as const, outcome: 'unknown' as const },
+        202,
+      )
     }
-
-    await markAccountDeleted(userId)
-    const cleaned = await cleanupAccountDeletion(userId)
-    return cleaned
+    return outcome === 'deleted'
       ? c.json({ deleted: true as const, cleanupPending: false as const })
       : c.json({ deleted: true as const, cleanupPending: true as const }, 202)
   },
