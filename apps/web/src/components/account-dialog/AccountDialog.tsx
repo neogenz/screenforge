@@ -3,6 +3,7 @@ import { Check, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { createPortalSession, deleteAccount } from '@/lib/api'
+import { handleAccountDeletionOutcome } from '@/lib/account-deletion-ui'
 import { signOut, signOutAndReport } from '@/lib/auth'
 import { formatGrantDate } from '@/lib/plans'
 import { useAuthStore } from '@/stores/auth.store'
@@ -58,29 +59,25 @@ function AccountDialogContent() {
   async function confirmDelete() {
     setPending('delete')
     const outcome = await deleteAccount()
-    if (outcome === 'failed' || outcome === 'unknown') {
-      setPending(null)
-      setConfirmingDelete(false)
-      toast(
-        outcome === 'failed'
-          ? 'La suppression a échoué. Le compte reste actif.'
-          : 'Impossible de confirmer la suppression. Rechargez la page avant de réessayer.',
-        'error',
-      )
-      return
-    }
-    /* La session ne survit pas au compte : sans cette déconnexion le client
-       garderait un jeton dont l'identité n'existe plus, et chaque requête
-       repartirait chercher un 401. Les projets locaux, eux, ne bougent pas —
-       ils n'ont jamais appartenu au compte. */
-    await signOut()
-    setShowAccountDialog(false)
-    toast(
-      outcome === 'cleanup-pending'
-        ? 'Compte supprimé. Le nettoyage cloud restant reprendra automatiquement.'
-        : 'Compte supprimé. Vos projets restent sur cette machine.',
-      outcome === 'cleanup-pending' ? 'info' : 'success',
-    )
+    await handleAccountDeletionOutcome(outcome, {
+      signOut: async () => {
+        /* Même si le SDK ne peut plus joindre une identité déjà effacée, le
+           store doit quitter immédiatement le mode cloud. */
+        try {
+          await signOut()
+        } catch (error) {
+          console.warn('Could not revoke the deleted account session.', error)
+        } finally {
+          useAuthStore.getState().setSession(null)
+        }
+      },
+      close: () => setShowAccountDialog(false),
+      retry: () => {
+        setPending(null)
+        setConfirmingDelete(false)
+      },
+      notify: toast,
+    })
   }
 
   return (

@@ -300,7 +300,7 @@ const en = {
       },
       {
         q: 'What happens if I stop paying for Cloud?',
-        a: 'Your projects come back down to local storage and stay editable and exportable, because the Licence you bought does not expire. You only lose the mirror and the multi-machine pickup.',
+        a: 'The copies already present on your machines stay local, editable, and exportable because your Licence does not expire. You only lose the cloud mirror and multi-machine pickup.',
       },
       {
         q: 'Which dimensions does it export?',
@@ -592,7 +592,7 @@ const fr: Copy = {
       },
       {
         q: 'Que se passe-t-il si j’arrête de payer le Cloud ?',
-        a: 'Vos projets redescendent en local, restent modifiables et exportables : la Licence que vous avez achetée n’expire pas. Vous perdez seulement la recopie et la reprise multi-machine.',
+        a: 'Les copies déjà présentes sur vos machines y restent, modifiables et exportables, car votre Licence n’expire pas. Vous perdez seulement la recopie cloud et la reprise multi-machine.',
       },
       {
         q: 'Quelles dimensions sont exportées ?',

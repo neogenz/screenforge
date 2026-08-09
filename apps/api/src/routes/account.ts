@@ -32,11 +32,18 @@ export const account = new Hono<{ Variables: AuthVariables }>().delete(
 
     const outcome = await requestAccountDeletion(userId)
     if (outcome === 'failed') return c.json({ error: 'DELETE_FAILED' as const }, 502)
-    if (outcome === 'unknown') {
+    if (outcome === 'deletion-pending') {
       return c.json(
-        { deleted: false as const, cleanupPending: true as const, outcome: 'unknown' as const },
+        {
+          deleted: false as const,
+          cleanupPending: true as const,
+          outcome: 'deletion-pending' as const,
+        },
         202,
       )
+    }
+    if (outcome === 'unknown') {
+      return c.json({ outcome: 'unknown' as const }, 503)
     }
     return outcome === 'deleted'
       ? c.json({ deleted: true as const, cleanupPending: false as const })

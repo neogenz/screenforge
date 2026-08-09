@@ -20,6 +20,7 @@ const supabase = vi.hoisted(() => {
     remove: false,
     deleteUser: 'none' as 'none' | 'before' | 'after',
     getUser: false,
+    cancelJob: false,
   }
   let identityExists = true
 
@@ -40,6 +41,7 @@ const supabase = vi.hoisted(() => {
     delete: () => ({
       match: async ({ user_id: userId, status }: { user_id: string; status?: Job['status'] }) => {
         calls.push('job:delete')
+        if (fail.cancelJob) return { error: new Error('database down') }
         if (!status || jobs.get(userId)?.status === status) jobs.delete(userId)
         return { error: null }
       },
@@ -178,6 +180,7 @@ describe('DELETE /account', () => {
     supabase.fail.remove = false
     supabase.fail.deleteUser = 'none'
     supabase.fail.getUser = false
+    supabase.fail.cancelJob = false
     supabase.setIdentityExists(true)
     auth.user = { id: USER, email: 'moi@example.com' }
   })
@@ -285,7 +288,7 @@ describe('DELETE /account', () => {
     await expect(response.json()).resolves.toEqual({
       deleted: false,
       cleanupPending: true,
-      outcome: 'unknown',
+      outcome: 'deletion-pending',
     })
     expect(supabase.jobs.get(USER)).toMatchObject({ status: 'prepared', attempts: 1 })
     expect(supabase.objects).toEqual([{ name: 'a1' }, { name: 'a2' }])
@@ -293,6 +296,31 @@ describe('DELETE /account', () => {
     supabase.fail.deleteUser = 'none'
     supabase.fail.getUser = false
     await resumeAccountDeletionJobs()
+    expect(supabase.identityExists()).toBe(false)
+    expect(supabase.objects).toEqual([])
+    expect(supabase.jobs.size).toBe(0)
+  })
+
+  it('un échec de retrait du job reste pending puis le worker termine', async () => {
+    supabase.fail.deleteUser = 'before'
+    supabase.fail.cancelJob = true
+
+    const response = await remove()
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual({
+      deleted: false,
+      cleanupPending: true,
+      outcome: 'deletion-pending',
+    })
+    expect(supabase.identityExists()).toBe(true)
+    expect(supabase.jobs.get(USER)).toMatchObject({ status: 'prepared', attempts: 1 })
+    expect(supabase.objects).toHaveLength(2)
+
+    supabase.fail.deleteUser = 'none'
+    supabase.fail.cancelJob = false
+    await resumeAccountDeletionJobs()
+
     expect(supabase.identityExists()).toBe(false)
     expect(supabase.objects).toEqual([])
     expect(supabase.jobs.size).toBe(0)

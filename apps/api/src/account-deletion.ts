@@ -10,7 +10,8 @@ interface DeletionJob {
   status: 'prepared' | 'cleanup'
 }
 
-export type AccountDeletionOutcome = 'deleted' | 'cleanup-pending' | 'failed' | 'unknown'
+export type AccountDeletionOutcome =
+  'deleted' | 'cleanup-pending' | 'deletion-pending' | 'failed' | 'unknown'
 
 const userOperations = new Map<string, Promise<void>>()
 
@@ -157,15 +158,18 @@ async function reconcilePreparedJob(
     return finishCleanup(userId)
   }
   if (state === 'present') {
-    if (cancelIfIdentityExists) await cancelAccountDeletion(userId)
-    else await recordFailure(userId, error)
-    return 'failed'
+    if (cancelIfIdentityExists) {
+      const cancelled = await cancelAccountDeletion(userId)
+      if (cancelled) return 'failed'
+    }
+    await recordFailure(userId, error)
+    return 'deletion-pending'
   }
 
   /* A lost response can hide a committed deletion. Keeping the fence is the
      only safe answer; the worker will ask Auth again and finish either way. */
   await recordFailure(userId, error)
-  return 'unknown'
+  return 'deletion-pending'
 }
 
 /** Immediate request path, serialized with retries for the same account. */

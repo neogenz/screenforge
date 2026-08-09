@@ -82,14 +82,20 @@ export async function createCheckout(product: 'licence' | 'cloud'): Promise<Chec
  * la réponse peut se perdre après la suppression effective, et l'identité peut
  * être supprimée alors que le nettoyage Storage doit être repris côté serveur.
  */
-export type DeleteAccountOutcome = 'deleted' | 'cleanup-pending' | 'failed' | 'unknown'
+export type DeleteAccountOutcome =
+  'deleted' | 'cleanup-pending' | 'deletion-pending' | 'failed' | 'unknown'
 
 export async function deleteAccount(): Promise<DeleteAccountOutcome> {
   if (!billingConfigured) return 'failed'
   try {
     const response = await (await api()).account.$delete()
-    if (!response.ok) return 'failed'
     const result = await response.json()
+    if ('outcome' in result) {
+      if (result.outcome === 'deletion-pending') return 'deletion-pending'
+      if (result.outcome === 'unknown') return 'unknown'
+    }
+    if (!response.ok) return 'failed'
+    if (!('deleted' in result)) return 'failed'
     if (!result.deleted) return 'unknown'
     return result.cleanupPending ? 'cleanup-pending' : 'deleted'
   } catch {

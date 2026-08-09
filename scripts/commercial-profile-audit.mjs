@@ -8,7 +8,12 @@ if (profile !== 'prelaunch' && profile !== 'launch') {
 const html = readFileSync('apps/web/dist/landing-fr.html', 'utf8')
 const expected =
   profile === 'launch'
-    ? ['Les offres payantes sont ouvertes', 'Acheter la Licence', '/?offers=open']
+    ? [
+        'Les offres payantes sont ouvertes',
+        'Acheter la Licence',
+        '/?offers=open',
+        'Les copies déjà présentes sur vos machines y restent',
+      ]
     : ['Pas encore ouvert', 'Être prévenu à l’ouverture', 'Exports propres illimités et ZIP groupé']
 const forbidden =
   profile === 'launch'
