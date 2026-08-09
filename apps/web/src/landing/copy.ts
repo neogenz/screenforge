@@ -164,15 +164,15 @@ const en = {
      démonstration à l'intérieur des tarifs, dont le titre porte déjà
      l'argument. */
   ownership: {
-    tableLabel: 'Total paid after',
-    rentLabel: 'A $99/year subscription',
+    tableLabel: 'Total paid',
+    rentLabel: 'A yearly subscription',
     ownLabel: 'ScreenForge licence',
     rows: [
-      { year: 'Year 1', rent: '$99', own: '$49' },
-      { year: 'Year 2', rent: '$198', own: '$49' },
-      { year: 'Year 3', rent: '$297', own: '$49' },
+      { year: 'After 1 year', rent: '$99', own: '$49' },
+      { year: 'After 2 years', rent: '$198', own: '$49' },
+      { year: 'After 3 years', rent: '$297', own: '$49' },
     ],
-    footnote: 'AppScreens Pro list price, checked on 6 August 2026: $99/year.',
+    footnote: 'AppScreens Pro lists at $99/year, price checked on 6 August 2026.',
   },
   pricing: {
     title: 'Pay once. That’s the whole model.',
@@ -439,15 +439,15 @@ const fr: Copy = {
     },
   },
   ownership: {
-    tableLabel: 'Total payé au bout de',
-    rentLabel: 'Un abonnement à 99 $/an',
+    tableLabel: 'Total payé',
+    rentLabel: 'Un abonnement annuel',
     ownLabel: 'La licence ScreenForge',
     rows: [
-      { year: '1 an', rent: '99 $', own: '49 $' },
-      { year: '2 ans', rent: '198 $', own: '49 $' },
-      { year: '3 ans', rent: '297 $', own: '49 $' },
+      { year: 'Après 1 an', rent: '99 $', own: '49 $' },
+      { year: 'Après 2 ans', rent: '198 $', own: '49 $' },
+      { year: 'Après 3 ans', rent: '297 $', own: '49 $' },
     ],
-    footnote: 'Tarif public AppScreens Pro, relevé le 6 août 2026 : 99 $/an.',
+    footnote: 'AppScreens Pro affiche 99 $/an, tarif relevé le 6 août 2026.',
   },
   pricing: {
     title: 'On paie une fois. C’est tout le modèle.',

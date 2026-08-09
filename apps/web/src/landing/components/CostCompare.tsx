@@ -13,12 +13,33 @@ import { useLang } from '../i18n'
  *
  * La colonne louée grossit, la colonne achetée ne bouge pas — un tableau le
  * démontre mieux qu'une phrase.
+ *
+ * Chaque cellule est une phrase entière. L'intitulé disait « Total payé au
+ * bout de » et l'en-tête de ligne « 1 an » : le lecteur devait assembler la
+ * phrase en croisant deux axes, et en français elle sortait fausse — « au bout
+ * de 1 an » au lieu de « au bout d'un an ». Un texte d'interface qui se
+ * complète d'une cellule à l'autre n'est pas traduisible non plus : le
+ * traducteur ne peut pas réordonner ce qu'il reçoit en morceaux. L'intitulé
+ * nomme donc ce que sont les nombres — des cumuls, sans quoi 198 $ se lirait
+ * comme un tarif annuel — et chaque ligne porte son propre repère de temps.
+ * L'en-tête de la colonne louée a perdu son « 99 $/an » : la première ligne
+ * l'affiche déjà, et la note dit d'où il vient.
+ *
+ * Il est centré, et sur la mesure du chapô, parce qu'il appartient à
+ * l'argument et pas à l'offre. La section a deux axes : le titre, le chapô et
+ * la démonstration tiennent une colonne étroite au centre, les trois cartes et
+ * le comparatif prennent la largeur. Aligné à gauche sur 45 % de la page, le
+ * tableau n'était sur ni l'un ni l'autre — seul élément hors axe de la
+ * section, avec sept cents pixels de noir à sa droite que rien ne venait
+ * occuper. Sa largeur suit celle du chapô plutôt qu'un palier choisi : deux
+ * blocs centrés dont les bords se ratent de huit pixels se lisent moins bien
+ * qu'un seul mal placé.
  */
 export function CostCompare() {
   const { t } = useLang()
   const own = t.ownership
   return (
-    <div className="mt-10 max-w-xl">
+    <div className="mx-auto mt-10 w-full max-w-[65ch] text-[15px]">
       <table className="w-full border-collapse text-sm">
         <caption className="pb-3 text-left text-2xs tracking-[0.14em] text-muted-foreground uppercase">
           {own.tableLabel}
