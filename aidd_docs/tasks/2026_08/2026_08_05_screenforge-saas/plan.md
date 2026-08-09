@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge devient un SaaS : comptes SSO, sync cloud des projets, licence et add-on vendus via Merchant of Record, sans toucher au chemin critique d'export pixel-exact."
-status: implemented
+status: reviewed
 ---
 
 # Plan: ScreenForge SaaS — auth, sync cloud, billing
