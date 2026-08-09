@@ -140,6 +140,7 @@ async function commitProject(
   db: IDBPDatabase<ScreenForgeDB>,
   project: Project,
   deleteAssetIds: readonly string[] = [],
+  notifyListeners = true,
 ): Promise<Project> {
   const normalized = normalizeProject(project)
   const dirty = readDirtyAssets()
@@ -173,11 +174,13 @@ async function commitProject(
   markAssetsClean(dirty.map((asset) => asset.id))
   // Après le commit, jamais avant : un abonné qui échoue ne doit pas pouvoir
   // annuler une sauvegarde locale déjà acquise.
-  for (const listener of commitListeners) {
-    try {
-      listener(normalized)
-    } catch (error) {
-      console.error('A project commit listener failed.', error)
+  if (notifyListeners) {
+    for (const listener of commitListeners) {
+      try {
+        listener(normalized)
+      } catch (error) {
+        console.error('A project commit listener failed.', error)
+      }
     }
   }
   return normalized
@@ -189,7 +192,10 @@ export async function saveProject(project: Project): Promise<void> {
 }
 
 /** Loads a project and its binary assets; migrates v1 inline payloads. */
-async function loadProjectRecord(record: Project | undefined): Promise<Project | undefined> {
+async function loadProjectRecord(
+  record: Project | undefined,
+  notifyCommit = true,
+): Promise<Project | undefined> {
   if (!record) return undefined
   const db = await getDB()
   const assets = await db.getAllFromIndex('assets', 'by-project', record.id)
@@ -199,12 +205,15 @@ async function loadProjectRecord(record: Project | undefined): Promise<Project |
   const orphanIds = assets.flatMap((asset) => (keepIds.has(asset.id) ? [] : [asset.id]))
   sweepAssets(keepIds)
   // Rewrites legacy inline data and deletes orphans in the same durable commit.
-  return commitProject(db, project, orphanIds)
+  return commitProject(db, project, orphanIds, notifyCommit)
 }
 
-export async function loadProject(id: string): Promise<Project | undefined> {
+export async function loadProject(
+  id: string,
+  options: { notifyCommit?: boolean } = {},
+): Promise<Project | undefined> {
   const db = await getDB()
-  return loadProjectRecord(await db.get('projects', id))
+  return loadProjectRecord(await db.get('projects', id), options.notifyCommit)
 }
 
 export async function loadLatestProject(): Promise<Project | undefined> {
@@ -302,23 +311,47 @@ function importedProject(decoded: DecodedProjectFile): {
   return { project, assets }
 }
 
-/** Persists a complete project bundle without touching the active asset registry. */
+/**
+ * Persist a complete remote bundle only while it still wins local LWW.
+ *
+ * The read and every project/asset mutation share one readwrite transaction:
+ * another local commit either finishes before this read, or waits and writes
+ * after this transaction. There is no stale-check window around the `put`.
+ */
 export async function storeRemoteProject(
   project: Project,
   assets: readonly { id: string; dataUrl: string }[],
-): Promise<void> {
+): Promise<boolean> {
   const db = await getDB()
-  const previousAssetIds = await db.getAllKeysFromIndex('assets', 'by-project', project.id)
-  const keep = new Set(assets.map((asset) => asset.id))
   const tx = db.transaction(['projects', 'assets'], 'readwrite')
-  await Promise.all([
-    tx.objectStore('projects').put(project),
-    ...assets.map((asset) => tx.objectStore('assets').put({ ...asset, projectId: project.id })),
-    ...previousAssetIds.flatMap((id) =>
-      keep.has(String(id)) ? [] : [tx.objectStore('assets').delete(id)],
-    ),
-  ])
-  await tx.done
+  const projects = tx.objectStore('projects')
+  const assetStore = tx.objectStore('assets')
+  const requests: Promise<unknown>[] = []
+  try {
+    const current = await projects.get(project.id)
+    if (current && current.updatedAt >= project.updatedAt) {
+      await tx.done
+      return false
+    }
+
+    const previousAssetIds = await assetStore.index('by-project').getAllKeys(project.id)
+    const keep = new Set(assets.map((asset) => asset.id))
+    requests.push(
+      projects.put(project),
+      ...assets.map((asset) => assetStore.put({ ...asset, projectId: project.id })),
+      ...previousAssetIds.flatMap((id) => (keep.has(String(id)) ? [] : [assetStore.delete(id)])),
+    )
+    await Promise.all([...requests, tx.done])
+    return true
+  } catch (error) {
+    try {
+      tx.abort()
+    } catch {
+      // A failed request may already have aborted the transaction.
+    }
+    await Promise.allSettled([...requests, tx.done])
+    throw error
+  }
 }
 
 function activateProject(project: Project, assets: readonly AssetRecord[]): Project {
@@ -332,7 +365,9 @@ function activateProject(project: Project, assets: readonly AssetRecord[]): Proj
 
 /** Persists a project and its binaries in one transaction, then opens it. */
 async function installProject(project: Project, assets: AssetRecord[]): Promise<Project> {
-  await storeRemoteProject(project, assets)
+  if (!(await storeRemoteProject(project, assets))) {
+    throw new Error('A newer local project already exists.')
+  }
   return activateProject(project, assets)
 }
 
@@ -359,12 +394,24 @@ export async function importPortableProject(file: File): Promise<Project> {
 export async function adoptRemoteProject(
   project: Project,
   assets: readonly { id: string; dataUrl: string }[],
-): Promise<void> {
+): Promise<{ stored: boolean; activated: boolean }> {
   await saveCurrentProject()
-  await installProject(
-    project,
-    assets.map((asset) => ({ ...asset, projectId: project.id })),
-  )
+  const activeAfterFlush = useProjectStore.getState().project
+  const records = assets.map((asset) => ({ ...asset, projectId: project.id }))
+  const stored = await storeRemoteProject(project, records)
+  if (!stored) return { stored: false, activated: false }
+
+  /* No await between this last store check and activation. If editing advanced
+     while the IDB transaction ran, its autosave remains authoritative. */
+  const activeBeforeActivation = useProjectStore.getState().project
+  if (
+    activeBeforeActivation?.id !== activeAfterFlush?.id ||
+    activeBeforeActivation?.updatedAt !== activeAfterFlush?.updatedAt
+  ) {
+    return { stored: true, activated: false }
+  }
+  activateProject(project, records)
+  return { stored: true, activated: true }
 }
 
 /** Saves the current document, then opens another project already in IndexedDB. */

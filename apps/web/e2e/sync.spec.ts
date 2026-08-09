@@ -348,6 +348,136 @@ test.describe('Sync cloud', () => {
     await session.client.auth.signOut()
   })
 
+  test('un projet non ciblé édité puis quitté pendant le pull garde sa version locale', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+    const context = await browser.newContext({ baseURL })
+    const page = await context.newPage()
+    await waitForApp(page)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+
+    const marker = Date.now()
+    const localAName = `Local non ciblé A ${marker}`
+    const localBName = `Local actif B ${marker}`
+    await page.evaluate(
+      (name) => window.__sfStores?.useProjectStore.getState().createProject(name),
+      localAName,
+    )
+    await page.getByLabel('Ajouter Texte').click()
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const localA = await page.evaluate(() =>
+      structuredClone(window.__sfStores?.useProjectStore.getState().project ?? null),
+    )
+    await page.evaluate(
+      (name) => window.__sfStores?.useProjectStore.getState().createProject(name),
+      localBName,
+    )
+    await page.getByLabel('Ajouter Texte').click()
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    if (!localA) throw new Error('Could not create the non-target local fixture.')
+
+    const remoteA = structuredClone(localA)
+    remoteA.name = `Remote ancien A ${marker}`
+    remoteA.updatedAt = Date.now()
+    const remoteAssetId = crypto.randomUUID()
+    remoteA.screens[0]!.layers.push({
+      id: crypto.randomUUID(),
+      type: 'image',
+      name: 'Asset distant retenu',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      zIndex: remoteA.screens[0]!.layers.length,
+      assetId: remoteAssetId,
+      originalWidth: 8,
+      originalHeight: 8,
+    })
+    expect(
+      (
+        await session.client.storage
+          .from('assets')
+          .upload(`${session.userId}/${remoteAssetId}`, makeSolidPng(8, 8, [234, 88, 12, 255]), {
+            contentType: 'image/png',
+            upsert: true,
+          })
+      ).error,
+    ).toBeNull()
+    expect(
+      (
+        await session.client.rpc('upsert_project_lww', {
+          project_id: remoteA.id,
+          project_user_id: session.userId,
+          project_name: remoteA.name,
+          project_data: remoteA as never,
+          project_updated_at: new Date(remoteA.updatedAt).toISOString(),
+        })
+      ).data,
+    ).toBe(true)
+
+    let releaseDownload!: () => void
+    const heldDownload = new Promise<void>((resolve) => {
+      releaseDownload = resolve
+    })
+    let markDownloadStarted!: () => void
+    const downloadStarted = new Promise<void>((resolve) => {
+      markDownloadStarted = resolve
+    })
+    await page.route('**/storage/v1/object/**', async (route) => {
+      if (route.request().url().includes(remoteAssetId)) {
+        markDownloadStarted()
+        await heldDownload
+      }
+      await route.continue()
+    })
+    await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
+      STORAGE_KEY,
+      session.seed,
+    ] as const)
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(projectName(page)).toHaveValue(localBName)
+    await downloadStarted
+
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${localAName} »` }).click()
+    const editedAName = `${localAName} édité`
+    await projectName(page).fill(editedAName)
+    await projectName(page).press('Enter')
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${localBName} »` }).click()
+    await expect(projectName(page)).toHaveValue(localBName)
+    releaseDownload()
+
+    await expect
+      .poll(async () => Boolean(await remoteRow(session.client, editedAName)), { timeout: 30_000 })
+      .toBe(true)
+    await expect(projectName(page)).toHaveValue(localBName)
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${editedAName} »` }).click()
+    await expect(projectName(page)).toHaveValue(editedAName)
+
+    const row = await remoteRow(session.client, editedAName)
+    if (row) await session.client.from('projects').delete().eq('id', row.id)
+    await session.client.storage.from('assets').remove([`${session.userId}/${remoteAssetId}`])
+    await context.close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await session.client.auth.signOut()
+  })
+
   test('deux clients livrés dans l’ordre inverse conservent la version récente', async () => {
     const other = createClient(stack!.url, stack!.anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -543,6 +673,113 @@ test.describe('Sync cloud', () => {
       .toBe(true)
 
     await page.context().close()
+  })
+
+  test('un rechargement rejoue tous les projets modifiés hors ligne avec leurs assets', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+    const page = await openApp(browser, baseURL!, session.seed)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const marker = Date.now()
+    const onlineNames = [`File A ${marker}`, `File B ${marker}`]
+    for (const name of onlineNames) {
+      await page.evaluate(
+        (projectName) => window.__sfStores?.useProjectStore.getState().createProject(projectName),
+        name,
+      )
+      await page.getByLabel('Ajouter Texte').click()
+      await expect
+        .poll(async () => Boolean(await remoteRow(session.client, name)), { timeout: 30_000 })
+        .toBe(true)
+    }
+
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[0]} »` }).click()
+    await expect(projectName(page)).toHaveValue(onlineNames[0])
+    await page.context().setOffline(true)
+
+    const offlineNames = [`${onlineNames[0]} hors ligne`, `${onlineNames[1]} hors ligne`]
+    await projectName(page).fill(offlineNames[0])
+    await projectName(page).press('Enter')
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'a.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [220, 38, 38, 255]),
+    })
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const assetA = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
+
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[1]} »` }).click()
+    await expect(projectName(page)).toHaveValue(onlineNames[1])
+    await projectName(page).fill(offlineNames[1])
+    await projectName(page).press('Enter')
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'b.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [37, 99, 235, 255]),
+    })
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const assetB = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
+    expect(assetA).not.toBeNull()
+    expect(assetB).not.toBeNull()
+
+    await page.route('http://127.0.0.1:54421/**', (route) => route.abort())
+    await page.context().setOffline(false)
+    await waitForApp(page)
+    await expect(projectName(page)).toHaveValue(offlineNames[1])
+    await page.unroute('http://127.0.0.1:54421/**')
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
+
+    for (const name of offlineNames) {
+      await expect
+        .poll(async () => Boolean(await remoteRow(session.client, name)), { timeout: 30_000 })
+        .toBe(true)
+    }
+    const [downloadA, downloadB] = await Promise.all([
+      session.client.storage.from('assets').download(`${session.userId}/${assetA}`),
+      session.client.storage.from('assets').download(`${session.userId}/${assetB}`),
+    ])
+    expect(downloadA.error).toBeNull()
+    expect(downloadB.error).toBeNull()
+    expect(downloadA.data?.size).toBeGreaterThan(0)
+    expect(downloadB.data?.size).toBeGreaterThan(0)
+    await expect(projectName(page)).toHaveValue(offlineNames[1])
+    expect(
+      await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), assetB),
+    ).toBe(true)
+
+    for (const name of offlineNames) {
+      const row = await remoteRow(session.client, name)
+      if (row) await session.client.from('projects').delete().eq('id', row.id)
+    }
+    await session.client.storage
+      .from('assets')
+      .remove([`${session.userId}/${assetA}`, `${session.userId}/${assetB}`])
+    await page.context().close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await session.client.auth.signOut()
   })
 })
 

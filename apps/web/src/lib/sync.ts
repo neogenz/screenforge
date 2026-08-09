@@ -33,7 +33,13 @@ import {
   storeRemoteProject,
 } from '@/lib/storage'
 import { cloudConfigured, getSupabase } from '@/lib/supabase'
-import { readSyncRecord, syncKey, writeSyncRecord } from '@/lib/sync-queue'
+import {
+  ensureSyncRecord,
+  listSyncRecords,
+  readSyncRecord,
+  syncKey,
+  writeSyncRecord,
+} from '@/lib/sync-queue'
 import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
@@ -266,47 +272,17 @@ export async function fetchRemoteProjectRows(client: Client): Promise<RemoteProj
   }
 }
 
-function sameVersion(
-  left: Pick<Project, 'id' | 'updatedAt'> | null,
-  right: Pick<Project, 'id' | 'updatedAt'> | null,
-): boolean {
-  return left?.id === right?.id && left?.updatedAt === right?.updatedAt
-}
-
-async function targetStillWins(
-  client: Client,
-  initialActive: Project | null,
-  bundle: ProjectBundle,
-): Promise<{ install: boolean; preserve: Project | null; retry: boolean }> {
-  const [localProjects, remoteVersion] = await Promise.all([
-    listProjects(),
-    client.from('projects').select('updated_at').eq('id', bundle.project.id).maybeSingle(),
-  ])
+async function remoteTargetUnchanged(client: Client, bundle: ProjectBundle): Promise<boolean> {
+  const remoteVersion = await client
+    .from('projects')
+    .select('updated_at')
+    .eq('id', bundle.project.id)
+    .maybeSingle()
   if (remoteVersion.error) throw remoteVersion.error
-
-  const active = useProjectStore.getState().project
   const currentRemoteUpdatedAt = remoteVersion.data
     ? Date.parse(remoteVersion.data.updated_at)
     : Number.NaN
-  if (currentRemoteUpdatedAt !== bundle.remoteUpdatedAt) {
-    return { install: false, preserve: null, retry: true }
-  }
-
-  /* The user changed or switched the active document while bytes were in
-     flight. That commit belongs to the user, never to the pull being installed. */
-  if (!sameVersion(active, initialActive)) {
-    return { install: false, preserve: active, retry: false }
-  }
-
-  const persisted = localProjects.find((project) => project.id === bundle.project.id)
-  if ((persisted?.updatedAt ?? 0) >= bundle.remoteUpdatedAt) {
-    return {
-      install: false,
-      preserve: active?.id === bundle.project.id ? active : null,
-      retry: false,
-    }
-  }
-  return { install: true, preserve: null, retry: false }
+  return currentRemoteUpdatedAt === bundle.remoteUpdatedAt
 }
 
 async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
@@ -344,16 +320,14 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
         return
       }
 
-      const active = useProjectStore.getState().project
-      if (active?.id === project.id && active.updatedAt > (local.get(project.id)?.updatedAt ?? 0)) {
-        preservedProject = active
-        return
-      }
-
       /* Each complete non-target bundle is committed by its own bounded worker.
          Only the target bundle stays in memory until all workers finish. */
-      await storeRemoteProject(bundle.project, bundle.assets)
-      await acknowledgePulledProject(userId, bundle.project, bundle.assets)
+      if (await storeRemoteProject(bundle.project, bundle.assets)) {
+        await acknowledgePulledProject(userId, bundle.project, bundle.assets)
+      } else {
+        const active = useProjectStore.getState().project
+        if (active?.id === project.id) preservedProject = active
+      }
     } catch (projectError) {
       failedProjectIds.add(project.id)
       console.error(`Could not install remote project ${project.id}.`, projectError)
@@ -368,25 +342,24 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
   const target = targetBundle as ProjectBundle | null
   if (target) {
     try {
-      const decision = await targetStillWins(client, initialActive, target)
-      if (decision.preserve) preservedProject = decision.preserve
-      if (decision.retry) failedProjectIds.add(target.project.id)
-      if (decision.install) {
-        ignoredAdoptionCommit = {
-          id: target.project.id,
-          updatedAt: target.project.updatedAt,
+      if (!(await remoteTargetUnchanged(client, target))) {
+        failedProjectIds.add(target.project.id)
+      } else {
+        const result = await adoptRemoteProject(target.project, target.assets)
+        if (result.stored) {
+          await acknowledgePulledProject(userId, target.project, target.assets)
         }
-        await adoptRemoteProject(target.project, target.assets)
-        await acknowledgePulledProject(userId, target.project, target.assets)
-        adopted = true
+        if (result.activated) {
+          ignoredAdoptionCommit = {
+            id: target.project.id,
+            updatedAt: target.project.updatedAt,
+          }
+          adopted = true
+        } else {
+          preservedProject = useProjectStore.getState().project
+        }
       }
     } catch (projectError) {
-      if (
-        ignoredAdoptionCommit?.id === target.project.id &&
-        ignoredAdoptionCommit.updatedAt === target.project.updatedAt
-      ) {
-        ignoredAdoptionCommit = null
-      }
       failedProjectIds.add(target.project.id)
       console.error(`Could not open remote project ${target.project.id}.`, projectError)
     }
@@ -511,12 +484,54 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
   return failed
 }
 
+interface PendingPushResult {
+  pushedProjectIds: string[]
+  remoteRejected: boolean
+}
+
+/** Rebuild the durable queue from local metadata and per-user acknowledgements. */
+async function pushPendingProjects(client: Client, userId: string): Promise<PendingPushResult> {
+  const [local, records] = await Promise.all([listProjects(), listSyncRecords(userId)])
+  const acknowledged = new Map(records.map((record) => [record.key, record.pushedUpdatedAt]))
+  const pending = local
+    .filter((project) => {
+      const pushedUpdatedAt = acknowledged.get(syncKey(userId, project.id))
+      return pushedUpdatedAt !== undefined && project.updatedAt > pushedUpdatedAt
+    })
+    .sort((left, right) => left.updatedAt - right.updatedAt || left.id.localeCompare(right.id))
+
+  const pushedProjectIds: string[] = []
+  let remoteRejected = false
+  let registryChanged = false
+  try {
+    for (const metadata of pending) {
+      if (!syncAllowed() || currentUserId() !== userId) break
+      /* This read hydrates the binary registry but is not a user commit. If it
+         notified the sync listener, every failed push would schedule itself
+         again immediately instead of remaining durably pending for retry. */
+      const project = await loadProject(metadata.id, { notifyCommit: false })
+      registryChanged = true
+      if (!project) continue
+      if (await pushProject(client, userId, project)) pushedProjectIds.push(project.id)
+      else remoteRejected = true
+    }
+  } finally {
+    /* Loading a project also loads its assets. Always put the current editor's
+       registry back, even after a partial upload or a rejected remote write. */
+    const activeProjectId = useProjectStore.getState().project?.id
+    if (registryChanged && activeProjectId) {
+      await loadProject(activeProjectId, { notifyCommit: false })
+    }
+  }
+  return { pushedProjectIds, remoteRejected }
+}
+
 // ─── Orchestration ───────────────────────────────────────────────────────────
 
 /** La file d'exécution : un cycle à la fois — voir `schedule`. */
 let chain: Promise<void> = Promise.resolve()
-/** Le dernier projet commité, en attente d'un cycle. */
-let queued: Project | null = null
+/** In-session coalescing only; IndexedDB metadata + acknowledgements are authoritative. */
+const queued = new Map<string, Project>()
 /** The one autosave commit produced by a remote adoption, and no other commit. */
 let ignoredAdoptionCommit: Pick<Project, 'id' | 'updatedAt'> | null = null
 /** Le tirage n'a lieu qu'une fois par session ouverte, à l'ouverture. */
@@ -524,7 +539,8 @@ let pulled = false
 
 function preserveProject(project: Project | null): void {
   if (!project) return
-  if (!queued || queued.id !== project.id || queued.updatedAt < project.updatedAt) queued = project
+  const current = queued.get(project.id)
+  if (!current || current.updatedAt < project.updatedAt) queued.set(project.id, project)
 }
 
 function offline(): boolean {
@@ -554,12 +570,16 @@ async function cycle(): Promise<void> {
   }
 
   if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
-  const project = queued ?? useProjectStore.getState().project
-  queued = null
-  if (project && !(await pushProject(client, userId, project))) {
+  const activeProject = useProjectStore.getState().project
+  if (activeProject) await ensureSyncRecord(syncKey(userId, activeProject.id))
+  await Promise.all(
+    [...queued.values()].map((project) => ensureSyncRecord(syncKey(userId, project.id))),
+  )
+  const pushed = await pushPendingProjects(client, userId)
+  for (const projectId of pushed.pushedProjectIds) queued.delete(projectId)
+  if (pushed.remoteRejected) {
     const result = await pullProjects(client, userId)
     preserveProject(result.preservedProject)
-    if (result.preservedProject) schedule()
     if (result.adopted) toast('Version cloud plus récente chargée.', 'info')
     if (result.failedProjectIds.length > 0) {
       pullIncomplete = true
@@ -603,6 +623,17 @@ function schedule(): void {
 export function initSync(): () => void {
   if (!cloudConfigured) return () => {}
 
+  const queueProject = (project: Project) => {
+    const userId = currentUserId()
+    if (!userId || !syncAllowed()) return
+    preserveProject(project)
+    void ensureSyncRecord(syncKey(userId, project.id))
+      .then(() => {
+        if (syncAllowed() && currentUserId() === userId) schedule()
+      })
+      .catch(fail)
+  }
+
   const stopCommits = onProjectCommitted((project) => {
     if (!syncAllowed()) return
     if (
@@ -613,8 +644,7 @@ export function initSync(): () => void {
       return
     }
     if (ignoredAdoptionCommit?.id === project.id) ignoredAdoptionCommit = null
-    queued = project
-    schedule()
+    queueProject(project)
   })
 
   /* On suit le droit, pas le statut : les droits arrivent une requête après la
@@ -635,7 +665,8 @@ export function initSync(): () => void {
       return
     }
     pulled = false
-    queued = null
+    queued.clear()
+    ignoredAdoptionCommit = null
     setStatus('off')
   })
 

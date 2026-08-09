@@ -77,3 +77,19 @@ export async function writeSyncRecord(record: SyncRecord): Promise<void> {
   const db = await getDB()
   await db.put('pending', record)
 }
+
+/** Create the durable pending marker without ever rolling an acknowledgement back. */
+export async function ensureSyncRecord(key: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('pending', 'readwrite')
+  const store = tx.objectStore('pending')
+  if (!(await store.get(key))) await store.add({ key, ...EMPTY })
+  await tx.done
+}
+
+/** Existing records define which local projects belong to this account's queue. */
+export async function listSyncRecords(userId: string): Promise<SyncRecord[]> {
+  const db = await getDB()
+  const prefix = `${userId}:`
+  return (await db.getAll('pending')).filter((record) => record.key.startsWith(prefix))
+}

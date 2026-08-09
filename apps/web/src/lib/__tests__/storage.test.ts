@@ -3,6 +3,7 @@ import { openDB } from 'idb'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib/assets'
 import {
+  adoptRemoteProject,
   deleteProject,
   initAutoSave,
   listProjects,
@@ -142,13 +143,119 @@ describe('storage', () => {
     await saveProject(project('Actif'))
     const remote = { ...project('Distant'), id: 'remote' }
 
-    await storeRemoteProject(remote, [
-      { id: 'remote-asset', dataUrl: 'data:image/png;base64,ZGlzdGFudA==' },
-    ])
+    await expect(
+      storeRemoteProject(remote, [
+        { id: 'remote-asset', dataUrl: 'data:image/png;base64,ZGlzdGFudA==' },
+      ]),
+    ).resolves.toBe(true)
 
     expect(resolveAsset(activeAsset)).toBe('data:image/png;base64,YWN0aWY=')
     expect(resolveAsset('remote-asset')).toBeUndefined()
     expect((await listProjects()).map(({ id }) => id)).toContain('remote')
+  })
+
+  it('refuse sans aucune mutation un bundle non ciblé devenu plus ancien', async () => {
+    const local = { ...project('Local'), id: 'remote', updatedAt: 3 }
+    await saveProject(local)
+    const db = await database()
+    await db.put('assets', {
+      id: 'local-asset',
+      projectId: local.id,
+      dataUrl: 'data:image/png;base64,bG9jYWw=',
+    })
+    db.close()
+    useProjectStore.getState().loadProject({ ...project('Actif'), id: 'active' })
+
+    await expect(
+      storeRemoteProject({ ...project('Remote ancien'), id: local.id, updatedAt: 2 }, [
+        { id: 'remote-asset', dataUrl: 'data:image/png;base64,ZGlzdGFudA==' },
+      ]),
+    ).resolves.toBe(false)
+
+    const stored = await database()
+    expect((await stored.get('projects', local.id)) as Project).toMatchObject({
+      name: 'Local',
+      updatedAt: 3,
+    })
+    expect(await stored.get('assets', 'local-asset')).toBeDefined()
+    expect(await stored.get('assets', 'remote-asset')).toBeUndefined()
+    stored.close()
+  })
+
+  it('laisse un commit local démarré après la lecture gagner après le put distant', async () => {
+    await saveProject({ ...project('Initial'), updatedAt: 1 })
+    const originalPut = IDBObjectStore.prototype.put
+    let localSave: Promise<void> | null = null
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: Project,
+      key?: IDBValidKey,
+    ) {
+      if (this.name === 'projects' && value.name === 'Remote' && !localSave) {
+        localSave = saveProject({ ...project('Local concurrent'), updatedAt: 3 })
+      }
+      return originalPut.call(this, value, key)
+    })
+
+    await expect(storeRemoteProject({ ...project('Remote'), updatedAt: 2 }, [])).resolves.toBe(true)
+    await localSave
+    put.mockRestore()
+
+    const db = await database()
+    expect((await db.get('projects', 'project')) as Project).toMatchObject({
+      name: 'Local concurrent',
+      updatedAt: 3,
+    })
+    db.close()
+  })
+
+  it('n’active pas le remote si le store avance pendant la transaction', async () => {
+    const initial = { ...project('Initial'), updatedAt: 1 }
+    const localConcurrent = { ...project('Local concurrent'), updatedAt: 3 }
+    await saveProject(initial)
+    useProjectStore.getState().loadProject(initial)
+    const originalPut = IDBObjectStore.prototype.put
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: Project,
+      key?: IDBValidKey,
+    ) {
+      if (this.name === 'projects' && value.name === 'Remote') {
+        useProjectStore.getState().loadProject(localConcurrent)
+      }
+      return originalPut.call(this, value, key)
+    })
+
+    await expect(adoptRemoteProject({ ...project('Remote'), updatedAt: 2 }, [])).resolves.toEqual({
+      stored: true,
+      activated: false,
+    })
+    expect(useProjectStore.getState().project).toMatchObject({
+      name: 'Local concurrent',
+      updatedAt: 3,
+    })
+    put.mockRestore()
+
+    await saveCurrentProject()
+    const db = await database()
+    expect((await db.get('projects', 'project')) as Project).toMatchObject({
+      name: 'Local concurrent',
+      updatedAt: 3,
+    })
+    db.close()
+  })
+
+  it('active nominalement un remote strictement plus récent', async () => {
+    const initial = { ...project('Initial'), updatedAt: 1 }
+    const remote = { ...project('Remote'), updatedAt: 2 }
+    await saveProject(initial)
+    useProjectStore.getState().loadProject(initial)
+
+    await expect(adoptRemoteProject(remote, [])).resolves.toEqual({
+      stored: true,
+      activated: true,
+    })
+    expect(useProjectStore.getState().project).toMatchObject({ name: 'Remote', updatedAt: 2 })
   })
 
   it('deletes a project after an in-flight save fails', async () => {
