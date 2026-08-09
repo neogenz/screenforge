@@ -19,15 +19,26 @@
  * Avant, les quatre écarts inter-blocs valaient tous 3.5cqw contre 2 à 3cqw en
  * intra-bloc : un rapport de 1,17, donc un seul pas plat où l'écart censé
  * séparer deux blocs ne séparait presque rien, pendant qu'un quart de l'écran
- * restait blanc. Le bloc titre, lui, n'écrit rien : à `lineHeight: 0.86` le
- * grand nombre porte déjà 2,3cqw de blanc dans sa boîte, donc tout écart écrit
- * y rendrait plus large que le pas frère et se lirait comme une séparation.
+ * restait blanc. Le bloc titre prend le plus petit des trois : à
+ * `lineHeight: 0.86` le grand nombre ne porte que 1,5cqw de blanc au-dessus de
+ * ses capitales, pas les 2,3 qu'on lui prêtait, et 1,5cqw fait 2,7 px sur un
+ * cadre rendu 178 — le sur-titre touchait le chiffre. Écrire 1,75 porte
+ * l'écart optique à 3,25cqw, donc sous le pas frère : les deux lignes restent
+ * un seul objet, elles cessent de se toucher.
  *
  * Le budget est fermé par le bas et il n'est écrit nulle part ailleurs : le
  * cadre déborde volontairement de la planche (`DEVICE_HEIGHT_PCT` = 66 centré à
- * 82 %, `demo-script.ts`), il reste 165cqw sous le haut du corps avant le bord,
- * et la barre d'onglets est déjà dessous, à 0 % visible. Qui touche à ces deux
- * constantes déplace les trois atterrissages.
+ * 82 %, `demo-script.ts`), la coupe tombe à 172,5cqw sous le haut de l'écran,
+ * donc il reste 159,5cqw sous le haut du corps une fois la barre d'état
+ * déduite, et la barre d'onglets est déjà dessous, à 0 % visible. Qui touche à
+ * ces deux constantes — ou à la hauteur de la barre d'état — déplace les trois
+ * atterrissages.
+ *
+ * Trois blocs par écran, jamais cinq. Le tableau de bord en portait cinq : un
+ * sélecteur de période, une barre de phases, deux lignes de liste génériques
+ * en plus du nombre et de la courbe. Sous une coupe fixe, cinq blocs ne se
+ * règlent pas en resserrant les écarts, ils se règlent en enlevant des blocs —
+ * et la courbe, qui est le sujet, est passée de 29 % du budget à 58 %.
  *
  * Ce qui reste abstrait l'est par décision, pas par paresse : à la taille où le
  * cadre est réellement rendu, un mot de six lettres fait quatre pixels de haut
@@ -98,9 +109,16 @@ function TextBar({
 
 function StatusBar() {
   return (
+    /* Une hauteur, pas un retrait. La boîte mesurait 7,5cqw (3,5 de retrait +
+       4 de glyphes) quand iOS en donne 13,7 pour la même largeur, et l'encoche
+       de `DemoBoard` descend à 12,1cqw : le premier mot de chaque écran
+       démarrait 2,4cqw sous elle, d'où le haut écrasé. À 13 les glyphes se
+       centrent dans la bande de l'encoche — comme l'heure à côté de l'îlot sur
+       un vrai téléphone — et le corps commence à 20cqw. Les cinq cqw et demi
+       que ça prend sont rendus par les trois écrans, pas empruntés à la coupe. */
     <div
       className="flex shrink-0 items-center justify-between"
-      style={{ padding: '3.5cqw 7cqw 0', gap: '4cqw' }}
+      style={{ height: '13cqw', padding: '0 7cqw', gap: '4cqw' }}
     >
       {/* À cette échelle « 9:41 » ne serait pas un texte mais une tache. */}
       <span style={{ width: '13cqw', height: '2.5cqw', borderRadius: '99px', background: INK }} />
@@ -194,7 +212,7 @@ function Dashboard({ label }: { label: string }) {
       style={{ padding: '7cqw 7cqw 0', gap: '7cqw' }}
     >
       <div className="flex shrink-0 items-center justify-between">
-        <span className="flex flex-col">
+        <span className="flex flex-col" style={{ gap: '1.75cqw' }}>
           <span
             style={{
               color: MUTED,
@@ -251,33 +269,19 @@ function Dashboard({ label }: { label: string }) {
         />
       </div>
 
-      {/* Sélecteur de période : trois segments dans une gouttière, le premier
-          actif. Un contrôle que toute app de suivi porte. */}
-      <span
-        className="flex"
-        style={{ background: '#f1f2f7', borderRadius: '2.4cqw', padding: '1cqw', gap: '1cqw' }}
-      >
-        {[0, 1, 2].map((segment) => (
-          <span
-            key={segment}
-            className="flex flex-1 items-center justify-center"
-            style={{
-              height: '7cqw',
-              borderRadius: '1.8cqw',
-              background: segment === 0 ? '#ffffff' : 'transparent',
-              boxShadow: segment === 0 ? '0 0.4cqw 1cqw rgba(18,19,26,0.12)' : 'none',
-            }}
-          >
-            <TextBar width={segment === 0 ? 52 : 44} color={segment === 0 ? INK : '#b9bdcc'} />
-          </span>
-        ))}
-      </span>
-
       {/* La courbe : sept nuits, la dernière accentuée, les initiales des jours
           sous les barres. Un graphe sans axe est un motif ; l'axe est ce qui en
-          fait une donnée. */}
+          fait une donnée.
+
+          Ses barres font 92cqw, soit 58 % du budget de l'écran, parce qu'elles
+          en sont le sujet. À 46cqw elles en prenaient 29 et partageaient la
+          place avec quatre autres blocs : un sélecteur de période, une barre de
+          phases, deux lignes de liste génériques. Cinq blocs à faire tenir sous
+          une coupe, ça ne se règle pas en resserrant les écarts — ça se règle
+          en enlevant des blocs. Restent trois : ce que la nuit a duré, comment
+          elle se compare aux six précédentes, de quoi elle était faite. */}
       <div className="flex flex-col" style={{ gap: '1.75cqw' }}>
-        <div className="flex items-end justify-between" style={{ height: '46cqw', gap: '2cqw' }}>
+        <div className="flex items-end justify-between" style={{ height: '92cqw', gap: '2cqw' }}>
           {NIGHTS.map((height, night) => (
             <span
               key={night}
@@ -334,30 +338,6 @@ function Dashboard({ label }: { label: string }) {
           ))}
         </span>
       </div>
-
-      {/* Deux lignes, pas trois. Une ligne générique — pastille, deux barres, une
-          valeur — est le remplissage d'une maquette : la troisième n'ajoutait
-          aucune information, elle prenait la place que le reste de l'écran
-          réclamait pour respirer. */}
-      <div className="flex shrink-0 flex-col" style={{ gap: '7cqw' }}>
-        {[0, 1].map((row) => (
-          <span key={row} className="flex items-center" style={{ gap: '3cqw' }}>
-            <span
-              style={{
-                width: '11cqw',
-                height: '11cqw',
-                borderRadius: '3cqw',
-                background: row === 0 ? ACCENT_SOFT : '#f1f2f7',
-              }}
-            />
-            <span className="flex flex-1 flex-col" style={{ gap: '1.75cqw' }}>
-              <TextBar width={[68, 54, 61][row]} color="#c3c7d6" />
-              <TextBar width={[40, 46, 33][row]} color="#e0e2eb" height={2} />
-            </span>
-            <TextBar width={9} color="#c3c7d6" height={2.2} />
-          </span>
-        ))}
-      </div>
     </div>
   )
 }
@@ -405,10 +385,14 @@ function Nights() {
           >
             <span
               className="flex items-center justify-center"
+              /* La pastille fixe la hauteur de la ligne : c'est le plus haut
+                 des trois enfants. À 10 les six lignes faisaient 160cqw pour
+                 159,5 de budget — un demi-cqw de la dernière passait sous la
+                 coupe depuis que la barre d'état a pris sa vraie hauteur. */
               style={{
-                width: '10cqw',
-                height: '10cqw',
-                borderRadius: '2.8cqw',
+                width: '9cqw',
+                height: '9cqw',
+                borderRadius: '2.6cqw',
                 background: row === 0 ? ACCENT : '#dcdfea',
                 color: row === 0 ? '#ffffff' : '#6c7186',
                 fontSize: '4.2cqw',
@@ -468,11 +452,34 @@ function Goal() {
       className="flex min-h-0 flex-1 flex-col items-center overflow-hidden"
       style={{ padding: '7cqw 7cqw 0', gap: '7cqw' }}
     >
+      {/* La même ligne de titre que « Nights ». Sans elle l'anneau démarrait à
+          7cqw du haut du corps, donc juste sous l'encoche : le seul des trois
+          écrans dont le sujet touchait le bord haut, et il n'y avait rien
+          au-dessus pour l'en écarter. Le titre paie ce retrait avec quelque
+          chose à lire, et l'anneau gagne en même temps les 18cqw que les deux
+          barres qu'il portait en dessous lui prenaient — elles disaient ce que
+          la barre logée dans l'anneau dit déjà. */}
+      <div className="flex w-full shrink-0 items-center justify-between">
+        <span
+          style={{
+            color: INK,
+            fontSize: '9cqw',
+            lineHeight: 1,
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
+          }}
+        >
+          Goal
+        </span>
+        <span
+          style={{ width: '8cqw', height: '8cqw', borderRadius: '2.4cqw', background: '#f1f2f7' }}
+        />
+      </div>
       <span
         className="flex items-center justify-center"
         style={{
-          width: '58cqw',
-          height: '58cqw',
+          width: '72cqw',
+          height: '72cqw',
           borderRadius: '99px',
           /* L'anneau : un dégradé conique coupé à 78 %, donc une vraie
              progression et pas un cercle plein. */
@@ -482,8 +489,8 @@ function Goal() {
         <span
           className="flex flex-col items-center justify-center"
           style={{
-            width: '43cqw',
-            height: '43cqw',
+            width: '53cqw',
+            height: '53cqw',
             borderRadius: '99px',
             background: '#ffffff',
             gap: '1.75cqw',
@@ -492,7 +499,7 @@ function Goal() {
           <span
             style={{
               color: INK,
-              fontSize: '13cqw',
+              fontSize: '15cqw',
               lineHeight: 1,
               fontWeight: 700,
               letterSpacing: '-0.04em',
@@ -504,10 +511,6 @@ function Goal() {
           <TextBar width={52} color="#c3c7d6" height={2} />
         </span>
       </span>
-      <span className="flex w-full flex-col items-center" style={{ gap: '1.75cqw' }}>
-        <TextBar width={68} color={INK} height={3} />
-        <TextBar width={46} color="#c3c7d6" height={2.2} />
-      </span>
       <span
         className="flex w-full shrink-0 items-center justify-center"
         style={{ height: '13cqw', borderRadius: '3.4cqw', background: ACCENT }}
@@ -516,7 +519,7 @@ function Goal() {
       </span>
 
       <div className="flex w-full shrink-0 flex-col" style={{ gap: '7cqw' }}>
-        {[0, 1, 2].map((row) => (
+        {[0, 1].map((row) => (
           <span
             key={row}
             className="flex items-center"
