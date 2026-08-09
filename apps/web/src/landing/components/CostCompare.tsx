@@ -22,8 +22,16 @@ import { useLang } from '../i18n'
  * traducteur ne peut pas réordonner ce qu'il reçoit en morceaux. L'intitulé
  * nomme donc ce que sont les nombres — des cumuls, sans quoi 198 $ se lirait
  * comme un tarif annuel — et chaque ligne porte son propre repère de temps.
- * L'en-tête de la colonne louée a perdu son « 99 $/an » : la première ligne
- * l'affiche déjà, et la note dit d'où il vient.
+ *
+ * La colonne louée nomme AppScreens Pro. « Un abonnement annuel » décrivait une
+ * catégorie, donc une somme que le lecteur ne pouvait ni situer ni vérifier ;
+ * le nom la rend contrôlable, et il ne coûte rien de plus puisque la note le
+ * citait déjà juste dessous. Elle a perdu son « 99 $/an » en même temps : la
+ * première ligne l'affiche, l'en-tête n'a pas à le redire. La note ne garde
+ * donc que ce qu'elle seule porte — que ce prix est le tarif public, et à
+ * quelle date il a été relevé — mais elle renomme AppScreens Pro plutôt que
+ * d'écrire « son » : un renvoi vers une cellule du tableau est exactement le
+ * défaut qu'on vient d'enlever, et la note est aussi ce qu'on cite seul.
  *
  * Il est centré, et sur la mesure du chapô, parce qu'il appartient à
  * l'argument et pas à l'offre. La section a deux axes : le titre, le chapô et

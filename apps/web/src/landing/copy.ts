@@ -165,14 +165,14 @@ const en = {
      l'argument. */
   ownership: {
     tableLabel: 'Total paid',
-    rentLabel: 'A yearly subscription',
+    rentLabel: 'AppScreens Pro',
     ownLabel: 'ScreenForge licence',
     rows: [
       { year: 'After 1 year', rent: '$99', own: '$49' },
       { year: 'After 2 years', rent: '$198', own: '$49' },
       { year: 'After 3 years', rent: '$297', own: '$49' },
     ],
-    footnote: 'AppScreens Pro lists at $99/year, price checked on 6 August 2026.',
+    footnote: 'AppScreens Pro’s list price is $99/year, checked on 6 August 2026.',
   },
   pricing: {
     title: 'Pay once. That’s the whole model.',
@@ -440,14 +440,14 @@ const fr: Copy = {
   },
   ownership: {
     tableLabel: 'Total payé',
-    rentLabel: 'Un abonnement annuel',
+    rentLabel: 'AppScreens Pro',
     ownLabel: 'La licence ScreenForge',
     rows: [
       { year: 'Après 1 an', rent: '99 $', own: '49 $' },
       { year: 'Après 2 ans', rent: '198 $', own: '49 $' },
       { year: 'Après 3 ans', rent: '297 $', own: '49 $' },
     ],
-    footnote: 'AppScreens Pro affiche 99 $/an, tarif relevé le 6 août 2026.',
+    footnote: 'Le tarif public d’AppScreens Pro est de 99 $/an, relevé le 6 août 2026.',
   },
   pricing: {
     title: 'On paie une fois. C’est tout le modèle.',
