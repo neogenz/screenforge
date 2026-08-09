@@ -117,7 +117,7 @@ flowchart TD
 - `pnpm run test:release` : vert. Les suites unitaires comptent 49 tests API et
   110 tests web ; les 29 tests RLS passent sans aucun saut ; typecheck, lint et
   les builds prélaunch/launch passent.
-- Playwright : le profil billing/launch compte 90 tests passés et un saut ; le
+- Playwright : le profil billing/launch compte 91 tests passés et un saut ; le
   profil prélancement compte 2 tests passés. Le seul saut reste la sonde d'un
   Apple Product Bezel réel, qui exige volontairement un fichier externe au
   dépôt.

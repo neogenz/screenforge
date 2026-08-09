@@ -348,6 +348,168 @@ test.describe('Sync cloud', () => {
     await session.client.auth.signOut()
   })
 
+  test('un projet ouvert pendant le téléchargement reste actif quand la cible cloud arrive', async ({
+    browser,
+    baseURL,
+  }) => {
+    const session = await signUpSession(stack!.url, stack!.anonKey)
+    expect((await grantCloud(backendClient(stack!), session.userId)).error).toBeNull()
+    const context = await browser.newContext({ baseURL })
+    const page = await context.newPage()
+    await waitForApp(page)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans variables Supabase')
+
+    const marker = Date.now()
+    const localTargetName = `Cible locale ${marker}`
+    const keptName = `Projet conservé ${marker}`
+    const remoteTargetName = `Cible cloud ${marker}`
+    await page.evaluate(
+      (name) => window.__sfStores?.useProjectStore.getState().createProject(name),
+      localTargetName,
+    )
+    await page.getByLabel('Ajouter Texte').click()
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    await page.evaluate(
+      (name) => window.__sfStores?.useProjectStore.getState().createProject(name),
+      keptName,
+    )
+    await page.getByLabel('Ajouter Texte').click()
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'kept.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [16, 185, 129, 255]),
+    })
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const keptAssetId = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
+    expect(keptAssetId).not.toBeNull()
+
+    /* Make the target the last durable local project so the reload selects it,
+       while the second project remains available in the catalogue. */
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${localTargetName} »` }).click()
+    await page.getByLabel('Ajouter Texte').click()
+    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+      timeout: 15_000,
+    })
+    const localTarget = await page.evaluate(() =>
+      structuredClone(window.__sfStores?.useProjectStore.getState().project ?? null),
+    )
+    if (!localTarget) throw new Error('Could not create the active target fixture.')
+
+    const remoteTarget = structuredClone(localTarget)
+    remoteTarget.name = remoteTargetName
+    remoteTarget.updatedAt = localTarget.updatedAt + 60_000
+    const remoteAssetId = crypto.randomUUID()
+    remoteTarget.screens[0]!.layers.push({
+      id: crypto.randomUUID(),
+      type: 'image',
+      name: 'Cible distante retenue',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      zIndex: remoteTarget.screens[0]!.layers.length,
+      assetId: remoteAssetId,
+      originalWidth: 8,
+      originalHeight: 8,
+    })
+    expect(
+      (
+        await session.client.storage
+          .from('assets')
+          .upload(`${session.userId}/${remoteAssetId}`, makeSolidPng(8, 8, [37, 99, 235, 255]), {
+            contentType: 'image/png',
+            upsert: true,
+          })
+      ).error,
+    ).toBeNull()
+    expect(
+      (
+        await session.client.rpc('upsert_project_lww', {
+          project_id: remoteTarget.id,
+          project_user_id: session.userId,
+          project_name: remoteTarget.name,
+          project_data: remoteTarget as never,
+          project_updated_at: new Date(remoteTarget.updatedAt).toISOString(),
+        })
+      ).data,
+    ).toBe(true)
+
+    let releaseDownload!: () => void
+    const heldDownload = new Promise<void>((resolve) => {
+      releaseDownload = resolve
+    })
+    let markDownloadStarted!: () => void
+    const downloadStarted = new Promise<void>((resolve) => {
+      markDownloadStarted = resolve
+    })
+    await page.route('**/storage/v1/object/**', async (route) => {
+      if (route.request().method() === 'GET' && route.request().url().includes(remoteAssetId)) {
+        markDownloadStarted()
+        await heldDownload
+      }
+      await route.continue()
+    })
+    await page.evaluate(([key, value]) => window.localStorage.setItem(key, value), [
+      STORAGE_KEY,
+      session.seed,
+    ] as const)
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await expect(projectName(page)).toHaveValue(localTargetName)
+    await downloadStarted
+
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${keptName} »` }).click()
+    await expect(projectName(page)).toHaveValue(keptName)
+    expect(
+      await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
+    ).toBe(true)
+    releaseDownload()
+
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await expect(projectName(page)).toHaveValue(keptName)
+    expect(
+      await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
+    ).toBe(true)
+    await page.getByLabel('Ouvrir le menu Projet').click()
+    await page.getByRole('menuitem', { name: `Ouvrir « ${remoteTargetName} »` }).click()
+    await expect(projectName(page)).toHaveValue(remoteTargetName)
+    expect(
+      await page.evaluate(
+        (id) => Boolean(id && window.__sfAssets?.resolveAsset(id)),
+        remoteAssetId,
+      ),
+    ).toBe(true)
+
+    const keptRow = await remoteRow(session.client, keptName)
+    await Promise.all([
+      session.client.from('projects').delete().eq('id', remoteTarget.id),
+      keptRow
+        ? session.client.from('projects').delete().eq('id', keptRow.id)
+        : Promise.resolve({ error: null }),
+      session.client.storage
+        .from('assets')
+        .remove([`${session.userId}/${remoteAssetId}`, `${session.userId}/${keptAssetId}`]),
+    ])
+    await context.close()
+    await backendClient(stack!).from('entitlements').delete().eq('user_id', session.userId)
+    await session.client.auth.signOut()
+  })
+
   test('un projet non ciblé édité puis quitté pendant le pull garde sa version locale', async ({
     browser,
     baseURL,

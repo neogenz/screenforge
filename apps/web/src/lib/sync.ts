@@ -287,6 +287,7 @@ async function remoteTargetUnchanged(client: Client, bundle: ProjectBundle): Pro
 
 async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
   const initialActive = useProjectStore.getState().project
+  const initialActiveId = initialActive?.id ?? null
   const remote = await fetchRemoteProjectRows(client)
   const targetId = pullTarget(remote, initialActive)
   const local = new Map((await listProjects()).map((project) => [project.id, project]))
@@ -345,18 +346,29 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
       if (!(await remoteTargetUnchanged(client, target))) {
         failedProjectIds.add(target.project.id)
       } else {
-        const result = await adoptRemoteProject(target.project, target.assets)
-        if (result.stored) {
-          await acknowledgePulledProject(userId, target.project, target.assets)
-        }
-        if (result.activated) {
-          ignoredAdoptionCommit = {
-            id: target.project.id,
-            updatedAt: target.project.updatedAt,
+        const currentActiveId = useProjectStore.getState().project?.id ?? null
+        if (currentActiveId !== initialActiveId) {
+          /* Navigation is a user decision, independent from LWW. The target can
+             join the local catalogue, but a download finishing late must never
+             reopen the project that was active when the pull started. */
+          if (await storeRemoteProject(target.project, target.assets)) {
+            await acknowledgePulledProject(userId, target.project, target.assets)
           }
-          adopted = true
-        } else {
           preservedProject = useProjectStore.getState().project
+        } else {
+          const result = await adoptRemoteProject(target.project, target.assets)
+          if (result.stored) {
+            await acknowledgePulledProject(userId, target.project, target.assets)
+          }
+          if (result.activated) {
+            ignoredAdoptionCommit = {
+              id: target.project.id,
+              updatedAt: target.project.updatedAt,
+            }
+            adopted = true
+          } else {
+            preservedProject = useProjectStore.getState().project
+          }
         }
       }
     } catch (projectError) {
