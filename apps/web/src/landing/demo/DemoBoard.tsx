@@ -204,8 +204,16 @@ export function DemoBoard({
           onPointerDown={edit ? (event) => edit.onPointerDown(event, 'device') : undefined}
           onPointerMove={edit?.onPointerMove}
           onPointerUp={edit?.onPointerUp}
+          /* `animation-duration-300`, pas `duration-300` : le second pose
+             `transition-duration` en plus de nourrir l'entrée, et rien ici ne
+             déclare `transition-property`, dont la valeur initiale est `all`.
+             `left` et `top` transitionnaient donc sur 300 ms à chaque
+             `pointermove` — le cadre rejoignait le curseur en retard, sur une
+             courbe d'aisance, ce qui se lit exactement comme une saccade.
+             Aucun autre calque n'était touché parce qu'aucun autre ne porte
+             d'animation d'entrée. */
           className={cn(
-            'absolute w-max -translate-x-1/2 -translate-y-1/2 animate-in fade-in zoom-in-95 duration-300',
+            'absolute w-max -translate-x-1/2 -translate-y-1/2 animate-in fade-in zoom-in-95 animation-duration-300',
             edit && 'cursor-grab active:cursor-grabbing',
           )}
           style={{
