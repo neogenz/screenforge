@@ -13,6 +13,7 @@ import {
   LoaderCircle,
   MoreHorizontal,
   Moon,
+  Package,
   PenLine,
   PanelLeft,
   PanelRight,
@@ -704,6 +705,7 @@ function useSecondaryActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
+  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const theme = useUIStore((s) => s.theme)
 
   return [
@@ -716,6 +718,14 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <RefreshCw size={16} strokeWidth={1.75} />,
       expanded: showRefreshDialog,
       onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
+    },
+    {
+      id: 'releases',
+      label: 'Ouvrir les releases',
+      hint: 'Lots figés et comparaison',
+      icon: <Package size={16} strokeWidth={1.75} />,
+      expanded: showReleaseDialog,
+      onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
     },
     {
       id: 'templates',

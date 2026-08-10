@@ -29,6 +29,7 @@ interface UIState {
   showPricingDialog: boolean
   showMigrateDialog: boolean
   showRefreshDialog: boolean
+  showReleaseDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -52,6 +53,7 @@ interface UIState {
   setShowPricingDialog: (show: boolean) => void
   setShowMigrateDialog: (show: boolean) => void
   setShowRefreshDialog: (show: boolean) => void
+  setShowReleaseDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -79,6 +81,7 @@ const MODALS = [
   'showPricingDialog',
   'showMigrateDialog',
   'showRefreshDialog',
+  'showReleaseDialog',
   'showShortcuts',
 ] as const
 
@@ -123,6 +126,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showPricingDialog: false,
   showMigrateDialog: false,
   showRefreshDialog: false,
+  showReleaseDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -182,6 +186,8 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowMigrateDialog: (show) => set(onlyModal('showMigrateDialog', show)),
 
   setShowRefreshDialog: (show) => set(onlyModal('showRefreshDialog', show)),
+
+  setShowReleaseDialog: (show) => set(onlyModal('showReleaseDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 

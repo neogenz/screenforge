@@ -2,6 +2,7 @@ import type JSZip from 'jszip'
 import type { JSZipObject } from 'jszip'
 import { resolveAsset } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
+import { sha256Hex } from '@/lib/hash'
 import { isProject, migrateProject } from '@/lib/project-validation'
 import type { Project } from '@/types'
 
@@ -32,7 +33,7 @@ const PROJECT_FILE_FORMAT = 'screenforge-project'
  * `PROJECT_FILE_VERSION` ne monte donc qu'avec un vrai changement de forme, et
  * dans le même commit que la migration qui le rattrape.
  */
-const PROJECT_FILE_VERSION = 2
+const PROJECT_FILE_VERSION = 3
 const MIN_READABLE_PROJECT_FILE_VERSION = 1
 
 const MANIFEST_PATH = 'project.json'
@@ -142,12 +143,6 @@ export function projectWithoutThumbnails(project: Project): Project {
   }
 }
 
-async function sha256(bytes: Uint8Array): Promise<string> {
-  const input = Uint8Array.from(bytes)
-  const digest = await crypto.subtle.digest('SHA-256', input)
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
 async function dataUrlBytes(
   dataUrl: string,
 ): Promise<{ mimeType: AssetMimeType; bytes: Uint8Array }> {
@@ -187,7 +182,7 @@ export async function createProjectFile(project: Project): Promise<Blob> {
           path: assetPath(id, mimeType),
           mimeType,
           byteLength: bytes.byteLength,
-          sha256: await sha256(bytes),
+          sha256: await sha256Hex(bytes),
         } satisfies ProjectAssetDescriptor,
         bytes,
       }
@@ -365,7 +360,7 @@ export async function readProjectFile(file: File): Promise<DecodedProjectFile> {
       if (bytes.byteLength > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
       if (
         bytes.byteLength !== descriptor.byteLength ||
-        (await sha256(bytes)) !== descriptor.sha256
+        (await sha256Hex(bytes)) !== descriptor.sha256
       ) {
         throw new ProjectFileError('corrupt-asset')
       }

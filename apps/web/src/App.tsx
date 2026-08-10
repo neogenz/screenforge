@@ -60,6 +60,11 @@ const RefreshDialog = lazy(() =>
     default: module.RefreshDialog,
   })),
 )
+const ReleaseDialog = lazy(() =>
+  import('@/components/release-dialog/ReleaseDialog').then((module) => ({
+    default: module.ReleaseDialog,
+  })),
+)
 const MigrateProjectsDialog = lazy(() =>
   import('@/components/migrate-dialog/MigrateProjectsDialog').then((module) => ({
     default: module.MigrateProjectsDialog,
@@ -274,6 +279,7 @@ function Overlays() {
   const showAccountDialog = useUIStore((s) => s.showAccountDialog)
   const showMigrateDialog = useUIStore((s) => s.showMigrateDialog)
   const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
+  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
 
   return (
     <>
@@ -295,6 +301,7 @@ function Overlays() {
         {showAccountDialog && <AccountDialog />}
         {showMigrateDialog && <MigrateProjectsDialog />}
         {showRefreshDialog && <RefreshDialog />}
+        {showReleaseDialog && <ReleaseDialog />}
       </Suspense>
     </>
   )

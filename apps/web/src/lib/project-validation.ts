@@ -174,50 +174,107 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
 }
 
 /** Strict current project contract shared by every persistence boundary. */
-export function isProject(value: unknown): value is Project {
-  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
-  if (typeof value.name !== 'string' || typeof value.activeScreenId !== 'string') return false
-  if (!Array.isArray(value.screens) || !Array.isArray(value.layoutLayers)) return false
-  if (
-    !isRecord(value.globals) ||
-    !isFiniteNumber(value.createdAt) ||
-    !isFiniteNumber(value.updatedAt)
-  ) {
-    return false
-  }
-  if (value.screens.length < 1 || value.screens.length > MAX_PROJECT_SCREENS) return false
-  const globals = value.globals
-  if (
-    typeof globals.fontFamily !== 'string' ||
-    !globals.fontFamily ||
-    !isFiniteNumber(globals.fontWeight, 1) ||
-    !isFiniteNumber(globals.fontSize, 1) ||
-    typeof globals.fontColor !== 'string' ||
-    !isBackground(globals.background) ||
-    typeof globals.deviceModel !== 'string' ||
-    !globals.deviceModel ||
-    typeof globals.deviceColor !== 'string' ||
-    !globals.deviceColor
+/**
+ * Les limites d'un projet, posées ici et pas dans `release.ts`.
+ *
+ * La validation tourne à chaque transaction et se veut légère ; `release.ts`
+ * tire le moteur de rendu derrière lui. La dépendance va donc du lourd vers le
+ * léger, jamais l'inverse.
+ */
+export const MAX_PROJECT_RELEASES = 20
+export const MAX_RELEASE_NAME_LENGTH = 64
+
+const SHA256_HEX = /^[a-f0-9]{64}$/
+
+function isGlobals(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.fontFamily === 'string' &&
+    Boolean(value.fontFamily) &&
+    isFiniteNumber(value.fontWeight, 1) &&
+    isFiniteNumber(value.fontSize, 1) &&
+    typeof value.fontColor === 'string' &&
+    isBackground(value.background) &&
+    typeof value.deviceModel === 'string' &&
+    Boolean(value.deviceModel) &&
+    typeof value.deviceColor === 'string' &&
+    Boolean(value.deviceColor)
   )
-    return false
+}
+
+/**
+ * La scène : les écrans et les calques partagés.
+ *
+ * `Project` et `ProjectSnapshot` la portent tous les deux, et une release
+ * invalide doit être rejetée aussi sévèrement qu'un projet invalide — c'est
+ * elle qu'on rejouera pour vérifier le lot. Rend les identifiants d'écran,
+ * dont l'appelant a besoin pour valider `activeScreenId`.
+ */
+function sceneScreenIds(screens: unknown, layoutLayers: unknown): Set<string> | null {
+  if (!Array.isArray(screens) || !Array.isArray(layoutLayers)) return null
+  if (screens.length < 1 || screens.length > MAX_PROJECT_SCREENS) return null
 
   const screenIds = new Set<string>()
   const layerIds = new Set<string>()
-  for (const screen of value.screens) {
-    if (!isRecord(screen) || typeof screen.id !== 'string' || !screen.id) return false
-    if (screenIds.has(screen.id) || typeof screen.name !== 'string') return false
-    if (!Array.isArray(screen.layers) || !isBackground(screen.background)) return false
-    if (screen.thumbnail !== undefined && typeof screen.thumbnail !== 'string') return false
+  for (const screen of screens) {
+    if (!isRecord(screen) || typeof screen.id !== 'string' || !screen.id) return null
+    if (screenIds.has(screen.id) || typeof screen.name !== 'string') return null
+    if (!Array.isArray(screen.layers) || !isBackground(screen.background)) return null
+    if (screen.thumbnail !== undefined && typeof screen.thumbnail !== 'string') return null
     screenIds.add(screen.id)
     for (const layer of screen.layers) {
-      if (!isLayer(layer, 'screen') || layerIds.has(layer.id)) return false
+      if (!isLayer(layer, 'screen') || layerIds.has(layer.id)) return null
       layerIds.add(layer.id)
     }
   }
-  for (const layer of value.layoutLayers) {
-    if (!isLayer(layer, 'layout') || layerIds.has(layer.id)) return false
+  for (const layer of layoutLayers) {
+    if (!isLayer(layer, 'layout') || layerIds.has(layer.id)) return null
     layerIds.add(layer.id)
   }
+  return screenIds
+}
+
+function isReleaseFile(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.path === 'string' &&
+    Boolean(value.path) &&
+    typeof value.screenId === 'string' &&
+    isFiniteNumber(value.width, 1) &&
+    isFiniteNumber(value.height, 1) &&
+    isFiniteNumber(value.byteLength, 0) &&
+    typeof value.sha256 === 'string' &&
+    SHA256_HEX.test(value.sha256)
+  )
+}
+
+function isRelease(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string' || !value.id) return false
+  if (typeof value.name !== 'string' || value.name.length > MAX_RELEASE_NAME_LENGTH) return false
+  if (!isFiniteNumber(value.createdAt) || typeof value.watermarked !== 'boolean') return false
+  if (!Array.isArray(value.files) || !value.files.every(isReleaseFile)) return false
+
+  const snapshot = value.snapshot
+  if (!isRecord(snapshot) || typeof snapshot.name !== 'string') return false
+  if (!isGlobals(snapshot.globals)) return false
+  return sceneScreenIds(snapshot.screens, snapshot.layoutLayers) !== null
+}
+
+export function isProject(value: unknown): value is Project {
+  if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
+  if (typeof value.name !== 'string' || typeof value.activeScreenId !== 'string') return false
+  if (!isGlobals(value.globals)) return false
+  if (!isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) return false
+
+  const screenIds = sceneScreenIds(value.screens, value.layoutLayers)
+  if (!screenIds) return false
+
+  if (value.releases !== undefined) {
+    if (!Array.isArray(value.releases) || value.releases.length > MAX_PROJECT_RELEASES) return false
+    if (!value.releases.every(isRelease)) return false
+  }
+
   return screenIds.has(value.activeScreenId)
 }
 

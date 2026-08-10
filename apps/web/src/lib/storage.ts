@@ -302,6 +302,20 @@ function importedProject(decoded: DecodedProjectFile): {
       layers: screen.layers.map((layer) => remapLayerAssets(layer, idMap)),
     })),
     layoutLayers: decoded.project.layoutLayers.map((layer) => remapLayerAssets(layer, idMap)),
+    /* Les releases sont remappées comme le reste : leur instantané référence
+       les mêmes assets, et une release importée qui pointerait sur les
+       identifiants de l'archive ne se rejouerait plus. */
+    releases: (decoded.project.releases ?? []).map((release) => ({
+      ...structuredClone(release),
+      snapshot: {
+        ...structuredClone(release.snapshot),
+        screens: release.snapshot.screens.map((screen) => ({
+          ...structuredClone(screen),
+          layers: screen.layers.map((layer) => remapLayerAssets(layer, idMap)),
+        })),
+        layoutLayers: release.snapshot.layoutLayers.map((layer) => remapLayerAssets(layer, idMap)),
+      },
+    })),
   })
   const assets = decoded.assets.map((asset) => ({
     id: idMap.get(asset.id)!,

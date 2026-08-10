@@ -42,7 +42,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | 2   | Placement/crop persistant + slots sémantiques    | done         |
 | 3   | Formes et icônes éditables + registre partagé    | done         |
 | 4   | Batch refresh atomique                           | done         |
-| 5   | Lot rendu, release immuable, diff structurel     | à faire      |
+| 5   | Lot rendu, release immuable, diff structurel     | done         |
 | 6   | Plan IA validé + builder déterministe + outils   | à faire      |
 | 7   | Registre de providers + bridge Codex             | à faire      |
 | 8   | Localisation éditable + revue des débordements   | à faire      |

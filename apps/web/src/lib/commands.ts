@@ -217,6 +217,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowRefreshDialog(true),
     },
     {
+      id: 'releases',
+      title: 'Releases…',
+      section: 'Projet',
+      keywords: ['lot', 'figer', 'version', 'diff', 'comparer', 'livraison'],
+      run: () => ui().setShowReleaseDialog(true),
+    },
+    {
       id: 'templates',
       title: 'Modèles de mise en page…',
       section: 'Projet',

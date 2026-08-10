@@ -190,6 +190,52 @@ export interface Project {
   layoutLayers: Layer[]
   createdAt: number
   updatedAt: number
+  /** Les lots figés, du plus ancien au plus récent. Voir `lib/release.ts`. */
+  releases?: Release[]
+}
+
+/**
+ * Ce qu'une release fige : tout ce qui se rend, et rien d'autre.
+ *
+ * Ni `id`, ni horodatage, ni écran actif — ce sont des faits sur le projet
+ * vivant, pas sur le lot livré. Deux figements du même contenu doivent donner
+ * le même instantané, sans quoi le diff structurel signalerait un changement
+ * là où l'utilisateur n'a fait qu'attendre.
+ */
+export interface ProjectSnapshot {
+  name: string
+  screens: Screen[]
+  layoutLayers: Layer[]
+  globals: GlobalSettings
+}
+
+export interface ReleaseFile {
+  /** `6.9/01_onboarding.png` — la place du fichier dans le lot. */
+  path: string
+  screenId: string
+  width: number
+  height: number
+  byteLength: number
+  sha256: string
+}
+
+/**
+ * Un lot livré, immuable.
+ *
+ * Elle porte les empreintes de ses PNG et l'instantané qui les a produits, pas
+ * les pixels : le rendu est déterministe, donc l'instantané suffit à les
+ * régénérer, et vérifier une release consiste à la rejouer puis à comparer les
+ * empreintes. Stocker dix PNG par release aurait pesé des dizaines de mégaoctets
+ * dans IndexedDB pour une information que le projet contient déjà.
+ */
+export interface Release {
+  id: string
+  name: string
+  createdAt: number
+  /** Le palier au moment du figement : un filigrane change les empreintes. */
+  watermarked: boolean
+  files: ReleaseFile[]
+  snapshot: ProjectSnapshot
 }
 
 // ─── Export ──────────────────────────────────────────────────────────────────
