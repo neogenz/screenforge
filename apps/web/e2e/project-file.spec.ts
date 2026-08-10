@@ -206,8 +206,18 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     return zip.generateAsync({ type: 'uint8array' })
   }
 
-  const unsupported = await mutateManifest((manifest) => {
+  /* Une version postérieure porte des champs que ce binaire n'interprète pas :
+     l'ouvrir rendrait un projet silencieusement amputé, donc elle est refusée.
+     Un numéro sous le plancher ou non entier ne vient d'aucune version publiée
+     et suit la même porte, plutôt que d'atteindre les migrations. */
+  const futureVersion = await mutateManifest((manifest) => {
     manifest.version = 2
+  })
+  const belowFloorVersion = await mutateManifest((manifest) => {
+    manifest.version = 0
+  })
+  const fractionalVersion = await mutateManifest((manifest) => {
+    manifest.version = 1.5
   })
   const corruptHash = await mutateManifest((manifest) => {
     const assets = manifest.assets as Array<Record<string, unknown>>
@@ -284,7 +294,9 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
 
   expect(
     await Promise.all([
-      readArchive(page, unsupported),
+      readArchive(page, futureVersion),
+      readArchive(page, belowFloorVersion),
+      readArchive(page, fractionalVersion),
       readArchive(page, await missing.generateAsync({ type: 'uint8array' })),
       readArchive(page, corruptHash),
       readArchive(page, declaredOversize),
@@ -297,6 +309,8 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
       readArchive(page, oversizedCentralEntry),
     ]),
   ).toEqual([
+    'unsupported-version',
+    'unsupported-version',
     'unsupported-version',
     'missing-asset',
     'corrupt-asset',

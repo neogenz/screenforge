@@ -13,7 +13,28 @@ export const MAX_PROJECT_TOTAL_ASSET_BYTES = 256 * 1024 * 1024
 export const MAX_PROJECT_FILE_ENTRIES = 128
 
 const PROJECT_FILE_FORMAT = 'screenforge-project'
+
+/**
+ * La version écrite aujourd'hui, et la plus ancienne encore lue.
+ *
+ * Le test d'égalité qui vivait ici refusait toute archive dont le numéro
+ * n'était pas exactement celui du binaire courant : la première version qui
+ * aurait ajouté un discriminant au modèle aurait rendu illisibles toutes les
+ * archives déjà exportées par les utilisateurs, sans que rien dans leur contenu
+ * ne l'exige. Une archive plus ancienne est lisible tant que `migrateProject`
+ * sait la porter — c'est là que la compatibilité se décide, pas ici.
+ *
+ * Vers l'avant, en revanche, le refus reste net et c'est le point : une archive
+ * plus récente contient des champs que ce binaire ne sait pas interpréter, et
+ * l'ouvrir en ignorant ce qu'il n'a pas compris rendrait à l'utilisateur un
+ * projet silencieusement amputé. Mieux vaut une erreur nommée.
+ *
+ * `PROJECT_FILE_VERSION` ne monte donc qu'avec un vrai changement de forme, et
+ * dans le même commit que la migration qui le rattrape.
+ */
 const PROJECT_FILE_VERSION = 1
+const MIN_READABLE_PROJECT_FILE_VERSION = 1
+
 const MANIFEST_PATH = 'project.json'
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
@@ -225,7 +246,13 @@ function parseManifest(value: unknown): ProjectFileManifest {
   if (!isRecord(value) || value.format !== PROJECT_FILE_FORMAT) {
     throw new ProjectFileError('invalid-manifest')
   }
-  if (value.version !== PROJECT_FILE_VERSION) throw new ProjectFileError('unsupported-version')
+  if (
+    !Number.isSafeInteger(value.version) ||
+    Number(value.version) < MIN_READABLE_PROJECT_FILE_VERSION ||
+    Number(value.version) > PROJECT_FILE_VERSION
+  ) {
+    throw new ProjectFileError('unsupported-version')
+  }
   const project = migrateProject(value.project)
   if (!isProject(project) || !Array.isArray(value.assets)) {
     throw new ProjectFileError('invalid-manifest')
