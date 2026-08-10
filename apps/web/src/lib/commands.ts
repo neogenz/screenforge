@@ -224,6 +224,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowReleaseDialog(true),
     },
     {
+      id: 'compose-campaign',
+      title: 'Composer une campagne…',
+      section: 'Projet',
+      keywords: ['ia', 'générer', 'plan', 'onboarding', 'campagne', 'assistant'],
+      run: () => ui().setShowCampaignDialog(true),
+    },
+    {
       id: 'templates',
       title: 'Modèles de mise en page…',
       section: 'Projet',

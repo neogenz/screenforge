@@ -28,6 +28,7 @@ import {
   Type,
   Undo2,
   UserRound,
+  Wand2,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
@@ -706,6 +707,7 @@ function useSecondaryActions(): SecondaryAction[] {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
   const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
+  const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
   const theme = useUIStore((s) => s.theme)
 
   return [
@@ -726,6 +728,14 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <Package size={16} strokeWidth={1.75} />,
       expanded: showReleaseDialog,
       onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
+    },
+    {
+      id: 'campaign',
+      label: 'Composer une campagne',
+      hint: 'Plan de campagne et calques éditables',
+      icon: <Wand2 size={16} strokeWidth={1.75} />,
+      expanded: showCampaignDialog,
+      onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
     },
     {
       id: 'templates',

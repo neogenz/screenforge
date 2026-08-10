@@ -30,6 +30,7 @@ interface UIState {
   showMigrateDialog: boolean
   showRefreshDialog: boolean
   showReleaseDialog: boolean
+  showCampaignDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -54,6 +55,7 @@ interface UIState {
   setShowMigrateDialog: (show: boolean) => void
   setShowRefreshDialog: (show: boolean) => void
   setShowReleaseDialog: (show: boolean) => void
+  setShowCampaignDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -82,6 +84,7 @@ const MODALS = [
   'showMigrateDialog',
   'showRefreshDialog',
   'showReleaseDialog',
+  'showCampaignDialog',
   'showShortcuts',
 ] as const
 
@@ -127,6 +130,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showMigrateDialog: false,
   showRefreshDialog: false,
   showReleaseDialog: false,
+  showCampaignDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -188,6 +192,8 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowRefreshDialog: (show) => set(onlyModal('showRefreshDialog', show)),
 
   setShowReleaseDialog: (show) => set(onlyModal('showReleaseDialog', show)),
+
+  setShowCampaignDialog: (show) => set(onlyModal('showCampaignDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 

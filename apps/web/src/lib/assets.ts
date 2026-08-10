@@ -69,16 +69,40 @@ export function markAssetsClean(ids: Iterable<string>): void {
   for (const id of ids) dirtyIds.delete(id)
 }
 
+function drop(id: string, dataUrl: string): void {
+  registry.delete(id)
+  dirtyIds.delete(id)
+  const bucket = idsByLength.get(dataUrl.length)
+  bucket?.delete(id)
+  if (bucket?.size === 0) idsByLength.delete(dataUrl.length)
+}
+
 /** Removes unreferenced payloads from every in-memory registry index. */
 export function sweepAssets(keepIds: ReadonlySet<string>): string[] {
   const removed: string[] = []
   for (const [id, dataUrl] of registry) {
     if (keepIds.has(id)) continue
-    registry.delete(id)
-    dirtyIds.delete(id)
-    const bucket = idsByLength.get(dataUrl.length)
-    bucket?.delete(id)
-    if (bucket?.size === 0) idsByLength.delete(dataUrl.length)
+    drop(id, dataUrl)
+    removed.push(id)
+  }
+  return removed
+}
+
+/**
+ * Oublie des assets enregistrés puis abandonnés, sans toucher au reste.
+ *
+ * Le balayage général n'est correct qu'au chargement, quand la pile
+ * d'annulation vient d'être vidée : ailleurs, il effacerait ce qu'une capture
+ * d'historique référence encore. Ici l'appelant nomme les identifiants qu'il
+ * vient lui-même de créer et que rien n'a encore pu voir, et `keepIds` protège
+ * le cas où la déduplication lui a rendu l'identifiant d'un asset déjà posé.
+ */
+export function forgetAssets(ids: Iterable<string>, keepIds: ReadonlySet<string>): string[] {
+  const removed: string[] = []
+  for (const id of ids) {
+    const dataUrl = registry.get(id)
+    if (dataUrl === undefined || keepIds.has(id)) continue
+    drop(id, dataUrl)
     removed.push(id)
   }
   return removed

@@ -13,7 +13,14 @@ import {
   type ShapeId,
 } from '@/lib/vector-catalog'
 import { Path } from 'fabric'
-import type { DeviceModel, IconLayer, ImageLayer, ShapeLayer, TextLayer } from '@/types'
+import type {
+  DeviceFrameLayer,
+  DeviceModel,
+  IconLayer,
+  ImageLayer,
+  ShapeLayer,
+  TextLayer,
+} from '@/types'
 
 /**
  * Layer factories — single source for "add layer" defaults, shared by the
@@ -122,7 +129,7 @@ export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID
   }
 }
 
-export function createDeviceLayer(model: DeviceModel, zIndex: number) {
+export function createDeviceLayer(model: DeviceModel, zIndex: number): DeviceFrameLayer {
   const config = getDeviceFrame(model)
   const { width, height } = getDefaultDeviceSize(model)
   return {
