@@ -210,6 +210,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowExportDialog(true),
     },
     {
+      id: 'refresh-screenshots',
+      title: 'Actualiser les captures…',
+      section: 'Projet',
+      keywords: ['lot', 'release', 'remplacer', 'batch', 'capture'],
+      run: () => ui().setShowRefreshDialog(true),
+    },
+    {
       id: 'templates',
       title: 'Modèles de mise en page…',
       section: 'Projet',

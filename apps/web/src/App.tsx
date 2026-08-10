@@ -55,6 +55,11 @@ const AccountDialog = lazy(() =>
     default: module.AccountDialog,
   })),
 )
+const RefreshDialog = lazy(() =>
+  import('@/components/refresh-dialog/RefreshDialog').then((module) => ({
+    default: module.RefreshDialog,
+  })),
+)
 const MigrateProjectsDialog = lazy(() =>
   import('@/components/migrate-dialog/MigrateProjectsDialog').then((module) => ({
     default: module.MigrateProjectsDialog,
@@ -268,6 +273,7 @@ function Overlays() {
   const showPricingDialog = useUIStore((s) => s.showPricingDialog)
   const showAccountDialog = useUIStore((s) => s.showAccountDialog)
   const showMigrateDialog = useUIStore((s) => s.showMigrateDialog)
+  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
 
   return (
     <>
@@ -288,6 +294,7 @@ function Overlays() {
         {showPricingDialog && <PricingDialog />}
         {showAccountDialog && <AccountDialog />}
         {showMigrateDialog && <MigrateProjectsDialog />}
+        {showRefreshDialog && <RefreshDialog />}
       </Suspense>
     </>
   )

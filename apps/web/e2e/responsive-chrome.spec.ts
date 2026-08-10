@@ -120,21 +120,29 @@ test('garde la pellicule cliquable quand elle touche son plancher', async ({ pag
   // à la gouttière du HUD. Centrée, elle mordait dessus de 27px — et c'est le
   // HUD qui recevait le clic destiné à la vignette.
   await page.setViewportSize({ width: 320, height: HEIGHT })
-  const mesure = await page.evaluate(() => {
-    const bande = document
-      .querySelector('[role="group"][aria-label="Écrans"]')
-      ?.getBoundingClientRect()
-    const hud = document
-      .querySelector('[aria-label="Ajuster le zoom aux écrans"]')
-      ?.closest('div')
-      ?.getBoundingClientRect()
-    if (!bande || !hud) return null
-    return {
-      chevauchement: Math.max(0, Math.round(bande.right - hud.left)),
-      bandeVisible: bande.left >= -0.5 && bande.width > 0,
-    }
-  })
-  expect(mesure).toEqual({ chevauchement: 0, bandeVisible: true })
+  /* Mesuré en boucle, pas une fois : le décentrage passe par un
+     `matchMedia` que React traite au tick suivant, et lire la géométrie dans
+     la foulée du redimensionnement rendait la mise en page d'avant — 27px de
+     chevauchement, soit exactement l'ancien défaut, sur une bande qui l'avait
+     déjà corrigé. */
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const bande = document
+          .querySelector('[role="group"][aria-label="Écrans"]')
+          ?.getBoundingClientRect()
+        const hud = document
+          .querySelector('[aria-label="Ajuster le zoom aux écrans"]')
+          ?.closest('div')
+          ?.getBoundingClientRect()
+        if (!bande || !hud) return null
+        return {
+          chevauchement: Math.max(0, Math.round(bande.right - hud.left)),
+          bandeVisible: bande.left >= -0.5 && bande.width > 0,
+        }
+      }),
+    )
+    .toEqual({ chevauchement: 0, bandeVisible: true })
 
   // La dernière vignette reçoit bien son clic, pas le HUD.
   const tuile = page.locator('button[aria-label^="Activer"]').last()

@@ -17,6 +17,7 @@ import {
   PanelLeft,
   PanelRight,
   Redo2,
+  RefreshCw,
   Settings,
   Smartphone,
   Sparkles,
@@ -702,11 +703,20 @@ function useSecondaryActions(): SecondaryAction[] {
   const plan = usePlanAction()
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
+  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
   const theme = useUIStore((s) => s.theme)
 
   return [
     ...(plan ? [plan] : []),
     ...(account ? [account] : []),
+    {
+      id: 'refresh',
+      label: 'Actualiser les captures',
+      hint: 'Remplacer le lot de captures',
+      icon: <RefreshCw size={16} strokeWidth={1.75} />,
+      expanded: showRefreshDialog,
+      onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
+    },
     {
       id: 'templates',
       label: 'Ouvrir les modèles',
