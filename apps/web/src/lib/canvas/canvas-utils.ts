@@ -3,6 +3,7 @@ import {
   FabricImage,
   FabricObject,
   Gradient,
+  Path,
   Point,
   Rect,
   Shadow,
@@ -20,6 +21,7 @@ import {
 import { resolveAsset } from '@/lib/assets'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
+import { ICON_STROKE, iconEntry, shapeEntry } from '@/lib/vector-catalog'
 import {
   GHOST_HALO,
   GHOST_INK,
@@ -394,6 +396,7 @@ function getResourceKey(layer: Layer): string {
     ].join(':')
   }
   if (layer.type === 'shape') return `shape:${layer.shapeType}`
+  if (layer.type === 'icon') return `icon:${layer.iconId}`
   return layer.type
 }
 
@@ -415,7 +418,17 @@ export async function layerToFabricObject(layer: Layer): Promise<RenderedObject>
   if (layer.type === 'text') {
     object = new Textbox('', { width: Math.max(1, layer.width) })
   } else if (layer.type === 'shape') {
-    object = layer.shapeType === 'circle' ? new Circle({ radius: 1 }) : new Rect()
+    const traced = shapeEntry(layer.shapeType)?.path
+    if (traced) object = new Path(traced, { strokeUniform: true })
+    else if (layer.shapeType === 'circle') object = new Circle({ radius: 1 })
+    else object = new Rect()
+  } else if (layer.type === 'icon') {
+    // Un identifiant inconnu ne doit rien casser : le catalogue rend l'étoile.
+    const traced = iconEntry(layer.iconId)?.path ?? iconEntry('star')!.path
+    // Pas de `strokeUniform` ici, au contraire des formes : le trait d'une
+    // icône grandit avec elle, comme le ferait le SVG dont il sort. Figé, une
+    // icône de 200 px se rendrait au fil de fer.
+    object = new Path(traced, { strokeLineCap: 'round', strokeLineJoin: 'round' })
   } else if (layer.type === 'image') {
     const src = resolveAsset(layer.assetId)
     if (!src) throw new Error('Image introuvable : asset manquant dans le registre.')
@@ -501,7 +514,14 @@ export function applyLayerToFabricObject(
       strokeWidth: layer.strokeWidth ?? 0,
       shadow: createShadow(layer.shadow),
     })
-    if (object instanceof Circle) {
+    if (object instanceof Path) {
+      // Le tracé est figé dans sa boîte de 100 : redimensionner met à l'échelle,
+      // ne retrace pas — sans quoi chaque pixel de poignée reconstruirait l'objet.
+      object.set({
+        scaleX: layer.width / Math.max(1, object.width),
+        scaleY: layer.height / Math.max(1, object.height),
+      })
+    } else if (object instanceof Circle) {
       const diameter = Math.max(1, Math.min(layer.width, layer.height))
       object.set({
         radius: diameter / 2,
@@ -519,6 +539,17 @@ export function applyLayerToFabricObject(
         ry: radius,
       })
     }
+  } else if (layer.type === 'icon' && object instanceof Path) {
+    object.set({
+      fill: null,
+      stroke: layer.color,
+      // L'épaisseur se lit dans le repère de 24 de l'icône : 2 rend le trait
+      // de Lucide, quelle que soit la taille du calque.
+      strokeWidth: layer.strokeWidth ?? ICON_STROKE,
+      shadow: createShadow(layer.shadow),
+      scaleX: layer.width / Math.max(1, object.width),
+      scaleY: layer.height / Math.max(1, object.height),
+    })
   } else if (layer.type === 'image' && object instanceof FabricImage) {
     object.set({
       scaleX: layer.width / Math.max(1, object.width),

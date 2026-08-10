@@ -1,6 +1,8 @@
+import type { IconId, ShapeId } from '@/lib/vector-catalog'
+
 // ─── Layer Types ────────────────────────────────────────────────────────────
 
-export type LayerType = 'text' | 'device-frame' | 'image' | 'shape'
+export type LayerType = 'text' | 'device-frame' | 'image' | 'shape' | 'icon'
 
 export interface BaseLayer {
   id: string
@@ -125,7 +127,7 @@ export interface ImageLayer extends BaseLayer {
 
 export interface ShapeLayer extends BaseLayer {
   type: 'shape'
-  shapeType: 'rectangle' | 'circle' | 'rounded-rect'
+  shapeType: ShapeId
   fill: string | GradientFill
   stroke?: string
   strokeWidth?: number
@@ -133,7 +135,23 @@ export interface ShapeLayer extends BaseLayer {
   shadow?: TextShadow
 }
 
-export type Layer = TextLayer | DeviceFrameLayer | ImageLayer | ShapeLayer
+/**
+ * Une icône du catalogue, jamais un SVG.
+ *
+ * Le calque porte un identifiant que `lib/vector-catalog.ts` sait résoudre : le
+ * tracé n'entre pas dans le fichier de projet, donc rien de ce qu'un modèle de
+ * langage propose ne peut devenir du balisage rendu tel quel.
+ */
+export interface IconLayer extends BaseLayer {
+  type: 'icon'
+  iconId: IconId
+  color: string
+  /** Épaisseur du trait dans le repère de 24 de l'icône. */
+  strokeWidth?: number
+  shadow?: TextShadow
+}
+
+export type Layer = TextLayer | DeviceFrameLayer | ImageLayer | ShapeLayer | IconLayer
 
 // ─── Background ─────────────────────────────────────────────────────────────
 

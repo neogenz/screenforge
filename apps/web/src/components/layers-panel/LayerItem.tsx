@@ -6,6 +6,7 @@ import {
   ImageIcon,
   Lock,
   Smartphone,
+  Sparkles,
   Square,
   Type,
   Unlock,
@@ -37,6 +38,8 @@ function LayerTypeIcon({ type }: { type: Layer['type'] }) {
       return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
     case 'image':
       return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
+    case 'icon':
+      return <Sparkles size={13} strokeWidth={1.5} className={className} aria-hidden />
     default:
       return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
   }

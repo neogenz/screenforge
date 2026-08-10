@@ -10,6 +10,7 @@ function collectLayerAssetIds(layer: Layer, ids: Set<string>): void {
       if (layer.importedBezel) ids.add(layer.importedBezel.assetId)
       return
     case 'shape':
+    case 'icon':
     case 'text':
       return
     default:

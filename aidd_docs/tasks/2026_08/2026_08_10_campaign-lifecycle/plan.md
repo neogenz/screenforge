@@ -40,7 +40,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | --- | ------------------------------------------------ | ------------ |
 | 1   | Modèle versionné + `EditorTransaction`           | done         |
 | 2   | Placement/crop persistant + slots sémantiques    | done         |
-| 3   | Formes et icônes éditables + registre partagé    | à faire      |
+| 3   | Formes et icônes éditables + registre partagé    | done         |
 | 4   | Batch refresh atomique                           | à faire      |
 | 5   | Lot rendu, release immuable, diff structurel     | à faire      |
 | 6   | Plan IA validé + builder déterministe + outils   | à faire      |

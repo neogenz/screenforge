@@ -4,7 +4,16 @@ import { registerAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { imageImportErrorMessage, importImageFile } from '@/lib/image'
 import { POPULAR_FONTS } from '@/lib/fonts'
-import type { DeviceModel, ImageLayer, ShapeLayer, TextLayer } from '@/types'
+import {
+  DEFAULT_ICON_ID,
+  ICON_STROKE,
+  iconEntry,
+  shapeEntry,
+  type IconId,
+  type ShapeId,
+} from '@/lib/vector-catalog'
+import { Path } from 'fabric'
+import type { DeviceModel, IconLayer, ImageLayer, ShapeLayer, TextLayer } from '@/types'
 
 /**
  * Layer factories — single source for "add layer" defaults, shared by the
@@ -59,11 +68,11 @@ export function createTextLayer(zIndex: number): TextLayer {
   }
 }
 
-export function createShapeLayer(zIndex: number): ShapeLayer {
+export function createShapeLayer(zIndex: number, shapeType: ShapeId = 'rectangle'): ShapeLayer {
   return {
     id: crypto.randomUUID(),
     type: 'shape',
-    name: 'Rectangle',
+    name: shapeEntry(shapeType)?.label ?? 'Forme',
     x: (SCREEN_WIDTH - 200) / 2,
     y: (SCREEN_HEIGHT - 200) / 2,
     width: 200,
@@ -73,8 +82,43 @@ export function createShapeLayer(zIndex: number): ShapeLayer {
     locked: false,
     visible: true,
     zIndex,
-    shapeType: 'rectangle',
+    shapeType,
     fill: DEFAULT_INK_COLOR,
+  }
+}
+
+const ICON_SIZE = 120
+
+/**
+ * La boîte d'une icône suit le rapport de son tracé.
+ *
+ * Le rapport est mesuré par le moteur qui la rendra, pas recopié dans le
+ * catalogue : une coche est deux fois plus large que haute, et l'étirer dans un
+ * carré la déforme dès l'insertion. Rien n'est ajouté au canevas — l'objet
+ * sert de règle et est jeté.
+ */
+export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID): IconLayer {
+  const entry = iconEntry(iconId) ?? iconEntry(DEFAULT_ICON_ID)!
+  const probe = new Path(entry.path)
+  const ratio = probe.width > 0 && probe.height > 0 ? probe.width / probe.height : 1
+  const width = ICON_SIZE * Math.min(1, ratio)
+  const height = ICON_SIZE * Math.min(1, 1 / ratio)
+  return {
+    id: crypto.randomUUID(),
+    type: 'icon',
+    name: entry.label,
+    x: (SCREEN_WIDTH - width) / 2,
+    y: (SCREEN_HEIGHT - height) / 2,
+    width,
+    height,
+    rotation: 0,
+    opacity: 1,
+    locked: false,
+    visible: true,
+    zIndex,
+    iconId: entry.id,
+    color: DEFAULT_INK_COLOR,
+    strokeWidth: ICON_STROKE,
   }
 }
 

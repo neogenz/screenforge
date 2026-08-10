@@ -12,6 +12,7 @@ import { TransformSection } from './TransformSection'
 import { TextSection } from './TextSection'
 import { DeviceSection } from './DeviceSection'
 import { ImageSection } from './ImageSection'
+import { IconSection } from '@/components/properties-panel/IconSection'
 import { ShapeSection } from './ShapeSection'
 import { BackgroundSection } from './BackgroundSection'
 import type { Layer } from '@/types'
@@ -113,6 +114,12 @@ export function PropertiesPanel() {
             {selectedLayer.type === 'shape' && (
               <Section title="Forme" defaultOpen>
                 <ShapeSection layer={selectedLayer} />
+              </Section>
+            )}
+
+            {selectedLayer.type === 'icon' && (
+              <Section title="Icône" defaultOpen>
+                <IconSection layer={selectedLayer} />
               </Section>
             )}
           </>

@@ -1,6 +1,7 @@
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from '@/lib/screenshot-placement'
 import { SAFE_SLOT } from '@/lib/slots'
+import { ICON_BOX, isIconId, isShapeId } from '@/lib/vector-catalog'
 import type { Layer, Project } from '@/types'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
@@ -154,8 +155,17 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
       (value.gradientFill === undefined || isGradient(value.gradientFill))
     )
   }
+  if (value.type === 'icon') {
+    return (
+      isIconId(value.iconId) &&
+      typeof value.color === 'string' &&
+      Boolean(value.color) &&
+      (value.strokeWidth === undefined || isFiniteNumber(value.strokeWidth, 0, ICON_BOX)) &&
+      (value.shadow === undefined || isShadow(value.shadow))
+    )
+  }
   if (value.type !== 'shape' || 'gradientFill' in value) return false
-  if (!['rectangle', 'circle', 'rounded-rect'].includes(String(value.shapeType))) return false
+  if (!isShapeId(value.shapeType)) return false
   if (!(typeof value.fill === 'string' || isGradient(value.fill))) return false
   if (value.stroke !== undefined && typeof value.stroke !== 'string') return false
   if (value.strokeWidth !== undefined && !isFiniteNumber(value.strokeWidth, 0)) return false

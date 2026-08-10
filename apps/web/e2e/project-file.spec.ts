@@ -179,7 +179,7 @@ test('round-trips a versioned archive with each referenced asset once', async ({
   }
 
   expect(names).toEqual(['project.json', ...manifest.assets.map((asset) => asset.path)].sort())
-  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 1 })
+  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 2 })
   expect(manifest.assets).toHaveLength(3)
   expect(new Set(manifest.assets.map((asset) => asset.id))).toEqual(new Set(fixture.assetIds))
   expect(manifest.assets.every((asset) => asset.sha256.match(/^[a-f0-9]{64}$/))).toBe(true)
@@ -211,13 +211,18 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
      Un numéro sous le plancher ou non entier ne vient d'aucune version publiée
      et suit la même porte, plutôt que d'atteindre les migrations. */
   const futureVersion = await mutateManifest((manifest) => {
-    manifest.version = 2
+    manifest.version = 3
   })
   const belowFloorVersion = await mutateManifest((manifest) => {
     manifest.version = 0
   })
   const fractionalVersion = await mutateManifest((manifest) => {
     manifest.version = 1.5
+  })
+  /* Le plancher est le point : une archive écrite avant le calque `icon` reste
+     ouvrable, `migrateProject` n'ayant rien à y reprendre. */
+  const previousVersion = await mutateManifest((manifest) => {
+    manifest.version = 1
   })
   const corruptHash = await mutateManifest((manifest) => {
     const assets = manifest.assets as Array<Record<string, unknown>>
@@ -297,6 +302,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
       readArchive(page, futureVersion),
       readArchive(page, belowFloorVersion),
       readArchive(page, fractionalVersion),
+      readArchive(page, previousVersion),
       readArchive(page, await missing.generateAsync({ type: 'uint8array' })),
       readArchive(page, corruptHash),
       readArchive(page, declaredOversize),
@@ -312,6 +318,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     'unsupported-version',
     'unsupported-version',
     'unsupported-version',
+    'ok',
     'missing-asset',
     'corrupt-asset',
     'asset-too-large',

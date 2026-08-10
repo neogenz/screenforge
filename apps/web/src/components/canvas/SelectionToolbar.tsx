@@ -264,6 +264,16 @@ function LayerControls({ layer }: { layer: Layer }) {
     )
   }
 
+  if (layer.type === 'icon') {
+    return (
+      <ColorControl
+        label="Couleur"
+        value={layer.color}
+        onChange={(color) => update({ color } as Partial<Layer>, `layer:${layer.id}:color`)}
+      />
+    )
+  }
+
   if (layer.type === 'shape') {
     return (
       <>

@@ -4,9 +4,9 @@ import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
 import { Field } from '@/components/ui/field'
 import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
 import { Switch } from '@/components/ui/switch'
+import { VectorPicker } from '@/components/vector-picker/VectorPicker'
+import { SHAPE_CATALOG, type ShapeId } from '@/lib/vector-catalog'
 import {
   DEFAULT_GRADIENT_FROM,
   DEFAULT_GRADIENT_TO,
@@ -17,12 +17,6 @@ import type { GradientFill, Layer, ShapeLayer } from '@/types'
 interface ShapeSectionProps {
   layer: ShapeLayer
 }
-
-const SHAPE_TYPE_OPTIONS: SegmentedOption<ShapeLayer['shapeType']>[] = [
-  { value: 'rectangle', label: 'Rectangle' },
-  { value: 'circle', label: 'Cercle' },
-  { value: 'rounded-rect', label: 'Arrondi' },
-]
 
 export function ShapeSection({ layer }: ShapeSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
@@ -52,12 +46,13 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Segmented
-        options={SHAPE_TYPE_OPTIONS}
+      <VectorPicker
+        entries={SHAPE_CATALOG}
         value={layer.shapeType}
-        onChange={(shapeType) => update({ shapeType })}
-        ariaLabel="Type de forme"
-        className="w-full"
+        onChange={(shapeType) => update({ shapeType: shapeType as ShapeId })}
+        kind="shape"
+        label="Forme"
+        searchPlaceholder="Rechercher une forme…"
       />
 
       {/* Fill */}

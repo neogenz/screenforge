@@ -5,7 +5,12 @@ import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
 import { signOutAndReport } from '@/lib/auth'
 import { cloudConfigured } from '@/lib/supabase'
-import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
+import {
+  createDeviceLayer,
+  createIconLayer,
+  createShapeLayer,
+  createTextLayer,
+} from '@/lib/layer-factories'
 import type { AlignMode, DistributeMode } from '@/lib/align'
 
 export interface Command {
@@ -101,6 +106,13 @@ export function getCommands(): Command[] {
       keywords: ['rectangle', 'forme', 'cercle'],
       shortcut: 'R',
       run: () => canvas().addLayer(createShapeLayer(layerCount())),
+    },
+    {
+      id: 'add-icon',
+      title: 'Ajouter une icône',
+      section: 'Calques',
+      keywords: ['icone', 'icône', 'pictogramme', 'symbole'],
+      run: () => canvas().addLayer(createIconLayer(layerCount())),
     },
     {
       id: 'add-device',

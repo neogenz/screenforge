@@ -1,5 +1,6 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
+import { ICON_BOX, ICON_STROKE, iconEntry, shapeEntry, SHAPE_BOX } from '@/lib/vector-catalog'
 import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/lib/canvas/canvas-utils'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
 
@@ -88,8 +89,41 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
     )
   }
 
+  if (layer.type === 'icon') {
+    const entry = iconEntry(layer.iconId)
+    if (!entry) return null
+    return (
+      <g transform={transform} opacity={layer.opacity}>
+        <path
+          d={entry.path}
+          fill="none"
+          stroke={layer.color}
+          strokeWidth={layer.strokeWidth ?? ICON_STROKE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          /* Le tracé vit dans sa boîte de 24 : la vignette le pose comme le
+             canevas, par mise à l'échelle, sans le retracer. */
+          transform={`translate(${layer.x} ${layer.y}) scale(${layer.width / ICON_BOX} ${layer.height / ICON_BOX})`}
+        />
+      </g>
+    )
+  }
+
   if (layer.type === 'shape') {
     const fill = typeof layer.fill === 'string' ? layer.fill : `url(#${templateId}-${layer.id})`
+    const traced = shapeEntry(layer.shapeType)?.path
+    if (traced) {
+      return (
+        <path
+          transform={`${transform} translate(${layer.x} ${layer.y}) scale(${layer.width / SHAPE_BOX} ${layer.height / SHAPE_BOX})`}
+          d={traced}
+          fill={fill}
+          stroke={layer.stroke}
+          strokeWidth={layer.strokeWidth}
+          opacity={layer.opacity}
+        />
+      )
+    }
     if (layer.shapeType === 'circle') {
       return (
         <ellipse

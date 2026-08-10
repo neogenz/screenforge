@@ -19,6 +19,7 @@ import {
   Redo2,
   Settings,
   Smartphone,
+  Sparkles,
   Square,
   Sun,
   TriangleAlert,
@@ -55,7 +56,12 @@ import {
 import { cloudConfigured } from '@/lib/supabase'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
-import { createDeviceLayer, createShapeLayer, createTextLayer } from '@/lib/layer-factories'
+import {
+  createDeviceLayer,
+  createIconLayer,
+  createShapeLayer,
+  createTextLayer,
+} from '@/lib/layer-factories'
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
 import type { DeviceModel, Layer } from '@/types'
 
@@ -445,7 +451,7 @@ function ToolsSegment() {
       <Divider />
 
       {/*
-        Les quatre outils d'ajout forment un groupe, et c'est le filet qui le
+        Les cinq outils d'ajout forment un groupe, et c'est le filet qui le
         dit — comme partout ailleurs dans cette barre.
 
         Le rail en creux qui les portait reproduisait mot pour mot le conteneur
@@ -476,6 +482,13 @@ function ToolsSegment() {
         onClick={() => addLayer(createShapeLayer(layerCount()))}
       >
         <Square size={16} strokeWidth={1.75} />
+      </IconButton>
+      <IconButton
+        aria-label="Ajouter Icône"
+        title="Ajouter : icône"
+        onClick={() => addLayer(createIconLayer(layerCount()))}
+      >
+        <Sparkles size={16} strokeWidth={1.75} />
       </IconButton>
     </div>
   )
@@ -573,6 +586,13 @@ function useToolActions(): SecondaryAction[] {
       hint: 'Ajouter : forme',
       icon: <Square size={16} strokeWidth={1.75} />,
       onSelect: () => addLayer(createShapeLayer),
+    },
+    {
+      id: 'add-icon',
+      label: 'Ajouter Icône',
+      hint: 'Ajouter : icône',
+      icon: <Sparkles size={16} strokeWidth={1.75} />,
+      onSelect: () => addLayer(createIconLayer),
     },
   ]
 }
