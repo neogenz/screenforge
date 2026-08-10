@@ -1,4 +1,6 @@
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from '@/lib/screenshot-placement'
+import { SAFE_SLOT } from '@/lib/slots'
 import type { Layer, Project } from '@/types'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
@@ -73,6 +75,20 @@ function isBaseLayer(value: Record<string, unknown>): boolean {
   )
 }
 
+function isScreenshotSize(value: unknown): boolean {
+  return isRecord(value) && isFiniteNumber(value.width, 1) && isFiniteNumber(value.height, 1)
+}
+
+function isScreenshotPlacement(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    ['cover', 'contain', 'fill'].includes(String(value.mode)) &&
+    isFiniteNumber(value.focusX, 0, 1) &&
+    isFiniteNumber(value.focusY, 0, 1) &&
+    isFiniteNumber(value.zoom, MIN_SCREENSHOT_ZOOM, MAX_SCREENSHOT_ZOOM)
+  )
+}
+
 function isImportedBezel(value: unknown): boolean {
   if (!isRecord(value) || !SAFE_ASSET_ID.test(String(value.assetId))) return false
   if (typeof value.fileName !== 'string' || !value.fileName) return false
@@ -112,6 +128,9 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
     )
       return false
     if (value.importedBezel !== undefined && !isImportedBezel(value.importedBezel)) return false
+    if (value.screenshotSize !== undefined && !isScreenshotSize(value.screenshotSize)) return false
+    if (value.placement !== undefined && !isScreenshotPlacement(value.placement)) return false
+    if (value.slot !== undefined && !SAFE_SLOT.test(String(value.slot))) return false
     if (value.shadowEnabled !== undefined && typeof value.shadowEnabled !== 'boolean') return false
     if (value.shadowBlur !== undefined && !isFiniteNumber(value.shadowBlur, 0)) return false
     if (value.shadowColor !== undefined && typeof value.shadowColor !== 'string') return false

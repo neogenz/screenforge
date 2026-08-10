@@ -39,7 +39,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | #   | Phase                                            | Statut       |
 | --- | ------------------------------------------------ | ------------ |
 | 1   | Modèle versionné + `EditorTransaction`           | done         |
-| 2   | Placement/crop persistant + slots sémantiques    | à faire      |
+| 2   | Placement/crop persistant + slots sémantiques    | done         |
 | 3   | Formes et icônes éditables + registre partagé    | à faire      |
 | 4   | Batch refresh atomique                           | à faire      |
 | 5   | Lot rendu, release immuable, diff structurel     | à faire      |

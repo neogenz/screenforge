@@ -316,7 +316,14 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
     console.error('Could not synchronize the canvas.', error)
   } finally {
     if (runtime.syncVersion.current === version) {
+      /* La version est relue dans la trame, pas seulement avant : une passe
+         suivante peut démarrer entre les deux, et lever le drapeau sous elle
+         rendait ses `canvas.remove` visibles au gestionnaire de désélection.
+         Retirer l'objet actif effaçait alors la sélection, le panneau des
+         propriétés retombait sur l'arrière-plan, et le réglage en cours
+         disparaissait sous le curseur. */
       requestAnimationFrame(() => {
+        if (runtime.syncVersion.current !== version) return
         runtime.syncing.current = false
       })
     }

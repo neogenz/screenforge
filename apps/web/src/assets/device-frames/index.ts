@@ -1,4 +1,5 @@
-import type { DeviceModel, DeviceColor } from '@/types'
+import { screenshotFrame, type Rect } from '@/lib/screenshot-placement'
+import type { DeviceModel, DeviceColor, ScreenshotPlacement, ScreenshotSize } from '@/types'
 
 export interface DeviceFrameConfig {
   model: DeviceModel
@@ -324,6 +325,8 @@ export function generateDeviceFrameSVG(
   config: DeviceFrameConfig,
   colorName: DeviceColor,
   screenshotUrl?: string,
+  placement?: ScreenshotPlacement,
+  screenshotSize?: ScreenshotSize,
 ): string {
   const color = config.colors.find((c) => c.name === colorName) ?? config.colors[0]
   const {
@@ -378,7 +381,7 @@ export function generateDeviceFrameSVG(
   <path data-part="frame" d="${framePath}" fill="${color.frame}"/>
   <path data-part="screen" d="${screenPath}" fill="#050506"/>
 
-  ${screenshotUrl ? `<image data-part="screenshot" x="${screenX}" y="${screenY}" width="${screenWidth}" height="${screenHeight}" href="${escapeSvgAttribute(screenshotUrl)}" clip-path="url(#${screenClipId})" preserveAspectRatio="xMidYMid slice"/>` : ''}
+  ${screenshotUrl ? screenshotImage(screenshotUrl, { x: screenX, y: screenY, width: screenWidth, height: screenHeight }, placement, screenshotSize, screenClipId) : ''}
 
   <!--
     Îlot dynamique, ou encoche.
@@ -401,6 +404,27 @@ export function generateDeviceFrameSVG(
         : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
   }
 </svg>`
+}
+
+/**
+ * L'unique `<image>` d'une capture, partagé avec le chemin bezel importé.
+ *
+ * Les deux sites écrivaient leur balise à la main, avec le même
+ * `preserveAspectRatio="xMidYMid slice"` recopié — puis se sont mis à diverger
+ * sur le découpage, le cadre généré ayant son `clipPath` et le bezel comptant
+ * sur son PNG opaque. Le cadrage ajoute un zoom, donc une capture qui peut
+ * déborder : le découpage devient obligatoire des deux côtés, et deux endroits
+ * qui doivent rester d'accord n'en font plus qu'un.
+ */
+export function screenshotImage(
+  href: string,
+  opening: Rect,
+  placement: ScreenshotPlacement | undefined,
+  screenshotSize: ScreenshotSize | undefined,
+  clipId: string,
+): string {
+  const frame = screenshotFrame(opening, placement, screenshotSize)
+  return `<image data-part="screenshot" x="${round(frame.x)}" y="${round(frame.y)}" width="${round(frame.width)}" height="${round(frame.height)}" href="${escapeSvgAttribute(href)}" clip-path="url(#${clipId})" preserveAspectRatio="${frame.preserveAspectRatio}"/>`
 }
 
 function escapeSvgAttribute(value: string): string {

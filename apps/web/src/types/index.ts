@@ -64,6 +64,26 @@ export interface ImportedDeviceBezel {
   screen: { x: number; y: number; width: number; height: number }
 }
 
+export type ScreenshotFitMode = 'cover' | 'contain' | 'fill'
+
+export interface ScreenshotSize {
+  width: number
+  height: number
+}
+
+/**
+ * Comment la capture se pose dans l'ouverture — voir lib/screenshot-placement.
+ * Absent vaut `cover` centré au zoom 1, soit le rendu de toutes les versions
+ * précédentes.
+ */
+export interface ScreenshotPlacement {
+  mode: ScreenshotFitMode
+  /** Point focal, 0–1 dans le repère de l'ouverture. */
+  focusX: number
+  focusY: number
+  zoom: number
+}
+
 export interface DeviceFrameLayer extends BaseLayer {
   type: 'device-frame'
   deviceModel: DeviceModel
@@ -74,6 +94,19 @@ export interface DeviceFrameLayer extends BaseLayer {
   importedBezel?: ImportedDeviceBezel
   /** Asset id of the inserted app screenshot (see lib/assets.ts). */
   screenshotAssetId?: string
+  /** Taille naturelle de la capture, mesurée à l'import. Sans elle, pas de cadrage. */
+  screenshotSize?: ScreenshotSize
+  /** Cadrage de la capture dans la dalle ; survit au remplacement de l'asset. */
+  placement?: ScreenshotPlacement
+  /**
+   * Le rôle de cet écran dans la campagne — `onboarding`, `budget`, `reglages`.
+   *
+   * C'est ce qui rend une release remplaçable : sans lui, dix captures et dix
+   * appareils n'ont aucun appariement, et la seule façon de savoir laquelle va
+   * où est de les reconnaître à l'œil. Un même slot peut viser plusieurs
+   * appareils — la même capture apparaît souvent sur deux planches.
+   */
+  slot?: string
   shadowEnabled?: boolean
   shadowBlur?: number
   shadowColor?: string

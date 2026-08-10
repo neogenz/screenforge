@@ -35,7 +35,7 @@ import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { SelectionFrame } from '@/hooks/use-canvas'
 import type { AlignMode } from '@/lib/align'
-import type { Layer, TextLayer } from '@/types'
+import type { Layer, ScreenshotSize, TextLayer } from '@/types'
 
 /**
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
@@ -231,7 +231,9 @@ function LayerControls({ layer }: { layer: Layer }) {
             {layer.importedBezel.fileName}
           </span>
           <ScreenshotButton
-            onPick={(screenshotAssetId) => update({ screenshotAssetId } as Partial<Layer>)}
+            onPick={(screenshotAssetId, screenshotSize) =>
+              update({ screenshotAssetId, screenshotSize } as Partial<Layer>)
+            }
           />
         </>
       )
@@ -243,7 +245,9 @@ function LayerControls({ layer }: { layer: Layer }) {
           {getDeviceFrame(layer.deviceModel).modelName}
         </span>
         <ScreenshotButton
-          onPick={(screenshotAssetId) => update({ screenshotAssetId } as Partial<Layer>)}
+          onPick={(screenshotAssetId, screenshotSize) =>
+            update({ screenshotAssetId, screenshotSize } as Partial<Layer>)
+          }
         />
         {colors.map((color) => (
           <SwatchButton
@@ -307,7 +311,7 @@ function LayerControls({ layer }: { layer: Layer }) {
  * peut pas coûter la réouverture d'un drawer. Le message d'erreur passe par un
  * toast, la barre n'a pas de place pour une ligne d'aide.
  */
-function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
+function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: ScreenshotSize) => void }) {
   const input = useRef<HTMLInputElement>(null)
 
   async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -316,7 +320,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string) => void }) {
     if (!file) return
     try {
       const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
-      onPick(registerAsset(image.dataUrl))
+      onPick(registerAsset(image.dataUrl), { width: image.width, height: image.height })
     } catch (error) {
       toast(imageImportErrorMessage(error), 'error')
     }

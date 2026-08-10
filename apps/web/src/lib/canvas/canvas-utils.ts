@@ -15,9 +15,11 @@ import {
   generateDeviceFrameSVG,
   getDeviceFrame,
   getDeviceRenderSize,
+  screenshotImage,
 } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
+import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
 import {
   GHOST_HALO,
   GHOST_INK,
@@ -298,13 +300,20 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
     const { naturalWidth: width, naturalHeight: height, screen } = imported
+    /* L'ouverture d'un bezel Apple est un rectangle mesuré par remplissage
+       (`device-bezel.ts`), pas une courbe : le découpage est donc un `rect`, et
+       ce sont les coins opaques du PNG qui redonnent l'arrondi. Il n'existait
+       pas — le PNG posé par-dessus suffisait tant que la capture ne pouvait pas
+       dépasser l'ouverture, ce qu'un zoom rend possible. */
+    const screenClipId = `bezel-clip-${layer.id}`
     return {
       width,
       height,
       svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+  <defs><clipPath id="${screenClipId}"><rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}"/></clipPath></defs>
   ${
     screenshotUrl
-      ? `<image x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" href="${escape(screenshotUrl)}" preserveAspectRatio="xMidYMid slice"/>`
+      ? screenshotImage(screenshotUrl, screen, layer.placement, layer.screenshotSize, screenClipId)
       : `<rect x="${screen.x}" y="${screen.y}" width="${screen.width}" height="${screen.height}" fill="${DEFAULT_DEVICE_SCREEN_COLOR}"/>`
   }
   <image x="0" y="0" width="${width}" height="${height}" href="${escape(importedUrl)}"/>
@@ -317,6 +326,8 @@ function orientedDeviceSvg(layer: DeviceFrameLayer): {
     config,
     layer.deviceColor,
     resolveAsset(layer.screenshotAssetId),
+    layer.placement,
+    layer.screenshotSize,
   )
   const rendered = getDeviceRenderSize(config)
   if (layer.orientation === 'portrait') {
@@ -345,6 +356,21 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
+/**
+ * Le cadrage fait partie de l'identité de la ressource.
+ *
+ * L'appareil est rasterisé une fois puis réutilisé tant que sa clé ne change
+ * pas. Le cadrage est écrit dans le SVG, donc dans le raster : oublié ici, un
+ * curseur de zoom déplacé ne repeindrait rien tant que la capture ou le modèle
+ * n'aurait pas bougé.
+ */
+function placementKey(layer: DeviceFrameLayer): string {
+  if (!layer.screenshotAssetId) return ''
+  const { mode, focusX, focusY, zoom } = normalizeScreenshotPlacement(layer.placement)
+  const size = layer.screenshotSize
+  return [mode, focusX, focusY, zoom, size?.width ?? '', size?.height ?? ''].join(',')
+}
+
 function getResourceKey(layer: Layer): string {
   if (layer.type === 'image') return `image:${layer.assetId}`
   if (layer.type === 'device-frame') {
@@ -354,6 +380,7 @@ function getResourceKey(layer: Layer): string {
         'imported',
         layer.importedBezel.assetId,
         layer.screenshotAssetId ?? '',
+        placementKey(layer),
       ].join(':')
     }
     return [
@@ -363,6 +390,7 @@ function getResourceKey(layer: Layer): string {
       layer.deviceColor,
       layer.orientation,
       layer.screenshotAssetId ?? '',
+      placementKey(layer),
     ].join(':')
   }
   if (layer.type === 'shape') return `shape:${layer.shapeType}`

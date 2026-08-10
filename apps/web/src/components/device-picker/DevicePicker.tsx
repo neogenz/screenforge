@@ -4,6 +4,7 @@ import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/a
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
+import { ScreenshotFraming } from '@/components/device-picker/ScreenshotFraming'
 import { Field } from '@/components/ui/field'
 import { IconButton } from '@/components/ui/icon-button'
 import { NumberField } from '@/components/ui/number-field'
@@ -69,7 +70,15 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
     try {
       const image = await importImageFile(file, SCREENSHOT_IMAGE_TYPES)
-      onUpdate({ screenshotAssetId: registerAsset(image.dataUrl) })
+      /* La taille est écrite, le cadrage ne l'est pas : c'est toute la
+         différence avec Open Screenshot Generator, dont le remplacement remet
+         le `screenshotRect` à zéro et fait donc reperdre le réglage à chaque
+         release. Ici seul l'asset et sa mesure changent — le mode, le point
+         focal, le zoom, le slot, la géométrie, l'appareil et l'ombre restent. */
+      onUpdate({
+        screenshotAssetId: registerAsset(image.dataUrl),
+        screenshotSize: { width: image.width, height: image.height },
+      })
     } catch (error) {
       setScreenshotError(imageImportErrorMessage(error))
     }
@@ -348,6 +357,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           </p>
         )}
       </Field>
+
+      <ScreenshotFraming layer={layer} onUpdate={onUpdate} />
 
       {layer.importedBezel ? (
         <p className="text-2xs text-muted-foreground">
