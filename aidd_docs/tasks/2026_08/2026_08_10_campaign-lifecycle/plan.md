@@ -46,7 +46,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | 6   | Plan IA validé + builder déterministe + outils   | done         |
 | 7   | Registre de providers + bridge Codex             | done         |
 | 8   | Localisation éditable + revue des débordements   | done         |
-| 9   | Arborescence d'export + preflight `asc`          | à faire      |
+| 9   | Arborescence d'export + preflight `asc`          | done         |
 | 10  | Durcissement, licences, a11y, doc, E2E complet   | à faire      |
 
 L'ordre est celui des dépendances, pas celui de la valeur. Les phases 2 à 5

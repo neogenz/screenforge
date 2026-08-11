@@ -18,10 +18,17 @@ serve(
   () => {
     console.log(`Pont ScreenForge sur http://${BRIDGE_HOST}:${BRIDGE_PORT}`)
     console.log(`Origines admises : ${origins.join(', ')}`)
+    /* Deux jetons, affichés séparément : ne recopier que le premier laisse la
+       publication fermée, ce qui est le défaut souhaitable. */
     console.log(
-      `\nJeton d’appairage (version ${state.pairing.version}) :\n${state.pairing.token}\n`,
+      `\nJeton « codex » (version ${state.pairing.codex.version}) :\n${state.pairing.codex.token}`,
     )
-    console.log('Collez-le dans ScreenForge, section « Assistance ». Il meurt avec ce processus.')
+    console.log('  → ScreenForge, section « Assistance » : composer et traduire.\n')
+    console.log(
+      `Jeton « asc-publish » (version ${state.pairing['asc-publish'].version}) :\n${state.pairing['asc-publish'].token}`,
+    )
+    console.log('  → ScreenForge, boîte « Publier » : téléverser un lot figé chez Apple.\n')
+    console.log('Les deux meurent avec ce processus. N’en collez que ce dont vous avez besoin.')
   },
 )
 

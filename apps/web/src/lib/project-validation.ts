@@ -278,6 +278,11 @@ function isRelease(value: unknown): boolean {
   if (typeof value.id !== 'string' || !value.id) return false
   if (typeof value.name !== 'string' || value.name.length > MAX_RELEASE_NAME_LENGTH) return false
   if (!isFiniteNumber(value.createdAt) || typeof value.watermarked !== 'boolean') return false
+  if (
+    value.locale !== undefined &&
+    (typeof value.locale !== 'string' || !LOCALE_CODE.test(value.locale))
+  )
+    return false
   if (!Array.isArray(value.files) || !value.files.every(isReleaseFile)) return false
 
   const snapshot = value.snapshot

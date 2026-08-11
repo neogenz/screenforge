@@ -3,7 +3,7 @@ import { collectAssetIds } from '@/lib/asset-refs'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { applyToolCalls, type ToolCall, type ToolContext, type ToolResult } from '@/lib/ai/tools'
 import { planFromBrief, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
-import { planViaBridge } from '@/lib/ai/bridge-client'
+import { planViaBridge } from '@/lib/bridge-client'
 import type { ProviderId } from '@/lib/ai/providers'
 import { useProjectStore } from '@/stores/project.store'
 

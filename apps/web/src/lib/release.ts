@@ -81,6 +81,15 @@ export async function renderReleaseFiles(
   watermarked: boolean,
   onProgress?: (progress: RenderProgress) => void,
   dimensions: DisplayClass[] = EXPORT_DIMENSIONS,
+  /**
+   * Les octets, pour qui en a besoin.
+   *
+   * Le figement et la vérification n'en veulent pas — une release ne contient
+   * aucun pixel. La publication, si : elle envoie au pont exactement les
+   * planches dont elle vient de recalculer l'empreinte, ce qui est la seule
+   * façon d'affirmer que ce qui part est bien le lot figé.
+   */
+  onFile?: (file: ReleaseFile, blob: Blob) => void,
 ): Promise<ReleaseFile[]> {
   const jobs = dimensions.flatMap((dimension) =>
     snapshot.screens.map((screen, index) => ({ dimension, screen, index })),
@@ -98,14 +107,16 @@ export async function renderReleaseFiles(
       watermarked,
     )
     const metadata = await inspectPng(blob)
-    files.push({
+    const file: ReleaseFile = {
       path: releasePath(dimension, index, screen),
       screenId: screen.id,
       width: metadata.width,
       height: metadata.height,
       byteLength: metadata.byteLength,
       sha256: await sha256OfBlob(blob),
-    })
+    }
+    files.push(file)
+    onFile?.(file, blob)
   }
 
   onProgress?.({ current: jobs.length, total: jobs.length, label: 'Empreintes calculées' })
@@ -119,12 +130,15 @@ export function freezeRelease(
   files: ReleaseFile[],
   watermarked: boolean,
   createdAt: number,
+  /** La langue rendue, quand ce n'est pas celle d'origine. */
+  locale?: string,
 ): Release {
   return {
     id,
     name: name.trim().slice(0, MAX_RELEASE_NAME_LENGTH),
     createdAt,
     watermarked,
+    ...(locale ? { locale } : {}),
     files,
     // Cloné une seconde fois : l'appelant garde le sien, la release garde le
     // sien, et aucune écriture ultérieure ne peut traverser de l'un à l'autre.

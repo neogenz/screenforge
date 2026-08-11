@@ -33,7 +33,7 @@ const PROJECT_FILE_FORMAT = 'screenforge-project'
  * `PROJECT_FILE_VERSION` ne monte donc qu'avec un vrai changement de forme, et
  * dans le même commit que la migration qui le rattrape.
  */
-const PROJECT_FILE_VERSION = 4
+const PROJECT_FILE_VERSION = 5
 const MIN_READABLE_PROJECT_FILE_VERSION = 1
 
 const MANIFEST_PATH = 'project.json'

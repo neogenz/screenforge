@@ -32,6 +32,7 @@ interface UIState {
   showReleaseDialog: boolean
   showCampaignDialog: boolean
   showLocaleDialog: boolean
+  showPublishDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -58,6 +59,7 @@ interface UIState {
   setShowReleaseDialog: (show: boolean) => void
   setShowCampaignDialog: (show: boolean) => void
   setShowLocaleDialog: (show: boolean) => void
+  setShowPublishDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -88,6 +90,7 @@ const MODALS = [
   'showReleaseDialog',
   'showCampaignDialog',
   'showLocaleDialog',
+  'showPublishDialog',
   'showShortcuts',
 ] as const
 
@@ -135,6 +138,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showReleaseDialog: false,
   showCampaignDialog: false,
   showLocaleDialog: false,
+  showPublishDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: getInitialTheme(),
@@ -200,6 +204,8 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowCampaignDialog: (show) => set(onlyModal('showCampaignDialog', show)),
 
   setShowLocaleDialog: (show) => set(onlyModal('showLocaleDialog', show)),
+
+  setShowPublishDialog: (show) => set(onlyModal('showPublishDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 

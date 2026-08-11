@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { connectBridge, planViaBridge } from '@/lib/ai/bridge-client'
+import { connectBridge, planViaBridge } from '@/lib/bridge-client'
 import { AI_PROVIDERS, aiProvider, RECOMMENDED_PROVIDER } from '@/lib/ai/providers'
 import { planCampaign } from '@/lib/ai/run'
 import { AI_LIMITS } from '@/lib/ai/tools'
@@ -32,12 +32,13 @@ const BRIEF: CampaignBrief = {
 }
 
 const HELLO = {
-  protocol: 1,
+  protocol: 2,
   bridge: '0.1.0',
   codexAvailable: true,
   codexVersion: 'codex-cli 0.0.0-test',
   capabilities: { vision: false, structuredOutput: true, reasoning: true },
-  tokenVersion: 1,
+  ascAvailable: false,
+  tokenVersions: { codex: 1, 'asc-publish': 1 },
 }
 
 function respond(routes: Record<string, { status?: number; body: unknown }>) {

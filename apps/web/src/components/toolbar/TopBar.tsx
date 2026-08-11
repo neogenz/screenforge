@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Cloud,
   CloudOff,
+  CloudUpload,
   Command,
   Download,
   FileDown,
@@ -710,6 +711,7 @@ function useSecondaryActions(): SecondaryAction[] {
   const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
+  const showPublishDialog = useUIStore((s) => s.showPublishDialog)
   const theme = useUIStore((s) => s.theme)
 
   return [
@@ -746,6 +748,14 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <Languages size={16} strokeWidth={1.75} />,
       expanded: showLocaleDialog,
       onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
+    },
+    {
+      id: 'publish',
+      label: 'Publier chez Apple',
+      hint: 'Preflight, manifeste et commande asc',
+      icon: <CloudUpload size={16} strokeWidth={1.75} />,
+      expanded: showPublishDialog,
+      onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
     },
     {
       id: 'templates',

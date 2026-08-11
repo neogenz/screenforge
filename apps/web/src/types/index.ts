@@ -288,6 +288,16 @@ export interface Release {
   createdAt: number
   /** Le palier au moment du figement : un filigrane change les empreintes. */
   watermarked: boolean
+  /**
+   * La langue effectivement rendue, absente pour la langue d'origine.
+   *
+   * Sans elle, publier consiste à choisir une localisation de destination sans
+   * rien qui dise ce que les planches contiennent — et téléverser un lot
+   * français dans la fiche allemande passe sans une erreur. Le code est celui du
+   * projet (`de`), pas celui d'App Store Connect (`de-DE`) : la correspondance
+   * est proposée au moment de publier, jamais figée ici.
+   */
+  locale?: string
   files: ReleaseFile[]
   snapshot: ProjectSnapshot
 }

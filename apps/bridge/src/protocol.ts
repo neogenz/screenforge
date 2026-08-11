@@ -16,7 +16,7 @@ import { z } from 'zod'
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 /** Ce qu'un fournisseur sait faire, tel que le pont le déclare. */
 export const capabilitiesSchema = z.object({
@@ -37,8 +37,16 @@ export const helloSchema = z.object({
   codexAvailable: z.boolean(),
   codexVersion: z.string().optional(),
   capabilities: capabilitiesSchema,
-  /** Incrémentée à chaque révocation : un jeton d'une version passée est mort. */
-  tokenVersion: z.number().int(),
+  /** Faux tant que `asc` n'est pas installé : la publication n'est pas proposée. */
+  ascAvailable: z.boolean(),
+  ascVersion: z.string().optional(),
+  /** Ce que ce binaire `asc` sait faire, sondé et non supposé. */
+  ascFlags: z.array(z.string()).optional(),
+  /**
+   * Une version par capacité : un jeton d'une version passée est mort, et
+   * révoquer la publication ne coupe pas la conversation avec le modèle.
+   */
+  tokenVersions: z.object({ codex: z.number().int(), 'asc-publish': z.number().int() }),
 })
 
 export type Hello = z.infer<typeof helloSchema>
@@ -160,6 +168,85 @@ export const planRequestSchema = z.object({
 
 export type PlanRequest = z.infer<typeof planRequestSchema>
 
+/* ------------------------------------------------------------- publication */
+
+/**
+ * La cible d'une publication : trois identifiants, aucun secret.
+ *
+ * Il n'y a **aucun champ** pour une clé d'API, un identifiant d'émetteur ou un
+ * fichier `.p8`, et ce n'est pas un oubli : `asc` résout ses identifiants dans
+ * le trousseau du système, donc un champ pour les transporter n'aurait servi
+ * qu'à les faire traverser une requête HTTP et un processus de plus. Zod retire
+ * ce qu'il ne connaît pas — un appelant qui joindrait une clé la verrait jetée
+ * avant que rien n'atteigne la ligne de commande.
+ *
+ * `deviceType` n'est pas comparé à une liste tenue ici : Apple en ajoute, et une
+ * énumération recopiée dérive en silence. La forme est bornée, et `asc` refuse
+ * lui-même un type qu'il ne connaît pas — vérifié : « unsupported screenshot
+ * display type ». La barrière qui compte est que rien de cette chaîne ne peut
+ * ressembler à un argument.
+ */
+export const ascTargetSchema = z.object({
+  versionLocalization: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+  deviceType: z.string().regex(/^[A-Z][A-Z0-9_]{2,39}$/),
+})
+
+export type AscTarget = z.infer<typeof ascTargetSchema>
+
+/**
+ * Un fichier du lot : un nom plat et des octets.
+ *
+ * Le nom ne peut contenir ni séparateur, ni point d'échappement, ni majuscule :
+ * la traversée de répertoire est impossible par construction plutôt que
+ * rattrapée par une normalisation. Le pont écrit tout dans un seul dossier
+ * temporaire, ce qui est exactement ce que `--path` attend.
+ */
+export const ascFileSchema = z.object({
+  name: z.string().regex(/^[0-9a-z][0-9a-z_-]{0,63}\.png$/),
+  base64: z.string().max(12_000_000),
+})
+
+export const ascPublishRequestSchema = z.object({
+  protocol: z.number().int(),
+  /** L'identité du lot figé : ce qui rend l'opération idempotente. */
+  releaseId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+  bundleHash: z.string().regex(/^[a-f0-9]{64}$/),
+  target: ascTargetSchema,
+  files: z.array(ascFileSchema).min(1).max(10),
+  /** Supprime les captures déjà en place. Jamais implicite. */
+  replaceExisting: z.boolean().default(false),
+  /** `--dry-run` : `asc` dit ce qu'il ferait sans rien changer. */
+  dryRun: z.boolean().default(false),
+})
+
+export type AscPublishRequest = z.infer<typeof ascPublishRequestSchema>
+
+export type AscStepName = 'verify-cli' | 'write-temp' | 'upload' | 'cleanup'
+
+export type AscStepStatus = 'ok' | 'failed' | 'skipped' | 'ambiguous'
+
+export const ascStepSchema = z.object({
+  name: z.string(),
+  status: z.string(),
+  /** Une ligne lisible, nettoyée de tout ce qui ressemble à un secret. */
+  detail: z.string(),
+  ms: z.number().int(),
+})
+
+export const ascPublishResultSchema = z.object({
+  steps: z.array(ascStepSchema),
+  /** La commande réellement lancée, argument par argument, jamais concaténée. */
+  command: z.array(z.string()),
+  /** Vrai quand le lot avait déjà été publié à cette destination. */
+  idempotent: z.boolean(),
+  dryRun: z.boolean(),
+  replaceExisting: z.boolean(),
+  /** Sortie de `asc`, nettoyée. Vide si la commande n'a rien dit. */
+  output: z.string(),
+})
+
+export type AscPublishResult = z.infer<typeof ascPublishResultSchema>
+
 export type BridgeErrorCode =
   /** Le jeton manque, ne correspond pas, ou appartient à une version révoquée. */
   | 'unauthorized'
@@ -169,6 +256,12 @@ export type BridgeErrorCode =
   | 'protocol-mismatch'
   /** `codex` n'est pas installé, ou n'a pas démarré. */
   | 'codex-unavailable'
+  /** `asc` n'est pas installé, ou trop ancien pour ce qui est demandé. */
+  | 'asc-unavailable'
+  /** `asc` a échoué : le détail vient de sa sortie, nettoyée. */
+  | 'asc-failed'
+  /** Le téléversement n'a pas rendu la main : son sort est inconnu. */
+  | 'ambiguous-timeout'
   /** Codex a répondu, mais pas ce qui était demandé. */
   | 'invalid-response'
   /** La requête a été annulée. */

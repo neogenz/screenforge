@@ -13,7 +13,7 @@ import {
 } from '@/lib/ai/plan'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
 import { isCampaignPlan } from '@/lib/ai/plan'
-import { connectBridge, setBridgeToken, type BridgeStatus } from '@/lib/ai/bridge-client'
+import { connectBridge, setBridgeToken, type BridgeStatus } from '@/lib/bridge-client'
 import { AI_PROVIDERS, aiProvider, type ProviderId } from '@/lib/ai/providers'
 import {
   imageImportErrorMessage,
@@ -162,7 +162,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
        au même pont, et faire retaper le même secret par boîte serait une
        cérémonie sans gain de sécurité. Il meurt au rechargement de la page. */
     if (status.state === 'ready') {
-      setBridgeToken(token)
+      setBridgeToken('codex', token)
       setModel(status.models[0]?.id ?? '')
     }
   }
@@ -540,7 +540,7 @@ function AssistancePanel({
               <>
                 <p role="status" className="text-2xs text-muted-foreground">
                   Connecté · {bridge.hello.codexVersion ?? 'codex'} · jeton version{' '}
-                  {bridge.hello.tokenVersion}
+                  {bridge.hello.tokenVersions.codex}
                   {bridge.hello.capabilities.reasoning ? ' · raisonnement' : ''}
                 </p>
                 <Select

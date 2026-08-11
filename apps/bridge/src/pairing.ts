@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
 /**
- * L'appairage : un secret en mémoire, jamais sur le disque.
+ * L'appairage : un secret par capacité, en mémoire, jamais sur le disque.
  *
  * Le jeton est tiré au démarrage, affiché une fois, et meurt avec le processus.
  * Rien ne l'écrit dans un fichier de configuration, un `localStorage` ou un
@@ -13,32 +13,59 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
  * Il est versionné : révoquer incrémente la version et en tire un nouveau, donc
  * un jeton recopié ailleurs cesse de valoir au moment exact où on le révoque,
  * sans redémarrer quoi que ce soit.
+ *
+ * **Un jeton par capacité, et c'est la différence qui compte.** Le pont fait
+ * deux choses sans rapport : parler à un modèle, et publier un lot chez Apple.
+ * Les deux n'exigent pas la même confiance — le premier ne reçoit aucune image,
+ * le second reçoit tout le lot rendu et lance un téléversement irréversible.
+ * Un jeton unique aurait fait de l'appairage à un assistant une autorisation de
+ * publier. Ici, refuser une capacité est un geste : on ne recopie pas son jeton.
  */
 
-export interface Pairing {
+export const BRIDGE_CAPABILITIES = ['codex', 'asc-publish'] as const
+
+export type BridgeCapability = (typeof BRIDGE_CAPABILITIES)[number]
+
+export interface Grant {
   token: string
   version: number
 }
+
+export type Pairing = Record<BridgeCapability, Grant>
 
 export function mintToken(): string {
   return randomBytes(32).toString('base64url')
 }
 
 export function createPairing(): Pairing {
-  return { token: mintToken(), version: 1 }
+  return {
+    codex: { token: mintToken(), version: 1 },
+    'asc-publish': { token: mintToken(), version: 1 },
+  }
 }
 
-export function revoke(pairing: Pairing): Pairing {
-  return { token: mintToken(), version: pairing.version + 1 }
+/** Révoque une seule capacité : l'autre garde son jeton et sa version. */
+export function revoke(pairing: Pairing, capability: BridgeCapability): Pairing {
+  return {
+    ...pairing,
+    [capability]: { token: mintToken(), version: pairing[capability].version + 1 },
+  }
 }
 
 /**
  * Comparaison à durée constante : deux jetons de longueurs différentes sont
  * refusés avant `timingSafeEqual`, qui lève sur des tampons inégaux.
+ *
+ * Le jeton d'une capacité ne vaut jamais pour l'autre : c'est le seul endroit
+ * qui le décide, et il ne regarde qu'une entrée.
  */
-export function verifyToken(pairing: Pairing, presented: string | undefined): boolean {
+export function verifyToken(
+  pairing: Pairing,
+  capability: BridgeCapability,
+  presented: string | undefined,
+): boolean {
   if (!presented) return false
-  const expected = Buffer.from(pairing.token)
+  const expected = Buffer.from(pairing[capability].token)
   const given = Buffer.from(presented)
   return expected.length === given.length && timingSafeEqual(expected, given)
 }
@@ -48,4 +75,8 @@ export function bearer(header: string | null | undefined): string | undefined {
   if (!header) return undefined
   const [scheme, value] = header.split(' ')
   return scheme === 'Bearer' && value ? value : undefined
+}
+
+export function tokenVersions(pairing: Pairing): Record<BridgeCapability, number> {
+  return { codex: pairing.codex.version, 'asc-publish': pairing['asc-publish'].version }
 }

@@ -238,6 +238,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowLocaleDialog(true),
     },
     {
+      id: 'publish',
+      title: 'Publier chez Apple…',
+      section: 'Projet',
+      keywords: ['asc', 'publier', 'app store', 'preflight', 'manifeste', 'upload'],
+      run: () => ui().setShowPublishDialog(true),
+    },
+    {
       id: 'templates',
       title: 'Modèles de mise en page…',
       section: 'Projet',

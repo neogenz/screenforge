@@ -20,26 +20,33 @@ import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 1
+const PROTOCOL = 2
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
-/**
- * Le jeton de la session, en mémoire de module.
- *
- * Ici plutôt que dans un état React : deux boîtes s'appairent au même pont — la
- * campagne et les langues — et une saisie par boîte aurait fait taper deux fois
- * le même secret. Volontairement pas dans un store Zustand : ceux-là se
- * persistent, s'inspectent depuis la console de développement et voyagent dans
- * les captures d'état.
- */
-let sessionToken = ''
+export type BridgeCapability = 'codex' | 'asc-publish'
 
-export function setBridgeToken(token: string): void {
-  sessionToken = token.trim()
+/**
+ * Un jeton par capacité, en mémoire de module.
+ *
+ * Ici plutôt que dans un état React : deux boîtes s'appairent à la même
+ * capacité — la campagne et les langues — et une saisie par boîte aurait fait
+ * taper deux fois le même secret. Volontairement pas dans un store Zustand :
+ * ceux-là se persistent, s'inspectent depuis la console de développement et
+ * voyagent dans les captures d'état.
+ *
+ * Deux entrées et non une : appairer un assistant n'autorise pas à publier chez
+ * Apple, et l'utilisateur qui ne recopie que le premier jeton garde la seconde
+ * porte fermée. C'est le pont qui le décide, la page ne fait que ne pas
+ * mélanger les deux.
+ */
+const sessionTokens: Record<BridgeCapability, string> = { codex: '', 'asc-publish': '' }
+
+export function setBridgeToken(capability: BridgeCapability, token: string): void {
+  sessionTokens[capability] = token.trim()
 }
 
-export function bridgeToken(): string {
-  return sessionToken
+export function bridgeToken(capability: BridgeCapability): string {
+  return sessionTokens[capability]
 }
 
 export type BridgeStatus =
@@ -194,4 +201,129 @@ export async function translateViaBridge(
     throw new Error('Le pont a rendu un nombre de textes inattendu : rien n’a été repris.')
   }
   return answer.texts
+}
+
+/* -------------------------------------------------------------- publication */
+
+export interface AscBridgeStatus {
+  available: boolean
+  version?: string
+  flags: string[]
+  /** Vrai quand le pont répond mais que `asc` n'y est pas installé. */
+  reachable: boolean
+  message?: string
+}
+
+/**
+ * Ce que le pont sait de `asc`, sans jeton.
+ *
+ * `hello` est ouvert : la page a besoin de savoir s'il vaut la peine de
+ * proposer la publication avant de demander un second secret à l'utilisateur.
+ * Elle n'y apprend ni chemin, ni compte, ni identifiant — seulement une version
+ * et une liste de drapeaux.
+ */
+export async function ascBridgeStatus(): Promise<AscBridgeStatus> {
+  try {
+    const hello = await call<Hello>('/hello', '')
+    if (hello.protocol !== PROTOCOL) {
+      return {
+        available: false,
+        reachable: true,
+        flags: [],
+        message: `Le pont parle la version ${hello.protocol}, cette page la ${PROTOCOL}. Mettez-les à jour ensemble.`,
+      }
+    }
+    return {
+      available: hello.ascAvailable,
+      reachable: true,
+      flags: hello.ascFlags ?? [],
+      ...(hello.ascVersion ? { version: hello.ascVersion } : {}),
+      ...(hello.ascAvailable
+        ? {}
+        : {
+            message:
+              'Le pont tourne, mais la commande « asc » est introuvable. Installez-la puis connectez-la avec « asc auth login ».',
+          }),
+    }
+  } catch (cause) {
+    return {
+      available: false,
+      reachable: false,
+      flags: [],
+      message: cause instanceof TypeError ? UNREACHABLE : 'Le pont n’a pas répondu.',
+    }
+  }
+}
+
+export interface BridgePublishStep {
+  name: string
+  status: string
+  detail: string
+  ms: number
+}
+
+export interface BridgePublishResult {
+  steps: BridgePublishStep[]
+  command: string[]
+  idempotent: boolean
+  dryRun: boolean
+  replaceExisting: boolean
+  output: string
+}
+
+export interface BridgePublishRequest {
+  releaseId: string
+  bundleHash: string
+  versionLocalization: string
+  deviceType: string
+  files: { name: string; base64: string }[]
+  replaceExisting: boolean
+  dryRun: boolean
+}
+
+/**
+ * Envoie un lot figé au pont, et rien d'autre.
+ *
+ * Le corps ne porte ni projet, ni instantané, ni identifiant Apple : des
+ * planches nommées, leur empreinte collective, et la destination. Le pont ne
+ * peut donc rien publier que la page ne lui ait explicitement remis, et la page
+ * ne remet que ce qu'elle vient de recalculer depuis la release figée.
+ *
+ * Une erreur du pont porte ses étapes : dire *où* la publication s'est arrêtée
+ * vaut mieux qu'un « échec » sans lieu.
+ */
+export async function publishViaBridge(
+  request: BridgePublishRequest,
+  token: string,
+): Promise<BridgePublishResult> {
+  const response = await fetch(`${BRIDGE_URL}/asc/publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      protocol: PROTOCOL,
+      releaseId: request.releaseId,
+      bundleHash: request.bundleHash,
+      target: {
+        versionLocalization: request.versionLocalization,
+        deviceType: request.deviceType,
+      },
+      files: request.files,
+      replaceExisting: request.replaceExisting,
+      dryRun: request.dryRun,
+    }),
+  })
+  const body = (await response.json().catch(() => ({}))) as BridgeFailure & {
+    steps?: BridgePublishStep[]
+  }
+  if (!response.ok) {
+    const failure = new Error(messageFor(response.status, body))
+    Object.assign(failure, { steps: body.steps ?? [] })
+    throw failure
+  }
+  return body as unknown as BridgePublishResult
+}
+
+/** Les étapes rattachées à un échec de publication, s'il en porte. */
+export function publishSteps(error: unknown): BridgePublishStep[] {
+  return (error as { steps?: BridgePublishStep[] })?.steps ?? []
 }

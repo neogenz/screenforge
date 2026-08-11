@@ -15,3 +15,8 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 export async function sha256OfBlob(blob: Blob): Promise<string> {
   return sha256Hex(new Uint8Array(await blob.arrayBuffer()))
 }
+
+/** L'empreinte d'un lot se calcule sur sa liste, pas sur ses octets. */
+export async function sha256OfText(text: string): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(text))
+}

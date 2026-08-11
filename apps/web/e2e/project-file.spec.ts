@@ -179,7 +179,7 @@ test('round-trips a versioned archive with each referenced asset once', async ({
   }
 
   expect(names).toEqual(['project.json', ...manifest.assets.map((asset) => asset.path)].sort())
-  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 4 })
+  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 5 })
   expect(manifest.assets).toHaveLength(3)
   expect(new Set(manifest.assets.map((asset) => asset.id))).toEqual(new Set(fixture.assetIds))
   expect(manifest.assets.every((asset) => asset.sha256.match(/^[a-f0-9]{64}$/))).toBe(true)
@@ -211,7 +211,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
      Un numéro sous le plancher ou non entier ne vient d'aucune version publiée
      et suit la même porte, plutôt que d'atteindre les migrations. */
   const futureVersion = await mutateManifest((manifest) => {
-    manifest.version = 5
+    manifest.version = 6
   })
   const belowFloorVersion = await mutateManifest((manifest) => {
     manifest.version = 0
@@ -220,8 +220,9 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     manifest.version = 1.5
   })
   /* Le plancher est le point : une archive écrite avant le calque `icon`,
-     avant les releases et avant les locales reste ouvrable, `migrateProject`
-     n'ayant rien à y reprendre — les trois ajouts sont facultatifs. */
+     avant les releases, avant les locales et avant la langue d'une release
+     reste ouvrable, `migrateProject` n'ayant rien à y reprendre — les quatre
+     ajouts sont facultatifs. */
   const previousVersion = await mutateManifest((manifest) => {
     manifest.version = 1
   })

@@ -15,6 +15,7 @@ import {
   type StructuralDiff,
 } from '@/lib/release'
 import { MAX_PROJECT_RELEASES, MAX_RELEASE_NAME_LENGTH } from '@/lib/project-validation'
+import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import { saveCurrentProject } from '@/lib/storage'
 import { rightsOf } from '@/lib/entitlements'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -64,6 +66,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => releases[releases.length - 1]?.id,
   )
+  /* Vide = la langue du projet. Une release porte la langue qu'elle a rendue :
+     sans elle, publier consiste à viser une fiche allemande avec des planches
+     dont rien ne dit ce qu'elles contiennent. */
+  const [localeCode, setLocaleCode] = useState('')
   const [progress, setProgress] = useState<RenderProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [checks, setChecks] = useState<{ releaseId: string; results: ReleaseCheck[] } | null>(null)
@@ -84,7 +90,20 @@ function ReleaseDialogContent({ project }: { project: Project }) {
     if (busy) return
     setError(null)
     setChecks(null)
-    const snapshot = snapshotOf(project)
+    const locale = (project.locales ?? []).find((entry) => entry.code === localeCode)
+    /* Un lot ne se fige pas sur une langue qui déborde : ce qui est figé finit
+       chez Apple, et une accroche hors cadre y arrive telle quelle. */
+    if (locale && localeBlocked(reviewLocale(project, locale))) {
+      setError(`« ${locale.name} » a des textes à corriger : figez-la depuis « Langues ».`)
+      return
+    }
+    const snapshot = locale
+      ? snapshotOf({
+          ...project,
+          screens: localizedScreens(project, locale),
+          layoutLayers: localizedLayoutLayers(project, locale),
+        })
+      : snapshotOf(project)
     try {
       const files = await renderReleaseFiles(snapshot, watermarked, setProgress)
       const release = freezeRelease(
@@ -94,6 +113,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         files,
         watermarked,
         Date.now(),
+        locale?.code,
       )
       const outcome = addRelease(release)
       if (!outcome.committed) {
@@ -178,6 +198,20 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 onChange={(event) => setName(event.target.value)}
               />
             </Field>
+            <Select
+              aria-label="Langue du lot"
+              label="Langue"
+              value={localeCode}
+              disabled={busy}
+              onChange={(event) => setLocaleCode(event.target.value)}
+            >
+              <option value="">Langue du projet</option>
+              {(project.locales ?? []).map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {entry.name}
+                </option>
+              ))}
+            </Select>
             <Button
               variant="primary"
               onClick={() => void freeze()}
@@ -212,6 +246,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     <span className="truncate text-sm text-foreground">{release.name}</span>
                     <span className="tabular text-2xs text-muted-foreground">
                       {formatDate(release.createdAt)} · {release.files.length} planches
+                      {release.locale ? ` · ${release.locale}` : ''}
                     </span>
                   </button>
                 </li>

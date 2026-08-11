@@ -1,8 +1,30 @@
 import { Hono } from 'hono'
+import {
+  AscAmbiguousError,
+  AscFailedError,
+  AscUnavailableError,
+  ascProbeOrUndefined,
+  createAscState,
+  execRunner,
+  runPublish,
+  stepsOf,
+  type AscRunner,
+  type AscState,
+} from './asc.ts'
 import { CodexClient, CodexUnavailableError, codexVersion } from './codex.ts'
-import { bearer, createPairing, revoke, verifyToken, type Pairing } from './pairing.ts'
+import {
+  BRIDGE_CAPABILITIES,
+  bearer,
+  createPairing,
+  revoke,
+  tokenVersions,
+  verifyToken,
+  type BridgeCapability,
+  type Pairing,
+} from './pairing.ts'
 import {
   allowedOrigins,
+  ascPublishRequestSchema,
   originAllowed,
   planRequestSchema,
   planSchema,
@@ -17,21 +39,28 @@ import {
 } from './protocol.ts'
 
 /**
- * Le pont, en quatre routes.
+ * Le pont, et les deux choses qu'il sait faire.
  *
  * Trois contrôles s'appliquent avant tout traitement, dans cet ordre : origine,
- * version de protocole, jeton. L'origine d'abord parce qu'elle ne coûte rien et
- * qu'elle est la seule que l'attaquant ne peut pas recopier — un jeton lu dans
- * une capture d'écran voyage, l'origine d'une page non.
+ * jeton **de la capacité demandée**, version de protocole. L'origine d'abord
+ * parce qu'elle ne coûte rien et qu'elle est la seule que l'attaquant ne peut
+ * pas recopier — un jeton lu dans une capture d'écran voyage, l'origine d'une
+ * page non. La capacité ensuite : parler à un modèle et publier chez Apple sont
+ * deux autorisations distinctes, et le jeton de l'une ne vaut jamais pour
+ * l'autre.
  *
  * `hello` est la seule route ouverte sans jeton, et elle ne dit que ce qu'une
  * page a besoin de savoir pour proposer l'appairage : version, présence de
- * Codex, capacités. Pas de modèles, pas de chemins, pas de nom de machine.
+ * `codex` et de `asc`, capacités. Pas de modèles, pas de chemins, pas de nom de
+ * machine.
  */
 
 export interface BridgeState {
   pairing: Pairing
   codex: CodexClient
+  asc: AscState
+  /** Injecté par les tests : aucun processus n'y est lancé. */
+  ascRun: AscRunner
 }
 
 function fail(code: BridgeError['error'], detail: string): BridgeError {
@@ -61,23 +90,29 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     await next()
   })
 
-  const authorized = (header: string | undefined) => verifyToken(state.pairing, bearer(header))
+  const authorized = (capability: BridgeCapability, header: string | undefined) =>
+    verifyToken(state.pairing, capability, bearer(header))
 
   app.get('/hello', async (context) => {
-    const version = await codexVersion()
+    const [version, asc] = await Promise.all([
+      codexVersion(),
+      ascProbeOrUndefined(state.asc, state.ascRun),
+    ])
     const hello: Hello = {
       protocol: PROTOCOL_VERSION,
       bridge: '0.1.0',
       codexAvailable: Boolean(version),
       ...(version ? { codexVersion: version } : {}),
       capabilities: { vision: false, structuredOutput: true, reasoning: true },
-      tokenVersion: state.pairing.version,
+      ascAvailable: Boolean(asc),
+      ...(asc ? { ascVersion: asc.version, ascFlags: asc.flags } : {}),
+      tokenVersions: tokenVersions(state.pairing),
     }
     return context.json(hello)
   })
 
   app.get('/models', async (context) => {
-    if (!authorized(context.req.header('Authorization'))) {
+    if (!authorized('codex', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
     try {
@@ -89,7 +124,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
   })
 
   app.post('/plan', async (context) => {
-    if (!authorized(context.req.header('Authorization'))) {
+    if (!authorized('codex', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
     const parsed = planRequestSchema.safeParse(await context.req.json().catch(() => null))
@@ -121,7 +156,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
   })
 
   app.post('/translate', async (context) => {
-    if (!authorized(context.req.header('Authorization'))) {
+    if (!authorized('codex', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
     const parsed = translateRequestSchema.safeParse(await context.req.json().catch(() => null))
@@ -154,16 +189,63 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
   })
 
-  /** Révoquer sur demande : le jeton d'avant meurt à l'instant. */
-  app.post('/pair/revoke', (context) => {
-    if (!authorized(context.req.header('Authorization'))) {
+  /**
+   * Publie un lot déjà rendu, haché et vérifié.
+   *
+   * La page envoie les planches et l'empreinte du lot, jamais le projet vivant :
+   * ce qui part chez Apple est ce qui a été figé et relu, pas ce qui se trouvait
+   * sur le canevas à l'instant du clic. Le pont ne recalcule pas les images — il
+   * les écrit et lance `asc`.
+   *
+   * Des images traversent ici, et c'est la seule route où c'est vrai : leur
+   * destination est Apple, pas un modèle. C'est exactement ce que les jetons par
+   * capacité rendent lisible — appairer un assistant n'autorise pas à publier,
+   * et autoriser à publier ne montre rien à un modèle.
+   */
+  app.post('/asc/publish', async (context) => {
+    if (!authorized('asc-publish', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton de publication invalide.'), 401)
+    }
+    const parsed = ascPublishRequestSchema.safeParse(await context.req.json().catch(() => null))
+    if (!parsed.success) {
+      return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
+    }
+    if (parsed.data.protocol !== PROTOCOL_VERSION) {
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
+    }
+
+    try {
+      return context.json(await runPublish(state.asc, parsed.data, state.ascRun))
+    } catch (error) {
+      /* Les étapes franchies partent avec l'échec : « où » est l'information
+         qui distingue un binaire absent d'un lot refusé par Apple. */
+      const steps = stepsOf(error)
+      if (error instanceof AscUnavailableError) {
+        return context.json({ ...fail('asc-unavailable', error.message), steps }, 502)
+      }
+      /* Le sort du téléversement est inconnu : le pont ne rejoue rien de
+         lui-même, parce qu'un second envoi doublerait les captures chez Apple.
+         C'est un 409, pas un 502 : rien ne dit que ça a échoué. */
+      if (error instanceof AscAmbiguousError) {
+        return context.json({ ...fail('ambiguous-timeout', error.message), steps }, 409)
+      }
+      const detail = error instanceof AscFailedError ? error.message : 'Publication interrompue.'
+      return context.json({ ...fail('asc-failed', detail), steps }, 502)
+    }
+  })
+
+  /** Révoquer une capacité : son jeton meurt à l'instant, l'autre survit. */
+  app.post('/pair/revoke', async (context) => {
+    const body = (await context.req.json().catch(() => ({}))) as { capability?: string }
+    const capability = BRIDGE_CAPABILITIES.find((known) => known === body.capability) ?? 'codex'
+    if (!authorized(capability, context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
-    state.pairing = revoke(state.pairing)
+    state.pairing = revoke(state.pairing, capability)
     console.log(
-      `\nNouveau jeton d’appairage (version ${state.pairing.version}) :\n${state.pairing.token}\n`,
+      `\nNouveau jeton « ${capability} » (version ${state.pairing[capability].version}) :\n${state.pairing[capability].token}\n`,
     )
-    return context.json({ tokenVersion: state.pairing.version })
+    return context.json({ capability, tokenVersion: state.pairing[capability].version })
   })
 
   return app
@@ -237,5 +319,10 @@ function translatePrompt(request: TranslateRequest): string {
 }
 
 export function createState(): BridgeState {
-  return { pairing: createPairing(), codex: new CodexClient() }
+  return {
+    pairing: createPairing(),
+    codex: new CodexClient(),
+    asc: createAscState(),
+    ascRun: execRunner,
+  }
 }

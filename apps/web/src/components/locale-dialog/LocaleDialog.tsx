@@ -20,7 +20,7 @@ import {
   MAX_LOCALE_TEXT_LENGTH,
   MAX_PROJECT_LOCALES,
 } from '@/lib/project-validation'
-import { bridgeToken, translateViaBridge } from '@/lib/ai/bridge-client'
+import { bridgeToken, translateViaBridge } from '@/lib/bridge-client'
 import { loadGoogleFont } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -111,7 +111,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   }
 
   async function translate(target: LocaleVariant, layers: TextLayer[]) {
-    const token = bridgeToken()
+    const token = bridgeToken('codex')
     if (!token) {
       setError(
         'Aucun pont appairé. Ouvrez « Composer une campagne », section Assistance, pour vous connecter — ou traduisez à la main.',
