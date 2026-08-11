@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, ImageUp, Sparkles, Wand2 } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, ImageUp, Plug, Sparkles, Wand2 } from 'lucide-react'
 import { registerAsset } from '@/lib/assets'
 import {
   DIRECTIONS,
@@ -13,6 +13,8 @@ import {
 } from '@/lib/ai/plan'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
 import { isCampaignPlan } from '@/lib/ai/plan'
+import { connectBridge, type BridgeStatus } from '@/lib/ai/bridge-client'
+import { AI_PROVIDERS, aiProvider, type ProviderId } from '@/lib/ai/providers'
 import {
   imageImportErrorMessage,
   importImageFile,
@@ -26,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -33,6 +36,8 @@ import type { Project } from '@/types'
 
 const NAME_FIELD_ID = 'sf-campaign-name'
 const PITCH_FIELD_ID = 'sf-campaign-pitch'
+const TOKEN_FIELD_ID = 'sf-campaign-token'
+const ASSIST_PANEL_ID = 'sf-campaign-assist'
 
 /**
  * Composer une campagne d'un coup, puis la corriger comme le reste.
@@ -70,6 +75,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [plan, setPlan] = useState<CampaignPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [providerId, setProviderId] = useState<ProviderId>('local')
+  /* Le jeton d'appairage vit ici et nulle part ailleurs : il disparaît à la
+     fermeture de l'onglet, comme celui du pont disparaît avec son processus.
+     Rien ne l'écrit dans un stockage, un projet ou un journal. */
+  const [token, setToken] = useState('')
+  const [bridge, setBridge] = useState<BridgeStatus>({ state: 'idle' })
+  const [model, setModel] = useState('')
   /* Ce que ce run a enregistré, pour pouvoir le rendre au néant s'il est
      abandonné. La ref plutôt que l'état : rien ne s'affiche à partir d'elle, et
      elle est lue dans un démontage. */
@@ -142,11 +154,24 @@ function CampaignDialogContent({ project }: { project: Project }) {
     }
   }
 
+  async function connect() {
+    setBridge({ state: 'checking' })
+    const status = await connectBridge(token.trim())
+    setBridge(status)
+    if (status.state === 'ready') setModel(status.models[0]?.id ?? '')
+  }
+
+  const connected = bridge.state === 'ready'
+
   async function compose() {
     setBusy(true)
     setError(null)
     try {
-      const proposal = await planCampaign(brief)
+      const proposal = await planCampaign(brief, {
+        provider: providerId,
+        token: connected ? token.trim() : undefined,
+        model: model || undefined,
+      })
       // Un plan est une entrée non fiable, même quand il vient d'ici : demain
       // il viendra d'ailleurs, et la boîte ne le saura pas.
       if (!isCampaignPlan(proposal)) {
@@ -154,6 +179,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
         return
       }
       setPlan(proposal)
+    } catch (cause) {
+      /* Le fournisseur distant a lâché. Le message vient du pont, qui sait
+         pourquoi ; la boîte reste ouverte et la composition locale reste à un
+         clic — un échec de génération ne coûte pas le brief. */
+      setError(cause instanceof Error ? cause.message : 'La proposition a échoué.')
     } finally {
       setBusy(false)
     }
@@ -201,8 +231,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
       flush
       footer={
         <div className="flex w-full items-center justify-between gap-3">
+          {/* Ce que la composition implique, dit à l'endroit où on la lance —
+              pas dans une page d'aide. La phrase change avec le fournisseur :
+              « tout reste ici » cesserait d'être vrai dès le pont branché. */}
           <p className="text-2xs text-muted-foreground">
-            Tout est composé sur votre appareil, en calques modifiables.
+            {providerId === 'local' || !connected
+              ? 'Tout est composé sur votre appareil, en calques modifiables.'
+              : 'Le texte du brief part vers Codex. Les images restent ici. Le résultat est en calques modifiables.'}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="default" onClick={close} disabled={busy}>
@@ -334,6 +369,21 @@ function CampaignDialogContent({ project }: { project: Project }) {
           }}
         />
 
+        <AssistancePanel
+          providerId={providerId}
+          onProvider={(next) => {
+            setProviderId(next)
+            setPlan(null)
+          }}
+          token={token}
+          onToken={setToken}
+          bridge={bridge}
+          onConnect={() => void connect()}
+          model={model}
+          onModel={setModel}
+          busy={busy}
+        />
+
         {plan ? <PlanReview plan={plan} /> : null}
 
         {activeScreen && (
@@ -351,6 +401,161 @@ function CampaignDialogContent({ project }: { project: Project }) {
         )}
       </div>
     </Dialog>
+  )
+}
+
+interface AssistanceProps {
+  providerId: ProviderId
+  onProvider: (id: ProviderId) => void
+  token: string
+  onToken: (value: string) => void
+  bridge: BridgeStatus
+  onConnect: () => void
+  model: string
+  onModel: (id: string) => void
+  busy: boolean
+}
+
+/**
+ * Le choix du fournisseur, replié tant qu'on ne le cherche pas.
+ *
+ * Un seul chemin est proposé par défaut, et c'est celui qui marche sans rien
+ * installer ni connecter. Le reste est derrière une divulgation : un utilisateur
+ * qui ouvre « Composer une campagne » veut des planches, pas un formulaire de
+ * connexion. Replié ne veut pas dire caché — l'en-tête dit toujours quel
+ * fournisseur est actif, sinon la divulgation deviendrait un réglage qu'on
+ * oublie avoir changé.
+ *
+ * Ce qui est écrit ici l'est parce que c'est vérifiable : où passent les
+ * données, ce que le pont sait faire, pourquoi le jeton n'est stocké nulle part.
+ */
+function AssistancePanel({
+  providerId,
+  onProvider,
+  token,
+  onToken,
+  bridge,
+  onConnect,
+  model,
+  onModel,
+  busy,
+}: AssistanceProps) {
+  const [open, setOpen] = useState(false)
+  const active = aiProvider(providerId)
+
+  return (
+    <div className="border-t border-border pt-4">
+      <h3 className="section-title">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={ASSIST_PANEL_ID}
+          onClick={() => setOpen((was) => !was)}
+          className="flex w-full items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground"
+        >
+          <ChevronDown
+            size={12}
+            aria-hidden
+            className={cn('transition-transform duration-150', open ? '' : '-rotate-90')}
+          />
+          Assistance
+          <span className="ml-auto font-normal text-muted-foreground">{active.label}</span>
+        </button>
+      </h3>
+
+      <div id={ASSIST_PANEL_ID} hidden={!open}>
+        <div className="mt-2 flex flex-col gap-2" role="radiogroup" aria-label="Fournisseur">
+          {AI_PROVIDERS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="radio"
+              aria-checked={entry.id === providerId}
+              disabled={busy}
+              onClick={() => onProvider(entry.id)}
+              className={cn(
+                'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+                entry.id === providerId
+                  ? 'border-foreground bg-muted'
+                  : 'border-border hover:border-input',
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-foreground">
+                {entry.id === providerId && <Check size={11} aria-hidden />}
+                {entry.label}
+                {entry.recommended && <span className="text-muted-foreground">· recommandé</span>}
+              </span>
+              <span className="text-muted-foreground">{entry.summary}</span>
+              <span className="text-muted-foreground">{entry.dataPath}</span>
+            </button>
+          ))}
+        </div>
+
+        {providerId === 'codex-bridge' && (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="text-2xs text-muted-foreground">
+              Lancez le pont avec <code>pnpm --filter bridge run start</code>, puis recopiez le
+              jeton qu’il affiche. Il n’est enregistré nulle part : ni dans le projet, ni dans le
+              navigateur. Il faudra le ressaisir au prochain démarrage.
+            </p>
+            <div className="flex items-end gap-2">
+              <Field id={TOKEN_FIELD_ID} label="Jeton d’appairage" className="min-w-0 flex-1">
+                <Input
+                  id={TOKEN_FIELD_ID}
+                  font="sans"
+                  type="password"
+                  autoComplete="off"
+                  value={token}
+                  disabled={busy}
+                  placeholder="Affiché par le pont à son démarrage"
+                  onChange={(event) => onToken(event.target.value)}
+                />
+              </Field>
+              <Button
+                variant="default"
+                onClick={onConnect}
+                disabled={busy || token.trim().length === 0}
+                loading={bridge.state === 'checking'}
+              >
+                <Plug size={12} aria-hidden />
+                Connecter
+              </Button>
+            </div>
+
+            {bridge.state === 'error' && (
+              <p role="alert" className="flex items-start gap-2 text-2xs text-destructive">
+                <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                {bridge.message}
+              </p>
+            )}
+
+            {bridge.state === 'ready' && (
+              <>
+                <p role="status" className="text-2xs text-muted-foreground">
+                  Connecté · {bridge.hello.codexVersion ?? 'codex'} · jeton version{' '}
+                  {bridge.hello.tokenVersion}
+                  {bridge.hello.capabilities.reasoning ? ' · raisonnement' : ''}
+                </p>
+                <Select
+                  aria-label="Modèle"
+                  label="Modèle"
+                  value={model}
+                  disabled={busy || bridge.models.length === 0}
+                  onChange={(event) => onModel(event.target.value)}
+                >
+                  {bridge.models.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.displayName}
+                    </option>
+                  ))}
+                </Select>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

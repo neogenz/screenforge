@@ -82,7 +82,14 @@ pnpm run validate:export -- <file.zip>
       index.html           # editor entry
       landing.html         # marketing entry (prerendered per language at build)
       e2e/ src/ public/
+    api/                   # billing + account backend (hono on node); web imports its AppType only
+    bridge/                # optional local daemon: 127.0.0.1 only, spawns `codex app-server`
 ```
+
+`api` and `bridge` are declared as `devDependencies` of `web` so the editor can
+`import type` their contracts — a renamed route or RPC then breaks at compile
+time rather than at runtime. Nothing of either package reaches the browser
+bundle: the imports are type-only by construction.
 
 `@types/react` and `@types/react-dom` are declared **twice** on purpose: in
 `apps/web` because the app imports them, and at the root because a dependency's

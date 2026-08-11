@@ -44,7 +44,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | 4   | Batch refresh atomique                           | done         |
 | 5   | Lot rendu, release immuable, diff structurel     | done         |
 | 6   | Plan IA validé + builder déterministe + outils   | done         |
-| 7   | Registre de providers + bridge Codex             | à faire      |
+| 7   | Registre de providers + bridge Codex             | done         |
 | 8   | Localisation éditable + revue des débordements   | à faire      |
 | 9   | Arborescence d'export + preflight `asc`          | à faire      |
 | 10  | Durcissement, licences, a11y, doc, E2E complet   | à faire      |

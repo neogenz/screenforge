@@ -3,6 +3,8 @@ import { collectAssetIds } from '@/lib/asset-refs'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { applyToolCalls, type ToolCall, type ToolContext, type ToolResult } from '@/lib/ai/tools'
 import { planFromBrief, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
+import { planViaBridge } from '@/lib/ai/bridge-client'
+import type { ProviderId } from '@/lib/ai/providers'
 import { useProjectStore } from '@/stores/project.store'
 
 /**
@@ -79,13 +81,27 @@ export function discardAiAssets(assetIds: readonly string[]): void {
   forgetAssets(assetIds, project ? collectAssetIds(project) : new Set())
 }
 
+export interface PlanSource {
+  provider: ProviderId
+  /** Le jeton d'appairage du pont, en mémoire seulement. Voir `bridge-client`. */
+  token?: string
+  model?: string
+}
+
 /**
- * Compose le plan.
+ * Compose le plan, quel que soit celui qui parle.
  *
- * Asynchrone alors que la composition locale est immédiate : c'est la couture
- * où un fournisseur distant se branchera (phase 7), et une boîte de dialogue
- * qui attend déjà n'aura rien à réapprendre ce jour-là.
+ * Un seul point d'entrée pour les deux fournisseurs, et une seule sortie : un
+ * `CampaignPlan` que l'appelant revalide. Le pont sans jeton retombe sur la
+ * composition locale plutôt que d'échouer — un fournisseur choisi mais pas
+ * connecté ne doit pas coûter à l'utilisateur le plan qu'il attendait.
  */
-export async function planCampaign(brief: CampaignBrief): Promise<CampaignPlan> {
+export async function planCampaign(
+  brief: CampaignBrief,
+  source: PlanSource = { provider: 'local' },
+): Promise<CampaignPlan> {
+  if (source.provider === 'codex-bridge' && source.token) {
+    return planViaBridge(brief, source.token, source.model)
+  }
   return planFromBrief(brief)
 }
