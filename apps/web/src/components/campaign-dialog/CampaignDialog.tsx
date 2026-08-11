@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Check, ChevronDown, ImageUp, Plug, Megaphone, Paintbrush } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ImageUp,
+  Megaphone,
+  Paintbrush,
+  Plug,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react'
 import { registerAsset } from '@/lib/assets'
 import {
   DIRECTIONS,
@@ -12,6 +22,7 @@ import {
   type DirectionId,
 } from '@/lib/ai/plan'
 import { paletteFromScreenshots, type Palette } from '@/lib/ai/palette'
+import { PlanPreview } from '@/components/campaign-dialog/PlanPreview'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
 import { isCampaignPlan } from '@/lib/ai/plan'
 import { AI_LIMITS } from '@/lib/ai/tools'
@@ -40,6 +51,7 @@ const NAME_FIELD_ID = 'sf-campaign-name'
 const PITCH_FIELD_ID = 'sf-campaign-pitch'
 const URL_FIELD_ID = 'sf-campaign-url'
 const COUNT_FIELD_ID = 'sf-campaign-count'
+const HEADLINE_FIELD_ID = 'sf-campaign-headline'
 const TOKEN_FIELD_ID = 'sf-campaign-token'
 const ASSIST_PANEL_ID = 'sf-campaign-assist'
 
@@ -96,6 +108,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [shots, setShots] = useState<LoadedShot[]>([])
   const [logo, setLogo] = useState<{ assetId: string; size: { width: number; height: number } }>()
   const [plan, setPlan] = useState<CampaignPlan | null>(null)
+  /* Le visuel en cours de relecture. Un index et non l'objet : la revue édite
+     le plan, et garder une copie du visuel focalisé ferait deux vérités dont
+     l'une vieillit à la première frappe. */
+  const [focus, setFocus] = useState(0)
+  const [regenerating, setRegenerating] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [providerId, setProviderId] = useState<ProviderId>('local')
@@ -235,6 +252,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
         return
       }
       setPlan(proposal)
+      setFocus(0)
     } catch (cause) {
       /* Le fournisseur distant a lâché. Le message vient du pont, qui sait
          pourquoi ; la boîte reste ouverte et la génération sans modèle reste à
@@ -242,6 +260,74 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(cause instanceof Error ? cause.message : 'La proposition a échoué.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  /**
+   * La revue édite le plan, elle ne le contourne pas.
+   *
+   * Le plan reste le seul objet que `planToolCalls` traduit : réécrire une
+   * accroche ici change ce qui sera posé, exactement comme si le fournisseur
+   * l'avait écrite. L'alternative — poser puis corriger sur le canevas — coûte
+   * un pas d'annulation par correction et se fait sur dix écrans déjà créés.
+   */
+  function editScreen(index: number, headline: string) {
+    setPlan((current) =>
+      current
+        ? {
+            ...current,
+            screens: current.screens.map((screen, at) =>
+              at === index ? { ...screen, headline } : screen,
+            ),
+          }
+        : current,
+    )
+  }
+
+  function dropScreen(index: number) {
+    setPlan((current) => {
+      // Un plan vide n'est pas un plan : le bouton se désactive au dernier, et
+      // c'est « Annuler » qui refuse la proposition entière.
+      if (!current || current.screens.length <= 1) return current
+      return { ...current, screens: current.screens.filter((_unused, at) => at !== index) }
+    })
+    setFocus((current) => Math.max(0, current > index ? current - 1 : Math.min(current, index)))
+  }
+
+  /**
+   * Redemander une accroche, pour ce visuel seulement.
+   *
+   * Un brief d'un seul visuel, avec la capture de celui-ci : le modèle garde le
+   * nom, la phrase et la page du produit, et ne rend qu'une ligne. N'a de sens
+   * qu'avec un modèle branché — sans lui la génération est déterministe, et un
+   * bouton qui rendrait deux fois le même texte serait un bouton qui ment.
+   */
+  async function regenerate(index: number) {
+    if (!plan) return
+    const screen = plan.screens[index]
+    if (!screen) return
+    setRegenerating(index)
+    setError(null)
+    try {
+      const shot = brief.screenshots[screen.screenshotIndex ?? index]
+      const proposal = await planCampaign(
+        { ...brief, screenCount: 1, screenshots: shot ? [shot] : [] },
+        {
+          provider: providerId,
+          token: connected ? token.trim() : undefined,
+          model: model || undefined,
+        },
+      )
+      const written = isCampaignPlan(proposal) ? proposal.screens[0]?.headline : undefined
+      if (!written) {
+        setError('Le modèle n’a rien rendu pour ce visuel : l’accroche est inchangée.')
+        return
+      }
+      editScreen(index, written)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La proposition a échoué.')
+    } finally {
+      setRegenerating(null)
     }
   }
 
@@ -511,7 +597,19 @@ function CampaignDialogContent({ project }: { project: Project }) {
           busy={busy}
         />
 
-        {plan ? <PlanReview plan={plan} /> : null}
+        {plan ? (
+          <PlanReview
+            plan={plan}
+            brief={brief}
+            focus={Math.min(focus, plan.screens.length - 1)}
+            onFocus={setFocus}
+            onHeadline={editScreen}
+            onDrop={dropScreen}
+            onRegenerate={connected ? (index) => void regenerate(index) : undefined}
+            regenerating={regenerating}
+            busy={busy}
+          />
+        ) : null}
 
         {/* Une seconde action, pas une étape de la première : elle ne génère
             rien, ne regarde ni les captures ni le nombre demandé, et touche un
@@ -771,13 +869,45 @@ function AssistancePanel({
   )
 }
 
+interface PlanReviewProps {
+  plan: CampaignPlan
+  brief: CampaignBrief
+  focus: number
+  onFocus: (index: number) => void
+  onHeadline: (index: number, headline: string) => void
+  onDrop: (index: number) => void
+  /** Absent tant qu'aucun modèle n'est branché : voir `regenerate`. */
+  onRegenerate?: (index: number) => void
+  regenerating: number | null
+  busy: boolean
+}
+
 /**
- * Le plan, avant qu'il ne devienne des calques.
+ * Le plan, avant qu'il ne devienne des calques — et corrigeable ici.
  *
- * Il est montré tel qu'il sera exécuté — une ligne par visuel, dans l'ordre —
- * parce que c'est la dernière occasion de dire non pour un coût nul.
+ * Une bande de vignettes, un aperçu, un champ. La revue tenait auparavant en
+ * une liste de titres entre guillemets : elle disait ce qui allait être posé et
+ * ne montrait pas de quoi ça aurait l'air, ce qui laissait une seule façon de
+ * juger une composition — la poser sur dix écrans, la regarder, tout annuler.
+ *
+ * Corriger ici plutôt qu'après coup n'est pas un raccourci : après la pose,
+ * chaque accroche réécrite est un pas d'annulation de plus, sur un projet où
+ * les dix écrans existent déjà. Avant, le plan n'est encore rien.
  */
-function PlanReview({ plan }: { plan: CampaignPlan }) {
+function PlanReview({
+  plan,
+  brief,
+  focus,
+  onFocus,
+  onHeadline,
+  onDrop,
+  onRegenerate,
+  regenerating,
+  busy,
+}: PlanReviewProps) {
+  const current = plan.screens[focus]
+  const only = plan.screens.length === 1
+
   return (
     <div className="border-t border-border pt-4">
       <h3 className="section-title flex items-center gap-2">
@@ -795,22 +925,90 @@ function PlanReview({ plan }: { plan: CampaignPlan }) {
       <p className="mt-1 text-2xs text-muted-foreground">
         {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''} à ajouter aux écrans du
         projet. Rien n’a encore bougé : le bouton en bas les pose, et un seul ⌘Z les retire tous.
-        Chaque accroche reste modifiable ensuite sur le canevas.
       </p>
-      <ol className="mt-2 flex flex-col gap-1">
+
+      {/* La bande sert à choisir, pas à juger : c'est l'aperçu en dessous qui
+          montre. Elle porte quand même les compositions et non des numéros —
+          au-delà de trois visuels, « le troisième » ne désigne plus rien. */}
+      <div
+        className="mt-2 flex gap-2 overflow-x-auto pb-1"
+        role="tablist"
+        aria-label="Visuels proposés"
+      >
         {plan.screens.map((screen, index) => (
-          <li
+          <button
             key={`${screen.name}-${index}`}
-            className="flex items-baseline gap-2 text-2xs text-muted-foreground"
+            type="button"
+            role="tab"
+            aria-selected={index === focus}
+            aria-label={`Visuel ${index + 1} : ${screen.headline}`}
+            onClick={() => onFocus(index)}
+            className={cn(
+              'flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+              index === focus ? 'bg-muted' : 'hover:bg-muted/60',
+            )}
           >
-            <span className="tabular text-foreground">{index + 1}.</span>
-            <span className="min-w-0">
-              <span className="text-foreground">« {screen.headline} »</span>
-              {screen.screenshotIndex === undefined ? ' · appareil vide' : ' · avec votre capture'}
+            <PlanPreview plan={plan} brief={brief} index={index} size="thumb" />
+            <span
+              className={cn(
+                'tabular text-2xs',
+                index === focus ? 'font-semibold text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {index + 1}
             </span>
-          </li>
+          </button>
         ))}
-      </ol>
+      </div>
+
+      {current && (
+        <div className="mt-2 flex gap-3">
+          <PlanPreview plan={plan} brief={brief} index={focus} size="full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Field id={HEADLINE_FIELD_ID} label={`Accroche du visuel ${focus + 1}`}>
+              <Input
+                id={HEADLINE_FIELD_ID}
+                font="sans"
+                value={current.headline}
+                maxLength={AI_LIMITS.maxTextLength}
+                disabled={busy || regenerating !== null}
+                onChange={(event) => onHeadline(focus, event.target.value)}
+              />
+            </Field>
+            <p className="text-2xs text-muted-foreground">
+              {current.screenshotIndex === undefined
+                ? 'Aucune capture pour ce visuel : l’appareil sera posé vide.'
+                : `Capture « ${brief.screenshots[current.screenshotIndex]?.label} », posée dans l’appareil.`}
+            </p>
+            {/* Sous le texte qu'elles concernent, et non collées au bas de la
+                colonne : l'aperçu fait 286px de haut, ce qui laissait un vide
+                de la hauteur d'une section entre l'accroche et « Retirer ». */}
+            <div className="flex flex-wrap gap-2">
+              {onRegenerate && (
+                <Button
+                  variant="default"
+                  onClick={() => onRegenerate(focus)}
+                  loading={regenerating === focus}
+                  disabled={busy || regenerating !== null}
+                >
+                  <RefreshCw size={12} aria-hidden />
+                  Réécrire
+                </Button>
+              )}
+              <Button
+                variant="default"
+                onClick={() => onDrop(focus)}
+                disabled={busy || only || regenerating !== null}
+                title={only ? 'Il faut au moins un visuel : utilisez « Annuler ».' : undefined}
+              >
+                <Trash2 size={12} aria-hidden />
+                Retirer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

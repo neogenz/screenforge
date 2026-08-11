@@ -91,6 +91,48 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
   await expect.poll(async () => (await screens(page)).length).toBe(before.length)
 })
 
+test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est posé', async ({
+  page,
+}) => {
+  await waitForApp(page)
+  const before = await screens(page)
+
+  await openCampaignDialog(page)
+  await page.getByLabel('Nom', { exact: true }).fill('Cadence')
+  await page.getByLabel('Ce qu’elle fait, en une phrase').fill('Le budget dans une poche')
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '3 visuels' }).click()
+  await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
+
+  // La bande donne un visuel par onglet, nommé par son accroche : au-delà de
+  // trois, « le troisième » ne désigne plus rien.
+  const strip = page.getByRole('tablist', { name: 'Visuels proposés' })
+  await expect(strip.getByRole('tab')).toHaveCount(3)
+  await expect(strip.getByRole('tab').first()).toHaveAttribute('aria-selected', 'true')
+
+  await strip.getByRole('tab', { name: 'Visuel 2 : Cadence' }).click()
+  const headline = page.getByLabel('Accroche du visuel 2')
+  await expect(headline).toHaveValue('Cadence')
+  await headline.fill('Tout tient dans la poche')
+  // Ce qui est corrigé ici se voit dans la bande avant d'être posé.
+  await expect(strip.getByRole('tab').nth(1)).toHaveAttribute(
+    'aria-label',
+    'Visuel 2 : Tout tient dans la poche',
+  )
+
+  await strip.getByRole('tab').nth(2).click()
+  await page.getByRole('button', { name: 'Retirer' }).click()
+  await expect(strip.getByRole('tab')).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'Ajouter 2 visuels' }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
+
+  const after = await screens(page)
+  expect(after).toHaveLength(before.length + 2)
+  expect(after[before.length].layers[0].content).toBe('Le budget dans une poche')
+  expect(after[before.length + 1].layers[0].content).toBe('Tout tient dans la poche')
+})
+
 test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
   await waitForApp(page)
   await addTextLayer(page)

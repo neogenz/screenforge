@@ -1,3 +1,4 @@
+import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { isBackground } from '@/lib/project-validation'
 import { normalizeSlot } from '@/lib/slots'
@@ -216,9 +217,91 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
 
 const HEADLINE_WIDTH = SCREEN_WIDTH - 64
 const HEADLINE_TOP = 96
+const HEADLINE_HEIGHT = 120
+const HEADLINE_FONT_SIZE = 48
 const LOGO_TOP = 32
 const LOGO_HEIGHT = 48
 const DEVICE_TOP = 300
+
+/** Une boîte en unités de planche : 1320 × 2868, l'espace du projet. */
+export interface PlanBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * Ce qu'un visuel contient et où, avant d'exister.
+ *
+ * Deux lecteurs en ont besoin et doivent lire les mêmes nombres : le
+ * constructeur, qui traduit en appels d'outils, et l'aperçu de la revue, qui
+ * dessine la même chose en CSS. Une seconde table de coordonnées dans le
+ * composant d'aperçu aurait montré une composition que la pose ne produit pas —
+ * une revue qui ment est pire qu'une revue absente, puisqu'on y engage le
+ * projet. D'où une fonction, et le constructeur qui la consomme lui aussi.
+ */
+export interface PlanScreenLayout {
+  background: string
+  headline: PlanBox & { text: string; color: string; fontSize: number }
+  device: PlanBox & { assetId?: string; screenshotSize?: ScreenshotSize }
+  /** Uniquement sur le premier visuel, et seulement si un logo a été fourni. */
+  logo?: PlanBox & { assetId: string; size: ScreenshotSize }
+}
+
+export function planScreenLayout(
+  plan: CampaignPlan,
+  brief: CampaignBrief,
+  index: number,
+): PlanScreenLayout | null {
+  const screen = plan.screens[index]
+  if (!screen) return null
+
+  const device = getDefaultDeviceSize(plan.deviceModel)
+  const shot =
+    screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
+
+  /* Le logo n'est posé que sur le premier visuel : répété dix fois il devient
+     un filigrane, et c'est le visuel d'ouverture qui doit dire de quelle
+     application il s'agit. */
+  const logoHeight = LOGO_HEIGHT
+  const logoWidth = brief.logo
+    ? Math.max(1, Math.round((brief.logo.size.width / brief.logo.size.height) * logoHeight))
+    : 0
+
+  return {
+    background:
+      screen.background.type === 'solid' ? screen.background.color : plan.palette.background,
+    headline: {
+      text: screen.headline,
+      color: plan.palette.ink,
+      fontSize: HEADLINE_FONT_SIZE,
+      x: 32,
+      y: HEADLINE_TOP,
+      width: HEADLINE_WIDTH,
+      height: HEADLINE_HEIGHT,
+    },
+    device: {
+      x: Math.round((SCREEN_WIDTH - device.width) / 2),
+      y: DEVICE_TOP,
+      width: device.width,
+      height: device.height,
+      ...(shot?.assetId && shot.size ? { assetId: shot.assetId, screenshotSize: shot.size } : {}),
+    },
+    ...(index === 0 && brief.logo
+      ? {
+          logo: {
+            assetId: brief.logo.assetId,
+            size: brief.logo.size,
+            x: Math.round((SCREEN_WIDTH - logoWidth) / 2),
+            y: LOGO_TOP,
+            width: logoWidth,
+            height: logoHeight,
+          },
+        }
+      : {}),
+  }
+}
 
 /**
  * Traduit le plan en appels d'outils — la seule route vers le projet.
@@ -229,7 +312,6 @@ const DEVICE_TOP = 300
  * à auditer.
  */
 export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCall[] {
-  const palette = plan.palette
   const calls: ToolCall[] = [
     {
       tool: 'declare_plan',
@@ -245,29 +327,24 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
   ]
 
   for (const [index, screen] of plan.screens.entries()) {
+    const layout = planScreenLayout(plan, brief, index)
+    if (!layout) continue
+
     calls.push({ tool: 'add_screen', args: { name: screen.name } })
     calls.push({ tool: 'set_background', args: { background: screen.background } })
 
-    /* Le logo n'est posé que sur le premier visuel : répété dix fois il devient
-       un filigrane, et c'est le visuel d'ouverture qui doit dire de quelle
-       application il s'agit. */
-    if (index === 0 && brief.logo) {
-      const height = LOGO_HEIGHT
-      const width = Math.max(
-        1,
-        Math.round((brief.logo.size.width / brief.logo.size.height) * height),
-      )
+    if (layout.logo) {
       calls.push({
         tool: 'add_image',
         args: {
-          assetId: brief.logo.assetId,
-          originalWidth: brief.logo.size.width,
-          originalHeight: brief.logo.size.height,
+          assetId: layout.logo.assetId,
+          originalWidth: layout.logo.size.width,
+          originalHeight: layout.logo.size.height,
           name: `Logo ${plan.appName}`.slice(0, 60),
-          x: Math.round((SCREEN_WIDTH - width) / 2),
-          y: LOGO_TOP,
-          width,
-          height,
+          x: layout.logo.x,
+          y: layout.logo.y,
+          width: layout.logo.width,
+          height: layout.logo.height,
         },
       })
     }
@@ -275,29 +352,28 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
     calls.push({
       tool: 'add_text',
       args: {
-        content: screen.headline,
-        x: 32,
-        y: HEADLINE_TOP,
-        width: HEADLINE_WIDTH,
-        height: 120,
-        color: palette.ink,
+        content: layout.headline.text,
+        x: layout.headline.x,
+        y: layout.headline.y,
+        width: layout.headline.width,
+        height: layout.headline.height,
+        fontSize: layout.headline.fontSize,
+        color: layout.headline.color,
         textAlign: 'center',
       },
     })
 
-    const shot =
-      screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
     calls.push({
       tool: 'add_device',
       args: {
         deviceModel: plan.deviceModel,
-        y: DEVICE_TOP,
+        y: layout.device.y,
         ...(screen.slot ? { slot: screen.slot } : {}),
-        ...(shot?.assetId && shot.size
+        ...(layout.device.assetId && layout.device.screenshotSize
           ? {
-              assetId: shot.assetId,
-              screenshotWidth: shot.size.width,
-              screenshotHeight: shot.size.height,
+              assetId: layout.device.assetId,
+              screenshotWidth: layout.device.screenshotSize.width,
+              screenshotHeight: layout.device.screenshotSize.height,
             }
           : {}),
       },
