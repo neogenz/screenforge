@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 5 — Suppression de compte, sans cascade
 
 **But** : rendre irréversible et complet ce que `on delete cascade` faisait en
@@ -128,3 +132,86 @@ utilisateur peuvent viser le même compte en même temps.
 Le démantèlement. À la fin de cette phase, Convex sait tout faire mais
 `VITE_CONVEX_URL` est toujours absente : l'application tourne encore sur
 Supabase.
+
+## Écarts constatés à l'implémentation (2026-08-11)
+
+**1. Le module s'appelle `accountDeletion.ts`, pas `account-deletion.ts`.** Le
+§5.3 nomme le fichier en `kebab-case` comme le reste du dépôt ; Convex refuse la
+poussée : « `account-deletion.js` is not a valid path to a Convex module. Path
+component `account-deletion.js` can only contain alphanumeric characters,
+underscores, or periods. » Le nom suit donc celui sous lequel les fonctions
+s'appellent (`internal.accountDeletion.*`), et le fichier dit pourquoi il déroge.
+
+**2. L'identité part avant les données, pas après.** Le §5.3 ordonne fichiers,
+documents, puis identité. C'est l'ordre inverse de celui que `apps/api` tenait —
+`auth.admin.deleteUser` d'abord, purge du dossier ensuite — et cet ordre-là avait
+une raison qui survit à la migration : une suppression interrompue doit laisser
+un compte **sans porte d'entrée** plutôt qu'un compte entier privé de ses
+fichiers. C'est aussi ce qui rend le statut `cleanup` observable : il dit que
+l'identité est partie et que le dossier reste à vider. `TABLES_OWNED_BY_USER`
+porte donc l'ordre autant que la liste, en deux groupes (`IDENTITY_PURGES` puis
+`DATA_PURGES`).
+
+**3. Une passe est faite tout de suite, et la planification n'arrive qu'au
+plafond.** Le §5.2 demande de planifier puis de « rendre immédiatement ». Une
+fonction planifiée est une seconde transaction : un compte ordinaire — quelques
+projets, quelques binaires — tient entièrement dans la première passe, et
+planifier systématiquement aurait rendu `deletion-pending` à tout le monde pour
+un travail déjà terminable sur place. `advance()` est donc une fonction
+TypeScript appelée dans la transaction de son appelant, et
+`ctx.scheduler.runAfter(0, resume)` n'est utilisé que quand le budget d'une passe
+(`PASS_BUDGET = 400` écritures, lots de `BATCH = 100`) s'épuise. Le cron reprend
+de toute façon les lignes qu'une replanification perdue laisserait.
+
+**4. L'ambiguïté d'identité passe de trois états à deux, et les quatre issues du
+client sont intactes.** `auth.admin.deleteUser` était un appel réseau dont la
+réponse pouvait se perdre **après** la suppression, d'où « présente / absente /
+inconnue » et le `getUserById` de réconciliation. Ici l'identité se supprime dans
+la même transaction que le reste : elle est là ou elle n'est plus. Ce qui reste
+ambigu est le trajet navigateur → déploiement, et c'est `'unknown'`, côté client,
+qui le porte — inchangé.
+
+**5. Un échec de fichier s'écrit, il ne se lève pas.** Une mutation Convex est
+une transaction : une erreur qui s'échappe annule tout ce que la passe venait de
+supprimer, y compris ce qui avait réussi. `forget()` attrape donc, laisse le
+document dont le fichier résiste, et dépose le message dans `lastError` — c'est
+la version Convex de « Account deletion cleanup remains queued ».
+
+**6. `authVerifiers` n'est pas balayée, et le test du schéma ne peut pas le
+dire.** Elle ne porte pas de `userId` : seulement un `sessionId` optionnel, et
+son unique index est sur `signature`. La balayer par compte demanderait un
+parcours complet de la table à chaque suppression, pour des vérificateurs PKCE
+qui portent une signature à usage unique et aucune donnée du compte. Nommé ici
+parce que l'énumération du schéma, qui attrape tout le reste, est aveugle à
+celle-là.
+
+**7. Quatre cas de `account.test.ts` n'ont plus de référent, et le fichier porté
+les nomme.** Les trois qui interrogeaient `auth.admin.deleteUser` (échec
+confirmé, réponse perdue, résultat ambigu) tombent avec l'appel réseau — voir
+l'écart 4. Le quatrième, « sans file durable, rien d'irréversible ne commence »,
+vérifiait qu'une écriture de file ratée arrêtait tout : la file et le travail
+sont désormais la même transaction, elle ne peut pas manquer pendant que le reste
+avance. Deux cas nouveaux les remplacent, tous deux propres à Convex : un jeton
+qui ne désigne aucun compte, et la table de file qui doit rester hors de la liste
+des tables possédées.
+
+**8. Le critère 3 se teste avec une ligne posée à la main.** La barrière et le
+travail vivant dans la même transaction, une demande normale ne laisse pas de
+fenêtre où observer « `prepared` mais rien de supprimé ». Le test insère donc la
+ligne directement et mesure ce qui compte réellement : le même jeton, toujours
+valide, obtient une URL d'envoi avant, et un `DELETION_PENDING` après.
+
+**9. `apps/api` n'est pas touchée.** Le §5.1 du plan tient : « rien n'est
+supprimé avant la phase 6, ce qui rend chaque étape réversible par un `git
+revert` seul », et l'application doit rester utilisable à la fin de chaque phase.
+La route `DELETE /account`, son worker `setInterval` et le client `hono` de
+`lib/api.ts` restent donc en place jusqu'à la bascule : ce sont eux qui servent
+encore les suppressions tant que `VITE_CONVEX_URL` est absente.
+
+**10. Vérifié contre le déploiement local réel, pas seulement le simulateur.**
+`convex-test` n'exécute pas les crons. Deux lignes `prepared` ont donc été
+posées par `convex import --append` sur le déploiement local, pour deux comptes
+semés par les e2e (l'un avec deux projets, l'autre avec deux binaires) ; le cron
+`account-deletion` les a reprises seul et la file s'est vidée. C'est la
+vérification n° 3 du §6.1 de la phase 6, faite ici parce que le code venait
+d'être écrit.

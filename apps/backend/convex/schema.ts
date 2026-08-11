@@ -94,4 +94,26 @@ export default defineSchema({
     contentType: v.string(),
     byteLength: v.number(),
   }).index('by_user_asset', ['userId', 'assetId']),
+
+  /**
+   * Les suppressions de compte en cours : la barrière, et ce qu'il reste à
+   * faire.
+   *
+   * `userId` en `v.string()` et non en `v.id('users')`, pour la raison même qui
+   * faisait écrire à la table Postgres « deliberately no foreign key to
+   * `auth.users` » : cette ligne doit **survivre à l'identité** qu'elle garde et
+   * nettoie. Un `v.id('users')` pointant sur un document supprimé est un
+   * identifiant qui ne résout plus — même conclusion, autre mécanique.
+   *
+   * Elle porte donc `userId` sans être « possédée » par le compte au sens de
+   * `account-deletion.ts` : c'est la seule table que le balayage ne balaie pas,
+   * puisqu'elle est ce qui dit que le balayage n'est pas fini. Le test qui
+   * énumère le schéma connaît cette exception, et elle est la seule.
+   */
+  accountDeletionJobs: defineTable({
+    userId: v.string(),
+    status: v.union(v.literal('prepared'), v.literal('cleanup')),
+    attempts: v.number(),
+    lastError: v.union(v.string(), v.null()),
+  }).index('by_user', ['userId']),
 })

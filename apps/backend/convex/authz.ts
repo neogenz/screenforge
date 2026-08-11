@@ -81,13 +81,19 @@ export async function readEntitlements(
 /**
  * Une suppression de compte en cours ferme les écritures.
  *
- * La table n'existe qu'en phase 5. La condition est déclarée ici quand même,
- * parce que l'ajouter après coup obligerait à relire chaque mutation écrite
- * entre-temps pour vérifier qu'elle la porte — alors que la poser maintenant
- * coûte cette fonction, qui rend `false` tant qu'il n'y a rien à lire.
+ * C'est ce que faisait `account_deletion_pending()` en RLS, et la raison n'a pas
+ * changé : la ligne de file est écrite **avant** toute opération irréversible,
+ * et son seul rôle jusqu'à la fin du nettoyage est de refuser un envoi de
+ * fichier émis avec un jeton encore valide. La lecture est indexée : elle coûte
+ * une entrée d'index à chaque écriture, et rien du tout tant que personne ne
+ * supprime son compte.
  */
-async function deletionPending(): Promise<boolean> {
-  return false
+async function deletionPending(ctx: QueryCtx, userId: Id<'users'>): Promise<boolean> {
+  const job = await ctx.db
+    .query('accountDeletionJobs')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .unique()
+  return job !== null
 }
 
 /**
@@ -104,7 +110,7 @@ async function deletionPending(): Promise<boolean> {
  */
 export async function requireCloud(ctx: QueryCtx, now: Date = new Date()): Promise<Id<'users'>> {
   const userId = await requireUser(ctx)
-  if (await deletionPending()) deny(DELETION_PENDING)
+  if (await deletionPending(ctx, userId)) deny(DELETION_PENDING)
   const entitlements = await readEntitlements(ctx, userId, now)
   if (!entitlements.cloud) deny(CLOUD_REQUIRED)
   return userId
