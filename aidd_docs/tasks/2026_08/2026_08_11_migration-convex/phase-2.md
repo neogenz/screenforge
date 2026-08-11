@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 2 — Schéma, droits, et le mur d'autorisation
 
 **But** : poser les tables métier et l'unique endroit qui décide qui a le droit
@@ -152,3 +156,35 @@ cassant la fonctionnalité.
 
 Aucun projet, aucun binaire, aucun paiement. La phase 2 sait qui a le droit,
 pas encore de quoi.
+
+## Écarts constatés à l'implémentation (2026-08-11)
+
+**1. Les dates du miroir sont en ISO, pas en millisecondes.** Le raisonnement de
+2.1 tenait sur « une comparaison de chaînes ISO fonctionne par accident » — or
+la base ne compare jamais ces deux colonnes : aucun index ne les porte, et
+`toEntitlements` les analyse à la lecture. Les stocker en nombre aurait ajouté
+deux conversions à chaque bout (le webhook produit de l'ISO, le contrat client
+attend de l'ISO) pour supprimer une comparaison qui n'a pas lieu.
+`sourceUpdatedAt` est bien un nombre, lui, parce qu'il *est* comparé : c'est la
+garde d'antériorité.
+
+**2. `hasCloud` n'existe pas.** Elle aurait été `readEntitlements(…).cloud` avec
+un autre nom : le seul appelant possible, `requireCloud`, lit déjà les droits
+complets. Une fonction dont le corps est un accès de champ est une chose de plus
+à tenir en phase avec la règle.
+
+**3. Les fonctions Convex du miroir vivent dans `mirror.ts`, pas dans
+`entitlements.ts`.** `entitlements.ts` est importé tel quel par l'éditeur ; y
+déclarer une `query` y ferait entrer `./_generated/server`, donc `convex/server`,
+donc le SDK dans le paquet du navigateur — ce que la phase 1 vient précisément de
+mesurer comme absent.
+
+**4. Deux fichiers de tests au lieu de trois.** `authz.test.ts` porte le mur (pas
+de session, le portillon du Cloud, ce qui reste ouvert quand le droit s'éteint)
+et `mirror.test.ts` porte les écritures. `cloud-gate.test.ts` aurait séparé deux
+moitiés d'une même question posée à la même fonction.
+
+**5. Le critère 3 est tenu au niveau du mur, pas d'une mutation d'écriture.** Il
+n'existe encore aucune écriture métier — elles arrivent en phase 3 — donc
+`requireCloud` est éprouvée directement, dans une transaction ouverte par
+`convex-test`. C'est la même fonction que celle que les mutations appelleront.

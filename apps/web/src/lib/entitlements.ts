@@ -1,8 +1,31 @@
-import type { Entitlements } from 'api'
+import {
+  FREE_EXPORTS_PER_PROJECT,
+  isCloudActive,
+  rightsOf as rightsOfEntitlements,
+  toEntitlements,
+  type Entitlements,
+  type Rights,
+} from 'backend/entitlements'
 import { commercialLaunch } from '@/lib/commercial-launch'
 import { getSupabase } from '@/lib/supabase'
 
-export type { Entitlements }
+export { FREE_EXPORTS_PER_PROJECT }
+export type { Entitlements, Rights }
+
+/**
+ * Les droits d'usage, avec le seul argument que le serveur ne peut pas fournir.
+ *
+ * `commercialLaunch` est un interrupteur de compilation du navigateur : le
+ * backend n'en a pas l'équivalent, donc la règle vit là-bas sans lui et c'est
+ * ici qu'on la lie. Ce n'est pas une seconde copie — il n'y a rien à décider
+ * dans ces deux lignes, seulement une valeur à passer.
+ */
+export function rightsOf(
+  entitlements: Entitlements | null,
+  billingOpen = commercialLaunch,
+): Rights {
+  return rightsOfEntitlements(entitlements, billingOpen)
+}
 
 const CACHE_PREFIX = 'screenforge-entitlements:'
 
@@ -28,13 +51,12 @@ export function readCachedEntitlements(userId: string): Entitlements | null {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(`${CACHE_PREFIX}${userId}`) ?? 'null')
     if (!isCachedEntitlements(parsed, userId)) return null
-    const periodEnd = parsed.cloudPeriodEnd ? Date.parse(parsed.cloudPeriodEnd) : null
+    /* Le `cloud` conservé date de la dernière vérification en ligne : il est
+       recalculé à la lecture, avec la même fonction que le serveur, parce
+       qu'une période a pu se terminer pendant que le navigateur était fermé. */
     return {
       ...parsed,
-      cloud:
-        parsed.licence &&
-        parsed.cloudStatus !== null &&
-        (periodEnd === null || periodEnd > Date.now()),
+      cloud: isCloudActive(parsed.licence, parsed.cloudStatus, parsed.cloudPeriodEnd, Date.now()),
     }
   } catch (error) {
     console.warn('Could not read cached entitlements.', error)
@@ -79,17 +101,13 @@ export async function fetchEntitlements(): Promise<Entitlements | null> {
 }
 
 /**
- * La règle commerciale, troisième et dernière copie.
+ * La ligne de PostgREST, traduite par la règle et non à côté d'elle.
  *
- * Les deux autres sont `toEntitlements` dans `apps/api/src/entitlements.ts`
- * (la vue du serveur, qui garde le checkout) et `public.has_cloud()` en SQL
- * (la policy, qui garde les écritures). Les trois doivent répondre pareil :
- * l'éditeur qui afficherait un droit que la base refuse montrerait une erreur
- * de sync à quelqu'un qui n'a rien fait de mal.
- *
- * Une copie unique demanderait soit un aller-retour réseau pour chaque
- * décision d'interface, soit du SQL exécuté dans le navigateur. Elles sont donc
- * trois, nommées ici, et chacune est tenue par ses tests.
+ * Cette fonction portait la règle commerciale une troisième fois, à côté de
+ * `toEntitlements` dans le service Hono et de `public.has_cloud()` en SQL. Les
+ * trois devaient répondre pareil et rien ne l'imposait. Il n'en reste qu'une,
+ * dans `backend/entitlements`, et il ne reste ici que l'appel — jusqu'à ce que
+ * la phase 6 retire aussi la lecture Supabase qui l'entoure.
  */
 export function projectEntitlements(
   row: {
@@ -100,58 +118,8 @@ export function projectEntitlements(
   userId: string,
   now: Date,
 ): Entitlements {
-  const periodEnd = row?.cloud_period_end ? Date.parse(row.cloud_period_end) : null
-  return {
-    userId,
-    licence: row?.licence_granted_at != null,
-    licenceGrantedAt: row?.licence_granted_at ?? null,
-    /* Une résiliation laisse `cloud_status` renseigné jusqu'à la fin de la
-       période : l'utilisateur a payé l'année, il l'a jusqu'au bout. */
-    cloud:
-      row?.licence_granted_at != null &&
-      row.cloud_status != null &&
-      (periodEnd === null || periodEnd > now.getTime()),
-    cloudStatus: row?.cloud_status ?? null,
-    cloudPeriodEnd: row?.cloud_period_end ?? null,
-  }
-}
-
-/**
- * Ce que chaque palier ouvre, et le décompte du palier gratuit.
- *
- * Une seule traduction des droits achetés vers les droits d'usage, lue partout
- * ailleurs : sans elle, « a la Licence » se retesterait dans le chemin d'export,
- * dans la boîte d'export, dans la barre du haut, et l'un des trois finirait par
- * dire autre chose que les deux autres.
- */
-export const FREE_EXPORTS_PER_PROJECT = 3
-
-export interface Rights {
-  /** Exporter sans filigrane, et sans limite de nombre. */
-  cleanExport: boolean
-  /** Le ZIP groupé, un fichier par planche, prêt pour App Store Connect. */
-  zip: boolean
-  /** La synchronisation des projets — le seul droit qui coûte tous les mois. */
-  sync: boolean
-}
-
-export function rightsOf(
-  entitlements: Entitlements | null,
-  billingOpen = commercialLaunch,
-): Rights {
-  /* Before billing launches, the historical product remains the whole product:
-     clean unlimited ZIP exports, but never paid cloud sync. The same compile-
-     time flag hides checkout and pricing, so the offer and enforcement switch
-     together instead of creating a free tier with no way to upgrade. */
-  if (!billingOpen) return { cleanExport: true, zip: true, sync: false }
-  const licence = entitlements?.licence ?? false
-  return {
-    cleanExport: licence,
-    zip: licence,
-    /* Le Cloud, pas la Licence : `Entitlements.cloud` porte déjà la règle
-       « le Cloud exige la Licence » et la fin de période. */
-    sync: entitlements?.cloud ?? false,
-  }
+  if (!row) return toEntitlements(null, userId, now)
+  return toEntitlements({ user_id: userId, polar_customer_id: '', ...row }, userId, now)
 }
 
 /**
