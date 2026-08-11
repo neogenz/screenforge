@@ -3,6 +3,7 @@ import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
 import { auth } from './auth'
+import { webhook } from './billing'
 
 /**
  * Les routes HTTP du déploiement, servies sur `<deployment>.convex.site`.
@@ -125,5 +126,14 @@ http.route({
 })
 
 http.route({ pathPrefix: '/project-blob/', method: 'OPTIONS', handler: preflight })
+
+/**
+ * La seule route que quelqu'un d'autre appelle.
+ *
+ * `path` et non `pathPrefix` : l'URL est celle qu'on inscrit chez Polar, elle ne
+ * porte pas de segment variable, et un préfixe accepterait des chemins que
+ * personne n'a déclarés.
+ */
+http.route({ path: '/billing/webhook', method: 'POST', handler: webhook })
 
 export default http

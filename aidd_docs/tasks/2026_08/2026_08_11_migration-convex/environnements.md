@@ -117,6 +117,69 @@ pnpm --filter backend exec convex env set AUTH_GITHUB_ID Iv1.xxxxxxxx
 pnpm --filter backend exec convex env set AUTH_GITHUB_SECRET xxxxxxxx
 ```
 
+### Polar — la vente
+
+Six valeurs, toutes sur le même tableau de bord, et deux environnements Polar
+qui ne partagent rien : le bac à sable (<https://sandbox.polar.sh>) a sa propre
+base, ses propres produits et ses propres clés. Le même jeton n'ouvre pas les
+deux, et `POLAR_SERVER` absent vaut `sandbox` — pour qu'une variable oubliée ne
+facture personne.
+
+| Variable                   | Où la lire                                                                   |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `POLAR_ACCESS_TOKEN`       | _Settings → Developers → New Token_, portée `checkouts:write`, `customer_sessions:write` |
+| `POLAR_WEBHOOK_SECRET`     | affiché **une seule fois**, à la création du endpoint webhook (voir plus bas) |
+| `POLAR_LICENCE_PRODUCT_ID` | _Products_ → le produit Licence (achat unique) → son `id`                     |
+| `POLAR_CLOUD_PRODUCT_ID`   | _Products_ → le produit Cloud (abonnement annuel) → son `id`                  |
+| `POLAR_LICENCE_BENEFIT_ID` | _Benefits_ → le bénéfice **porté par le produit Licence** → son `id`          |
+| `CHECKOUT_SUCCESS_URL`     | choisie, pas lue : l'URL de retour de l'acheteur, sur votre site              |
+
+Le bénéfice mérite son mot : un achat unique n'apparaît pas dans
+`activeSubscriptions` — il n'a pas de période. Sa seule trace dans l'état client
+est le bénéfice qu'il octroie. Le produit Licence doit donc en porter au moins
+un, sans quoi la projection n'accordera jamais `licence`, quel que soit le
+nombre d'achats.
+
+```bash
+pnpm --filter backend exec convex env set POLAR_SERVER sandbox
+pnpm --filter backend exec convex env set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
+pnpm --filter backend exec convex env set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
+pnpm --filter backend exec convex env set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
+pnpm --filter backend exec convex env set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
+pnpm --filter backend exec convex env set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
+pnpm --filter backend exec convex env set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
+```
+
+En production, `--prod` après `env`, `POLAR_SERVER=production`, et un jeton de
+production — les identifiants de produits diffèrent aussi.
+
+#### Le endpoint webhook
+
+_Settings → Webhooks → Add Endpoint_. L'URL est celle du déploiement Convex sur
+son hôte **HTTP** (`.site`), jamais celle du site :
+
+```
+https://<votre-déploiement>.convex.site/billing/webhook
+```
+
+Format **Raw**, et un seul événement à cocher : `customer.state_changed`. C'est
+le seul que le serveur écoute, parce que Polar y sert les abonnements actifs et
+les bénéfices accordés en un objet complet — création, changement, octroi et
+révocation compris. Cocher `order.paid` en plus ne ferait qu'ajouter des
+livraisons acquittées et ignorées.
+
+### Vérifier que la vente a tout ce qu'il lui faut
+
+`env.ts` mourait au démarrage quand une variable manquait ; une fonction Convex
+n'a pas de démarrage. Ce contrôle est donc explicite, et se relance après chaque
+`convex env set` :
+
+```bash
+pnpm --filter backend exec convex run billing:healthcheck '{}'
+```
+
+Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
+
 ## Étape 3 — le navigateur
 
 Une seule variable, et elle est publique : c'est l'URL que le client Convex

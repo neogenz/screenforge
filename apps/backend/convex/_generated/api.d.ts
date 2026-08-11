@@ -11,12 +11,14 @@
 import type * as assets from "../assets.js";
 import type * as auth from "../auth.js";
 import type * as authz from "../authz.js";
+import type * as billing from "../billing.js";
 import type * as download from "../download.js";
 import type * as entitlements from "../entitlements.js";
 import type * as http from "../http.js";
 import type * as limits from "../limits.js";
 import type * as media from "../media.js";
 import type * as mirror from "../mirror.js";
+import type * as polar from "../polar.js";
 import type * as projects from "../projects.js";
 import type * as users from "../users.js";
 
@@ -30,12 +32,14 @@ declare const fullApi: ApiFromModules<{
   assets: typeof assets;
   auth: typeof auth;
   authz: typeof authz;
+  billing: typeof billing;
   download: typeof download;
   entitlements: typeof entitlements;
   http: typeof http;
   limits: typeof limits;
   media: typeof media;
   mirror: typeof mirror;
+  polar: typeof polar;
   projects: typeof projects;
   users: typeof users;
 }>;

@@ -1,4 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import type { Auth } from 'convex/server'
 import { ConvexError } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
@@ -35,8 +36,15 @@ function deny(code: AuthzError['code']): never {
   throw new ConvexError<AuthzError>({ code })
 }
 
-/** Il y a quelqu'un, ou il n'y a personne. */
-export async function requireUser(ctx: QueryCtx): Promise<Id<'users'>> {
+/**
+ * Il y a quelqu'un, ou il n'y a personne.
+ *
+ * Le `ctx` est réduit à ce que la question demande : une action authentifie de
+ * la même façon qu'une query, et n'a pas de `db` à offrir. Exiger `QueryCtx`
+ * obligerait le checkout à redemander l'identité autrement — donc à écrire une
+ * seconde fois la seule ligne que ce fichier existe pour n'écrire qu'une fois.
+ */
+export async function requireUser(ctx: { auth: Auth }): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx)
   if (userId === null) deny(UNAUTHENTICATED)
   return userId

@@ -47,3 +47,20 @@ export function getConvex(): Promise<ConvexReactClient> | null {
   client ??= import('@/lib/convex-client').then((module) => module.client)
   return client
 }
+
+/**
+ * Le code qu'un `ConvexError` porte, ou `null` pour tout le reste.
+ *
+ * Le serveur refuse en codes (`UNAUTHENTICATED`, `LICENCE_REQUIRED`,
+ * `RATE_LIMITED`) et l'éditeur choisit la phrase : un nom de compteur interne
+ * n'apprend rien à qui a cliqué trop vite, et un message traduit côté serveur
+ * serait une traduction de plus à tenir. La lecture est ici plutôt que recopiée
+ * chez chaque appelant parce qu'elle porte une hypothèse sur la forme de
+ * l'erreur — deux copies, et l'une des deux cesserait un jour de reconnaître un
+ * refus.
+ */
+export function errorCode(error: unknown): string | null {
+  const data: unknown = (error as { data?: unknown })?.data
+  if (typeof data === 'object' && data !== null) return (data as { code?: string }).code ?? null
+  return null
+}

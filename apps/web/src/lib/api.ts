@@ -1,21 +1,25 @@
 import type { AppType } from 'api'
+import { connect } from '@/lib/cloud'
 import { commercialLaunch } from '@/lib/commercial-launch'
+import { errorCode } from '@/lib/convex'
 import { getSupabase } from '@/lib/supabase'
 
 /**
- * Le client de l'API de vente, typé depuis `apps/api`.
+ * Les gestes de vente : ouvrir un checkout, ouvrir le portail client.
  *
- * Uniquement ce qui ne peut pas se faire sans secret : ouvrir un checkout et
- * ouvrir le portail client. Les droits, eux, se lisent dans le miroir — voir
- * `lib/entitlements.ts`.
+ * Les deux sont désormais des actions Convex, appelées sur le client que
+ * `lib/cloud.ts` tient déjà. Elles ne pouvaient pas se faire depuis le
+ * navigateur parce qu'elles demandent le jeton Polar ; c'est toujours vrai, et
+ * ce qui a changé est seulement où ce jeton est posé. Les droits, eux, se
+ * lisent dans le miroir — voir `lib/entitlements.ts`.
  *
- * `AppType` traverse la frontière en `import type` : rien du backend n'entre
- * dans le paquet du navigateur, seule sa forme. Une route retirée ou un champ
- * renommé casse ici, à la compilation, plutôt qu'en production sur un `404`.
+ * Ce qui reste de `apps/api` ici, c'est la suppression de compte, et pour une
+ * phase encore : elle porte un nettoyage du stockage qui n'a pas encore migré.
+ * `AppType` traverse la frontière en `import type`, donc rien du service n'entre
+ * dans le paquet du navigateur, seule sa forme.
  *
- * `hono/client` est chargé à la demande, pour la même raison que le client
- * Supabase l'est : l'éditeur doit rester dessinable sans rien savoir de la
- * vente, et son chemin critique est mesuré.
+ * `hono/client` reste chargé à la demande : l'éditeur doit rester dessinable
+ * sans rien savoir de la vente, et son chemin critique est mesuré.
  */
 const baseUrl = import.meta.env.VITE_API_URL
 
@@ -59,19 +63,33 @@ export type CheckoutOutcome =
   /** Le Cloud demandé sans la Licence — refusé avant tout paiement. */
   | { ok: false; reason: 'licence-required' }
   | { ok: false; reason: 'unauthenticated' }
+  /** Trop de checkouts dans l'heure : chacun crée un objet chez Polar. */
+  | { ok: false; reason: 'rate-limited' }
   | { ok: false; reason: 'failed' }
 
+/**
+ * Les refus arrivent en codes et non en statuts HTTP.
+ *
+ * C'est la seule chose que le passage à Convex change de ce module : `403` et
+ * `401` étaient déjà des refus nommés côté serveur, ils portaient juste un
+ * numéro le temps du transport. Un code inconnu vaut `failed` — l'éditeur ne
+ * doit pas inventer une phrase pour un refus qu'il ne connaît pas.
+ */
+const CHECKOUT_REFUSALS: Record<string, CheckoutOutcome> = {
+  LICENCE_REQUIRED: { ok: false, reason: 'licence-required' },
+  UNAUTHENTICATED: { ok: false, reason: 'unauthenticated' },
+  RATE_LIMITED: { ok: false, reason: 'rate-limited' },
+}
+
 export async function createCheckout(product: 'licence' | 'cloud'): Promise<CheckoutOutcome> {
-  if (!billingConfigured) return { ok: false, reason: 'failed' }
+  const connected = connect()
+  if (!billingConfigured || !connected) return { ok: false, reason: 'failed' }
   try {
-    const response = await (await api()).billing.checkout.$post({ json: { product } })
-    if (response.status === 401) return { ok: false, reason: 'unauthenticated' }
-    if (response.status === 403) return { ok: false, reason: 'licence-required' }
-    if (!response.ok) return { ok: false, reason: 'failed' }
-    const { url } = await response.json()
+    const { client, api } = await connected
+    const { url } = await client.action(api.polar.createCheckout, { product })
     return { ok: true, url }
-  } catch {
-    return { ok: false, reason: 'failed' }
+  } catch (error) {
+    return CHECKOUT_REFUSALS[errorCode(error) ?? ''] ?? { ok: false, reason: 'failed' }
   }
 }
 
@@ -107,11 +125,11 @@ export async function deleteAccount(): Promise<DeleteAccountOutcome> {
 
 /** L'URL du portail client Polar — factures, moyen de paiement, résiliation. */
 export async function createPortalSession(): Promise<string | null> {
-  if (!billingConfigured) return null
+  const connected = connect()
+  if (!billingConfigured || !connected) return null
   try {
-    const response = await (await api()).billing.portal.$post()
-    if (!response.ok) return null
-    const { url } = await response.json()
+    const { client, api } = await connected
+    const { url } = await client.action(api.polar.createPortalSession, {})
     return url
   } catch {
     return null

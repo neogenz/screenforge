@@ -2,9 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { env } from './env.ts'
 import { account } from './routes/account.ts'
-import { billing } from './routes/billing.ts'
 import { health } from './routes/health.ts'
-import { me } from './routes/me.ts'
 
 /**
  * L'application, sans le serveur.
@@ -12,6 +10,11 @@ import { me } from './routes/me.ts'
  * Ce fichier n'écoute sur aucun port : `server.ts` s'en charge. C'est ce qui
  * permet aux tests d'appeler `app.request(...)` sans ouvrir de socket, et à un
  * autre runtime que Node de monter la même application.
+ *
+ * Il ne reste que la suppression de compte, et pour une phase encore : la vente
+ * est passée sur Convex, `GET /me` avec elle — cette route existait parce que ce
+ * service avait sa vue à lui, celle qui gardait le checkout, et le checkout lit
+ * désormais le même module que l'éditeur, dans le même déploiement.
  */
 const base = new Hono()
 
@@ -37,10 +40,6 @@ base.use(
    ici, donc une route retirée casse le client web à la compilation. C'est aussi
    pourquoi l'application exportée est la version chaînée et non `base` — le
    type d'un `app.route()` appelé pour son effet de bord se perd. */
-export const app = base.route('/', health).route('/', me).route('/', billing).route('/', account)
+export const app = base.route('/', health).route('/', account)
 
 export type AppType = typeof app
-
-/* Le seul type de données qui traverse la frontière : le client web le lit tel
-   quel, plutôt que d'en tenir une copie qui dériverait. */
-export type { Entitlements } from './entitlements.ts'

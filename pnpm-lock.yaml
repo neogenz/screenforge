@@ -71,9 +71,6 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.9
         version: 1.19.17(hono@4.13.1)
-      '@polar-sh/sdk':
-        specifier: ^0.35.0
-        version: 0.35.4
       '@supabase/supabase-js':
         specifier: ^2.112.2
         version: 2.112.2
@@ -87,9 +84,6 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
-      standardwebhooks:
-        specifier: ^1.0.0
-        version: 1.0.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -127,6 +121,9 @@ importers:
       jose:
         specifier: ^6.2.8
         version: 6.2.8
+      standardwebhooks:
+        specifier: ^1.0.0
+        version: 1.0.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

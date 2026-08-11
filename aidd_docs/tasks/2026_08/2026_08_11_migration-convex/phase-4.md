@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 4 — Vente Polar : checkout, portail, webhook
 
 **But** : porter les trois routes de `apps/api/src/routes/billing.ts` sur Convex
@@ -126,3 +130,62 @@ secondes plus tard. » Rien dans la migration ne change ce délai.
 ## Ce qui n'est pas fait ici
 
 La suppression de compte, qui reste servie par `apps/api` jusqu'à la phase 5.
+
+## Écarts constatés à l'implémentation (2026-08-11)
+
+**1. La voie A est retenue, pour une raison plus étroite que celle écrite.**
+Le tableau du §4.1 dit que `validateEvent` « exige Node ». Mesuré, c'est faux de
+la vérification elle-même : `standardwebhooks` est du JavaScript pur — `TextEncoder`,
+`fast-sha256`, `@stablelib/base64` — et tournerait dans le runtime Convex par
+défaut. Ce qui exige Node est la première ligne de `validateEvent` :
+`Buffer.from(secret, 'utf-8')`. La voie B a donc été rouverte, et refusée à
+nouveau, mais sur un argument précis : appeler `standardwebhooks` directement
+contourne aussi `parseEvent`, donc le `SDKValidationError` qui conserve le JSON
+vérifié, donc la seule chose qui distingue « type que je ne connais pas » (200)
+de « `customer.state_changed` que je n'ai pas su lire » (503). Cette distinction
+est ce qui empêche d'acquitter une révocation illisible.
+
+**2. Ce qui traverse la frontière est la décision, pas l'état.** Le §4.1
+dessinait un `internal.polar.verify` qui rendrait l'événement vérifié. Il aurait
+fallu déclarer `CustomerState` en validateurs Convex et convertir ses dates dans
+les deux sens, pour que l'appelant refasse la projection que l'action venait de
+faire. La vérification, la projection et l'écriture restent donc ensemble dans
+l'action Node ; ce qui traverse est un union de six littéraux, et `billing.ts`
+ne fait que le traduire en statuts.
+
+**3. `applyEntitlementsIfNewer` prend une chaîne, pas un `Id<'users'>`.** La
+phase 2 l'avait déclarée `v.id('users')`, ce qui était juste tant que l'appelant
+était un test. Le webhook, lui, la nourrit avec l'`externalId` que Polar renvoie
+— une chaîne venue du dehors. Un validateur d'`Id` la refuse en levant, donc en
+500, donc en relivraison perpétuelle pour un client qui n'a de toute façon aucun
+compte ici. Elle reconnaît l'identifiant (`normalizeId`) **puis relit le
+document** : la première étape ne juge que la forme, et une ligne de droits
+accrochée à un compte supprimé serait un orphelin qu'aucune lecture ne
+rattraperait — c'est ce que la clé étrangère Postgres donnait gratuitement.
+
+**4. `requireUser` accepte n'importe quel `ctx` porteur d'`auth`.** Il était
+typé `QueryCtx` ; une action n'a pas de `db` à offrir. L'élargir à `{ auth }` est
+ce qui permet au checkout de garder l'unique chemin d'identité au lieu d'en
+écrire un second.
+
+**5. Le refus du compteur est un cinquième cas de `CheckoutOutcome`.** Le
+critère 6 demande un message traduit ; `RATE_LIMITED` replié sur `failed` aurait
+affiché « réessayez » sans dire pourquoi. La lecture du code d'erreur est passée
+de `lib/auth.ts` à `lib/convex.ts` du même coup, deux modules la faisant
+désormais.
+
+**6. `apps/api` perd la vente, `GET /me`, `polar.ts`, `mirror.ts` et
+`entitlements.ts` — mais garde sa liste blanche CORS.** Le §4.4 la donne pour
+disparue ; elle garde encore `DELETE /account`, servie là jusqu'à la phase 5. La
+retirer maintenant casserait la seule route restante sans rien fermer. Les
+variables Polar quittent en revanche `env.ts` et `.env.example` : elles se posent
+par `convex env set`, et `billing.healthcheck` dit lesquelles manquent
+(`convex run billing:healthcheck '{}'` → `[]`).
+
+**7. Le critère 7 attend un humain.** Un achat réel en bac à sable demande un
+compte Polar, ses produits et son jeton — c'est la seule chose de cette phase
+qu'aucune implémentation ne peut se donner. `consumeCheckoutReturn` et son
+attente sont intacts et lisent désormais Convex. Ce qui a pu être vérifié à la
+place l'a été contre le **déploiement local réel**, pas seulement le simulateur :
+signature fausse → 403, type inconnu → 200 `ignored`, compte inconnu → `ignored`,
+octroi → `written`, rejeu → `unchanged`, livraison plus ancienne → `ignored`.

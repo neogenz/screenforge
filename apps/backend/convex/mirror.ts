@@ -56,12 +56,21 @@ export const myEntitlements = query({
  * Elle rend le même triplet que la version SQL parce que le webhook s'en sert
  * pour décider s'il journalise :
  * - `written` : la ligne a été créée ou mise à jour ;
- * - `ignored` : la livraison était plus ancienne que ce que porte la ligne ;
+ * - `ignored` : la livraison était plus ancienne que ce que porte la ligne, ou
+ *   ne désigne aucun compte ;
  * - `unchanged` : ni plus récente ni plus ancienne, donc rien à faire.
  */
 export const applyEntitlementsIfNewer = internalMutation({
   args: {
-    userId: v.id('users'),
+    /**
+     * `v.string()` et non `v.id('users')` : cette valeur est l'`externalId` que
+     * Polar nous renvoie, donc une chaîne venue du dehors. Un validateur d'`Id`
+     * la refuserait en levant, et une exception dans le webhook devient une
+     * relivraison — indéfiniment, pour un client qui n'a de toute façon aucun
+     * compte ici. Elle est donc reconnue plus bas, et une chaîne qui ne désigne
+     * personne vaut `ignored`.
+     */
+    userId: v.string(),
     polarCustomerId: v.string(),
     licenceGrantedAt: v.union(v.string(), v.null()),
     cloudStatus: v.union(v.string(), v.null()),
@@ -70,7 +79,13 @@ export const applyEntitlementsIfNewer = internalMutation({
   },
   returns: v.union(v.literal('written'), v.literal('unchanged'), v.literal('ignored')),
   handler: async (ctx, args) => {
-    const { userId, ...incoming } = args
+    const { userId: candidate, ...incoming } = args
+    /* Reconnue puis relue : `normalizeId` ne juge que la forme, et une ligne de
+       droits accrochée à un compte supprimé serait un orphelin qu'aucune
+       lecture ne rattraperait. */
+    const userId = ctx.db.normalizeId('users', candidate)
+    if (userId === null || (await ctx.db.get(userId)) === null) return 'ignored'
+
     const existing = await ctx.db
       .query('entitlements')
       .withIndex('by_user', (q) => q.eq('userId', userId))

@@ -1,61 +1,29 @@
 import { Webhook } from 'standardwebhooks'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Id } from './_generated/dataModel'
+import { testConvex } from './test.helpers'
 
 /**
  * Le webhook de bout en bout : signature réelle, analyse réelle du SDK Polar,
- * projection réelle. Seul Postgres est remplacé — par une ligne en mémoire, ce
- * qui suffit puisque l'idempotence se joue sur « écrire ou ne pas écrire », pas
- * sur ce que la base fait de l'écriture.
+ * projection réelle, écriture réelle.
+ *
+ * Ce sont les charges signées de `apps/api/src/routes/billing.webhook.test.ts`,
+ * rejouées telles quelles contre l'`httpAction`. Ce qui change est ce qui devait
+ * changer : plus de Postgres en mémoire, la mutation écrit dans le simulateur.
+ * Ce qui ne change pas est ce qui compte — les mêmes octets produisent le même
+ * miroir, et les trois refus rendent les trois mêmes statuts.
  */
-const db = vi.hoisted(() => {
-  const state = { row: null as Record<string, unknown> | null, writes: 0 }
-  const query = {
-    select: () => query,
-    eq: () => query,
-    maybeSingle: async () => ({ data: state.row, error: null }),
-  }
-  const client = {
-    from: () => ({
-      ...query,
-    }),
-    rpc: async (_name: string, args: Record<string, unknown>) => {
-      const incoming = Date.parse(String(args.p_source_updated_at))
-      const current = state.row ? Date.parse(String(state.row.source_updated_at)) : null
-      if (current !== null && incoming <= current) {
-        return { data: incoming < current ? 'ignored' : 'unchanged', error: null }
-      }
-      state.writes += 1
-      state.row = {
-        user_id: args.p_user_id,
-        polar_customer_id: args.p_polar_customer_id,
-        licence_granted_at: args.p_licence_granted_at,
-        cloud_status: args.p_cloud_status,
-        cloud_period_end: args.p_cloud_period_end,
-        source_updated_at: args.p_source_updated_at,
-      }
-      return { data: 'written', error: null }
-    },
-  }
-  return { state, client }
-})
-
-vi.mock('../supabase.ts', () => ({ serviceClient: () => db.client }))
 
 const SECRET = 'whsec_screenforge_test'
-const USER = '11111111-1111-4111-8111-111111111111'
 const LICENCE_BENEFIT = 'ben_licence'
 const CLOUD_PRODUCT = 'prod_cloud'
 
-process.env.SUPABASE_URL = 'http://127.0.0.1:54421'
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-not-used-here'
 process.env.POLAR_ACCESS_TOKEN = 'polar_at_test'
 process.env.POLAR_WEBHOOK_SECRET = SECRET
 process.env.POLAR_LICENCE_PRODUCT_ID = 'prod_licence'
 process.env.POLAR_CLOUD_PRODUCT_ID = CLOUD_PRODUCT
 process.env.POLAR_LICENCE_BENEFIT_ID = LICENCE_BENEFIT
 process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'
-
-const { app } = await import('../index.ts')
 
 interface Fixture {
   externalId?: string | null
@@ -66,7 +34,7 @@ interface Fixture {
 
 /** Un `customer.state_changed` tel que Polar le sérialise (snake_case). */
 function customerStateChanged({
-  externalId = USER,
+  externalId = null,
   licenceGrantedAt = null,
   cloud = null,
   timestamp = '2026-08-08T10:00:00Z',
@@ -146,13 +114,24 @@ function sign(body: string, id: string, secret = SECRET) {
   }
 }
 
-function post(body: string, headers: Record<string, string>) {
-  return app.request('/billing/webhook', { method: 'POST', body, headers })
+type Stack = ReturnType<typeof testConvex>
+
+function post(t: Stack, body: string, headers: Record<string, string>) {
+  return t.fetch('/billing/webhook', { method: 'POST', body, headers })
 }
 
+async function account(t: Stack): Promise<Id<'users'>> {
+  return await t.run((ctx) => ctx.db.insert('users', {}))
+}
+
+async function mirror(t: Stack) {
+  return await t.run((ctx) => ctx.db.query('entitlements').collect())
+}
+
+let t: Stack
+
 beforeEach(() => {
-  db.state.row = null
-  db.state.writes = 0
+  t = testConvex()
 })
 
 afterEach(() => {
@@ -160,101 +139,134 @@ afterEach(() => {
 })
 
 describe('POST /billing/webhook', () => {
-  it('writes the mirror on a licence grant', async () => {
-    const body = customerStateChanged({ licenceGrantedAt: '2026-03-12T09:00:00Z' })
-    const response = await post(body, sign(body, 'msg_1'))
+  it('écrit le miroir sur un octroi de Licence', async () => {
+    const userId = await account(t)
+    const body = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
+
+    const response = await post(t, body, sign(body, 'msg_1'))
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ outcome: 'written' })
-    expect(db.state.writes).toBe(1)
-    expect(db.state.row).toMatchObject({
-      user_id: USER,
-      polar_customer_id: 'cus_1',
-      licence_granted_at: '2026-03-12T09:00:00.000Z',
-      cloud_status: null,
-    })
+    expect(await mirror(t)).toMatchObject([
+      {
+        userId,
+        polarCustomerId: 'cus_1',
+        licenceGrantedAt: '2026-03-12T09:00:00.000Z',
+        cloudStatus: null,
+      },
+    ])
   })
 
-  /* Critère 6 : rejouer le même webhook ne produit qu'une transition d'état.
-     Pas de table de déduplication — la seconde livraison projette la même ligne,
-     donc il n'y a rien à écrire. */
-  it('replays without a second write', async () => {
-    const body = customerStateChanged({ licenceGrantedAt: '2026-03-12T09:00:00Z' })
+  /* Critère 6 de la phase d'origine : rejouer le même webhook ne produit qu'une
+     transition d'état. Pas de table de déduplication — la seconde livraison
+     projette la même ligne, donc il n'y a rien à écrire. */
+  it('rejoue sans seconde écriture', async () => {
+    const userId = await account(t)
+    const body = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
 
-    await post(body, sign(body, 'msg_1'))
-    const replay = await post(body, sign(body, 'msg_1'))
+    await post(t, body, sign(body, 'msg_1'))
+    const replay = await post(t, body, sign(body, 'msg_1'))
 
     await expect(replay.json()).resolves.toEqual({ outcome: 'unchanged' })
-    expect(db.state.writes).toBe(1)
+    expect(await mirror(t)).toHaveLength(1)
   })
 
-  it('writes again when the state actually changed', async () => {
-    const licence = customerStateChanged({ licenceGrantedAt: '2026-03-12T09:00:00Z' })
-    await post(licence, sign(licence, 'msg_1'))
+  it('réécrit quand l’état a réellement changé', async () => {
+    const userId = await account(t)
+    const licence = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
+    await post(t, licence, sign(licence, 'msg_1'))
 
     const withCloud = customerStateChanged({
+      externalId: userId,
       licenceGrantedAt: '2026-03-12T09:00:00Z',
       cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
       timestamp: '2026-08-08T11:00:00Z',
     })
-    const response = await post(withCloud, sign(withCloud, 'msg_2'))
+    const response = await post(t, withCloud, sign(withCloud, 'msg_2'))
 
     await expect(response.json()).resolves.toEqual({ outcome: 'written' })
-    expect(db.state.writes).toBe(2)
-    expect(db.state.row).toMatchObject({
-      cloud_status: 'active',
-      cloud_period_end: '2027-03-12T09:00:00.000Z',
-    })
+    expect(await mirror(t)).toMatchObject([
+      { cloudStatus: 'active', cloudPeriodEnd: '2027-03-12T09:00:00.000Z' },
+    ])
   })
 
-  it('ignores an older state delivered after a licence revocation', async () => {
-    const revoked = customerStateChanged({ timestamp: '2026-08-08T12:00:00Z' })
-    await post(revoked, sign(revoked, 'msg_new'))
+  /* Critère 3 : deux livraisons désordonnées laissent la ligne sur la plus
+     récente, quel que soit l'ordre d'arrivée. */
+  it('ignore un état plus ancien livré après une révocation', async () => {
+    const userId = await account(t)
+    const revoked = customerStateChanged({ externalId: userId, timestamp: '2026-08-08T12:00:00Z' })
+    await post(t, revoked, sign(revoked, 'msg_new'))
 
     const staleGrant = customerStateChanged({
+      externalId: userId,
       licenceGrantedAt: '2026-03-12T09:00:00Z',
       timestamp: '2026-08-08T11:00:00Z',
     })
-    const response = await post(staleGrant, sign(staleGrant, 'msg_old'))
+    const response = await post(t, staleGrant, sign(staleGrant, 'msg_old'))
 
     await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
-    expect(db.state.writes).toBe(1)
-    expect(db.state.row).toMatchObject({ licence_granted_at: null, cloud_status: null })
+    expect(await mirror(t)).toMatchObject([{ licenceGrantedAt: null, cloudStatus: null }])
   })
 
-  /* Critère 8 : Polar accorde le Cloud, la projection le refuse et le journalise. */
-  it('refuses a cloud subscription on an account without a licence, and logs it', async () => {
+  /* Critère 4 : Polar accorde le Cloud, la projection le refuse et le journalise. */
+  it('refuse un abonnement Cloud sur un compte sans Licence, et le journalise', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const userId = await account(t)
     const body = customerStateChanged({
+      externalId: userId,
       cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
     })
 
-    await post(body, sign(body, 'msg_1'))
+    const response = await post(t, body, sign(body, 'msg_1'))
 
-    expect(db.state.row).toMatchObject({ licence_granted_at: null, cloud_status: null })
+    expect(response.status).toBe(200)
+    expect(await mirror(t)).toMatchObject([{ licenceGrantedAt: null, cloudStatus: null }])
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('cus_1'))
   })
 
-  it('rejects a body signed with another secret', async () => {
-    const body = customerStateChanged({ licenceGrantedAt: '2026-03-12T09:00:00Z' })
-    const response = await post(body, sign(body, 'msg_1', 'whsec_wrong'))
+  /* Critère 2, premier volet. */
+  it('rejette un corps signé avec un autre secret', async () => {
+    const userId = await account(t)
+    const body = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
+
+    const response = await post(t, body, sign(body, 'msg_1', 'whsec_wrong'))
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({ error: 'INVALID_SIGNATURE' })
-    expect(db.state.writes).toBe(0)
+    expect(await mirror(t)).toHaveLength(0)
   })
 
-  it('rejects a body altered after signature', async () => {
-    const body = customerStateChanged({ licenceGrantedAt: '2026-03-12T09:00:00Z' })
+  it('rejette un corps modifié après signature', async () => {
+    const userId = await account(t)
+    const body = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
     const headers = sign(body, 'msg_1')
-    const tampered = customerStateChanged({ licenceGrantedAt: '2020-01-01T00:00:00Z' })
+    const tampered = customerStateChanged({
+      externalId: userId,
+      licenceGrantedAt: '2020-01-01T00:00:00Z',
+    })
 
-    const response = await post(tampered, headers)
+    const response = await post(t, tampered, headers)
 
     expect(response.status).toBe(403)
-    expect(db.state.writes).toBe(0)
+    expect(await mirror(t)).toHaveLength(0)
   })
 
+  /* Critère 2, troisième volet : 503 et non 200. */
   it('demande de rejouer un customer.state_changed signé mais incomplet', async () => {
     const report = vi.spyOn(console, 'error').mockImplementation(() => {})
     const body = JSON.stringify({
@@ -263,17 +275,18 @@ describe('POST /billing/webhook', () => {
       data: {},
     })
 
-    const response = await post(body, sign(body, 'msg_invalid_state'))
+    const response = await post(t, body, sign(body, 'msg_invalid_state'))
 
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toEqual({ error: 'INVALID_CUSTOMER_STATE' })
-    expect(db.state.writes).toBe(0)
+    expect(await mirror(t)).toHaveLength(0)
     expect(report).toHaveBeenCalledWith(
       'Invalid Polar customer state; delivery must be retried.',
-      expect.any(Error),
+      expect.anything(),
     )
   })
 
+  /* Critère 2, deuxième volet. */
   it('acquitte un type signé explicitement non pris en charge', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const body = JSON.stringify({
@@ -282,24 +295,40 @@ describe('POST /billing/webhook', () => {
       data: {},
     })
 
-    const response = await post(body, sign(body, 'msg_irrelevant'))
+    const response = await post(t, body, sign(body, 'msg_irrelevant'))
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ ignored: true })
-    expect(db.state.writes).toBe(0)
+    expect(await mirror(t)).toHaveLength(0)
     expect(warn).toHaveBeenCalledWith(
       'Ignored unsupported Polar webhook type: screenforge.future_event.',
     )
   })
 
-  it('ignores a customer that is attached to no account', async () => {
+  it('ignore un client rattaché à aucun compte', async () => {
     const body = customerStateChanged({
       externalId: null,
       licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
-    const response = await post(body, sign(body, 'msg_1'))
+
+    const response = await post(t, body, sign(body, 'msg_1'))
 
     await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
-    expect(db.state.writes).toBe(0)
+    expect(await mirror(t)).toHaveLength(0)
+  })
+
+  /* Ce que Postgres refusait par une clé étrangère, et que Convex ne refuse
+     pas tout seul : `externalId` est une chaîne venue du dehors. */
+  it('ignore un identifiant externe qui ne désigne aucun compte', async () => {
+    const known = await account(t)
+    const body = customerStateChanged({
+      externalId: `${known}zz`,
+      licenceGrantedAt: '2026-03-12T09:00:00Z',
+    })
+
+    const response = await post(t, body, sign(body, 'msg_1'))
+
+    await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
+    expect(await mirror(t)).toHaveLength(0)
   })
 })

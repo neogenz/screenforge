@@ -1,5 +1,5 @@
 import { authActions } from '@/lib/auth-actions'
-import { cloudConfigured } from '@/lib/convex'
+import { cloudConfigured, errorCode } from '@/lib/convex'
 import { toast } from '@/stores/toast.store'
 
 export type OAuthProvider = 'google' | 'github'
@@ -49,12 +49,6 @@ export function readable(error: unknown): Error {
     return new Error('Adresse e-mail ou mot de passe incorrect.')
   }
   return new Error('La connexion a échoué. Réessayez.')
-}
-
-function errorCode(error: unknown): string | null {
-  const data: unknown = (error as { data?: unknown })?.data
-  if (typeof data === 'object' && data !== null) return (data as { code?: string }).code ?? null
-  return null
 }
 
 export async function signInWithProvider(provider: OAuthProvider) {

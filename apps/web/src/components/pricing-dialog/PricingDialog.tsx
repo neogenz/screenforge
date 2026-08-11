@@ -102,9 +102,13 @@ function PricingDialogContent() {
   )
 }
 
-const CHECKOUT_ERRORS: Record<'licence-required' | 'unauthenticated' | 'failed', string> = {
+const CHECKOUT_ERRORS: Record<
+  'licence-required' | 'unauthenticated' | 'rate-limited' | 'failed',
+  string
+> = {
   'licence-required': 'Le Cloud est un complément à la Licence : achetez-la d’abord.',
   unauthenticated: 'Session expirée. Reconnectez-vous pour acheter.',
+  'rate-limited': 'Trop de tentatives d’achat. Réessayez dans un instant.',
   failed: 'Le paiement n’a pas pu s’ouvrir. Réessayez dans un instant.',
 }
 

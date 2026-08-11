@@ -41,8 +41,12 @@ let link: Promise<Link> | null = null
 /**
  * Le client, l'API générée et l'origine HTTP — ou `null`, jamais une promesse
  * rejetée : l'absence de cloud n'est pas une panne.
+ *
+ * Exportée pour `lib/api.ts`, qui ouvre les checkouts : c'est le même
+ * déploiement, le même client et le même jeton, et une seconde fonction de
+ * connexion serait une seconde WebSocket ouverte sur la même chose.
  */
-function connect(): Promise<Link> | null {
+export function connect(): Promise<Link> | null {
   const pending = getConvex()
   if (!pending) return null
   link ??= Promise.all([pending, import('backend')]).then(([client, module]) => ({
