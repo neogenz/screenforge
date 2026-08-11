@@ -10,13 +10,16 @@ import {
   Trash2,
 } from 'lucide-react'
 import { ContextMenu } from '@/components/ui/ContextMenu'
+import { Input } from '@/components/ui/input'
+import { Popover } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { screenHasCustomName } from '@/lib/screens'
+import { defaultScreenName } from '@/lib/screens'
 import {
   THUMBNAIL_BADGE_SIZE,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_LABEL_GAP,
   THUMBNAIL_LABEL_HEIGHT,
+  THUMBNAIL_LABEL_ROW,
   THUMBNAIL_WIDTH,
 } from '@/lib/stage'
 import type { Screen } from '@/types'
@@ -25,8 +28,6 @@ interface ScreenThumbnailProps {
   screen: Screen
   isActive: boolean
   index: number
-  /** Décidé par la bande, jamais par la tuile : les dix rangées s'alignent ou aucune. */
-  showLabel: boolean
   canDelete: boolean
   canMoveLeft: boolean
   canMoveRight: boolean
@@ -44,7 +45,6 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
   screen,
   isActive,
   index,
-  showLabel,
   canDelete,
   canMoveLeft,
   canMoveRight,
@@ -62,22 +62,36 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
   const [draftName, setDraftName] = useState(screen.name)
   const inputRef = useRef<HTMLInputElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
+  const previewRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!editing) return
-    const frame = requestAnimationFrame(() => inputRef.current?.select())
+    // Le panneau refuse le focus automatique (`onOpenAutoFocus` prévenu dans la
+    // primitive), donc il se prend ici — et la sélection du texte avec, pour
+    // que renommer soit une frappe et non un effacement préalable.
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    })
     return () => cancelAnimationFrame(frame)
   }, [editing])
 
   function startRename() {
+    // Le champ s'ouvre sur le nom que la tuile affiche, quel qu'il soit, et il
+    // est sélectionné : renommer est une frappe. Il s'ouvrait vide pour un écran
+    // resté à son rang, ce qui demandait de deviner qu'un champ vide et une
+    // invite grise valaient « Écran 3 » — un état par accident, pas une valeur.
     setDraftName(screen.name)
     setEditing(true)
   }
 
-  function commitRename() {
-    const trimmed = draftName.trim()
-    if (trimmed && trimmed !== screen.name) onRename(screen.id, trimmed)
+  function finishRename() {
     setEditing(false)
+    // Un écran a toujours un nom : vidé, il retombe sur son rang plutôt que de
+    // laisser une tuile anonyme dans la rangée. C'est aussi la façon d'annuler
+    // un renommage sans passer par l'historique.
+    const next = draftName.trim() || defaultScreenName(index)
+    if (next !== screen.name) onRename(screen.id, next)
   }
 
   return (
@@ -104,12 +118,45 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         setMenuPosition({ left: event.clientX, top: event.clientY })
       }}
     >
+      {/* Le rang, au-dessus de la composition et non dessus.
+          Posé sur l'aperçu il ne coûtait aucune hauteur, et c'est bien ce qui
+          l'avait mis là ; ce qu'il coûtait à la place, c'était un coin de
+          chaque planche — une pastille de chrome sur dix vignettes à la fois,
+          dans l'outil dont le seul travail est de montrer ces dix images. Il
+          sort donc de l'image, retrouve les jetons du thème, et l'aperçu ne
+          porte plus que ce que l'utilisateur y a mis.
+
+          Le rang, pas un matricule : « 01 » sur cinq écrans se lit comme un
+          code. Dix au maximum, donc jamais trois chiffres. La largeur est un
+          plancher, pas une contrainte : oblongue sur « 10 », carrée sur un
+          chiffre — et la boîte garde la même dans les deux états, pour que
+          devenir courant ne décale rien.
+
+          `aria-hidden` : le bouton annonce déjà le nom complet, et le rang se
+          lit dans l'ordre du parcours. */}
+      <span
+        aria-hidden
+        style={{
+          height: THUMBNAIL_LABEL_HEIGHT,
+          minWidth: THUMBNAIL_BADGE_SIZE,
+          marginBottom: THUMBNAIL_LABEL_GAP,
+        }}
+        className={cn(
+          'tabular flex w-fit items-center justify-center rounded-sm px-1 text-2xs',
+          'transition-colors duration-150 ease-out',
+          isActive ? 'marker-fill font-semibold' : 'font-medium text-muted-foreground',
+        )}
+      >
+        {index + 1}
+      </span>
+
       {/* Une tuile, un bouton, une cible. L'aperçu et le numéro vivaient dans
           deux boutons dont le second n'existait que pour doubler le premier au
           pointeur — `aria-hidden`, `tabIndex={-1}` et une zone de clic étendue à
-          la main. Le numéro est maintenant *dans* l'aperçu, donc la question ne
-          se pose plus : il n'y a plus qu'une boîte. */}
+          la main. Le rang est sorti de l'aperçu mais reste hors du parcours :
+          il n'y a toujours qu'une boîte cliquable par écran. */}
       <button
+        ref={previewRef}
         type="button"
         onClick={() => onSelect(screen.id)}
         onDoubleClick={startRename}
@@ -151,92 +198,72 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         ) : (
           <span className="block h-full w-full bg-secondary" />
         )}
-
-        {/* Le numéro est une marque sur l'image, plus un objet de la scène.
-            Sous l'aperçu il devait tenir contre deux thèmes *et* contre une
-            capture presque toujours claire ; posé dessus, il n'a plus qu'une
-            surface à contraster, et son voile la lui fournit — sur une capture
-            blanche comme sur une noire.
-
-            Le rang, pas un matricule : « 01 » sur cinq écrans se lit comme un
-            code. Dix au maximum, donc jamais trois chiffres. Le nom complet
-            reste sur l'infobulle, dans le menu contextuel et au-dessus de la
-            planche ; il ne tiendrait ici qu'amputé, et « 03 O… » ne dit rien de
-            plus que « 03 ».
-
-            La largeur est un plancher, pas une contrainte : oblongue sur « 10 »,
-            carrée sur un chiffre. */}
-        <span
-          style={{ height: THUMBNAIL_BADGE_SIZE, minWidth: THUMBNAIL_BADGE_SIZE }}
-          className={cn(
-            'tabular absolute left-1 top-1 flex items-center justify-center',
-            'rounded-sm px-1 text-2xs transition-colors duration-150 ease-out',
-            // Le voile et son encre sont des littéraux assumés : ils se posent
-            // sur la capture de l'utilisateur, pas sur du chrome. Un jeton de
-            // thème disparaîtrait sur la moitié des aperçus — même raison que
-            // le `border-white` de l'arrêt de dégradé et que `SELECTION_INK`.
-            // Aucune matrice ne peut les vérifier, le pire cas est donc calculé
-            // ici : blanc sur un noir à 60% posé sur un aperçu blanc, 5.7:1 ;
-            // sur un aperçu noir, 21:1. À 45% le pire cas tombait à 3.3:1.
-            //
-            // Pas d'ombre de contact : une marque posée sur l'image ne se
-            // détache pas d'elle.
-            isActive
-              ? 'marker-fill font-semibold'
-              : 'bg-black/60 font-medium text-white backdrop-blur-xs',
-          )}
-        >
-          {index + 1}
-        </span>
       </button>
 
-      {/* Le nom, quand il en est un. La bande réserve la rangée pour les dix dès
-          qu'un seul écran est renommé — sinon la moitié de la file sauterait de
-          22px à chaque renommage — mais seuls les écrans qui portent un nom
-          choisi y écrivent quelque chose. « Écran 2 » sous un badge « 2 » ne dit
-          rien de plus que le badge, et c'est précisément ce qui avait fait
-          retirer la rangée.
+      {/* Le nom, toujours — son rang à défaut. La rangée n'apparaissait qu'au
+          premier renommage, et seuls les écrans nommés y écrivaient : une file
+          où une tuile sur deux portait une étiquette et l'autre du vide, et où
+          nommer un écran faisait sauter la scène de 22px. Un écran a un nom, le
+          rang en est un par défaut, et la rangée est réservée pour les dix.
 
-          `aria-hidden` parce que le bouton annonce déjà le nom complet : lu deux
-          fois de suite, il devient du bruit. La troncature n'est donc jamais le
-          seul accès au nom — il reste entier sur l'infobulle, dans le menu
-          contextuel et au-dessus de la planche. */}
-      {showLabel && (
-        <span
-          aria-hidden
-          style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
-          className={cn(
-            'block truncate text-center text-2xs',
-            isActive ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          {screenHasCustomName(screen, index) ? screen.name : null}
-        </span>
-      )}
+          La colonne fait `THUMBNAIL_WIDTH` : c'est ce qui décide de ce que le
+          libellé peut dire, et pourquoi le rang a pris sa propre rangée plutôt
+          que la gauche de celle-ci. `aria-hidden` parce que le bouton annonce
+          déjà le nom complet — lu deux fois, il devient du bruit. La troncature
+          n'est jamais le seul accès au nom : il reste entier sur l'infobulle,
+          dans le menu contextuel et au-dessus de la planche. */}
+      <span
+        aria-hidden
+        style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
+        className={cn(
+          'block truncate text-center text-2xs',
+          isActive ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        {screen.name}
+      </span>
 
-      {/* Le champ se pose sur le bas de l'aperçu : un `input` dans un `button`
-          est invalide, et l'échanger dans le flux ferait sauter la rangée au
-          premier clic de renommage. Ancré depuis le haut et non depuis le bas,
-          sinon la rangée de libellés le pousserait sous l'aperçu. */}
-      {editing && (
-        <input
+      {/* Le champ ne tient pas dans la tuile, et il ne faut pas l'y forcer.
+          Posé sur le bas de l'aperçu il faisait 53px de large : six caractères
+          d'un nom qui en compte vingt, centrés, en corps 11, sur la capture de
+          l'utilisateur. Ce n'est pas un champ, c'est une fente — et la bande ne
+          pouvait pas l'élargir, elle épingle `overflow-y: hidden` et rien n'en
+          sort en flux.
+
+          Il se détache donc : le panneau est porté par le portail de Radix, et
+          prend la largeur d'un nom au lieu de celle d'une vignette. Il éclot du
+          bord haut de la tuile, aligné sur son bord gauche — c'est ce qui dit
+          quel écran est renommé, sans qu'aucune tuile ait à changer d'état. */}
+      <Popover
+        open={editing}
+        anchor={previewRef}
+        onClose={finishRename}
+        // Dehors valide, Échap annule. Les deux sorties sont distinctes parce
+        // que la primitive laisse la touche à qui la demande — un drapeau posé
+        // depuis le champ arriverait après elle.
+        onEscape={() => setEditing(false)}
+        side="top"
+        align="start"
+        className="w-56 p-2"
+        role="dialog"
+        ariaLabel={`Renommer ${screen.name}`}
+      >
+        <Input
           ref={inputRef}
+          font="sans"
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
-          onBlur={commitRename}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') commitRename()
-            if (event.key === 'Escape') setEditing(false)
+            if (event.key === 'Enter') finishRename()
           }}
+          placeholder={defaultScreenName(index)}
           aria-label="Nom de l’écran"
           spellCheck={false}
-          style={{ height: THUMBNAIL_BADGE_SIZE, top: THUMBNAIL_HEIGHT - THUMBNAIL_BADGE_SIZE }}
-          // Pleine largeur, et le bas arrondi comme l'aperçu qu'il coiffe :
-          // posé à plat il aurait débordé de deux angles vifs sur les coins
-          // ronds de la tuile.
-          className="field-surface absolute inset-x-0 w-full rounded-b-md px-1 text-center text-2xs text-foreground outline-none"
         />
-      )}
+        {/* Une ligne, pas deux : « Laissé vide, il garde son rang pour nom. »
+            débordait et laissait « nom. » orphelin sous un champ de 224. */}
+        <p className="field-label mt-1.5 leading-4">Vide, il garde son rang.</p>
+      </Popover>
 
       <button
         ref={actionsRef}
@@ -248,6 +275,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             if (bounds) setMenuPosition({ left: bounds.right - 180, top: bounds.top - 150 })
           }
         }}
+        // Le repère est la colonne, qui commence à la rangée du rang : sans ce
+        // décalage la poignée se posait 22px plus haut, à côté du numéro et
+        // hors de l'aperçu qu'elle commande.
+        style={{ top: THUMBNAIL_LABEL_ROW + 4 }}
         className={cn(
           // 28 de zone pour 20 de bouton, et pas les 44 de `hit-44` : sur une
           // tuile de 46×100, un carré de 44 ancré au coin couvrait 42% de
@@ -256,7 +287,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // desktop, et le jeu d'actions complet reste sur le clic droit de
           // toute la tuile.
           'after:absolute after:-inset-1 after:content-[""]',
-          'absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full',
+          'absolute right-1 flex h-5 w-5 items-center justify-center rounded-full',
           'border border-border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
             'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',

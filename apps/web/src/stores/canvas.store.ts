@@ -11,6 +11,7 @@ import { nextTimestamp } from '@/lib/time'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
+import type { TextRange } from '@/lib/text-styles'
 import type { Background, Layer, Screen, TemplateDefinition } from '@/types'
 
 interface EditOptions {
@@ -20,10 +21,19 @@ interface EditOptions {
 
 interface CanvasState {
   selectedLayerIds: string[]
+  /**
+   * Le passage sélectionné dans un texte en cours d'édition sur le canevas.
+   *
+   * État de canevas, pas de projet : il ne s'enregistre pas, ne s'annule pas et
+   * meurt avec l'édition. Il vit ici parce que c'est la seule sélection que le
+   * panneau ne peut pas déduire du projet — Fabric seul sait où est le curseur.
+   */
+  textRange: TextRange | null
 
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
   updateLayer: (id: string, updates: Partial<Layer>, options?: EditOptions) => void
+  setTextRange: (range: TextRange | null) => void
   updateBackground: (background: Background, options?: EditOptions) => void
   selectLayer: (id: string) => void
   selectLayers: (ids: string[]) => void
@@ -202,6 +212,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
 
   return {
     selectedLayerIds: [],
+    textRange: null,
 
     addLayer: (layer) => {
       const screenId = activeScreen()?.id
@@ -290,7 +301,22 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     // main de l'utilisateur : bouton de la barre du haut, ou son raccourci.
     selectLayer: (id) => set({ selectedLayerIds: [id] }),
     selectLayers: (ids) => set({ selectedLayerIds: ids }),
-    clearSelection: () => set({ selectedLayerIds: [] }),
+    clearSelection: () => set({ selectedLayerIds: [], textRange: null }),
+    // Fabric annonce la sélection à chaque frappe et à chaque mouvement du
+    // curseur. Sans cette garde, poser le même `null` mille fois de suite
+    // rendrait un nouvel objet d'état à chaque touche, donc un rendu du panneau
+    // Propriétés et de la barre de sélection au milieu de la saisie.
+    setTextRange: (range) => {
+      const current = get().textRange
+      if (
+        current === range ||
+        (current?.layerId === range?.layerId &&
+          current?.start === range?.start &&
+          current?.end === range?.end)
+      )
+        return
+      set({ textRange: range })
+    },
 
     reorderLayer: (id, newIndex) => {
       const screenId = activeScreen()?.id

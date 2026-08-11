@@ -6,7 +6,13 @@ import {
   PATCHABLE_PROPS,
   validateToolCall,
 } from '@/lib/ai/tools'
-import { planFromBrief, planToolCalls, isCampaignPlan, restyleCalls } from '@/lib/ai/plan'
+import {
+  planFromBrief,
+  planToolCalls,
+  isCampaignPlan,
+  resolvePalette,
+  restyleCalls,
+} from '@/lib/ai/plan'
 import { commitAiRun, discardAiAssets } from '@/lib/ai/run'
 import { describeProject } from '@/lib/ai/state'
 import { clearAssets, registerAsset, resolveAsset } from '@/lib/assets'
@@ -83,6 +89,7 @@ const brief: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le suivi de budget qui tient dans une poche',
   direction: 'contraste',
+  screenCount: 2,
   deviceModel: 'iphone-17-pro-max',
   screenshots: [{ label: 'Budget' }, { label: 'Réglages' }],
 }
@@ -292,14 +299,14 @@ describe('le plan', () => {
     for (const call of calls) expect(validateToolCall(call)).toBeNull()
   })
 
-  it('harmonise un écran sans jamais rien créer', () => {
+  it('repeint un écran sans jamais rien créer', () => {
     const calls = restyleCalls(
       [
         { id: 'l1', type: 'text', locked: false },
         { id: 'l2', type: 'shape', locked: false },
         { id: 'l3', type: 'text', locked: true },
       ],
-      'nocturne',
+      resolvePalette({ direction: 'nocturne' }),
     )
     expect(calls.map((call) => call.tool)).toEqual([
       'set_background',

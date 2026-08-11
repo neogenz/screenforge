@@ -505,6 +505,11 @@ export function applyLayerToFabricObject(
       // réglage de 2 px : le contrôle ne faisait visiblement rien.
       charSpacing: (layer.letterSpacing / layer.fontSize) * 1000,
       shadow: createShadow(layer.shadow),
+      // Copie et non référence : Fabric décale ces index pendant la frappe, et
+      // il le ferait dans le projet lui-même — une mutation hors transaction,
+      // invisible de l'historique. `transformText` change la casse sans changer
+      // la longueur, donc les index restent ceux du contenu.
+      styles: structuredClone(layer.charStyles ?? {}),
     })
     object.initDimensions()
   } else if (layer.type === 'shape') {

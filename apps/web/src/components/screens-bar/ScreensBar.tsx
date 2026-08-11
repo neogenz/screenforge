@@ -8,12 +8,12 @@ import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
-import { screenHasCustomName } from '@/lib/screens'
 import {
   FILMSTRIP_GAP,
   FILMSTRIP_MAX_WIDTH,
   FILMSTRIP_PADDING,
   THUMBNAIL_HEIGHT,
+  THUMBNAIL_LABEL_ROW,
   THUMBNAIL_LIFT,
   THUMBNAIL_SLOT,
   THUMBNAIL_WIDTH,
@@ -47,9 +47,6 @@ export function ScreensBar() {
   )
   const list = screens ?? []
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
-  // La rangée n'existe que si elle a quelque chose à dire. Sous un badge « 3 »,
-  // « Écran 3 » ne dit rien de plus et prendrait 22px au canevas pour le répéter.
-  const labelled = list.some(screenHasCustomName)
   const dragSourceIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
@@ -215,7 +212,7 @@ export function ScreensBar() {
       // courante sort de la boîte défilante par là, et `overflow-x: auto`
       // forçant l'autre axe, elle s'y ferait rogner.
       style={{
-        height: filmstripHeight(labelled),
+        height: filmstripHeight(),
         paddingTop: FILMSTRIP_PADDING + THUMBNAIL_LIFT,
         paddingRight: FILMSTRIP_PADDING,
         paddingBottom: FILMSTRIP_PADDING,
@@ -247,7 +244,9 @@ export function ScreensBar() {
           aria-hidden
           style={{
             left: FILMSTRIP_PADDING + drag.over * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5,
-            top: FILMSTRIP_PADDING + THUMBNAIL_LIFT,
+            // La rangée du rang s'intercale entre le haut de la bande et
+            // l'aperçu : la barre se pose sur les aperçus, pas sur la colonne.
+            top: FILMSTRIP_PADDING + THUMBNAIL_LIFT + THUMBNAIL_LABEL_ROW,
             height: THUMBNAIL_HEIGHT,
           }}
           className="pointer-events-none absolute w-[3px] rounded-full bg-marker"
@@ -280,7 +279,6 @@ export function ScreensBar() {
             screen={screen}
             isActive={screen.id === activeScreenId}
             index={index}
-            showLabel={labelled}
             canDelete={list.length > 1}
             canMoveLeft={index > 0}
             canMoveRight={index < list.length - 1}
@@ -300,7 +298,12 @@ export function ScreensBar() {
           cadre et se lisait comme un écran de plus, vide ; ajouter un écran est
           une action, pas un emplacement. Centré sur l'aperçu, comme le
           compteur : c'est la rangée d'aperçus que l'œil suit. */}
-      <div style={{ height: THUMBNAIL_HEIGHT }} className="flex shrink-0 items-center">
+      <div
+        // Centré sur la rangée d'aperçus, que le rang décale vers le bas : la
+        // bande aligne ses enfants en haut, donc l'écart se déclare ici.
+        style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
+        className="flex shrink-0 items-center"
+      >
         <IconButton
           size="sm"
           title={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
@@ -321,7 +324,7 @@ export function ScreensBar() {
           n'informe de rien que la rangée ne montre déjà. */}
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
         <span
-          style={{ height: THUMBNAIL_HEIGHT }}
+          style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
           className="tabular flex shrink-0 items-center px-1 text-2xs text-muted-foreground"
         >
           {list.length}/{MAX_PROJECT_SCREENS}

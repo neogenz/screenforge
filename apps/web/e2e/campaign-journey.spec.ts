@@ -105,14 +105,16 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   await waitForApp(page)
   await grantEntitlements(page, { licence: true })
 
-  // 1) Créer la campagne : deux planches composées, en calques réels.
-  await page.getByRole('button', { name: 'Composer une campagne' }).click()
-  await page.getByLabel('Nom de l’application').fill('Cadence')
+  // 1) Créer la campagne : deux visuels générés, en calques réels.
+  await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()
+  await page.getByLabel('Nom', { exact: true }).fill('Cadence')
   await page.getByLabel('Ce qu’elle fait, en une phrase').fill('Le budget dans une poche')
-  await page.getByRole('button', { name: 'Proposer un plan' }).click()
-  await expect(page.getByText('Plan proposé')).toBeVisible()
-  await page.getByRole('button', { name: /Poser \d+ planche/ }).click()
-  await expect(page.getByRole('dialog', { name: 'Composer une campagne' })).toBeHidden()
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '2 visuels' }).click()
+  await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
+  await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
+  await page.getByRole('button', { name: /^Ajouter \d+ visuels?$/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Générer les visuels App Store' })).toBeHidden()
   await expect.poll(async () => (await screens(page)).length).toBeGreaterThan(1)
 
   // 2) Icône et forme : le catalogue vectoriel, éditable comme le reste.
@@ -182,10 +184,10 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
 
   // 6) Retoucher un écran via le fournisseur : borné à l'écran courant.
   const beforeTouch = await screens(page)
-  await page.getByRole('button', { name: 'Composer une campagne' }).click()
+  await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()
   await page.getByRole('radio', { name: 'Nocturne' }).click()
-  await page.getByRole('button', { name: 'Harmoniser cet écran' }).click()
-  await expect(page.getByRole('dialog', { name: 'Composer une campagne' })).toBeHidden()
+  await page.getByRole('button', { name: /^Repeindre/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Générer les visuels App Store' })).toBeHidden()
   const afterTouch = await screens(page)
   expect(afterTouch[0], 'la retouche a débordé sur un autre écran').toEqual(beforeTouch[0])
 
@@ -200,7 +202,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
     'Ein ausgesprochen langer deutscher Satz der in dieser Textbox niemals Platz finden wird',
   )
   await expect(locales.getByRole('alert').filter({ hasText: 'px de texte' })).toBeVisible()
-  await expect(locales.getByText(/à corriger avant d’exporter/)).toBeVisible()
+  await expect(locales.getByText(/ne peut pas sortir/)).toBeVisible()
   await variant.fill('Budget')
   await expect(locales.getByRole('alert').filter({ hasText: 'px de texte' })).toBeHidden()
   await expect(locales.getByText(/est exportable/)).toBeVisible()

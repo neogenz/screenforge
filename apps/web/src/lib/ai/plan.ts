@@ -2,6 +2,7 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { isBackground } from '@/lib/project-validation'
 import { normalizeSlot } from '@/lib/slots'
 import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
+import type { Palette } from '@/lib/ai/palette'
 import type { Background, DeviceModel, ScreenshotSize } from '@/types'
 
 /**
@@ -26,10 +27,24 @@ export interface CampaignBrief {
   appName: string
   /** Une phrase : ce que l'application fait. Sert à composer les accroches. */
   pitch: string
+  /**
+   * La page du produit, si elle existe. Elle ne part que vers un modèle branché
+   * et n'est jamais chargée par l'onglet : lire une URL arbitraire depuis la
+   * page ferait de ScreenForge un client HTTP au service de ce qu'on lui donne.
+   */
+  landingUrl?: string
   direction: DirectionId
+  /** La palette lue dans les captures, quand l'utilisateur l'a demandée. */
+  palette?: Palette
+  /**
+   * Combien de visuels composer. Découplé du nombre de captures : l'App Store
+   * en accepte dix, un lot en compte souvent plus que l'on n'a de captures
+   * prêtes, et les visuels en trop sont composés sans appareil rempli.
+   */
+  screenCount: number
   deviceModel: DeviceModel
   screenshots: BriefScreenshot[]
-  /** Le logo de l'application, posé sur la première planche s'il est fourni. */
+  /** Le logo de l'application, posé sur le premier visuel s'il est fourni. */
   logo?: { assetId: string; size: ScreenshotSize }
 }
 
@@ -45,6 +60,13 @@ export interface PlannedScreen {
 export interface CampaignPlan {
   appName: string
   direction: DirectionId
+  /**
+   * Les trois couleurs effectivement peintes. Portées par le plan et non
+   * relues depuis `direction` : sinon la palette tirée des captures se perdait
+   * entre la revue et la pose, et le constructeur repeignait en « Sobre » ce
+   * que l'utilisateur venait de valider en bleu.
+   */
+  palette: Palette
   deviceModel: DeviceModel
   screens: PlannedScreen[]
 }
@@ -81,45 +103,84 @@ function isDirectionId(value: unknown): value is DirectionId {
   return DIRECTIONS.some((entry) => entry.id === value)
 }
 
-/**
- * L'accroche que le planificateur local écrit, faute de modèle.
- *
- * Elle nomme la capture, ce qu'une accroche de campagne fait toujours, et elle
- * est éditable dès la seconde suivante. Prétendre écrire la publicité à la
- * place de l'utilisateur serait mentir sur ce que cette moitié du produit sait
- * faire.
- */
-function headlineFor(shot: BriefScreenshot, brief: CampaignBrief): string {
-  return shot.label.trim() || brief.pitch.trim() || brief.appName
+const HEX = /^#[0-9a-f]{6}$/i
+
+function isPalette(value: unknown): value is Palette {
+  if (typeof value !== 'object' || value === null) return false
+  const palette = value as Record<string, unknown>
+  return (['background', 'ink', 'accent'] as const).every(
+    (key) => typeof palette[key] === 'string' && HEX.test(palette[key]),
+  )
 }
 
 /**
- * Compose un plan sans modèle : une planche par capture, la direction choisie,
- * un rôle dérivé du libellé.
+ * Les trois couleurs du brief : celles lues dans les captures si elles y sont,
+ * celles de la direction choisie sinon.
  *
- * Sans aucune capture, il reste une planche — celle de l'accroche : une
- * campagne commencée à vide est une campagne quand même, et l'utilisateur
- * posera ses captures après. Rendre un plan vide aurait laissé le bouton
- * « Poser » sans rien à poser.
+ * Un seul endroit décide, parce que trois appelants les lisaient — le
+ * constructeur, la revue, l'harmonisation — et qu'un quatrième qui relirait
+ * `direction(brief.direction)` repeindrait sans le savoir par-dessus la palette
+ * de l'utilisateur.
+ */
+export function resolvePalette(brief: { direction: DirectionId; palette?: Palette }): Palette {
+  if (brief.palette) return brief.palette
+  const preset = direction(brief.direction)
+  return { background: preset.background, ink: preset.ink, accent: preset.accent }
+}
+
+/**
+ * L'accroche que ScreenForge écrit sans modèle : le nom du fichier, ou la
+ * phrase du brief pour le premier visuel.
+ *
+ * Ce n'est pas une accroche publicitaire et l'interface ne le prétend pas. Sans
+ * modèle, ScreenForge ne rédige pas — il pose des textes à réécrire, ce qui est
+ * déjà tout le travail de mise en page en moins. Inventer une accroche à partir
+ * d'un nom d'application donnerait la même phrase creuse sur les dix visuels.
+ */
+function headlineFor(
+  shot: BriefScreenshot | undefined,
+  brief: CampaignBrief,
+  index: number,
+): string {
+  const label = shot?.label.trim()
+  if (label) return label
+  // La phrase du brief n'est posée qu'une fois : répétée, elle devient un
+  // filigrane que l'utilisateur doit effacer neuf fois.
+  if (index === 0 && brief.pitch.trim()) return brief.pitch.trim()
+  return brief.appName
+}
+
+/**
+ * Compose un plan sans modèle : autant de visuels que demandé, la palette
+ * choisie, un rôle dérivé du libellé de la capture.
+ *
+ * Le nombre de visuels commande, pas le nombre de captures. Demander huit
+ * visuels avec trois captures est le cas courant — les cinq derniers sont posés
+ * avec leur fond et leur accroche, l'appareil restant à remplir plus tard par
+ * « Actualiser les captures ». L'inverse (plus de captures que de visuels) garde
+ * les premières dans l'ordre choisi.
  *
  * C'est la voie par défaut du produit — hors ligne, gratuite, déterministe — et
  * la référence à laquelle un fournisseur distant est comparé.
  */
 export function planFromBrief(brief: CampaignBrief): CampaignPlan {
-  const palette = direction(brief.direction)
-  const shots = brief.screenshots.slice(0, AI_LIMITS.maxScreens)
-  const screens: PlannedScreen[] = (shots.length > 0 ? shots : [{ label: '' }]).map(
-    (shot, index) => ({
-      name: shot.label.trim() || brief.appName,
-      headline: headlineFor(shot, brief),
-      slot: normalizeSlot(shot.label.trim() || brief.appName || `ecran-${index + 1}`),
+  const palette = resolvePalette(brief)
+  const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const screens: PlannedScreen[] = Array.from({ length: count }, (_unused, index) => {
+    const shot = brief.screenshots[index]
+    const label = shot?.label.trim()
+    return {
+      name: label || `${brief.appName} ${index + 1}`.trim(),
+      headline: headlineFor(shot, brief, index),
+      slot: normalizeSlot(label || `ecran-${index + 1}`),
       background: { type: 'solid', color: palette.background },
-      screenshotIndex: shot.assetId ? index : undefined,
-    }),
-  )
+      screenshotIndex: shot?.assetId ? index : undefined,
+    }
+  })
   return {
     appName: brief.appName,
     direction: brief.direction,
+    palette,
     deviceModel: brief.deviceModel,
     screens,
   }
@@ -130,6 +191,7 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
   if (typeof value !== 'object' || value === null) return false
   const plan = value as Record<string, unknown>
   if (typeof plan.appName !== 'string' || !isDirectionId(plan.direction)) return false
+  if (!isPalette(plan.palette)) return false
   if (typeof plan.deviceModel !== 'string') return false
   if (!Array.isArray(plan.screens) || plan.screens.length === 0) return false
   if (plan.screens.length > AI_LIMITS.maxScreens) return false
@@ -167,12 +229,12 @@ const DEVICE_TOP = 300
  * à auditer.
  */
 export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCall[] {
-  const palette = direction(plan.direction)
+  const palette = plan.palette
   const calls: ToolCall[] = [
     {
       tool: 'declare_plan',
       args: {
-        summary: `${plan.appName} — ${plan.screens.length} planches, direction « ${palette.label} »`,
+        summary: `${plan.appName} — ${plan.screens.length} visuels, style « ${direction(plan.direction).label} »`,
         screens: plan.screens.map((screen) => ({
           name: screen.name,
           headline: screen.headline,
@@ -186,9 +248,9 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
     calls.push({ tool: 'add_screen', args: { name: screen.name } })
     calls.push({ tool: 'set_background', args: { background: screen.background } })
 
-    /* Le logo n'est posé que sur la première planche : répété dix fois il
-       devient un filigrane, et c'est la planche d'ouverture qui doit dire de
-       quelle application il s'agit. */
+    /* Le logo n'est posé que sur le premier visuel : répété dix fois il devient
+       un filigrane, et c'est le visuel d'ouverture qui doit dire de quelle
+       application il s'agit. */
     if (index === 0 && brief.logo) {
       const height = LOGO_HEIGHT
       const width = Math.max(
@@ -254,9 +316,8 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
  */
 export function restyleCalls(
   screenLayers: readonly { id: string; type: string; locked: boolean }[],
-  directionId: DirectionId,
+  palette: Palette,
 ): ToolCall[] {
-  const palette = direction(directionId)
   const calls: ToolCall[] = [
     { tool: 'set_background', args: { background: { type: 'solid', color: palette.background } } },
   ]

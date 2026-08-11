@@ -19,7 +19,7 @@ import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
 const DIALOGS = [
   ['Actualiser les captures', 'Actualiser les captures'],
   ['Ouvrir les releases', 'Releases'],
-  ['Composer une campagne', 'Composer une campagne'],
+  ['Générer les visuels App Store', 'Générer les visuels App Store'],
   ['Ouvrir les langues', 'Langues'],
   ['Publier chez Apple', 'Publier chez Apple'],
   ['Ouvrir l’export', 'Export officiel'],

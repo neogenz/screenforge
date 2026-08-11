@@ -45,12 +45,18 @@ export const THUMBNAIL_WIDTH = Math.round(
   (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
 )
 /**
- * Puce du numéro, posée sur l'aperçu.
+ * Puce du numéro, posée au-dessus de l'aperçu.
  *
- * Sur l'aperçu et non sous lui : posée sur la scène, elle devait tenir contre
- * deux thèmes et contre un aperçu presque toujours clair, et sa rangée coûtait
- * 26px de canevas. Sur l'image, elle n'a plus qu'une surface à contraster, et
- * son voile sombre l'y suffit quel que soit le contenu de la capture.
+ * Elle a longtemps été sur l'image, pour n'avoir qu'une surface à contraster et
+ * pour ne rien coûter en hauteur. Ce qu'elle coûtait à la place, c'est la seule
+ * chose que la bande soit là pour montrer : une marque de chrome au coin de
+ * chaque composition, sur toutes les tuiles à la fois, dont l'utilisateur ne
+ * peut pas juger sans la soustraire mentalement. Ressortie sur la scène, elle
+ * retrouve les jetons du thème et rend l'aperçu à ce qu'il montre.
+ *
+ * Au-dessus et non à gauche du nom : la colonne fait `THUMBNAIL_WIDTH`, et
+ * 16px de puce plus son écart y ramenaient le libellé de neuf caractères à
+ * cinq. Le numéro prend sa rangée, le nom garde la sienne entière.
  */
 export const THUMBNAIL_BADGE_SIZE = 16
 /**
@@ -94,31 +100,35 @@ export const FILMSTRIP_PADDING = 4
  * avec le nombre d'écrans ferait sauter la scène.
  */
 export const FILMSTRIP_SCROLLBAR = 12
-/** Hauteur du libellé, et l'écart qui le lie à ce qu'il nomme — le 6 qui lie. */
+/** Hauteur d'une rangée d'écriture, et l'écart qui la lie à l'aperçu — le 6 qui lie. */
 export const THUMBNAIL_LABEL_HEIGHT = 16
 export const THUMBNAIL_LABEL_GAP = 6
 export const THUMBNAIL_LABEL_ROW = THUMBNAIL_LABEL_GAP + THUMBNAIL_LABEL_HEIGHT
 
 /**
- * L'aperçu, son dégagement, la place du soulèvement, et la rangée de libellés
- * quand il y a quelque chose à y écrire.
+ * L'aperçu, ses deux rangées d'écriture, son dégagement et la place du
+ * soulèvement.
  *
  * Le soulèvement ne s'ajoute qu'en haut : la tuile courante sort de la boîte
  * défilante par là, et `overflow-x: auto` forçant l'autre axe, elle s'y ferait
  * rogner. Le compter des deux côtés ne réserverait rien de plus et coûterait
  * 4px de canevas.
  *
- * La rangée de libellés, elle, n'est pas réservée : tant qu'aucun écran n'a été
- * renommé, elle n'aurait à porter que « Écran 3 » sous un « 3 », et la bande
- * prendrait 22px au canevas pour répéter le badge.
+ * Les deux rangées sont réservées en permanence, et non plus au premier
+ * renommage. Une hauteur conditionnelle se paie de deux façons : la scène
+ * sautait de 22px au moment où l'on nommait un écran, et surtout une tuile sur
+ * deux restait muette pendant que sa voisine portait un nom — la rangée
+ * n'existait que pour ceux qui avaient déjà tapé quelque chose. Tout écran
+ * porte désormais un nom, son rang à défaut, donc la bande a toujours ses deux
+ * lignes à écrire. Le canevas y perd 44px, une fois pour toutes.
  */
-export function filmstripHeight(labelled: boolean): number {
+export function filmstripHeight(): number {
   return (
     THUMBNAIL_HEIGHT +
     FILMSTRIP_PADDING * 2 +
     THUMBNAIL_LIFT +
     FILMSTRIP_SCROLLBAR +
-    (labelled ? THUMBNAIL_LABEL_ROW : 0)
+    THUMBNAIL_LABEL_ROW * 2
   )
 }
 
@@ -253,18 +263,18 @@ export const DIALOG_STACK_MIN_WIDTH =
 
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
-/** Pellicule + marges, selon qu'elle porte ou non sa rangée de libellés. */
-export function stageBottomInset(labelled: boolean): number {
-  return filmstripHeight(labelled) + ISLAND_MARGIN * 2
+/** Pellicule + marges. */
+export function stageBottomInset(): number {
+  return filmstripHeight() + ISLAND_MARGIN * 2
 }
 /**
- * Le pire cas, pour ce qui ne peut pas se recalculer à la volée.
+ * Le même nombre, sous le nom que lisent les drawers.
  *
- * Les drawers bornent leur hauteur là-dessus : quand la bande est nue ils sont
- * 22px plus courts qu'ils ne pourraient l'être, ce qui ne se voit pas, alors
- * qu'un drawer trop long recouvrirait la pellicule dès le premier renommage.
+ * Il a désigné un pire cas tant que la bande changeait de hauteur au premier
+ * renommage ; elle ne change plus, et les deux valeurs ont fusionné. Le nom
+ * reste parce que c'est un plafond que les drawers demandent, pas une mesure.
  */
-export const STAGE_BOTTOM_INSET_MAX = stageBottomInset(true)
+export const STAGE_BOTTOM_INSET_MAX = stageBottomInset()
 
 export interface StageInsets {
   left: number
@@ -279,13 +289,11 @@ export interface StageInsets {
  * bel et bien sa bande : l'ignorer à l'ajustement posait la première et la
  * dernière planche à moitié sous un panneau, ce que rien ne rattrape ensuite.
  */
-export function stageInsets(
-  open: { layers?: boolean; props?: boolean; labelled?: boolean } = {},
-): StageInsets {
+export function stageInsets(open: { layers?: boolean; props?: boolean } = {}): StageInsets {
   return {
     left: ISLAND_MARGIN * 2 + (open.layers ? DRAWER_WIDTH_LAYERS : 0),
     right: ISLAND_MARGIN * 2 + (open.props ? DRAWER_WIDTH_PROPS : 0),
     top: STAGE_TOP_INSET,
-    bottom: stageBottomInset(open.labelled ?? false),
+    bottom: stageBottomInset(),
   }
 }

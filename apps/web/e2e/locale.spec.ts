@@ -69,7 +69,7 @@ test('une langue se relit, déborde, et bloque son seul export', async ({ page }
     'Ein ausgesprochen langer deutscher Satz der in dieser Textbox niemals Platz finden wird',
   )
   await expect(dialog.getByRole('alert').filter({ hasText: 'px de texte' })).toBeVisible()
-  await expect(dialog.getByText(/à corriger avant d’exporter/)).toBeVisible()
+  await expect(dialog.getByText(/ne peut pas sortir/)).toBeVisible()
 
   await dialog.getByRole('button', { name: 'Fermer', exact: true }).last().click()
 

@@ -207,6 +207,10 @@
   --animate-slide-up: slide-up 0.2s var(--ease-out-expo);
   --animate-menu-in: menu-in 0.16s var(--ease-out-expo);
   --animate-palette-in: palette-in 0.16s var(--ease-out-expo);
+  /* L'arrivée d'un verdict sur le contrôle qui vient d'être cliqué. Plus lente
+     que les entrées de surface : c'est un résultat, pas un panneau qui se
+     pose, et à 0,16s la coche apparaît sans qu'on la voie apparaître. */
+  --animate-check-in: check-in 0.24s var(--ease-out-expo);
 
   @keyframes fade-in {
     from {
@@ -234,6 +238,16 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+  @keyframes check-in {
+    from {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
     }
   }
   @keyframes palette-in {
@@ -425,6 +439,44 @@
   button {
     font-family: inherit;
   }
+
+  /* ── Ce qui se clique le dit au survol ──
+     Tailwind v4 a retiré `cursor: pointer` des boutons de sa Preflight : mesuré
+     sur cette page, 35 contrôles rendaient la flèche et 7 le doigt, sans qu'une
+     seule ligne de l'application ait décidé lequel. Pire pour ce qui n'est pas
+     un `button` : un `div[role="menuitem"]` retombe sur `auto`, qui au-dessus
+     d'un texte devient le curseur d'insertion — l'entrée d'un menu se présentait
+     comme un paragraphe à sélectionner.
+
+     La règle est en couche `base`, donc n'importe quelle utilitaire `cursor-*`
+     posée sur un composant la gagne : `command-palette` garde sa flèche, la
+     poignée de dégradé son `ew-resize`, la prise d'un calque son `grab`. Le rôle
+     décide, pas la balise — c'est le même contrat que celui que les lecteurs
+     d'écran lisent, et il n'y a donc rien de plus à tenir à jour. */
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'],
+  [role='option'],
+  [role='tab'],
+  [role='switch']:not([aria-disabled='true']),
+  [role='checkbox'],
+  [role='radio'] {
+    cursor: pointer;
+  }
+  /* Le fond d'un menu n'est pas une entrée, et une entrée désactivée ne reçoit
+     plus le pointeur (`pointer-events: none`) : c'est le conteneur qui répond à
+     sa place, et sans cette ligne il répondait l'insertion de texte. */
+  [role='menu'],
+  [role='listbox'] {
+    cursor: default;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
@@ -634,12 +686,13 @@ input[type='number'] {
       color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow;
   }
 
-  /* Les trois entrées qui déplacent : elles gardent leur durée et leur courbe,
-     et ne font plus que se révéler. `fade-in`, sans `transform`, est déjà
-     conforme. */
+  /* Les entrées qui déplacent ou qui grandissent : elles gardent leur durée et
+     leur courbe, et ne font plus que se révéler. `fade-in`, sans `transform`,
+     est déjà conforme. */
   .animate-slide-up,
   .animate-menu-in,
-  .animate-palette-in {
+  .animate-palette-in,
+  .animate-check-in {
     animation-name: fade-in;
   }
 }

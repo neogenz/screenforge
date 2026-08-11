@@ -29,6 +29,7 @@ import {
   SCREENSHOT_IMAGE_ACCEPT,
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
+import { textColorEdit, textColorValue } from '@/lib/text-styles'
 import { toast } from '@/stores/toast.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
@@ -177,6 +178,7 @@ function MultiCount({ count }: { count: number }) {
 
 /** Les réglages les plus utilisés du type sélectionné, jamais l'inventaire complet. */
 function LayerControls({ layer }: { layer: Layer }) {
+  const textRange = useCanvasStore((state) => state.textRange)
   const update = (updates: Partial<Layer>, coalesceKey?: string) =>
     useCanvasStore
       .getState()
@@ -202,10 +204,16 @@ function LayerControls({ layer }: { layer: Layer }) {
             }
           />
         </div>
+        {/* Même portée que dans le panneau, et pour la même raison : la barre
+            et le panneau ne sont jamais visibles ensemble, mais ils doivent
+            faire la même chose. `textColorEdit` est l'endroit qui le décide. */}
         <ColorControl
-          label="Couleur du texte"
-          value={layer.color}
-          onChange={(color) => update({ color } as Partial<Layer>, `layer:${layer.id}:color`)}
+          label={textRange?.layerId === layer.id ? 'Couleur du passage' : 'Couleur du texte'}
+          value={textColorValue(layer, textRange)}
+          onChange={(color) => {
+            const edit = textColorEdit(layer, textRange, color)
+            update(edit.updates as Partial<Layer>, edit.coalesceKey)
+          }}
         />
         {TEXT_ALIGNMENTS.map(({ value, icon: Icon, label }) => (
           <IconButton

@@ -13,6 +13,7 @@ import {
   Languages,
   LayoutTemplate,
   LoaderCircle,
+  Megaphone,
   MoreHorizontal,
   Moon,
   Package,
@@ -23,14 +24,13 @@ import {
   RefreshCw,
   Settings,
   Smartphone,
-  Sparkles,
   Square,
+  Star,
   Sun,
   TriangleAlert,
   Type,
   Undo2,
   UserRound,
-  Wand2,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
@@ -514,7 +514,7 @@ function ToolsSegment() {
         title="Ajouter : icône"
         onClick={() => addLayer(createIconLayer(layerCount()))}
       >
-        <Sparkles size={16} strokeWidth={1.75} />
+        <Star size={16} strokeWidth={1.75} />
       </IconButton>
     </div>
   )
@@ -617,7 +617,7 @@ function useToolActions(): SecondaryAction[] {
       id: 'add-icon',
       label: 'Ajouter Icône',
       hint: 'Ajouter : icône',
-      icon: <Sparkles size={16} strokeWidth={1.75} />,
+      icon: <Star size={16} strokeWidth={1.75} />,
       onSelect: () => addLayer(createIconLayer),
     },
   ]
@@ -756,9 +756,13 @@ function useSecondaryActions(): SecondaryAction[] {
     },
     {
       id: 'campaign',
-      label: 'Composer une campagne',
-      hint: 'Plan de campagne et calques éditables',
-      icon: <Wand2 size={16} strokeWidth={1.75} />,
+      label: 'Générer les visuels App Store',
+      hint: 'Captures, brief et style vers des calques éditables',
+      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
+         du marketing, et la génération n'est intelligente que si l'utilisateur
+         a branché un modèle — une baguette la promettait dans tous les cas et
+         se lisait par ailleurs comme une retouche par IA du calque courant. */
+      icon: <Megaphone size={16} strokeWidth={1.75} />,
       expanded: showCampaignDialog,
       onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
     },

@@ -54,6 +54,28 @@ export function LocaleDialog() {
   return <LocaleDialogContent project={project} />
 }
 
+/**
+ * L'état d'une langue en une phrase, et une seule.
+ *
+ * Deux faits distincts vivent ici et l'un seulement est bloquant : un texte qui
+ * déborde de son cadre interdit l'export, une traduction non relue ne l'interdit
+ * pas. Les annoncer côte à côte les met sur le même plan.
+ */
+function localeStatus(
+  name: string,
+  findings: number,
+  unreviewed: number,
+  blocked: boolean,
+): string {
+  if (blocked) {
+    return `« ${name} » ne peut pas sortir : ${findings} texte${findings > 1 ? 's débordent' : ' déborde'} de son cadre. Raccourcissez-${findings > 1 ? 'les' : 'le'} ci-dessous.`
+  }
+  if (unreviewed > 0) {
+    return `« ${name} » est exportable. ${unreviewed} traduction${unreviewed > 1 ? 's' : ''} sans relecture déclarée — c'est un pense-bête, pas un verrou.`
+  }
+  return `« ${name} » est exportable, et tout est relu.`
+}
+
 function LocaleDialogContent({ project }: { project: Project }) {
   const close = () => useUIStore.getState().setShowLocaleDialog(false)
   const locales = project.locales ?? []
@@ -113,8 +135,12 @@ function LocaleDialogContent({ project }: { project: Project }) {
   async function translate(target: LocaleVariant, layers: TextLayer[]) {
     const token = bridgeToken('codex')
     if (!token) {
+      /* L'erreur nomme le geste, pas l'absence : « aucun pont appairé » décrit
+         un état interne à qui n'a jamais entendu parler du pont. La traduction
+         à la main reste dite en premier — c'est le chemin qui marche tout de
+         suite, et le pont est facultatif par contrat. */
       setError(
-        'Aucun pont appairé. Ouvrez « Composer une campagne », section Assistance, pour vous connecter — ou traduisez à la main.',
+        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou connectez le pont depuis « Composer une campagne » → section Assistance.',
       )
       return
     }
@@ -153,12 +179,14 @@ function LocaleDialogContent({ project }: { project: Project }) {
       title="Langues"
       size="lg"
       flush
+      /* Un seul état à la fois, et il dit ce qui bloque plutôt que de compter.
+         L'ancienne phrase juxtaposait « est exportable » et « encore à relire »
+         sans dire lequel des deux empêchait de sortir — les deux se lisaient
+         comme des conditions, alors qu'une seule l'est. */
       footerNote={
         locale
-          ? blocked
-            ? `${findings.length} problème${findings.length > 1 ? 's' : ''} à corriger avant d’exporter cette langue.`
-            : `« ${locale.name} » est exportable. ${unreviewedCount(locale)} texte${unreviewedCount(locale) > 1 ? 's' : ''} encore à relire.`
-          : 'Une langue ne duplique rien : elle ne porte que les textes.'
+          ? localeStatus(locale.name, findings.length, unreviewedCount(locale), blocked)
+          : undefined
       }
       footer={
         <Button variant="default" onClick={close} disabled={busy}>
@@ -173,6 +201,16 @@ function LocaleDialogContent({ project }: { project: Project }) {
             {error}
           </p>
         )}
+
+        {/* Ce qu'ajouter une langue fait au projet, dit avant le formulaire.
+            Les deux craintes qu'on a devant ce bouton sont « est-ce que ça
+            duplique mes dix écrans ? » et « est-ce que ça touche ma mise en
+            page ? » : les deux réponses sont non, et aucune n'était écrite. */}
+        <p className="text-2xs text-muted-foreground">
+          Une langue ne duplique pas le projet. Elle ne stocke que le texte traduit de chaque calque
+          — la mise en page, les captures et les appareils restent les mêmes. Vous figez ensuite une
+          release dans la langue de votre choix.
+        </p>
 
         <div className="flex flex-wrap items-end gap-2">
           <Field id={CODE_FIELD_ID} label="Code" className="w-24">
@@ -220,6 +258,14 @@ function LocaleDialogContent({ project }: { project: Project }) {
             Ajouter
           </Button>
         </div>
+        {/* « Écriture » ne décide rien de visible ici, mais tout du rendu : une
+            accroche japonaise composée dans une police latine se mesure juste
+            et s'exporte en carrés vides. */}
+        <p className="-mt-2 text-2xs text-muted-foreground">
+          L’écriture sert à proposer des polices capables d’afficher la langue. Le code suit l’App
+          Store : deux lettres, plus une région si besoin (<span className="tabular">pt-BR</span>
+          ).
+        </p>
 
         {locales.length > 0 && (
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Langue">
@@ -251,13 +297,13 @@ function LocaleDialogContent({ project }: { project: Project }) {
             <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
               <Select
                 className="w-56"
-                label="Police"
-                aria-label="Police de la langue"
+                label="Police de cette langue"
+                aria-label="Police de cette langue"
                 value={locale.fontFamily ?? ''}
                 disabled={busy}
                 onChange={(event) => setLocaleFont(locale.code, event.target.value || undefined)}
               >
-                <option value="">Celle de chaque calque</option>
+                <option value="">Garder celle de chaque calque</option>
                 {fontsForScript(locale.script).map((family) => (
                   <option key={family} value={family}>
                     {family}
@@ -268,9 +314,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 variant="default"
                 onClick={() => void translate(locale, layers)}
                 loading={busy}
+                title="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire."
               >
                 <Languages size={12} aria-hidden />
-                Traduire via le pont
+                Pré-remplir via le pont
               </Button>
               <Button
                 variant="default"
@@ -285,17 +332,31 @@ function LocaleDialogContent({ project }: { project: Project }) {
               </Button>
             </div>
 
-            <ul className="flex flex-col gap-3">
-              {layers.map((layer) => (
-                <TextRow
-                  key={layer.id}
-                  layer={layer}
-                  locale={locale}
-                  findings={findingsByLayer.get(layer.id) ?? []}
-                  disabled={busy}
-                />
-              ))}
-            </ul>
+            {/* En-tête de colonnes. Sans elle, chaque ligne montrait deux textes
+                — le nom du calque à gauche, l'original en gris à droite, la
+                traduction dans le champ — et rien ne disait lequel était
+                lequel : on relit une traduction sans savoir ce qu'elle traduit. */}
+            <div className="flex items-baseline justify-between gap-2 border-t border-border pt-4">
+              <h3 className="section-title">Calque · texte d’origine</h3>
+              <span className="field-label">Traduction · relu</span>
+            </div>
+            {layers.length === 0 ? (
+              <p className="text-2xs text-muted-foreground">
+                Aucun texte dans ce projet. Ajoutez un calque de texte, il apparaîtra ici.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {layers.map((layer) => (
+                  <TextRow
+                    key={layer.id}
+                    layer={layer}
+                    locale={locale}
+                    findings={findingsByLayer.get(layer.id) ?? []}
+                    disabled={busy}
+                  />
+                ))}
+              </ul>
+            )}
           </>
         )}
       </div>
@@ -327,11 +388,15 @@ function TextRow({
 
   return (
     <li className="flex flex-col gap-1.5">
+      {/* Le nom du calque et son texte d'origine sur la même ligne, mais pas au
+          même poids : c'est le texte qu'on relit, le nom ne sert qu'à le
+          situer. L'original ne descend jamais sous 4.5:1 — on ne relit pas une
+          traduction contre une source en gris pâle. */}
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={fieldId} className="field-label min-w-0 truncate">
-          {layer.name}
+        <label htmlFor={fieldId} className="min-w-0 truncate text-2xs text-foreground">
+          {layer.content}
         </label>
-        <span className="min-w-0 truncate text-2xs text-muted-foreground">{layer.content}</span>
+        <span className="field-label shrink-0">{layer.name}</span>
       </div>
       <div className="flex items-center gap-2">
         <Input
@@ -341,6 +406,10 @@ function TextRow({
           maxLength={MAX_LOCALE_TEXT_LENGTH}
           disabled={disabled}
           aria-invalid={findings.length > 0}
+          /* Vide, le calque garde son texte d'origine — c'est ce que fait
+             `localized()`. Le montrer en filigrane dit à quoi ressemblera la
+             planche tant que personne n'a traduit cette ligne. */
+          placeholder={layer.content}
           onChange={(event) =>
             setLocaleText(locale.code, layer.id, event.target.value, variant?.reviewed ?? false)
           }
@@ -351,7 +420,8 @@ function TextRow({
           type="button"
           role="checkbox"
           aria-checked={variant?.reviewed ?? false}
-          aria-label={`Marquer « ${layer.name} » comme relu`}
+          aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
+          title="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait."
           disabled={disabled}
           onClick={() =>
             setLocaleText(

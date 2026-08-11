@@ -6,8 +6,8 @@ import {
   ImageIcon,
   Lock,
   Smartphone,
-  Sparkles,
   Square,
+  Star,
   Type,
   Unlock,
 } from 'lucide-react'
@@ -39,7 +39,7 @@ function LayerTypeIcon({ type }: { type: Layer['type'] }) {
     case 'image':
       return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
     case 'icon':
-      return <Sparkles size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <Star size={13} strokeWidth={1.5} className={className} aria-hidden />
     default:
       return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
   }

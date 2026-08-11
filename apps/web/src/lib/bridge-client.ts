@@ -1,6 +1,7 @@
 import type { BridgePlan, Hello } from 'bridge'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { normalizeSlot } from '@/lib/slots'
+import { resolvePalette } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 
 /**
@@ -149,7 +150,9 @@ export async function planViaBridge(
       brief: {
         appName: brief.appName,
         pitch: brief.pitch,
+        ...(brief.landingUrl ? { landingUrl: brief.landingUrl } : {}),
         direction: brief.direction,
+        screenCount: brief.screenCount,
         // Le libellé et la présence, jamais l'image ni son identifiant.
         screenshots: brief.screenshots.map((shot) => ({
           label: shot.label.slice(0, 60),
@@ -160,7 +163,7 @@ export async function planViaBridge(
   })
 
   const screens: PlannedScreen[] = plan.screens
-    .slice(0, AI_LIMITS.maxScreens)
+    .slice(0, Math.min(AI_LIMITS.maxScreens, brief.screenCount))
     .map((screen, index) => {
       const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
       return {
@@ -175,6 +178,11 @@ export async function planViaBridge(
   return {
     appName: brief.appName,
     direction: brief.direction,
+    /* La palette reste celle du brief, jamais celle que le modèle a rendue :
+       le fond par visuel lui appartient, les trois couleurs de la campagne
+       appartiennent à l'utilisateur, qui vient de les choisir ou de les faire
+       lire dans ses captures. */
+    palette: resolvePalette(brief),
     deviceModel: brief.deviceModel,
     screens,
   }

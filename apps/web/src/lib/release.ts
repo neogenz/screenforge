@@ -178,6 +178,43 @@ export function removeRelease(id: string): TransactionOutcome<number> {
   })
 }
 
+/**
+ * Ramène le projet dans l'état d'une release, sans y toucher.
+ *
+ * C'est la moitié qui manquait au cycle, et son absence rendait le reste
+ * incompréhensible : on figeait un lot sans jamais pouvoir y revenir, donc
+ * figer ressemblait à une archive morte plutôt qu'à un point de reprise. La
+ * version 1.4 part chez Apple, deux semaines d'essais la défont, et il faut
+ * pouvoir repartir de ce qui a été livré plutôt que d'annuler à l'aveugle.
+ *
+ * **La release n'est pas modifiée, et ne le sera jamais.** La copie va dans un
+ * seul sens : l'instantané est cloné *vers* le projet. C'est exactement ce que
+ * l'invariant « une release est figée, pas suivie » demande — ce qui est
+ * interdit, c'est qu'un lot livré change dans le dos de qui l'a relu.
+ *
+ * Ce qui reste hors de l'instantané reste en place : les autres releases, les
+ * langues, l'identité du projet. Un instantané ne les a jamais portées, et
+ * reprendre une composition n'est pas revenir en arrière dans le temps.
+ */
+export function restoreRelease(release: Release): TransactionOutcome<number> {
+  return runEditorTransaction((draft) => {
+    const snapshot = structuredClone(release.snapshot)
+    if (snapshot.screens.length === 0) return ABORT
+    draft.name = snapshot.name
+    draft.screens = snapshot.screens
+    draft.layoutLayers = snapshot.layoutLayers
+    draft.globals = snapshot.globals
+    /* L'écran courant n'entre pas dans l'instantané : c'est une position de
+       lecture, pas une donnée du lot. Sans ce rattrapage il pointait vers un
+       écran que la reprise venait de faire disparaître, et le canevas rendait
+       du vide en affirmant qu'un écran était sélectionné. */
+    if (!snapshot.screens.some((screen) => screen.id === draft.activeScreenId)) {
+      draft.activeScreenId = snapshot.screens[0].id
+    }
+    return snapshot.screens.length
+  })
+}
+
 export type ReleaseFileStatus = 'ok' | 'changed' | 'failed'
 
 export interface ReleaseCheck {

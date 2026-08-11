@@ -93,3 +93,58 @@ test('un lot figé survit au rechargement et se retire à la demande', async ({ 
   await page.getByRole('button', { name: 'Retirer' }).click()
   await expect.poll(async () => (await releases(page)).length).toBe(0)
 })
+
+/** Abscisse du calque texte, lue dans le projet plutôt que dans un champ. */
+async function textLayerX(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    const layer = screen?.layers.find((candidate) => candidate.type === 'text')
+    return layer ? layer.x : null
+  })
+}
+
+/**
+ * La moitié manquante du cycle.
+ *
+ * Figer, vérifier, comparer : trois gestes qui décrivent un lot sans jamais
+ * permettre d'y revenir. « Reprendre » referme la boucle, et le fait dans le
+ * seul sens autorisé — l'instantané est recopié dans le projet, jamais
+ * l'inverse. Ce test mesure les deux moitiés de cette phrase : le projet
+ * revient, le lot ne bouge pas.
+ */
+test('reprend le projet sur un lot figé, sans que le lot en soit changé', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+  const origin = await textLayerX(page)
+  expect(origin).not.toBeNull()
+
+  await openReleaseDialog(page)
+  await page.getByLabel('Nom du lot').fill('3.0.0')
+  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
+  const frozen = (await releases(page))[0]
+  await page.keyboard.press('Escape')
+
+  await transformInput(page, 0).fill('42')
+  await transformInput(page, 0).press('Enter')
+  await expect.poll(() => textLayerX(page)).toBe(42)
+
+  await openReleaseDialog(page)
+  await page.getByRole('button', { name: 'Reprendre' }).click()
+  await expect.poll(() => textLayerX(page)).toBe(origin)
+
+  // Le lot est repris, pas suivi : ni son instantané ni ses empreintes ne
+  // bougent, et le diff n'a plus rien à signaler — ce que le bouton dit en
+  // se désactivant.
+  const after = (await releases(page))[0]
+  expect(JSON.stringify(after.snapshot)).toBe(JSON.stringify(frozen.snapshot))
+  expect(after.files[0].sha256).toBe(frozen.files[0].sha256)
+  await expect(page.getByText(/Le projet est exactement dans l’état figé/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reprendre' })).toBeDisabled()
+
+  // Et le geste est annulable comme n'importe quelle autre écriture.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Meta+z')
+  await expect.poll(() => textLayerX(page)).toBe(42)
+})

@@ -152,6 +152,7 @@ export function useCanvas() {
       clearSelection: () => useCanvasStore.getState().clearSelection(),
       updateLayer: (layerId, updates) => useCanvasStore.getState().updateLayer(layerId, updates),
       onSelectionFrame: setSelectionFrame,
+      setTextRange: (range) => useCanvasStore.getState().setTextRange(range),
     })
 
     const viewportController = installViewport({

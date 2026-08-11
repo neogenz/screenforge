@@ -1,6 +1,7 @@
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from '@/lib/screenshot-placement'
 import { SAFE_SLOT } from '@/lib/slots'
+import { isTextCharStyles } from '@/lib/text-styles'
 import { ICON_BOX, isIconId, isShapeId } from '@/lib/vector-catalog'
 import type { Layer, Project, ScriptId } from '@/types'
 
@@ -153,7 +154,8 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
       isFiniteNumber(value.letterSpacing) &&
       ['none', 'uppercase', 'lowercase', 'capitalize'].includes(String(value.textTransform)) &&
       (value.shadow === undefined || isShadow(value.shadow)) &&
-      (value.gradientFill === undefined || isGradient(value.gradientFill))
+      (value.gradientFill === undefined || isGradient(value.gradientFill)) &&
+      (value.charStyles === undefined || isTextCharStyles(value.charStyles))
     )
   }
   if (value.type === 'icon') {

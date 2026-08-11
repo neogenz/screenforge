@@ -41,6 +41,17 @@ export interface TextShadow {
   color: string
 }
 
+/** Ce que le projet retient d'un style de caractère : sa couleur, rien d'autre. */
+export interface TextCharStyle {
+  fill: string
+}
+
+/**
+ * Ligne (non repliée) → colonne → style, tel que Fabric indexe un `Textbox`.
+ * Les clés sont numériques, écrites en chaîne. Voir `lib/text-styles.ts`.
+ */
+export type TextCharStyles = Record<string, Record<string, TextCharStyle>>
+
 export interface TextLayer extends BaseLayer {
   type: 'text'
   content: string
@@ -54,6 +65,12 @@ export interface TextLayer extends BaseLayer {
   textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
   shadow?: TextShadow
   gradientFill?: GradientFill
+  /**
+   * Couleurs posées sur un passage plutôt que sur le calque. Absent tant que
+   * personne n'en a peint : la couleur du calque suffit à presque tout.
+   * Voir `lib/text-styles.ts` pour ce que les index veulent dire.
+   */
+  charStyles?: TextCharStyles
 }
 
 export interface ImportedDeviceBezel {

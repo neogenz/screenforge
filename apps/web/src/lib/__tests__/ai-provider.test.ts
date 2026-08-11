@@ -23,6 +23,7 @@ const BRIEF: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
   direction: 'sobre',
+  screenCount: 2,
   deviceModel: 'iphone-17-pro',
   screenshots: [
     { label: 'Accueil', assetId: 'asset-1', size: { width: 1320, height: 2868 } },
@@ -194,11 +195,24 @@ describe('plan via le pont', () => {
         },
       },
     })
-    const plan = await planViaBridge(BRIEF, TOKEN)
-    expect(plan.screens.length).toBe(AI_LIMITS.maxScreens)
+    // Deux bornes, pas une : le plafond du projet, et le nombre que
+    // l'utilisateur a demandé. Un modèle bavard qui rendrait vingt visuels sur
+    // quatre demandés en poserait seize que personne n'a voulus.
+    const plan = await planViaBridge({ ...BRIEF, screenCount: 4 }, TOKEN)
+    expect(plan.screens.length).toBe(4)
     expect(plan.screens[0].name.length).toBe(AI_LIMITS.maxNameLength)
     expect(plan.screens[0].headline.length).toBe(AI_LIMITS.maxTextLength)
     expect(plan.screens[0].slot).toBe('accueil-principal')
+
+    const generous = await planViaBridge({ ...BRIEF, screenCount: 20 }, TOKEN)
+    expect(generous.screens.length).toBe(AI_LIMITS.maxScreens)
+  })
+
+  it('garde la palette du brief, jamais celle que le modèle a rendue', async () => {
+    respond({ '/plan': { body: { plan: PLAN } } })
+    const custom = { background: '#0a0b0c', ink: '#ffffff', accent: '#ff00aa' }
+    const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN)
+    expect(plan.palette).toEqual(custom)
   })
 })
 

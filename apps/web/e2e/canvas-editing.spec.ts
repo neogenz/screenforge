@@ -37,6 +37,60 @@ test.describe('canvas text editing', () => {
     await expect(page.locator('textarea', { hasText: 'Nouveau titre' })).toHaveCount(1)
   })
 
+  /**
+   * La couleur d'un passage, et le seul endroit où elle pouvait casser.
+   *
+   * Le calcul des index est couvert par `lib/__tests__/text-styles.test.ts`. Ce
+   * qu'aucun test unitaire ne peut dire, c'est si le surlignage survit au clic
+   * dans le panneau : le champ hexadécimal prend le focus, donc la zone de
+   * saisie cachée de Fabric le perd. Si le passage disparaissait à ce
+   * moment-là, la fonction n'existerait pas — elle repeindrait le calque entier
+   * sans que rien ne le signale.
+   */
+  test('colours only the highlighted passage, and leaves the layer alone', async ({ page }) => {
+    await waitForApp(page)
+    await addTextLayer(page)
+
+    const layerColor = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+      const text = screen?.layers.find((layer) => layer.type === 'text')
+      return text?.type === 'text' ? text.color : null
+    })
+    expect(layerColor).not.toBeNull()
+
+    // Entrée sur un texte sélectionné entre en édition et surligne tout :
+    // c'est le chemin que l'application installe, pas une API interne.
+    await page.keyboard.press('Enter')
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean((window.__sfCanvas?.getActiveObject() as DebugObject | undefined)?.isEditing),
+        ),
+      )
+      .toBe(true)
+
+    const colorField = page.getByText('Couleur du passage', { exact: true })
+    await expect(colorField).toBeVisible()
+
+    await page.getByRole('textbox', { name: 'Couleur hexadécimale' }).fill('#ff0000')
+    await page.keyboard.press('Enter')
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const project = window.__sfStores?.useProjectStore.getState().project
+          const screen = project?.screens.find(
+            (candidate) => candidate.id === project.activeScreenId,
+          )
+          const text = screen?.layers.find((layer) => layer.type === 'text')
+          if (text?.type !== 'text') return null
+          return { color: text.color, first: text.charStyles?.['0']?.['0']?.fill ?? null }
+        }),
+      )
+      .toEqual({ color: layerColor, first: '#ff0000' })
+  })
+
   test('loads and exposes the exact maximum Poppins weight', async ({ page }) => {
     await waitForApp(page)
     await addTextLayer(page)

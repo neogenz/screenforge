@@ -60,13 +60,11 @@ async function artboardRect(page: Page) {
  * ouverts par défaut, donc leur largeur en fait partie.
  */
 function freeStage(rect: { canvasWidth: number; canvasHeight: number }) {
-  // `filmstripHeight(false)` : ces tests n'ont jamais renommé d'écran, la bande
-  // ne porte donc pas sa rangée de libellés.
   return {
     left: ISLAND_MARGIN * 2 + DRAWER_WIDTH_LAYERS,
     right: rect.canvasWidth - ISLAND_MARGIN * 2 - DRAWER_WIDTH_PROPS,
     top: TOP_BAR_HEIGHT + ISLAND_MARGIN * 2,
-    bottom: rect.canvasHeight - filmstripHeight(false) - ISLAND_MARGIN * 2,
+    bottom: rect.canvasHeight - filmstripHeight() - ISLAND_MARGIN * 2,
   }
 }
 

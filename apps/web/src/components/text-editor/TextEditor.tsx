@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
+import { textColorEdit, textColorValue } from '@/lib/text-styles'
 import { FontPicker } from './FontPicker'
 import type { GradientFill, Layer, TextLayer } from '@/types'
 
@@ -65,6 +66,9 @@ function CasingGlyph({ text }: { text: string }) {
 
 export function TextEditor({ layer }: TextEditorProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
+  // Le passage surligné sur la planche, s'il appartient bien à ce calque.
+  const textRange = useCanvasStore((s) => s.textRange)
+  const range = textRange?.layerId === layer.id ? textRange : null
 
   function update(patch: Partial<TextLayer>, options?: { coalesceKey?: string }) {
     updateLayer(layer.id, patch as Partial<Layer>, options)
@@ -117,12 +121,30 @@ export function TextEditor({ layer }: TextEditorProps) {
         ))}
       </Select>
 
-      <Field label="Couleur">
+      {/* Un seul contrôle pour deux portées : tant que rien n'est surligné sur
+          la planche, il peint le calque ; dès qu'un passage l'est, il ne peint
+          que lui. Deux champs côte à côte auraient demandé à l'utilisateur de
+          choisir la portée *avant* la couleur, alors que sa sélection l'a déjà
+          dite — et le second serait resté grisé les neuf dixièmes du temps. */}
+      <Field label={range ? 'Couleur du passage' : 'Couleur'}>
         <ColorPicker
-          value={layer.color}
-          onChange={(color) => update({ color }, { coalesceKey: `layer:${layer.id}:color` })}
+          value={textColorValue(layer, range)}
+          onChange={(color) => {
+            const edit = textColorEdit(layer, range, color)
+            update(edit.updates, { coalesceKey: edit.coalesceKey })
+          }}
           showOpacity
         />
+        {/* Dans le `Field` et non après lui : l'écart qui lie une étiquette à
+            son contrôle est celui qui doit lier cette note au sien. Posée
+            dehors, elle prenait l'écart de section et se rattrapait par une
+            marge négative — une cinquième valeur dans une échelle qui en
+            compte deux. */}
+        {range && (
+          <p className="field-label leading-4">
+            Repeindre le passage avec la couleur du calque le rend à celui-ci.
+          </p>
+        )}
       </Field>
 
       <Field label="Alignement">

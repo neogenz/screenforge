@@ -275,25 +275,49 @@ function planPrompt(request: {
   brief: import('./protocol.ts').BridgeBrief
   deviceModel: string
 }): string {
-  const shots = request.brief.screenshots
+  const { brief } = request
+  const count = brief.screenCount ?? Math.max(1, brief.screenshots.length)
+  const shots = brief.screenshots
     .map((shot, index) => `${index}. ${shot.label}${shot.hasAsset ? ' (capture fournie)' : ''}`)
     .join('\n')
   return [
-    'Tu composes un plan de captures App Store pour une application iOS.',
-    `Application : ${request.brief.appName}.`,
-    request.brief.pitch ? `Ce qu’elle fait : ${request.brief.pitch}.` : '',
-    `Direction visuelle imposée : ${request.brief.direction}.`,
-    `Modèle d’appareil imposé : ${request.deviceModel}.`,
+    'Tu es directeur artistique de la fiche App Store d’une application iOS.',
+    'Tu écris les accroches des visuels de la fiche — ces images que l’utilisateur',
+    'fait défiler avant de télécharger. Les trois premières décident du',
+    'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
+    '',
+    `Application : ${brief.appName}.`,
+    brief.pitch ? `Ce qu’elle fait : ${brief.pitch}.` : '',
+    brief.landingUrl
+      ? `Page du produit : ${brief.landingUrl}. Si tu la connais, appuie-toi sur son vocabulaire et sur les bénéfices qu’elle met en avant ; sinon, ignore-la — n’invente rien à partir de l’URL seule.`
+      : '',
+    `Style visuel imposé : ${brief.direction}.`,
+    `Appareil imposé : ${request.deviceModel}.`,
+    `Nombre de visuels à proposer : exactement ${count}.`,
     shots
-      ? `Écrans à couvrir, dans cet ordre :\n${shots}`
-      : 'Aucune capture fournie : propose une seule planche.',
+      ? `Écrans dont une capture est disponible, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex. Les visuels au-delà de cette liste n’ont pas de capture : laisse screenshotIndex absent.`
+      : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',
+    '',
+    'Écriture des accroches :',
+    '— Une idée par visuel, jamais deux. Trois à six mots. En français.',
+    '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
+    '  enfin lisibles » et non « Tableau de bord ».',
+    '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
+    '  l’application, aucun point final, aucune majuscule décorative.',
+    '— Ni superlatif creux ni jargon : pas de « révolutionnaire », « puissant »,',
+    '  « ultime », « nouvelle génération », « propulsé par l’IA ».',
+    '— Le premier visuel porte la promesse générale, les suivants une',
+    '  fonctionnalité concrète chacun, le dernier appelle à l’essai.',
+    '',
+    'name est un nom d’écran court, pour la barre de l’éditeur.',
+    'slot est un identifiant en minuscules, chiffres et traits d’union.',
+    'background.color est un hexadécimal cohérent avec le style imposé, identique',
+    'sur tous les visuels sauf raison de composition.',
     '',
     'Rends uniquement le JSON du plan, conforme au schéma fourni.',
-    'Une planche par écran listé, dans le même ordre, avec le même index dans screenshotIndex.',
-    'headline est une accroche courte, en français, sans point final.',
-    'slot est un identifiant en minuscules, chiffres et traits d’union.',
-    'Ce plan sera exécuté par un constructeur déterministe : il ne peut poser que',
-    'des écrans, des fonds unis, des textes et des cadres d’appareil.',
+    'Ce plan est exécuté par un constructeur déterministe : il ne pose que des',
+    'écrans, des fonds unis, des textes et des cadres d’appareil. Ne propose rien',
+    'd’autre — tout ce qui sortirait de là serait ignoré sans avertissement.',
   ]
     .filter(Boolean)
     .join('\n')

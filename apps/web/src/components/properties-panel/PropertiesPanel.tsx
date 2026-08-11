@@ -89,10 +89,11 @@ export function PropertiesPanel() {
               onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
             />
 
-            <Section title="Transformation" defaultOpen>
-              <TransformSection layer={selectedLayer} />
-            </Section>
-
+            {/* Ce qu'on est venu régler d'abord, la géométrie ensuite.
+                On sélectionne un texte pour changer son texte, une icône pour
+                changer son icône — pas pour pousser son X d'un pixel. La
+                transformation est la seule section commune aux six types :
+                c'est ce qui en fait le socle, pas l'en-tête. */}
             {selectedLayer.type === 'text' && (
               <Section title="Texte" defaultOpen>
                 <TextSection layer={selectedLayer} />
@@ -122,6 +123,10 @@ export function PropertiesPanel() {
                 <IconSection layer={selectedLayer} />
               </Section>
             )}
+
+            <Section title="Transformation" defaultOpen>
+              <TransformSection layer={selectedLayer} />
+            </Section>
           </>
         )}
       </ScrollArea>

@@ -2,11 +2,11 @@ import { test, expect, type Page } from '@playwright/test'
 import { addScreen, addTextLayer, waitForApp } from './helpers'
 
 /**
- * La campagne composée d'un coup, puis reprise comme le reste.
+ * Les visuels de la fiche générés d'un coup, puis repris comme le reste.
  *
  * Ce que la phase doit prouver : ce qui sort du plan est fait de calques
  * ScreenForge ordinaires — pas une image aplatie, pas du JSON opaque — et le
- * lot entier vaut un seul pas d'annulation. La retouche, elle, ne sort jamais
+ * lot entier vaut un seul pas d'annulation. Le restylage, lui, ne sort jamais
  * de l'écran visé.
  */
 
@@ -42,47 +42,56 @@ async function historyDepth(page: Page): Promise<number> {
   return page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? 0)
 }
 
+const DIALOG = 'Générer les visuels App Store'
+
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: 'Composer une campagne' }).click()
-  await expect(page.getByRole('dialog', { name: 'Composer une campagne' })).toBeVisible()
+  await page.getByRole('button', { name: DIALOG }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
 
-test('compose une campagne en calques réels, défaisable d’un seul coup', async ({ page }) => {
+test('génère des visuels en calques réels, défaisables d’un seul coup', async ({ page }) => {
   await waitForApp(page)
   const before = await screens(page)
   const depth = await historyDepth(page)
 
   await openCampaignDialog(page)
-  await page.getByLabel('Nom de l’application').fill('Cadence')
+  await page.getByLabel('Nom', { exact: true }).fill('Cadence')
   await page.getByLabel('Ce qu’elle fait, en une phrase').fill('Le budget dans une poche')
   await page.getByRole('radio', { name: 'Contrasté' }).click()
+  // Le nombre commande, et il ne vient d'aucune capture : c'est tout l'intérêt
+  // du champ, puisque personne n'a dix captures prêtes en commençant.
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '3 visuels' }).click()
 
   // Rien n'est posé avant que le plan n'ait été relu.
-  await page.getByRole('button', { name: 'Proposer un plan' }).click()
-  await expect(page.getByText('Plan proposé')).toBeVisible()
+  await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
+  await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
   expect(await screens(page)).toHaveLength(before.length)
 
-  await page.getByRole('button', { name: /Poser 1 planche/ }).click()
-  await expect(page.getByRole('dialog', { name: 'Composer une campagne' })).toBeHidden()
+  await page.getByRole('button', { name: 'Ajouter 3 visuels' }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
 
   const after = await screens(page)
-  expect(after).toHaveLength(before.length + 1)
-  const composed = after[after.length - 1]
-  expect(composed.name).toBe('Cadence')
+  expect(after).toHaveLength(before.length + 3)
+  const composed = after[before.length]
+  expect(composed.name).toBe('Cadence 1')
   // De vrais calques : un texte éditable et un appareil, pas une image aplatie.
   expect(composed.layers.map((layer) => layer.type)).toEqual(['text', 'device-frame'])
   expect(composed.layers[0].content).toBe('Le budget dans une poche')
   expect(composed.layers[0].color).toBe('#ffffff')
-  expect(composed.layers[1].slot).toBe('cadence')
+  expect(composed.layers[1].slot).toBe('ecran-1')
   expect(composed.background).toEqual({ type: 'solid', color: '#101114' })
+  // La phrase du brief n'est posée qu'une fois : répétée, elle serait un
+  // filigrane à effacer sur chacun des visuels suivants.
+  expect(after[before.length + 1].layers[0].content).toBe('Cadence')
 
-  // Un run accepté vaut un pas d'annulation, pas quatre.
+  // Un run accepté vaut un pas d'annulation, pas neuf.
   expect(await historyDepth(page)).toBe(depth + 1)
   await page.keyboard.press('Control+z')
   await expect.poll(async () => (await screens(page)).length).toBe(before.length)
 })
 
-test('l’harmonisation ne sort pas de l’écran courant', async ({ page }) => {
+test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
   await waitForApp(page)
   await addTextLayer(page)
   await addScreen(page)
@@ -93,8 +102,8 @@ test('l’harmonisation ne sort pas de l’écran courant', async ({ page }) => 
 
   await openCampaignDialog(page)
   await page.getByRole('radio', { name: 'Nocturne' }).click()
-  await page.getByRole('button', { name: 'Harmoniser cet écran' }).click()
-  await expect(page.getByRole('dialog', { name: 'Composer une campagne' })).toBeHidden()
+  await page.getByRole('button', { name: /^Repeindre/ }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
 
   const after = await screens(page)
   expect(after[1].background).toEqual({ type: 'solid', color: '#1b1f3b' })

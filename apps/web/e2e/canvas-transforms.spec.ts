@@ -107,7 +107,14 @@ test.describe('canvas transforms', () => {
     })
     expect(before.id).toBeTruthy()
 
+    // Amené sous les yeux avant d'être mesuré : ce test pilote la souris en
+    // coordonnées absolues, donc la surface de scrub doit être dans la zone
+    // visible du panneau. La section Transformation ferme désormais le panneau,
+    // derrière la section du type — pour un cadre d'appareil elle tombe 253px
+    // sous le pli d'une fenêtre de 900, et la mesure rendait alors la boîte
+    // d'un élément écrêté, donc un glissement dans le vide.
     const scrubBox = await transformInput(page, 0).evaluate((input) => {
+      input.parentElement?.scrollIntoView({ block: 'center' })
       const rect = input.parentElement?.getBoundingClientRect()
       if (!rect) throw new Error('Scrub surface missing')
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }

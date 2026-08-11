@@ -14,6 +14,16 @@ export interface PopoverProps {
   className?: string
   role?: string
   ariaLabel?: string
+  /**
+   * Prend Échap à son compte, au lieu de la laisser fermer par la voie commune.
+   *
+   * Sans ça, la touche congédie le panneau par le même chemin qu'un clic
+   * dehors : `onClose` reçoit les deux et ne peut pas les distinguer. Un
+   * panneau d'édition en a besoin — dehors valide, Échap annule — et un drapeau
+   * posé dans l'`onKeyDown` du champ arrive trop tard, Radix écoute la touche
+   * en phase de capture sur le document, donc avant React.
+   */
+  onEscape?: () => void
 }
 
 /** Anchored floating panel: Radix popper over a virtual anchor, collision-clamped. */
@@ -28,6 +38,7 @@ export function Popover({
   className,
   role,
   ariaLabel,
+  onEscape,
 }: PopoverProps) {
   const virtualRef = useRef({
     getBoundingClientRect: () => anchor.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0),
@@ -56,7 +67,12 @@ export function Popover({
           sideOffset={offset}
           collisionPadding={8}
           onOpenAutoFocus={(event) => event.preventDefault()}
-          onEscapeKeyDown={(event) => event.stopPropagation()}
+          onEscapeKeyDown={(event) => {
+            event.stopPropagation()
+            if (!onEscape) return
+            event.preventDefault()
+            onEscape()
+          }}
           onPointerDownOutside={handleOutside}
           onInteractOutside={handleOutside}
           className={cn(

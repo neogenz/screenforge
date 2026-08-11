@@ -60,7 +60,19 @@ const screenshotSchema = z.object({
 export const briefSchema = z.object({
   appName: z.string().min(1).max(60),
   pitch: z.string().max(140),
+  /**
+   * La page du produit, citée au modèle comme contexte.
+   *
+   * Le pont ne la charge pas et ne la charge jamais : `fetch` sur une URL venue
+   * de la page ferait du pont un relais de requêtes sortantes, sur une machine
+   * qu'il n'est censé exposer qu'à `codex`. Le modèle en fait ce qu'il peut, ou
+   * rien. `http(s)` seulement — un `file:` ou un `data:` n'a rien à dire d'un
+   * produit et beaucoup à dire du disque.
+   */
+  landingUrl: z.string().url().max(2048).startsWith('http').optional(),
   direction: z.enum(['sobre', 'contraste', 'chaleureux', 'nocturne']),
+  /** Combien de visuels le modèle doit proposer. Le plan est borné au même dix. */
+  screenCount: z.number().int().min(1).max(10).optional(),
   screenshots: z.array(screenshotSchema).max(10),
 })
 

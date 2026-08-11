@@ -60,8 +60,9 @@ export type ProviderId = 'local' | 'codex-bridge'
 export const AI_PROVIDERS: readonly AiProvider[] = [
   {
     id: 'local',
-    label: 'Composition locale',
-    summary: 'Immédiate, hors ligne, identique à chaque fois.',
+    label: 'ScreenForge seul, sans IA',
+    summary:
+      'Met en page les visuels, mais ne rédige pas : chaque accroche reprend le nom de votre fichier, à réécrire ensuite.',
     dataPath: 'Rien ne quitte cet onglet. Aucune requête réseau, aucun compte.',
     transport: 'in-process',
     auth: 'none',
@@ -71,10 +72,11 @@ export const AI_PROVIDERS: readonly AiProvider[] = [
   },
   {
     id: 'codex-bridge',
-    label: 'Codex, via le pont local',
-    summary: 'Les accroches sont rédigées par le modèle. Demande le pont lancé sur votre machine.',
+    label: 'Avec Codex, sur votre ordinateur',
+    summary:
+      'Les accroches sont écrites par le modèle. Demande le pont ScreenForge lancé sur votre ordinateur.',
     dataPath:
-      'Le nom, la phrase de présentation et les libellés de vos écrans partent vers Codex. Vos captures et votre logo restent ici : aucune image ne traverse le pont.',
+      'Partent vers Codex : le nom, la phrase, la page du produit et les noms de vos fichiers. Restent ici : vos captures et votre logo — aucune image ne traverse le pont.',
     transport: 'local-bridge',
     auth: 'pairing-token',
     models: [],

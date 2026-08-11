@@ -22,8 +22,10 @@ import { applyLayerTransfer } from '@/lib/layer-transfer'
 import type { LayoutLayerUpdate, LocalLayerTransfer } from '@/lib/layer-transfer'
 import { computeSnap } from '@/lib/snapping'
 import type { Box, Guide } from '@/lib/snapping'
+import { readCharStyles, sameCharStyles } from '@/lib/text-styles'
+import type { TextRange } from '@/lib/text-styles'
 import { nextTimestamp } from '@/lib/time'
-import type { Layer, Project } from '@/types'
+import type { Layer, Project, TextLayer } from '@/types'
 
 interface MutableValue<T> {
   current: T
@@ -48,6 +50,7 @@ interface InteractionInstallerOptions {
   clearSelection: () => void
   updateLayer: (layerId: string, updates: Partial<Layer>) => void
   onSelectionFrame: (frame: SelectionFrame | null) => void
+  setTextRange: (range: TextRange | null) => void
 }
 
 export function installInteractions({
@@ -67,6 +70,7 @@ export function installInteractions({
   clearSelection,
   updateLayer,
   onSelectionFrame,
+  setTextRange,
 }: InteractionInstallerOptions): () => void {
   let ignoreSelectionCleared = false
   let interacting = false
@@ -325,20 +329,51 @@ export function installInteractions({
     canvas.requestRenderAll()
   })
 
-  const disposeTextExit = canvas.on('text:editing:exited', (event) => {
-    const target = event.target as RenderedObject | undefined
-    if (!target || !(target instanceof Textbox)) return
+  function editedTextLayerId(target: unknown): string | null {
+    if (!(target instanceof Textbox)) return null
     const data = (target as RenderedObject).data
-    const layerId = data?.layerId ?? data?.uid
-    if (!layerId) return
+    return data?.layerId ?? data?.uid ?? null
+  }
+
+  const disposeTextExit = canvas.on('text:editing:exited', (event) => {
+    setTextRange(null)
+    const target = event.target as RenderedObject | undefined
+    const layerId = editedTextLayerId(target)
+    if (!layerId || !(target instanceof Textbox)) return
     const project = getProject()
     const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
     const layer = [...(screen?.layers ?? []), ...(project?.layoutLayers ?? [])].find(
       (candidate) => candidate.id === layerId,
     )
-    if (layer?.type === 'text' && layer.content !== target.text) {
-      updateLayer(layerId, { content: target.text })
-    }
+    if (layer?.type !== 'text') return
+    const updates: Partial<TextLayer> = {}
+    if (layer.content !== target.text) updates.content = target.text
+    // Fabric a décalé les styles de caractère au fil de la frappe : insérer un
+    // mot au milieu d'un passage coloré pousse ses index avec lui. On relit
+    // donc l'objet plutôt que de recalculer — et on ne réécrit que si quelque
+    // chose a bougé, sinon chaque sortie d'édition déposerait un pas d'annulation.
+    const charStyles = readCharStyles(target.styles)
+    if (!sameCharStyles(charStyles, layer.charStyles)) updates.charStyles = charStyles
+    if (Object.keys(updates).length > 0) updateLayer(layerId, updates as Partial<Layer>)
+  })
+
+  /**
+   * Le passage sélectionné dans le texte, publié pour les contrôles de couleur.
+   *
+   * Le panneau ne connaît pas Fabric et n'a pas à le connaître : il lit un
+   * intervalle dans le store, écrit dans le calque, et la passe de synchro
+   * repose les styles sur l'objet. C'est le même aller-retour que pour toutes
+   * les autres propriétés — la sélection de texte est juste la seule qui ne
+   * puisse venir que du canevas.
+   */
+  const disposeTextSelection = canvas.on('text:selection:changed', (event) => {
+    const target = event.target
+    const layerId = editedTextLayerId(target)
+    if (!layerId || !(target instanceof Textbox)) return
+    const { selectionStart, selectionEnd } = target
+    setTextRange(
+      selectionEnd > selectionStart ? { layerId, start: selectionStart, end: selectionEnd } : null,
+    )
   })
 
   const disposeSelectionCreated = canvas.on('selection:created', handleSelection)
@@ -371,6 +406,7 @@ export function installInteractions({
     disposeMoving()
     disposeMouseUp()
     disposeTextExit()
+    disposeTextSelection()
     disposeSelectionCreated()
     disposeSelectionUpdated()
     disposeSelectionCleared()

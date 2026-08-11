@@ -225,9 +225,9 @@ export function getCommands(): Command[] {
     },
     {
       id: 'compose-campaign',
-      title: 'Composer une campagne…',
+      title: 'Générer les visuels App Store…',
       section: 'Projet',
-      keywords: ['ia', 'générer', 'plan', 'onboarding', 'campagne', 'assistant'],
+      keywords: ['ia', 'générer', 'plan', 'campagne', 'accroche', 'brief', 'visuel'],
       run: () => ui().setShowCampaignDialog(true),
     },
     {
