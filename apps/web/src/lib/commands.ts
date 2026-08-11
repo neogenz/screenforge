@@ -231,6 +231,13 @@ export function getCommands(): Command[] {
       run: () => ui().setShowCampaignDialog(true),
     },
     {
+      id: 'locales',
+      title: 'Langues…',
+      section: 'Projet',
+      keywords: ['locale', 'traduction', 'langue', 'i18n', 'localisation'],
+      run: () => ui().setShowLocaleDialog(true),
+    },
+    {
       id: 'templates',
       title: 'Modèles de mise en page…',
       section: 'Projet',

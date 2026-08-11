@@ -10,6 +10,8 @@ import { billingConfigured } from '@/lib/api'
 import { exportsLeft, rightsOf, FREE_EXPORTS_PER_PROJECT } from '@/lib/entitlements'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
+import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import type { Project, Screen } from '@/types'
 
 export function ExportDialog() {
@@ -27,6 +29,9 @@ function ExportDialogContent({ project }: { project: Project }) {
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
     project.screens.map((screen) => screen.id),
   )
+  /* Vide = la langue du projet. Une variante ne remplace jamais l'original :
+     elle s'exporte à côté, sous son propre code. */
+  const [localeCode, setLocaleCode] = useState('')
   const { exportBatch, isExporting, progress, error, completedFiles, clearError } = useExport()
 
   const entitlements = useAuthStore((state) => state.entitlements)
@@ -35,12 +40,31 @@ function ExportDialogContent({ project }: { project: Project }) {
      fin d'un lot, et un état dérivé aurait besoin d'un effet pour le suivre. */
   const remaining = exportsLeft(project.id, rights)
 
+  const locale = (project.locales ?? []).find((entry) => entry.code === localeCode)
+  /* La revue tourne ici, pas seulement dans la boîte des langues : c'est le
+     dernier point où un débordement peut encore être arrêté, et un utilisateur
+     qui exporte n'a pas forcément rouvert la revue depuis sa dernière retouche. */
+  const localeFindings = useMemo(
+    () => (locale ? reviewLocale(project, locale) : []),
+    [project, locale],
+  )
+  const localeRefused = Boolean(locale) && localeBlocked(localeFindings)
+
+  const exportedScreens = useMemo(
+    () => (locale ? localizedScreens(project, locale) : project.screens),
+    [project, locale],
+  )
+  const exportedLayoutLayers = useMemo(
+    () => (locale ? localizedLayoutLayers(project, locale) : project.layoutLayers),
+    [project, locale],
+  )
+
   const selectedScreens = useMemo(
     () =>
-      project.screens.flatMap((screen, screenIndex) =>
+      exportedScreens.flatMap((screen, screenIndex) =>
         selectedScreenIds.includes(screen.id) ? [{ screen, screenIndex }] : [],
       ),
-    [project.screens, selectedScreenIds],
+    [exportedScreens, selectedScreenIds],
   )
   const allScreensSelected = selectedScreenIds.length === project.screens.length
 
@@ -64,13 +88,13 @@ function ExportDialogContent({ project }: { project: Project }) {
   )
 
   const handleExport = useCallback(async () => {
-    if (selectedScreens.length === 0) return
+    if (selectedScreens.length === 0 || localeRefused) return
     try {
       await exportBatch(
         project.id,
-        project.name,
+        localeCode ? `${project.name}-${localeCode}` : project.name,
         selectedScreens,
-        project.layoutLayers,
+        exportedLayoutLayers,
         EXPORT_DIMENSIONS,
       )
     } catch (cause) {
@@ -81,8 +105,10 @@ function ExportDialogContent({ project }: { project: Project }) {
     }
   }, [
     exportBatch,
+    exportedLayoutLayers,
+    localeCode,
+    localeRefused,
     project.id,
-    project.layoutLayers,
     project.name,
     selectedScreens,
     setShowPricingDialog,
@@ -119,7 +145,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 variant="primary"
                 onClick={() => void handleExport()}
                 loading={isExporting}
-                disabled={selectedScreens.length === 0 || remaining <= 0}
+                disabled={selectedScreens.length === 0 || remaining <= 0 || localeRefused}
               >
                 {!isExporting && <Download size={12} aria-hidden />}
                 {isExporting
@@ -214,6 +240,35 @@ function ExportDialogContent({ project }: { project: Project }) {
                   ', téléchargés un par un'
                 )}
               </p>
+            </div>
+
+            <div className="surface-inner p-4">
+              <span className="field-label">Langue</span>
+              <Select
+                className="mt-1.5"
+                aria-label="Langue exportée"
+                value={localeCode}
+                disabled={isExporting}
+                onChange={(event) => setLocaleCode(event.target.value)}
+              >
+                <option value="">Langue du projet</option>
+                {(project.locales ?? []).map((entry) => (
+                  <option key={entry.code} value={entry.code}>
+                    {entry.name}
+                  </option>
+                ))}
+              </Select>
+              {/* Une langue qui déborde ne s'exporte pas, et la boîte dit
+                  combien de lignes la retiennent — refuser sans compter
+                  laisserait l'utilisateur chercher. */}
+              {localeRefused && (
+                <p role="alert" className="mt-2 text-2xs text-destructive">
+                  {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
+                  {localeFindings.length > 1 ? 'nt' : ''} ou manque
+                  {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
+                  d’exporter cette variante.
+                </p>
+              )}
             </div>
 
             {!rights.cleanExport && <FreeTierNotice remaining={remaining} />}

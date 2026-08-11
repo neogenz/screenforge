@@ -192,6 +192,60 @@ export interface Project {
   updatedAt: number
   /** Les lots figés, du plus ancien au plus récent. Voir `lib/release.ts`. */
   releases?: Release[]
+  /** Les variantes de langue. Voir `lib/locale.ts`. */
+  locales?: LocaleVariant[]
+}
+
+// ─── Localisation ────────────────────────────────────────────────────────────
+
+/**
+ * Le script d'écriture, pas la langue.
+ *
+ * C'est lui qui décide de la police : le japonais et le chinois simplifié
+ * partagent des idéogrammes mais pas une fonte, et le portugais du Brésil
+ * n'impose rien de plus que le portugais. Une liste fermée, parce qu'à chaque
+ * entrée correspond une famille de polices vérifiée.
+ */
+export type ScriptId =
+  | 'latin'
+  | 'cyrillic'
+  | 'greek'
+  | 'japanese'
+  | 'korean'
+  | 'simplified-chinese'
+  | 'arabic'
+  | 'hebrew'
+  | 'devanagari'
+  | 'thai'
+
+export interface LocaleText {
+  value: string
+  /**
+   * Faux tant qu'un humain ne l'a pas relu. Une traduction automatique arrive
+   * toujours à faux : la promettre parfaite serait mentir, et c'est le seul
+   * champ qui distingue « proposé » de « validé ».
+   */
+  reviewed: boolean
+}
+
+/**
+ * Une langue de plus, sans un projet de plus.
+ *
+ * La variante ne duplique ni écran ni calque : elle ne porte que les textes,
+ * indexés par l'identifiant du calque qu'ils remplacent. Les identifiants, la
+ * structure, les cadrages et les rôles restent donc ceux du projet — une
+ * correction de mise en page profite à toutes les langues, et rien ne peut
+ * diverger sans que quelqu'un l'ait voulu.
+ */
+export interface LocaleVariant {
+  /** BCP-47 court : `ja`, `pt-BR`. C'est la clé, et le nom du dossier d'export. */
+  code: string
+  name: string
+  script: ScriptId
+  /** Police imposée aux textes de cette langue, quand le script l'exige. */
+  fontFamily?: string
+  /** `layerId` → variante. Un calque absent garde le texte du projet. */
+  texts: Record<string, LocaleText>
 }
 
 /**

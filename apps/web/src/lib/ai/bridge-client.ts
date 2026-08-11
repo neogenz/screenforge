@@ -8,12 +8,12 @@ import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
  *
  * **Le jeton d'appairage ne quitte jamais la mémoire de l'onglet.** Ni
  * `localStorage`, ni `sessionStorage`, ni cookie, ni projet, ni Cloud, ni
- * journal : il vit dans l'état React de la boîte de dialogue et meurt avec le
- * rechargement de la page, exactement comme celui du pont meurt avec son
- * processus. Le prix est une saisie par session ; c'est le bon prix pour une
- * clé qui commande un processus sur la machine de l'utilisateur, et c'est
- * précisément ce qu'un `localStorage` — lisible par tout script chargé dans la
- * page, persistant, exporté par les sauvegardes de profil — ne sait pas offrir.
+ * journal : il vit dans une variable de module et meurt avec le rechargement de
+ * la page, exactement comme celui du pont meurt avec son processus. Le prix est
+ * une saisie par session ; c'est le bon prix pour une clé qui commande un
+ * processus sur la machine de l'utilisateur, et c'est précisément ce qu'un
+ * `localStorage` — lisible par tout script chargé dans la page, persistant,
+ * emporté par les sauvegardes de profil — ne sait pas offrir.
  *
  * `PROTOCOL` est doublé ici plutôt qu'importé : la valeur du paquet `bridge`
  * arrive en `import type`, donc rien de ce paquet n'atteint le navigateur. Le
@@ -22,6 +22,25 @@ import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
  */
 const PROTOCOL = 1
 const BRIDGE_URL = 'http://127.0.0.1:4590'
+
+/**
+ * Le jeton de la session, en mémoire de module.
+ *
+ * Ici plutôt que dans un état React : deux boîtes s'appairent au même pont — la
+ * campagne et les langues — et une saisie par boîte aurait fait taper deux fois
+ * le même secret. Volontairement pas dans un store Zustand : ceux-là se
+ * persistent, s'inspectent depuis la console de développement et voyagent dans
+ * les captures d'état.
+ */
+let sessionToken = ''
+
+export function setBridgeToken(token: string): void {
+  sessionToken = token.trim()
+}
+
+export function bridgeToken(): string {
+  return sessionToken
+}
 
 export type BridgeStatus =
   | { state: 'idle' }
@@ -152,4 +171,27 @@ export async function planViaBridge(
     deviceModel: brief.deviceModel,
     screens,
   }
+}
+
+/**
+ * Fait traduire un lot de textes, par position.
+ *
+ * Aucun identifiant de calque ne part : le pont reçoit des chaînes numérotées et
+ * en rend autant, la page seule sachant à quoi chacune revient. Un compte
+ * différent au retour est refusé par le pont plutôt que rattaché de travers —
+ * une accroche décalée d'un écran est pire qu'une traduction absente.
+ */
+export async function translateViaBridge(
+  target: { code: string; name: string; script: string },
+  texts: readonly string[],
+  token: string,
+): Promise<string[]> {
+  const answer = await call<{ texts: string[] }>('/translate', token, {
+    method: 'POST',
+    body: JSON.stringify({ protocol: PROTOCOL, target, texts }),
+  })
+  if (answer.texts.length !== texts.length) {
+    throw new Error('Le pont a rendu un nombre de textes inattendu : rien n’a été repris.')
+  }
+  return answer.texts
 }

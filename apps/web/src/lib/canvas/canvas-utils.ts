@@ -277,7 +277,8 @@ export function backgroundToFabricFill(background: Background) {
   })
 }
 
-function transformText(layer: TextLayer): string {
+/** La casse rendue, pas celle saisie — la mesure d'un texte doit lire la même. */
+export function transformText(layer: TextLayer): string {
   if (layer.textTransform === 'uppercase') return layer.content.toUpperCase()
   if (layer.textTransform === 'lowercase') return layer.content.toLowerCase()
   if (layer.textTransform === 'capitalize') {

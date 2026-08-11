@@ -6,10 +6,14 @@ import {
   originAllowed,
   planRequestSchema,
   planSchema,
+  translateRequestSchema,
+  translationSchema,
   PLAN_OUTPUT_SCHEMA,
   PROTOCOL_VERSION,
+  TRANSLATION_OUTPUT_SCHEMA,
   type BridgeError,
   type Hello,
+  type TranslateRequest,
 } from './protocol.ts'
 
 /**
@@ -32,6 +36,10 @@ export interface BridgeState {
 
 function fail(code: BridgeError['error'], detail: string): BridgeError {
   return { error: code, detail }
+}
+
+function versionMismatch(claimed: number): string {
+  return `Le pont parle la version ${PROTOCOL_VERSION}, la page la ${claimed}. Mettez le pont à jour.`
 }
 
 export function createServer(state: BridgeState, origins = allowedOrigins()) {
@@ -89,13 +97,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
       return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
     }
     if (parsed.data.protocol !== PROTOCOL_VERSION) {
-      return context.json(
-        fail(
-          'protocol-mismatch',
-          `Le pont parle la version ${PROTOCOL_VERSION}, la page la ${parsed.data.protocol}. Mettez le pont à jour.`,
-        ),
-        409,
-      )
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
     }
 
     try {
@@ -113,6 +115,40 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
         )
       }
       return context.json({ plan: plan.data })
+    } catch (error) {
+      return context.json(codexFailure(error), 502)
+    }
+  })
+
+  app.post('/translate', async (context) => {
+    if (!authorized(context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    const parsed = translateRequestSchema.safeParse(await context.req.json().catch(() => null))
+    if (!parsed.success) {
+      return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
+    }
+    if (parsed.data.protocol !== PROTOCOL_VERSION) {
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
+    }
+
+    try {
+      await state.codex.initialize()
+      const answer = await state.codex.runTurn({
+        prompt: translatePrompt(parsed.data),
+        outputSchema: TRANSLATION_OUTPUT_SCHEMA,
+      })
+      const translation = translationSchema.safeParse(JSON.parse(answer))
+      /* Le compte doit correspondre exactement : la page rattache les textes par
+         position, et une liste plus courte décalerait chaque accroche d'un
+         écran. Mieux vaut ne rien rendre qu'une traduction déplacée. */
+      if (!translation.success || translation.data.texts.length !== parsed.data.texts.length) {
+        return context.json(
+          fail('invalid-response', 'Le modèle n’a pas rendu autant de textes qu’il en a reçu.'),
+          502,
+        )
+      }
+      return context.json({ texts: translation.data.texts })
     } catch (error) {
       return context.json(codexFailure(error), 502)
     }
@@ -179,6 +215,25 @@ function planPrompt(request: {
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+/**
+ * Ce qui est demandé au modèle : traduire, pas réécrire.
+ *
+ * L'ordre et le nombre sont exigés parce que la page rattache par position, et
+ * la brièveté parce qu'une accroche traduite qui double de longueur déborde de
+ * la boîte où elle est posée — la revue le signalera, mais autant ne pas le
+ * provoquer.
+ */
+function translatePrompt(request: TranslateRequest): string {
+  return [
+    `Traduis en ${request.target.name} (${request.target.code}) les accroches de captures App Store ci-dessous.`,
+    'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
+    'Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.',
+    'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
+    '',
+    ...request.texts.map((text, index) => `${index + 1}. ${text}`),
+  ].join('\n')
 }
 
 export function createState(): BridgeState {

@@ -121,6 +121,35 @@ export const PLAN_OUTPUT_SCHEMA = {
   },
 } as const
 
+/**
+ * La traduction : des chaînes, et rien qui les situe.
+ *
+ * Ni identifiant de calque, ni nom d'écran, ni projet — le pont reçoit une
+ * liste de textes et rend une liste de textes, dans le même ordre. La page seule
+ * sait à quel calque chacun revient, ce qui vaut mieux qu'une clé opaque
+ * traversant un tiers, et rend l'appel indépendant de la structure du projet.
+ */
+export const translateRequestSchema = z.object({
+  protocol: z.number().int(),
+  target: z.object({
+    code: z.string().max(16),
+    name: z.string().max(40),
+    script: z.string().max(24),
+  }),
+  texts: z.array(z.string().max(400)).min(1).max(120),
+})
+
+export type TranslateRequest = z.infer<typeof translateRequestSchema>
+
+export const translationSchema = z.object({ texts: z.array(z.string().max(400)) })
+
+export const TRANSLATION_OUTPUT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['texts'],
+  properties: { texts: { type: 'array', items: { type: 'string' } } },
+} as const
+
 export const planRequestSchema = z.object({
   protocol: z.number().int(),
   brief: briefSchema,

@@ -13,7 +13,7 @@ import {
 } from '@/lib/ai/plan'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
 import { isCampaignPlan } from '@/lib/ai/plan'
-import { connectBridge, type BridgeStatus } from '@/lib/ai/bridge-client'
+import { connectBridge, setBridgeToken, type BridgeStatus } from '@/lib/ai/bridge-client'
 import { AI_PROVIDERS, aiProvider, type ProviderId } from '@/lib/ai/providers'
 import {
   imageImportErrorMessage,
@@ -158,7 +158,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
     setBridge({ state: 'checking' })
     const status = await connectBridge(token.trim())
     setBridge(status)
-    if (status.state === 'ready') setModel(status.models[0]?.id ?? '')
+    /* Retenu pour la session, en mémoire de module : la boîte des langues parle
+       au même pont, et faire retaper le même secret par boîte serait une
+       cérémonie sans gain de sécurité. Il meurt au rechargement de la page. */
+    if (status.state === 'ready') {
+      setBridgeToken(token)
+      setModel(status.models[0]?.id ?? '')
+    }
   }
 
   const connected = bridge.state === 'ready'

@@ -70,6 +70,11 @@ const CampaignDialog = lazy(() =>
     default: module.CampaignDialog,
   })),
 )
+const LocaleDialog = lazy(() =>
+  import('@/components/locale-dialog/LocaleDialog').then((module) => ({
+    default: module.LocaleDialog,
+  })),
+)
 const MigrateProjectsDialog = lazy(() =>
   import('@/components/migrate-dialog/MigrateProjectsDialog').then((module) => ({
     default: module.MigrateProjectsDialog,
@@ -286,6 +291,7 @@ function Overlays() {
   const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
   const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
+  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
 
   return (
     <>
@@ -309,6 +315,7 @@ function Overlays() {
         {showRefreshDialog && <RefreshDialog />}
         {showReleaseDialog && <ReleaseDialog />}
         {showCampaignDialog && <CampaignDialog />}
+        {showLocaleDialog && <LocaleDialog />}
       </Suspense>
     </>
   )

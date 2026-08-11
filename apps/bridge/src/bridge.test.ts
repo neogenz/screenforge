@@ -224,6 +224,46 @@ describe('protocole', () => {
     expect(error.detail).toMatch(/codex/i)
   })
 
+  it('traduit par position, et refuse un lot dont le compte a changé', async () => {
+    const target = { code: 'de', name: 'Allemand', script: 'latin' }
+    const body = (texts: string[]) => JSON.stringify({ protocol: PROTOCOL_VERSION, target, texts })
+
+    const good = harness(async () => JSON.stringify({ texts: ['Rhythmus', 'Jeder Euro'] }))
+    const answer = await good.call('/translate', {
+      method: 'POST',
+      body: body(['Le rythme', 'Chaque euro']),
+    })
+    expect(answer.status).toBe(200)
+    expect(await answer.json()).toEqual({ texts: ['Rhythmus', 'Jeder Euro'] })
+
+    /* Un texte de moins décalerait chaque accroche d'un écran : la page
+       rattache par position, donc mieux vaut ne rien rendre. */
+    const short = harness(async () => JSON.stringify({ texts: ['Rhythmus'] }))
+    const refused = await short.call('/translate', {
+      method: 'POST',
+      body: body(['Le rythme', 'Chaque euro']),
+    })
+    expect(refused.status).toBe(502)
+    expect(await refused.json()).toMatchObject({ error: 'invalid-response' })
+  })
+
+  it('ne traduit ni sans jeton, ni un lot vide, ni hors version', async () => {
+    const target = { code: 'de', name: 'Allemand', script: 'latin' }
+    const { call } = harness(async () => JSON.stringify({ texts: ['Rhythmus'] }))
+    const send = (payload: unknown, token?: string | null) =>
+      call('/translate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        ...(token !== undefined ? { token } : {}),
+      })
+
+    expect((await send({ protocol: PROTOCOL_VERSION, target, texts: ['x'] }, null)).status).toBe(
+      401,
+    )
+    expect((await send({ protocol: PROTOCOL_VERSION, target, texts: [] })).status).toBe(400)
+    expect((await send({ protocol: 99, target, texts: ['x'] })).status).toBe(409)
+  })
+
   it('ne laisse traverser aucune image, même offerte', () => {
     const parsed = briefSchema.parse({
       ...BRIEF,

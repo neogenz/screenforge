@@ -9,6 +9,7 @@ import {
   FileDown,
   FolderOpen,
   ImageIcon,
+  Languages,
   LayoutTemplate,
   LoaderCircle,
   MoreHorizontal,
@@ -708,6 +709,7 @@ function useSecondaryActions(): SecondaryAction[] {
   const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
   const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
+  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const theme = useUIStore((s) => s.theme)
 
   return [
@@ -736,6 +738,14 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <Wand2 size={16} strokeWidth={1.75} />,
       expanded: showCampaignDialog,
       onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
+    },
+    {
+      id: 'locales',
+      label: 'Ouvrir les langues',
+      hint: 'Variantes de langue et débordements',
+      icon: <Languages size={16} strokeWidth={1.75} />,
+      expanded: showLocaleDialog,
+      onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
     },
     {
       id: 'templates',

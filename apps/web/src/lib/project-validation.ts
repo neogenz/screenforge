@@ -2,7 +2,7 @@ import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from '@/lib/screenshot-placement'
 import { SAFE_SLOT } from '@/lib/slots'
 import { ICON_BOX, isIconId, isShapeId } from '@/lib/vector-catalog'
-import type { Layer, Project } from '@/types'
+import type { Layer, Project, ScriptId } from '@/types'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
 
@@ -184,6 +184,31 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
 export const MAX_PROJECT_RELEASES = 20
 export const MAX_RELEASE_NAME_LENGTH = 64
 
+export const MAX_PROJECT_LOCALES = 12
+export const MAX_LOCALE_NAME_LENGTH = 40
+export const MAX_LOCALE_TEXT_LENGTH = 400
+
+/** BCP-47 court : `ja`, `pt-BR`. C'est aussi le nom du dossier d'export. */
+export const LOCALE_CODE = /^[a-z]{2}(-[A-Za-z0-9]{2,8})?$/
+
+/**
+ * Les scripts d'écriture reconnus, déclarés ici parce que la validation doit
+ * rester légère : `lib/locale.ts` leur attache des polices et tire le
+ * catalogue derrière lui. La dépendance va du lourd vers le léger.
+ */
+export const SCRIPT_IDS = [
+  'latin',
+  'cyrillic',
+  'greek',
+  'japanese',
+  'korean',
+  'simplified-chinese',
+  'arabic',
+  'hebrew',
+  'devanagari',
+  'thai',
+] as const satisfies readonly ScriptId[]
+
 const SHA256_HEX = /^[a-f0-9]{64}$/
 
 function isGlobals(value: unknown): boolean {
@@ -261,6 +286,30 @@ function isRelease(value: unknown): boolean {
   return sceneScreenIds(snapshot.screens, snapshot.layoutLayers) !== null
 }
 
+/**
+ * Une variante de langue.
+ *
+ * Elle ne porte que des textes : aucun identifiant de calque n'est exigé
+ * d'exister, parce qu'un calque supprimé ne doit pas rendre le projet entier
+ * invalide — l'entrée orpheline est simplement ignorée à la substitution. Ce
+ * qui est vérifié, c'est la forme et les bornes.
+ */
+function isLocaleVariant(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (typeof value.code !== 'string' || !LOCALE_CODE.test(value.code)) return false
+  if (typeof value.name !== 'string' || value.name.length > MAX_LOCALE_NAME_LENGTH) return false
+  if (!SCRIPT_IDS.includes(value.script as ScriptId)) return false
+  if (value.fontFamily !== undefined && typeof value.fontFamily !== 'string') return false
+  if (!isRecord(value.texts)) return false
+  return Object.values(value.texts).every(
+    (text) =>
+      isRecord(text) &&
+      typeof text.value === 'string' &&
+      text.value.length <= MAX_LOCALE_TEXT_LENGTH &&
+      typeof text.reviewed === 'boolean',
+  )
+}
+
 export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || typeof value.id !== 'string' || !value.id) return false
   if (typeof value.name !== 'string' || typeof value.activeScreenId !== 'string') return false
@@ -273,6 +322,13 @@ export function isProject(value: unknown): value is Project {
   if (value.releases !== undefined) {
     if (!Array.isArray(value.releases) || value.releases.length > MAX_PROJECT_RELEASES) return false
     if (!value.releases.every(isRelease)) return false
+  }
+
+  if (value.locales !== undefined) {
+    if (!Array.isArray(value.locales) || value.locales.length > MAX_PROJECT_LOCALES) return false
+    if (!value.locales.every(isLocaleVariant)) return false
+    const codes = new Set(value.locales.map((locale) => (locale as { code: string }).code))
+    if (codes.size !== value.locales.length) return false
   }
 
   return screenIds.has(value.activeScreenId)

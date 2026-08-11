@@ -86,6 +86,12 @@ function pruneSelection(project: Project): void {
  */
 export function runEditorTransaction<T>(
   mutate: (draft: Project) => T | typeof ABORT,
+  /**
+   * Regroupe les rafales sous un seul pas d'annulation, comme le font les
+   * éditeurs de panneau. Une transaction par frappe est correcte pour le projet
+   * et intenable pour l'historique : vingt ⌘Z pour défaire un mot.
+   */
+  coalesceKey?: string,
 ): TransactionOutcome<T> {
   const before = useProjectStore.getState().project
   if (!before) return { committed: false, reason: 'no-project' }
@@ -116,7 +122,7 @@ export function runEditorTransaction<T>(
   const usedBefore = collectAssetIds(before)
   const usedAfter = collectAssetIds(after)
 
-  useHistoryStore.getState().record({ kind: 'project', project: before })
+  useHistoryStore.getState().record({ kind: 'project', project: before }, coalesceKey)
   useProjectStore.setState({ project: after })
   pruneSelection(after)
 
