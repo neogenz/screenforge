@@ -1,6 +1,6 @@
 ---
 objective: "Remplacer Supabase (Auth, Postgres, RLS, Storage) et le service Hono de vente par un unique déploiement Convex, sans jamais rendre l'éditeur dépendant du réseau ni toucher au chemin critique d'export."
-status: in-progress
+status: implemented
 ---
 
 # Plan : migration Supabase + `apps/api` → Convex
@@ -61,6 +61,17 @@ absente jusqu'à la fin de la phase 5. Les phases livrent donc du backend testé
 mais non branché, et la phase 6 échange les deux variables d'un coup. C'est ce
 qui permet de ne jamais avoir deux sources de vérité vivantes en même temps —
 et, l'instance de production étant vide, il n'y a rien à réconcilier.
+
+## Ce qui reste à un humain
+
+Le code est basculé, démantelé et vert. Ce qui ne peut pas se faire depuis une
+session sans navigateur ni identifiants du propriétaire est rassemblé dans
+[`environnements.md`](./environnements.md), avec la commande exacte pour chaque
+valeur : la connexion `convex login`, les déploiements _dev_ et _production_ et
+leurs variables, les deux applications OAuth, l'expéditeur de courrier, les six
+valeurs Polar et son endpoint webhook, puis la suppression du projet Supabase
+hébergé et l'arrêt du service Railway. Les critères 4, 5 et 6 de la phase 6
+attendent ces accès et rien d'autre.
 
 ## Limitation de débit — vue d'ensemble
 
