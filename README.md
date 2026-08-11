@@ -90,4 +90,7 @@ src/
 
 ## License
 
-Proprietary — all rights reserved.
+Proprietary — all rights reserved. See [LICENSE](LICENSE).
+
+Third-party works redistributed in this repository keep their own licence and
+notices: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

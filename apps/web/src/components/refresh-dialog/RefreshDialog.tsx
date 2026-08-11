@@ -115,21 +115,17 @@ function RefreshDialogContent({ project }: { project: Project }) {
           </span>
         ) : undefined
       }
+      footerNote="Le cadrage, le rôle et la mise en page sont conservés."
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-2xs text-muted-foreground">
-            Le cadrage, le rôle et la mise en page sont conservés.
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="default" onClick={close} disabled={busy}>
-              Annuler
-            </Button>
-            <Button variant="primary" onClick={confirm} disabled={busy || posed.length === 0}>
-              <RefreshCw size={12} aria-hidden />
-              Remplacer {posed.length} capture{posed.length > 1 ? 's' : ''}
-            </Button>
-          </div>
-        </div>
+        <>
+          <Button variant="default" onClick={close} disabled={busy}>
+            Annuler
+          </Button>
+          <Button variant="primary" onClick={confirm} disabled={busy || posed.length === 0}>
+            <RefreshCw size={12} aria-hidden />
+            Remplacer {posed.length} capture{posed.length > 1 ? 's' : ''}
+          </Button>
+        </>
       }
     >
       <div className="flex max-h-[60dvh] flex-col overflow-y-auto px-6 py-4">

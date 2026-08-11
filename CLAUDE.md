@@ -75,6 +75,16 @@ apps/web/src/
     export-dialog/       # Export config + batch export
     color-picker/        # Color + alpha picker (recent colors)
     gradient-editor/     # Color stop editor
+    vector-picker/       # Shape + icon catalogue picker
+    refresh-dialog/      # Batch screenshot refresh (slot mapping, preview, all-or-nothing)
+    release-dialog/      # Freeze a release, verify it, diff it against the live project
+    locale-dialog/       # Locale variants + overflow review
+    campaign-dialog/     # AI brief → validated plan → real layers
+    publish-dialog/      # asc preflight, bundle + manifest, bridge publish
+    auth-dialog/         # Sign in (optional Cloud)
+    account-dialog/      # Account, entitlements, deletion
+    pricing-dialog/      # Offers
+    migrate-dialog/      # Local projects → Cloud
   stores/
     canvas.store.ts      # Layers, selection, active screen — facade over project.store
     project.store.ts     # Project metadata, screens, globals — source of truth
@@ -99,7 +109,19 @@ apps/web/src/
     zip.ts               # ZIP generation via JSZip
     commands.ts          # ⌘K command registry
     layer-factories.ts   # Add-layer defaults (single source)
-    stage.ts             # Floating-chrome insets for canvas fit
+    stage.ts             # Floating-chrome insets, responsive thresholds (never hardcode one)
+    editor-transaction.ts# All-or-nothing mutation + one undo step (every write goes through it)
+    project-validation.ts# Strict project contract + pure migrations, at every boundary
+    slots.ts             # Semantic screen roles
+    screenshot-placement.ts # Persistent crop (mode, focus, zoom) — survives asset swaps
+    batch-refresh.ts     # Slot mapping + atomic screenshot batch
+    vector-catalog.ts    # Shape + icon paths (serialisable ids, no React in the model)
+    release.ts           # Batch render, immutable Release, structural diff, verification
+    locale.ts            # Locale variants, text measurement, overflow findings
+    asc.ts               # App Store locales, export tree, manifest, preflight
+    bridge-client.ts     # Local bridge, one token per capability (codex, asc-publish)
+    ai/                  # Provider registry, constrained plan schema, deterministic builder
+    hash.ts              # sha256 for assets, release files, bundles
     image.ts / number.ts # Shared image + numeric helpers
     utils.ts             # cn() helper (clsx + tailwind-merge)
   types/
@@ -117,6 +139,12 @@ apps/web/src/
 **No object cache, no `clipPath`**: layer objects set `objectCaching = false`, and screen clipping goes through `clipContentToScreen` (a `ctx.clip()` inside a wrapped `render`), never Fabric's `clipPath` property. Both rules exist for the same reason: any object Fabric caches gets blitted back at a fractional offset with bilinear filtering, so every edge is antialiased twice — measured at 2× the soft-edge pixels on screen and in the exported PNG. Setting `clipPath` re-forces the cache via `needsItsOwnCache()` regardless of `objectCaching`.
 
 **History coalescing (v2)**: `history.store.record(snapshot, coalesceKey)` collapses bursts (slider drags, scrubs, arrow nudges) into one undo step (1200ms window, keeps the FIRST pre-state). Panel editors pass `coalesceKey: layer:{id}:{prop}` to `updateLayer`.
+
+**One write path, all or nothing**: every mutation goes through `runEditorTransaction(mutate, coalesceKey?)` — it validates the candidate project, commits it or discards it whole, and records exactly one undo step. This is what lets a ten-screenshot batch, an AI plan or a locale substitution be a single operation rather than ten partial ones. Never write to `project.store` directly, and never split one user gesture across two transactions: a failed run must leave nothing behind.
+
+**A release is frozen, not followed**: `Release` carries a deep-cloned snapshot, the rendered files with their sha256, and the locale it was rendered in. The project keeps changing next to it; the release does not. Verification re-renders the snapshot and compares hashes, and publication consumes a release — never the live project. Anything that made a release track the project would erase the one dated fact the whole cycle rests on.
+
+**Nothing leaves the machine unless it is asked to**: the default AI provider is the local deterministic builder. The bridge is optional, is two capabilities with two separate tokens (`codex` never receives an image; `asc-publish` sends a frozen bundle to Apple), and ScreenForge holds no App Store credential at any point — `asc` resolves its own from the system keychain. Adding a field for a `.p8`, an issuer id or an API key would break the phase-9 contract.
 
 ## Design language (v6)
 

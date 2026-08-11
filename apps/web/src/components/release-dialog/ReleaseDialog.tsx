@@ -20,7 +20,7 @@ import { saveCurrentProject } from '@/lib/storage'
 import { rightsOf } from '@/lib/entitlements'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -170,151 +170,146 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           {releases.length}/{MAX_PROJECT_RELEASES}
         </span>
       }
+      footerNote="Une release fige l’état rendu ; le projet continue de vivre à côté."
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-2xs text-muted-foreground">
-            Une release fige l’état rendu ; le projet continue de vivre à côté.
-          </p>
-          <Button variant="default" onClick={close} disabled={busy}>
-            Fermer
-          </Button>
-        </div>
+        <Button variant="default" onClick={close} disabled={busy}>
+          Fermer
+        </Button>
       }
     >
-      <div className="grid grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
-        <aside
-          className="flex max-h-[56dvh] flex-col gap-3 overflow-y-auto border-r border-border px-4 py-4"
-          aria-label="Lots figés"
-        >
-          <div className="flex flex-col gap-1.5">
-            <Field id={RELEASE_NAME_FIELD_ID} label="Nom du lot">
-              <Input
-                id={RELEASE_NAME_FIELD_ID}
-                font="sans"
-                value={name}
-                maxLength={MAX_RELEASE_NAME_LENGTH}
-                placeholder="1.4.0"
-                disabled={busy}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </Field>
-            <Select
-              aria-label="Langue du lot"
-              label="Langue"
-              value={localeCode}
-              disabled={busy}
-              onChange={(event) => setLocaleCode(event.target.value)}
-            >
-              <option value="">Langue du projet</option>
-              {(project.locales ?? []).map((entry) => (
-                <option key={entry.code} value={entry.code}>
-                  {entry.name}
-                </option>
-              ))}
-            </Select>
-            <Button
-              variant="primary"
-              onClick={() => void freeze()}
-              loading={busy && !checks}
-              disabled={busy || releases.length >= MAX_PROJECT_RELEASES}
-            >
-              <Package size={12} aria-hidden />
-              Figer une release
-            </Button>
-          </div>
-
-          {releases.length === 0 ? (
-            <p className="text-2xs text-muted-foreground">
-              Aucun lot figé. Le premier servira de référence à tous les suivants.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {[...releases].reverse().map((release) => (
-                <li key={release.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(release.id)}
-                    aria-current={release.id === selected?.id}
-                    className={cn(
-                      'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
-                      release.id === selected?.id
-                        ? 'border-foreground bg-muted'
-                        : 'border-border hover:border-input',
-                    )}
-                  >
-                    <span className="truncate text-sm text-foreground">{release.name}</span>
-                    <span className="tabular text-2xs text-muted-foreground">
-                      {formatDate(release.createdAt)} · {release.files.length} planches
-                      {release.locale ? ` · ${release.locale}` : ''}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
-
-        <section className="max-h-[56dvh] overflow-y-auto px-6 py-4" aria-label="Détail du lot">
-          {progress && (
-            <div className="mb-4" aria-live="polite">
-              <div className="mb-2 flex items-center gap-2">
-                <Loader size={13} className="animate-spin text-foreground" aria-hidden />
-                <span className="text-2xs text-foreground">{progress.label}</span>
-                <span className="tabular ml-auto text-2xs text-muted-foreground">
-                  {progress.current}/{progress.total}
-                </span>
-              </div>
-              <div className="h-0.5 overflow-hidden bg-border">
-                <div
-                  className="h-full bg-foreground transition-[width] duration-300 ease-out"
-                  style={{ width: `${(progress.current / Math.max(1, progress.total)) * 100}%` }}
+      <DialogColumns
+        label="Lots figés"
+        contentLabel="Détail du lot"
+        list={
+          <>
+            <div className="flex flex-col gap-1.5">
+              <Field id={RELEASE_NAME_FIELD_ID} label="Nom du lot">
+                <Input
+                  id={RELEASE_NAME_FIELD_ID}
+                  font="sans"
+                  value={name}
+                  maxLength={MAX_RELEASE_NAME_LENGTH}
+                  placeholder="1.4.0"
+                  disabled={busy}
+                  onChange={(event) => setName(event.target.value)}
                 />
+              </Field>
+              <Select
+                aria-label="Langue du lot"
+                label="Langue"
+                value={localeCode}
+                disabled={busy}
+                onChange={(event) => setLocaleCode(event.target.value)}
+              >
+                <option value="">Langue du projet</option>
+                {(project.locales ?? []).map((entry) => (
+                  <option key={entry.code} value={entry.code}>
+                    {entry.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="primary"
+                onClick={() => void freeze()}
+                loading={busy && !checks}
+                disabled={busy || releases.length >= MAX_PROJECT_RELEASES}
+              >
+                <Package size={12} aria-hidden />
+                Figer une release
+              </Button>
+            </div>
+
+            {releases.length === 0 ? (
+              <p className="text-2xs text-muted-foreground">
+                Aucun lot figé. Le premier servira de référence à tous les suivants.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {[...releases].reverse().map((release) => (
+                  <li key={release.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(release.id)}
+                      aria-current={release.id === selected?.id}
+                      className={cn(
+                        'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+                        release.id === selected?.id
+                          ? 'border-foreground bg-muted'
+                          : 'border-border hover:border-input',
+                      )}
+                    >
+                      <span className="truncate text-sm text-foreground">{release.name}</span>
+                      <span className="tabular text-2xs text-muted-foreground">
+                        {formatDate(release.createdAt)} · {release.files.length} planches
+                        {release.locale ? ` · ${release.locale}` : ''}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        }
+      >
+        {progress && (
+          <div className="mb-4" aria-live="polite">
+            <div className="mb-2 flex items-center gap-2">
+              <Loader size={13} className="animate-spin text-foreground" aria-hidden />
+              <span className="text-2xs text-foreground">{progress.label}</span>
+              <span className="tabular ml-auto text-2xs text-muted-foreground">
+                {progress.current}/{progress.total}
+              </span>
+            </div>
+            <div className="h-0.5 overflow-hidden bg-border">
+              <div
+                className="h-full bg-foreground transition-[width] duration-300 ease-out"
+                style={{ width: `${(progress.current / Math.max(1, progress.total)) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="mb-4 flex items-start gap-2 text-2xs text-destructive">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+            {error}
+          </p>
+        )}
+
+        {!selected ? (
+          <p className="text-2xs text-muted-foreground">
+            Figez un lot pour pouvoir comparer les livraisons suivantes à celui-ci.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="section-title">{selected.name}</h3>
+                <p className="tabular mt-1 text-2xs text-muted-foreground">
+                  {formatDate(selected.createdAt)} · {selected.files.length} planches
+                  {selected.watermarked ? ' · filigrané' : ''}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button variant="default" onClick={() => void verify(selected)} disabled={busy}>
+                  <ShieldCheck size={12} aria-hidden />
+                  Vérifier
+                </Button>
+                <Button variant="default" onClick={() => forget(selected)} disabled={busy}>
+                  <Trash2 size={12} aria-hidden />
+                  Retirer
+                </Button>
               </div>
             </div>
-          )}
 
-          {error && (
-            <p role="alert" className="mb-4 flex items-start gap-2 text-2xs text-destructive">
-              <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-              {error}
-            </p>
-          )}
-
-          {!selected ? (
-            <p className="text-2xs text-muted-foreground">
-              Figez un lot pour pouvoir comparer les livraisons suivantes à celui-ci.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="section-title">{selected.name}</h3>
-                  <p className="tabular mt-1 text-2xs text-muted-foreground">
-                    {formatDate(selected.createdAt)} · {selected.files.length} planches
-                    {selected.watermarked ? ' · filigrané' : ''}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button variant="default" onClick={() => void verify(selected)} disabled={busy}>
-                    <ShieldCheck size={12} aria-hidden />
-                    Vérifier
-                  </Button>
-                  <Button variant="default" onClick={() => forget(selected)} disabled={busy}>
-                    <Trash2 size={12} aria-hidden />
-                    Retirer
-                  </Button>
-                </div>
-              </div>
-
-              {checks && checks.releaseId === selected.id && (
-                <VerifyReport results={checks.results} />
-              )}
-              {diff && <DiffReport diff={diff} />}
-            </div>
-          )}
-        </section>
-      </div>
+            {checks && checks.releaseId === selected.id && (
+              <VerifyReport results={checks.results} />
+            )}
+            {diff && <DiffReport diff={diff} />}
+          </div>
+        )}
+      </DialogColumns>
     </Dialog>
   )
 }

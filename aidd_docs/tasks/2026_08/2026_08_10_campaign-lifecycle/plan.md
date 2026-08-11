@@ -1,6 +1,6 @@
 ---
 objective: "Une campagne App Store se conçoit une fois et se remaintient à chaque release : le design, les cadrages et les slots survivent au remplacement des captures, et le lot exporté devient une release vérifiable."
-status: in-progress
+status: implemented
 ---
 
 # Plan: cycle de vie d'une campagne
@@ -47,7 +47,7 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | 7   | Registre de providers + bridge Codex             | done         |
 | 8   | Localisation éditable + revue des débordements   | done         |
 | 9   | Arborescence d'export + preflight `asc`          | done         |
-| 10  | Durcissement, licences, a11y, doc, E2E complet   | à faire      |
+| 10  | Durcissement, licences, a11y, doc, E2E complet   | done         |
 
 L'ordre est celui des dépendances, pas celui de la valeur. Les phases 2 à 5
 tiennent seules : elles décrivent le cycle de vie complet d'une campagne sans

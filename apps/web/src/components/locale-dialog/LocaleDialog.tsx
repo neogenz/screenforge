@@ -153,19 +153,17 @@ function LocaleDialogContent({ project }: { project: Project }) {
       title="Langues"
       size="lg"
       flush
+      footerNote={
+        locale
+          ? blocked
+            ? `${findings.length} problème${findings.length > 1 ? 's' : ''} à corriger avant d’exporter cette langue.`
+            : `« ${locale.name} » est exportable. ${unreviewedCount(locale)} texte${unreviewedCount(locale) > 1 ? 's' : ''} encore à relire.`
+          : 'Une langue ne duplique rien : elle ne porte que les textes.'
+      }
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-2xs text-muted-foreground">
-            {locale
-              ? blocked
-                ? `${findings.length} problème${findings.length > 1 ? 's' : ''} à corriger avant d’exporter cette langue.`
-                : `« ${locale.name} » est exportable. ${unreviewedCount(locale)} texte${unreviewedCount(locale) > 1 ? 's' : ''} encore à relire.`
-              : 'Une langue ne duplique rien : elle ne porte que les textes.'}
-          </p>
-          <Button variant="default" onClick={close} disabled={busy}>
-            Fermer
-          </Button>
-        </div>
+        <Button variant="default" onClick={close} disabled={busy}>
+          Fermer
+        </Button>
       }
     >
       <div className="flex max-h-[60dvh] flex-col gap-4 overflow-y-auto px-6 py-4">

@@ -197,6 +197,23 @@ export const TOP_BAR_COMPACT_WIDTH = 768
  */
 export const TOP_BAR_TOOLS_WIDTH = 640
 
+/** Gouttière que la boîte modale laisse à la fenêtre (`w-[calc(100%-2rem)]`). */
+export const DIALOG_VIEWPORT_GUTTER = 32
+/** Colonne de liste des boîtes qui en ont deux : Releases, Publier, Export. */
+export const DIALOG_SIDEBAR_WIDTH = 260
+/**
+ * Largeur sous laquelle une boîte à deux colonnes empile les siennes.
+ *
+ * La colonne de contenu porte les mêmes contrôles que le tiroir Propriétés :
+ * sous cette largeur, un champ tient encore mais sa valeur ne se lit plus. Le
+ * seuil est donc la somme des deux colonnes et de la gouttière que la boîte
+ * laisse à la fenêtre. Mesuré avant : à 375px la boîte fait 343 et le
+ * formulaire tombait à 103px — elle ne débordait pas, elle devenait illisible
+ * en silence, ce qu'aucun test de débordement n'attrape.
+ */
+export const DIALOG_STACK_MIN_WIDTH =
+  DIALOG_SIDEBAR_WIDTH + DRAWER_WIDTH_PROPS + DIALOG_VIEWPORT_GUTTER
+
 /** Top bar (50px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
 /** Pellicule + marges, selon qu'elle porte ou non sa rangée de libellés. */

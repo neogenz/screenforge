@@ -235,33 +235,31 @@ function CampaignDialogContent({ project }: { project: Project }) {
       title="Composer une campagne"
       size="lg"
       flush
+      /* Ce que la composition implique, dit à l'endroit où on la lance — pas
+         dans une page d'aide. La phrase change avec le fournisseur : « tout
+         reste ici » cesserait d'être vrai dès le pont branché. */
+      footerNote={
+        providerId === 'local' || !connected
+          ? 'Tout est composé sur votre appareil, en calques modifiables.'
+          : 'Le texte du brief part vers Codex. Les images restent ici. Le résultat est en calques modifiables.'
+      }
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          {/* Ce que la composition implique, dit à l'endroit où on la lance —
-              pas dans une page d'aide. La phrase change avec le fournisseur :
-              « tout reste ici » cesserait d'être vrai dès le pont branché. */}
-          <p className="text-2xs text-muted-foreground">
-            {providerId === 'local' || !connected
-              ? 'Tout est composé sur votre appareil, en calques modifiables.'
-              : 'Le texte du brief part vers Codex. Les images restent ici. Le résultat est en calques modifiables.'}
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="default" onClick={close} disabled={busy}>
-              Annuler
+        <>
+          <Button variant="default" onClick={close} disabled={busy}>
+            Annuler
+          </Button>
+          {plan ? (
+            <Button variant="primary" onClick={accept} disabled={busy}>
+              <Sparkles size={12} aria-hidden />
+              Poser {plan.screens.length} planche{plan.screens.length > 1 ? 's' : ''}
             </Button>
-            {plan ? (
-              <Button variant="primary" onClick={accept} disabled={busy}>
-                <Sparkles size={12} aria-hidden />
-                Poser {plan.screens.length} planche{plan.screens.length > 1 ? 's' : ''}
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={() => void compose()} loading={busy}>
-                <Wand2 size={12} aria-hidden />
-                Proposer un plan
-              </Button>
-            )}
-          </div>
-        </div>
+          ) : (
+            <Button variant="primary" onClick={() => void compose()} loading={busy}>
+              <Wand2 size={12} aria-hidden />
+              Proposer un plan
+            </Button>
+          )}
+        </>
       }
     >
       <div className="flex max-h-[60dvh] flex-col gap-4 overflow-y-auto px-6 py-4">

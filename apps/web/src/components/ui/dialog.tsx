@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
+import { DIALOG_SIDEBAR_WIDTH, DIALOG_STACK_MIN_WIDTH } from '@/lib/stage'
 import { IconButton } from '@/components/ui/icon-button'
 
 export interface DialogProps {
@@ -11,6 +13,15 @@ export interface DialogProps {
   title: string
   children: ReactNode
   footer?: ReactNode
+  /**
+   * Ce que l'action implique, dit là où on la lance.
+   *
+   * Portée par la boîte plutôt que par chaque pied : les cinq du cycle de vie
+   * rebâtissaient la même rangée « phrase à gauche, actions à droite », et
+   * aucune ne passait à la ligne — à 375px la paire de boutons sortait du
+   * cadre, sans que rien ne le dise.
+   */
+  footerNote?: ReactNode
   size?: 'sm' | 'md' | 'lg'
   /** Extra content on the right side of the header, before the close button. */
   headerActions?: ReactNode
@@ -34,6 +45,7 @@ export function Dialog({
   title,
   children,
   footer,
+  footerNote,
   size = 'md',
   headerActions,
   flush = false,
@@ -88,13 +100,66 @@ export function Dialog({
             </div>
           </div>
           <div className={cn('min-h-0 flex-1 overflow-y-auto', !flush && 'p-6')}>{children}</div>
-          {footer && (
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-6 py-4">
+          {(footer || footerNote) && (
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-border px-6 py-4">
+              {footerNote && (
+                <p className="mr-auto min-w-0 text-2xs text-muted-foreground">{footerNote}</p>
+              )}
               {footer}
             </div>
           )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  )
+}
+
+export interface DialogColumnsProps {
+  /** Nom accessible de la colonne de liste. */
+  label: string
+  /** Nom accessible de la colonne de contenu, quand elle en mérite un. */
+  contentLabel?: string
+  list: ReactNode
+  children: ReactNode
+}
+
+/**
+ * Une liste et ce qu'elle sélectionne, côte à côte tant qu'il y a la place.
+ *
+ * Sous `DIALOG_STACK_MIN_WIDTH` les deux s'empilent, et c'est la boîte qui
+ * défile au lieu de chaque colonne : deux boîtes à défilement l'une sur
+ * l'autre dans une fenêtre étroite, c'est un contenu qu'on ne peut plus
+ * atteindre sans deviner laquelle porte la barre. Le seuil se lit par
+ * `useMediaQuery` — écrit en dur dans une classe utilitaire, il aurait été
+ * recopié de travers par la troisième boîte qui en a besoin.
+ */
+export function DialogColumns({ label, contentLabel, list, children }: DialogColumnsProps) {
+  const stacked = useMediaQuery(belowWidth(DIALOG_STACK_MIN_WIDTH))
+  return (
+    <div
+      data-dialog-columns
+      className="grid"
+      style={{
+        gridTemplateColumns: stacked
+          ? 'minmax(0,1fr)'
+          : `minmax(0,${DIALOG_SIDEBAR_WIDTH}px) minmax(0,1fr)`,
+      }}
+    >
+      <aside
+        aria-label={label}
+        className={cn(
+          'flex flex-col gap-3 border-border px-4 py-4',
+          stacked ? 'border-b' : 'max-h-[56dvh] overflow-y-auto border-r',
+        )}
+      >
+        {list}
+      </aside>
+      <section
+        aria-label={contentLabel}
+        className={cn('flex flex-col gap-4 px-6 py-4', !stacked && 'max-h-[56dvh] overflow-y-auto')}
+      >
+        {children}
+      </section>
+    </div>
   )
 }
