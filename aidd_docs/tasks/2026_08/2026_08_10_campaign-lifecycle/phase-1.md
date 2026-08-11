@@ -63,6 +63,12 @@ transaction s'y branche au lieu d'ouvrir une seconde voie d'annulation.
 | 2    | Un asset remplacé sort en `orphanedAssetIds` et reste résoluble                          |
 | 3    | Versions `2`, `0` et `1.5` → `unsupported-version` ; une archive `1` s'ouvre             |
 
+> Ligne 3 dépassée par la suite : le plafond est passé à 5 aux phases 3, 5 et 8,
+> donc `2` s'ouvre désormais. Ce qui restait à tenir — refuser une version
+> postérieure au plafond, ouvrir tout ce qui est en deçà — est mesuré à chaque
+> phase qui bouge le plafond, et `project-file.spec.ts` refuse `6`, `0` et `1.5`.
+> Conservée telle quelle : elle dit ce qui a été vérifié ce jour-là.
+
 ## Résultats
 
 ```

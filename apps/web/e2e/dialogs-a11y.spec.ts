@@ -22,6 +22,7 @@ const DIALOGS = [
   ['Composer une campagne', 'Composer une campagne'],
   ['Ouvrir les langues', 'Langues'],
   ['Publier chez Apple', 'Publier chez Apple'],
+  ['Ouvrir l’export', 'Export officiel'],
 ] as const
 
 function activeInsideDialog(page: Page): Promise<boolean> {
@@ -124,29 +125,40 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
   }
 })
 
-test('les boîtes à deux colonnes s’empilent sous leur seuil', async ({ page }) => {
-  await waitForApp(page)
+/* Les deux orientations du rail : à gauche quand il porte ce qu'on choisit,
+   à droite quand il récapitule ce que la colonne principale décide. Empiler
+   n'est pas la même opération dans les deux sens — les bordures changent de
+   côté et l'ordre du DOM avec elles. */
+const BOÎTES_À_COLONNES = [
+  ['Ouvrir les releases', 'Releases'],
+  ['Ouvrir l’export', 'Export officiel'],
+] as const
 
-  /* Ouverte au large : sous `TOP_BAR_COMPACT_WIDTH` le bouton part au menu de
-     débordement, et la traversée de ce menu est déjà mesurée ailleurs. Ce qui
-     se joue ici est la boîte, pas la barre. */
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.getByLabel('Ouvrir les releases').click()
-  const dialog = page.getByRole('dialog', { name: 'Releases' })
-  await expect(dialog).toBeVisible()
+for (const [label, title] of BOÎTES_À_COLONNES) {
+  test(`« ${title} » empile ses colonnes sous le seuil`, async ({ page }) => {
+    await waitForApp(page)
 
-  const colonnes = () =>
-    page.evaluate(() => {
-      const grille = document.querySelector('[role="dialog"] [data-dialog-columns]')
-      return grille ? getComputedStyle(grille).gridTemplateColumns.split(' ').length : -1
-    })
+    /* Ouverte au large : sous `TOP_BAR_COMPACT_WIDTH` le bouton part au menu de
+       débordement, et la traversée de ce menu est déjà mesurée ailleurs. Ce qui
+       se joue ici est la boîte, pas la barre. */
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.getByLabel(label).click()
+    const dialog = page.getByRole('dialog', { name: title })
+    await expect(dialog).toBeVisible()
 
-  await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH + 80, height: 800 })
-  await expect.poll(colonnes).toBe(2)
+    const colonnes = () =>
+      page.evaluate(() => {
+        const grille = document.querySelector('[role="dialog"] [data-dialog-columns]')
+        return grille ? getComputedStyle(grille).gridTemplateColumns.split(' ').length : -1
+      })
 
-  /* Sous le seuil, elles s'empilent. À 375px la boîte fait 343 : deux colonnes
-     y laissaient 103px au formulaire, assez pour un champ mais pas pour lire sa
-     valeur — la boîte ne débordait pas, elle devenait illisible en silence. */
-  await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH - 80, height: 800 })
-  await expect.poll(colonnes).toBe(1)
-})
+    await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH + 80, height: 800 })
+    await expect.poll(colonnes).toBe(2)
+
+    /* Sous le seuil, elles s'empilent. À 375px la boîte fait 343 : deux colonnes
+       y laissaient 103px au formulaire, assez pour un champ mais pas pour lire sa
+       valeur — la boîte ne débordait pas, elle devenait illisible en silence. */
+    await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH - 80, height: 800 })
+    await expect.poll(colonnes).toBe(1)
+  })
+}

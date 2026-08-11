@@ -115,26 +115,76 @@ export function Dialog({
 }
 
 export interface DialogColumnsProps {
-  /** Nom accessible de la colonne de liste. */
-  label: string
-  /** Nom accessible de la colonne de contenu, quand elle en mérite un. */
+  /** Nom accessible de la colonne étroite. */
+  railLabel: string
+  /** Nom accessible de la colonne principale, quand elle en mérite un. */
   contentLabel?: string
-  list: ReactNode
+  /** La colonne étroite : une liste à choisir, ou un récapitulatif à lire. */
+  rail: ReactNode
+  /**
+   * De quel côté le rail se pose.
+   *
+   * `start` quand il porte ce qu'on choisit et que la colonne principale
+   * montre le choix — c'est la lecture maître-détail des boîtes du cycle de
+   * vie. `end` quand il récapitule ce que la colonne principale décide :
+   * inverser l'ordre pour uniformiser aurait mis le récapitulatif avant le
+   * travail, dans le DOM comme sous le curseur de tabulation.
+   */
+  railSide?: 'start' | 'end'
   children: ReactNode
 }
 
 /**
- * Une liste et ce qu'elle sélectionne, côte à côte tant qu'il y a la place.
+ * Deux colonnes, côte à côte tant qu'il y a la place.
  *
- * Sous `DIALOG_STACK_MIN_WIDTH` les deux s'empilent, et c'est la boîte qui
- * défile au lieu de chaque colonne : deux boîtes à défilement l'une sur
- * l'autre dans une fenêtre étroite, c'est un contenu qu'on ne peut plus
- * atteindre sans deviner laquelle porte la barre. Le seuil se lit par
- * `useMediaQuery` — écrit en dur dans une classe utilitaire, il aurait été
- * recopié de travers par la troisième boîte qui en a besoin.
+ * Sous `DIALOG_STACK_MIN_WIDTH` elles s'empilent, et c'est la boîte qui défile
+ * au lieu de chaque colonne : deux boîtes à défilement l'une sur l'autre dans
+ * une fenêtre étroite, c'est un contenu qu'on ne peut plus atteindre sans
+ * deviner laquelle porte la barre. Le seuil se lit par `useMediaQuery` — écrit
+ * en dur dans une classe utilitaire, il aurait été recopié de travers par la
+ * quatrième boîte qui en a besoin.
+ *
+ * L'ordre du DOM suit l'ordre visuel dans les deux configurations : le rail
+ * empilé se retrouve exactement là où il était, avant ou après, plutôt qu'à
+ * une place que seule la grille connaissait.
  */
-export function DialogColumns({ label, contentLabel, list, children }: DialogColumnsProps) {
+export function DialogColumns({
+  railLabel,
+  contentLabel,
+  rail,
+  railSide = 'start',
+  children,
+}: DialogColumnsProps) {
   const stacked = useMediaQuery(belowWidth(DIALOG_STACK_MIN_WIDTH))
+  const first = railSide === 'start'
+
+  const railColumn = (
+    <aside
+      key="rail"
+      aria-label={railLabel}
+      className={cn(
+        'flex flex-col gap-3 border-border px-4 py-4',
+        stacked
+          ? first
+            ? 'border-b'
+            : 'border-t'
+          : cn('max-h-[56dvh] overflow-y-auto', first ? 'border-r' : 'border-l'),
+      )}
+    >
+      {rail}
+    </aside>
+  )
+  const contentColumn = (
+    <section
+      key="content"
+      aria-label={contentLabel}
+      className={cn('flex flex-col gap-4 px-6 py-4', !stacked && 'max-h-[56dvh] overflow-y-auto')}
+    >
+      {children}
+    </section>
+  )
+
+  const track = `minmax(0,${DIALOG_SIDEBAR_WIDTH}px)`
   return (
     <div
       data-dialog-columns
@@ -142,24 +192,12 @@ export function DialogColumns({ label, contentLabel, list, children }: DialogCol
       style={{
         gridTemplateColumns: stacked
           ? 'minmax(0,1fr)'
-          : `minmax(0,${DIALOG_SIDEBAR_WIDTH}px) minmax(0,1fr)`,
+          : first
+            ? `${track} minmax(0,1fr)`
+            : `minmax(0,1fr) ${track}`,
       }}
     >
-      <aside
-        aria-label={label}
-        className={cn(
-          'flex flex-col gap-3 border-border px-4 py-4',
-          stacked ? 'border-b' : 'max-h-[56dvh] overflow-y-auto border-r',
-        )}
-      >
-        {list}
-      </aside>
-      <section
-        aria-label={contentLabel}
-        className={cn('flex flex-col gap-4 px-6 py-4', !stacked && 'max-h-[56dvh] overflow-y-auto')}
-      >
-        {children}
-      </section>
+      {first ? [railColumn, contentColumn] : [contentColumn, railColumn]}
     </div>
   )
 }

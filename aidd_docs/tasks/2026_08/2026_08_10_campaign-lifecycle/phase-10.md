@@ -12,12 +12,20 @@ README.md                                        ✏️ le badge pointe sur un f
 THIRD-PARTY-NOTICES.md                           ✏️ les deux dépôts audités, les licences transitives
 CLAUDE.md                                        ✏️ la carte du code, et quatre invariants du cycle
 apps/web/src/
-├── lib/stage.ts                                 ✏️ `DIALOG_STACK_MIN_WIDTH`, dérivé
+├── lib/stage.ts                                 ✏️ `DIALOG_STACK_MIN_WIDTH` dérivé, seuil de repli re-mesuré
 ├── components/ui/dialog.tsx                     ✏️ `DialogColumns` + `footerNote`
-├── components/{release,publish}-dialog/          ✏️ deux colonnes qui s'empilent
-└── components/{campaign,refresh,locale}-dialog/  ✏️ un pied qui passe à la ligne
+├── components/{release,publish,export}-dialog/   ✏️ deux colonnes qui s'empilent, des deux côtés
+├── components/{campaign,refresh,locale}-dialog/  ✏️ un pied qui passe à la ligne
+├── lib/locale.ts                                ✏️ la revue descend dans les calques partagés
+├── lib/asc.ts                                   ✏️ la commande affichée porte les drapeaux
+├── lib/ai/plan.ts                               ✏️ le fond d'un plan jugé sur le contrat du projet
+└── lib/project-validation.ts                    ✏️ `isBackground` exporté, une seule définition
+apps/bridge/src/
+├── asc.ts                                       ✏️ la clé d'idempotence retient les drapeaux
+└── protocol.ts                                  ✏️ `dryRun` inoffensif par défaut
 apps/web/e2e/
-├── dialogs-a11y.spec.ts                         ✅ 3 cas : clavier, densité, empilement
+├── dialogs-a11y.spec.ts                         ✅ 4 cas : clavier, densité, empilement × 2 sens
+├── responsive-chrome.spec.ts                    ✏️ une mesure **au** seuil, pas seulement autour
 └── campaign-journey.spec.ts                     ✅ 1 cas : les dix étapes, d'affilée
 ```
 
@@ -41,6 +49,14 @@ voit.
 343 : deux colonnes y laissaient 103px au formulaire. Rien ne sortait du cadre,
 donc rien ne se plaignait. Le seuil d'empilement est dérivé de la largeur du
 tiroir Propriétés, qui porte les mêmes contrôles — pas choisi.
+
+**Un seuil est une promesse datée.** Il a été mesuré une fois contre un contenu
+qui a grossi ensuite, et personne ne mesurait plus au seuil : de part et d'autre,
+tout allait bien. Entre les deux, la rangée débordait de 119px et le CTA
+principal se posait hors de l'écran, sur une bande de 346px de largeurs
+courantes. C'est le mode de panne propre aux constantes dérivées d'une mesure :
+elles vieillissent en silence, et une suite verte des deux côtés du seuil ne dit
+rien de ce qui se passe dessus.
 
 ## Tasks to do
 
@@ -116,6 +132,61 @@ par ce cycle et par le socle SaaS y sont, et quatre invariants les accompagnent
 local, et l'absence de tout identifiant Apple. Un agent qui lit ce fichier
 avant d'éditer doit y trouver ce qui casserait le contrat.
 
+### `7)` La boîte d'export, au même régime
+
+Elle a le même défaut de densité, mais son rail est à **droite** : il récapitule
+ce que la colonne de gauche décide. `DialogColumns` prend donc un `railSide`
+plutôt qu'un ordre imposé — inverser pour uniformiser aurait mis le
+récapitulatif avant le travail, dans le DOM comme sous le curseur de
+tabulation. Sa largeur de rail rejoint `DIALOG_SIDEBAR_WIDTH` au passage : deux
+largeurs de rail pour un même rôle, c'est une échelle qui s'ouvre.
+
+Sa grille précède la branche (`3d60681`), et le périmètre a été élargi sur
+demande explicite.
+
+### `8)` Ce qu'une revue indépendante a trouvé
+
+Un agent de vérification a relu le cycle entier — le code, pas le diff — avec
+mandat de chercher ce qui manque plutôt que de confirmer ce qui est là. Sept
+défauts réels en sont sortis, tous corrigés ici, chacun avec le test qui
+l'aurait vu :
+
+1. **Le CTA principal hors de l'écran de 768 à 1114** (mesuré : à 900px la
+   rangée réclamait 993 dans un îlot de 874, « Ouvrir l'export » posé à 1006,
+   sans défilement pour le rattraper). Le seuil de repli était calé sur le
+   contenu d'avant les six boutons du cycle. Re-mesuré à 1114, arrondi au palier
+   standard au-dessus.
+2. **La revue de langue ne descendait pas dans les calques partagés** : un texte
+   « partagé partout » était semé dans la variante, listé, substitué à l'export,
+   et jamais mesuré. Il pouvait déborder sur les dix planches sans bloquer ni
+   l'export ni le figement — c'est-à-dire tout le contraire de ce que la phase 8
+   promet.
+3. **La commande affichée et la commande exécutée divergeaient** sur `--replace`,
+   le seul drapeau irréversible du produit : la page montrait celle du
+   manifeste, figée avant que la case existe. Les deux constructeurs vivant dans
+   deux paquets qu'aucun type ne relie, c'est un test qui les tient appariés
+   maintenant, sur les quatre combinaisons.
+4. **La clé d'idempotence ignorait les drapeaux** : un remplacement demandé après
+   un ajout était avalé par le cache et rapporté en succès, avec un
+   `replaceExisting: false` dans une réponse que personne ne relit. Prudent dans
+   son effet, faux dans ce qu'il disait.
+5. **`dryRun` était inoffensif dans la page et pas dans le schéma** : un appelant
+   détenant le jeton et omettant le champ obtenait un vrai téléversement. Le
+   garde-fou annoncé n'existait que dans la case cochée.
+6. **L'harmonisation désarmait le nettoyage** : elle levait le drapeau nommé
+   « accepté » sans poser une seule capture, donc un run abandonné laissait ses
+   fichiers importés dans le registre. Le drapeau dit maintenant ce qu'il mesure.
+7. **`isCampaignPlan` ne validait pas le fond qu'il déclarait valider** : `{}`
+   passait, s'affichait comme un plan valide, et n'échouait qu'au clic sur
+   « Poser », sur un message qui désignait le mauvais endroit. Rien n'était
+   jamais écrit — la défense en profondeur tenait, l'erreur mentait.
+
+Deux corrections de documentation avec : l'invariant « une seule voie
+d'écriture » interdisait `updateLayer`, ce que le dépôt fait partout et que le
+même fichier autorise trois paragraphes plus haut ; et deux tables d'acceptation
+des phases 1 et 3 citaient un plafond de version dépassé depuis, désormais
+annotées plutôt que réécrites.
+
 ## Test acceptance criteria
 
 | Task | Acceptance criteria                                                                     |
@@ -132,15 +203,28 @@ avant d'éditer doit y trouver ce qui casserait le contrat.
 | 4    | Le badge du README pointe sur un fichier qui existe, et la politique est inchangée         |
 | 5    | Les deux dépôts audités, leur licence et l'absence de reprise sont écrits                  |
 | 5    | Aucune dépendance à réciprocité forte n'entre dans un artefact livré                       |
+| 7    | La boîte d'export empile ses colonnes sous le seuil, rail à droite                         |
+| 7    | Elle passe les mêmes épreuves de clavier et de densité que les cinq autres                  |
+| 8    | À `TOP_BAR_COMPACT_WIDTH` exactement, la rangée ne déborde pas et le CTA est dans la fenêtre |
+| 8    | Un calque partagé qui déborde est signalé, et sa langue est bloquée                          |
+| 8    | La commande affichée est, aux quatre combinaisons de drapeaux, celle que le pont exécute    |
+| 8    | Un remplacement après un ajout relance un téléversement, il n'est pas rendu par le cache    |
+| 8    | Une requête de publication sans `dryRun` ne téléverse pas pour de vrai                       |
+| 8    | Un run harmonisé puis abandonné rend ses captures importées au néant                        |
+| 8    | Un plan dont le fond ne tient pas le contrat du projet est refusé avant l'affichage         |
 
 ## Ce qui n'est pas fait ici, et ce qui n'est pas prouvé
 
-**La boîte d'export n'a pas été empilée.** Sa grille à deux colonnes précède
-cette branche (`3d60681`, présent dans `feat/saas-foundations`) et sa liste est
-à droite, ce que `DialogColumns` ne sait pas encore faire. Elle souffre du même
-défaut de densité, elle est signalée, elle n'est pas corrigée ici : élargir le
-périmètre d'une phase de durcissement à du code qu'elle n'a pas écrit est
-exactement ce qui rend une PR illisible.
+**Le téléversement réel du pont reste testé contre une doublure.** La clé
+d'idempotence et le défaut `dryRun` sont mesurés sur un `asc` factice qui
+enregistre son `argv`. Ce que le vrai binaire fait de `--replace` n'a pas été
+exercé, et ne le sera pas sans un compte Apple.
+
+**Le seuil de repli est mesuré sur un état de la barre, pas sur tous.** 1114 a
+été relevé avec les deux entrées commerciales présentes et le palier « Gratuit »
+affiché, ce qui est le cas le plus large que la rangée sait produire aujourd'hui.
+Une entrée de plus le périmerait à nouveau, exactement comme la première fois —
+la seule protection réelle est la mesure au seuil, pas la constante.
 
 **Le clavier est vérifié, l'assistance d'écran ne l'est pas.** Le piège de
 focus, l'ordre de tabulation, le retour du focus et les noms accessibles sont
@@ -166,16 +250,26 @@ vraiment.
 ## Résultats
 
 ```
-playwright e2e/dialogs-a11y.spec.ts               3 passed
+playwright e2e/dialogs-a11y.spec.ts               4 passed
 playwright e2e/campaign-journey.spec.ts           1 passed
-pnpm run test:unit                                319 passed (238 web + 49 api + 32 bridge)
+playwright e2e/responsive-chrome.spec.ts          3 passed
+pnpm run test:unit                                324 passed (241 web + 49 api + 34 bridge)
 pnpm run typecheck                                Done (web, api, bridge)
 pnpm run lint                                     clean
 pnpm run build                                    landing.html + landing-fr.html pré-rendus
-pnpm run test:e2e                                 114 passed, 1 skipped + 2 prelaunch
+pnpm run test:e2e                                 115 passed, 1 skipped + 2 prelaunch
 pnpm run build:profiles                           profil commercial launch cohérent
 pnpm run audit:landing                            contraste et interdits impeccable OK
 pnpm run audit:scale                              Échelles fermées
 pnpm run audit:contrast                           dark 4.78:1, light 4.55:1
 pnpm licenses list                                339 MIT · 27 ISC · 22 Apache-2.0 · 13 BSD
+```
+
+Mesures reprises à la main dans le navigateur, avant et après le seuil corrigé,
+avec le projet ouvert et les deux entrées commerciales présentes :
+
+```
+avant  900px   rangée 993 dans un îlot de 874 · Exporter à 1006 · aucun défilement
+après  900px   repliée · débordement 0 · Exporter dans la fenêtre
+après  1280px  déployée · débordement 0 · colonnes 252 / 293 / 675
 ```

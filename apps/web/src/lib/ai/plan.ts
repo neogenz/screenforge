@@ -1,4 +1,5 @@
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { isBackground } from '@/lib/project-validation'
 import { normalizeSlot } from '@/lib/slots'
 import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
 import type { Background, DeviceModel, ScreenshotSize } from '@/types'
@@ -141,7 +142,12 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
       return false
     }
     if (screen.slot !== undefined && typeof screen.slot !== 'string') return false
-    if (typeof screen.background !== 'object' || screen.background === null) return false
+    /* Le contrat du projet, pas « c'est un objet ». `{}` et
+       `{type: 'arc-en-ciel'}` passaient ici, s'affichaient comme un plan
+       valide, et n'échouaient qu'au clic sur « Poser » — sur le message
+       générique du contrat de projet, qui ne dit pas quel fond est en cause.
+       Rien n'était jamais écrit, mais l'erreur désignait le mauvais endroit. */
+    if (!isBackground(screen.background)) return false
     return screen.screenshotIndex === undefined || typeof screen.screenshotIndex === 'number'
   })
 }

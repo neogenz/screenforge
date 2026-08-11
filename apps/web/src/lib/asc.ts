@@ -222,6 +222,9 @@ export function buildManifest(
     directory,
     bundleHash,
     files: [...files].sort((left, right) => (left.name < right.name ? -1 : 1)),
+    /* Sans drapeau, et figée avec le lot : c'est le chemin sans pont, celui
+       qu'on lance à la main depuis l'archive décompressée. Les deux cases de la
+       boîte ne s'y appliquent pas — elles n'existent pas encore au figement. */
     command: uploadCommand(target, `./${directory}`),
   }
 }
@@ -231,14 +234,23 @@ export function buildManifest(
 /**
  * La commande, en tableau — jamais une chaîne.
  *
- * Ce tableau est ce que le pont passe à `execFile`, et ce que la page affiche.
- * Les deux lisent la même fonction : une commande montrée à l'utilisateur qui
- * différerait de celle exécutée serait pire qu'aucune commande du tout.
+ * Ce tableau est ce que la page affiche, et il doit décrire exactement ce que
+ * le pont passera à `execFile` : une commande montrée à l'utilisateur qui
+ * différerait de celle exécutée serait pire qu'aucune commande du tout. C'est
+ * arrivé — les deux cases de la boîte n'entraient pas dans l'affichage, et
+ * cocher « supprimer les captures déjà en ligne » laissait le bloc « Commande à
+ * lancer » montrer une commande sans `--replace` pendant que le pont lançait la
+ * version avec. Le drapeau destructeur ne se lisait nulle part.
  *
- * `--replace` n'y figure pas. Il supprime les captures déjà en ligne, et il
- * s'ajoute à un seul endroit, sur une case explicitement cochée.
+ * Les deux drapeaux sont absents du tableau plutôt que présents à faux, dans le
+ * même ordre que `uploadArgs` du pont — `asc.test.ts` tient les deux appariés,
+ * puisqu'aucun paquet partagé ne les réunit.
  */
-export function uploadCommand(target: AscTarget, path: string): string[] {
+export function uploadCommand(
+  target: AscTarget,
+  path: string,
+  options: { replaceExisting?: boolean; dryRun?: boolean } = {},
+): string[] {
   return [
     'asc',
     'screenshots',
@@ -251,6 +263,8 @@ export function uploadCommand(target: AscTarget, path: string): string[] {
     path,
     '--output',
     'json',
+    ...(options.replaceExisting ? ['--replace'] : []),
+    ...(options.dryRun ? ['--dry-run'] : []),
   ]
 }
 

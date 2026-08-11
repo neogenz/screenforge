@@ -272,6 +272,20 @@ describe('le plan', () => {
     expect(isCampaignPlan(null)).toBe(false)
   })
 
+  it('juge le fond sur le contrat du projet, pas sur « c’est un objet »', () => {
+    // Ces deux-là passaient, s'affichaient comme un plan valide, et n'échouaient
+    // qu'au clic sur « Poser », sur un message qui ne désignait pas le fond.
+    const plan = planFromBrief(brief)
+    const avec = (background: unknown) => ({
+      ...plan,
+      screens: [{ ...plan.screens[0], background }, ...plan.screens.slice(1)],
+    })
+    expect(isCampaignPlan(avec({}))).toBe(false)
+    expect(isCampaignPlan(avec({ type: 'arc-en-ciel' }))).toBe(false)
+    expect(isCampaignPlan(avec({ type: 'solid', color: 42 }))).toBe(false)
+    expect(isCampaignPlan(avec({ type: 'solid', color: '#101114' }))).toBe(true)
+  })
+
   it('ne rejoint le projet que par les outils', () => {
     const calls = planToolCalls(planFromBrief(brief), brief)
     expect(calls[0].tool).toBe('declare_plan')

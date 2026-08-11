@@ -34,7 +34,8 @@ function isGradient(value: unknown): boolean {
   return true
 }
 
-function isBackground(value: unknown): boolean {
+/** Exporté pour que le plan d'un fournisseur soit jugé sur le même contrat. */
+export function isBackground(value: unknown): boolean {
   if (!isRecord(value)) return false
   if (value.type === 'solid') return typeof value.color === 'string'
   if (value.type === 'linear-gradient') {

@@ -9,6 +9,7 @@ import {
   commandLine,
   preflight,
   targetSummary,
+  uploadCommand,
   APP_STORE_LOCALES,
   ASC_DISPLAY_TYPE,
   ASC_SIZE_LABEL,
@@ -241,7 +242,15 @@ function PublishDialogContent({ project }: { project: Project }) {
     }
   }
 
-  const command = bundle?.manifest.command ?? []
+  /* La commande affichée suit les deux cases, elle ne recopie pas celle du
+     manifeste : le manifeste est figé au moment du lot, avant que quiconque ait
+     coché quoi que ce soit. Cocher « supprimer les captures déjà en ligne »
+     laissait donc le bloc montrer une commande sans `--replace` pendant que le
+     pont lançait la version avec — le drapeau destructeur ne se lisait nulle
+     part dans la page qui venait de le déclencher. */
+  const command = bundle
+    ? uploadCommand(target, `./${bundle.manifest.directory}`, { replaceExisting, dryRun })
+    : []
 
   return (
     <Dialog
@@ -258,8 +267,8 @@ function PublishDialogContent({ project }: { project: Project }) {
       }
     >
       <DialogColumns
-        label="Lots publiables"
-        list={
+        railLabel="Lots publiables"
+        rail={
           <>
             <span className="field-label">Lot figé</span>
             {releases.length === 0 ? (

@@ -180,11 +180,23 @@ export const DUAL_DRAWER_MIN_WIDTH =
 /**
  * Largeur sous laquelle la barre supérieure replie ses actions secondaires.
  *
- * Mesurée et non déduite : le contenu de la barre plancherait à 654px, elle
- * tenait encore à 700 et débordait de 118px à 560, où « Exporter » quittait
- * l'écran. Arrondi au palier standard immédiatement au-dessus.
+ * Mesurée et non déduite, et **re-mesurée à chaque action ajoutée à la rangée** :
+ * un seuil calé sur un contenu qui grossit ensuite est un seuil faux, en
+ * silence. Le cycle de vie a ajouté cinq actions et un outil, soit 240px, et
+ * les 768 d'avant sont devenus une promesse que la rangée ne tenait plus — à
+ * 900px elle réclamait 993 dans un îlot de 874 et « Ouvrir l'export » se posait
+ * à 1006, quatre pixels visibles sur cent-dix, sans le moindre défilement pour
+ * le rattraper. La bande fautive couvrait 768 à 1114, donc 1024×768 et toute
+ * fenêtre à moitié d'écran sur un 1920 ou un 2560.
+ *
+ * Le plancher re-mesuré est 1114 : 86 de colonne de gauche incompressible, 293
+ * d'outils, 675 d'actions, deux gouttières, le retrait de l'îlot et les marges.
+ * Arrondi au palier standard immédiatement au-dessus. Replier plus tôt que
+ * nécessaire entre 1114 et 1280 est le prix assumé : ce que la marge achète,
+ * c'est qu'un mot de palier plus long ou une police un peu plus large ne
+ * remette pas le CTA hors de l'écran.
  */
-export const TOP_BAR_COMPACT_WIDTH = 768
+export const TOP_BAR_COMPACT_WIDTH = 1280
 /**
  * Largeur sous laquelle la barre replie aussi ses outils de création.
  *

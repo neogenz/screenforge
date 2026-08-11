@@ -467,8 +467,14 @@ describe('publication', () => {
   it('ne republie pas le même lot vers la même destination', async () => {
     const asc = fakeAsc()
     const { call } = harness(undefined, asc)
+    // `dryRun` explicitement faux : un essai à blanc n'entre jamais dans la
+    // mémoire, donc il ne pourrait rien y avoir à retrouver.
     const send = () =>
-      call('/asc/publish', { method: 'POST', body: publishBody(), capability: 'asc-publish' })
+      call('/asc/publish', {
+        method: 'POST',
+        body: publishBody({ dryRun: false }),
+        capability: 'asc-publish',
+      })
 
     const first = (await (await send()).json()) as { idempotent: boolean }
     const uploads = asc.calls.filter(
@@ -484,13 +490,57 @@ describe('publication', () => {
     // Un lot différent vers la même destination repart, lui.
     await call('/asc/publish', {
       method: 'POST',
-      body: publishBody({ bundleHash: 'b'.repeat(64) }),
+      body: publishBody({ bundleHash: 'b'.repeat(64), dryRun: false }),
       capability: 'asc-publish',
     })
     expect(
       asc.calls.filter((args) => args[1] === 'upload' && !args.includes('--help')).length,
     ).toBe(uploads + 1)
-    expect(idempotenceKey({ ...PUBLISH })).toContain('rel-1')
+    expect(idempotenceKey({ ...PUBLISH, replaceExisting: false, dryRun: false })).toContain('rel-1')
+  })
+
+  it('ne prend pas un remplacement pour le doublon d’un ajout', async () => {
+    const asc = fakeAsc()
+    const { call } = harness(undefined, asc)
+    const uploads = () =>
+      asc.calls.filter((args) => args[1] === 'upload' && !args.includes('--help')).length
+
+    await call('/asc/publish', {
+      method: 'POST',
+      body: publishBody({ dryRun: false }),
+      capability: 'asc-publish',
+    })
+    const après = uploads()
+
+    /* Même lot, même destination, mais la case « supprimer les captures déjà en
+       ligne » a changé : ce n'est pas la même opération. La clé les confondait,
+       donc la demande destructrice était avalée par le cache et rapportée en
+       succès — avec un `replaceExisting: false` dans la réponse. */
+    const réponse = (await (
+      await call('/asc/publish', {
+        method: 'POST',
+        body: publishBody({ dryRun: false, replaceExisting: true }),
+        capability: 'asc-publish',
+      })
+    ).json()) as { idempotent: boolean; replaceExisting: boolean }
+
+    expect(réponse.idempotent).toBe(false)
+    expect(réponse.replaceExisting).toBe(true)
+    expect(uploads()).toBe(après + 1)
+    expect(asc.calls.at(-1)).toContain('--replace')
+  })
+
+  it('ne publie rien pour de vrai quand l’appelant a oublié de le demander', async () => {
+    const asc = fakeAsc()
+    const { call } = harness(undefined, asc)
+    // Le seul défaut du schéma qui ne soit pas le neutre : un champ omis rend
+    // l'appel inoffensif, au lieu de téléverser chez Apple.
+    await call('/asc/publish', {
+      method: 'POST',
+      body: publishBody(),
+      capability: 'asc-publish',
+    })
+    expect(asc.calls.at(-1)).toContain('--dry-run')
   })
 
   it('un essai à blanc ne compte pas comme une publication', async () => {

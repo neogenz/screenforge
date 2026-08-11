@@ -138,12 +138,37 @@ describe('manifeste', () => {
 })
 
 describe('commande', () => {
-  it('ne supprime rien : --replace n’est jamais construit ici', () => {
+  it('ne supprime rien tant qu’on ne l’a pas demandé', () => {
     const command = uploadCommand(TARGET, './fr-FR/APP_IPHONE_69')
     expect(command).not.toContain('--replace')
     expect(command).not.toContain('--dry-run')
     expect(command.slice(0, 3)).toEqual(['asc', 'screenshots', 'upload'])
     expect(command).toContain(ASC_DISPLAY_TYPE)
+  })
+
+  it('rend exactement les arguments que le pont exécutera', async () => {
+    /* Les deux constructeurs vivent dans deux paquets — le pont ne peut pas
+       importer le navigateur, et le navigateur ne doit rien recevoir du pont
+       qu'un type. Rien ne les réunit donc à la compilation : c'est ce test qui
+       les tient appariés. Sans lui, la commande affichée et la commande lancée
+       avaient déjà divergé sur `--replace`, le seul drapeau irréversible. */
+    const { uploadArgs } = await import('../../../../bridge/src/asc')
+    const cas = [
+      { replaceExisting: false, dryRun: false },
+      { replaceExisting: true, dryRun: false },
+      { replaceExisting: false, dryRun: true },
+      { replaceExisting: true, dryRun: true },
+    ]
+    for (const options of cas) {
+      const affichée = uploadCommand(TARGET, '/tmp/lot', options)
+      const exécutée = uploadArgs(
+        { versionLocalization: TARGET.versionLocalization, deviceType: ASC_DISPLAY_TYPE },
+        { path: '/tmp/lot', ...options },
+      )
+      // Le premier élément de l'affichage est le binaire, que `execFile` porte
+      // à part : c'est la seule différence permise entre les deux.
+      expect(affichée.slice(1)).toEqual(exécutée)
+    }
   })
 
   it('reste lisible sans jamais être exécutée telle quelle', () => {

@@ -86,11 +86,16 @@ function CampaignDialogContent({ project }: { project: Project }) {
      abandonné. La ref plutôt que l'état : rien ne s'affiche à partir d'elle, et
      elle est lue dans un démontage. */
   const registered = useRef<string[]>([])
-  const accepted = useRef(false)
+  /* « Posées », pas « acceptée » : ce qui décide du nettoyage est que les
+     captures soient entrées dans le projet, pas qu'un bouton ait rendu la main.
+     Nommée `accepted`, elle a été levée par l'harmonisation — qui ne pose
+     aucune capture — et les fichiers importés survivaient au run abandonné,
+     jusqu'au balayage du chargement suivant. */
+  const placed = useRef(false)
 
   useEffect(
     () => () => {
-      if (!accepted.current) discardAiAssets(registered.current)
+      if (!placed.current) discardAiAssets(registered.current)
     },
     [],
   )
@@ -204,7 +209,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(outcome.error ?? 'La composition a échoué : le projet est resté inchangé.')
       return
     }
-    accepted.current = true
+    placed.current = true
     toast(
       `${outcome.screenIds.length} planche${outcome.screenIds.length > 1 ? 's' : ''} composée${
         outcome.screenIds.length > 1 ? 's' : ''
@@ -223,7 +228,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(outcome.error ?? 'L’harmonisation a échoué : le projet est resté inchangé.')
       return
     }
-    accepted.current = true
+    // Rien de posé ici : l'harmonisation restyle les calques déjà en place, et
+    // les captures importées de ce run repartent bien au néant.
     toast(`Écran « ${activeScreen.name} » harmonisé.`, 'success')
     close()
   }

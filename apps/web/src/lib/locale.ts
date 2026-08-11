@@ -244,9 +244,22 @@ export function reviewLocale(
   measure: TextMeasure = measureWithCanvas,
 ): LocaleFinding[] {
   const findings: LocaleFinding[] = []
-  const screens = project.screens
+  /* Les calques partagés en font partie. Ils sont semés dans la variante, tenus
+     dans la boîte, substitués à l'export — et la revue ne descendait que dans
+     les écrans, donc un titre partagé pouvait déborder sur les dix planches
+     sans que rien ne le voie, ni ne bloque l'export, ni ne retienne le
+     figement. Ils n'appartiennent à aucun écran : même désignation que
+     `refreshTargets`, pour que les deux listes se lisent pareil. */
+  const zones = [
+    ...project.screens.map((screen) => ({
+      id: screen.id,
+      name: screen.name,
+      layers: screen.layers as readonly Layer[],
+    })),
+    { id: '', name: 'Tous les écrans', layers: project.layoutLayers as readonly Layer[] },
+  ]
 
-  for (const screen of screens) {
+  for (const screen of zones) {
     for (const layer of screen.layers) {
       if (!isText(layer)) continue
       const variant = locale.texts[layer.id]

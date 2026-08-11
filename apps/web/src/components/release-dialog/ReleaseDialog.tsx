@@ -178,9 +178,9 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       }
     >
       <DialogColumns
-        label="Lots figés"
+        railLabel="Lots figés"
         contentLabel="Détail du lot"
-        list={
+        rail={
           <>
             <div className="flex flex-col gap-1.5">
               <Field id={RELEASE_NAME_FIELD_ID} label="Nom du lot">

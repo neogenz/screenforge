@@ -215,8 +215,17 @@ export const ascPublishRequestSchema = z.object({
   files: z.array(ascFileSchema).min(1).max(10),
   /** Supprime les captures déjà en place. Jamais implicite. */
   replaceExisting: z.boolean().default(false),
-  /** `--dry-run` : `asc` dit ce qu'il ferait sans rien changer. */
-  dryRun: z.boolean().default(false),
+  /**
+   * `--dry-run` : `asc` dit ce qu'il ferait sans rien changer.
+   *
+   * Vrai par défaut, et c'est le seul défaut du schéma qui ne soit pas le
+   * neutre : omettre le champ doit rendre l'appel inoffensif. À faux, un
+   * appelant détenant le jeton `asc-publish` obtenait un téléversement réel
+   * pour un champ oublié, et le garde-fou annoncé n'existait que dans la case
+   * cochée de la page — c'est-à-dire nulle part, pour tout ce qui n'est pas la
+   * page.
+   */
+  dryRun: z.boolean().default(true),
 })
 
 export type AscPublishRequest = z.infer<typeof ascPublishRequestSchema>

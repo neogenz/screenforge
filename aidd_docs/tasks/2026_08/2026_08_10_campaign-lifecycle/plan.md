@@ -49,6 +49,11 @@ Trois choses rendent aujourd'hui la reprise impossible :
 | 9   | Arborescence d'export + preflight `asc`          | done         |
 | 10  | Durcissement, licences, a11y, doc, E2E complet   | done         |
 
+La phase 10 porte aussi la revue indépendante et ses corrections : sept défauts
+réels, dont un CTA principal hors de l'écran sur 346px de largeurs courantes et
+un angle mort entier dans la revue de langue. Chacun repart avec le test qui
+l'aurait vu — le détail est dans [`phase-10.md`](./phase-10.md), tâche 8.
+
 L'ordre est celui des dépendances, pas celui de la valeur. Les phases 2 à 5
 tiennent seules : elles décrivent le cycle de vie complet d'une campagne sans
 qu'aucun modèle de langage n'intervienne. Les phases 6 à 9 s'appuient toutes

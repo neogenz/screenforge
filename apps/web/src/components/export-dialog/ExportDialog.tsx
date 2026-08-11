@@ -8,7 +8,7 @@ import { ExportQuotaError, useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
 import { billingConfigured } from '@/lib/api'
 import { exportsLeft, rightsOf, FREE_EXPORTS_PER_PROJECT } from '@/lib/entitlements'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
@@ -122,158 +122,153 @@ function ExportDialogContent({ project }: { project: Project }) {
       size="lg"
       flush
       headerActions={<span className="field-label px-1">App Store</span>}
+      footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
-        <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-2xs text-muted-foreground">
-            Aucun téléchargement partiel en cas d’échec.
-          </p>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="default" onClick={handleClose} disabled={isExporting}>
-              Annuler
+        <>
+          <Button variant="default" onClick={handleClose} disabled={isExporting}>
+            Annuler
+          </Button>
+          {/* Épuisé, le bouton ne se grise pas : il change de proposition.
+              Un bouton mort laisserait la boîte sans issue, et la limite
+              d'un palier gratuit a par définition une réponse à vendre.
+              Sans API de vente, il n'y a rien à proposer et il se grise. */}
+          {remaining <= 0 && billingConfigured ? (
+            <Button variant="primary" onClick={() => setShowPricingDialog(true)}>
+              <Lock size={12} aria-hidden />
+              Débloquer avec la Licence
             </Button>
-            {/* Épuisé, le bouton ne se grise pas : il change de proposition.
-                Un bouton mort laisserait la boîte sans issue, et la limite
-                d'un palier gratuit a par définition une réponse à vendre.
-                Sans API de vente, il n'y a rien à proposer et il se grise. */}
-            {remaining <= 0 && billingConfigured ? (
-              <Button variant="primary" onClick={() => setShowPricingDialog(true)}>
-                <Lock size={12} aria-hidden />
-                Débloquer avec la Licence
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                onClick={() => void handleExport()}
-                loading={isExporting}
-                disabled={selectedScreens.length === 0 || remaining <= 0 || localeRefused}
-              >
-                {!isExporting && <Download size={12} aria-hidden />}
-                {isExporting
-                  ? 'Export en cours…'
-                  : rights.zip
-                    ? 'Exporter le ZIP'
-                    : 'Exporter les PNG'}
-              </Button>
-            )}
-          </div>
-        </div>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={() => void handleExport()}
+              loading={isExporting}
+              disabled={selectedScreens.length === 0 || remaining <= 0 || localeRefused}
+            >
+              {!isExporting && <Download size={12} aria-hidden />}
+              {isExporting
+                ? 'Export en cours…'
+                : rights.zip
+                  ? 'Exporter le ZIP'
+                  : 'Exporter les PNG'}
+            </Button>
+          )}
+        </>
       }
     >
       <div className="flex flex-col">
-        <div className="grid grid-cols-[minmax(0,1fr)_220px]">
-          <section
-            className="max-h-[52dvh] overflow-y-auto border-r border-border px-6 py-4"
-            aria-labelledby="export-screens-title"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 id="export-screens-title" className="section-title">
-                  Captures
-                </h3>
-                <p className="mt-1 text-2xs text-muted-foreground">
-                  L’ordre du projet sera conservé{rights.zip ? ' dans le ZIP' : ''}.
+        {/* Le rail est à droite : il récapitule ce que la colonne de gauche
+            décide. Le passer à gauche pour uniformiser aurait mis le
+            récapitulatif avant le travail, dans le DOM comme sous le curseur
+            de tabulation. */}
+        <DialogColumns
+          railSide="end"
+          railLabel="Profil d’export"
+          contentLabel="Captures à exporter"
+          rail={
+            <>
+              <div className="surface-inner p-4">
+                <span className="field-label">Profil</span>
+                <p className="mt-1.5 text-sm font-medium text-foreground">
+                  iPhone {PRIMARY_DIMENSION.size}
+                </p>
+                <p className="tabular mt-1 text-sm text-muted-foreground">
+                  {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
+                </p>
+                <div className="hairline my-3" />
+                <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <Check size={12} aria-hidden /> PNG · 8 bits
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check size={12} aria-hidden /> RGB opaque · sans alpha
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check size={12} aria-hidden /> Cible interne &lt; 5 MB
+                  </li>
+                </ul>
+              </div>
+
+              <div className="surface-inner p-4">
+                <span className="field-label">Lot final</span>
+                <p className="mt-1.5 text-xl font-medium tabular-nums text-foreground">
+                  {selectedScreens.length}
+                </p>
+                <p className="text-2xs text-muted-foreground">
+                  fichier{selectedScreens.length > 1 ? 's' : ''}
+                  {rights.zip ? (
+                    <>
+                      {' '}
+                      sous <span className="font-mono">6.9/</span>
+                    </>
+                  ) : (
+                    ', téléchargés un par un'
+                  )}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={toggleAllScreens}
-                disabled={isExporting}
-                className="field-label transition-colors hover:text-foreground"
-              >
-                {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
-              </button>
-            </div>
 
-            <div className="flex flex-col gap-1.5">
-              {project.screens.map((screen, index) => (
-                <ScreenChoice
-                  key={screen.id}
-                  screen={screen}
-                  index={index}
-                  checked={selectedScreenIds.includes(screen.id)}
+              <div className="surface-inner p-4">
+                <span className="field-label">Langue</span>
+                <Select
+                  className="mt-1.5"
+                  aria-label="Langue exportée"
+                  value={localeCode}
                   disabled={isExporting}
-                  onToggle={() => toggleScreen(screen.id)}
-                />
-              ))}
-            </div>
-          </section>
-
-          <aside
-            className="flex max-h-[52dvh] flex-col gap-4 overflow-y-auto px-6 py-4"
-            aria-label="Profil d’export"
-          >
-            <div className="surface-inner p-4">
-              <span className="field-label">Profil</span>
-              <p className="mt-1.5 text-sm font-medium text-foreground">
-                iPhone {PRIMARY_DIMENSION.size}
-              </p>
-              <p className="tabular mt-1 text-sm text-muted-foreground">
-                {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
-              </p>
-              <div className="hairline my-3" />
-              <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <Check size={12} aria-hidden /> PNG · 8 bits
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check size={12} aria-hidden /> RGB opaque · sans alpha
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check size={12} aria-hidden /> Cible interne &lt; 5 MB
-                </li>
-              </ul>
-            </div>
-
-            <div className="surface-inner p-4">
-              <span className="field-label">Lot final</span>
-              <p className="mt-1.5 text-xl font-medium tabular-nums text-foreground">
-                {selectedScreens.length}
-              </p>
-              <p className="text-2xs text-muted-foreground">
-                fichier{selectedScreens.length > 1 ? 's' : ''}
-                {rights.zip ? (
-                  <>
-                    {' '}
-                    sous <span className="font-mono">6.9/</span>
-                  </>
-                ) : (
-                  ', téléchargés un par un'
+                  onChange={(event) => setLocaleCode(event.target.value)}
+                >
+                  <option value="">Langue du projet</option>
+                  {(project.locales ?? []).map((entry) => (
+                    <option key={entry.code} value={entry.code}>
+                      {entry.name}
+                    </option>
+                  ))}
+                </Select>
+                {/* Une langue qui déborde ne s'exporte pas, et la boîte dit
+                    combien de lignes la retiennent — refuser sans compter
+                    laisserait l'utilisateur chercher. */}
+                {localeRefused && (
+                  <p role="alert" className="mt-2 text-2xs text-destructive">
+                    {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
+                    {localeFindings.length > 1 ? 'nt' : ''} ou manque
+                    {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
+                    d’exporter cette variante.
+                  </p>
                 )}
+              </div>
+
+              {!rights.cleanExport && <FreeTierNotice remaining={remaining} />}
+            </>
+          }
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="section-title">Captures</h3>
+              <p className="mt-1 text-2xs text-muted-foreground">
+                L’ordre du projet sera conservé{rights.zip ? ' dans le ZIP' : ''}.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={toggleAllScreens}
+              disabled={isExporting}
+              className="field-label shrink-0 transition-colors hover:text-foreground"
+            >
+              {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+          </div>
 
-            <div className="surface-inner p-4">
-              <span className="field-label">Langue</span>
-              <Select
-                className="mt-1.5"
-                aria-label="Langue exportée"
-                value={localeCode}
+          <div className="flex flex-col gap-1.5">
+            {project.screens.map((screen, index) => (
+              <ScreenChoice
+                key={screen.id}
+                screen={screen}
+                index={index}
+                checked={selectedScreenIds.includes(screen.id)}
                 disabled={isExporting}
-                onChange={(event) => setLocaleCode(event.target.value)}
-              >
-                <option value="">Langue du projet</option>
-                {(project.locales ?? []).map((entry) => (
-                  <option key={entry.code} value={entry.code}>
-                    {entry.name}
-                  </option>
-                ))}
-              </Select>
-              {/* Une langue qui déborde ne s'exporte pas, et la boîte dit
-                  combien de lignes la retiennent — refuser sans compter
-                  laisserait l'utilisateur chercher. */}
-              {localeRefused && (
-                <p role="alert" className="mt-2 text-2xs text-destructive">
-                  {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
-                  {localeFindings.length > 1 ? 'nt' : ''} ou manque
-                  {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
-                  d’exporter cette variante.
-                </p>
-              )}
-            </div>
-
-            {!rights.cleanExport && <FreeTierNotice remaining={remaining} />}
-          </aside>
-        </div>
+                onToggle={() => toggleScreen(screen.id)}
+              />
+            ))}
+          </div>
+        </DialogColumns>
 
         {(progress || error || completedFiles.length > 0) && (
           <div className="border-t border-border px-6 py-4" aria-live="polite">

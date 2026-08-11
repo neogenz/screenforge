@@ -161,16 +161,30 @@ export function uploadArgs(
   ]
 }
 
+/**
+ * Release, destination, empreinte du lot — **et les drapeaux**.
+ *
+ * Un essai à blanc et un vrai téléversement ne sont pas la même opération, et
+ * remplacer n'est pas ajouter. Sans eux dans la clé, un premier envoi rendait
+ * son résultat à la demande suivante : la case « supprimer les captures déjà en
+ * ligne » était avalée par le cache et rapportée en succès, avec un
+ * `replaceExisting: false` dans la réponse que personne ne relit. Prudent dans
+ * son effet — rien n'était supprimé chez Apple — et faux dans ce qu'il disait.
+ */
 export function idempotenceKey(request: {
   releaseId: string
   bundleHash: string
   target: AscTarget
+  replaceExisting: boolean
+  dryRun: boolean
 }): string {
   return [
     request.releaseId,
     request.target.versionLocalization,
     request.target.deviceType,
     request.bundleHash,
+    request.replaceExisting ? 'replace' : 'add',
+    request.dryRun ? 'dry' : 'live',
   ].join(':')
 }
 

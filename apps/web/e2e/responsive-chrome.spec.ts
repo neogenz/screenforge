@@ -4,13 +4,17 @@ import { waitForApp } from './helpers'
 /**
  * Le chrome flottant face à une fenêtre qui rétrécit.
  *
- * Trois défauts mesurés avant ces seuils, tous silencieux : à 560px la barre
+ * Quatre défauts mesurés avant ces seuils, tous silencieux : à 560px la barre
  * débordait de 118px et « Exporter » quittait l'écran ; à 375px elle en perdait
  * six contrôles et les deux tiroirs se recouvraient de 249px ; le HUD de zoom
- * mordait sur la pellicule. Les seuils viennent de `lib/stage.ts`, jamais d'une
- * copie — c'est la leçon de la constante de pellicule restée à 142.
+ * mordait sur la pellicule ; et le seuil de repli lui-même, calé sur un contenu
+ * qui a grossi de six boutons depuis, remettait « Exporter » hors de l'écran de
+ * 768 à 1114. Les seuils viennent de `lib/stage.ts`, jamais d'une copie — c'est
+ * la leçon de la constante de pellicule restée à 142. Ce fichier mesure au
+ * seuil, pas seulement de part et d'autre : un seuil vrai des deux côtés et
+ * faux au milieu est exactement ce qui est passé.
  */
-import { DUAL_DRAWER_MIN_WIDTH, TOP_BAR_COMPACT_WIDTH } from '../src/lib/stage'
+import { DUAL_DRAWER_MIN_WIDTH, TOP_BAR_COMPACT_WIDTH, TOP_BAR_TOOLS_WIDTH } from '../src/lib/stage'
 
 const HEIGHT = 900
 
@@ -23,6 +27,30 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   await page.setViewportSize({ width: 1440, height: HEIGHT })
   await expect(page.getByLabel('Ouvrir les modèles')).toBeVisible()
   await expect(page.getByLabel('Ouvrir les autres actions')).toHaveCount(0)
+
+  /* Au seuil exact : la largeur la plus étroite où la rangée est encore
+     déployée, donc le seul endroit où un seuil calé sur un contenu périmé se
+     voit. Personne ne mesurait ici, et la rangée y a débordé de 119px pendant
+     tout le cycle de vie — « Ouvrir l'export » posé à 1006 dans une fenêtre de
+     900, sans défilement pour aller le chercher. */
+  await page.setViewportSize({ width: TOP_BAR_COMPACT_WIDTH, height: HEIGHT })
+  await expect(page.getByLabel('Ouvrir les modèles')).toBeVisible()
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const rangée = document.querySelector('header')?.firstElementChild
+        const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
+        if (!rangée || !exporter) return null
+        return {
+          débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
+          horsFenêtre: Math.max(
+            0,
+            Math.round(exporter.getBoundingClientRect().right - window.innerWidth),
+          ),
+        }
+      }),
+    )
+    .toEqual({ débordement: 0, horsFenêtre: 0 })
 
   // Sous le seuil des deux tiroirs : il n'en reste qu'un, et c'est celui
   // qui édite.
@@ -51,6 +79,30 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   // Les actions repliées restent atteignables, pas seulement présentes.
   await page.getByLabel('Ouvrir les autres actions').click()
   await expect(page.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  /* Et au seuil du palier suivant : la largeur la plus étroite où les outils de
+     création sont encore sur la rangée. Chaque palier a un point le plus serré,
+     et c'est le seul qui prouve quoi que ce soit — mesurer 40px sous un seuil ne
+     dit rien du bas de la bande qu'il ouvre. */
+  await page.setViewportSize({ width: TOP_BAR_TOOLS_WIDTH, height: HEIGHT })
+  await expect(page.getByLabel('Ajouter Texte')).toBeVisible()
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const rangée = document.querySelector('header')?.firstElementChild
+        const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
+        if (!rangée || !exporter) return null
+        return {
+          débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
+          horsFenêtre: Math.max(
+            0,
+            Math.round(exporter.getBoundingClientRect().right - window.innerWidth),
+          ),
+        }
+      }),
+    )
+    .toEqual({ débordement: 0, horsFenêtre: 0 })
 })
 
 test('tient dans une fenêtre étroite au lieu de refuser de rendre', async ({ page }) => {

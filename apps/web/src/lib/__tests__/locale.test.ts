@@ -202,6 +202,28 @@ describe('mesure et débordements', () => {
     expect(findings[0].kind).toBe('empty')
   })
 
+  it('signale un calque partagé qui déborde, comme celui d’un écran', () => {
+    // Un texte « partagé partout » se rend sur les dix planches. Il était semé
+    // dans la variante, listé dans la boîte et substitué à l'export, mais la
+    // revue ne descendait que dans les écrans : il débordait partout et rien ne
+    // bloquait ni l'export ni le figement.
+    open({
+      ...project([]),
+      layoutLayers: [textLayer('partout', 'Le rythme', { scope: 'layout' })],
+    })
+    addLocale('de', 'Allemand', 'latin')
+    setLocaleText(
+      'de',
+      'partout',
+      'Ein sehr langer deutscher Satz der nicht mehr hineinpasst',
+      false,
+    )
+    const findings = reviewLocale(current(), current().locales![0], measure)
+    expect(findings.map((finding) => finding.kind)).toContain('overflow')
+    expect(findings.find((finding) => finding.kind === 'overflow')?.layerId).toBe('partout')
+    expect(localeBlocked(findings)).toBe(true)
+  })
+
   it('signale un bloc sorti du cadre de l’écran', () => {
     open(project([textLayer('t1', 'Le rythme', { y: 940, height: 40 })]))
     addLocale('de', 'Allemand', 'latin')

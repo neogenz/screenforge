@@ -103,6 +103,11 @@ reprendre.
 | 4    | Une icône s'ajoute, se change (le nom suit), s'annule et survit au rechargement                         |
 | 5    | Une archive déclarée en version 1 s'ouvre ; 3, 0 et 1.5 sont refusées                                   |
 
+> Ligne 5 dépassée par la suite : le plafond est passé à 5 aux phases 5 et 8,
+> donc `3` s'ouvre désormais. Voir la même note en phase 1 — le contrat tenu est
+> « refuser au-dessus du plafond, ouvrir en deçà », et `project-file.spec.ts`
+> le mesure sur le plafond courant.
+
 ## Résultats
 
 ```
