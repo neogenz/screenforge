@@ -125,3 +125,37 @@ test('garde le boot sombre avant le montage sans préférence ou avec la préfé
 test('garde le boot sombre si le stockage est indisponible', async ({ page }) => {
   await expectBootTheme(page, null, true)
 })
+
+/**
+ * L'invariant local-first, mesuré et pas seulement écrit.
+ *
+ * `cloudConfigured` est une constante de compilation : sans `VITE_CONVEX_URL`,
+ * tout ce qu'elle garde doit disparaître à l'élagage. Un `import` statique
+ * ajouté par mégarde dans `lib/convex.ts` ne casserait rien de visible — il
+ * ferait juste télécharger le SDK à quelqu'un qui n'aura jamais de compte, et
+ * personne ne s'en apercevrait avant la prochaine mesure de poids.
+ */
+test('sans instance cloud, rien du SDK n’est demandé au réseau', async ({ page }) => {
+  const requested: string[] = []
+  page.on('request', (request) => requested.push(request.url()))
+
+  await waitForApp(page)
+  /* Une image du chargement paresseux : sans cette attente, l'absence
+     constatée serait celle d'un module qui n'a pas encore eu le temps d'être
+     demandé. */
+  await page.waitForTimeout(500)
+
+  /* Les marqueurs sont des noms de modules et pas le mot « convex » : le
+     chemin du dépôt lui-même peut le contenir, et un filtre trop large a déjà
+     compté `vite/dist/client/env.mjs` comme une fuite. `lib/convex.ts` est
+     demandé et doit l'être — il ne porte que la constante ; ce qui ne doit pas
+     l'être, c'est ce qu'elle garde. */
+  const sdk = [
+    'convex-client', // l'instance `ConvexReactClient`
+    'cloud-bridge', // le fournisseur React et sa sentinelle
+    'node_modules/convex/',
+    'node_modules/@convex-dev/',
+    'deps/convex',
+  ]
+  expect(requested.filter((url) => sdk.some((marker) => url.includes(marker)))).toEqual([])
+})

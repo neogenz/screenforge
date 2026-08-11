@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { commercialLaunch } from '@/lib/commercial-launch'
+import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
@@ -76,6 +77,7 @@ const LocaleDialog = lazy(() =>
     default: module.LocaleDialog,
   })),
 )
+const CloudBridge = lazy(() => import('@/lib/cloud-bridge'))
 const PublishDialog = lazy(() =>
   import('@/components/publish-dialog/PublishDialog').then((module) => ({
     default: module.PublishDialog,
@@ -178,23 +180,11 @@ export default function App() {
    * rien importer quand les variables manquent.
    */
   useEffect(() => {
-    let disposed = false
-    let stopAuth: (() => void) | undefined
-
-    void initAuth().then((stop) => {
-      if (disposed) stop()
-      else {
-        stopAuth = stop
-        // Après la session, pas avant : l'attente interroge `/me`, qui demande
-        // un jeton.
-        consumeCheckoutReturn()
-      }
-    })
-
-    return () => {
-      disposed = true
-      stopAuth?.()
-    }
+    const stopAuth = initAuth()
+    // Après la session, pas avant : l'attente relit les droits, qui demandent
+    // un jeton.
+    consumeCheckoutReturn()
+    return stopAuth
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
@@ -335,6 +325,21 @@ function Overlays() {
         {showLocaleDialog && <LocaleDialog />}
         {showPublishDialog && <PublishDialog />}
       </Suspense>
+
+      {/* Le pont vers Convex : il ne rend rien, il tient la session. Monté ici
+          plutôt qu'autour de l'arbre parce qu'un fournisseur qui enveloppe `App`
+          remonterait le canvas au moment où le client arrive. `cloudConfigured`
+          est une constante de compilation : sans instance, la branche entière
+          disparaît à l'élagage.
+
+          Sa propre frontière d'attente, et vide : partagée avec les dialogs,
+          elle poserait le voile de chargement sur l'éditeur pendant que la
+          session se restaure, pour un composant qui ne dessine rien. */}
+      {cloudConfigured && (
+        <Suspense fallback={null}>
+          <CloudBridge />
+        </Suspense>
+      )}
     </>
   )
 }

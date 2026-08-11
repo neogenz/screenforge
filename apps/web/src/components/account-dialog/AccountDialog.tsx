@@ -68,7 +68,7 @@ function AccountDialogContent() {
         } catch (error) {
           console.warn('Could not revoke the deleted account session.', error)
         } finally {
-          useAuthStore.getState().setSession(null)
+          useAuthStore.getState().setUser(null)
         }
       },
       close: () => setShowAccountDialog(false),

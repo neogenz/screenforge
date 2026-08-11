@@ -1,0 +1,42 @@
+{
+  "name": "backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "//exports": "Les types générés, pas un build : `apps/web` importe `api` et `Id` en `import type` ou via le client Convex, donc seule la forme du déploiement traverse la frontière — une fonction retirée casse le client à la compilation.",
+  "exports": {
+    ".": {
+      "types": "./convex/_generated/api.d.ts",
+      "default": "./convex/_generated/api.js"
+    },
+    "./entitlements": {
+      "types": "./convex/entitlements.ts",
+      "default": "./convex/entitlements.ts"
+    }
+  },
+  "scripts": {
+    "//dev": "Anonyme par défaut : un backend réel sur la machine, sans Docker et sans compte Convex, là où `convex dev` seul ouvre un navigateur pour se connecter. Le mode force le déploiement `anonymous-agent`, donc il ne peut pas pousser par erreur sur le déploiement de développement partagé — c'est `dev:cloud` qui sert à cela, explicitement.",
+    "dev": "CONVEX_AGENT_MODE=anonymous convex dev",
+    "dev:once": "CONVEX_AGENT_MODE=anonymous convex dev --once",
+    "dev:cloud": "convex dev",
+    "deploy": "convex deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run convex"
+  },
+  "dependencies": {
+    "@auth/core": "0.41.1",
+    "@convex-dev/auth": "^0.0.94",
+    "@convex-dev/rate-limiter": "^0.3.2",
+    "@polar-sh/sdk": "^0.35.0",
+    "convex": "^1.43.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "^24.13.3",
+    "convex-test": "^0.0.38",
+    "jose": "^6.2.8",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

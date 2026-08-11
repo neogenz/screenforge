@@ -20,6 +20,9 @@ Thumbs.db
 *.swo
 *.tsbuildinfo
 
+# Convex : l'état du backend anonyme local, propre à la machine.
+.convex/
+
 # Playwright
 test-results/
 playwright-report/

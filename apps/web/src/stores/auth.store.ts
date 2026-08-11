@@ -1,4 +1,3 @@
-import type { Session, User } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import {
   cacheEntitlements,
@@ -7,7 +6,7 @@ import {
   type Entitlements,
 } from '@/lib/entitlements'
 import { planName } from '@/lib/plans'
-import { getSupabase } from '@/lib/supabase'
+import { cloudConfigured } from '@/lib/convex'
 import { toast } from '@/stores/toast.store'
 
 /**
@@ -18,35 +17,37 @@ import { toast } from '@/stores/toast.store'
  */
 export type AuthStatus = 'unknown' | 'signed-out' | 'signed-in'
 
+/** Ce que la chrome affiche d'un compte, et rien de plus. */
+export interface CloudUser {
+  id: string
+  email: string | null
+}
+
 interface AuthState {
   status: AuthStatus
-  session: Session | null
-  user: User | null
+  user: CloudUser | null
   /**
    * Ce que le compte a acheté, ou `null` tant qu'on ne le sait pas — y compris
-   * quand il n'y a pas d'API de vente configurée. Les droits vivent avec la
+   * quand il n'y a pas d'instance configurée. Les droits vivent avec la
    * session parce qu'ils s'éteignent avec elle : garder ceux du compte
    * précédent après une déconnexion lèverait le filigrane chez le suivant.
    */
   entitlements: Entitlements | null
-  setSession: (session: Session | null) => void
+  setUser: (user: CloudUser | null) => void
   setEntitlements: (entitlements: Entitlements | null) => void
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
   status: 'unknown',
-  session: null,
   user: null,
   entitlements: null,
 
-  setSession: (session) =>
+  setUser: (user) =>
     set((state) => {
-      const user = session?.user ?? null
       const userId = user?.id ?? null
       return {
-        session,
         user,
-        status: session ? 'signed-in' : 'signed-out',
+        status: user ? 'signed-in' : 'signed-out',
         entitlements:
           userId === (state.user?.id ?? null)
             ? state.entitlements
@@ -65,7 +66,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
 }))
 
 /**
- * Relit les droits depuis l'API, et les efface quand il n'y a plus de session.
+ * Relit les droits, et les efface quand il n'y a plus de session.
  *
  * Appelé à chaque changement de session, et au retour d'un checkout : le
  * webhook peut arriver après la redirection de Polar, donc l'appelant relance.
@@ -88,32 +89,31 @@ export async function refreshEntitlements(): Promise<void> {
 }
 
 /**
- * Branche le store sur le client, et rend son démonteur.
+ * Branche le store sur la session, et rend son démonteur.
  *
- * Une seule souscription suffit : `onAuthStateChange` émet `INITIAL_SESSION`
- * dès l'abonnement, avec la session restaurée ou `null`. Un `getSession()`
- * préalable ferait le même travail une seconde fois et ouvrirait une fenêtre
- * où les deux réponses peuvent arriver dans le désordre.
+ * L'abonnement lui-même vit dans `lib/cloud-bridge.tsx`, parce que Convex Auth
+ * n'expose son état que par des hooks : ce qui reste ici est la décision de
+ * l'attendre ou non. Sans instance configurée, l'état tombe directement sur
+ * `signed-out` — rien n'attend une réponse qui ne viendra pas, et rien du client
+ * n'est chargé.
  *
- * Sans instance configurée, l'état tombe directement sur `signed-out` : rien
- * n'attend une réponse qui ne viendra pas, et rien du client n'est chargé.
+ * Le rafraîchissement des droits suit le changement d'utilisateur plutôt que
+ * d'être appelé par le pont : c'est la même règle qu'avant la migration, et elle
+ * garde le pont ignorant de la vente.
  */
-export async function initAuth(): Promise<() => void> {
-  const pending = getSupabase()
-  if (!pending) {
+export function initAuth(): () => void {
+  if (!cloudConfigured) {
     useAuthStore.setState({ status: 'signed-out' })
     return () => {}
   }
 
-  const supabase = await pending
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    useAuthStore.getState().setSession(session)
+  let current = useAuthStore.getState().user?.id ?? null
+  return useAuthStore.subscribe((state) => {
+    const next = state.user?.id ?? null
+    if (next === current) return
+    current = next
     void refreshEntitlements()
   })
-
-  return () => subscription.unsubscribe()
 }
 
 const CHECKOUT_POLL_INTERVAL_MS = 2000

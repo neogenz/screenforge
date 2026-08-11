@@ -22,6 +22,8 @@
     "audit:landing": "node scripts/landing-audit.mjs",
     "probe:visual": "node scripts/visual-probe.mjs",
     "probe:landing-visuals": "node scripts/landing-visuals.mjs",
+    "dev:backend": "pnpm --filter backend run dev",
+    "deploy:backend": "pnpm --filter backend run deploy",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:migrate": "supabase migration up",

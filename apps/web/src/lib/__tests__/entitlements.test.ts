@@ -132,7 +132,7 @@ describe('cache de droits par compte', () => {
       getItem: (key: string) => entries.get(key) ?? null,
       setItem: (key: string, value: string) => void entries.set(key, value),
     })
-    useAuthStore.setState({ status: 'signed-out', session: null, user: null, entitlements: null })
+    useAuthStore.setState({ status: 'signed-out', user: null, entitlements: null })
   })
 
   it('restaure la Licence hors ligne pour le même utilisateur seulement', () => {
@@ -148,12 +148,11 @@ describe('cache de droits par compte', () => {
     cacheEntitlements(second)
     useAuthStore.setState({
       status: 'signed-in',
-      session: null,
-      user: { id: 'u1' } as never,
+      user: { id: 'u1', email: null },
       entitlements: first,
     })
 
-    useAuthStore.getState().setSession({ user: { id: 'u2' } } as never)
+    useAuthStore.getState().setUser({ id: 'u2', email: null })
     expect(useAuthStore.getState().entitlements).toEqual(second)
 
     useAuthStore.getState().setEntitlements(first)

@@ -1,0 +1,65 @@
+import type { ConvexReactClient } from 'convex/react'
+
+/**
+ * Le client Convex, chargé à la demande, ou rien du tout.
+ *
+ * Deux exigences se croisent ici et expliquent la forme inhabituelle.
+ *
+ * La première : sans l'URL de déploiement, ScreenForge est ce qu'il a toujours
+ * été — un éditeur local-first, sans compte et sans réseau. Ce n'est pas un état
+ * dégradé, c'est le mode par défaut du produit, donc l'absence de client doit
+ * être constatable par l'appelant plutôt que déguisée en client qui échouerait à
+ * la première requête.
+ *
+ * La seconde : le client Convex ouvre une WebSocket et pèse ce qu'il pèse. Un
+ * `import` statique le mettrait dans le paquet critique de tout le monde, y
+ * compris de qui n'aura jamais de compte — et le chemin critique de cette
+ * application est mesuré (`e2e/boot-shell.spec.ts`). D'où l'import dynamique :
+ * la couche cloud est additive, elle ne doit pas peser sur ce à quoi elle
+ * n'ajoute rien.
+ *
+ * Le corollaire est que rien de synchrone ne peut dépendre du client. C'est à
+ * cela que sert `cloudConfigured` : la chrome demande « le compte existe-t-il
+ * ici ? » sans rien charger, et seul ce qui s'en sert vraiment attend.
+ */
+const url = import.meta.env.VITE_CONVEX_URL
+
+/**
+ * Vite substitue l'expression à la compilation : dans une build sans cette
+ * variable, ce booléen est une constante `false` et tout ce qu'il garde
+ * disparaît à l'élagage.
+ */
+export const cloudConfigured = Boolean(url)
+
+/**
+ * L'espace de nommage des jetons de session, fixé plutôt que dérivé.
+ *
+ * Par défaut Convex Auth dérive ses clés de `localStorage` de l'URL du
+ * déploiement, ce qui donne un emplacement différent en local, en préproduction
+ * et en production. Une valeur explicite le fixe quel que soit l'hôte, ce qui
+ * la rend adressable : c'est ce que `e2e/sync.spec.ts` sème pour ouvrir deux
+ * navigateurs sur le même compte, faute de pouvoir automatiser un lien magique
+ * reçu par courrier.
+ */
+export const SESSION_NAMESPACE = 'screenforge'
+
+/** Les clés réellement écrites, telles que `@convex-dev/auth` les compose. */
+export const JWT_STORAGE_KEY = `__convexAuthJWT_${SESSION_NAMESPACE}`
+export const REFRESH_TOKEN_STORAGE_KEY = `__convexAuthRefreshToken_${SESSION_NAMESPACE}`
+
+let client: Promise<ConvexReactClient> | null = null
+
+/**
+ * `null` quand l'instance n'est pas configurée — jamais une promesse rejetée :
+ * l'absence de cloud n'est pas une panne, et un appelant qui doit la gérer la
+ * lit mieux dans un `if` que dans un `catch`.
+ *
+ * Le module importé est celui que le pont React monte aussi : une seule
+ * instance, donc une seule WebSocket et un seul jeton. Deux clients rendraient
+ * `ctx.auth` vide dans les appels faits hors de React.
+ */
+export function getConvex(): Promise<ConvexReactClient> | null {
+  if (!url) return null
+  client ??= import('@/lib/convex-client').then((module) => module.client)
+  return client
+}
