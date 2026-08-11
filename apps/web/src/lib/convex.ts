@@ -31,22 +31,6 @@ const url = import.meta.env.VITE_CONVEX_URL
  */
 export const cloudConfigured = Boolean(url)
 
-/**
- * L'espace de nommage des jetons de session, fixé plutôt que dérivé.
- *
- * Par défaut Convex Auth dérive ses clés de `localStorage` de l'URL du
- * déploiement, ce qui donne un emplacement différent en local, en préproduction
- * et en production. Une valeur explicite le fixe quel que soit l'hôte, ce qui
- * la rend adressable : c'est ce que `e2e/sync.spec.ts` sème pour ouvrir deux
- * navigateurs sur le même compte, faute de pouvoir automatiser un lien magique
- * reçu par courrier.
- */
-export const SESSION_NAMESPACE = 'screenforge'
-
-/** Les clés réellement écrites, telles que `@convex-dev/auth` les compose. */
-export const JWT_STORAGE_KEY = `__convexAuthJWT_${SESSION_NAMESPACE}`
-export const REFRESH_TOKEN_STORAGE_KEY = `__convexAuthRefreshToken_${SESSION_NAMESPACE}`
-
 let client: Promise<ConvexReactClient> | null = null
 
 /**

@@ -3,7 +3,6 @@ import {
   cacheEntitlements,
   exportsLeft,
   exportsUsed,
-  projectEntitlements,
   readCachedEntitlements,
   recordExport,
   rightsOf,
@@ -13,70 +12,6 @@ import {
 import { useAuthStore } from '@/stores/auth.store'
 
 const GRANTED = '2026-03-12T09:00:00Z'
-const NOW = new Date('2026-08-08T10:00:00Z')
-
-describe('projectEntitlements', () => {
-  it('sans ligne, aucun droit', () => {
-    expect(projectEntitlements(null, 'u1', NOW)).toEqual({
-      userId: 'u1',
-      licence: false,
-      licenceGrantedAt: null,
-      cloud: false,
-      cloudStatus: null,
-      cloudPeriodEnd: null,
-    })
-  })
-
-  it('la Licence est perpétuelle et n’a pas d’échéance', () => {
-    const rights = projectEntitlements(
-      { licence_granted_at: GRANTED, cloud_status: null, cloud_period_end: null },
-      'u1',
-      NOW,
-    )
-    expect(rights.licence).toBe(true)
-    expect(rights.licenceGrantedAt).toBe(GRANTED)
-    expect(rights.cloud).toBe(false)
-  })
-
-  it('le Cloud court jusqu’à la fin de la période payée, résiliation comprise', () => {
-    const résilié = projectEntitlements(
-      {
-        licence_granted_at: GRANTED,
-        cloud_status: 'canceled',
-        cloud_period_end: '2026-12-01T00:00:00Z',
-      },
-      'u1',
-      NOW,
-    )
-    expect(résilié.cloud).toBe(true)
-  })
-
-  it('la période terminée retire le Cloud, jamais la Licence', () => {
-    const expiré = projectEntitlements(
-      {
-        licence_granted_at: GRANTED,
-        cloud_status: 'active',
-        cloud_period_end: '2026-01-01T00:00:00Z',
-      },
-      'u1',
-      NOW,
-    )
-    expect(expiré.cloud).toBe(false)
-    expect(expiré.licence).toBe(true)
-  })
-
-  it('le Cloud n’existe jamais sans la Licence', () => {
-    /* La même règle qu'en SQL (`public.has_cloud()`) et que dans la projection
-       du webhook : un abonnement acheté hors de notre checkout ne doit pas
-       ouvrir la sync à un compte qui n'a pas la Licence. */
-    const orphelin = projectEntitlements(
-      { licence_granted_at: null, cloud_status: 'active', cloud_period_end: null },
-      'u1',
-      NOW,
-    )
-    expect(orphelin.cloud).toBe(false)
-  })
-})
 
 describe('rightsOf', () => {
   const entitlements = (partial: Partial<Entitlements>): Entitlements => ({

@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 3 — Sync des projets et des binaires
 
 **But** : porter les 740 lignes de `lib/sync.ts` sur Convex sans changer le
@@ -174,3 +178,70 @@ poser comme une amélioration après la bascule, avec sa propre mesure.
 
 La vente. Les droits lus par `syncAllowed()` viennent encore du miroir Supabase
 tant que la phase 4 n'a pas basculé le webhook.
+
+## Écarts constatés à l'implémentation (2026-08-11)
+
+**1. Un refus qui a déjà supprimé un fichier ne peut pas lever.** Une mutation
+Convex est une transaction, et c'est écrit en 3.2 pour justifier l'atomicité du
+LWW — mais la conséquence n'avait pas été tirée jusqu'au bout : `throw` après
+`ctx.storage.delete()` annule la suppression avec le reste. Deux tests l'ont
+montré, fichier encore là après le refus. Les deux refus sont donc devenus des
+**valeurs de retour** : `confirmAssetUpload` rend un booléen,
+`pushProject` rend `'accepted' | 'stale' | 'too-large'`, et c'est `lib/cloud.ts`
+qui lève côté client. `stale` était déjà un `false` dans le plan ; `too-large`
+s'y ajoute pour le blob de projet, que 3.2 ne plafonnait pas.
+
+**2. `confirmAssetUpload` reçoit ce qui avait été annoncé.** Sa signature au plan
+est `{ assetId, storageId }`, et son travail est de comparer le fichier réel « à
+ce qui avait été annoncé » — or `requestAssetUpload` ne persiste rien, il rend
+une URL. Le couple annoncé repasse donc en argument. Le tenir en base entre les
+deux appels aurait créé une ligne à nettoyer pour chaque téléversement
+abandonné.
+
+**3. La règle d'honnêteté est extraite, parce que le simulateur ne peut pas la
+mesurer.** `convex-test` n'enregistre que `{ size, sha256 }` dans `_storage` :
+sans `contentType`, la branche *acceptante* de `confirmAssetUpload` est
+inatteignable en test unitaire. Plutôt que de la déclarer couverte, la
+comparaison vit dans une fonction pure exportée, `honest(stored, announced)`,
+éprouvée des deux côtés ; le chemin complet — URL d'upload réelle, POST, relecture
+authentifiée — a été passé contre un déploiement local, et `e2e/sync.spec.ts` le
+retraverse à chaque exécution.
+
+**4. Les deux routes de lecture portent des en-têtes CORS.** Rien ne le disait en
+3.4, et le navigateur ne lisait rien : l'application est servie par un hôte, le
+déploiement par un autre, et `Authorization` fait précéder chaque lecture d'un
+préflight sans réponse — un `TypeError: Failed to fetch` là où le client attendait
+un statut. Le 404 les porte aussi, sans quoi « ce n'est pas à vous » devient
+indistinguable d'une panne réseau. L'origine reste `*` : ces routes n'ont aucune
+autorité ambiante, la seule clé est un jeton qu'une page tierce ne peut pas lire.
+
+**5. La session mémorisée est relue au démarrage.** Convex Auth ne dit
+« connecté » qu'une fois sa WebSocket authentifiée ; sans réseau, cet état
+n'arrive jamais, et une Licence achetée disparaissait hors ligne — filigrane
+compris — alors que rien de ce qu'elle ouvre n'a besoin du réseau. Le client
+Supabase relisait sa session dans `localStorage` sans rien demander. `initAuth`
+rétablit ce comportement : identité lue dans le jeton stocké, droits relus dans
+leur cache, et la réponse du déploiement écrase les deux dès qu'elle arrive. Le
+serveur ne croit toujours rien de tout cela.
+
+**6. Deux serveurs de développement pour la suite e2e.** `boot-shell.spec.ts`
+promet que sans `VITE_CONVEX_URL` le SDK n'est pas téléchargé ;
+`e2e/sync.spec.ts` promet qu'avec, tout fonctionne. Un seul serveur ne peut pas
+porter les deux : celui qui satisfait l'un fait échouer l'autre, ou le fait
+sauter en silence. `playwright.config.ts` déclare donc deux serveurs et deux
+projets, et le second ne démarre que si le déploiement local tourne.
+
+**7. Les clés de session ont leur propre module.** `lib/convex.ts` lit
+`import.meta.env` dès son évaluation : hors de Vite, l'importer lève, et une spec
+Playwright s'exécute dans Node. `lib/session-keys.ts` porte l'espace de nommage
+et les deux clés, lisibles des deux côtés — l'ancienne suite recopiait la clé
+dans le test, où elle pouvait dériver sans bruit.
+
+**8. Les droits sont lus sur Convex dès cette phase.** La note ci-dessus n'est
+plus vraie qu'à moitié : le *webhook* qui écrit le miroir reste en phase 4, mais
+la *lecture* ne pouvait pas attendre — elle passait par une session Supabase qui
+n'existe plus depuis la phase 1, donc `syncAllowed()` était fermé pour tout le
+monde et les critères 7, 9 et 10 étaient intenables. `fetchEntitlements` appelle
+`mirror.myEntitlements` ; le traducteur `projectEntitlements` côté navigateur a
+été supprimé avec ses cinq tests, la même règle étant déjà éprouvée dans
+`apps/backend/convex/entitlements.test.ts`.

@@ -1,4 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+/* Hissé au-dessus des imports par vitest, donc posé ici et pas dans le test :
+   `@/lib/sync` est importé statiquement plus bas, et un `doMock` après coup
+   rendrait le module déjà évalué, lié au vrai transport. */
+vi.mock('@/lib/cloud', () => ({
+  listRemoteProjects: () =>
+    Promise.resolve([
+      { projectId: 'b', name: 'B', updatedAt: 10 },
+      { projectId: 'a', name: 'A', updatedAt: 30 },
+      { projectId: 'c', name: 'C', updatedAt: 30 },
+    ]),
+}))
+
 import { fetchRemoteProjectRows, mapBounded, mapBoundedSettled } from '@/lib/sync'
 
 describe('mapBounded', () => {
@@ -72,51 +85,14 @@ describe('mapBounded', () => {
   })
 })
 
-describe('catalogue cloud paginé', () => {
-  it('lit plus de mille projets par pages stables et bornées', async () => {
-    const rows = Array.from({ length: 1_001 }, (_, index) => ({
-      id: String(index).padStart(4, '0'),
-      data: {},
-      updated_at: '2026-08-09T12:00:00.000Z',
-    }))
-    const ranges: [number, number][] = []
-    const orders: [string, boolean][] = []
-    let active = 0
-    let maximum = 0
-    const query = {
-      order(column: string, options: { ascending: boolean }) {
-        orders.push([column, options.ascending])
-        return this
-      },
-      async range(from: number, to: number) {
-        ranges.push([from, to])
-        active += 1
-        maximum = Math.max(maximum, active)
-        await Promise.resolve()
-        active -= 1
-        return { data: rows.slice(from, to + 1), error: null }
-      },
-    }
-    const client = {
-      from: () => ({ select: () => query }),
-    }
-
-    const result = await fetchRemoteProjectRows(client as never)
-
-    expect(result).toHaveLength(1_001)
-    expect(ranges).toEqual([
-      [0, 499],
-      [500, 999],
-      [1_000, 1_499],
-    ])
-    expect(maximum).toBe(1)
-    expect(orders).toEqual([
-      ['updated_at', false],
-      ['id', true],
-      ['updated_at', false],
-      ['id', true],
-      ['updated_at', false],
-      ['id', true],
-    ])
+describe('catalogue cloud', () => {
+  it('trie par fraîcheur puis par identifiant, quel que soit l’ordre reçu', async () => {
+    /* L'ordre n'est pas cosmétique : `pullTarget` adopte `rows[0]` quand
+       l'éditeur n'a rien à lui, donc « le plus récent » doit être en tête et
+       les ex æquo doivent être départagés de façon stable — sinon deux
+       navigateurs sur le même compte adoptent deux projets différents.
+       L'ancienne version demandait cet ordre à PostgREST ; un index Convex ne
+       trie pas sur deux champs quelconques, donc il est refait ici. */
+    expect((await fetchRemoteProjectRows()).map((row) => row.projectId)).toEqual(['a', 'c', 'b'])
   })
 })

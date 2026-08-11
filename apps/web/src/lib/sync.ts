@@ -19,9 +19,17 @@
  *    sort immédiatement quand l'instance n'est pas configurée, et n'importe
  *    alors rien du SDK.
  */
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { resolveAsset } from '@/lib/assets'
+import {
+  downloadRemoteAsset,
+  fetchRemoteProject,
+  listRemoteProjects,
+  pushRemoteProject,
+  uploadRemoteAsset,
+  type RemoteProject,
+} from '@/lib/cloud'
+import { cloudConfigured } from '@/lib/convex'
 import { rightsOf } from '@/lib/entitlements'
 import { projectWithoutThumbnails } from '@/lib/project-file'
 import {
@@ -32,7 +40,6 @@ import {
   onProjectCommitted,
   storeRemoteProject,
 } from '@/lib/storage'
-import { cloudConfigured, getSupabase } from '@/lib/supabase'
 import {
   ensureSyncRecord,
   listSyncRecords,
@@ -44,16 +51,11 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore, type SyncStatus } from '@/stores/ui.store'
-import type { Database, Json } from '@/types/database.types'
 import type { Project } from '@/types'
 
-const BUCKET = 'assets'
 const PROJECT_DOWNLOAD_CONCURRENCY = 2
-const PROJECT_PAGE_SIZE = 500
 const ASSET_UPLOAD_CONCURRENCY = 4
 const ASSET_DOWNLOAD_CONCURRENCY = 4
-
-type Client = SupabaseClient<Database>
 
 function setStatus(status: SyncStatus): void {
   useUIStore.getState().setSyncStatus(status)
@@ -142,7 +144,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 // ─── Push ────────────────────────────────────────────────────────────────────
 
-async function pushProject(client: Client, userId: string, project: Project): Promise<boolean> {
+async function pushProject(userId: string, project: Project): Promise<boolean> {
   const key = syncKey(userId, project.id)
   const record = await readSyncRecord(key)
   if (project.updatedAt <= record.pushedUpdatedAt) return true
@@ -158,11 +160,7 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
   const uploads = await mapBoundedSettled(missing, ASSET_UPLOAD_CONCURRENCY, async (id) => {
     const dataUrl = resolveAsset(id)
     if (!dataUrl) throw new Error(`Missing local asset ${id}.`)
-    const blob = await dataUrlToBlob(dataUrl)
-    const { error } = await client.storage
-      .from(BUCKET)
-      .upload(`${userId}/${id}`, blob, { contentType: blob.type, upsert: true })
-    if (error) throw error
+    await uploadRemoteAsset(id, await dataUrlToBlob(dataUrl))
     return id
   })
   for (const upload of uploads) {
@@ -176,15 +174,9 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
   }
 
   /* La ligne part après ses images : l'inverse laisserait une fenêtre où un
-     second navigateur tire un projet dont les binaires ne sont pas encore là. */
-  const { data: written, error } = await client.rpc('upsert_project_lww', {
-    project_id: project.id,
-    project_user_id: userId,
-    project_name: project.name,
-    project_data: projectWithoutThumbnails(project) as unknown as Json,
-    project_updated_at: new Date(project.updatedAt).toISOString(),
-  })
-  if (error) throw error
+     second navigateur tire un projet dont les binaires ne sont pas encore là.
+     Le JSON du projet part juste avant sa ligne, pour la même raison. */
+  const written = await pushRemoteProject(project, projectWithoutThumbnails(project))
 
   if (!written) {
     await writeSyncRecord({ ...record, uploadedAssetIds: [...confirmed] })
@@ -214,27 +206,19 @@ async function pushProject(client: Client, userId: string, project: Project): Pr
  *   document par un autre sans que l'utilisateur l'ait demandé — d'où la
  *   condition stricte plutôt qu'une heuristique de fraîcheur.
  */
-function pullTarget(
-  rows: { id: string; updated_at: string }[],
-  local: Project | null,
-): string | null {
+function pullTarget(rows: RemoteProject[], local: Project | null): string | null {
   if (!rows.length) return null
-  const mine = local ? rows.find((row) => row.id === local.id) : undefined
-  if (mine) return Date.parse(mine.updated_at) > (local?.updatedAt ?? 0) ? mine.id : null
+  const mine = local ? rows.find((row) => row.projectId === local.id) : undefined
+  if (mine) return mine.updatedAt > (local?.updatedAt ?? 0) ? mine.projectId : null
   if (local && local.createdAt !== local.updatedAt) return null
-  return rows[0].id
+  return rows[0].projectId
 }
 
-async function downloadAssets(
-  client: Client,
-  userId: string,
-  project: Project,
-): Promise<{ id: string; dataUrl: string }[]> {
-  return mapBounded([...collectAssetIds(project)], ASSET_DOWNLOAD_CONCURRENCY, async (id) => {
-    const { data, error } = await client.storage.from(BUCKET).download(`${userId}/${id}`)
-    if (error) throw error
-    return { id, dataUrl: await blobToDataUrl(data) }
-  })
+async function downloadAssets(project: Project): Promise<{ id: string; dataUrl: string }[]> {
+  return mapBounded([...collectAssetIds(project)], ASSET_DOWNLOAD_CONCURRENCY, async (id) => ({
+    id,
+    dataUrl: await blobToDataUrl(await downloadRemoteAsset(id)),
+  }))
 }
 
 interface PullProjectsResult {
@@ -249,62 +233,59 @@ interface ProjectBundle {
   remoteUpdatedAt: number
 }
 
-interface RemoteProjectRow {
-  id: string
-  data: Json
-  updated_at: string
+/**
+ * Le catalogue distant, sans le contenu, dans un ordre stable.
+ *
+ * L'ancienne lecture demandait `select('id, data, updated_at')` par pages de
+ * 500 : elle descendait l'intégralité des projets pour comparer des dates. Le
+ * JSON vit désormais à côté de la ligne, donc cette liste est petite, tient en
+ * une requête, et seuls les projets réellement plus récents sont téléchargés.
+ * L'ordre est refait ici parce qu'il porte une décision — `pullTarget` adopte
+ * `rows[0]` — et qu'un index Convex ne trie pas sur deux champs quelconques.
+ */
+export async function fetchRemoteProjectRows(): Promise<RemoteProject[]> {
+  const rows = await listRemoteProjects()
+  return rows.sort(
+    (left, right) =>
+      right.updatedAt - left.updatedAt || left.projectId.localeCompare(right.projectId),
+  )
 }
 
-/** Read every PostgREST page in one stable order without an unbounded request. */
-export async function fetchRemoteProjectRows(client: Client): Promise<RemoteProjectRow[]> {
-  const rows: RemoteProjectRow[] = []
-  for (let from = 0; ; from += PROJECT_PAGE_SIZE) {
-    const { data, error } = await client
-      .from('projects')
-      .select('id, data, updated_at')
-      .order('updated_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(from, from + PROJECT_PAGE_SIZE - 1)
-    if (error) throw error
-    const page = (data ?? []) as RemoteProjectRow[]
-    rows.push(...page)
-    if (page.length < PROJECT_PAGE_SIZE) return rows
-  }
+async function remoteTargetUnchanged(bundle: ProjectBundle): Promise<boolean> {
+  const rows = await listRemoteProjects()
+  const current = rows.find((row) => row.projectId === bundle.project.id)
+  return (current?.updatedAt ?? Number.NaN) === bundle.remoteUpdatedAt
 }
 
-async function remoteTargetUnchanged(client: Client, bundle: ProjectBundle): Promise<boolean> {
-  const remoteVersion = await client
-    .from('projects')
-    .select('updated_at')
-    .eq('id', bundle.project.id)
-    .maybeSingle()
-  if (remoteVersion.error) throw remoteVersion.error
-  const currentRemoteUpdatedAt = remoteVersion.data
-    ? Date.parse(remoteVersion.data.updated_at)
-    : Number.NaN
-  return currentRemoteUpdatedAt === bundle.remoteUpdatedAt
-}
-
-async function pullProjects(client: Client, userId: string): Promise<PullProjectsResult> {
+async function pullProjects(userId: string): Promise<PullProjectsResult> {
   const initialActive = useProjectStore.getState().project
   const initialActiveId = initialActive?.id ?? null
-  const remote = await fetchRemoteProjectRows(client)
+  const remote = await fetchRemoteProjectRows()
   const targetId = pullTarget(remote, initialActive)
   const local = new Map((await listProjects()).map((project) => [project.id, project]))
   const failedProjectIds = new Set<string>()
+  const stale = remote.filter((row) => row.updatedAt > (local.get(row.projectId)?.updatedAt ?? 0))
+
+  /* Le JSON n'est plus dans la ligne : il se télécharge, donc il se télécharge
+     avec la même borne de parallélisme que les binaires qui l'accompagnent. */
   const fresh: { project: Project; remoteUpdatedAt: number }[] = []
-  for (const row of remote) {
-    const remoteUpdatedAt = Date.parse(row.updated_at)
-    if (remoteUpdatedAt <= (local.get(row.id)?.updatedAt ?? 0)) continue
+  await mapBounded(stale, PROJECT_DOWNLOAD_CONCURRENCY, async (row) => {
     try {
-      const project = normalizeProject(row.data)
-      if (project.id !== row.id) throw new Error('Remote project id does not match its row.')
-      fresh.push({ project, remoteUpdatedAt })
+      const payload = await fetchRemoteProject(row.projectId)
+      /* Disparu entre la liste et le tirage : un autre navigateur l'a supprimé,
+         et il n'y a rien à signaler. */
+      if (payload === null) return
+      const project = normalizeProject(payload)
+      if (project.id !== row.projectId) {
+        throw new Error('Remote project id does not match its row.')
+      }
+      fresh.push({ project, remoteUpdatedAt: row.updatedAt })
     } catch (projectError) {
-      failedProjectIds.add(row.id)
-      console.error(`Could not normalize remote project ${row.id}.`, projectError)
+      failedProjectIds.add(row.projectId)
+      console.error(`Could not normalize remote project ${row.projectId}.`, projectError)
     }
-  }
+  })
+
   let targetBundle: ProjectBundle | null = null
   let preservedProject: Project | null = null
   await mapBounded(fresh, PROJECT_DOWNLOAD_CONCURRENCY, async (candidate) => {
@@ -312,7 +293,7 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
     try {
       const bundle = {
         project,
-        assets: await downloadAssets(client, userId, project),
+        assets: await downloadAssets(project),
         remoteUpdatedAt,
       }
       if (!syncAllowed() || currentUserId() !== userId) return
@@ -343,7 +324,7 @@ async function pullProjects(client: Client, userId: string): Promise<PullProject
   const target = targetBundle as ProjectBundle | null
   if (target) {
     try {
-      if (!(await remoteTargetUnchanged(client, target))) {
+      if (!(await remoteTargetUnchanged(target))) {
         failedProjectIds.add(target.project.id)
       } else {
         const currentActiveId = useProjectStore.getState().project?.id ?? null
@@ -463,19 +444,17 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
   const failed: string[] = []
   const run = async () => {
     const userId = currentUserId()
-    const pending = getSupabase()
-    if (!userId || !pending || !syncAllowed()) {
+    if (!userId || !syncAllowed()) {
       failed.push(...ids)
       return
     }
-    const client = await pending
     setStatus('syncing')
     const activeProjectId = useProjectStore.getState().project?.id
     try {
       for (const id of ids) {
         try {
           const project = await loadProject(id)
-          if (!project || !(await pushProject(client, userId, project))) {
+          if (!project || !(await pushProject(userId, project))) {
             failed.push(id)
           }
         } catch (error) {
@@ -502,7 +481,7 @@ interface PendingPushResult {
 }
 
 /** Rebuild the durable queue from local metadata and per-user acknowledgements. */
-async function pushPendingProjects(client: Client, userId: string): Promise<PendingPushResult> {
+async function pushPendingProjects(userId: string): Promise<PendingPushResult> {
   const [local, records] = await Promise.all([listProjects(), listSyncRecords(userId)])
   const acknowledged = new Map(records.map((record) => [record.key, record.pushedUpdatedAt]))
   const pending = local
@@ -524,7 +503,7 @@ async function pushPendingProjects(client: Client, userId: string): Promise<Pend
       const project = await loadProject(metadata.id, { notifyCommit: false })
       registryChanged = true
       if (!project) continue
-      if (await pushProject(client, userId, project)) pushedProjectIds.push(project.id)
+      if (await pushProject(userId, project)) pushedProjectIds.push(project.id)
       else remoteRejected = true
     }
   } finally {
@@ -562,16 +541,14 @@ function offline(): boolean {
 async function cycle(): Promise<void> {
   if (!syncAllowed()) return setStatus('off')
   const userId = currentUserId()
-  const pending = getSupabase()
-  if (!userId || !pending) return setStatus('off')
+  if (!userId) return setStatus('off')
   if (offline()) return setStatus('offline')
 
   setStatus('syncing')
-  const client = await pending
   let pullIncomplete = false
 
   if (!pulled) {
-    const result = await pullProjects(client, userId)
+    const result = await pullProjects(userId)
     preserveProject(result.preservedProject)
     if (result.adopted) toast('Version cloud chargée.', 'info')
     if (result.failedProjectIds.length > 0) {
@@ -587,10 +564,10 @@ async function cycle(): Promise<void> {
   await Promise.all(
     [...queued.values()].map((project) => ensureSyncRecord(syncKey(userId, project.id))),
   )
-  const pushed = await pushPendingProjects(client, userId)
+  const pushed = await pushPendingProjects(userId)
   for (const projectId of pushed.pushedProjectIds) queued.delete(projectId)
   if (pushed.remoteRejected) {
-    const result = await pullProjects(client, userId)
+    const result = await pullProjects(userId)
     preserveProject(result.preservedProject)
     if (result.adopted) toast('Version cloud plus récente chargée.', 'info')
     if (result.failedProjectIds.length > 0) {

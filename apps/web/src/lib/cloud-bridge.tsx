@@ -4,7 +4,7 @@ import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
 import { useConvexAuth, useQuery } from 'convex/react'
 import { publishAuthActions } from '@/lib/auth-actions'
 import { client } from '@/lib/convex-client'
-import { SESSION_NAMESPACE } from '@/lib/convex'
+import { SESSION_NAMESPACE } from '@/lib/session-keys'
 import { useAuthStore } from '@/stores/auth.store'
 
 /**

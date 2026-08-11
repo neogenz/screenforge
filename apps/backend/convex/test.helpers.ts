@@ -21,6 +21,28 @@ export function testConvex() {
 }
 
 /**
+ * Un compte qui a le droit d'écrire dans le nuage.
+ *
+ * Le miroir est posé à la main plutôt que par le webhook : la phase 4 n'a pas
+ * encore basculé, et ce que ces suites vérifient est ce qui se passe **après**
+ * le portillon, pas le portillon lui-même — `authz.test.ts` s'en charge.
+ */
+export async function cloudAccount(t: ReturnType<typeof testConvex>) {
+  return await t.run(async (ctx) => {
+    const userId = await ctx.db.insert('users', {})
+    await ctx.db.insert('entitlements', {
+      userId,
+      polarCustomerId: `cus_${userId}`,
+      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
+      cloudStatus: 'active',
+      cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
+      sourceUpdatedAt: null,
+    })
+    return userId
+  })
+}
+
+/**
  * Le refus d'un compteur, reconnu à son code et non à sa classe.
  *
  * `error instanceof ConvexError` est faux ici : l'erreur traverse la frontière

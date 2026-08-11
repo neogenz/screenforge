@@ -12,6 +12,10 @@
     "./entitlements": {
       "types": "./convex/entitlements.ts",
       "default": "./convex/entitlements.ts"
+    },
+    "./media": {
+      "types": "./convex/media.ts",
+      "default": "./convex/media.ts"
     }
   },
   "scripts": {

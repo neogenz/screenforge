@@ -58,7 +58,7 @@ import {
   openStoredProject,
   saveCurrentProject,
 } from '@/lib/storage'
-import { cloudConfigured } from '@/lib/supabase'
+import { cloudConfigured } from '@/lib/convex'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
 import {

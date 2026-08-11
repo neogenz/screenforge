@@ -49,4 +49,49 @@ export default defineSchema({
     cloudPeriodEnd: v.union(v.string(), v.null()),
     sourceUpdatedAt: v.union(v.number(), v.null()),
   }).index('by_user', ['userId']),
+
+  /**
+   * Le catalogue des projets : leur identité et leur horodatage, jamais leur
+   * contenu.
+   *
+   * Le JSON est un fichier (`blobId`) et pas une colonne, pour deux raisons qui
+   * pointent dans le même sens. La contrainte : un document Convex plafonne à
+   * 1 MiB, et un projet qui a figé vingt lots porte vingt-et-une copies de son
+   * graphe plus jusqu'à douze variantes de langue — `data jsonb` l'acceptait,
+   * un document non. Le bénéfice : le serveur n'a **jamais** lu à l'intérieur
+   * de ce JSON, le dernier-écrivain-gagne ne tranche que sur `updatedAt`, or
+   * l'ancienne lecture descendait l'intégralité des projets par pages de 500
+   * pour comparer des dates. Sortir le blob supprime ce gaspillage en même
+   * temps que le plafond.
+   *
+   * `projectId` reste l'identifiant ScreenForge et non l'`_id` Convex : c'est
+   * lui qui vit dans IndexedDB, dans le `.screenforge` exporté et dans la file
+   * de synchronisation. Le remplacer obligerait le navigateur à tenir une table
+   * de correspondance pour rien.
+   */
+  projects: defineTable({
+    userId: v.id('users'),
+    projectId: v.string(),
+    name: v.string(),
+    updatedAt: v.number(),
+    blobId: v.id('_storage'),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_project', ['userId', 'projectId']),
+
+  /**
+   * Les binaires, et à qui ils appartiennent.
+   *
+   * Le bucket portait l'isolation dans le chemin `{user_id}/{asset_id}`. Convex
+   * n'a pas de chemin : la propriété est une colonne, et `by_user_asset` est ce
+   * qui la rend interrogeable sans balayer la table. Aucune lecture ne prend
+   * l'utilisateur en paramètre — il vient du jeton, toujours.
+   */
+  assets: defineTable({
+    userId: v.id('users'),
+    assetId: v.string(),
+    storageId: v.id('_storage'),
+    contentType: v.string(),
+    byteLength: v.number(),
+  }).index('by_user_asset', ['userId', 'assetId']),
 })

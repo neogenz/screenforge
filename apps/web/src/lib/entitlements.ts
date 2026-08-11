@@ -2,12 +2,11 @@ import {
   FREE_EXPORTS_PER_PROJECT,
   isCloudActive,
   rightsOf as rightsOfEntitlements,
-  toEntitlements,
   type Entitlements,
   type Rights,
 } from 'backend/entitlements'
+import { fetchRemoteEntitlements } from '@/lib/cloud'
 import { commercialLaunch } from '@/lib/commercial-launch'
-import { getSupabase } from '@/lib/supabase'
 
 export { FREE_EXPORTS_PER_PROJECT }
 export type { Entitlements, Rights }
@@ -75,51 +74,22 @@ export function cacheEntitlements(entitlements: Entitlements): void {
 /**
  * Les droits du compte connecté, lus dans le miroir plutôt que demandés à l'API.
  *
- * La table `entitlements` est lisible par son titulaire — c'est ce que dit sa
- * policy, et c'est ce pour quoi le miroir existe : que l'éditeur sache ce qu'il
- * a le droit de faire sans interroger un tiers. Passer par `GET /me` ferait
- * dépendre le filigrane et la sync de la disponibilité d'un second service,
- * pour une donnée que le premier sert déjà. L'API garde sa route : c'est sa
- * vue à elle, celle qui garde le checkout.
+ * Le miroir existe pour cela : que l'éditeur sache ce qu'il a le droit de faire
+ * sans interroger un tiers. Passer par `GET /me` ferait dépendre le filigrane et
+ * la sync de la disponibilité d'un second service, pour une donnée que le
+ * premier sert déjà.
+ *
+ * La lecture est devenue une query Convex, et il n'y a plus rien à traduire ici :
+ * `mirror.myEntitlements` applique `toEntitlements` côté serveur et rend
+ * exactement la forme attendue. C'est aussi ce qui remplace la policy « lisible
+ * par son titulaire » — la query ne prend pas d'identifiant en argument, donc il
+ * n'y a pas de paramètre à falsifier.
  *
  * `null` n'est pas « aucun droit » : c'est « la question ne se pose pas » —
  * pas d'instance configurée, ou pas de session. L'appelant les distingue.
  */
 export async function fetchEntitlements(): Promise<Entitlements | null> {
-  const pending = getSupabase()
-  if (!pending) return null
-  const supabase = await pending
-  const { data: session } = await supabase.auth.getSession()
-  const userId = session.session?.user.id
-  if (!userId) return null
-
-  /* `maybeSingle` : un compte qui n'a jamais rien acheté n'a pas de ligne, et
-     c'est le cas courant, pas une erreur. */
-  const { data, error } = await supabase.from('entitlements').select().maybeSingle()
-  if (error) throw error
-  return projectEntitlements(data, userId, new Date())
-}
-
-/**
- * La ligne de PostgREST, traduite par la règle et non à côté d'elle.
- *
- * Cette fonction portait la règle commerciale une troisième fois, à côté de
- * `toEntitlements` dans le service Hono et de `public.has_cloud()` en SQL. Les
- * trois devaient répondre pareil et rien ne l'imposait. Il n'en reste qu'une,
- * dans `backend/entitlements`, et il ne reste ici que l'appel — jusqu'à ce que
- * la phase 6 retire aussi la lecture Supabase qui l'entoure.
- */
-export function projectEntitlements(
-  row: {
-    licence_granted_at: string | null
-    cloud_status: string | null
-    cloud_period_end: string | null
-  } | null,
-  userId: string,
-  now: Date,
-): Entitlements {
-  if (!row) return toEntitlements(null, userId, now)
-  return toEntitlements({ user_id: userId, polar_customer_id: '', ...row }, userId, now)
+  return await fetchRemoteEntitlements()
 }
 
 /**

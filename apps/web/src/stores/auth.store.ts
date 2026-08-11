@@ -7,6 +7,7 @@ import {
 } from '@/lib/entitlements'
 import { planName } from '@/lib/plans'
 import { cloudConfigured } from '@/lib/convex'
+import { JWT_STORAGE_KEY } from '@/lib/session-keys'
 import { toast } from '@/stores/toast.store'
 
 /**
@@ -89,6 +90,32 @@ export async function refreshEntitlements(): Promise<void> {
 }
 
 /**
+ * Le compte de la dernière session, lu dans le jeton posé par Convex Auth.
+ *
+ * Ce n'est pas une authentification, et le serveur n'en croit rien : chaque
+ * appel repart avec le jeton, qu'il vérifie lui-même. C'est l'identité sous
+ * laquelle relire le cache de droits en attendant sa réponse.
+ *
+ * L'expiration n'est pas regardée. La question posée n'est pas « cette session
+ * est-elle valide » — le déploiement y répond — mais « ce navigateur a-t-il
+ * ouvert une session, et pour qui ». Un jeton périmé accompagné de son jeton de
+ * renouvellement décrit toujours le bon compte.
+ */
+function rememberedUserId(): string | null {
+  try {
+    const token = localStorage.getItem(JWT_STORAGE_KEY)
+    const body = token?.split('.')[1]
+    if (!body) return null
+    const claims = JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string }
+    /* `subject` vaut `${userId}|${sessionId}` : c'est le compte qu'on veut. */
+    return claims.sub?.split('|')[0] ?? null
+  } catch (error) {
+    console.warn('Could not read the stored session.', error)
+    return null
+  }
+}
+
+/**
  * Branche le store sur la session, et rend son démonteur.
  *
  * L'abonnement lui-même vit dans `lib/cloud-bridge.tsx`, parce que Convex Auth
@@ -97,9 +124,19 @@ export async function refreshEntitlements(): Promise<void> {
  * `signed-out` — rien n'attend une réponse qui ne viendra pas, et rien du client
  * n'est chargé.
  *
+ * La session mémorisée est posée avant de s'abonner, et c'est ce qui rend une
+ * Licence utilisable hors ligne. Convex Auth ne dit « connecté » qu'une fois sa
+ * WebSocket authentifiée : sans réseau, cet état n'arrive jamais, et le compte
+ * paierait le filigrane pour un export qui n'a besoin de personne. Le client
+ * Supabase relisait sa session dans `localStorage` sans rien demander, et c'est
+ * exactement ce que ces trois lignes rétablissent.
+ *
  * Le rafraîchissement des droits suit le changement d'utilisateur plutôt que
  * d'être appelé par le pont : c'est la même règle qu'avant la migration, et elle
- * garde le pont ignorant de la vente.
+ * garde le pont ignorant de la vente. `current` part de `null` même quand une
+ * session est mémorisée — la confirmation du déploiement doit valoir changement,
+ * sinon des droits mis en cache avant une fin de période ne seraient jamais
+ * relus.
  */
 export function initAuth(): () => void {
   if (!cloudConfigured) {
@@ -107,7 +144,16 @@ export function initAuth(): () => void {
     return () => {}
   }
 
-  let current = useAuthStore.getState().user?.id ?? null
+  const remembered = rememberedUserId()
+  if (remembered) {
+    useAuthStore.setState({
+      status: 'signed-in',
+      user: { id: remembered, email: null },
+      entitlements: readCachedEntitlements(remembered),
+    })
+  }
+
+  let current: string | null = null
   return useAuthStore.subscribe((state) => {
     const next = state.user?.id ?? null
     if (next === current) return
