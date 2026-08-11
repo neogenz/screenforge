@@ -128,8 +128,8 @@ function rememberedUserId(): string | null {
  * Licence utilisable hors ligne. Convex Auth ne dit « connecté » qu'une fois sa
  * WebSocket authentifiée : sans réseau, cet état n'arrive jamais, et le compte
  * paierait le filigrane pour un export qui n'a besoin de personne. Le client
- * Supabase relisait sa session dans `localStorage` sans rien demander, et c'est
- * exactement ce que ces trois lignes rétablissent.
+ * qui précédait relisait sa session dans `localStorage` sans rien demander, et
+ * c'est exactement ce que ces trois lignes rétablissent.
  *
  * Le rafraîchissement des droits suit le changement d'utilisateur plutôt que
  * d'être appelé par le pont : c'est la même règle qu'avant la migration, et elle

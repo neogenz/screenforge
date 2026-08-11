@@ -5,30 +5,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * Ce que les dialogues reçoivent quand rien ne se passe bien.
  *
  * Un bouton d'achat qui attend une promesse jamais résolue reste en attente pour
- * toujours ; chaque geste rend donc un résultat, y compris hors réseau. Depuis
- * la migration, les refus du serveur arrivent en codes dans un `ConvexError` et
- * non en statuts HTTP — c'est cette traduction-là qui est vérifiée ici, parce
- * qu'un code non reconnu ferait afficher « réessayez » à quelqu'un à qui il
- * manque la Licence.
+ * toujours ; chaque geste rend donc un résultat, y compris hors réseau. Les
+ * refus du serveur arrivent en codes dans un `ConvexError` et non en statuts
+ * HTTP — c'est cette traduction-là qui est vérifiée ici, parce qu'un code non
+ * reconnu ferait afficher « réessayez » à quelqu'un à qui il manque la Licence.
  */
-const cloud = vi.hoisted(() => ({ action: vi.fn() }))
-const requests = vi.hoisted(() => ({
-  deleteAccount: vi.fn<() => Promise<{ ok: boolean; json: () => Promise<unknown> }>>(),
-}))
+const cloud = vi.hoisted(() => ({ action: vi.fn(), mutation: vi.fn() }))
 
 vi.mock('@/lib/cloud', () => ({
   connect: () =>
     Promise.resolve({
-      client: { action: cloud.action },
-      api: { polar: { createCheckout: 'createCheckout', createPortalSession: 'createPortal' } },
+      client: { action: cloud.action, mutation: cloud.mutation },
+      api: {
+        polar: { createCheckout: 'createCheckout', createPortalSession: 'createPortal' },
+        accountDeletion: { requestAccountDeletion: 'requestAccountDeletion' },
+      },
       site: 'http://127.0.0.1:3211',
     }),
 }))
-vi.mock('@/lib/supabase', () => ({ getSupabase: () => null }))
-vi.mock('hono/client', () => ({ hc: () => ({ account: { $delete: requests.deleteAccount } }) }))
 
-vi.stubEnv('VITE_API_URL', 'http://127.0.0.1:8787')
-const { createCheckout, createPortalSession, deleteAccount } = await import('@/lib/api')
+vi.stubEnv('VITE_COMMERCIAL_LAUNCH', '1')
+const { createCheckout, createPortalSession, deleteAccount } = await import('@/lib/account')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -37,7 +34,7 @@ beforeEach(() => {
 describe('les gestes de vente hors réseau', () => {
   it('rendent des résultats gérés pour que les dialogues quittent leur attente', async () => {
     cloud.action.mockRejectedValue(new TypeError('network down'))
-    requests.deleteAccount.mockRejectedValueOnce(new TypeError('network down'))
+    cloud.mutation.mockRejectedValue(new TypeError('network down'))
 
     await expect(createCheckout('licence')).resolves.toEqual({ ok: false, reason: 'failed' })
     await expect(createPortalSession()).resolves.toBeNull()
@@ -79,25 +76,30 @@ describe('les gestes de vente hors réseau', () => {
 })
 
 describe('la suppression de compte', () => {
-  it('distingue un compte supprimé dont le nettoyage Storage reste en attente', async () => {
-    requests.deleteAccount.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ deleted: true, cleanupPending: true }),
-    })
-
-    await expect(deleteAccount()).resolves.toBe('cleanup-pending')
+  /**
+   * Les trois issues du serveur voyagent telles quelles : la mutation les rend
+   * déjà nommées, et les retraduire ici rouvrirait l'écart que l'ancienne
+   * lecture de statuts HTTP avait — `{ deleted: false, cleanupPending: true }`
+   * demandait trois conditions pour dire un seul mot.
+   */
+  it('rend l’issue du serveur sans la réinterpréter', async () => {
+    for (const outcome of ['deleted', 'cleanup-pending', 'deletion-pending'] as const) {
+      cloud.mutation.mockResolvedValueOnce(outcome)
+      await expect(deleteAccount()).resolves.toBe(outcome)
+    }
   })
 
-  it('distingue une suppression durable en attente d’un rejet réseau pur', async () => {
-    requests.deleteAccount.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        deleted: false,
-        cleanupPending: true,
-        outcome: 'deletion-pending',
-      }),
-    })
+  /**
+   * La distinction qui compte, et la seule que l'éditeur puisse faire : un refus
+   * nommé prouve que rien n'a commencé — le compte reste actif et on peut le
+   * dire. Une rupture de transport ne prouve rien, et proposer « réessayez »
+   * après une suppression peut-être effectuée serait mentir.
+   */
+  it('distingue un refus nommé d’une rupture de transport', async () => {
+    cloud.mutation.mockRejectedValueOnce(new ConvexError({ code: 'RATE_LIMITED', retryAfter: 60 }))
+    await expect(deleteAccount()).resolves.toBe('failed')
 
-    await expect(deleteAccount()).resolves.toBe('deletion-pending')
+    cloud.mutation.mockRejectedValueOnce(new TypeError('socket closed'))
+    await expect(deleteAccount()).resolves.toBe('unknown')
   })
 })

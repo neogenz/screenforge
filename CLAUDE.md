@@ -18,6 +18,7 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 | State   | Zustand                                                    | v5+                   |
 | Styling | Tailwind CSS                                               | v4 (CSS-first config) |
 | Storage | IndexedDB via `idb`                                        | —                     |
+| Cloud   | Convex (fonctions, base, fichiers, auth) — optionnel       | v1.43+                |
 | Fonts   | Google Fonts API                                           | on-demand             |
 | Icons   | Lucide React                                               | —                     |
 | Export  | Fabric.js `toDataURL({ multiplier })` / `toBlob()` + JSZip | —                     |
@@ -44,17 +45,19 @@ pnpm run lint
 # Type check
 pnpm run typecheck
 
-# Stack Supabase local (Docker), ports 544xx
-pnpm run db:start
-pnpm run db:migrate
-pnpm run db:stop
+# Déploiement Convex local (anonyme), ports 3210/3211
+pnpm run dev:backend
+
+# Déployer le backend
+pnpm run deploy:backend
 ```
 
 ## Architecture
 
 Espace de travail pnpm : la racine ne porte que l'outillage (scripts d'audit,
-eslint, prettier, husky, `supabase/`), le produit vit dans `apps/*`. Voir
-`AGENTS.md` pour l'arborescence de la racine.
+eslint, prettier, husky), le produit vit dans `apps/*` — `web` l'éditeur,
+`backend` le déploiement Convex, `bridge` le pont local. Voir `AGENTS.md` pour
+l'arborescence de la racine.
 
 ```
 apps/web/src/

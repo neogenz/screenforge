@@ -1,3 +1,7 @@
+---
+status: done
+---
+
 # Phase 6 — Démantèlement, documentation, validation de release
 
 **But** : basculer, puis retirer. Dans cet ordre, et jamais l'inverse : tant que
@@ -124,6 +128,87 @@ Plus, spécifiquement :
    l'un ni de l'autre ne subsiste dans un secret d'hébergeur ou de CI.
 7. Aucun document du dépôt ne décrit encore une RLS, une clé `service_role` ou un
    `apps/api`.
+
+## Écarts constatés à l'implémentation (2026-08-11)
+
+**1. Ce qui est fait, et ce qui attend un humain.** Le code est basculé et
+démantelé en entier ; l'infrastructure ne l'est pas, et ne peut pas l'être
+depuis cette session. `convex login` est une connexion par navigateur, la
+suppression du projet Supabase hébergé et l'arrêt du service Railway demandent
+les identifiants du propriétaire, et un achat en bac à sable demande un compte
+Polar. Les critères 4, 5 et 6 restent donc à cocher par la personne qui a ces
+accès ; `environnements.md` est la liste exacte de ce qu'elle a à poser, avec la
+commande pour chaque valeur.
+
+**2. `commercialLaunch` prend sa propre variable, comme le §6.1 l'avait prévu.**
+La question posée — « si `commercialLaunch` doit survivre à la disparition de
+`apps/api`, il lui faut sa propre variable » — se répond oui sans hésitation :
+déduire l'ouverture commerciale de la présence de `VITE_CONVEX_URL` ouvrirait la
+vente à la première synchronisation, et le même déploiement sert les comptes
+gratuits. `VITE_COMMERCIAL_LAUNCH` remplace donc `VITE_API_URL` dans
+`lib/commercial-launch.ts`, dans `build:profiles`, dans les deux configurations
+Playwright et dans la CI.
+
+**3. `lib/api.ts` devient `lib/account.ts` au lieu de disparaître.** Le §6.2 le
+compte parmi les fichiers supprimés (119 lignes). Ses trois fonctions, elles, ne
+sont pas supprimables : acheter, gérer son abonnement et supprimer son compte
+restent trois gestes du produit. Ce qui disparaît est ce que le nom désignait —
+le client Hono, l'en-tête `Authorization` reconstruit à chaque appel, la lecture
+de statuts HTTP. Les replier dans `lib/cloud.ts` aurait mêlé le transport et le
+commerce dans un seul fichier ; le nom suit donc l'intention.
+
+**4. `deleteAccount` ne dépend plus de l'ouverture commerciale.** Elle rendait
+`'failed'` sans `billingConfigured`, ce qui était juste tant que la route vivait
+dans le service de vente. Un compte existe désormais dès qu'il y a un
+déploiement, ouverture commerciale ou non — refuser de le supprimer dans une
+build d'avant-lancement serait retenir des données de quelqu'un qui demande à
+partir. Elle ne dépend plus que de `connect()`.
+
+**5. Critère 1 : le grep rend huit lignes, toutes des commentaires, et elles
+restent.** La commande demandée
+(`grep -rni "supabase" … apps/ scripts/`) rend huit occurrences dans
+`apps/backend/convex/`, aucune dans du code exécutable : ce sont les phrases qui
+disent **pourquoi** une règle existe — « le bucket appliquait `file_size_limit`
+et `allowed_mime_types` à la réception », « `auth.admin.deleteUser` était un
+appel réseau dont la réponse pouvait se perdre ». Les effacer coûterait
+exactement ce que la migration a passé six phases à préserver : la raison
+mesurée derrière chaque contrainte. Ce que le critère voulait prouver — plus
+aucun couplage vivant — est prouvé par les deux autres greps, qui eux rendent
+zéro : aucune dépendance (`grep supabase pnpm-lock.yaml` → 0) et aucun import.
+
+**6. Critère 2 : `@hono/node-server` reste, et c'est le critère qui se
+trompait.** Il appartient à `apps/bridge`, le pont local, qui n'a rien à voir
+avec la migration et continue de servir `codex` et la publication App Store.
+`@supabase/supabase-js` a bien quitté les trois `package.json` et le fichier de
+verrouillage.
+
+**7. Le job `db` de la CI disparaît sans remplaçant, et le grep `service_role`
+avec lui.** Le premier appliquait les migrations sur une base vierge et
+attaquait les policies depuis un second compte ; il n'y a plus ni migration ni
+policy. Le second gardait une clé qui contournait la RLS ; il n'existe plus de
+clé qui contourne l'autorisation, parce qu'il n'existe plus de chemin vers la
+base à côté des fonctions. Le job `api` devient `backend`. Le job `e2e` ne
+démarre plus aucun service : les specs qui ont besoin d'un compte vérifient
+`localConvex()` et se sautent d'elles-mêmes.
+
+**8. `pnpm run test:release` : tout est vert sauf `ai-provider.spec.ts`, pour une
+raison extérieure au dépôt.** 118 tests passent, un se saute (le bezel Apple
+réel, qui attend `APPLE_BEZEL_PATH`), un échoue :
+`e2e/ai-provider.spec.ts` attend « aucun pont ne répond » et reçoit « le pont
+parle la version 3, cette page la 2 ». Un processus `apps/bridge` tourne depuis
+l'**autre copie de travail** (`/…/screen-forge/apps/bridge`, PID en écoute sur
+127.0.0.1:4590), où `PROTOCOL_VERSION` vaut 3 — une valeur montée par un commit
+qui n'est pas sur cette branche. Arrêter ce processus rend le test vert ; il
+n'appartient pas à cette session de le tuer.
+
+**9. Les trois vérifications manuelles du §6.1, faites contre le déploiement
+local réel.** Le projet à 20 releases (1,3 MiB) pousse et revient — c'était la
+phase 3. L'asset de 16 MiB fait l'aller-retour par l'`httpAction` — phase 3
+également. Le cron de suppression a vidé deux files posées à la main par
+`convex import` — phase 5. Ce qu'un déploiement **local** ne peut pas prouver et
+qui reste à constater en ligne : rien de fonctionnel, seulement que les valeurs
+d'environnement sont bien posées, ce que `billing:healthcheck` dit en une
+commande.
 
 ## Après
 

@@ -5,6 +5,15 @@ status: reviewed
 
 # Plan: ScreenForge SaaS — auth, sync cloud, billing
 
+> **La couche serveur de ce plan a été remplacée le 2026-08-11.** Supabase
+> (Auth, Postgres, RLS, Storage) et le service `apps/api` ont laissé la place à
+> un déploiement Convex unique — voir
+> [`../2026_08_11_migration-convex/plan.md`](../2026_08_11_migration-convex/plan.md).
+> Ce qui est décrit ici et **reste vrai** : l'offre (Licence perpétuelle, Cloud
+> annuel), les règles de vente, le palier gratuit et son filigrane, le
+> Merchant of Record. Ce qui ne l'est plus : chaque mention de RLS, de
+> `service_role`, de PostgREST, de bucket Storage ou de route Hono.
+
 ## Overview
 
 | Field      | Value                                                                                          |

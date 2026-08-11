@@ -50,7 +50,7 @@ import {
   PROJECT_FILE_MIME,
   projectFileErrorMessage,
 } from '@/lib/project-file'
-import { billingConfigured } from '@/lib/api'
+import { billingConfigured } from '@/lib/account'
 import { planName } from '@/lib/plans'
 import {
   importPortableProject,
@@ -664,7 +664,7 @@ function useToolActions(): SecondaryAction[] {
 /**
  * L'entrée de compte, ou rien.
  *
- * Rien est le cas normal : sans instance Supabase configurée, ScreenForge est
+ * Rien est le cas normal : sans déploiement configuré, ScreenForge est
  * l'éditeur local-first qu'il a toujours été, et un bouton « Se connecter » qui
  * ouvrirait une boîte incapable de connecter quiconque serait pire qu'absent.
  * `cloudConfigured` étant une constante de compilation, la branche entière

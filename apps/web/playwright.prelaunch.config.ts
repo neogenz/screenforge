@@ -16,7 +16,7 @@ export default defineConfig({
   webServer: {
     /* An explicit empty process variable overrides a developer's root `.env`:
        this server proves the exact build shipped before billing opens. */
-    command: 'VITE_API_URL= pnpm run dev --port 5200',
+    command: 'VITE_COMMERCIAL_LAUNCH= pnpm run dev --port 5200',
     url: 'http://localhost:5200',
     reuseExistingServer: true,
     timeout: 30_000,

@@ -1,4 +1,4 @@
-import type { DeleteAccountOutcome } from '@/lib/api'
+import type { DeleteAccountOutcome } from '@/lib/account'
 import type { ToastTone } from '@/stores/toast.store'
 
 interface AccountDeletionEffects {

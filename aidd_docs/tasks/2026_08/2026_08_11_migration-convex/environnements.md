@@ -182,18 +182,30 @@ Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
 
 ## Étape 3 — le navigateur
 
-Une seule variable, et elle est publique : c'est l'URL que le client Convex
-appelle. Son absence est ce qui fait de ScreenForge une application purement
-locale, et c'est un invariant testé (`e2e/boot-shell.spec.ts`).
+Deux variables, toutes deux publiques et toutes deux facultatives. Elles ne
+disent pas la même chose et c'est pour cela qu'elles sont deux : l'une ouvre le
+compte, l'autre ouvre la vente.
 
 `.env` à la racine du dépôt (`apps/web/vite.config.ts` lit `envDir` depuis la
 racine) :
 
 ```
 VITE_CONVEX_URL=https://<votre-déploiement>.convex.cloud
+VITE_COMMERCIAL_LAUNCH=
 ```
 
-Pour la préproduction et la production, posez-la dans les variables
+`VITE_CONVEX_URL` est l'URL que le client Convex appelle. Son absence est ce qui
+fait de ScreenForge une application purement locale, et c'est un invariant testé
+(`e2e/boot-shell.spec.ts`).
+
+`VITE_COMMERCIAL_LAUNCH` ouvre les tarifs, le checkout et les paliers payants.
+Vide, l'éditeur reste en avant-lancement : exports propres illimités, aucune
+boîte de prix, aucune promesse d'achat qu'on ne pourrait pas honorer. N'importe
+quelle valeur non vide l'ouvre. Elle est séparée depuis le démantèlement de
+`apps/api` : la présence d'un déploiement ne dit plus rien de l'ouverture
+commerciale, puisque le même déploiement sert les comptes gratuits.
+
+Pour la préproduction et la production, posez-les dans les variables
 d'environnement de la plateforme d'hébergement, jamais dans le dépôt.
 
 ## Vérifier

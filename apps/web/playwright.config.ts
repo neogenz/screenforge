@@ -28,7 +28,8 @@ const CLOUD_SPEC = '**/sync.spec.ts'
    propre configuration et leur propre serveur. */
 const PRELAUNCH_SPECS = '**/*.prelaunch.spec.ts'
 
-const API_URL = 'VITE_API_URL=http://127.0.0.1:8787'
+/* La vente ouverte : la suite principale mesure les paliers payants. */
+const LAUNCH = 'VITE_COMMERCIAL_LAUNCH=1'
 
 export default defineConfig({
   testDir: './e2e',
@@ -59,7 +60,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `${API_URL} pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
+      command: `${LAUNCH} pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
       url: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
       reuseExistingServer: true,
       timeout: 30_000,
@@ -67,7 +68,7 @@ export default defineConfig({
     ...(convex
       ? [
           {
-            command: `${API_URL} VITE_CONVEX_URL=${convex.url} pnpm run dev --port ${String(CLOUD_PORT)}`,
+            command: `${LAUNCH} VITE_CONVEX_URL=${convex.url} pnpm run dev --port ${String(CLOUD_PORT)}`,
             url: `http://localhost:${String(CLOUD_PORT)}`,
             reuseExistingServer: true,
             timeout: 30_000,

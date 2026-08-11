@@ -48,10 +48,11 @@ pnpm run typecheck
 # E2E tests (Playwright, requires chromium — `pnpm exec playwright install chromium` once)
 pnpm run test:e2e
 
-# Local Supabase stack (Docker) — ports 544xx, not the CLI defaults
-pnpm run db:start
-pnpm run db:migrate
-pnpm run db:stop
+# Local Convex deployment (anonymous) — ports 3210/3211
+pnpm run dev:backend
+
+# Deploy the backend to a cloud deployment
+pnpm run deploy:backend
 
 # Validate an exported ZIP against App Store rules
 pnpm run validate:export -- <file.zip>
@@ -76,20 +77,24 @@ pnpm run validate:export -- <file.zip>
   eslint.config.js         # one flat config for every package (patterns are apps/*/…)
   .env.example             # single env file for the whole stack; apps/web reads it via envDir
   scripts/                 # audits and probes — resolve paths from the root, run from the root
-  supabase/                # config.toml + migrations (local stack on ports 544xx)
   apps/
     web/                   # the editor + the landing, the app that used to be the repository
       index.html           # editor entry
       landing.html         # marketing entry (prerendered per language at build)
       e2e/ src/ public/
-    api/                   # billing + account backend (hono on node); web imports its AppType only
+    backend/               # the Convex deployment: schema, auth, authorization, sale, deletion
+      convex/              # functions — the only surface a client can reach
+      tests/stack.ts       # what only the backend can do (internal mutations), for the e2e suite
     bridge/                # optional local daemon: 127.0.0.1 only, spawns `codex app-server`
 ```
 
-`api` and `bridge` are declared as `devDependencies` of `web` so the editor can
-`import type` their contracts — a renamed route or RPC then breaks at compile
-time rather than at runtime. Nothing of either package reaches the browser
-bundle: the imports are type-only by construction.
+`backend` and `bridge` are declared as `devDependencies` of `web` so the editor
+can import their contracts — a renamed function or RPC then breaks at compile
+time rather than at runtime. `backend` is the one whose value crosses at
+runtime too: `api` (the generated function references) and `Entitlements` (the
+commercial rule, written once). Both arrive through a dynamic `import()`, so
+nothing of the deployment sits in the critical bundle — `e2e/boot-shell.spec.ts`
+measures it.
 
 `@types/react` and `@types/react-dom` are declared **twice** on purpose: in
 `apps/web` because the app imports them, and at the root because a dependency's

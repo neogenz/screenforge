@@ -33,6 +33,11 @@ jobs:
 
   # Ce qu'il faut un vrai navigateur pour établir : le comportement e2e et les
   # deux audits qui mesurent des pixels rendus.
+  #
+  # Aucun service n'est démarré ici. Les specs qui ont besoin d'un compte
+  # vérifient `localConvex()` et se sautent d'elles-mêmes en son absence — c'est
+  # la même règle qu'avant, appliquée à un déploiement plutôt qu'à Docker, et
+  # elle vaut que le reste de la suite tourne sans rien à provisionner.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -45,33 +50,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: supabase start
-      - run: supabase migration up
-      - name: Exposer le stack local à Vite et Playwright
-        run: |
-          status="$(supabase status -o json)"
-          echo "SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
-          echo "SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -r .SERVICE_ROLE_KEY <<<"$status")" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
-      # `billingConfigured` est un booléen de compilation tiré de `VITE_API_URL`
-      # (`lib/api.ts`). La suite principale prouve les paliers lancés avec cette
-      # URL ; son second serveur force une URL vide et prouve séparément le ZIP
-      # propre illimité de la variante pré-lancement.
+      # `billingConfigured` est un booléen de compilation tiré de
+      # `VITE_COMMERCIAL_LAUNCH` (`lib/commercial-launch.ts`). La suite
+      # principale pose la variable et prouve les paliers lancés ; son second
+      # serveur la force vide et prouve séparément le ZIP propre illimité de la
+      # variante pré-lancement.
       - run: pnpm run test:e2e
-        env:
-          VITE_API_URL: http://127.0.0.1:8787
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
-      - if: always()
-        run: supabase stop --no-backup
       - name: Upload Playwright diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -82,47 +71,20 @@ jobs:
             apps/web/test-results
           if-no-files-found: ignore
 
-  # Les migrations s'appliquent sur une base vierge, à chaque commit, et les
-  # policies RLS sont attaquées depuis un second compte. C'est le seul endroit
-  # où un trou d'autorisation se voit : une policy manquante ne casse rien, elle
-  # rend l'application plus permissive, en silence.
-  db:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.26.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: pnpm install --frozen-lockfile
-      - run: supabase start
-      - run: supabase migration up
-      - run: pnpm run test:rls
-      # Le typage DB → client est régénéré depuis le schéma qui vient d'être
-      # appliqué : s'il diffère de celui qui est committé, la compilation du web
-      # tourne sur une forme de table qui n'existe plus.
-      - run: pnpm run gen:types
-      - run: git diff --exit-code -- apps/web/src/types/database.types.ts
-      - if: always()
-        run: supabase stop --no-backup
-
-  # Le backend de vente. Aucun secret n'est nécessaire ici : `env()` est paresseux
-  # et les tests posent leurs propres variables, ce qui est délibéré — un job qui
-  # aurait besoin d'un jeton Polar pour compiler ne pourrait pas tourner sur une
-  # pull request venue d'un fork.
+  # Le déploiement : schéma, autorisation, vente et suppression de compte.
   #
-  # Les secrets réels (SUPABASE_SERVICE_ROLE_KEY, POLAR_ACCESS_TOKEN,
-  # POLAR_WEBHOOK_SECRET) vivent dans les variables de l'hébergeur et nulle part
-  # ailleurs : ni dans le dépôt, ni dans un `.env` committé, ni dans le contexte
-  # d'un agent.
-  api:
+  # Aucun secret n'est nécessaire — les tests posent leurs propres variables, ce
+  # qui est délibéré : un job qui aurait besoin d'un jeton Polar pour compiler ne
+  # pourrait pas tourner sur une pull request venue d'un fork. Les jetons réels
+  # (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `AUTH_*`) vivent dans les
+  # variables du déploiement Convex et nulle part ailleurs : ni dans le dépôt, ni
+  # dans un `.env` committé, ni dans le contexte d'un agent.
+  #
+  # Ce qui a disparu avec la migration, et qu'on ne remplace pas : le grep qui
+  # refusait `service_role` dans `apps/web`. Il gardait une clé qui contournait
+  # la RLS ; il n'existe plus de clé qui contourne l'autorisation, parce qu'il
+  # n'existe plus de chemin vers la base à côté des fonctions.
+  backend:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -135,18 +97,5 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter api run typecheck
-      - run: pnpm --filter api run test:unit
-
-      # La clé `service_role` court-circuite la RLS : dans un paquet compilé pour
-      # le navigateur, elle donnerait à n'importe quel visiteur les droits que ce
-      # backend existe pour garder. Le grep échoue sur la simple mention du mot,
-      # y compris dans un commentaire — la seule forme qu'une revue ne peut pas
-      # oublier de faire.
-      - name: Refuser service_role dans apps/web
-        run: |
-          if grep -rn --exclude-dir=node_modules --exclude-dir=dist \
-              -e 'service_role' -e 'SERVICE_ROLE' apps/web; then
-            echo "::error::La clé service_role ne doit jamais atteindre apps/web."
-            exit 1
-          fi
+      - run: pnpm --filter backend run typecheck
+      - run: pnpm --filter backend run test:unit
