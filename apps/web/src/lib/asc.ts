@@ -213,6 +213,7 @@ export function buildManifest(
   target: AscTarget,
   files: readonly AscManifestFile[],
   bundleHash: string,
+  options: { replaceExisting?: boolean; dryRun?: boolean } = {},
 ): AscManifest {
   const directory = bundleDirectory(target.locale)
   return {
@@ -222,10 +223,16 @@ export function buildManifest(
     directory,
     bundleHash,
     files: [...files].sort((left, right) => (left.name < right.name ? -1 : 1)),
-    /* Sans drapeau, et figée avec le lot : c'est le chemin sans pont, celui
-       qu'on lance à la main depuis l'archive décompressée. Les deux cases de la
-       boîte ne s'y appliquent pas — elles n'existent pas encore au figement. */
-    command: uploadCommand(target, `./${directory}`),
+    /* La commande du manifeste porte les mêmes drapeaux que celle affichée : le
+       ZIP est le chemin sans pont, celui qu'on décompresse pour lancer la
+       commande à la main. Elle a d'abord été figée avec le lot, sans drapeau,
+       parce que les cases n'existaient pas encore au moment du rendu — mais le
+       bloc de la page et le bouton de téléchargement sont voisins à l'écran, et
+       l'archive partait alors sans le `--dry-run` que la page annonçait. Le
+       drapeau ne dépend d'aucun octet rendu, donc rien n'oblige à refaire le
+       lot pour le suivre : la page recompose ce manifeste-ci à chaque changement
+       de case, l'empreinte étant celle des planches seules. */
+    command: uploadCommand(target, `./${directory}`, options),
   }
 }
 

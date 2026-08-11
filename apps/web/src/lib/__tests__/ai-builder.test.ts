@@ -340,7 +340,11 @@ describe('le run', () => {
     expect(useHistoryStore.getState().past).toHaveLength(0)
   })
 
-  it('abandonné, il rend au néant les captures qu’il avait enregistrées', () => {
+  /* Ce que la boîte de campagne délègue en la rappelant sans condition : elle
+     ne sait pas ce que le plan a posé, cette fonction le sait pour elle. C'est
+     ce qui rend un drapeau « accepté » non seulement inutile mais nuisible —
+     il couvrait aussi les captures qu'un run accepté n'avait pas posées. */
+  it('rend au néant ce que le projet ne référence pas, accepté ou non', () => {
     const kept = registerAsset('data:image/png;base64,AAAA')
     const dropped = registerAsset('data:image/png;base64,BBBB')
     const device = deviceLayer('d1')

@@ -2,6 +2,7 @@ import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
 import type { Entitlements } from '../src/lib/entitlements'
+import type { SaveStatus, SyncStatus } from '../src/stores/ui.store'
 import type { Layer, Project } from '../src/types'
 
 /**
@@ -83,6 +84,11 @@ declare global {
         }
       }
       useUIStore: {
+        /* Les deux témoins de la barre se posent d'ici : les états les plus
+           larges — « Modifications non enregistrées », « Hors ligne » — ne se
+           produisent pas dans une suite sans disque plein ni réseau coupé, et
+           ce sont eux qui décident de la largeur de la rangée. */
+        setState: (partial: { saveStatus?: SaveStatus; syncStatus?: SyncStatus }) => void
         getState: () => {
           setZoom: (zoom: number) => void
           zoomIn: () => void

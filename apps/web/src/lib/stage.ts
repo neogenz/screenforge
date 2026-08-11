@@ -208,6 +208,31 @@ export const TOP_BAR_COMPACT_WIDTH = 1280
  * Arrondi au-dessus du besoin réel (570) pour ne pas replier au ras.
  */
 export const TOP_BAR_TOOLS_WIDTH = 640
+/**
+ * Les deux témoins d'état écrits en toutes lettres, au pire cas mesuré.
+ *
+ * « Modifications non enregistrées » plus « Hors ligne — reprendra au retour du
+ * réseau ». Mesuré, comme les deux seuils au-dessus, parce que la largeur d'un
+ * mot ne se dérive de rien.
+ */
+const TOP_BAR_STATUS_LABELS_WIDTH = 160
+/**
+ * Largeur à partir de laquelle les témoins d'état s'écrivent au lieu de se
+ * réduire à leur pictogramme.
+ *
+ * Ils vivaient sur `xl:not-sr-only` — un palier Tailwind écrit en dur, la seule
+ * chose que ce fichier existe pour empêcher. Il valait 1280, c'est-à-dire
+ * exactement `TOP_BAR_COMPACT_WIDTH` : la largeur où la rangée est la plus
+ * chargée et celle où deux libellés apparaissent étaient devenues la même, par
+ * coïncidence et non par décision. Les témoins portant `shrink-0` dans une
+ * colonne `minmax(0,1fr)`, ils débordaient au lieu de céder — 126px de texte
+ * peints sur les outils pour « Modifications non enregistrées · Hors ligne »,
+ * et le clic destiné à la bascule Calques était pris par du texte.
+ *
+ * Dérivé plutôt que choisi : les libellés apparaissent là où la rangée déployée
+ * a de la place pour eux, donc au seuil de repli plus leur propre largeur.
+ */
+export const TOP_BAR_LABELS_MIN_WIDTH = TOP_BAR_COMPACT_WIDTH + TOP_BAR_STATUS_LABELS_WIDTH
 
 /** Gouttière que la boîte modale laisse à la fenêtre (`w-[calc(100%-2rem)]`). */
 export const DIALOG_VIEWPORT_GUTTER = 32

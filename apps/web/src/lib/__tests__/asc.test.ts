@@ -135,6 +135,28 @@ describe('manifeste', () => {
     const body = JSON.stringify(manifest)
     expect(body).not.toMatch(/p8|privateKey|issuer|apiKey/i)
   })
+
+  /* La commande du ZIP est celle que la page affiche : c'est le même appel de
+     `uploadCommand`, avec les mêmes drapeaux. Une archive qui partait sans le
+     `--dry-run` annoncé à l'écran est le défaut que ce cas retient — le bouton
+     de téléchargement est juste au-dessus du bloc qui montrait l'autre. */
+  it('emporte les drapeaux affichés, et pas seulement une commande par défaut', () => {
+    const files = [manifestFile()]
+    const sec = buildManifest(release(), TARGET, files, 'f'.repeat(64), { dryRun: true })
+    const destructif = buildManifest(release(), TARGET, files, 'f'.repeat(64), {
+      replaceExisting: true,
+    })
+    expect(sec.command).toEqual(
+      uploadCommand(TARGET, `./fr-FR/${ASC_DISPLAY_TYPE}`, { dryRun: true }),
+    )
+    expect(sec.command).toContain('--dry-run')
+    expect(destructif.command).toContain('--replace')
+    expect(destructif.command).not.toContain('--dry-run')
+    // Les drapeaux ne touchent pas ce qui identifie le lot : la page peut donc
+    // recomposer le manifeste sans refaire le rendu.
+    expect(sec.bundleHash).toBe(destructif.bundleHash)
+    expect(sec.files).toEqual(destructif.files)
+  })
 })
 
 describe('commande', () => {
@@ -146,7 +168,7 @@ describe('commande', () => {
     expect(command).toContain(ASC_DISPLAY_TYPE)
   })
 
-  it('rend exactement les arguments que le pont exécutera', async () => {
+  it('rend exactement les arguments que le pont exécutera, destination remplie', async () => {
     /* Les deux constructeurs vivent dans deux paquets — le pont ne peut pas
        importer le navigateur, et le navigateur ne doit rien recevoir du pont
        qu'un type. Rien ne les réunit donc à la compilation : c'est ce test qui
@@ -169,6 +191,17 @@ describe('commande', () => {
       // à part : c'est la seule différence permise entre les deux.
       expect(affichée.slice(1)).toEqual(exécutée)
     }
+  })
+
+  it('destination vide, montre un trou à combler plutôt qu’un argument vide', () => {
+    /* La seule divergence voulue entre l'affichage et l'exécution, et elle est
+       nommée ici pour que le test au-dessus ne se lise pas comme une parité
+       inconditionnelle. Une destination vide ne peut pas atteindre le pont — son
+       schéma refuse la chaîne vide — donc il n'y a rien à apparier : la page
+       montre alors une commande à compléter, pas une commande à lancer. */
+    const command = uploadCommand({ ...TARGET, versionLocalization: '' }, '/tmp/lot')
+    expect(command).toContain('<LOCALIZATION_ID>')
+    expect(command).not.toContain('')
   })
 
   it('reste lisible sans jamais être exécutée telle quelle', () => {

@@ -9,14 +9,12 @@ import {
   commandLine,
   preflight,
   targetSummary,
-  uploadCommand,
   APP_STORE_LOCALES,
   ASC_DISPLAY_TYPE,
   ASC_SIZE_LABEL,
   EMPTY_TARGET,
   LOCALIZATION_HINT,
   ascLocaleFor,
-  type AscManifest,
   type AscManifestFile,
   type AscTarget,
 } from '@/lib/asc'
@@ -76,7 +74,6 @@ export function PublishDialog() {
 interface PreparedBundle {
   releaseId: string
   bundleHash: string
-  manifest: AscManifest
   files: { name: string; blob: Blob; sha256: string }[]
   /** Les planches dont l'empreinte ne correspond plus à la release. */
   drifted: string[]
@@ -169,13 +166,7 @@ function PublishDialogContent({ project }: { project: Project }) {
         .filter((file) => expected.get(file.name) !== file.sha256)
         .map((file) => file.name)
       const hash = await bundleDigest(collected)
-      setBundle({
-        releaseId: release.id,
-        bundleHash: hash,
-        manifest: buildManifest(release, target, manifestFiles, hash),
-        files: collected,
-        drifted,
-      })
+      setBundle({ releaseId: release.id, bundleHash: hash, files: collected, drifted })
       if (drifted.length > 0) {
         setError(
           `${drifted.length} planche(s) ne correspondent plus à leurs empreintes. Vérifiez la release avant de publier.`,
@@ -189,9 +180,9 @@ function PublishDialogContent({ project }: { project: Project }) {
   }
 
   async function download() {
-    if (!bundle) return
-    const zip = await bundleZip(bundle.manifest, bundle.files)
-    downloadBlob(zip, `${bundle.manifest.release.name || 'lot'}-${target.locale}.zip`)
+    if (!bundle || !manifest) return
+    const zip = await bundleZip(manifest, bundle.files)
+    downloadBlob(zip, `${manifest.release.name || 'lot'}-${target.locale}.zip`)
     toast('Lot téléchargé : décompressez-le puis lancez la commande du manifeste.', 'success')
   }
 
@@ -242,15 +233,26 @@ function PublishDialogContent({ project }: { project: Project }) {
     }
   }
 
-  /* La commande affichée suit les deux cases, elle ne recopie pas celle du
-     manifeste : le manifeste est figé au moment du lot, avant que quiconque ait
-     coché quoi que ce soit. Cocher « supprimer les captures déjà en ligne »
-     laissait donc le bloc montrer une commande sans `--replace` pendant que le
-     pont lançait la version avec — le drapeau destructeur ne se lisait nulle
-     part dans la page qui venait de le déclencher. */
-  const command = bundle
-    ? uploadCommand(target, `./${bundle.manifest.directory}`, { replaceExisting, dryRun })
-    : []
+  /*
+   * Une seule commande, celle du manifeste, et la page la lit au lieu d'en
+   * composer une deuxième.
+   *
+   * Le manifeste était figé au rendu du lot, avant que les cases existent :
+   * cocher « supprimer les captures déjà en ligne » laissait le bloc montrer
+   * une commande sans `--replace` pendant que le pont lançait la version avec.
+   * Afficher une commande à part a réparé l'écran et déplacé le défaut dans le
+   * ZIP, dont le bouton est juste au-dessus. Il n'y a donc plus qu'une source :
+   * le manifeste se recompose à chaque changement de case, ce qui ne coûte rien
+   * — l'empreinte du lot est celle des planches, et aucune case n'y touche.
+   */
+  const manifest =
+    release && bundle
+      ? buildManifest(release, target, manifestFiles, bundle.bundleHash, {
+          replaceExisting,
+          dryRun,
+        })
+      : null
+  const command = manifest?.command ?? []
 
   return (
     <Dialog

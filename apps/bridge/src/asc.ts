@@ -31,10 +31,11 @@ import type {
  * s'arrête là ; c'est à l'utilisateur de regarder l'état réel avant de refaire.
  *
  * **Elle ne republie pas deux fois le même lot.** La clé est
- * `release + destination + empreinte du lot` : le même lot vers la même
- * localisation rend le résultat déjà obtenu au lieu d'un second téléversement.
- * `ponytail:` cette mémoire est celle du processus — le pont redémarré republie.
- * Une trace sur disque relèverait de l'état persistant, que ce pont n'a pas.
+ * `release + destination + empreinte du lot + drapeaux` : la même demande vers
+ * la même localisation rend le résultat déjà obtenu au lieu d'un second
+ * téléversement, mais changer un drapeau change la demande. `ponytail:` cette
+ * mémoire est celle du processus — le pont redémarré republie. Une trace sur
+ * disque relèverait de l'état persistant, que ce pont n'a pas.
  */
 
 export const ASC_TIMEOUT_MS = 180_000
@@ -164,12 +165,18 @@ export function uploadArgs(
 /**
  * Release, destination, empreinte du lot — **et les drapeaux**.
  *
- * Un essai à blanc et un vrai téléversement ne sont pas la même opération, et
- * remplacer n'est pas ajouter. Sans eux dans la clé, un premier envoi rendait
- * son résultat à la demande suivante : la case « supprimer les captures déjà en
- * ligne » était avalée par le cache et rapportée en succès, avec un
- * `replaceExisting: false` dans la réponse que personne ne relit. Prudent dans
- * son effet — rien n'était supprimé chez Apple — et faux dans ce qu'il disait.
+ * `replaceExisting` répare un défaut constaté : remplacer n'est pas ajouter, et
+ * sans lui dans la clé, un premier envoi rendait son résultat à la demande
+ * suivante. La case « supprimer les captures déjà en ligne » était avalée par le
+ * cache et rapportée en succès, avec un `replaceExisting: false` dans la réponse
+ * que personne ne relit — prudent dans son effet, rien n'était supprimé chez
+ * Apple, et faux dans ce qu'il disait.
+ *
+ * `dryRun` ne joue que dans un sens, et c'est voulu : un essai à blanc n'est
+ * jamais mémorisé, donc aucune clé en `dry` n'existe et le segment n'y sert à
+ * rien. Ce qu'il empêche, c'est l'inverse — qu'une répétition demandée après une
+ * vraie publication soit servie depuis le cache et rende `dryRun: false` : une
+ * réponse « publié » à qui demandait « qu'est-ce que ça ferait ».
  */
 export function idempotenceKey(request: {
   releaseId: string

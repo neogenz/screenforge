@@ -86,19 +86,21 @@ function CampaignDialogContent({ project }: { project: Project }) {
      abandonné. La ref plutôt que l'état : rien ne s'affiche à partir d'elle, et
      elle est lue dans un démontage. */
   const registered = useRef<string[]>([])
-  /* « Posées », pas « acceptée » : ce qui décide du nettoyage est que les
-     captures soient entrées dans le projet, pas qu'un bouton ait rendu la main.
-     Nommée `accepted`, elle a été levée par l'harmonisation — qui ne pose
-     aucune capture — et les fichiers importés survivaient au run abandonné,
-     jusqu'au balayage du chargement suivant. */
-  const placed = useRef(false)
 
-  useEffect(
-    () => () => {
-      if (!placed.current) discardAiAssets(registered.current)
-    },
-    [],
-  )
+  /*
+   * Le nettoyage ne se demande pas si le run a été accepté : il ne libère que
+   * ce que le projet ne référence pas.
+   *
+   * `discardAiAssets` relit le projet courant et protège tout ce qu'il tient,
+   * donc les captures posées survivent d'elles-mêmes. Un drapeau « accepté »
+   * n'ajoutait rien et retranchait : il couvrait aussi ce qu'un run accepté
+   * n'avait *pas* posé — le logo laissé de côté, les captures au-delà de dix,
+   * celles d'un premier import remplacé — et ces fichiers-là restaient dans
+   * IndexedDB jusqu'au balayage du chargement suivant. Accepter puis fermer
+   * est une seule tournée de rendu : personne ne peut annuler entre les deux,
+   * donc le projet référence encore ce qu'il vient de recevoir.
+   */
+  useEffect(() => () => discardAiAssets(registered.current), [])
 
   const brief: CampaignBrief = useMemo(
     () => ({
@@ -209,7 +211,6 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(outcome.error ?? 'La composition a échoué : le projet est resté inchangé.')
       return
     }
-    placed.current = true
     toast(
       `${outcome.screenIds.length} planche${outcome.screenIds.length > 1 ? 's' : ''} composée${
         outcome.screenIds.length > 1 ? 's' : ''
@@ -228,8 +229,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(outcome.error ?? 'L’harmonisation a échoué : le projet est resté inchangé.')
       return
     }
-    // Rien de posé ici : l'harmonisation restyle les calques déjà en place, et
-    // les captures importées de ce run repartent bien au néant.
+    // Rien de posé ici : l'harmonisation restyle les calques déjà en place. Les
+    // captures importées de ce run repartent au néant au démontage, comme
+    // n'importe quel fichier que le projet ne référence pas.
     toast(`Écran « ${activeScreen.name} » harmonisé.`, 'success')
     close()
   }

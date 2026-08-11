@@ -42,7 +42,7 @@ import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
-import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
+import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import {
   createProjectFile,
@@ -134,8 +134,28 @@ export function TopBar() {
   )
 }
 
+/**
+ * Le libellé d'un témoin s'écrit là où la rangée a la place de le porter.
+ *
+ * Un seul endroit le décide, pour les deux témoins : ils se lisent d'affilée,
+ * donc l'un écrit pendant que l'autre est en pictogramme n'a aucun sens. Le
+ * seuil vient de `lib/stage.ts` et non d'un `xl:` — écrit en dur, il était
+ * tombé pile sur le seuil de repli, et deux libellés `shrink-0` apparaissaient
+ * exactement à la largeur où la rangée n'avait plus rien à leur donner.
+ */
+function useStatusLabelsWritten(): boolean {
+  return !useMediaQuery(belowWidth(TOP_BAR_LABELS_MIN_WIDTH))
+}
+
+/** `sr-only` garde le libellé dans l'arbre d'accessibilité : la région live
+ *  l'annonce à toute largeur, ce qu'un `display:none` empêchait. */
+function statusLabelClass(written: boolean): string {
+  return written ? '' : 'sr-only'
+}
+
 function ProjectSegment() {
   const saveStatus = useUIStore((s) => s.saveStatus)
+  const written = useStatusLabelsWritten()
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -144,13 +164,14 @@ function ProjectSegment() {
       {/*
         L'état informe, il n'alerte pas : casse normale, teinte faible.
 
-        Il ne se masque plus sous 1280px. Une application sans serveur qui
-        n'offre aucune preuve d'enregistrement n'est pas discrète, elle est
-        muette — et l'état qui disparaissait le premier était l'échec. Le libellé
-        seul se replie en `sr-only` : il reste dans l'arbre d'accessibilité, donc
-        la région live l'annonce toujours, ce qu'un `display:none` empêchait à
-        toute largeur. La pastille décorative qui occupait la place du témoin de
-        document modifié a disparu ; c'est ce témoin-ci qui la tient désormais.
+        Le témoin lui-même ne se masque à aucune largeur. Une application sans
+        serveur qui n'offre aucune preuve d'enregistrement n'est pas discrète,
+        elle est muette — et l'état qui disparaissait le premier était l'échec.
+        Seul le libellé se replie en `sr-only`, sous `TOP_BAR_LABELS_MIN_WIDTH` :
+        il reste dans l'arbre d'accessibilité, donc la région live l'annonce
+        toujours, ce qu'un `display:none` empêchait à toute largeur. La pastille
+        décorative qui occupait la place du témoin de document modifié a
+        disparu ; c'est ce témoin-ci qui la tient désormais.
       */}
       <span
         role="status"
@@ -167,9 +188,9 @@ function ProjectSegment() {
         {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
         {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
         {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-        <span className="sr-only xl:not-sr-only">{SAVE_LABELS[saveStatus]}</span>
+        <span className={statusLabelClass(written)}>{SAVE_LABELS[saveStatus]}</span>
       </span>
-      <SyncIndicator />
+      <SyncIndicator written={written} />
     </div>
   )
 }
@@ -186,7 +207,7 @@ function ProjectSegment() {
  * session, la synchronisation n'existe pas, et un témoin barré permanent
  * annoncerait une panne là où il n'y a qu'un produit local.
  */
-function SyncIndicator() {
+function SyncIndicator({ written }: { written: boolean }) {
   const syncStatus = useUIStore((s) => s.syncStatus)
   if (syncStatus === 'off') return null
 
@@ -205,7 +226,7 @@ function SyncIndicator() {
       {syncStatus === 'synced' && <Cloud size={11} className="text-success" aria-hidden />}
       {syncStatus === 'offline' && <CloudOff size={11} aria-hidden />}
       {syncStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-      <span className="sr-only xl:not-sr-only">{label}</span>
+      <span className={statusLabelClass(written)}>{label}</span>
     </span>
   )
 }

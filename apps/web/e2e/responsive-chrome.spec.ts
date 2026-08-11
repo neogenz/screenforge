@@ -1,20 +1,27 @@
-import { expect, test } from '@playwright/test'
+import { type Page, expect, test } from '@playwright/test'
 import { waitForApp } from './helpers'
 
 /**
  * Le chrome flottant face à une fenêtre qui rétrécit.
  *
- * Quatre défauts mesurés avant ces seuils, tous silencieux : à 560px la barre
+ * Cinq défauts mesurés avant ces seuils, tous silencieux : à 560px la barre
  * débordait de 118px et « Exporter » quittait l'écran ; à 375px elle en perdait
  * six contrôles et les deux tiroirs se recouvraient de 249px ; le HUD de zoom
- * mordait sur la pellicule ; et le seuil de repli lui-même, calé sur un contenu
+ * mordait sur la pellicule ; le seuil de repli lui-même, calé sur un contenu
  * qui a grossi de six boutons depuis, remettait « Exporter » hors de l'écran de
- * 768 à 1114. Les seuils viennent de `lib/stage.ts`, jamais d'une copie — c'est
- * la leçon de la constante de pellicule restée à 142. Ce fichier mesure au
- * seuil, pas seulement de part et d'autre : un seuil vrai des deux côtés et
- * faux au milieu est exactement ce qui est passé.
+ * 768 à 1114 ; et corriger ce seuil l'a posé sur le palier `xl` de Tailwind, où
+ * deux libellés d'état sortaient de `sr-only` et se peignaient sur les outils.
+ * Les seuils viennent de `lib/stage.ts`, jamais d'une copie — c'est la leçon de
+ * la constante de pellicule restée à 142. Ce fichier mesure au seuil, pas
+ * seulement de part et d'autre : un seuil vrai des deux côtés et faux au milieu
+ * est exactement ce qui est passé.
  */
-import { DUAL_DRAWER_MIN_WIDTH, TOP_BAR_COMPACT_WIDTH, TOP_BAR_TOOLS_WIDTH } from '../src/lib/stage'
+import {
+  DUAL_DRAWER_MIN_WIDTH,
+  TOP_BAR_COMPACT_WIDTH,
+  TOP_BAR_LABELS_MIN_WIDTH,
+  TOP_BAR_TOOLS_WIDTH,
+} from '../src/lib/stage'
 
 const HEIGHT = 900
 
@@ -104,6 +111,97 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     )
     .toEqual({ débordement: 0, horsFenêtre: 0 })
 })
+
+/*
+ * Une largeur ne se mesure pas sans son état.
+ *
+ * Les deux témoins d'état vivaient sur `xl:not-sr-only`, un palier Tailwind
+ * écrit en dur qui valait 1280 — donc exactement le seuil de repli. La largeur
+ * la plus chargée de la rangée et celle où deux libellés apparaissent étaient
+ * la même, par coïncidence. Portant `shrink-0` dans une colonne
+ * `minmax(0,1fr)`, ils débordaient au lieu de céder : 126px mesurés peints sur
+ * les outils pour « Modifications non enregistrées · Hors ligne », et le clic
+ * de la bascule Calques pris par du texte.
+ *
+ * La suite ne le voyait pas parce qu'elle mesurait la largeur en laissant
+ * l'état par défaut — `idle` sans cloud, la seule combinaison qui n'affiche
+ * qu'un témoin sur deux.
+ */
+const ÉTATS_LES_PLUS_LARGES = [
+  ['idle', 'offline'],
+  ['error', 'error'],
+  ['saving', 'syncing'],
+] as const
+
+/** Ce que la rangée laisse voir, et ce qu'elle laisse se recouvrir. */
+async function rangée(page: Page) {
+  return page.evaluate(() => {
+    const rangée = document.querySelector('header')?.firstElementChild
+    const outils = rangée?.children[1]
+    const identité = rangée?.children[0]
+    if (!rangée || !outils || !identité) return null
+    const témoins = [...identité.querySelectorAll('[role="status"]')]
+    const bordDroitDuTexte = témoins.reduce(
+      (max, témoin) => Math.max(max, témoin.getBoundingClientRect().right),
+      0,
+    )
+    return {
+      /* Sans les deux témoins la mesure ne mesure rien : un `reduce` sur une
+         liste vide rend 0, et un recouvrement nul par absence se lit
+         exactement comme un recouvrement nul par correction. */
+      témoins: témoins.length,
+      /* `sr-only` garde le texte dans le DOM — c'est voulu, la région live doit
+         pouvoir l'annoncer — donc « écrit » se lit sur la géométrie, pas sur le
+         contenu : un libellé replié est réduit au carré d'un pixel. */
+      libellésÉcrits: témoins.filter((témoin) => {
+        const libellé = témoin.lastElementChild
+        return libellé ? libellé.getBoundingClientRect().width > 4 : false
+      }).length,
+      débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
+      recouvrement: Math.max(0, Math.round(bordDroitDuTexte - outils.getBoundingClientRect().left)),
+    }
+  })
+}
+
+for (const [saveStatus, syncStatus] of ÉTATS_LES_PLUS_LARGES) {
+  test(`« ${saveStatus} · ${syncStatus} » ne recouvre les outils à aucun des deux seuils`, async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    const poser = () =>
+      page.evaluate(
+        (état) => {
+          window.__sfStores?.useUIStore.setState(état)
+        },
+        { saveStatus, syncStatus },
+      )
+
+    // Au seuil de repli : la rangée est déployée et pleine, les libellés sont
+    // repliés parce qu'il n'y a pas la place de les écrire.
+    await page.setViewportSize({ width: TOP_BAR_COMPACT_WIDTH, height: HEIGHT })
+    await poser()
+    await expect
+      .poll(() => rangée(page))
+      .toEqual({ témoins: 2, libellésÉcrits: 0, débordement: 0, recouvrement: 0 })
+
+    // Au seuil des libellés : ils s'écrivent, et il y a de la place pour ça.
+    await page.setViewportSize({ width: TOP_BAR_LABELS_MIN_WIDTH, height: HEIGHT })
+    await poser()
+    await expect
+      .poll(() => rangée(page))
+      .toEqual({ témoins: 2, libellésÉcrits: 2, débordement: 0, recouvrement: 0 })
+
+    /* Et la bascule Calques reçoit son propre clic, pas le texte peint dessus.
+       C'est la vraie conséquence du recouvrement, et le défaut nommé dans le
+       commentaire de la grille : « cliquer dessus insérait un calque ». */
+    await page.setViewportSize({ width: TOP_BAR_COMPACT_WIDTH, height: HEIGHT })
+    await poser()
+    const calques = page.getByLabel('Basculer le panneau Calques')
+    const avant = await calques.getAttribute('aria-pressed')
+    await calques.click()
+    await expect(calques).toHaveAttribute('aria-pressed', avant === 'true' ? 'false' : 'true')
+  })
+}
 
 test('tient dans une fenêtre étroite au lieu de refuser de rendre', async ({ page }) => {
   await waitForApp(page)

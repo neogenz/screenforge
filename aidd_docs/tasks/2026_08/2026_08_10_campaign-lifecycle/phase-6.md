@@ -127,8 +127,12 @@ n'importe quelle image du registre dans n'importe quel écran.
 > Tenu pour la fermeture directe, pas pour l'harmonisation : elle levait le
 > drapeau nommé « accepté » sans poser une seule capture, donc un run
 > harmonisé puis fermé laissait ses fichiers importés dans le registre.
-> Corrigé en phase 10, tâche 8 — le drapeau s'appelle désormais `placed` et
-> dit ce qu'il mesure.
+> Corrigé en phase 10, tâche 8 : le renommer en `placed` a d'abord été retenu,
+> puis le drapeau a été supprimé. Il n'avait rien à mesurer — `discardAiAssets`
+> relit le projet et ne libère que ce qu'il ne référence pas, donc le nettoyage
+> est inconditionnel au démontage. Le drapeau, même juste, couvrait encore ce
+> qu'un run **accepté** n'avait pas posé : le logo laissé de côté, les captures
+> au-delà de dix, celles d'un import remplacé.
 
 ## Ce qui n'est pas fait ici
 

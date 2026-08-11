@@ -139,6 +139,13 @@ L'idempotence, elle, tient sur `release + destination + empreinte du lot`. Le
 même lot au même endroit rend le résultat déjà obtenu. Un essai à blanc n'y
 entre pas : il n'a rien publié.
 
+> Corrigé en phase 10, tâche 8 : cette clé-là était trop courte. Elle ignorait
+> les drapeaux, donc un remplacement demandé après un ajout du même lot était
+> rendu par le cache et rapporté en succès sans que rien soit remplacé chez
+> Apple. La clé porte désormais `+ drapeaux`. Le reste du paragraphe tient : un
+> essai à blanc n'entre toujours pas dans la mémoire, et ne peut pas non plus y
+> lire l'entrée d'une vraie publication.
+
 ### `7)` Ce qui sort du pont est relu
 
 `asc` n'imprime pas de secret aujourd'hui. Sa sortie traverse pourtant une
@@ -169,6 +176,11 @@ dossier personnel sont remplacés avant de partir.
 | 7    | La sortie rendue ne contient ni JWT, ni clé privée, ni identifiant d'émetteur              |
 | 7    | Le dossier temporaire est supprimé, y compris quand le téléversement échoue                |
 | —    | Rien ne peut être publié avant que le lot ait été rendu depuis la release et rehaché       |
+
+> Complété en phase 10, tâche 8 : le critère `6` disait « le même lot », ce qui
+> ne distingue pas deux demandes différentes portant le même lot. Il se lit
+> maintenant « la même demande, drapeaux compris » — c'est ce que
+> `bridge.test.ts` mesure, un remplacement n'étant pas le doublon d'un ajout.
 
 ## Ce qui n'est pas fait ici, et ce qui n'est pas prouvé
 

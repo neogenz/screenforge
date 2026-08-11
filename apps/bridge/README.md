@@ -81,10 +81,14 @@ case qui le nomme.
 rendu la main a peut-être abouti ; refaire l'envoi doublerait les captures chez
 Apple. Le pont vous dit que le sort est inconnu et s'arrête là.
 
-**Le même lot n'est pas publié deux fois.** La clé est
-`release + destination + empreinte du lot` : renvoyer le même lot au même endroit
-rend le résultat déjà obtenu, sans second téléversement. Cette mémoire est celle
-du processus : un pont redémarré recommencera.
+**La même demande n'est pas publiée deux fois.** La clé est
+`release + destination + empreinte du lot + drapeaux` : refaire la même demande
+au même endroit rend le résultat déjà obtenu, sans second téléversement. Les
+drapeaux en font partie, sinon cocher « remplacer » après un ajout serait avalé
+par le cache et rapporté en succès sans que rien ne soit remplacé. Un essai à
+blanc n'est jamais mémorisé, et ne peut pas non plus lire l'entrée d'une vraie
+publication. Cette mémoire est celle du processus : un pont redémarré
+recommencera.
 
 ## Modèle de menace
 

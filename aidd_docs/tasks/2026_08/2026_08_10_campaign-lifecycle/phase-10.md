@@ -175,7 +175,11 @@ l'aurait vu :
    garde-fou annoncé n'existait que dans la case cochée.
 6. **L'harmonisation désarmait le nettoyage** : elle levait le drapeau nommé
    « accepté » sans poser une seule capture, donc un run abandonné laissait ses
-   fichiers importés dans le registre. Le drapeau dit maintenant ce qu'il mesure.
+   fichiers importés dans le registre. Le drapeau a été supprimé plutôt que
+   renommé : il n'avait rien à mesurer, `discardAiAssets` relisant le projet et
+   ne libérant que ce qu'il ne référence pas. Même juste, il aurait encore
+   couvert ce qu'un run accepté n'avait pas posé — logo écarté, captures
+   au-delà de dix, import remplacé.
 7. **`isCampaignPlan` ne validait pas le fond qu'il déclarait valider** : `{}`
    passait, s'affichait comme un plan valide, et n'échouait qu'au clic sur
    « Poser », sur un message qui désignait le mauvais endroit. Rien n'était
@@ -186,6 +190,50 @@ d'écriture » interdisait `updateLayer`, ce que le dépôt fait partout et que 
 même fichier autorise trois paragraphes plus haut ; et deux tables d'acceptation
 des phases 1 et 3 citaient un plafond de version dépassé depuis, désormais
 annotées plutôt que réécrites.
+
+### La seconde revue, sur les corrections elles-mêmes
+
+Le même agent a relu les deux commits ci-dessus. Sept défauts encore, la moitié
+créés par les corrections — ce qui est la raison de relire une correction et pas
+seulement le code qu'elle corrige.
+
+1. **Le seuil corrigé est tombé sur le palier `xl` de Tailwind.** Les deux
+   témoins d'état sortaient de `sr-only` par un `xl:not-sr-only` — un palier
+   écrit en dur, ce que `CLAUDE.md` interdit — et 1280 est exactement le nouveau
+   seuil de repli. À cette largeur les libellés s'écrivaient, et, `shrink-0` dans
+   une colonne `minmax(0,1fr)`, se peignaient sur les outils : 126px mesurés, et
+   le clic de la bascule Calques pris par du texte. La largeur du repli et celle
+   des libellés sont désormais deux constantes, la seconde dérivée de la
+   première, et la suite mesure aux deux.
+2. **Le paragraphe « le cas le plus large » était faux** — voir plus bas, il
+   avait été écrit sans mesurer l'état des témoins.
+3. **La clé d'idempotence était bien corrigée, sa description ne l'était pas** :
+   le docblock du module, le README du pont et l'artifact de la phase 9
+   annonçaient encore `release + destination + empreinte`.
+4. **Le segment `dryRun` de la clé disait le mauvais défaut** : un essai à blanc
+   n'est jamais mémorisé, donc aucune clé en `dry` n'existe. Ce qu'il empêche est
+   l'inverse — qu'un essai demandé après une vraie publication soit servi par le
+   cache et réponde « publié ». Le commentaire le dit maintenant.
+5. **L'invariant d'écriture réécrit était encore faux** : sa formulation de
+   remplacement interdisait `useProjectStore.setState` hors des stores, alors que
+   `use-canvas.ts` en fait deux — la géométrie qu'on vient de tirer à la souris,
+   et le vignettage. Il est désormais une liste de trois fichiers, vérifiable
+   d'un `grep`.
+6. **Le drapeau `placed` renommé était toujours de trop** : même juste, il
+   couvrait ce qu'un run **accepté** n'avait pas posé — logo écarté, captures
+   au-delà de dix, import remplacé. Supprimé : `discardAiAssets` relit le projet
+   et ne libère que ce qu'il ne référence pas.
+7. **La commande affichée réparée avait déplacé l'écart dans le ZIP.** Le
+   manifeste gardait une commande figée sans drapeau, et son bouton de
+   téléchargement est juste au-dessus du bloc qui en montrait une autre. Il n'y a
+   plus qu'une commande : la page lit celle du manifeste, recomposé à chaque
+   changement de case — les drapeaux ne touchant pas l'empreinte du lot, rien
+   n'oblige à refaire le rendu.
+
+Le test de parité entre les deux constructeurs de commande promettait par
+ailleurs plus qu'il ne mesurait : il n'exerçait jamais la destination vide, le
+seul cas où l'affichage s'écarte volontairement de l'exécution. Le cas est
+ajouté et nommé.
 
 ## Test acceptance criteria
 
@@ -212,6 +260,11 @@ annotées plutôt que réécrites.
 | 8    | Une requête de publication sans `dryRun` ne téléverse pas pour de vrai                       |
 | 8    | Un run harmonisé puis abandonné rend ses captures importées au néant                        |
 | 8    | Un plan dont le fond ne tient pas le contrat du projet est refusé avant l'affichage         |
+| 9    | Aux deux seuils, les trois états les plus larges ne recouvrent pas les outils                |
+| 9    | Sous le seuil des libellés, les témoins restent lisibles par l'assistance, pas peints        |
+| 9    | Le manifeste du ZIP porte les mêmes drapeaux que la commande affichée                        |
+| 9    | Ce qu'un run accepté n'a pas posé retourne au néant comme un run abandonné                   |
+| 9    | La destination vide est la seule divergence permise entre commande affichée et exécutée      |
 
 ## Ce qui n'est pas fait ici, et ce qui n'est pas prouvé
 
@@ -222,9 +275,16 @@ exercé, et ne le sera pas sans un compte Apple.
 
 **Le seuil de repli est mesuré sur un état de la barre, pas sur tous.** 1114 a
 été relevé avec les deux entrées commerciales présentes et le palier « Gratuit »
-affiché, ce qui est le cas le plus large que la rangée sait produire aujourd'hui.
-Une entrée de plus le périmerait à nouveau, exactement comme la première fois —
-la seule protection réelle est la mesure au seuil, pas la constante.
+affiché. Ce n'est **pas** le cas le plus large que la rangée sait produire :
+cette page l'a d'abord écrit, et la revue suivante l'a démenti en une mesure. Les
+deux témoins d'état écrivent leurs libellés en toutes lettres, et à cette
+largeur-là ils ajoutaient 126px que le relevé n'avait pas vus — parce qu'il
+avait été pris dans la configuration par défaut, `idle` sans cloud, la seule où
+un témoin sur deux ne s'affiche pas. Corrigé en séparant le seuil des libellés
+(`TOP_BAR_LABELS_MIN_WIDTH`) de celui du repli, et en mesurant désormais aux
+deux, sur les trois combinaisons d'état les plus larges. Une entrée de plus
+périmerait le nombre à nouveau — la seule protection réelle est la mesure au
+seuil et sur l'état, pas la constante.
 
 **Le clavier est vérifié, l'assistance d'écran ne l'est pas.** Le piège de
 focus, l'ordre de tabulation, le retour du focus et les noms accessibles sont
