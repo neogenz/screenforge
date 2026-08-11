@@ -124,6 +124,12 @@ n'importe quelle image du registre dans n'importe quel écran.
 | 5    | Un run accepté vaut un seul pas d'annulation                                              |
 | 5    | Une capture importée puis abandonnée disparaît du registre ; une capture posée y reste    |
 
+> Tenu pour la fermeture directe, pas pour l'harmonisation : elle levait le
+> drapeau nommé « accepté » sans poser une seule capture, donc un run
+> harmonisé puis fermé laissait ses fichiers importés dans le registre.
+> Corrigé en phase 10, tâche 8 — le drapeau s'appelle désormais `placed` et
+> dit ce qu'il mesure.
+
 ## Ce qui n'est pas fait ici
 
 **Aucun fournisseur distant.** Le registre de providers, le bridge Codex sur

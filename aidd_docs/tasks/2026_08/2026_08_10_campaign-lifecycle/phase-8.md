@@ -139,6 +139,13 @@ revue est une aide, pas une procédure.
 | 6    | L'export de la langue d'origine reste possible pendant qu'une variante déborde            |
 | 6    | La correction du débordement lève le refus sans rechargement                              |
 
+> Angle mort trouvé en phase 10, tâche 8, et corrigé là-bas : la ligne 2
+> n'était tenue que pour les calques d'un écran. `reviewLocale` ne descendait
+> pas dans `layoutLayers`, alors qu'un calque « partagé partout » est semé dans
+> la variante, listé dans la boîte et substitué à l'export. Il pouvait déborder
+> sur les dix planches sans rien bloquer. Les fixtures de `locale.test.ts`
+> posaient toutes `layoutLayers: []`, ce qui explique le silence de la suite.
+
 ## Ce qui n'est pas fait ici, et ce qui n'est pas prouvé
 
 **Aucune traduction n'est vérifiée pour sa qualité.** Le produit ne sait pas si

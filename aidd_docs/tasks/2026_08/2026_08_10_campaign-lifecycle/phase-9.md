@@ -114,6 +114,14 @@ La commande affichée et la commande exécutée sortent de la même fonction. Un
 commande montrée à l'utilisateur qui différerait de celle lancée serait pire
 qu'aucune commande.
 
+> Ce n'était pas vrai, et la phase 10 l'a corrigé. Deux constructeurs vivaient
+> dans deux paquets — celui du navigateur ne pouvait structurellement pas
+> émettre `--replace`, et la page affichait la commande figée du manifeste.
+> Cocher « supprimer les captures déjà en ligne » laissait donc le bloc montrer
+> une commande sans le drapeau pendant que le pont lançait celle avec. Rien ne
+> les reliait à la compilation ; c'est un test qui les apparie désormais, sur
+> les quatre combinaisons.
+
 `--replace` supprime les captures déjà en ligne. Il n'est jamais dans le tableau
 tant qu'une case qui le nomme n'a pas été cochée, et il est **absent**, pas
 présent avec une valeur fausse : un drapeau qu'on ne peut pas lire dans la
@@ -184,6 +192,12 @@ compte, la liste d'étapes est déjà la bonne forme de message.
 le même lot. La rendre durable demanderait un état sur disque que ce pont n'a
 pas, et que sa promesse — rien d'écrit, rien de persistant — exclut. Le vrai
 garde-fou reste `--replace` désactivé et `--dry-run` par défaut.
+
+> Corrigé en phase 10, tâche 8 : cette phrase était vraie de la page et fausse
+> du schéma. `dryRun` valait `false` par défaut — un appelant détenant le jeton
+> et omettant le champ obtenait un vrai téléversement — et la clé d'idempotence
+> ignorait les deux drapeaux, donc un remplacement demandé après un ajout était
+> rendu par le cache et rapporté en succès. Les deux sont mesurés maintenant.
 
 **ScreenForge ne pilote ni la soumission ni la revue.** Un téléversement accepté
 n'est pas une fiche publiée. TestFlight et App Review sont hors périmètre par le
