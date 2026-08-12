@@ -187,6 +187,8 @@ describe('plan via une API', () => {
     expect(sent).toContain('Tout mot porteur de sens')
     expect(sent).toContain('les synonymes ne')
     expect(sent).toContain('exactement les mêmes')
+    expect(sent).toContain('doivent suivre leur ordre dans l’extrait')
+    expect(sent).toContain('ne les réordonne jamais')
     expect(sent).toContain('extrait evidence plus serré')
   })
 
@@ -320,6 +322,8 @@ describe('plan via une API', () => {
     const contradictions = [
       ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Gagnez plus et dépensez moins', 'Gagnez moins et dépensez plus'],
+      ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -346,6 +350,8 @@ describe('plan via une API', () => {
     const facts = [
       'Votre budget sans connexion bancaire',
       'Anticipez moins vos dépenses',
+      'Gagnez plus et dépensez moins',
+      'Planifiez avant et payez après',
       'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
@@ -370,6 +376,26 @@ describe('plan via une API', () => {
         ),
       ).resolves.toBeDefined()
     }
+  })
+
+  it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
+    const headline = 'Gagnez plus dépensez moins'
+    const evidence = 'Gagnez vraiment plus et dépensez durablement moins'
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).resolves.toBeDefined()
   })
 
   it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {

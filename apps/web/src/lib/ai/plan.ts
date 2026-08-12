@@ -342,13 +342,21 @@ function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
   )
 }
 
-/** Aucun mot porteur de l'accroche ne peut dépasser ce que dit la preuve. */
+function isOrderedSubsequence(claim: string[], evidence: string[]): boolean {
+  let claimIndex = 0
+  for (const evidenceStem of evidence) {
+    if (evidenceStem === claim[claimIndex]) claimIndex += 1
+  }
+  return claimIndex === claim.length
+}
+
+/** Les mots porteurs de l'accroche suivent l'ordre de la preuve. */
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
-  const evidenceStems = new Set(significantTerms(evidence).map(termStem))
+  const evidenceStems = significantTerms(evidence).map(termStem)
   return (
     claimStems.length > 0 &&
-    claimStems.every((stem) => evidenceStems.has(stem)) &&
+    isOrderedSubsequence(claimStems, evidenceStems) &&
     haveSameSemanticMarkers(headline, evidence)
   )
 }

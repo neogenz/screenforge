@@ -300,6 +300,8 @@ describe('protocole', () => {
     expect(request.prompt).toContain('Tout mot porteur de sens')
     expect(request.prompt).toContain('les synonymes ne')
     expect(request.prompt).toContain('exactement les mêmes')
+    expect(request.prompt).toContain('doivent suivre leur ordre dans l’extrait')
+    expect(request.prompt).toContain('ne les réordonne jamais')
     expect(request.prompt).toContain('extrait evidence plus serré')
   })
 
@@ -362,6 +364,8 @@ describe('protocole', () => {
     const contradictions = [
       ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Gagnez plus et dépensez moins', 'Gagnez moins et dépensez plus'],
+      ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -389,6 +393,8 @@ describe('protocole', () => {
     for (const fact of [
       'Votre budget sans connexion bancaire',
       'Anticipez moins vos dépenses',
+      'Gagnez plus et dépensez moins',
+      'Planifiez avant et payez après',
       'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
@@ -408,6 +414,24 @@ describe('protocole', () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toEqual({ plan: answer })
     }
+  })
+
+  it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
+    const headline = 'Gagnez plus dépensez moins'
+    const evidence = 'Gagnez vraiment plus et dépensez durablement moins'
+    const answer = {
+      ...PLAN,
+      screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
+    }
+    const { call } = harness(async () => JSON.stringify(answer))
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: { ...BRIEF, pitch: evidence, productContext: undefined, screenshots: [] },
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ plan: answer })
   })
 
   it('accepte le vocabulaire Pulpe quand prédicat et fait proviennent de la preuve', async () => {

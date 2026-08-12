@@ -411,12 +411,20 @@ function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
   )
 }
 
+function isOrderedSubsequence(claim: string[], evidence: string[]): boolean {
+  let claimIndex = 0
+  for (const evidenceStem of evidence) {
+    if (evidenceStem === claim[claimIndex]) claimIndex += 1
+  }
+  return claimIndex === claim.length
+}
+
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
-  const evidenceStems = new Set(significantTerms(evidence).map(termStem))
+  const evidenceStems = significantTerms(evidence).map(termStem)
   return (
     claimStems.length > 0 &&
-    claimStems.every((stem) => evidenceStems.has(stem)) &&
+    isOrderedSubsequence(claimStems, evidenceStems) &&
     haveSameSemanticMarkers(headline, evidence)
   )
 }
@@ -510,8 +518,10 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  Tout mot porteur de sens de headline doit reprendre le vocabulaire de',
     '  evidence. Les variantes morphologiques sont acceptées, les synonymes ne',
     '  le sont pas. headline et evidence doivent porter exactement les mêmes',
-    '  marqueurs de négation, relation, quantité et temporalité. Si la source',
-    '  en contient un de plus, choisis un extrait evidence plus serré, sans le',
+    '  marqueurs de négation, relation, quantité et temporalité. Chaque terme',
+    '  porteur et chaque marqueur doivent suivre leur ordre dans l’extrait',
+    '  source : ne les réordonne jamais. Si la source contient un marqueur de plus,',
+    '  choisis un extrait evidence plus serré, sans le',
     '  paraphraser. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
