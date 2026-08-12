@@ -4,7 +4,7 @@ import Resend from '@auth/core/providers/resend'
 import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
-import { consume } from './limits'
+import { clear, consume, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
 
 /**
  * Qui a le droit d'entrer, et par quelles portes.
@@ -22,11 +22,53 @@ import { consume } from './limits'
  *   test reproductible d'un environnement à l'autre.
  */
 
-/** Le point de départ des liens : le déploiement, jamais l'origine de l'appelant. */
+/**
+ * Le point de départ des liens : le déploiement, jamais l'origine de l'appelant.
+ *
+ * La barre finale est retirée comme la bibliothèque le fait : sans cela,
+ * `SITE_URL` écrit avec une barre produirait `https://site//editeur`, et surtout
+ * la comparaison de préfixe ci-dessous ne tomberait pas sur le même caractère.
+ */
 function siteUrl(): string {
   const url = process.env.SITE_URL
   if (!url) throw new Error('SITE_URL is not configured on this deployment.')
-  return url
+  return url.replace(/\/$/, '')
+}
+
+/**
+ * Où le retour d'authentification a le droit d'atterrir.
+ *
+ * **Un préfixe ne suffit pas, et c'est tout l'objet de cette fonction.**
+ * `SITE_URL` vaut `https://screenforge.app` ; `https://screenforge.app.exemple`
+ * commence par cette chaîne sans être ce domaine, et `https://screenforge.app@x`
+ * non plus — l'`@` fait du début une identité d'utilisateur et de `x` l'hôte
+ * réel. Il faut donc regarder le caractère qui suit le préfixe : une fin de
+ * chaîne, une barre ou un point d'interrogation ferment le nom d'hôte, tout le
+ * reste le prolonge.
+ *
+ * Ce que la destination transporte le dit assez : Convex Auth y accroche le
+ * `code` de connexion — `Location: setURLSearchParam(destinationUrl, 'code', …)`
+ * au retour OAuth, et la même URL dans le corps du courriel de lien magique. Une
+ * destination hors du site n'est donc pas seulement une redirection ouverte,
+ * c'est le code de session livré à qui l'a demandée. Et il se demande depuis le
+ * dehors : `signIn` est une action publique, donc `redirectTo` est une valeur
+ * d'attaquant, jamais une valeur de notre client.
+ *
+ * C'est exactement le contrôle que fait le rappel par défaut de la bibliothèque
+ * ([`redirects.js`](../../../node_modules/@convex-dev/auth/dist/server/implementation/redirects.js)).
+ * Le redéfinir sans lui l'avait retiré. Il est réécrit ici plutôt que délégué
+ * parce qu'un rappel `redirect` reste nécessaire : le défaut lève sur une
+ * destination refusée, là où on préfère ramener à l'éditeur.
+ */
+export function safeRedirect(redirectTo: string, site: string): string {
+  /* Un chemin relatif est toujours sur le site : il est concaténé, pas comparé.
+     `//exemple.com` y compris, qui devient un chemin de notre hôte. */
+  if (redirectTo.startsWith('/')) return `${site}${redirectTo}`
+  if (redirectTo.startsWith(site)) {
+    const after = redirectTo[site.length]
+    if (after === undefined || after === '/' || after === '?') return redirectTo
+  }
+  return `${site}/`
 }
 
 /**
@@ -91,6 +133,13 @@ const magicLink = Resend({
   sendVerificationRequest: sendMagicLink as unknown as EmailConfig['sendVerificationRequest'],
 })
 
+/** L'adresse telle que le fournisseur la stocke : c'est elle qui sert de clé. */
+function normalizedEmail(params: Record<string, unknown>): string {
+  return String(params.email ?? '')
+    .trim()
+    .toLowerCase()
+}
+
 /**
  * Le mot de passe, sans vérification d'adresse.
  *
@@ -100,45 +149,91 @@ const magicLink = Resend({
  * vérifiée ne vaut pas identité, donc rien dans l'application ne fait confiance
  * au champ `email` pour autre chose que l'afficher.
  */
-const password = Password({
+const basePassword = Password({
   profile(params) {
-    const email = String(params.email ?? '')
-      .trim()
-      .toLowerCase()
+    const email = normalizedEmail(params)
     if (!email.includes('@')) throw new Error('Adresse e-mail invalide.')
     return { email }
   },
 })
 
+/**
+ * L'implémentation réelle du fournisseur, et le seul endroit où l'envelopper.
+ *
+ * `ConvexCredentials` rend `{ id, type, authorize: async () => null, options }`
+ * et met la vraie logique dans `options` ; `providerDefaults` fait ensuite
+ * `merge(provider, provider.options)`, où la source écrase la cible. Remplacer
+ * `authorize` à la racine serait donc silencieusement défait à la
+ * matérialisation — c'est `options.authorize` qui compte, et lui seul.
+ */
+type CredentialsAuthorize = (
+  params: Record<string, unknown>,
+  ctx: RunMutationCtx,
+) => Promise<{ userId: string; sessionId?: string } | null>
+
+const materialized = basePassword as unknown as { options: { authorize: CredentialsAuthorize } }
+const attempt = materialized.options.authorize
+
+/**
+ * Compter les essais, puisque la bibliothèque n'en compte qu'une moitié.
+ *
+ * `maxFailedAttempsPerHour` ne s'applique qu'à `flow:'signIn'`. Or `signUp` sur
+ * une adresse qui existe déjà n'échoue pas : `createAccountFromCredentials`
+ * vérifie le secret et, s'il correspond, **rend le compte existant**, dont
+ * `signIn` émet aussitôt les jetons — une connexion, par un chemin que rien ne
+ * comptait. La porte fermée après cinq échecs se rouvrait donc en changeant un
+ * mot dans la requête, et `signIn` est une action publique : l'URL du
+ * déploiement est dans le paquet servi, il n'y a ni session ni client à avoir.
+ *
+ * Le compteur est pris **avant** de déléguer, pour qu'un essai refusé ne coûte
+ * pas le Scrypt qu'il demandait, et remis à zéro après un succès, pour que seuls
+ * les échecs consécutifs s'accumulent. Le plafond d'inscription est global et
+ * pris en plus, parce que c'est le seul qui morde sur un balayage d'adresses.
+ */
+const password = {
+  ...basePassword,
+  options: {
+    ...materialized.options,
+    authorize: async (params: Record<string, unknown>, ctx: RunMutationCtx) => {
+      const email = normalizedEmail(params)
+      if (params.flow === 'signUp') await consume(ctx, 'passwordSignUpGlobal')
+      await consume(ctx, 'passwordAttempt', email)
+      const result = await attempt(params, ctx)
+      await clear(ctx, 'passwordAttempt', email)
+      return result
+    },
+  },
+} as unknown as typeof basePassword
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [password, magicLink, Google, GitHub],
 
   /**
-   * Le bourrage de mot de passe et de code, borné par la bibliothèque.
+   * Le bourrage de code, borné par la bibliothèque — et la moitié du mot de
+   * passe.
    *
-   * Écrit explicitement plutôt que laissé au défaut : c'est la seule protection
-   * de ce dépôt qui ne vit pas dans `limits.ts`, et un lecteur qui cherche « où
-   * sont les compteurs » doit trouver celui-ci aussi. Le compte est tenu par
-   * compte utilisateur, décroît d'un à chaque secret refusé, se recharge en
-   * continu sur l'heure et est remis à zéro par une connexion réussie — donc
-   * cinq échecs ferment la porte, et un seul succès la rouvre entièrement.
+   * Le compte est tenu par compte utilisateur, décroît d'un à chaque secret
+   * refusé, se recharge en continu sur l'heure et est remis à zéro par une
+   * connexion réussie. Il reste posé parce qu'il couvre la vérification d'un
+   * code, que `passwordAttempt` ne voit pas ; sur le mot de passe il ne voit que
+   * `flow:'signIn'`, et c'est l'enveloppe ci-dessus qui ferme l'autre moitié. Le
+   * nombre vient de `limits.ts` pour que les deux ne puissent pas diverger : le
+   * plus permissif des deux déciderait.
    */
-  signIn: { maxFailedAttempsPerHour: 5 },
+  signIn: { maxFailedAttempsPerHour: PASSWORD_ATTEMPTS_PER_HOUR },
 
   callbacks: {
     /**
      * Le retour d'authentification atterrit sur l'éditeur, jamais sur la vitrine.
      *
      * C'est de l'éditeur qu'on part, et `landing.html` n'a ni store ni canvas
-     * pour accueillir une session. Une destination hors du site est refusée :
-     * sans ce contrôle, `redirectTo` serait une redirection ouverte signée par
-     * notre propre domaine.
+     * pour accueillir une session. Une destination hors du site est ramenée à la
+     * racine plutôt que refusée par une exception : l'utilisateur arrive quelque
+     * part, et le code de connexion reste sur notre domaine. `safeRedirect` dit
+     * ce que « hors du site » veut dire exactement.
      */
-    async redirect({ redirectTo }) {
-      const site = siteUrl()
-      if (redirectTo.startsWith(site)) return redirectTo
-      if (redirectTo.startsWith('/')) return `${site}${redirectTo}`
-      return `${site}/`
+    redirect({ redirectTo }) {
+      return Promise.resolve(safeRedirect(redirectTo, siteUrl()))
     },
   },
 })

@@ -11,13 +11,55 @@ import { components } from './_generated/api'
  * qu'il garde — un compteur sans sa route est du code mort, un compteur ajouté
  * après coup se découvre en production.
  *
- * Ce que Convex Auth couvre déjà, et qu'on ne redouble donc pas : les échecs de
- * vérification d'un mot de passe ou d'un code, bornés par
- * `signIn.maxFailedAttempsPerHour` dans `auth.ts`. Ce qu'il ne couvre pas du
- * tout, et qui est ici : l'**envoi** d'un courriel, la création d'objets chez un
- * tiers payant, et la suppression de compte.
+ * Ce que Convex Auth couvre, et jusqu'où exactement : `maxFailedAttempsPerHour`
+ * n'est branché que sur `flow:'signIn'` et sur la vérification d'un code
+ * (`retrieveAccountWithCredentials.js` et `verifyCodeAndSignIn.js` sont les deux
+ * seuls fichiers de la bibliothèque à importer son `rateLimit.js`).
+ * `flow:'signUp'` n'y passe pas, et ce chemin-là rend le compte **existant**
+ * quand le secret correspond : la même devinette, sans compteur. C'est
+ * `passwordAttempt` qui la borne, dans les deux flux.
+ *
+ * Ce que la bibliothèque ne couvre pas du tout, et qui est ici : l'**envoi**
+ * d'un courriel, la création d'un compte, la création d'objets chez un tiers
+ * payant, et la suppression de compte.
  */
+/**
+ * Cinq essais par heure, et le même nombre des deux côtés.
+ *
+ * `auth.ts` le repasse à `signIn.maxFailedAttempsPerHour` : le compteur de la
+ * bibliothèque reste en place, il couvre simplement un flux sur deux. Deux
+ * valeurs écrites séparément se seraient contredites, et la plus permissive
+ * aurait décidé — c'est exactement ce que ce fichier existe pour empêcher.
+ */
+export const PASSWORD_ATTEMPTS_PER_HOUR = 5
+
 const LIMITS = {
+  /**
+   * Deviner un mot de passe, quel que soit le flux qui sert à le présenter.
+   *
+   * Consommé **avant** le hachage, pour qu'un essai refusé ne coûte pas le
+   * Scrypt qu'il demandait, et remis à zéro par une connexion réussie : seuls
+   * les échecs consécutifs s'accumulent, donc cinq fautes de frappe étalées sur
+   * l'heure ne condamnent pas un compte actif.
+   */
+  passwordAttempt: { kind: 'fixed window', rate: PASSWORD_ATTEMPTS_PER_HOUR, period: HOUR },
+
+  /**
+   * Créer un compte, globalement.
+   *
+   * L'inscription par mot de passe n'attend ni courriel ni tiers : elle insère
+   * quatre documents et exécute un Scrypt délibérément coûteux, sans que rien
+   * ne temporise. Par adresse, un compteur ne servirait à rien — un balayage
+   * change d'adresse à chaque coup, exactement l'argument déjà écrit pour
+   * `magicLinkSend`. La clé qu'on voudrait est l'IP, qu'une action Convex ne
+   * connaît pas. Le plafond global est donc la mesure réellement disponible, et
+   * il est posé assez haut pour qu'un jour de lancement ne le touche jamais.
+   * Le prix assumé, symétrique de celui du lien magique : un balayage peut
+   * fermer l'inscription par mot de passe pour une heure, pendant laquelle les
+   * deux SSO et le lien magique restent ouverts.
+   */
+  passwordSignUpGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
+
   /**
    * L'envoi d'un lien magique, deux clés pour deux victimes différentes.
    *
@@ -81,4 +123,15 @@ export async function consume(ctx: RunMutationCtx, name: LimitName, key?: string
       retryAfter: status.retryAfter ?? 0,
     })
   }
+}
+
+/**
+ * Remet une clé à zéro : un succès efface l'ardoise.
+ *
+ * Ce qu'un compteur d'échecs demande et qu'une simple consommation ne donne
+ * pas. Sans lui, un plafond posé sur chaque tentative — et non sur les seuls
+ * échecs — condamnerait un compte actif dès qu'il se connecte assez souvent.
+ */
+export async function clear(ctx: RunMutationCtx, name: LimitName, key?: string): Promise<void> {
+  await rateLimiter.reset(ctx, name, { key })
 }

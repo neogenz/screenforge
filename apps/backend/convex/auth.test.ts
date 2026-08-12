@@ -81,8 +81,12 @@ test('cinq mots de passe faux ferment la porte au sixième essai', async () => {
   }
   /* Le sixième essai est refusé avec le **bon** mot de passe : c'est ce qui
      distingue un compte fermé d'un secret invalide, et c'est la seule forme du
-     test qu'un « tout est refusé » ne peut pas satisfaire par accident. */
-  await expect(attempt(PASSWORD)).rejects.toThrow('TooManyFailedAttempts')
+     test qu'un « tout est refusé » ne peut pas satisfaire par accident.
+     C'est `passwordAttempt` qui parle et non la bibliothèque, parce qu'il est
+     consulté avant de déléguer — et c'est tant mieux : son `RATE_LIMITED` est
+     un `ConvexError` que le client lit, là où la production rédige le
+     `TooManyFailedAttempts` de la bibliothèque en « Server Error ». */
+  await expect(attempt(PASSWORD)).rejects.toSatisfy(rateLimited)
 })
 
 test('quatre échecs ne ferment rien, et un succès efface l’ardoise', async () => {
@@ -110,6 +114,85 @@ test('quatre échecs ne ferment rien, et un succès efface l’ardoise', async (
     await expect(attempt(`encore-${i}`)).rejects.toThrow()
   }
   await expect(attempt(PASSWORD)).resolves.toBeDefined()
+})
+
+/**
+ * La porte de derrière : le même secret, par l'autre flux.
+ *
+ * `maxFailedAttempsPerHour` n'est câblé par la bibliothèque que sur
+ * `flow:'signIn'` et sur les codes — `createAccountFromCredentials.js` n'appelle
+ * aucun compteur. Or ce chemin-là, quand l'adresse existe déjà et que le secret
+ * correspond, **rend le compte existant** et émet ses jetons : c'est une
+ * connexion déguisée en inscription. Sans ce test, la porte que le cas
+ * précédent vérifie fermée se rouvrait en changeant un mot dans la requête.
+ */
+test('l’inscription ne rouvre pas la porte que cinq échecs ont fermée', async () => {
+  const t = testConvex()
+  const email = 'contournement@screenforge.test'
+  await t.action(api.auth.signIn, {
+    provider: 'password',
+    params: { email, password: PASSWORD, flow: 'signUp' },
+  })
+
+  const guess = (password: string, flow: 'signIn' | 'signUp') =>
+    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow } })
+
+  for (let i = 0; i < 5; i++) {
+    await expect(guess(`faux-${i}`, 'signIn')).rejects.toThrow()
+  }
+  await expect(guess(PASSWORD, 'signIn')).rejects.toThrow()
+  await expect(guess(PASSWORD, 'signUp')).rejects.toThrow()
+})
+
+test('deviner par inscription se compte comme deviner par connexion', async () => {
+  const t = testConvex()
+  const email = 'devinette@screenforge.test'
+  await t.action(api.auth.signIn, {
+    provider: 'password',
+    params: { email, password: PASSWORD, flow: 'signUp' },
+  })
+
+  const guess = (password: string) =>
+    t.action(api.auth.signIn, {
+      provider: 'password',
+      params: { email, password, flow: 'signUp' },
+    })
+
+  for (let i = 0; i < 5; i++) {
+    await expect(guess(`essai-${i}`)).rejects.toThrow()
+  }
+  /* Le bon mot de passe, refusé, et refusé par le **compteur** : c'est la seule
+     forme qu'un « tout est refusé » ne peut pas satisfaire par accident,
+     puisque le test suivant exige qu'une connexion ordinaire passe encore. */
+  await expect(guess(PASSWORD)).rejects.toSatisfy(rateLimited)
+})
+
+test('un succès efface l’ardoise du mot de passe, quel que soit le flux', async () => {
+  const t = testConvex()
+  const email = 'ardoise@screenforge.test'
+  await t.action(api.auth.signIn, {
+    provider: 'password',
+    params: { email, password: PASSWORD, flow: 'signUp' },
+  })
+
+  const attempt = (password: string, flow: 'signIn' | 'signUp') =>
+    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow } })
+
+  for (let i = 0; i < 4; i++) {
+    await expect(attempt(`faux-${i}`, 'signUp')).rejects.toThrow()
+  }
+  const recovered = await attempt(PASSWORD, 'signIn')
+  expect(recovered.tokens?.token).toBeTypeOf('string')
+
+  /* Et l'ardoise est bien remise à zéro, pas seulement le plafond non
+     atteint : sans cette seconde salve, un compteur qui ne se viderait jamais
+     ferait de chaque compte actif un compte condamné au bout de cinq fautes de
+     frappe cumulées sur l'heure. La salve passe par `signUp` et la reprise par
+     `signIn` : les deux flux alimentent bien le même compteur. */
+  for (let i = 0; i < 4; i++) {
+    await expect(attempt(`encore-${i}`, 'signUp')).rejects.toThrow()
+  }
+  await expect(attempt(PASSWORD, 'signIn')).resolves.toBeDefined()
 })
 
 test('trois liens magiques partent, le quatrième est refusé', async () => {
@@ -163,4 +246,68 @@ test('la redirection reste sur le site, même demandée ailleurs', async () => {
   const body = sent[0] as unknown as { text: string }
   expect(body.text).not.toContain('exemple.invalid')
   expect(body.text).toContain('http://localhost:5173')
+})
+
+/**
+ * Le lien que le courriel transporte, lu comme un navigateur le lirait.
+ *
+ * L'assertion porte sur `origin` et non sur une sous-chaîne : c'est exactement
+ * la propriété en jeu, et c'est la seule forme qu'un préfixe trompeur ne peut
+ * pas satisfaire. `new URL('http://localhost:5173@exemple.invalid/').origin`
+ * rend `http://exemple.invalid` — le `@` fait du début une identité
+ * d'utilisateur, ce qu'une comparaison de chaînes ne voit pas.
+ */
+function linkIn(text: string): URL {
+  const found = /https?:\/\/\S+/.exec(text)
+  if (!found) throw new Error(`Aucun lien dans le courriel : ${text}`)
+  return new URL(found[0])
+}
+
+/**
+ * Le cas que le test précédent ne voyait pas, et qui est le seul dangereux.
+ *
+ * Une destination franchement étrangère ne ressemble à rien et se refusait déjà.
+ * Celle qui commence par l'URL du site sans être le site — un domaine qui la
+ * prolonge, une identité d'utilisateur suivie d'un `@`, un port plus long —
+ * passait une comparaison de préfixe. Et ce que le lien magique transporte est
+ * le code de connexion : la destination n'était pas seulement ouverte, elle
+ * emportait la session. `signIn` étant une action publique, `redirectTo` est une
+ * valeur que n'importe qui pose, pour l'adresse de n'importe qui.
+ */
+test.each([
+  ['un domaine qui prolonge le nôtre', 'http://localhost:5173.exemple.invalid/vol'],
+  ['une identité d’utilisateur avant l’hôte réel', 'http://localhost:5173@exemple.invalid/vol'],
+  ['un port plus long sur le même hôte', 'http://localhost:51739/vol'],
+])('la redirection refuse %s', async (_cas, redirectTo) => {
+  const t = testConvex()
+  await t.action(api.auth.signIn, {
+    provider: 'resend',
+    params: { email: 'lien@screenforge.test', redirectTo },
+  })
+  const link = linkIn((sent[0] as unknown as { text: string }).text)
+  expect(link.origin).toBe('http://localhost:5173')
+  /* Le code part quand même, mais chez nous : refuser la destination ne doit pas
+     casser la connexion de quelqu'un qui n'a rien demandé de tordu. */
+  expect(link.searchParams.get('code')).toBeTruthy()
+})
+
+/**
+ * Le contre-test : un garde qui refuserait tout passerait les trois cas
+ * ci-dessus en cassant la connexion pour tout le monde.
+ */
+test.each([
+  ['la racine', 'http://localhost:5173', '/'],
+  ['une page', 'http://localhost:5173/editeur', '/editeur'],
+  ['une requête', 'http://localhost:5173?depuis=lien', '/'],
+  ['un chemin relatif', '/editeur', '/editeur'],
+])('la redirection accepte %s', async (_cas, redirectTo, pathname) => {
+  const t = testConvex()
+  await t.action(api.auth.signIn, {
+    provider: 'resend',
+    params: { email: 'lien@screenforge.test', redirectTo },
+  })
+  const link = linkIn((sent[0] as unknown as { text: string }).text)
+  expect(link.origin).toBe('http://localhost:5173')
+  expect(link.pathname).toBe(pathname)
+  expect(link.searchParams.get('code')).toBeTruthy()
 })

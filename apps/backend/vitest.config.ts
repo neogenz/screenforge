@@ -15,5 +15,13 @@ export default defineConfig({
     environment: 'edge-runtime',
     setupFiles: ['./vitest.setup.ts'],
     server: { deps: { inline: ['convex-test'] } },
+    /**
+     * Les cinq secondes par défaut ne suffisent pas, et c'est voulu de bout en
+     * bout : chaque essai de mot de passe exécute un Scrypt délibérément
+     * coûteux, et les tests de plafond en enchaînent une dizaine par cas. Un
+     * hachage rapide passerait le budget d'origine et n'aurait plus rien à
+     * prouver.
+     */
+    testTimeout: 30_000,
   },
 })
