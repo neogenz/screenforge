@@ -40,6 +40,26 @@ async function openWithKeyboard(page: Page, opener: Locator, title: string): Pro
   return dialog
 }
 
+async function expectRingToken(page: Page, control: Locator): Promise<void> {
+  await expect(control).toHaveClass(/focus-visible:ring-ring/)
+  await control.evaluate((element) => {
+    const sentinel = document.createElement('button')
+    sentinel.type = 'button'
+    sentinel.dataset.focusSentinel = ''
+    sentinel.className = 'sr-only'
+    element.before(sentinel)
+    sentinel.focus()
+  })
+  await page.keyboard.press('Tab')
+  await expect(control).toBeFocused()
+  await expect
+    .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
+    .toBe(true)
+  await control.evaluate((element) =>
+    element.parentElement?.querySelector('[data-focus-sentinel]')?.remove(),
+  )
+}
+
 test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ page }) => {
   await waitForApp(page)
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -65,6 +85,48 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
     // Et il revient d'où il venait, pas au début du document.
     await expect(opener).toBeFocused()
   }
+})
+
+test('les contrôles composites des dialogues partagent le focus citron', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+  await grantEntitlements(page, { licence: true })
+
+  await page.getByLabel('Générer les visuels App Store').click()
+  let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  await expectRingToken(page, dialog.getByRole('radio', { name: 'Contrasté' }))
+  const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
+  await expectRingToken(page, assistance)
+  await assistance.click()
+  await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
+  await page.keyboard.press('Escape')
+
+  await page.getByLabel('Ouvrir les langues').click()
+  dialog = page.getByRole('dialog', { name: 'Langues' })
+  await dialog.getByLabel('Code').fill('de')
+  await dialog.getByLabel('Nom').fill('Allemand')
+  await dialog.getByRole('button', { name: 'Ajouter' }).click()
+  await expectRingToken(page, dialog.getByRole('radio', { name: /de Allemand/ }))
+  await expectRingToken(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
+  await page.keyboard.press('Escape')
+
+  await page.getByLabel('Ouvrir les releases').click()
+  dialog = page.getByRole('dialog', { name: 'Releases' })
+  await dialog.getByLabel('Nom du lot').fill('1.0.0')
+  await dialog.getByRole('button', { name: 'Figer une release' }).click()
+  await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await page.keyboard.press('Escape')
+
+  await page.getByLabel('Publier chez Apple').click()
+  dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
+  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await page.keyboard.press('Escape')
+
+  await page.getByLabel('Ouvrir l’export').click()
+  dialog = page.getByRole('dialog', { name: 'Export officiel' })
+  await expectRingToken(page, dialog.getByRole('checkbox').first())
+  await expect(dialog.locator('[class~="focus-visible:ring-foreground"]')).toHaveCount(0)
 })
 
 test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) => {

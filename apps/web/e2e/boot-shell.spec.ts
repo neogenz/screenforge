@@ -29,6 +29,9 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
     /rel="stylesheet"[\s\S]*?media="print"[\s\S]*?onload="this\.media\s*=\s*'all'"/,
   )
   expect(html).toContain('rel="preload"')
+  expect(html.indexOf("localStorage.getItem('screenforge-theme')")).toBeLessThan(
+    html.indexOf('<style>'),
+  )
 
   // Une fois monté, React a vidé le conteneur : rien à retirer à la main.
   await waitForApp(page)
@@ -45,4 +48,77 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   )
   expect(blocking.length).toBeGreaterThan(0)
   expect(blocking).not.toContain('blocking')
+})
+
+async function expectBootTheme(
+  page: import('@playwright/test').Page,
+  preference: 'light' | 'dark' | null,
+  storageUnavailable = false,
+) {
+  await page.addInitScript(
+    ({ savedTheme, unavailable }) => {
+      if (unavailable) {
+        Storage.prototype.getItem = () => {
+          throw new DOMException('Storage disabled', 'SecurityError')
+        }
+        return
+      }
+      if (savedTheme) localStorage.setItem('screenforge-theme', savedTheme)
+      else localStorage.removeItem('screenforge-theme')
+    },
+    { savedTheme: preference, unavailable: storageUnavailable },
+  )
+  await page.route('**/src/main.tsx', (route) => route.abort())
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  const rendered = await page.evaluate(() => {
+    const resolveColor = (value: string) => {
+      const probe = document.createElement('span')
+      probe.style.color = value
+      document.body.append(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      return color
+    }
+    const root = getComputedStyle(document.documentElement)
+    const boot = getComputedStyle(document.querySelector('.boot')!)
+    return {
+      light: document.documentElement.classList.contains('light'),
+      background: root.backgroundColor,
+      ink: boot.color,
+      expectedBackground: resolveColor(
+        document.documentElement.classList.contains('light')
+          ? 'oklch(0.965 0 0)'
+          : 'oklch(0.145 0 0)',
+      ),
+      expectedInk: resolveColor(
+        document.documentElement.classList.contains('light') ? 'oklch(0.4 0 0)' : 'oklch(0.78 0 0)',
+      ),
+    }
+  })
+
+  expect(rendered.light).toBe(preference === 'light' && !storageUnavailable)
+  expect(rendered.background).toBe(rendered.expectedBackground)
+  expect(rendered.ink).toBe(rendered.expectedInk)
+  await expect(page.locator('.boot')).toBeVisible()
+}
+
+test('peint le boot clair avant le montage quand cette préférence est enregistrée', async ({
+  page,
+}) => {
+  await expectBootTheme(page, 'light')
+})
+
+test('garde le boot sombre avant le montage sans préférence ou avec la préférence sombre', async ({
+  browser,
+}) => {
+  for (const preference of [null, 'dark'] as const) {
+    const page = await browser.newPage()
+    await expectBootTheme(page, preference)
+    await page.close()
+  }
+})
+
+test('garde le boot sombre si le stockage est indisponible', async ({ page }) => {
+  await expectBootTheme(page, null, true)
 })

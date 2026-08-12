@@ -283,7 +283,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 onClick={() => setSelectedCode(entry.code)}
                 className={cn(
                   'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   entry.code === locale?.code
                     ? 'border-foreground bg-muted text-foreground'
                     : 'border-border text-muted-foreground hover:border-input',
@@ -437,7 +437,7 @@ function TextRow({
           }
           className={cn(
             'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs transition-colors',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             variant?.reviewed
               ? 'border-foreground bg-muted text-foreground'
               : 'border-border text-muted-foreground hover:border-input',

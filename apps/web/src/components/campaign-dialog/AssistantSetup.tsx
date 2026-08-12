@@ -214,7 +214,7 @@ function ProviderChoice({
       onClick={onPick}
       className={cn(
         'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         active ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >

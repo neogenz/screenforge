@@ -292,7 +292,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                       aria-current={entry.id === release?.id}
                       className={cn(
                         'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                         entry.id === release?.id
                           ? 'border-foreground bg-muted'
                           : 'border-border hover:border-input',

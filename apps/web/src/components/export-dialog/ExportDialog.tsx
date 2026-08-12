@@ -399,7 +399,7 @@ function ScreenChoice({
       onClick={onToggle}
       className={cn(
         'flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2 text-left',
-        'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+        'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >

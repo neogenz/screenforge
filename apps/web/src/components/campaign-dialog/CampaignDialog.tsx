@@ -836,7 +836,7 @@ function StyleChip({
       onClick={onSelect}
       className={cn(
         'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         'disabled:opacity-50',
         selected
           ? 'border-foreground bg-muted text-foreground'
@@ -889,7 +889,7 @@ function AssistancePanel({
           aria-expanded={open}
           aria-controls={ASSIST_PANEL_ID}
           onClick={() => setOpen((was) => !was)}
-          className="flex w-full items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground"
+          className="flex w-full items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ChevronDown
             size={12}
@@ -985,7 +985,7 @@ function PlanReview({
             onClick={() => onFocus(index)}
             className={cn(
               'flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               index === focus ? 'bg-muted' : 'hover:bg-muted/60',
             )}
           >
