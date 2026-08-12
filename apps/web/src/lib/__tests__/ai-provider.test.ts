@@ -178,7 +178,7 @@ describe('plan via le pont', () => {
       },
       {
         name: 'Budget',
-        headline: 'Gardez chaque priorité visible',
+        headline: 'Gardez semaine visible',
         evidence: 'gardez votre semaine visible',
         background: { type: 'solid', color: '#f2f3f5' },
         screenshotIndex: 7,
@@ -280,8 +280,8 @@ describe('choix du fournisseur', () => {
               },
               {
                 name: 'Budget',
-                headline: 'Chaque journée garde son rythme',
-                evidence: 'Le rythme de vos journées',
+                headline: 'Gardez semaine visible',
+                evidence: 'gardez votre semaine visible',
               },
             ],
           },
@@ -309,8 +309,8 @@ describe('choix du fournisseur', () => {
               },
               {
                 name: 'Budget',
-                headline: 'Chaque journée garde son rythme',
-                evidence: 'Le rythme de vos journées',
+                headline: 'Gardez semaine visible',
+                evidence: 'gardez votre semaine visible',
               },
             ],
           },
