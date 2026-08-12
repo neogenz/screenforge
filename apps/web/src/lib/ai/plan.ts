@@ -258,23 +258,8 @@ const GENERIC_HEADLINES = [
   'votre quotidien enfin plus leger',
 ] as const
 
-function normalizeSemanticSymbols(value: string): string {
-  return value
-    .replace(/€/g, ' eur ')
-    .replace(/\$/g, ' usd ')
-    .replace(/£/g, ' gbp ')
-    .replace(/¥/g, ' jpy ')
-    .replace(/%/g, ' percent ')
-    .replace(/</g, ' lessthan ')
-    .replace(/>/g, ' greaterthan ')
-    .replace(/\+\s*(?=\d)/g, ' signplus ')
-    .replace(/[-−]\s*(?=\d)/g, ' signminus ')
-    .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
-    .replace(/(\d)\s*[-−](?=$|[\s)])/g, '$1 signminus ')
-}
-
 function normalizedCopy(value: string): string {
-  return normalizeSemanticSymbols(value)
+  return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
@@ -282,9 +267,13 @@ function normalizedCopy(value: string): string {
     .trim()
 }
 
+function normalizedEvidenceCopy(value: string): string {
+  return value.normalize('NFC').toLocaleLowerCase('fr').replace(/\s+/g, ' ').trim()
+}
+
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const normalizedHeadline = normalizedCopy(headline)
-  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedCopy(evidence)
+  const normalizedHeadline = normalizedEvidenceCopy(headline)
+  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedEvidenceCopy(evidence)
 }
 
 function words(value: string): string[] {
@@ -368,12 +357,12 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     }
 
     const evidence = screen.evidence?.trim()
-    const normalizedEvidence = evidence ? normalizedCopy(evidence) : ''
+    const normalizedEvidence = evidence ? normalizedEvidenceCopy(evidence) : ''
     const grounded =
       normalizedEvidence.length > 0 &&
       claimMatchesEvidence(headline, evidence ?? '') &&
       evidenceSources(brief, screen.screenshotIndex).some((source) =>
-        normalizedCopy(source).includes(normalizedEvidence),
+        normalizedEvidenceCopy(source).includes(normalizedEvidence),
       )
     if (!grounded) return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
   }

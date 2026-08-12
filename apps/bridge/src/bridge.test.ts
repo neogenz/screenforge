@@ -297,9 +297,11 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('reprend mot pour mot l’extrait evidence')
+    expect(request.prompt).toContain('sous-chaîne littérale du pitch')
+    expect(request.prompt).toContain('seuls la casse et')
+    expect(request.prompt).toContain('identiques hors casse et espaces')
+    expect(request.prompt).toContain('mêmes accents, signes et ponctuation')
     expect(request.prompt).toContain('sans omission, enrichissement ni paraphrase')
-    expect(request.prompt).toContain('casse, les accents et la ponctuation')
     expect(request.prompt).toContain('réécrire headline ensuite dans la revue')
   })
 
@@ -380,6 +382,12 @@ describe('protocole', () => {
       ['Votre budget sauf imprévus', 'Votre budget imprévus'],
       ['Budget environ 9€ garanti', 'Budget 9€ garanti'],
       ['Budget reste < 9€', 'Budget reste > 9€'],
+      ['Budget reste ≤ 9€', 'Budget reste ≥ 9€'],
+      ['Budget vaut ≈ 9€', 'Budget vaut 9€'],
+      ['Budget reste ≠ zéro', 'Budget reste zéro'],
+      ['Budget suit ⊕ objectif', 'Budget suit ⊗ objectif'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+      ['Votre budget clé locale', 'Votre budget cle locale'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -420,6 +428,11 @@ describe('protocole', () => {
       'Mode X activé',
       'Votre solde:+9€ confirmé',
       'Votre accès premium garanti',
+      'Budget reste ≤ 9€',
+      'Budget vaut ≈ 9€',
+      'Budget reste ≠ zéro',
+      'Budget suit ⊕ objectif',
+      'Budget reste stable !',
       'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
@@ -441,9 +454,9 @@ describe('protocole', () => {
     }
   })
 
-  it('accepte une copie exacte après normalisation de la casse, des accents et de la ponctuation', async () => {
+  it('accepte une copie exacte après normalisation de la casse et des espaces', async () => {
     const headline = 'Votre budget IA sans clé'
-    const evidence = 'VOTRE BUDGET IA SANS CLE !'
+    const evidence = '  VOTRE   BUDGET IA SANS CLÉ  '
     const answer = {
       ...PLAN,
       screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
@@ -456,7 +469,9 @@ describe('protocole', () => {
       }),
     })
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ plan: answer })
+    expect(await response.json()).toMatchObject({
+      plan: { screens: [{ headline, evidence: evidence.trim() }] },
+    })
   })
 
   it('refuse une evidence enrichie même quand les termes du claim restent dans l’ordre', async () => {
@@ -478,6 +493,32 @@ describe('protocole', () => {
       error: 'invalid-response',
       detail: expect.stringContaining('aucun fait'),
     })
+  })
+
+  it('exige aussi que la preuve soit une sous-chaîne littérale de la source', async () => {
+    for (const [fact, source] of [
+      ['Votre budget clé locale', 'Votre budget cle locale'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+    ] as const) {
+      const answer = {
+        ...PLAN,
+        screens: [
+          { ...PLAN.screens[0], headline: fact, evidence: fact, screenshotIndex: undefined },
+        ],
+      }
+      const { call } = harness(async () => JSON.stringify(answer))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: { ...BRIEF, pitch: source, productContext: undefined, screenshots: [] },
+        }),
+      })
+      expect(response.status).toBe(502)
+      expect(await response.json()).toMatchObject({
+        error: 'invalid-response',
+        detail: expect.stringContaining('aucun fait'),
+      })
+    }
   })
 
   it('accepte le vocabulaire Pulpe quand prédicat et fait proviennent de la preuve', async () => {

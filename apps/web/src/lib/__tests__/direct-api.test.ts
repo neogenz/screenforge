@@ -184,9 +184,11 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('reprend mot pour mot l’extrait evidence')
+    expect(sent).toContain('sous-chaîne littérale du pitch')
+    expect(sent).toContain('seuls la casse et')
+    expect(sent).toContain('identiques hors casse et espaces')
+    expect(sent).toContain('mêmes accents, signes et ponctuation')
     expect(sent).toContain('sans omission, enrichissement ni paraphrase')
-    expect(sent).toContain('casse, les accents et la ponctuation')
     expect(sent).toContain('réécrire headline ensuite dans la revue')
   })
 
@@ -342,6 +344,12 @@ describe('plan via une API', () => {
       ['Votre budget sauf imprévus', 'Votre budget imprévus'],
       ['Budget environ 9€ garanti', 'Budget 9€ garanti'],
       ['Budget reste < 9€', 'Budget reste > 9€'],
+      ['Budget reste ≤ 9€', 'Budget reste ≥ 9€'],
+      ['Budget vaut ≈ 9€', 'Budget vaut 9€'],
+      ['Budget reste ≠ zéro', 'Budget reste zéro'],
+      ['Budget suit ⊕ objectif', 'Budget suit ⊗ objectif'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+      ['Votre budget clé locale', 'Votre budget cle locale'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -381,6 +389,11 @@ describe('plan via une API', () => {
       'Mode X activé',
       'Votre solde:+9€ confirmé',
       'Votre accès premium garanti',
+      'Budget reste ≤ 9€',
+      'Budget vaut ≈ 9€',
+      'Budget reste ≠ zéro',
+      'Budget suit ⊕ objectif',
+      'Budget reste stable !',
       'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
@@ -407,9 +420,9 @@ describe('plan via une API', () => {
     }
   })
 
-  it('accepte une copie exacte après normalisation de la casse, des accents et de la ponctuation', async () => {
+  it('accepte une copie exacte après normalisation de la casse et des espaces', async () => {
     const headline = 'Votre budget IA sans clé'
-    const evidence = 'VOTRE BUDGET IA SANS CLE !'
+    const evidence = '  VOTRE   BUDGET IA SANS CLÉ  '
     respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
     await expect(
       planViaApi(
@@ -445,6 +458,33 @@ describe('plan via une API', () => {
         'claude-x',
       ),
     ).rejects.toThrow(/aucun fait/)
+  })
+
+  it('exige aussi que la preuve soit une sous-chaîne littérale de la source', async () => {
+    for (const [fact, source] of [
+      ['Votre budget clé locale', 'Votre budget cle locale'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+    ] as const) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: source,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
   })
 
   it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {

@@ -327,23 +327,8 @@ const GENERIC_HEADLINES = [
   'votre quotidien enfin plus leger',
 ] as const
 
-function normalizeSemanticSymbols(value: string): string {
-  return value
-    .replace(/€/g, ' eur ')
-    .replace(/\$/g, ' usd ')
-    .replace(/£/g, ' gbp ')
-    .replace(/¥/g, ' jpy ')
-    .replace(/%/g, ' percent ')
-    .replace(/</g, ' lessthan ')
-    .replace(/>/g, ' greaterthan ')
-    .replace(/\+\s*(?=\d)/g, ' signplus ')
-    .replace(/[-−]\s*(?=\d)/g, ' signminus ')
-    .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
-    .replace(/(\d)\s*[-−](?=$|[\s)])/g, '$1 signminus ')
-}
-
 function normalizedCopy(value: string): string {
-  return normalizeSemanticSymbols(value)
+  return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
@@ -351,9 +336,13 @@ function normalizedCopy(value: string): string {
     .trim()
 }
 
+function normalizedEvidenceCopy(value: string): string {
+  return value.normalize('NFC').toLocaleLowerCase('fr').replace(/\s+/g, ' ').trim()
+}
+
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const normalizedHeadline = normalizedCopy(headline)
-  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedCopy(evidence)
+  const normalizedHeadline = normalizedEvidenceCopy(headline)
+  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedEvidenceCopy(evidence)
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -379,12 +368,12 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
       return `L’accroche ${index + 1} désigne une capture indisponible.`
     }
     const evidence = screen.evidence.trim()
-    const normalizedEvidence = normalizedCopy(evidence)
+    const normalizedEvidence = normalizedEvidenceCopy(evidence)
     const sources = [brief.pitch, brief.productContext ?? '', shot?.description ?? '']
     if (
       !normalizedEvidence ||
       !claimMatchesEvidence(screen.headline, evidence) ||
-      !sources.some((source) => normalizedCopy(source).includes(normalizedEvidence))
+      !sources.some((source) => normalizedEvidenceCopy(source).includes(normalizedEvidence))
     ) {
       return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
     }
@@ -440,11 +429,11 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '— Le premier visuel porte la promesse générale, les suivants une',
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
-    '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
-    '  ou de la description de la capture qui prouve l’accroche.',
-    '  headline reprend mot pour mot l’extrait evidence : même mots, valeurs,',
-    '  unités et symboles, sans omission, enrichissement ni paraphrase. Seules la',
-    '  casse, les accents et la ponctuation non porteuse de sens peuvent varier.',
+    '— evidence recopie une sous-chaîne littérale du pitch, des faits produit ou',
+    '  de la description de la capture qui prouve l’accroche ; seuls la casse et',
+    '  les espaces peuvent varier. headline et evidence sont littéralement',
+    '  identiques hors casse et espaces : mêmes accents, signes et ponctuation,',
+    '  sans omission, enrichissement ni paraphrase.',
     '  L’utilisateur pourra réécrire headline ensuite dans la revue. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
