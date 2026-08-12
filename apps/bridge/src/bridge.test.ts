@@ -297,8 +297,8 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('au moins deux termes significatifs')
-    expect(request.prompt).toContain('premier terme significatif')
+    expect(request.prompt).toContain('tout mot porteur de sens')
+    expect(request.prompt).toContain('les synonymes ne')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -327,13 +327,13 @@ describe('protocole', () => {
     expect(await response.json()).toMatchObject({ error: 'invalid-response' })
   })
 
-  it('refuse un bénéfice inventé malgré un terme métier commun avec la preuve', async () => {
+  it('refuse un bénéfice inventé malgré prédicat et métier communs avec la preuve', async () => {
     const unrelated = {
       ...PLAN,
       screens: [
         {
           ...PLAN.screens[0],
-          headline: 'Partagez votre budget à deux',
+          headline: 'Suivez votre budget en couple',
           evidence: 'Suivez votre budget mois par mois',
         },
       ],
@@ -384,6 +384,42 @@ describe('protocole', () => {
     })
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: pulpe })
+  })
+
+  it('accepte les formulations Pulpe exactes et leurs variations morphologiques', async () => {
+    const cases = [
+      ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
+      ['Planifiez vos budgets annuels', 'Planification de votre budget annuel'],
+    ] as const
+    for (const [headline, evidence] of cases) {
+      const pulpe = {
+        ...PLAN,
+        appName: 'Pulpe',
+        screens: [
+          {
+            ...PLAN.screens[0],
+            headline,
+            evidence,
+            screenshotIndex: undefined,
+          },
+        ],
+      }
+      const { call } = harness(async () => JSON.stringify(pulpe))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: {
+            ...BRIEF,
+            appName: 'Pulpe',
+            pitch: evidence,
+            productContext: undefined,
+            screenshots: [],
+          },
+        }),
+      })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ plan: pulpe })
+    }
   })
 
   it('dit que Codex manque plutôt que d’échouer en silence', async () => {

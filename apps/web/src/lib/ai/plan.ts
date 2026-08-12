@@ -317,12 +317,11 @@ function termStem(term: string): string {
   return term.length >= 5 ? term.slice(0, 5) : term
 }
 
-/** Le prédicat et un second terme de l'accroche doivent venir de la preuve. */
+/** Aucun mot porteur de l'accroche ne peut dépasser ce que dit la preuve. */
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
   const evidenceStems = new Set(significantTerms(evidence).map(termStem))
-  if (!claimStems[0] || !evidenceStems.has(claimStems[0])) return false
-  return new Set(claimStems.filter((stem) => evidenceStems.has(stem))).size >= 2
+  return claimStems.length > 0 && claimStems.every((stem) => evidenceStems.has(stem))
 }
 
 function words(value: string): string[] {

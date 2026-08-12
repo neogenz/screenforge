@@ -71,7 +71,7 @@ const WRITTEN = JSON.stringify({
   screens: [
     {
       name: 'Accueil',
-      headline: 'Rythme lisible de vos journées',
+      headline: 'Rythme de vos journées',
       evidence: 'Le rythme de vos journées',
       slot: 'Accueil Principal',
       background: { color: '#101114' },
@@ -184,8 +184,8 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('partager au moins deux termes significatifs')
-    expect(sent).toContain('premier terme significatif')
+    expect(sent).toContain('tout mot porteur de sens')
+    expect(sent).toContain('les synonymes ne')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -280,7 +280,7 @@ describe('plan via une API', () => {
       screens: [
         {
           name: 'Budget',
-          headline: 'Partagez votre budget à deux',
+          headline: 'Suivez votre budget en couple',
           evidence: 'Suivez votre budget mois par mois',
         },
       ],
@@ -304,45 +304,40 @@ describe('plan via une API', () => {
 
   it('accepte une variation grammaticale du terme qui relie accroche et preuve', async () => {
     const stemmed = JSON.parse(WRITTEN)
-    stemmed.screens[0].headline = 'Rythmez mieux chaque journée'
+    stemmed.screens[0].headline = 'Rythmez vos journées'
     respond(answering(JSON.stringify(stemmed)))
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).resolves.toBeDefined()
   })
 
-  it('accepte une accroche Pulpe qui réemploie le prédicat et le vocabulaire du fait', async () => {
-    respond(
-      answering(
-        JSON.stringify({
-          screens: [
-            {
-              name: 'Budget',
-              headline: 'Suivez votre budget chaque mois',
-              evidence: 'Suivez votre budget mois par mois',
-            },
-          ],
-        }),
-      ),
-    )
-    const plan = await planViaApi(
-      'anthropic',
-      {
-        ...BRIEF,
-        appName: 'Pulpe',
-        pitch: 'Suivez votre budget mois par mois',
-        productContext: undefined,
-        screenCount: 1,
-        screenshots: [],
-      },
-      KEY,
-      'claude-x',
-    )
-    expect(plan.screens[0].headline).toBe('Suivez votre budget chaque mois')
+  it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {
+    const cases = [
+      ['Suivez votre budget chaque mois', 'Suivez votre budget mois par mois'],
+      ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
+      ['Planifiez vos budgets annuels', 'Planification de votre budget annuel'],
+    ] as const
+    for (const [headline, evidence] of cases) {
+      respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+      const plan = await planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      )
+      expect(plan.screens[0].headline).toBe(headline)
+    }
   })
 
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {
     respond(answering(`Voici le plan :\n\`\`\`json\n${WRITTEN}\n\`\`\`\nBonne journée.`))
     const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
-    expect(plan.screens[0].headline).toBe('Rythme lisible de vos journées')
+    expect(plan.screens[0].headline).toBe('Rythme de vos journées')
   })
 
   it('refuse une réponse qui ne contient aucun JSON', () => {
@@ -353,6 +348,6 @@ describe('plan via une API', () => {
     const calls = respond(answering(WRITTEN, 'openrouter'))
     const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
     expect(calls[0].url).toContain('openrouter.ai')
-    expect(plan.screens[0].headline).toBe('Rythme lisible de vos journées')
+    expect(plan.screens[0].headline).toBe('Rythme de vos journées')
   })
 })

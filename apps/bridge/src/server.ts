@@ -389,8 +389,7 @@ function termStem(term: string): string {
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
   const evidenceStems = new Set(significantTerms(evidence).map(termStem))
-  if (!claimStems[0] || !evidenceStems.has(claimStems[0])) return false
-  return new Set(claimStems.filter((stem) => evidenceStems.has(stem))).size >= 2
+  return claimStems.length > 0 && claimStems.every((stem) => evidenceStems.has(stem))
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -479,9 +478,9 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
     '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
-    '  evidence doivent partager au moins deux termes significatifs (leurs',
-    '  variantes grammaticales sont acceptées), et le premier terme significatif',
-    '  de l’accroche doit apparaître dans evidence. N’invente jamais',
+    '  tout mot porteur de sens de headline doit reprendre le vocabulaire de',
+    '  evidence. Les variantes morphologiques sont acceptées, les synonymes ne',
+    '  le sont pas. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',
