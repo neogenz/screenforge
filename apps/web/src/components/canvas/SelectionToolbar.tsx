@@ -99,11 +99,15 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
     ),
   )
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
+  const screens = useProjectStore((state) => state.project?.screens)
 
   if (propsOpen || !frame || selectedLayerIds.length === 0) return null
   const selected = layers.filter((layer) => selectedLayerIds.includes(layer.id))
   if (selected.length === 0) return null
   const allText = selected.every((layer) => layer.type === 'text')
+  const crossScreen =
+    (screens?.filter((screen) => screen.layers.some((layer) => selectedLayerIds.includes(layer.id)))
+      .length ?? 0) > 1
 
   // Sous la sélection par défaut ; au-dessus quand le bas du stage n'a plus la
   // place, ce qui arrive dès qu'on travaille sur le bas d'un artboard.
@@ -126,19 +130,22 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
         maxWidth: Math.max(240, frame.stageWidth - EDGE * 2),
       }}
     >
-      {ALIGNMENTS.map(({ mode, icon: Icon, label }) => (
-        <IconButton
-          key={mode}
-          size="sm"
-          aria-label={label}
-          title={label}
-          onClick={() => useCanvasStore.getState().alignSelection(mode)}
-        >
-          <Icon size={14} strokeWidth={1.6} aria-hidden />
-        </IconButton>
-      ))}
-
-      <Divider />
+      {!crossScreen && (
+        <>
+          {ALIGNMENTS.map(({ mode, icon: Icon, label }) => (
+            <IconButton
+              key={mode}
+              size="sm"
+              aria-label={label}
+              title={label}
+              onClick={() => useCanvasStore.getState().alignSelection(mode)}
+            >
+              <Icon size={14} strokeWidth={1.6} aria-hidden />
+            </IconButton>
+          ))}
+          <Divider />
+        </>
+      )}
       {selected.length === 1 ? (
         <LayerControls layer={selected[0]} layerIds={selectedLayerIds} />
       ) : allText ? (
@@ -150,29 +157,32 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
       ) : (
         <MultiCount count={selected.length} />
       )}
-      <Divider />
-
-      <IconButton
-        size="sm"
-        aria-label="Dupliquer"
-        title="Dupliquer"
-        onClick={() => {
-          for (const id of selectedLayerIds) useCanvasStore.getState().duplicateLayer(id)
-        }}
-      >
-        <Copy size={14} strokeWidth={1.6} aria-hidden />
-      </IconButton>
-      <IconButton
-        size="sm"
-        aria-label="Supprimer"
-        title="Supprimer"
-        className="hover:text-destructive"
-        onClick={() => {
-          for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
-        }}
-      >
-        <Trash2 size={14} strokeWidth={1.6} aria-hidden />
-      </IconButton>
+      {!crossScreen && (
+        <>
+          <Divider />
+          <IconButton
+            size="sm"
+            aria-label="Dupliquer"
+            title="Dupliquer"
+            onClick={() => {
+              for (const id of selectedLayerIds) useCanvasStore.getState().duplicateLayer(id)
+            }}
+          >
+            <Copy size={14} strokeWidth={1.6} aria-hidden />
+          </IconButton>
+          <IconButton
+            size="sm"
+            aria-label="Supprimer"
+            title="Supprimer"
+            className="hover:text-destructive"
+            onClick={() => {
+              for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
+            }}
+          >
+            <Trash2 size={14} strokeWidth={1.6} aria-hidden />
+          </IconButton>
+        </>
+      )}
     </div>
   )
 }

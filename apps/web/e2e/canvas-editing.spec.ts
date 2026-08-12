@@ -154,6 +154,18 @@ test.describe('canvas text editing', () => {
 
     const toolbar = page.getByRole('toolbar', { name: 'Actions de la sélection' })
     await expect(toolbar.getByText('2 calques')).toBeVisible()
+    for (const action of [
+      'Aligner à gauche',
+      'Centrer horizontalement',
+      'Aligner à droite',
+      'Aligner en haut',
+      'Centrer verticalement',
+      'Aligner en bas',
+      'Dupliquer',
+      'Supprimer',
+    ]) {
+      await expect(toolbar.getByRole('button', { name: action })).toHaveCount(0)
+    }
     const trigger = toolbar.getByRole('button', { name: /^Police :/ })
     await trigger.click()
     await page.getByRole('combobox', { name: 'Rechercher une police' }).fill('Poppins')
