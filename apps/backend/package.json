@@ -23,8 +23,8 @@
     "dev": "CONVEX_AGENT_MODE=anonymous convex dev",
     "dev:once": "CONVEX_AGENT_MODE=anonymous convex dev --once",
     "dev:cloud": "convex dev",
-    "//deploy": "Chaque cible nomme son fichier, et les deux verbes diffèrent parce que Convex les distingue : `deploy` vise toujours la production du projet — passé `--env-file .env.preprod`, il déploie quand même en production, mesuré. Pousser sur un déploiement de développement se fait par `dev --once`. Les deux fichiers ne portent qu'une ligne `CONVEX_DEPLOYMENT=` et restent hors du dépôt ; `environnements.md` dit comment les réécrire.",
-    "deploy:preprod": "convex dev --once --env-file .env.preprod",
+    "//deploy": "Chaque cible est une clé de déploiement, pas un nom : `CONVEX_DEPLOY_KEY` borne la commande à un déploiement, là où `CONVEX_DEPLOYMENT` ne désigne qu'un projet — dont `deploy` prend alors la production, quel que soit le déploiement nommé. Les deux fichiers ne portent que cette clé, restent hors du dépôt, et se recréent par `convex deployment token create … --save-env` ; `environnements.md` donne la commande.",
+    "deploy:preprod": "convex deploy --env-file .env.preprod",
     "deploy:prod": "convex deploy --env-file .env.production",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run convex"
