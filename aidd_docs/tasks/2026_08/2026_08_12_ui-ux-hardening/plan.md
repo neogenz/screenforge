@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge peint immédiatement le bon thème, rend tous ses contrôles composites utilisables au clavier et bloque les dérives visuelles observées sans changer de design system ni ajouter de dépendance."
-status: in-progress
+status: implemented
 ---
 
 # Plan: durcissement UX/UI et benchmark ciblé
