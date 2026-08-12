@@ -6,6 +6,7 @@ import {
   automaticArchetype,
   backgroundFor,
   composeArchetype,
+  headlineLineCount,
   onBoardRatio,
   PLAN_BOARD,
   SAFE_ARCHETYPE_IDS,
@@ -169,6 +170,20 @@ describe('chaque composition', () => {
         Math.round(spec.headline.lines * headline.fontSize * 1.2),
       )
       expect(spec.headline.lines).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('borne réellement les accroches sûres à trois lignes', () => {
+    for (const id of SAFE_ARCHETYPE_IDS) {
+      expect(headlineLineCount(layoutOf(id, PALETTES[0]).headline), id).toBeLessThanOrEqual(3)
+      const pathological = composeArchetype(id, {
+        palette: PALETTES[0],
+        background: backgroundFor(id, PALETTES[0]),
+        headline: 'Wmmmmmmmmmmm Wmmmmmmmmmmm Wmmmmmmmmmmm',
+        deviceAspect: ASPECTS[0],
+        index: 0,
+      })
+      expect(headlineLineCount(pathological.headline), id).toBeGreaterThan(3)
     }
   })
 

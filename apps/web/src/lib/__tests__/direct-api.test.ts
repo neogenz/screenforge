@@ -235,6 +235,13 @@ describe('plan via une API', () => {
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/hors contrat/)
   })
 
+  it('refuse une accroche qui occuperait plus de trois lignes', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].headline = 'Wmmmmmmmmmmm Wmmmmmmmmmmm Wmmmmmmmmmmm'
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/trois lignes/)
+  })
+
   it('compose le fond depuis le rang, et non depuis ce que le modèle a proposé', async () => {
     respond(answering(WRITTEN))
     const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')

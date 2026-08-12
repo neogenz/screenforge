@@ -135,8 +135,11 @@ export function localizedLayoutLayers(
 
 // ─── Mesure et débordements ──────────────────────────────────────────────────
 
+/** Propriétés suffisantes pour replier une chaîne, sans fabriquer un calque. */
+export type TextMetrics = Pick<TextLayer, 'width' | 'fontSize' | 'fontWeight' | 'letterSpacing'>
+
 /** Largeur d'une chaîne pour une police donnée, en pixels de scène. */
-export type TextMeasure = (text: string, layer: TextLayer, family: string) => number
+export type TextMeasure = (text: string, layer: TextMetrics, family: string) => number
 
 let sharedContext: CanvasRenderingContext2D | null | undefined
 
@@ -172,7 +175,7 @@ export const measureWithCanvas: TextMeasure = (text, layer, family) => {
  */
 export function wrappedLineCount(
   text: string,
-  layer: TextLayer,
+  layer: TextMetrics,
   family: string,
   measure: TextMeasure,
 ): number {

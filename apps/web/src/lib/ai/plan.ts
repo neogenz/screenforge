@@ -7,7 +7,9 @@ import {
   automaticArchetype,
   backgroundFor,
   composeArchetype,
+  headlineLineCount,
   isArchetypeId,
+  SAFE_ARCHETYPE_IDS,
   type ArchetypeId,
   type ArchetypeLayout,
   type PlanAccent,
@@ -346,6 +348,14 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     seen.add(normalized)
     if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
       return `L’accroche ${index + 1} est trop générique pour ce produit.`
+    }
+    const layout = planScreenLayout(plan, brief, index)
+    if (
+      layout &&
+      SAFE_ARCHETYPE_IDS.includes(screen.layout) &&
+      headlineLineCount(layout.headline) > 3
+    ) {
+      return `L’accroche ${index + 1} dépasse trois lignes dans cette mise en page.`
     }
     if (
       screen.screenshotIndex !== undefined &&

@@ -1,4 +1,5 @@
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { wrappedLineCount, type TextMeasure } from '@/lib/locale'
 import { mix, readableInk, shade, type Palette } from '@/lib/ai/palette'
 import type { Background } from '@/types'
 import type { ShapeId } from '@/lib/vector-catalog'
@@ -105,6 +106,37 @@ export interface ArchetypeLayout {
   device?: PlanDevice
   accentsBehind: PlanAccent[]
   accentsFront: PlanAccent[]
+}
+
+/**
+ * Estimation prudente d'Inter Bold pour valider avant que le calque existe.
+ * Les glyphes larges sont volontairement surestimés : refuser un cas limite
+ * vaut mieux que laisser une quatrième ligne descendre sur l'appareil.
+ */
+const measureHeadline: TextMeasure = (text, layer) => {
+  const em = [...text].reduce((width, character) => {
+    const base = character.normalize('NFD')[0] ?? character
+    if (/\s/.test(base)) return width + 0.32
+    if (/[MW@%&mw]/.test(base)) return width + 0.96
+    if (/[ilIjtfr1.,;:'’!|]/.test(base)) return width + 0.34
+    if (/[A-Z]/.test(base)) return width + 0.74
+    return width + 0.62
+  }, 0)
+  return em * layer.fontSize + Math.max(0, text.length - 1) * layer.letterSpacing
+}
+
+export function headlineLineCount(headline: PlanText): number {
+  return wrappedLineCount(
+    headline.text,
+    {
+      width: headline.width,
+      fontSize: headline.fontSize,
+      fontWeight: headline.fontWeight,
+      letterSpacing: 0,
+    },
+    'Inter',
+    measureHeadline,
+  )
 }
 
 /** Ce dont une composition a besoin, et rien du plan qui ne la regarde pas. */
