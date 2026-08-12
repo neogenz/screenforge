@@ -1,5 +1,6 @@
 import { Command } from 'cmdk'
 import { Search } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { getCommands, type Command as RegistryCommand } from '@/lib/commands'
 import { cn } from '@/lib/utils'
 import { Kbd } from '@/components/ui/kbd'
@@ -10,6 +11,20 @@ export interface CommandPaletteProps {
 }
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const rememberFocus = (target: EventTarget | null) => {
+      if (target instanceof HTMLElement && !target.closest('[cmdk-dialog]')) {
+        returnFocusRef.current = target
+      }
+    }
+    rememberFocus(document.activeElement)
+    const handleFocus = (event: FocusEvent) => rememberFocus(event.target)
+    document.addEventListener('focusin', handleFocus)
+    return () => document.removeEventListener('focusin', handleFocus)
+  }, [])
+
   const commands = open
     ? getCommands().filter((command) => !command.enabled || command.enabled())
     : []
@@ -29,11 +44,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     command.run()
   }
 
+  function dismiss() {
+    const returnFocus = returnFocusRef.current
+    onClose()
+    requestAnimationFrame(() => {
+      if (returnFocus?.isConnected) returnFocus.focus()
+    })
+  }
+
   return (
     <Command.Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose()
+        if (!nextOpen) dismiss()
       }}
       label="Palette de commandes"
       loop

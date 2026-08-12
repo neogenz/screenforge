@@ -37,6 +37,8 @@ const SURFACES = ['stage', 'background', 'card', 'muted', 'secondary', 'accent']
  */
 const PAIRS = [
   ['marker-ink', 'marker'],
+  ['warning', 'card'],
+  ['success', 'card'],
   ...['card', 'background', 'stage', 'muted'].map(
     /** @returns {[string, string]} */ (surface) => ['destructive', surface],
   ),

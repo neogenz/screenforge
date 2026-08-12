@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: primitives et garde-fous visuels refermés
@@ -15,10 +15,16 @@ status: pending
 │   ├── ✏️ contrast-audit.mjs
 │   └── ✏️ scale-audit.mjs
 └── apps/web
+    ├── e2e
+    │   ├── ✏️ boot-shell.spec.ts
+    │   └── ✏️ command-palette.spec.ts
     └── src
         ├── ✏️ App.tsx
-        └── components/toolbar
-            └── ✏️ TopBar.tsx
+        └── components
+            ├── toolbar
+            │   └── ✏️ TopBar.tsx
+            └── ui
+                └── ✏️ command-palette.tsx
 ```
 
 ## User Journey

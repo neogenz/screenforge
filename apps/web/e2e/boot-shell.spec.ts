@@ -68,7 +68,7 @@ async function expectBootTheme(
     },
     { savedTheme: preference, unavailable: storageUnavailable },
   )
-  await page.route('**/src/main.tsx', (route) => route.abort())
+  await page.route('**/src/main.tsx*', (route) => route.abort())
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   const rendered = await page.evaluate(() => {

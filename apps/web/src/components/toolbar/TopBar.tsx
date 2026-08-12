@@ -932,19 +932,14 @@ function ActionsSegment({
       ) : (
         actions.map((action) =>
           action.id === 'palette' ? (
-            <button
+            <IconButton
               key={action.id}
-              type="button"
               aria-label={action.label}
               title={action.hint}
               onClick={action.onSelect}
-              className={cn(
-                'flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground',
-                'transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground',
-              )}
             >
               <Kbd>⌘K</Kbd>
-            </button>
+            </IconButton>
           ) : (
             <IconButton
               key={action.id}

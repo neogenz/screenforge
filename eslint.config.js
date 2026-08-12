@@ -6,7 +6,15 @@ import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['**/dist', '**/dist-ssr', '**/test-results', '**/playwright-report'] },
+  {
+    ignores: [
+      '**/dist',
+      '**/dist-ssr',
+      '**/test-results',
+      '**/playwright-report',
+      '.claude/worktrees/**',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['apps/*/src/**/*.{ts,tsx}'],

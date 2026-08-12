@@ -2,6 +2,21 @@ import { expect, test } from '@playwright/test'
 import { addTextLayer, layerRows, waitForApp } from './helpers'
 
 test.describe('command palette', () => {
+  test('le déclencheur de la TopBar garde la primitive et rend le focus', async ({ page }) => {
+    await waitForApp(page)
+    const trigger = page.getByRole('button', { name: 'Ouvrir la palette de commandes' })
+    await expect(trigger).toHaveAttribute('data-slot', 'icon-button')
+    await expect(trigger).toHaveAttribute('title', 'Palette de commandes (⌘K)')
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(36)
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(36)
+
+    await trigger.click()
+    const dialog = page.getByRole('dialog', { name: 'Palette de commandes' })
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(trigger).toBeFocused()
+  })
+
   test('opens with ⌘K, filters and runs a command', async ({ page }) => {
     await waitForApp(page)
     await page.keyboard.press('Meta+k')

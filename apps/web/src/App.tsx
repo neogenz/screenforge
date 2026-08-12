@@ -273,9 +273,10 @@ export default function App() {
           } as CSSProperties
         }
         toastOptions={{
+          classNames: { title: '!leading-5', description: '!leading-5' },
           style: {
             boxShadow: 'var(--shadow-lg), var(--hairline-top)',
-            fontSize: '12.5px',
+            fontSize: 'var(--text-sm)',
           },
         }}
       />
