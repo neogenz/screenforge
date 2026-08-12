@@ -79,10 +79,9 @@ const WRITTEN = JSON.stringify({
     },
     {
       name: 'Budget',
-      headline: 'Chaque euro à sa place',
-      evidence: 'Le rythme de vos journées',
+      headline: 'Planifiez chaque priorité visible',
+      evidence: 'Planifiez votre semaine',
       background: { color: 'pas une couleur' },
-      screenshotIndex: 7,
     },
   ],
 })
@@ -185,6 +184,7 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
+    expect(sent).toContain('partager au moins un terme significatif')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -205,7 +205,7 @@ describe('plan via une API', () => {
   it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
-      headline: `Bénéfice concret numéro ${index + 1}`,
+      headline: `Vos journées gardent leur rythme ${index + 1}`,
       evidence: 'Le rythme de vos journées',
     }))
     respond(answering(JSON.stringify({ screens })))
@@ -213,12 +213,26 @@ describe('plan via une API', () => {
     expect(plan.screens).toHaveLength(10)
   })
 
-  it('normalise le rôle et ignore un index de capture qui ne désigne rien', async () => {
+  it('normalise le rôle et laisse sans appareil un visuel sans index disponible', async () => {
     respond(answering(WRITTEN))
     const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
     expect(plan.screens[0].slot).toBe('accueil-principal')
     expect(plan.screens[0].screenshotIndex).toBe(0)
     expect(plan.screens[1].screenshotIndex).toBeUndefined()
+  })
+
+  it('refuse un index de capture invalide avant de normaliser le plan', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].screenshotIndex = 7
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/indisponible/)
+  })
+
+  it('refuse un texte trop long au lieu de le tronquer', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].headline = 'x'.repeat(73)
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/hors contrat/)
   })
 
   it('compose le fond depuis le rang, et non depuis ce que le modèle a proposé', async () => {
@@ -253,6 +267,18 @@ describe('plan via une API', () => {
     invented.screens[0].evidence = 'Synchronisation bancaire automatique'
     respond(answering(JSON.stringify(invented)))
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
+
+    const unrelated = JSON.parse(WRITTEN)
+    unrelated.screens[0].headline = 'Automatisez le suivi des dépenses'
+    respond(answering(JSON.stringify(unrelated)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
+  })
+
+  it('accepte une variation grammaticale du terme qui relie accroche et preuve', async () => {
+    const stemmed = JSON.parse(WRITTEN)
+    stemmed.screens[0].headline = 'Rythmez mieux chaque journée'
+    respond(answering(JSON.stringify(stemmed)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).resolves.toBeDefined()
   })
 
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {

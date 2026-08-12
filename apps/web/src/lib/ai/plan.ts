@@ -250,6 +250,46 @@ const GENERIC_HEADLINES = [
   'votre quotidien enfin plus leger',
 ] as const
 
+const CLAIM_STOPWORDS = new Set([
+  'afin',
+  'alors',
+  'apres',
+  'avant',
+  'avec',
+  'cette',
+  'chaque',
+  'comme',
+  'dans',
+  'depuis',
+  'elle',
+  'elles',
+  'encore',
+  'enfin',
+  'entre',
+  'etre',
+  'faire',
+  'leur',
+  'leurs',
+  'mais',
+  'meme',
+  'moins',
+  'notre',
+  'nous',
+  'plus',
+  'pour',
+  'quand',
+  'rien',
+  'sans',
+  'seulement',
+  'sont',
+  'tout',
+  'tous',
+  'toute',
+  'toutes',
+  'votre',
+  'vous',
+])
+
 function normalizedCopy(value: string): string {
   return value
     .normalize('NFD')
@@ -257,6 +297,25 @@ function normalizedCopy(value: string): string {
     .toLocaleLowerCase('fr')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function significantTerms(value: string): string[] {
+  return normalizedCopy(value)
+    .split(' ')
+    .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
+}
+
+/** Une preuve doit nommer au moins un fait que l'accroche réemploie. */
+function claimMatchesEvidence(headline: string, evidence: string): boolean {
+  const claimTerms = significantTerms(headline)
+  const evidenceTerms = significantTerms(evidence)
+  return claimTerms.some((claim) =>
+    evidenceTerms.some(
+      (fact) =>
+        claim === fact ||
+        (claim.length >= 5 && fact.length >= 5 && claim.slice(0, 5) === fact.slice(0, 5)),
+    ),
+  )
 }
 
 function words(value: string): string[] {
@@ -297,11 +356,13 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     }
 
     const evidence = screen.evidence?.trim()
-    const grounded = evidence
-      ? evidenceSources(brief, screen.screenshotIndex).some((source) =>
-          normalizedCopy(source).includes(normalizedCopy(evidence)),
-        )
-      : false
+    const normalizedEvidence = evidence ? normalizedCopy(evidence) : ''
+    const grounded =
+      normalizedEvidence.length > 0 &&
+      claimMatchesEvidence(headline, evidence ?? '') &&
+      evidenceSources(brief, screen.screenshotIndex).some((source) =>
+        normalizedCopy(source).includes(normalizedEvidence),
+      )
     if (!grounded) return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
   }
   return null

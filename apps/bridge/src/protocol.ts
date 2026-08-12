@@ -128,7 +128,7 @@ const plannedScreenSchema = z.object({
   headline: z.string().min(1).max(72),
   slot: z.string().max(48).optional(),
   screenshotIndex: z.number().int().min(0).max(9).optional(),
-  evidence: z.string().min(1).max(160),
+  evidence: z.string().trim().min(1).max(160),
 })
 
 export const planSchema = z.object({

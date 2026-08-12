@@ -178,8 +178,8 @@ describe('plan via le pont', () => {
       },
       {
         name: 'Budget',
-        headline: 'Chaque euro à sa place',
-        evidence: 'Le rythme de vos journées',
+        headline: 'Gardez chaque priorité visible',
+        evidence: 'gardez votre semaine visible',
         background: { type: 'solid', color: '#f2f3f5' },
         screenshotIndex: 7,
       },
@@ -274,7 +274,7 @@ describe('choix du fournisseur', () => {
             screens: [
               {
                 name: 'Accueil',
-                headline: 'Écrit par Claude',
+                headline: 'Rythme écrit par Claude',
                 evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
               },
@@ -303,7 +303,7 @@ describe('choix du fournisseur', () => {
             screens: [
               {
                 name: 'Accueil',
-                headline: 'Écrit par le modèle',
+                headline: 'Rythme écrit par le modèle',
                 evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
               },
@@ -324,6 +324,6 @@ describe('choix du fournisseur', () => {
     })
     expect(calls).toHaveLength(1)
     expect(JSON.parse(String(calls[0].init?.body)).model).toBe('modele-test')
-    expect(plan.screens[0].headline).toBe('Écrit par le modèle')
+    expect(plan.screens[0].headline).toBe('Rythme écrit par le modèle')
   })
 })

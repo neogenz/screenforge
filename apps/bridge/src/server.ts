@@ -327,6 +327,46 @@ const GENERIC_HEADLINES = [
   'votre quotidien enfin plus leger',
 ] as const
 
+const CLAIM_STOPWORDS = new Set([
+  'afin',
+  'alors',
+  'apres',
+  'avant',
+  'avec',
+  'cette',
+  'chaque',
+  'comme',
+  'dans',
+  'depuis',
+  'elle',
+  'elles',
+  'encore',
+  'enfin',
+  'entre',
+  'etre',
+  'faire',
+  'leur',
+  'leurs',
+  'mais',
+  'meme',
+  'moins',
+  'notre',
+  'nous',
+  'plus',
+  'pour',
+  'quand',
+  'rien',
+  'sans',
+  'seulement',
+  'sont',
+  'tout',
+  'tous',
+  'toute',
+  'toutes',
+  'votre',
+  'vous',
+])
+
 function normalizedCopy(value: string): string {
   return value
     .normalize('NFD')
@@ -334,6 +374,24 @@ function normalizedCopy(value: string): string {
     .toLocaleLowerCase('fr')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function significantTerms(value: string): string[] {
+  return normalizedCopy(value)
+    .split(' ')
+    .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
+}
+
+function claimMatchesEvidence(headline: string, evidence: string): boolean {
+  const claimTerms = significantTerms(headline)
+  const evidenceTerms = significantTerms(evidence)
+  return claimTerms.some((claim) =>
+    evidenceTerms.some(
+      (fact) =>
+        claim === fact ||
+        (claim.length >= 5 && fact.length >= 5 && claim.slice(0, 5) === fact.slice(0, 5)),
+    ),
+  )
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -358,11 +416,13 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
     if (screen.screenshotIndex !== undefined && !shot?.hasAsset) {
       return `L’accroche ${index + 1} désigne une capture indisponible.`
     }
+    const evidence = screen.evidence.trim()
+    const normalizedEvidence = normalizedCopy(evidence)
     const sources = [brief.pitch, brief.productContext ?? '', shot?.description ?? '']
     if (
-      !sources.some((source) =>
-        normalizedCopy(source).includes(normalizedCopy(screen.evidence.trim())),
-      )
+      !normalizedEvidence ||
+      !claimMatchesEvidence(screen.headline, evidence) ||
+      !sources.some((source) => normalizedCopy(source).includes(normalizedEvidence))
     ) {
       return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
     }
@@ -419,7 +479,9 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
-    '  ou de la description de la capture qui prouve l’accroche. N’invente jamais',
+    '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
+    '  evidence doivent partager au moins un terme significatif (une variation',
+    '  grammaticale du même mot est acceptée). N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',

@@ -320,6 +320,26 @@ describe('protocole', () => {
     expect(await response.json()).toMatchObject({ error: 'invalid-response' })
   })
 
+  it('refuse une preuve existante qui ne justifie pas l’accroche', async () => {
+    const unrelated = {
+      ...PLAN,
+      screens: [
+        {
+          ...PLAN.screens[0],
+          headline: 'Automatisez le suivi des dépenses',
+          evidence: 'Le rythme de vos journées',
+        },
+      ],
+    }
+    const { call } = harness(async () => JSON.stringify(unrelated))
+    const response = await call('/plan', { method: 'POST', body: planBody() })
+    expect(response.status).toBe(502)
+    expect(await response.json()).toMatchObject({
+      error: 'invalid-response',
+      detail: expect.stringContaining('aucun fait'),
+    })
+  })
+
   it('dit que Codex manque plutôt que d’échouer en silence', async () => {
     const { call } = harness(async () => {
       throw new CodexUnavailableError('codex introuvable')
@@ -458,6 +478,12 @@ describe('protocole', () => {
       planSchema.safeParse({
         ...PLAN,
         screens: [{ ...PLAN.screens[0], screenshotIndex: 12 }],
+      }).success,
+    ).toBe(false)
+    expect(
+      planSchema.safeParse({
+        ...PLAN,
+        screens: [{ ...PLAN.screens[0], evidence: '   ' }],
       }).success,
     ).toBe(false)
   })

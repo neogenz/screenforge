@@ -184,14 +184,62 @@ export function extractJson(text: string): unknown {
   return JSON.parse(text.slice(start, end + 1))
 }
 
+interface RawScreen {
+  name: string
+  headline: string
+  slot?: string
+  screenshotIndex?: number
+  evidence: string
+}
+
 interface RawPlan {
-  screens?: {
-    name?: unknown
-    headline?: unknown
-    slot?: unknown
-    screenshotIndex?: unknown
-    evidence?: unknown
-  }[]
+  screens?: unknown
+}
+
+function rawScreens(value: unknown, brief: CampaignBrief): RawScreen[] {
+  if (!Array.isArray(value)) return []
+  return value.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error(`Le visuel ${index + 1} est hors contrat : rien n’a été repris.`)
+    }
+    const screen = entry as Record<string, unknown>
+    const stringField = (field: 'name' | 'headline' | 'evidence', max: number) => {
+      const text = screen[field]
+      if (typeof text !== 'string' || !text.trim() || text.length > max) {
+        throw new Error(
+          `Le champ ${field} du visuel ${index + 1} est hors contrat : rien n’a été repris.`,
+        )
+      }
+      return text.trim()
+    }
+    const name = stringField('name', AI_LIMITS.maxNameLength)
+    const headline = stringField('headline', AI_LIMITS.maxCampaignHeadlineLength)
+    const evidence = stringField('evidence', AI_LIMITS.maxEvidenceLength)
+    const slot = screen.slot
+    if (slot !== undefined && (typeof slot !== 'string' || slot.length > 48)) {
+      throw new Error(
+        `Le champ slot du visuel ${index + 1} est hors contrat : rien n’a été repris.`,
+      )
+    }
+    const screenshotIndex = screen.screenshotIndex
+    if (
+      screenshotIndex !== undefined &&
+      (typeof screenshotIndex !== 'number' ||
+        !Number.isInteger(screenshotIndex) ||
+        !brief.screenshots[screenshotIndex]?.assetId)
+    ) {
+      throw new Error(
+        `Le visuel ${index + 1} désigne une capture indisponible : rien n’a été repris.`,
+      )
+    }
+    return {
+      name,
+      headline,
+      evidence,
+      ...(typeof slot === 'string' ? { slot } : {}),
+      ...(typeof screenshotIndex === 'number' ? { screenshotIndex } : {}),
+    }
+  })
 }
 
 /**
@@ -242,7 +290,9 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
-    '  ou de la description de la capture qui prouve l’accroche. N’invente jamais',
+    '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
+    '  evidence doivent partager au moins un terme significatif (une variation',
+    '  grammaticale du même mot est acceptée). N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'Rends uniquement cet objet JSON, sans texte autour et sans bloc de code :',
@@ -320,7 +370,7 @@ export async function planViaApi(
   const answer = await complete(provider, key, model, planPrompt(brief, count))
   const raw = extractJson(answer) as RawPlan
 
-  const proposed = Array.isArray(raw.screens) ? raw.screens : []
+  const proposed = rawScreens(raw.screens, brief)
   if (proposed.length !== count) {
     throw new Error(
       `Le fournisseur a rendu ${proposed.length} visuel${proposed.length > 1 ? 's' : ''} au lieu de ${count} : rien n’a été repris.`,
@@ -328,15 +378,13 @@ export async function planViaApi(
   }
 
   const screens: PlannedScreen[] = proposed.map((screen, index) => {
-    const name = typeof screen.name === 'string' ? screen.name : ''
-    const headline = typeof screen.headline === 'string' ? screen.headline : ''
-    const slot = typeof screen.slot === 'string' ? screen.slot : ''
-    const evidence = typeof screen.evidence === 'string' ? screen.evidence : ''
+    const { name, headline, evidence } = screen
+    const slot = screen.slot ?? ''
     const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
     return {
-      name: (name || `${brief.appName} ${index + 1}`).slice(0, AI_LIMITS.maxNameLength),
-      headline: headline.slice(0, AI_LIMITS.maxCampaignHeadlineLength),
-      evidence: evidence.slice(0, AI_LIMITS.maxEvidenceLength),
+      name,
+      headline,
+      evidence,
       slot: normalizeSlot(slot || name || `ecran-${index + 1}`),
       screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
       layout: automaticArchetype(index, count, Boolean(brief.screenshots[at]?.assetId)),
