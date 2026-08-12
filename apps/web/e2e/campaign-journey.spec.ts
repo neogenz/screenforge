@@ -67,7 +67,7 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        protocol: 3,
+        protocol: 4,
         bridge: '0.1.0',
         engines: [],
         capabilities: { vision: false, structuredOutput: true, reasoning: true },
