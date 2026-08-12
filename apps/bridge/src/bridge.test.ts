@@ -297,13 +297,12 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('Tous les termes métier')
-    expect(request.prompt).toContain('même courts (IA, web, clé, app, ZIP')
-    expect(request.prompt).toContain('les synonymes ne')
-    expect(request.prompt).toContain('exactement les mêmes')
-    expect(request.prompt).toContain('valeurs, unités, monnaies, conjonctions')
+    expect(request.prompt).toContain('Tous les mots métier')
+    expect(request.prompt).toContain('même courts (h, s, X, Y, IA, web, clé')
+    expect(request.prompt).toContain('aucun synonyme n’est admis')
+    expect(request.prompt).toContain('evidence peut être plus longue')
+    expect(request.prompt).toContain('mots, valeurs, unités, monnaies, conjonctions')
     expect(request.prompt).toContain('dans le même ordre que l’extrait source')
-    expect(request.prompt).toContain('ne réordonne rien')
     expect(request.prompt).toContain('extrait evidence plus serré')
   })
 
@@ -376,6 +375,10 @@ describe('protocole', () => {
       ['Atteignez 50% cette année', 'Atteignez 75% cette année'],
       ['Planifiez deux budgets annuels', 'Planifiez neuf budgets annuels'],
       ['Votre solde passe à +9€', 'Votre solde passe à −9€'],
+      ['Plan h inclus', 'Plan s inclus'],
+      ['Mode X activé', 'Mode Y activé'],
+      ['Votre solde:+9€ confirmé', 'Votre solde:-9€ confirmé'],
+      ['Votre accès premium garanti', 'Votre accès premier garanti'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -412,6 +415,10 @@ describe('protocole', () => {
       'Atteignez 50% cette année',
       'Planifiez deux budgets annuels',
       'Votre solde passe à +9€',
+      'Plan h inclus',
+      'Mode X activé',
+      'Votre solde:+9€ confirmé',
+      'Votre accès premium garanti',
       'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
@@ -451,7 +458,7 @@ describe('protocole', () => {
     expect(await response.json()).toEqual({ plan: answer })
   })
 
-  it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
+  it('accepte des mots sources supplémentaires quand les termes restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
     const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     const answer = {
@@ -499,10 +506,9 @@ describe('protocole', () => {
     expect(await response.json()).toEqual({ plan: pulpe })
   })
 
-  it('accepte les formulations Pulpe exactes et leurs variations morphologiques', async () => {
+  it('accepte les formulations Pulpe exactes', async () => {
     const cases = [
       ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
-      ['Planifiez vos budgets annuels', 'Planification de votre budget annuel'],
     ] as const
     for (const [headline, evidence] of cases) {
       const pulpe = {
@@ -533,6 +539,34 @@ describe('protocole', () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toEqual({ plan: pulpe })
     }
+  })
+
+  it('refuse les variations morphologiques même quand leur préfixe correspond', async () => {
+    const headline = 'Planifiez vos budgets annuels'
+    const evidence = 'Planification de votre budget annuel'
+    const answer = {
+      ...PLAN,
+      appName: 'Pulpe',
+      screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
+    }
+    const { call } = harness(async () => JSON.stringify(answer))
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: evidence,
+          productContext: undefined,
+          screenshots: [],
+        },
+      }),
+    })
+    expect(response.status).toBe(502)
+    expect(await response.json()).toMatchObject({
+      error: 'invalid-response',
+      detail: expect.stringContaining('aucun fait'),
+    })
   })
 
   it('dit que Codex manque plutôt que d’échouer en silence', async () => {

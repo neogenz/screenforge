@@ -184,13 +184,12 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('Tous les termes métier')
-    expect(sent).toContain('même courts (IA, web, clé, app, ZIP')
-    expect(sent).toContain('les synonymes ne')
-    expect(sent).toContain('exactement les mêmes')
-    expect(sent).toContain('valeurs, unités, monnaies, conjonctions')
+    expect(sent).toContain('Tous les mots métier')
+    expect(sent).toContain('même courts (h, s, X, Y, IA, web, clé')
+    expect(sent).toContain('aucun synonyme n’est admis')
+    expect(sent).toContain('evidence peut être plus longue')
+    expect(sent).toContain('mots, valeurs, unités, monnaies, conjonctions')
     expect(sent).toContain('dans le même ordre que l’extrait source')
-    expect(sent).toContain('ne réordonne rien')
     expect(sent).toContain('extrait evidence plus serré')
   })
 
@@ -317,11 +316,11 @@ describe('plan via une API', () => {
     ).rejects.toThrow(/aucun fait/)
   })
 
-  it('accepte une variation grammaticale du terme qui relie accroche et preuve', async () => {
-    const stemmed = JSON.parse(WRITTEN)
-    stemmed.screens[0].headline = 'Rythmez vos journées'
-    respond(answering(JSON.stringify(stemmed)))
-    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).resolves.toBeDefined()
+  it('refuse une variation grammaticale absente de la preuve', async () => {
+    const rewritten = JSON.parse(WRITTEN)
+    rewritten.screens[0].headline = 'Rythmez vos journées'
+    respond(answering(JSON.stringify(rewritten)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
   })
 
   it('refuse les inversions de relation et de quantité malgré le reste du vocabulaire', async () => {
@@ -338,6 +337,10 @@ describe('plan via une API', () => {
       ['Atteignez 50% cette année', 'Atteignez 75% cette année'],
       ['Planifiez deux budgets annuels', 'Planifiez neuf budgets annuels'],
       ['Votre solde passe à +9€', 'Votre solde passe à −9€'],
+      ['Plan h inclus', 'Plan s inclus'],
+      ['Mode X activé', 'Mode Y activé'],
+      ['Votre solde:+9€ confirmé', 'Votre solde:-9€ confirmé'],
+      ['Votre accès premium garanti', 'Votre accès premier garanti'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -373,6 +376,10 @@ describe('plan via une API', () => {
       'Atteignez 50% cette année',
       'Planifiez deux budgets annuels',
       'Votre solde passe à +9€',
+      'Plan h inclus',
+      'Mode X activé',
+      'Votre solde:+9€ confirmé',
+      'Votre accès premium garanti',
       'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
@@ -419,7 +426,7 @@ describe('plan via une API', () => {
     ).resolves.toBeDefined()
   })
 
-  it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
+  it('accepte des mots sources supplémentaires quand les termes restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
     const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
@@ -443,7 +450,6 @@ describe('plan via une API', () => {
     const cases = [
       ['Suivez votre budget chaque mois', 'Suivez votre budget chaque mois'],
       ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
-      ['Planifiez vos budgets annuels', 'Planification de votre budget annuel'],
     ] as const
     for (const [headline, evidence] of cases) {
       respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
@@ -462,6 +468,27 @@ describe('plan via une API', () => {
       )
       expect(plan.screens[0].headline).toBe(headline)
     }
+  })
+
+  it('refuse les variations morphologiques même quand leur préfixe correspond', async () => {
+    const headline = 'Planifiez vos budgets annuels'
+    const evidence = 'Planification de votre budget annuel'
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/aucun fait/)
   })
 
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {

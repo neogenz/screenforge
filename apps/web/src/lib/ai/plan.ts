@@ -388,20 +388,24 @@ const SEMANTIC_TERMS = new Set([
   'aucune',
 ])
 
-function normalizedCopy(value: string): string {
+function normalizeSemanticSymbols(value: string): string {
   return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('fr')
     .replace(/€/g, ' eur ')
     .replace(/\$/g, ' usd ')
     .replace(/£/g, ' gbp ')
     .replace(/¥/g, ' jpy ')
     .replace(/%/g, ' percent ')
-    .replace(/(^|[\s(])\+\s*(?=\d)/g, '$1 signplus ')
-    .replace(/(^|[\s(])[-−]\s*(?=\d)/g, '$1 signminus ')
+    .replace(/\+\s*(?=\d)/g, ' signplus ')
+    .replace(/[-−]\s*(?=\d)/g, ' signminus ')
     .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
     .replace(/(\d)\s*[-−](?=$|[\s)])/g, '$1 signminus ')
+}
+
+function normalizedCopy(value: string): string {
+  return normalizeSemanticSymbols(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 }
@@ -413,16 +417,7 @@ function isNumericTerm(term: string): boolean {
 function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
-    .filter(
-      (term) =>
-        isNumericTerm(term) ||
-        SEMANTIC_TERMS.has(term) ||
-        (term.length >= 2 && !CLAIM_STOPWORDS.has(term)),
-    )
-}
-
-function termStem(term: string): string {
-  return term.length >= 5 ? term.slice(0, 5) : term
+    .filter((term) => SEMANTIC_TERMS.has(term) || (term.length >= 1 && !CLAIM_STOPWORDS.has(term)))
 }
 
 function semanticSequence(value: string): string[] {
@@ -442,19 +437,19 @@ function haveSameSemanticSequence(headline: string, evidence: string): boolean {
 
 function isOrderedSubsequence(claim: string[], evidence: string[]): boolean {
   let claimIndex = 0
-  for (const evidenceStem of evidence) {
-    if (evidenceStem === claim[claimIndex]) claimIndex += 1
+  for (const evidenceTerm of evidence) {
+    if (evidenceTerm === claim[claimIndex]) claimIndex += 1
   }
   return claimIndex === claim.length
 }
 
-/** Les mots porteurs de l'accroche suivent l'ordre de la preuve. */
+/** Les mots métier de l'accroche reprennent exactement ceux de la preuve, dans l'ordre. */
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const claimStems = significantTerms(headline).map(termStem)
-  const evidenceStems = significantTerms(evidence).map(termStem)
+  const claimTerms = significantTerms(headline)
+  const evidenceTerms = significantTerms(evidence)
   return (
-    claimStems.length > 0 &&
-    isOrderedSubsequence(claimStems, evidenceStems) &&
+    claimTerms.length > 0 &&
+    isOrderedSubsequence(claimTerms, evidenceTerms) &&
     haveSameSemanticSequence(headline, evidence)
   )
 }
