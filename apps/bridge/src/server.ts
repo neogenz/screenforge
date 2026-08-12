@@ -330,42 +330,28 @@ const GENERIC_HEADLINES = [
 const CLAIM_STOPWORDS = new Set([
   'afin',
   'alors',
-  'apres',
-  'avant',
-  'avec',
   'cette',
-  'chaque',
   'comme',
   'dans',
-  'depuis',
   'elle',
   'elles',
   'encore',
   'enfin',
-  'entre',
   'etre',
   'faire',
   'leur',
   'leurs',
   'mais',
   'meme',
-  'moins',
   'notre',
   'nous',
-  'plus',
   'pour',
-  'quand',
-  'rien',
-  'sans',
-  'seulement',
   'sont',
-  'tout',
-  'tous',
-  'toute',
-  'toutes',
   'votre',
   'vous',
 ])
+
+const SHORT_SIGNIFICANT_TERMS = new Set(['pas', 'non', 'ni'])
 
 function normalizedCopy(value: string): string {
   return value
@@ -379,7 +365,10 @@ function normalizedCopy(value: string): string {
 function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
-    .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
+    .filter(
+      (term) =>
+        SHORT_SIGNIFICANT_TERMS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
+    )
 }
 
 function termStem(term: string): string {
@@ -480,7 +469,8 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
     '  tout mot porteur de sens de headline doit reprendre le vocabulaire de',
     '  evidence. Les variantes morphologiques sont acceptées, les synonymes ne',
-    '  le sont pas. N’invente jamais',
+    '  le sont pas. Les négations, relations, quantités et repères temporels',
+    '  doivent eux aussi être repris dans evidence. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',

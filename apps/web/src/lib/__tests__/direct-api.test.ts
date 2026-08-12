@@ -186,6 +186,7 @@ describe('plan via une API', () => {
     expect(sent).toContain('Vue d’ensemble des priorités')
     expect(sent).toContain('tout mot porteur de sens')
     expect(sent).toContain('les synonymes ne')
+    expect(sent).toContain('négations, relations, quantités et repères temporels')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -309,9 +310,63 @@ describe('plan via une API', () => {
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).resolves.toBeDefined()
   })
 
+  it('refuse les inversions de relation et de quantité malgré le reste du vocabulaire', async () => {
+    const contradictions = [
+      ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
+      ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Votre budget non connecté', 'Votre budget connecté'],
+    ] as const
+    for (const [headline, evidence] of contradictions) {
+      respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: evidence,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
+  })
+
+  it('accepte les relations et quantités quand la preuve les dit exactement', async () => {
+    const facts = [
+      'Votre budget sans connexion bancaire',
+      'Anticipez moins vos dépenses',
+      'Votre budget non connecté',
+    ] as const
+    for (const fact of facts) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: fact,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).resolves.toBeDefined()
+    }
+  })
+
   it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {
     const cases = [
-      ['Suivez votre budget chaque mois', 'Suivez votre budget mois par mois'],
+      ['Suivez votre budget chaque mois', 'Suivez votre budget chaque mois'],
       ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
       ['Planifiez vos budgets annuels', 'Planification de votre budget annuel'],
     ] as const

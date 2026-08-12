@@ -261,42 +261,28 @@ const GENERIC_HEADLINES = [
 const CLAIM_STOPWORDS = new Set([
   'afin',
   'alors',
-  'apres',
-  'avant',
-  'avec',
   'cette',
-  'chaque',
   'comme',
   'dans',
-  'depuis',
   'elle',
   'elles',
   'encore',
   'enfin',
-  'entre',
   'etre',
   'faire',
   'leur',
   'leurs',
   'mais',
   'meme',
-  'moins',
   'notre',
   'nous',
-  'plus',
   'pour',
-  'quand',
-  'rien',
-  'sans',
-  'seulement',
   'sont',
-  'tout',
-  'tous',
-  'toute',
-  'toutes',
   'votre',
   'vous',
 ])
+
+const SHORT_SIGNIFICANT_TERMS = new Set(['pas', 'non', 'ni'])
 
 function normalizedCopy(value: string): string {
   return value
@@ -310,7 +296,10 @@ function normalizedCopy(value: string): string {
 function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
-    .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
+    .filter(
+      (term) =>
+        SHORT_SIGNIFICANT_TERMS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
+    )
 }
 
 function termStem(term: string): string {

@@ -299,6 +299,7 @@ describe('protocole', () => {
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
     expect(request.prompt).toContain('tout mot porteur de sens')
     expect(request.prompt).toContain('les synonymes ne')
+    expect(request.prompt).toContain('négations, relations, quantités et repères temporels')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -356,6 +357,56 @@ describe('protocole', () => {
     })
   })
 
+  it('refuse les inversions de relation et de quantité', async () => {
+    const contradictions = [
+      ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
+      ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Votre budget non connecté', 'Votre budget connecté'],
+    ] as const
+    for (const [headline, evidence] of contradictions) {
+      const answer = {
+        ...PLAN,
+        screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
+      }
+      const { call } = harness(async () => JSON.stringify(answer))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: { ...BRIEF, pitch: evidence, productContext: undefined, screenshots: [] },
+        }),
+      })
+      expect(response.status).toBe(502)
+      expect(await response.json()).toMatchObject({
+        error: 'invalid-response',
+        detail: expect.stringContaining('aucun fait'),
+      })
+    }
+  })
+
+  it('accepte les relations et quantités quand la preuve les dit exactement', async () => {
+    for (const fact of [
+      'Votre budget sans connexion bancaire',
+      'Anticipez moins vos dépenses',
+      'Votre budget non connecté',
+    ]) {
+      const answer = {
+        ...PLAN,
+        screens: [
+          { ...PLAN.screens[0], headline: fact, evidence: fact, screenshotIndex: undefined },
+        ],
+      }
+      const { call } = harness(async () => JSON.stringify(answer))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: { ...BRIEF, pitch: fact, productContext: undefined, screenshots: [] },
+        }),
+      })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ plan: answer })
+    }
+  })
+
   it('accepte le vocabulaire Pulpe quand prédicat et fait proviennent de la preuve', async () => {
     const pulpe = {
       ...PLAN,
@@ -364,7 +415,7 @@ describe('protocole', () => {
         {
           ...PLAN.screens[0],
           headline: 'Suivez votre budget chaque mois',
-          evidence: 'Suivez votre budget mois par mois',
+          evidence: 'Suivez votre budget chaque mois',
           screenshotIndex: undefined,
         },
       ],
@@ -376,7 +427,7 @@ describe('protocole', () => {
         brief: {
           ...BRIEF,
           appName: 'Pulpe',
-          pitch: 'Suivez votre budget mois par mois',
+          pitch: 'Suivez votre budget chaque mois',
           productContext: undefined,
           screenshots: [],
         },
