@@ -70,11 +70,28 @@ pnpm --filter backend exec convex deployment token create screenforge-prod \
 ne dépend plus de ce que `.env.local` désigne :
 
 ```bash
-pnpm --filter backend exec convex env  --env-file .env.preprod list
-pnpm --filter backend exec convex run  --env-file .env.production billing:healthcheck '{}'
-pnpm run deploy:preprod   # convex deploy --env-file .env.preprod
-pnpm run deploy:prod      # convex deploy --env-file .env.production
+cd apps/backend                                                    # une fois
+pnpm exec convex env  --env-file .env.preprod list
+pnpm exec convex run  --env-file .env.production billing:healthcheck '{}'
+pnpm exec convex data --env-file .env.preprod projects
 ```
+
+```bash
+pnpm run deploy:preprod   # depuis la racine — convex deploy --env-file .env.preprod
+pnpm run deploy:prod      # depuis la racine — convex deploy --env-file .env.production
+```
+
+> **Ces commandes-là se lancent depuis `apps/backend`, et c'est la seule
+> exception à la règle « toujours depuis la racine ».** Trois formes ont été
+> essayées et deux échouent : `pnpm --filter backend exec convex … --env-file X`
+> fait lire `--env-file` par **pnpm**, qui cherche `X` à la racine et s'arrête
+> avant d'appeler Convex (`pnpm: .env.preprod: not found`) ; et sourcer le
+> fichier dans l'environnement vise le déploiement **local** sans rien dire,
+> parce que la CLI lit `.env.local` en plus et que son `CONVEX_DEPLOYMENT`
+> l'emporte — mesuré, la table `users` rendue est celle du local. `--env-file`
+> n'existant que comme option de sous-commande, aucun script racine ne peut
+> l'injecter : d'où l'absence de raccourci et la présence de ce `cd`. Seul
+> `deploy` en a un, parce que le script vit déjà dans le paquet.
 
 > **Les raccourcis `--prod` et `--deployment dev` se résolvent, eux, à travers
 > `.env.local`.** Ce fichier étant sur le déploiement local — qui est anonyme et
@@ -128,9 +145,33 @@ préproduction n'est publié. Le jour où il l'est, une seule commande le corrig
 
 ## Étape 2 — les valeurs à obtenir et à poser
 
-Toutes les commandes se lancent depuis la racine du dépôt et visent la
-préproduction ; remplacez `.env.preprod` par `.env.production` pour viser la
-production.
+Toutes les commandes se lancent depuis `apps/backend` (voir l'encadré plus haut)
+et visent la préproduction ; remplacez `.env.preprod` par `.env.production` pour
+viser la production.
+
+**Rien de cette étape n'est nécessaire pour ouvrir une session et synchroniser
+un projet en préproduction** : la porte par mot de passe ne dépend d'aucune de
+ces valeurs, et le compte de test y porte déjà ses droits. Ce qui suit ouvre les
+trois autres portes et la vente, une à une, chacune indépendamment.
+
+> **Ce que le lien magique et les deux SSO n'achètent pas tant que
+> `SITE_URL` vaut `http://localhost:5173`.** Le retour d'authentification n'a
+> qu'une destination autorisée, et c'est celle-là : `safeRedirect` ramène tout le
+> reste à l'origine du déploiement. Le rappel OAuth atterrit bien sur
+> `…convex.site`, mais le code de session repart ensuite vers le `localhost` de
+> celui qui regarde. Brancher ces trois portes ne rend donc pas la préproduction
+> partageable — seule la machine qui fait tourner Vite peut finir une connexion.
+> Ce qui la rendrait partageable est un site de préproduction publié, et le
+> `SITE_URL` correspondant. Ni l'un ni l'autre n'existe : aucun hébergeur n'est
+> choisi, et aucun fichier du dépôt n'en nomme.
+
+> **Ce qu'aucune de ces valeurs n'est en train de bloquer.** Une variable
+> d'authentification absente ne se signale nulle part : `billing:healthcheck` ne
+> couvre que les six valeurs de Polar. Cliquer « Google » sans `AUTH_GOOGLE_ID`
+> mène à une page d'erreur de Google, et demander un lien magique sans
+> `AUTH_RESEND_KEY` envoie un `Bearer undefined` à Resend, dont le refus
+> s'affiche comme un problème de mot de passe. Aucune des deux n'est un plantage
+> — ce sont deux portes ouvertes sur un mur.
 
 ### `SITE_URL` — l'origine du site, pas celle du déploiement — **posée**
 
@@ -142,8 +183,8 @@ préproduction existe — pas avant, une origine qui ne répond pas ne servirait
 qu'à casser le retour d'authentification.
 
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod set SITE_URL https://votre-preprod.example
-pnpm --filter backend exec convex env --env-file .env.production set SITE_URL https://screenforge.app
+pnpm exec convex env --env-file .env.preprod set SITE_URL https://votre-preprod.example
+pnpm exec convex env --env-file .env.production set SITE_URL https://screenforge.app
 ```
 
 ### `AUTH_RESEND_KEY` et `AUTH_EMAIL_FROM` — l'expéditeur du lien magique
@@ -154,14 +195,20 @@ n'accepte que `onboarding@resend.dev` et n'expédie qu'à votre propre adresse �
 suffisant pour un essai, pas pour la préproduction.
 
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_RESEND_KEY re_xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_EMAIL_FROM "ScreenForge <bonjour@screenforge.app>"
+pnpm exec convex env --env-file .env.preprod set AUTH_RESEND_KEY re_xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set AUTH_EMAIL_FROM "ScreenForge <bonjour@screenforge.app>"
 ```
 
 ### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`
 
 Où : <https://console.cloud.google.com/apis/credentials> → _Create credentials_
 → _OAuth client ID_ → _Web application_.
+
+Cette entrée n'est atteignable qu'après deux préalables que la console impose et
+qui n'ont rien à voir avec ScreenForge : un projet Google Cloud, et un écran de
+consentement OAuth configuré. Tant que l'application n'est pas publiée, seules
+les adresses inscrites comme utilisateurs de test peuvent se connecter — la
+vôtre en fait partie, pas celle d'un collègue.
 
 URI de redirection autorisée, une par déploiement — c'est l'URL **HTTP** du
 déploiement Convex (port `.site`), pas celle du site :
@@ -172,8 +219,8 @@ https://colorful-caterpillar-775.eu-west-1.convex.site/api/auth/callback/google 
 ```
 
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_GOOGLE_ID xxxxx.apps.googleusercontent.com
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_GOOGLE_SECRET GOCSPX-xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set AUTH_GOOGLE_ID xxxxx.apps.googleusercontent.com
+pnpm exec convex env --env-file .env.preprod set AUTH_GOOGLE_SECRET GOCSPX-xxxxxxxx
 ```
 
 ### `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`
@@ -188,8 +235,8 @@ https://colorful-caterpillar-775.eu-west-1.convex.site/api/auth/callback/github 
 ```
 
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_GITHUB_ID Iv1.xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set AUTH_GITHUB_SECRET xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set AUTH_GITHUB_ID Iv1.xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set AUTH_GITHUB_SECRET xxxxxxxx
 ```
 
 ### Polar — la vente
@@ -216,13 +263,13 @@ un, sans quoi la projection n'accordera jamais `licence`, quel que soit le
 nombre d'achats.
 
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_SERVER sandbox
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
-pnpm --filter backend exec convex env --env-file .env.preprod set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
+pnpm exec convex env --env-file .env.preprod set POLAR_SERVER sandbox
+pnpm exec convex env --env-file .env.preprod set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
+pnpm exec convex env --env-file .env.preprod set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
 ```
 
 En production, `--env-file .env.production`, `POLAR_SERVER=production`, et un
@@ -251,7 +298,7 @@ manquante : rien ne s'en apercevrait avant qu'un acheteur ne clique. Ce
 contrôle est donc explicite, et se relance après chaque `convex env set` :
 
 ```bash
-pnpm --filter backend exec convex run --env-file .env.preprod billing:healthcheck '{}'
+pnpm exec convex run --env-file .env.preprod billing:healthcheck '{}'
 ```
 
 Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
@@ -270,9 +317,41 @@ VITE_CONVEX_URL=http://127.0.0.1:3210
 VITE_COMMERCIAL_LAUNCH=1
 ```
 
-C'est l'état actuel du fichier : l'éditeur lancé ici parle au déploiement
-**local**. Pour le brancher sur la préproduction ou la production, la valeur est
-l'URL `.convex.cloud` du tableau des trois environnements.
+C'est l'état actuel du fichier, et il ne bouge pas : l'éditeur lancé par
+`pnpm run dev` parle au déploiement **local**. Pour parler à la préproduction,
+c'est un autre script, jamais une autre valeur dans ce fichier :
+
+```bash
+pnpm run dev:preprod
+```
+
+Il pose `VITE_CONVEX_URL` en ligne, ce qui l'emporte sur le fichier — le motif
+est déjà celui de `build:profiles`. Le fichier reste donc sur le local, pour deux
+raisons mesurées : le mode purement local est ce que `e2e/boot-shell.spec.ts`
+vérifie, et il tombe dès que `VITE_CONVEX_URL` désigne un déploiement ; et un
+fichier qu'on repointe est un fichier qu'on oublie de repointer, cette fois-ci
+vers un déploiement partagé. Pour un paquet destiné à être hébergé, la variable
+se pose de la même façon, à la construction :
+
+```bash
+VITE_CONVEX_URL=https://acrobatic-orca-116.eu-west-1.convex.cloud pnpm run build
+```
+
+> **Le port du serveur de développement est épinglé à 5173**
+> (`apps/web/vite.config.ts`, `strictPort`), parce que `SITE_URL` le connaît par
+> cœur en préproduction. Sans cela Vite glisse en silence sur 5174 quand 5173 est
+> pris, et le retour d'authentification livre son code de connexion à une fenêtre
+> qui n'existe pas. Vite refuse désormais de démarrer, ce qui est l'échec qu'on
+> veut.
+
+> **La session ne suit pas le déploiement, elle suit l'origine.**
+> `apps/web/src/lib/session-keys.ts` fixe volontairement le nom des clés de
+> stockage, indépendamment de l'hôte du déploiement. Or le local et la
+> préproduction sont servis sur le même `http://localhost:5173` : en changeant de
+> cible, le jeton de l'un survit et l'autre ne l'a pas signé. L'éditeur se
+> présente alors déconnecté, sans un mot. **Se déconnecter avant de changer de
+> cible** ; si c'est déjà fait, vider les données du site pour
+> `http://localhost:5173`.
 
 `VITE_CONVEX_URL` est l'URL que le client Convex appelle. Son absence est ce qui
 fait de ScreenForge une application purement locale, et c'est un invariant testé
@@ -290,9 +369,39 @@ d'environnement de la plateforme d'hébergement, jamais dans le dépôt.
 
 ## Vérifier
 
+Depuis `apps/backend`. Les variables posées :
+
 ```bash
-pnpm --filter backend exec convex env --env-file .env.preprod list
+pnpm exec convex env --env-file .env.preprod list
 ```
+
+Et ce que le navigateur prétend avoir écrit, qui ne se prouve pas dans le
+navigateur : la pastille de synchronisation de la barre du haut disparaît quand
+la sync est éteinte, donc « rien à signaler » et « jamais démarré » s'y
+ressemblent. Les deux tables tranchent :
+
+```bash
+pnpm exec convex data --env-file .env.preprod projects   # une ligne par projet poussé
+pnpm exec convex data --env-file .env.preprod assets     # une ligne par image envoyée
+pnpm exec convex data --env-file .env.preprod users
+pnpm exec convex data --env-file .env.preprod entitlements
+```
+
+### Où on en est, déploiement par déploiement
+
+Mesuré le 2026-08-12, pas déduit.
+
+| | local | préproduction | production |
+| --- | --- | --- | --- |
+| Code poussé | oui | oui | oui |
+| `JWKS` / `JWT_PRIVATE_KEY` / `SITE_URL` | oui | oui (`http://localhost:5173`) | oui (`https://screenforge.app`) |
+| Resend, Google, GitHub | non | non | non |
+| Les six valeurs Polar | non | non | non |
+| Compte de test | oui | oui | non, et c'est voulu |
+| Licence + Cloud sur ce compte | oui | oui (jusqu'au 2027-08-12) | — |
+| `projects` / `assets` | selon la suite e2e | vides | vides |
+
+La production est vide et doit le rester tant que la vente n'est pas ouverte.
 
 ## Le compte de test
 
@@ -313,10 +422,55 @@ n'est branché — mais d'une écriture directe dans le miroir, la fonction inte
 qu'un webhook réel appellerait :
 
 ```bash
-pnpm --filter backend exec convex run --env-file .env.preprod mirror:applyEntitlementsIfNewer \
+pnpm exec convex run --env-file .env.preprod mirror:applyEntitlementsIfNewer \
   '{"userId":"<id du compte>","polarCustomerId":"cus_test","licenceGrantedAt":"2026-08-12T00:00:00.000Z","cloudStatus":"active","cloudPeriodEnd":"2027-08-12T00:00:00.000Z","sourceUpdatedAt":1}'
 ```
 
-Le `userId` se lit sur le tableau de bord, table `users`. Rien de tout cela n'a
-été fait en **production** : elle est vide, et c'est ce qu'on attend d'elle tant
-que la vente n'est pas ouverte.
+Le `userId` se lit sur le tableau de bord, table `users`, ou par
+`pnpm exec convex data --env-file .env.preprod users`. Rien de tout cela n'a été
+fait en **production** : elle est vide, et c'est ce qu'on attend d'elle tant que
+la vente n'est pas ouverte.
+
+**Pour toute autre adresse que celle du compte de test, l'ordre est contraint :
+le compte d'abord, les droits ensuite.** `applyEntitlementsIfNewer` rend
+`ignored` sur un `userId` qu'elle ne connaît pas, et un `userId` n'existe qu'une
+fois le compte créé sur ce déploiement-là. Créez-le donc dans le navigateur,
+lisez son identifiant, puis écrivez ses droits — avec un `sourceUpdatedAt`
+strictement supérieur à celui de la ligne existante s'il y en a une. Dans le
+mauvais ordre, le compte s'ouvre normalement et la synchronisation reste éteinte
+**sans le dire** : la pastille de la barre du haut ne s'affiche pas quand le
+droit manque.
+
+## Tester la préproduction de bout en bout
+
+L'ordre compte. Chaque étape est là parce qu'elle échoue en silence si on la
+saute.
+
+1. **Se déconnecter dans l'éditeur** tant qu'il parle encore au local — la
+   session est stockée sous un nom fixe, sur la même origine, et survivrait au
+   changement de cible en faisant passer la préproduction pour déconnectée.
+2. `pnpm run dev:preprod` depuis la racine, puis ouvrir `http://localhost:5173`.
+   Vite refusera de démarrer si le port est pris ; c'est voulu.
+3. Se connecter par **« Utiliser un mot de passe »**, avec le compte de test
+   ci-dessus. C'est la seule porte qui ne dépend d'aucune variable de
+   déploiement.
+4. **Modifier le projet ouvert** : c'est la modification qui déclenche la
+   poussée, pas la connexion. Si une boîte propose de rattacher les autres
+   projets locaux, l'accepter — sans elle, un seul projet monte, ce qui ressemble
+   à une synchronisation partielle.
+5. **Importer une capture** dans un écran, pour envoyer un binaire.
+6. **Vérifier hors du navigateur**, depuis `apps/backend` : les tables `projects`
+   et `assets` doivent porter une ligne chacune.
+
+Deux choses à savoir avant de conclure à une panne. Un projet portant plus de
+dix images consomme la réserve du compteur `assetUpload` (seau de 30 par heure,
+capacité 10) dès la première synchronisation : le statut passe en erreur avec un
+« Réessayer », et c'est un plafond, pas un défaut. Et une modification du backend
+faite sur cette branche n'est en préproduction qu'après `pnpm run deploy:preprod`
+— le navigateur ne prévient pas qu'il parle à une version antérieure.
+
+La suite Playwright `--project=cloud`, elle, n'a pas à viser la préproduction :
+elle vise déjà le déploiement anonyme local sans configuration, elle y crée de
+vrais comptes que rien ne supprime, et la clé d'administration qu'elle lit n'a
+pas d'équivalent documenté pour un déploiement du nuage. La préproduction se
+teste à la main, par la séquence ci-dessus.

@@ -9,6 +9,13 @@ export default defineConfig({
      même URL de déploiement sert le web et les scripts d'audit, et deux fichiers
      à tenir en phase auraient divergé au premier changement d'environnement. */
   envDir: path.resolve(import.meta.dirname, '../..'),
+  /* Le port est épinglé parce qu'un déploiement le connaît par cœur : `SITE_URL`
+     vaut `http://localhost:5173` sur la préproduction, et `safeRedirect` ne
+     renvoie jamais ailleurs. Sans `strictPort`, Vite glisse silencieusement sur
+     5174 quand 5173 est pris, et le retour d'authentification livre alors son
+     code de connexion à une fenêtre qui n'existe pas — ou à l'autre projet qui
+     occupe 5173. Refuser de démarrer est le seul échec qui se voit. */
+  server: { port: 5173, strictPort: true },
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),

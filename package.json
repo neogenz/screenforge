@@ -6,6 +6,8 @@
   "packageManager": "pnpm@10.26.1",
   "scripts": {
     "dev": "pnpm --filter web run dev",
+    "//dev:preprod": "Le même éditeur, branché sur la préproduction, sans toucher au `.env` : une variable posée en ligne l'emporte sur le fichier, c'est déjà le motif de `build:profiles`. Repointer le fichier casserait le mode local-first et la suite e2e qui le vérifie ; l'URL n'est pas un secret, elle part dans le paquet servi.",
+    "dev:preprod": "VITE_CONVEX_URL=https://acrobatic-orca-116.eu-west-1.convex.cloud pnpm --filter web run dev",
     "build": "pnpm --filter web run build",
     "build:profiles": "VITE_COMMERCIAL_LAUNCH= pnpm --filter web run build && node scripts/commercial-profile-audit.mjs prelaunch && VITE_COMMERCIAL_LAUNCH=1 pnpm --filter web run build && node scripts/commercial-profile-audit.mjs launch",
     "preview": "pnpm --filter web run preview",
@@ -24,6 +26,7 @@
     "dev:backend": "pnpm --filter backend run dev",
     "deploy:preprod": "pnpm --filter backend run deploy:preprod",
     "deploy:prod": "pnpm --filter backend run deploy:prod",
+    "//convex-cli": "Pas de script pour `convex env|data|run|logs` visant un déploiement du nuage, et c'est mesuré : `--env-file` n'existe que comme option de sous-commande, donc aucun préfixe ne peut l'injecter ; depuis la racine, `pnpm … exec convex … --env-file` le fait lire par pnpm, qui échoue avant d'appeler Convex ; et sourcer le fichier dans l'environnement vise le déploiement **local** sans rien dire, parce que la CLI lit `.env.local` en plus et que son `CONVEX_DEPLOYMENT` l'emporte. Ces commandes se lancent depuis `apps/backend` — `environnements.md` les donne.",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
