@@ -648,7 +648,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       id={PITCH_FIELD_ID}
                       font="sans"
                       value={pitch}
-                      maxLength={140}
+                      maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                       placeholder="Suivez votre budget chaque mois"
                       disabled={busy}
                       onChange={(event) => setPitch(event.target.value)}
@@ -713,7 +713,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                             id={`sf-campaign-shot-${index}`}
                             font="sans"
                             value={shot.description ?? ''}
-                            maxLength={AI_LIMITS.maxScreenshotDescriptionLength}
+                            maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                             placeholder="Gardez vos priorités toujours visibles"
                             disabled={busy}
                             onChange={(event) => describeShot(index, event.target.value)}
@@ -859,9 +859,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       />
                     </Field>
                     <p className="text-2xs text-muted-foreground">
-                      Écrivez des accroches de 3 à 7 mots, prêtes à publier. L’IA les sélectionne et
-                      les ordonne ; vous pourrez les réécrire dans la revue. ScreenForge ne charge
-                      aucune URL arbitraire.
+                      Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum,
+                      prêtes à publier. L’IA les sélectionne et les ordonne ; vous pourrez les
+                      réécrire dans la revue. ScreenForge ne charge aucune URL arbitraire.
                     </p>
                   </div>
                 )}

@@ -188,7 +188,8 @@ describe('plan via une API', () => {
     expect(sent).toContain('Trois à sept mots')
     expect(sent).toContain('chaque description de capture associée')
     expect(sent).toContain('Seuls les faits')
-    expect(sent).toContain('de trois à sept mots sont éligibles')
+    expect(sent).toContain('de trois à sept mots, spécifiques au produit')
+    expect(sent).toContain('72 caractères maximum')
     expect(sent).toContain('soit le pitch entier')
     expect(sent).toContain('soit la description entière de la capture associée')
     expect(sent).toContain('jamais un fragment')
@@ -241,6 +242,30 @@ describe('plan via une API', () => {
       ),
     ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
     expect(calls).toHaveLength(0)
+  })
+
+  it('applique au préflight les collisions finales, les génériques et la limite de 72 caractères', async () => {
+    const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'
+    const cases = [
+      {
+        pitch: 'Budget éclairé chaque mois',
+        productContext: 'Budget eclaire chaque mois\nBudget éclairé, chaque mois!',
+        screenCount: 3,
+      },
+      {
+        pitch: 'À votre rythme, à votre image',
+        productContext: undefined,
+        screenCount: 1,
+      },
+      { pitch: tooLong, productContext: undefined, screenCount: 1 },
+    ] as const
+    for (const entry of cases) {
+      const calls = respond(answering(WRITTEN))
+      await expect(
+        planViaApi('anthropic', { ...BRIEF, ...entry, screenshots: [] }, KEY, 'claude-x'),
+      ).rejects.toThrow(/Ajoutez .*réduisez le nombre/i)
+      expect(calls).toHaveLength(0)
+    }
   })
 
   it('appelle le fournisseur quand quatre faits distincts couvrent quatre visuels', async () => {

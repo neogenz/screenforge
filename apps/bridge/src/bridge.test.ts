@@ -301,7 +301,8 @@ describe('protocole', () => {
     expect(request.prompt).toContain('Trois à sept mots')
     expect(request.prompt).toContain('chaque description de capture associée')
     expect(request.prompt).toContain('Seuls les faits')
-    expect(request.prompt).toContain('de trois à sept mots sont éligibles')
+    expect(request.prompt).toContain('de trois à sept mots, spécifiques au produit')
+    expect(request.prompt).toContain('72 caractères maximum')
     expect(request.prompt).toContain('soit le pitch entier')
     expect(request.prompt).toContain('soit la description entière de la capture associée')
     expect(request.prompt).toContain('jamais un fragment')
@@ -370,6 +371,37 @@ describe('protocole', () => {
     expect(spawned).not.toHaveBeenCalled()
   })
 
+  it('bloque avant moteur les collisions finales, les génériques et les faits trop longs', async () => {
+    const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'
+    const cases = [
+      {
+        pitch: 'Budget éclairé chaque mois',
+        productContext: 'Budget eclaire chaque mois\r\nBudget éclairé, chaque mois!',
+        screenCount: 3,
+      },
+      {
+        pitch: 'À votre rythme, à votre image',
+        productContext: undefined,
+        screenCount: 1,
+      },
+      { pitch: tooLong, productContext: undefined, screenCount: 1 },
+    ] as const
+    for (const entry of cases) {
+      const spawned = vi.fn(async () => JSON.stringify(PLAN))
+      const { call } = harness(spawned)
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({ brief: { ...BRIEF, ...entry, screenshots: [] } }),
+      })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({
+        error: 'invalid-request',
+        detail: expect.stringMatching(/Ajoutez .*réduisez le nombre/i),
+      })
+      expect(spawned).not.toHaveBeenCalled()
+    }
+  })
+
   it('allume le moteur quand quatre faits distincts couvrent quatre visuels', async () => {
     const facts = [
       'Budget mensuel toujours clair',
@@ -416,6 +448,53 @@ describe('protocole', () => {
     const response = await call('/plan', { method: 'POST', body: planBody() })
     expect(response.status).toBe(502)
     expect(await response.json()).toMatchObject({ error: 'invalid-response' })
+  })
+
+  it('applique aussi au plan final les critères génériques et la clé de collision', async () => {
+    const generic = {
+      ...PLAN,
+      screens: [
+        {
+          ...PLAN.screens[0],
+          headline: 'À votre rythme, à votre image',
+          evidence: 'À votre rythme, à votre image',
+        },
+      ],
+    }
+    const genericHarness = harness(async () => JSON.stringify(generic))
+    const genericResponse = await genericHarness.call('/plan', {
+      method: 'POST',
+      body: planBody(),
+    })
+    expect(genericResponse.status).toBe(502)
+    expect(await genericResponse.json()).toMatchObject({
+      detail: expect.stringContaining('trop générique'),
+    })
+
+    const collisionFacts = ['Budget éclairé chaque mois', 'Budget eclaire, chaque mois!'] as const
+    const collision = {
+      ...PLAN,
+      screens: collisionFacts.map((fact, index) => ({
+        name: `Visuel ${index + 1}`,
+        headline: fact,
+        evidence: fact,
+      })),
+    }
+    const collisionHarness = harness(async () => JSON.stringify(collision))
+    const collisionResponse = await collisionHarness.call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          productContext: collisionFacts.join('\n'),
+          screenCount: 2,
+        },
+      }),
+    })
+    expect(collisionResponse.status).toBe(502)
+    expect(await collisionResponse.json()).toMatchObject({
+      detail: expect.stringContaining('répète'),
+    })
   })
 
   it('refuse un bénéfice inventé malgré prédicat et métier communs avec la preuve', async () => {

@@ -277,6 +277,30 @@ describe('plan via le pont', () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('bloque avant RPC les collisions finales, les génériques et les faits trop longs', async () => {
+    const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'
+    const cases = [
+      {
+        pitch: 'Budget éclairé chaque mois',
+        productContext: 'Budget eclaire chaque mois\nBudget éclairé, chaque mois!',
+        screenCount: 3,
+      },
+      {
+        pitch: 'À votre rythme, à votre image',
+        productContext: undefined,
+        screenCount: 1,
+      },
+      { pitch: tooLong, productContext: undefined, screenCount: 1 },
+    ] as const
+    for (const entry of cases) {
+      const calls = respond({ '/plan': { body: { plan: PLAN } } })
+      await expect(
+        planViaBridge({ ...BRIEF, ...entry, screenshots: [] }, TOKEN, 'codex'),
+      ).rejects.toThrow(/Ajoutez .*réduisez le nombre/i)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
   it('appelle le pont quand quatre faits distincts couvrent quatre visuels', async () => {
     const facts = [
       'Budget mensuel toujours clair',

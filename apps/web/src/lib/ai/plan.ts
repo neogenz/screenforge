@@ -283,6 +283,18 @@ function words(value: string): string[] {
 const MIN_GROUNDING_WORDS = 3
 const MAX_GROUNDING_WORDS = 7
 
+type GroundingFactFailure = 'word-count' | 'too-long' | 'generic'
+
+function groundingFactFailure(value: string): GroundingFactFailure | null {
+  const trimmed = value.trim()
+  const count = words(trimmed).length
+  if (count < MIN_GROUNDING_WORDS || count > MAX_GROUNDING_WORDS) return 'word-count'
+  if (trimmed.length > AI_LIMITS.maxCampaignHeadlineLength) return 'too-long'
+  const normalized = normalizedCopy(trimmed)
+  if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) return 'generic'
+  return null
+}
+
 function atomicEvidenceFacts(
   brief: CampaignBrief,
   screenshotIndex: number | 'all' | undefined,
@@ -303,22 +315,20 @@ function atomicEvidenceFacts(
   return [brief.pitch, ...descriptions, ...productFacts].filter((fact) => fact.trim().length > 0)
 }
 
-function distinctEligibleFacts(facts: readonly string[]): string[] {
-  const seen = new Set<string>()
+function intrinsicallyEligibleFacts(facts: readonly string[]): string[] {
   return facts.flatMap((fact) => {
     const trimmed = fact.trim()
-    const count = words(trimmed).length
-    const normalized = normalizedEvidenceCopy(trimmed)
-    if (
-      count < MIN_GROUNDING_WORDS ||
-      count > MAX_GROUNDING_WORDS ||
-      !normalized ||
-      seen.has(normalized)
-    ) {
-      return []
-    }
+    return groundingFactFailure(trimmed) ? [] : [trimmed]
+  })
+}
+
+function distinctEligibleFacts(facts: readonly string[]): string[] {
+  const seen = new Set<string>()
+  return intrinsicallyEligibleFacts(facts).flatMap((fact) => {
+    const normalized = normalizedCopy(fact)
+    if (!normalized || seen.has(normalized)) return []
     seen.add(normalized)
-    return [trimmed]
+    return [fact]
   })
 }
 
@@ -331,13 +341,13 @@ function eligibleScreenGroundingFacts(
   brief: CampaignBrief,
   screenshotIndex: number | undefined,
 ): string[] {
-  return distinctEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
+  return intrinsicallyEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
 }
 
 export function validateBriefGroundingCapacity(brief: CampaignBrief, count: number): string | null {
   const missing = count - eligibleGroundingFacts(brief).length
   if (missing <= 0) return null
-  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, ou réduisez le nombre de visuels.`
+  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, spécifique${missing > 1 ? 's' : ''} et de ${AI_LIMITS.maxCampaignHeadlineLength} caractères maximum, ou réduisez le nombre de visuels.`
 }
 
 export function validatePlanScreenLayout(
@@ -392,15 +402,18 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
   for (const [index, screen] of plan.screens.entries()) {
     const headline = screen.headline.trim()
     const normalized = normalizedCopy(headline)
-    const count = words(headline).length
-    if (count < MIN_GROUNDING_WORDS || count > MAX_GROUNDING_WORDS) {
+    const factFailure = groundingFactFailure(headline)
+    if (factFailure === 'word-count') {
       return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
+    }
+    if (factFailure === 'too-long') {
+      return `L’accroche ${index + 1} dépasse ${AI_LIMITS.maxCampaignHeadlineLength} caractères.`
+    }
+    if (factFailure === 'generic') {
+      return `L’accroche ${index + 1} est trop générique pour ce produit.`
     }
     if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
     seen.add(normalized)
-    if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
-      return `L’accroche ${index + 1} est trop générique pour ce produit.`
-    }
     const layoutFailure = validatePlanScreenLayout(plan, brief, index)
     if (layoutFailure) return layoutFailure
     if (

@@ -10,8 +10,10 @@ import {
   planFromBrief,
   planScreenLayout,
   planToolCalls,
+  eligibleGroundingFacts,
   isCampaignPlan,
   resolvePalette,
+  validateGeneratedPlan,
   restyleCalls,
   validatePlanLayouts,
 } from '@/lib/ai/plan'
@@ -269,6 +271,60 @@ describe('le constructeur', () => {
 })
 
 describe('le plan', () => {
+  it('applique les mêmes critères intrinsèques au préflight et au plan final', () => {
+    const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'
+    const cases = [
+      ['Budget clair', /entre 3 et 7 mots/],
+      ['À votre rythme, à votre image', /trop générique/],
+      [tooLong, /72 caractères/],
+    ] as const
+    for (const [fact, failure] of cases) {
+      const remoteBrief: CampaignBrief = {
+        ...brief,
+        pitch: fact,
+        productContext: undefined,
+        screenCount: 1,
+        screenshots: [],
+      }
+      expect(eligibleGroundingFacts(remoteBrief)).toEqual([])
+      const plan = planFromBrief(remoteBrief)
+      plan.screens[0] = { ...plan.screens[0], headline: fact, evidence: fact }
+      expect(validateGeneratedPlan(plan, remoteBrief)).toMatch(failure)
+    }
+
+    const collisionBrief: CampaignBrief = {
+      ...brief,
+      pitch: 'Budget éclairé chaque mois',
+      productContext: 'Budget eclaire, chaque mois!',
+      screenCount: 2,
+      screenshots: [],
+    }
+    expect(eligibleGroundingFacts(collisionBrief)).toHaveLength(1)
+    const collisionPlan = planFromBrief(collisionBrief)
+    collisionPlan.screens = [
+      {
+        ...collisionPlan.screens[0],
+        headline: collisionBrief.pitch,
+        evidence: collisionBrief.pitch,
+      },
+      {
+        ...collisionPlan.screens[1],
+        headline: collisionBrief.productContext!,
+        evidence: collisionBrief.productContext!,
+      },
+    ]
+    expect(validateGeneratedPlan(collisionPlan, collisionBrief)).toMatch(/répète/)
+
+    const literalBrief = { ...collisionBrief, screenCount: 1 }
+    const literalPlan = planFromBrief(literalBrief)
+    literalPlan.screens[0] = {
+      ...literalPlan.screens[0],
+      headline: literalBrief.productContext!,
+      evidence: literalBrief.productContext!,
+    }
+    expect(validateGeneratedPlan(literalPlan, literalBrief)).toBeNull()
+  })
+
   it('compose une planche par capture, avec rôle et direction', () => {
     const plan = planFromBrief(brief)
     expect(isCampaignPlan(plan)).toBe(true)

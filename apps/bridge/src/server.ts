@@ -352,9 +352,22 @@ function claimMatchesEvidence(headline: string, evidence: string): boolean {
 
 const MIN_GROUNDING_WORDS = 3
 const MAX_GROUNDING_WORDS = 7
+const MAX_GROUNDING_LENGTH = 72
 
 function words(value: string): string[] {
   return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
+}
+
+type GroundingFactFailure = 'word-count' | 'too-long' | 'generic'
+
+function groundingFactFailure(value: string): GroundingFactFailure | null {
+  const trimmed = value.trim()
+  const count = words(trimmed).length
+  if (count < MIN_GROUNDING_WORDS || count > MAX_GROUNDING_WORDS) return 'word-count'
+  if (trimmed.length > MAX_GROUNDING_LENGTH) return 'too-long'
+  const normalized = normalizedCopy(trimmed)
+  if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) return 'generic'
+  return null
 }
 
 function atomicEvidenceFacts(
@@ -377,22 +390,20 @@ function atomicEvidenceFacts(
   return [brief.pitch, ...descriptions, ...productFacts].filter((fact) => fact.trim().length > 0)
 }
 
-function distinctEligibleFacts(facts: readonly string[]): string[] {
-  const seen = new Set<string>()
+function intrinsicallyEligibleFacts(facts: readonly string[]): string[] {
   return facts.flatMap((fact) => {
     const trimmed = fact.trim()
-    const count = words(trimmed).length
-    const normalized = normalizedEvidenceCopy(trimmed)
-    if (
-      count < MIN_GROUNDING_WORDS ||
-      count > MAX_GROUNDING_WORDS ||
-      !normalized ||
-      seen.has(normalized)
-    ) {
-      return []
-    }
+    return groundingFactFailure(trimmed) ? [] : [trimmed]
+  })
+}
+
+function distinctEligibleFacts(facts: readonly string[]): string[] {
+  const seen = new Set<string>()
+  return intrinsicallyEligibleFacts(facts).flatMap((fact) => {
+    const normalized = normalizedCopy(fact)
+    if (!normalized || seen.has(normalized)) return []
     seen.add(normalized)
-    return [trimmed]
+    return [fact]
   })
 }
 
@@ -404,13 +415,13 @@ function eligibleScreenGroundingFacts(
   brief: BridgeBrief,
   screenshotIndex: number | undefined,
 ): string[] {
-  return distinctEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
+  return intrinsicallyEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
 }
 
 function validateBriefGroundingCapacity(brief: BridgeBrief, count: number): string | null {
   const missing = count - eligibleGroundingFacts(brief).length
   if (missing <= 0) return null
-  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, ou réduisez le nombre de visuels.`
+  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, spécifique${missing > 1 ? 's' : ''} et de ${MAX_GROUNDING_LENGTH} caractères maximum, ou réduisez le nombre de visuels.`
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -421,15 +432,18 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
   const seen = new Set<string>()
   for (const [index, screen] of plan.screens.entries()) {
     const normalized = normalizedCopy(screen.headline)
-    const wordCount = words(screen.headline).length
-    if (wordCount < MIN_GROUNDING_WORDS || wordCount > MAX_GROUNDING_WORDS) {
+    const factFailure = groundingFactFailure(screen.headline)
+    if (factFailure === 'word-count') {
       return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
+    }
+    if (factFailure === 'too-long') {
+      return `L’accroche ${index + 1} dépasse ${MAX_GROUNDING_LENGTH} caractères.`
+    }
+    if (factFailure === 'generic') {
+      return `L’accroche ${index + 1} est trop générique pour ce produit.`
     }
     if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
     seen.add(normalized)
-    if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
-      return `L’accroche ${index + 1} est trop générique pour ce produit.`
-    }
     const shot =
       screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
     if (screen.screenshotIndex !== undefined && !shot?.hasAsset) {
@@ -500,7 +514,8 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  que si le brief contient un fait précis qui la justifie.',
     '— Le pitch entier, chaque description de capture associée et chaque ligne',
     '  des accroches produit vérifiées sont des faits atomiques. Seuls les faits',
-    '  de trois à sept mots sont éligibles.',
+    '  de trois à sept mots, spécifiques au produit et de 72 caractères maximum',
+    '  sont éligibles.',
     '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
     '  soit la description entière de la capture associée — jamais un fragment.',
     '  headline et evidence sont littéralement identiques hors casse et espaces :',
