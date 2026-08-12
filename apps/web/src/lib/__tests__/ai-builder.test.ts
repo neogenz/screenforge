@@ -13,6 +13,7 @@ import {
   isCampaignPlan,
   resolvePalette,
   restyleCalls,
+  validatePlanLayouts,
 } from '@/lib/ai/plan'
 import { backgroundFor } from '@/lib/ai/archetypes'
 import { commitAiRun, discardAiAssets } from '@/lib/ai/run'
@@ -279,6 +280,25 @@ describe('le plan', () => {
        la mise en page et non sur le visuel planifié : un fond n'est pas une
        donnée du plan, c'est une conséquence du rang. */
     expect(planScreenLayout(plan, brief, 0)?.background.type).toBe('linear-gradient')
+  })
+
+  it('raccourcit déterministement un libellé local qui dépasserait trois lignes', () => {
+    const label = 'W'.repeat(AI_LIMITS.maxCampaignHeadlineLength)
+    const localBrief: CampaignBrief = {
+      ...brief,
+      screenCount: 1,
+      screenshots: [
+        {
+          label,
+          assetId: 'asset-wide',
+          size: { width: 1320, height: 2868 },
+        },
+      ],
+    }
+    const plan = planFromBrief(localBrief)
+    expect(plan.screens[0].headline.length).toBeLessThan(label.length)
+    expect(label.startsWith(plan.screens[0].headline)).toBe(true)
+    expect(validatePlanLayouts(plan, localBrief)).toBeNull()
   })
 
   it('rejette ce qui n’en est pas un', () => {

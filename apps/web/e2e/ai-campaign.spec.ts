@@ -205,6 +205,32 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   expect(secondDevice).toMatchObject({ x: 35, rotation: -2 })
 })
 
+test('bloque une accroche relue qui dépasse trois lignes jusqu’à sa correction', async ({
+  page,
+}) => {
+  await waitForApp(page)
+  const before = await screens(page)
+  await openCampaignDialog(page)
+  await page.getByLabel('Nom de l’app').fill('Pulpe')
+  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '1', exact: true }).click()
+  await page.getByRole('button', { name: 'Proposer 1 visuel' }).click()
+
+  const headline = page.getByLabel('Accroche du visuel 1')
+  await headline.fill('W'.repeat(72))
+  await page.getByRole('button', { name: 'Ajouter 1 visuel' }).click()
+  await expect(page.getByRole('alert')).toContainText('dépasse trois lignes')
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
+  expect(await screens(page)).toHaveLength(before.length)
+
+  await headline.fill('Le budget dans une poche')
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Ajouter 1 visuel' }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
+  expect(await screens(page)).toHaveLength(before.length + 1)
+})
+
 test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
   await waitForApp(page)
   await addTextLayer(page)

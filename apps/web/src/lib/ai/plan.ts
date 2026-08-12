@@ -9,7 +9,6 @@ import {
   composeArchetype,
   headlineLineCount,
   isArchetypeId,
-  SAFE_ARCHETYPE_IDS,
   type ArchetypeId,
   type ArchetypeLayout,
   type PlanAccent,
@@ -207,12 +206,19 @@ export function planFromBrief(brief: CampaignBrief): CampaignPlan {
       layout: automaticArchetype(index, count, Boolean(shot?.assetId)),
     }
   })
-  return {
+  const plan: CampaignPlan = {
     appName: brief.appName,
     direction: brief.direction,
     palette,
     deviceModel: brief.deviceModel,
     screens,
+  }
+  return {
+    ...plan,
+    screens: screens.map((screen, index) => ({
+      ...screen,
+      headline: fitLocalHeadline(plan, brief, index),
+    })),
   }
 }
 
@@ -328,6 +334,47 @@ function evidenceSources(brief: CampaignBrief, screenshotIndex: number | undefin
   return [brief.pitch, brief.productContext ?? '', shot?.description ?? ''].filter(Boolean)
 }
 
+export function validatePlanScreenLayout(
+  plan: CampaignPlan,
+  brief: CampaignBrief,
+  index: number,
+): string | null {
+  const layout = planScreenLayout(plan, brief, index)
+  if (layout && headlineLineCount(layout.headline) > 3) {
+    return `L’accroche ${index + 1} dépasse trois lignes dans cette mise en page.`
+  }
+  return null
+}
+
+/** Garde commun aux plans locaux, distants et relus avant insertion. */
+export function validatePlanLayouts(plan: CampaignPlan, brief: CampaignBrief): string | null {
+  for (const [index] of plan.screens.entries()) {
+    const failure = validatePlanScreenLayout(plan, brief, index)
+    if (failure) return failure
+  }
+  return null
+}
+
+function fitLocalHeadline(plan: CampaignPlan, brief: CampaignBrief, index: number): string {
+  const screen = plan.screens[index]
+  if (!screen) return ''
+  const fits = (headline: string) => {
+    const candidate = {
+      ...plan,
+      screens: plan.screens.map((entry, at) => (at === index ? { ...entry, headline } : entry)),
+    }
+    return validatePlanScreenLayout(candidate, brief, index) === null
+  }
+
+  let parts = screen.headline.trim().split(/\s+/).filter(Boolean)
+  // ponytail: le plan local ne rédige pas ; il retire le dernier mot jusqu'à
+  // tenir, puis des caractères si un mot seul dépasse encore la boîte.
+  while (parts.length > 1 && !fits(parts.join(' '))) parts = parts.slice(0, -1)
+  let headline = parts.join(' ')
+  while (headline.length > 1 && !fits(headline)) headline = headline.slice(0, -1).trimEnd()
+  return headline
+}
+
 /** Valide en bloc une proposition distante avant que la revue puisse la recevoir. */
 export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief): string | null {
   const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
@@ -348,14 +395,8 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
       return `L’accroche ${index + 1} est trop générique pour ce produit.`
     }
-    const layout = planScreenLayout(plan, brief, index)
-    if (
-      layout &&
-      SAFE_ARCHETYPE_IDS.includes(screen.layout) &&
-      headlineLineCount(layout.headline) > 3
-    ) {
-      return `L’accroche ${index + 1} dépasse trois lignes dans cette mise en page.`
-    }
+    const layoutFailure = validatePlanScreenLayout(plan, brief, index)
+    if (layoutFailure) return layoutFailure
     if (
       screen.screenshotIndex !== undefined &&
       (!Number.isInteger(screen.screenshotIndex) ||

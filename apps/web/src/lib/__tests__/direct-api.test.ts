@@ -79,8 +79,8 @@ const WRITTEN = JSON.stringify({
     },
     {
       name: 'Budget',
-      headline: 'Planifiez chaque priorité visible',
-      evidence: 'Planifiez votre semaine et gardez chaque priorité visible',
+      headline: 'Gardez vos priorités',
+      evidence: 'gardez chaque priorité visible',
       background: { color: 'pas une couleur' },
     },
   ],
@@ -206,8 +206,8 @@ describe('plan via une API', () => {
   it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
-      headline: `Rythme quotidien de vos journées ${index + 1}`,
-      evidence: 'Le rythme de vos journées',
+      headline: `Gardez priorité ${index + 1}`,
+      evidence: 'gardez chaque priorité visible',
     }))
     respond(answering(JSON.stringify({ screens })))
     const plan = await planViaApi('anthropic', { ...BRIEF, screenCount: 20 }, KEY, 'claude-x')

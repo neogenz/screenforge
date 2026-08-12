@@ -17,6 +17,7 @@ import {
   planToolCalls,
   resolvePalette,
   restyleCalls,
+  validatePlanLayouts,
   type BriefScreenshot,
   type CampaignBrief,
   type CampaignPlan,
@@ -406,6 +407,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
    * un pas d'annulation par correction et se fait sur dix écrans déjà créés.
    */
   function editScreen(index: number, headline: string, evidence?: string) {
+    setError(null)
     setPlan((current) =>
       current
         ? {
@@ -419,6 +421,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
   }
 
   function editLayout(index: number, layout: ArchetypeId) {
+    setError(null)
     setPlan((current) =>
       current
         ? {
@@ -480,6 +483,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
   function accept() {
     if (!plan) return
+    const layoutFailure = validatePlanLayouts(plan, brief)
+    if (layoutFailure) {
+      setError(`${layoutFailure} Corrigez l’accroche ou choisissez une autre mise en page.`)
+      return
+    }
     const outcome = commitAiRun(planToolCalls(plan, brief), {
       assetIds: registered.current,
     })
