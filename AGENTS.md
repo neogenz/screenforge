@@ -51,8 +51,9 @@ pnpm run test:e2e
 # Local Convex deployment (anonymous) — ports 3210/3211
 pnpm run dev:backend
 
-# Deploy the backend to a cloud deployment
-pnpm run deploy:backend
+# Deploy the backend to preprod, then to production
+pnpm run deploy:preprod
+pnpm run deploy:prod
 
 # Validate an exported ZIP against App Store rules
 pnpm run validate:export -- <file.zip>

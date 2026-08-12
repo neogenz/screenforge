@@ -22,7 +22,8 @@
     "probe:visual": "node scripts/visual-probe.mjs",
     "probe:landing-visuals": "node scripts/landing-visuals.mjs",
     "dev:backend": "pnpm --filter backend run dev",
-    "deploy:backend": "pnpm --filter backend run deploy",
+    "deploy:preprod": "pnpm --filter backend run deploy:preprod",
+    "deploy:prod": "pnpm --filter backend run deploy:prod",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

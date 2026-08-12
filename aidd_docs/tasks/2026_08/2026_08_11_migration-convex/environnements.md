@@ -13,64 +13,117 @@ valeurs a le droit d'y être (`VITE_CONVEX_URL`, qui est une URL publique).
 
 ## Les trois environnements
 
-| Environnement | Déploiement Convex             | Ce qui l'atteint                       |
-| ------------- | ------------------------------ | -------------------------------------- |
-| **local**     | `anonymous:anonymous-agent`    | `pnpm run dev:backend`, les tests       |
-| **dev**       | déploiement _development_ du projet Convex | la préproduction, les tests de bout en bout |
-| **prod**      | déploiement _production_ du projet Convex  | le site publié                          |
+Ils existent, et les étapes 0 et 1 sont faites. Projet Convex `screenforge`,
+équipe `maxime-c8a93`, **données en Europe (Irlande)** — `aws-eu-west-1`, alias
+`eu` — pour les deux déploiements du nuage.
 
-L'environnement **local** tourne déjà. Il ne demande ni compte Convex, ni
-Docker, ni aucune des valeurs ci-dessous — seul le lien magique et les deux SSO
-y sont hors service, ce qui est sans conséquence puisque la porte par mot de
-passe suffit à ouvrir une session.
+| Environnement | Déploiement Convex             | URL                                              | Pousser le code        |
+| ------------- | ------------------------------ | ------------------------------------------------ | ---------------------- |
+| **local**     | `anonymous:anonymous-agent`    | `http://127.0.0.1:3210`                          | `pnpm run dev:backend` |
+| **preprod**   | `dev:acrobatic-orca-116`       | `https://acrobatic-orca-116.eu-west-1.convex.cloud`   | `pnpm run deploy:preprod` |
+| **prod**      | `prod:colorful-caterpillar-775`| `https://colorful-caterpillar-775.eu-west-1.convex.cloud` | `pnpm run deploy:prod` |
+
+L'hôte HTTP d'un déploiement — celui des webhooks et des rappels OAuth — est le
+même nom en `.convex.site`.
+
+L'environnement **local** ne demande ni compte Convex, ni Docker, ni aucune des
+valeurs ci-dessous : seuls le lien magique et les deux SSO y sont hors service,
+ce qui est sans conséquence puisque la porte par mot de passe suffit à ouvrir
+une session.
+
+### Comment chaque commande choisit sa cible
+
+`apps/backend/.env.local` reste sur le déploiement **local** et n'en bouge pas.
+C'est délibéré, et c'est mesuré : quand il désigne la préproduction,
+`pnpm run dev:backend` pousse dans le nuage sans le dire, et le travail local
+écrit dans un déploiement partagé. **Une commande sans cible explicite vise donc
+le local.** Toutes celles de ce document en portent une.
+
+`env` et `run` la prennent en option — c'est la forme à préférer, elle ne
+touche à aucun fichier :
 
 ```bash
-pnpm run dev:backend
+# préproduction
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod list
+# production
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:production list
 ```
 
-## Étape 0 — le compte Convex (obligatoire pour dev et prod)
+> **Les raccourcis `--prod` et `--deployment dev` ne désignent rien de fixe.**
+> Ils se résolvent à travers `.env.local`, donc, ce fichier étant sur le local,
+> `convex env --prod list` rend les variables du déploiement **local** — mesuré,
+> les trois JWKS diffèrent. Un `--prod set` posé de bonne foi écrirait au mauvais
+> endroit, dans un sens ou dans l'autre selon ce que `.env.local` désigne ce
+> jour-là. La référence complète `équipe:projet:déploiement` ne dépend de rien
+> et c'est la seule forme employée ici.
 
-C'est une connexion par navigateur : personne d'autre que vous ne peut la
-faire.
+`dev` et `deploy`, eux, ne connaissent que `--env-file`, d'où deux fichiers
+d'une ligne, hors du dépôt, que `deploy:preprod` et `deploy:prod` utilisent :
+
+```bash
+printf 'CONVEX_DEPLOYMENT=dev:acrobatic-orca-116\n'        > apps/backend/.env.preprod
+printf 'CONVEX_DEPLOYMENT=prod:colorful-caterpillar-775\n' > apps/backend/.env.production
+```
+
+> **`convex deploy` vise toujours la production du projet.** Lancé avec
+> `--env-file .env.preprod`, il déploie quand même en production — mesuré. Ce
+> qui pousse sur un déploiement de développement est `convex dev --once`, et
+> c'est ce que fait `deploy:preprod`.
+
+## Étape 0 — le compte Convex — **faite**
 
 ```bash
 pnpm --filter backend exec convex login
 ```
 
-Puis, une seule fois, pour créer le projet et son déploiement de développement :
+Les deux déploiements ont été créés ainsi, la région étant choisie à la
+création et non modifiable ensuite :
 
 ```bash
-pnpm --filter backend exec convex dev --configure new --project screenforge --once
+pnpm --filter backend exec convex project create screenforge
+pnpm --filter backend exec convex deployment create maxime-c8a93:screenforge:preprod --type dev --region eu --default
+pnpm --filter backend exec convex deployment create maxime-c8a93:screenforge:production --type prod --region eu --default
 ```
 
-À partir de là, `--prod` désigne la production du même projet.
+## Étape 1 — les clés de signature de session — **faite**
 
-## Étape 1 — les clés de signature de session
-
-Elles sont générées, pas choisies. Une commande par déploiement, et rien à
-recopier :
+Elles sont générées, pas choisies, et sont déjà posées sur les deux
+déploiements. Le binaire s'appelle `auth`, pas `@convex-dev/auth` :
 
 ```bash
-pnpm --filter backend exec @convex-dev/auth --skip-git-check --web-server-url https://screenforge.app
+pnpm --filter backend exec auth --skip-git-check --deployment-name acrobatic-orca-116 --web-server-url http://localhost:5173
+pnpm --filter backend exec auth --skip-git-check --deployment-name colorful-caterpillar-775 --web-server-url https://screenforge.app
 ```
 
-Elle pose `JWT_PRIVATE_KEY`, `JWKS` et `SITE_URL`. Pour la production, relancez
-la même commande avec `CONVEX_DEPLOYMENT` pointant sur le déploiement de
-production, ou posez `SITE_URL` à la main comme ci-dessous.
+Ce binaire-là n'accepte pas la référence `équipe:projet:déploiement` — seulement
+`--deployment-name`, `--prod` ou `--preview-name`. Le nom est celui du tableau
+des trois environnements ; c'est ce qui évite d'avoir à faire confiance à
+`--prod`.
+
+Chacune pose `JWT_PRIVATE_KEY`, `JWKS` et `SITE_URL` sur sa cible. `SITE_URL`
+vaut donc `http://localhost:5173` en préproduction : c'est ce qui la rend
+utilisable depuis l'éditeur lancé sur cette machine, tant qu'aucun site de
+préproduction n'est publié. Le jour où il l'est, une seule commande le corrige
+(voir plus bas).
 
 ## Étape 2 — les valeurs à obtenir et à poser
 
-Toutes les commandes se lancent depuis la racine du dépôt. Ajoutez `--prod`
-juste après `env` pour viser la production.
+Toutes les commandes se lancent depuis la racine du dépôt et visent la
+préproduction ; remplacez `:preprod` par `:production` en fin de référence pour
+viser la production.
 
-### `SITE_URL` — l'origine du site, pas celle du déploiement
+### `SITE_URL` — l'origine du site, pas celle du déploiement — **posée**
 
 C'est le point de départ de tous les liens envoyés et la seule destination de
-retour autorisée après une authentification.
+retour autorisée après une authentification. L'étape 1 l'a posée sur les deux
+déploiements : `http://localhost:5173` en préproduction, `https://screenforge.app`
+en production. La première ligne ci-dessous est à rejouer le jour où un site de
+préproduction existe — pas avant, une origine qui ne répond pas ne servirait
+qu'à casser le retour d'authentification.
 
 ```bash
-pnpm --filter backend exec convex env set SITE_URL https://votre-preprod.example
-pnpm --filter backend exec convex env --prod set SITE_URL https://screenforge.app
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set SITE_URL https://votre-preprod.example
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:production set SITE_URL https://screenforge.app
 ```
 
 ### `AUTH_RESEND_KEY` et `AUTH_EMAIL_FROM` — l'expéditeur du lien magique
@@ -81,8 +134,8 @@ n'accepte que `onboarding@resend.dev` et n'expédie qu'à votre propre adresse �
 suffisant pour un essai, pas pour la préproduction.
 
 ```bash
-pnpm --filter backend exec convex env set AUTH_RESEND_KEY re_xxxxxxxx
-pnpm --filter backend exec convex env set AUTH_EMAIL_FROM "ScreenForge <bonjour@screenforge.app>"
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_RESEND_KEY re_xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_EMAIL_FROM "ScreenForge <bonjour@screenforge.app>"
 ```
 
 ### `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`
@@ -94,12 +147,13 @@ URI de redirection autorisée, une par déploiement — c'est l'URL **HTTP** du
 déploiement Convex (port `.site`), pas celle du site :
 
 ```
-https://<votre-déploiement>.convex.site/api/auth/callback/google
+https://acrobatic-orca-116.eu-west-1.convex.site/api/auth/callback/google      # préproduction
+https://colorful-caterpillar-775.eu-west-1.convex.site/api/auth/callback/google # production
 ```
 
 ```bash
-pnpm --filter backend exec convex env set AUTH_GOOGLE_ID xxxxx.apps.googleusercontent.com
-pnpm --filter backend exec convex env set AUTH_GOOGLE_SECRET GOCSPX-xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_GOOGLE_ID xxxxx.apps.googleusercontent.com
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_GOOGLE_SECRET GOCSPX-xxxxxxxx
 ```
 
 ### `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`
@@ -109,12 +163,13 @@ application par déploiement, GitHub n'acceptant qu'une seule URL de rappel par
 application :
 
 ```
-https://<votre-déploiement>.convex.site/api/auth/callback/github
+https://acrobatic-orca-116.eu-west-1.convex.site/api/auth/callback/github      # préproduction
+https://colorful-caterpillar-775.eu-west-1.convex.site/api/auth/callback/github # production
 ```
 
 ```bash
-pnpm --filter backend exec convex env set AUTH_GITHUB_ID Iv1.xxxxxxxx
-pnpm --filter backend exec convex env set AUTH_GITHUB_SECRET xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_GITHUB_ID Iv1.xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set AUTH_GITHUB_SECRET xxxxxxxx
 ```
 
 ### Polar — la vente
@@ -141,17 +196,17 @@ un, sans quoi la projection n'accordera jamais `licence`, quel que soit le
 nombre d'achats.
 
 ```bash
-pnpm --filter backend exec convex env set POLAR_SERVER sandbox
-pnpm --filter backend exec convex env set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
-pnpm --filter backend exec convex env set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
-pnpm --filter backend exec convex env set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
-pnpm --filter backend exec convex env set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
-pnpm --filter backend exec convex env set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
-pnpm --filter backend exec convex env set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_SERVER sandbox
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
 ```
 
-En production, `--prod` après `env`, `POLAR_SERVER=production`, et un jeton de
-production — les identifiants de produits diffèrent aussi.
+En production, `:production` en fin de référence, `POLAR_SERVER=production`, et
+un jeton de production — les identifiants de produits diffèrent aussi.
 
 #### Le endpoint webhook
 
@@ -159,7 +214,8 @@ _Settings → Webhooks → Add Endpoint_. L'URL est celle du déploiement Convex
 son hôte **HTTP** (`.site`), jamais celle du site :
 
 ```
-https://<votre-déploiement>.convex.site/billing/webhook
+https://acrobatic-orca-116.eu-west-1.convex.site/billing/webhook      # préproduction
+https://colorful-caterpillar-775.eu-west-1.convex.site/billing/webhook # production
 ```
 
 Format **Raw**, et un seul événement à cocher : `customer.state_changed`. C'est
@@ -170,12 +226,12 @@ livraisons acquittées et ignorées.
 
 ### Vérifier que la vente a tout ce qu'il lui faut
 
-`env.ts` mourait au démarrage quand une variable manquait ; une fonction Convex
-n'a pas de démarrage. Ce contrôle est donc explicite, et se relance après chaque
-`convex env set` :
+Une fonction Convex n'a pas de démarrage où se plaindre d'une variable
+manquante : rien ne s'en apercevrait avant qu'un acheteur ne clique. Ce
+contrôle est donc explicite, et se relance après chaque `convex env set` :
 
 ```bash
-pnpm --filter backend exec convex run billing:healthcheck '{}'
+pnpm --filter backend exec convex run --deployment maxime-c8a93:screenforge:preprod billing:healthcheck '{}'
 ```
 
 Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
@@ -190,9 +246,13 @@ compte, l'autre ouvre la vente.
 racine) :
 
 ```
-VITE_CONVEX_URL=https://<votre-déploiement>.convex.cloud
-VITE_COMMERCIAL_LAUNCH=
+VITE_CONVEX_URL=http://127.0.0.1:3210
+VITE_COMMERCIAL_LAUNCH=1
 ```
+
+C'est l'état actuel du fichier : l'éditeur lancé ici parle au déploiement
+**local**. Pour le brancher sur la préproduction ou la production, la valeur est
+l'URL `.convex.cloud` du tableau des trois environnements.
 
 `VITE_CONVEX_URL` est l'URL que le client Convex appelle. Son absence est ce qui
 fait de ScreenForge une application purement locale, et c'est un invariant testé
@@ -201,9 +261,9 @@ fait de ScreenForge une application purement locale, et c'est un invariant test�
 `VITE_COMMERCIAL_LAUNCH` ouvre les tarifs, le checkout et les paliers payants.
 Vide, l'éditeur reste en avant-lancement : exports propres illimités, aucune
 boîte de prix, aucune promesse d'achat qu'on ne pourrait pas honorer. N'importe
-quelle valeur non vide l'ouvre. Elle est séparée depuis le démantèlement de
-`apps/api` : la présence d'un déploiement ne dit plus rien de l'ouverture
-commerciale, puisque le même déploiement sert les comptes gratuits.
+quelle valeur non vide l'ouvre. Elle est séparée de la précédente parce que le
+même déploiement sert les comptes gratuits : la présence d'un déploiement ne dit
+rien de l'ouverture commerciale.
 
 Pour la préproduction et la production, posez-les dans les variables
 d'environnement de la plateforme d'hébergement, jamais dans le dépôt.
@@ -211,7 +271,7 @@ d'environnement de la plateforme d'hébergement, jamais dans le dépôt.
 ## Vérifier
 
 ```bash
-pnpm --filter backend exec convex env list
+pnpm --filter backend exec convex env --deployment maxime-c8a93:screenforge:preprod list
 ```
 
 ## Le compte de test
@@ -226,3 +286,17 @@ courriel à relever et sans tiers :
 Le formulaire tente la connexion puis, si elle échoue, l'inscription : la
 première soumission crée donc le compte, les suivantes l'ouvrent. Rien à
 préparer côté serveur.
+
+Il existe déjà sur **local** et sur **préproduction**, et porte la Licence et le
+Cloud sur les deux. Ces droits ne viennent pas d'un achat — aucun compte Polar
+n'est branché — mais d'une écriture directe dans le miroir, la fonction interne
+qu'un webhook réel appellerait :
+
+```bash
+pnpm --filter backend exec convex run --deployment maxime-c8a93:screenforge:preprod mirror:applyEntitlementsIfNewer \
+  '{"userId":"<id du compte>","polarCustomerId":"cus_test","licenceGrantedAt":"2026-08-12T00:00:00.000Z","cloudStatus":"active","cloudPeriodEnd":"2027-08-12T00:00:00.000Z","sourceUpdatedAt":1}'
+```
+
+Le `userId` se lit sur le tableau de bord, table `users`. Rien de tout cela n'a
+été fait en **production** : elle est vide, et c'est ce qu'on attend d'elle tant
+que la vente n'est pas ouverte.

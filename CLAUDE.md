@@ -48,8 +48,9 @@ pnpm run typecheck
 # Déploiement Convex local (anonyme), ports 3210/3211
 pnpm run dev:backend
 
-# Déployer le backend
-pnpm run deploy:backend
+# Déployer le backend sur la préproduction, puis sur la production
+pnpm run deploy:preprod
+pnpm run deploy:prod
 ```
 
 ## Architecture
