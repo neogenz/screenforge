@@ -26,17 +26,28 @@ const entitlementsShape = v.object({
  * Les droits du demandeur. `null` veut dire « pas de session », jamais « aucun
  * droit » — l'appelant distingue les deux, et un compte sans achat rend bien un
  * objet, avec tout à `false`.
+ *
+ * L'instant est un argument parce qu'une query Convex ne se rejoue que sur
+ * changement de données : la fin d'un abonnement n'en change aucune, donc une
+ * query qui lirait l'horloge répondrait `cloud: true` indéfiniment après
+ * l'échéance, et l'éditeur afficherait un droit que le déploiement refuse à la
+ * première écriture. Le client le rafraîchit à chaque lecture.
+ *
+ * Il vient donc du dehors, et cela ne relâche rien : cette valeur ne décide que
+ * de ce qui s'affiche. Le mur d'écriture est `requireCloud`, appelé depuis des
+ * mutations, qui lit l'heure du déploiement — avancer sa propre horloge n'ouvre
+ * aucune écriture, et la reculer n'en ferme aucune non plus.
  */
 export const myEntitlements = query({
-  args: {},
+  args: { now: v.number() },
   returns: v.union(entitlementsShape, v.null()),
-  handler: async (ctx) => {
+  handler: async (ctx, { now }) => {
     /* `getAuthUserId` et non `requireUser` : ici l'absence de session est une
        réponse, pas un refus. Une lecture de droits est ce que l'éditeur fait
        avant de savoir s'il y a quelqu'un. */
     const userId = await getAuthUserId(ctx)
     if (userId === null) return null
-    return await readEntitlements(ctx, userId)
+    return await readEntitlements(ctx, userId, new Date(now))
   },
 })
 

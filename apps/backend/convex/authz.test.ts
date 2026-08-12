@@ -81,7 +81,7 @@ describe('sans session', () => {
        l'éditeur distingue les deux pour ne pas afficher un filigrane à
        quelqu'un dont il n'a pas encore restauré la session. */
     const t = testConvex()
-    expect(await t.query(api.mirror.myEntitlements)).toBeNull()
+    expect(await t.query(api.mirror.myEntitlements, { now: NOW.getTime() })).toBeNull()
   })
 })
 
@@ -156,7 +156,9 @@ describe('ce qui reste ouvert quand le droit s’éteint', () => {
        la lecture transformerait une fin de période en perte apparente. */
     const t = testConvex()
     const userId = await account(t, { licenceGrantedAt: '2026-03-12T09:00:00.000Z' })
-    const read = await t.withIdentity({ subject: userId }).query(api.mirror.myEntitlements)
+    const read = await t
+      .withIdentity({ subject: userId })
+      .query(api.mirror.myEntitlements, { now: NOW.getTime() })
     expect(read).toMatchObject({ userId, licence: true, cloud: false })
   })
 
@@ -164,11 +166,42 @@ describe('ce qui reste ouvert quand le droit s’éteint', () => {
     const t = testConvex()
     const victime = await account(t, { licenceGrantedAt: '2026-03-12T09:00:00.000Z' })
     const curieux = await account(t)
-    const read = await t.withIdentity({ subject: curieux }).query(api.mirror.myEntitlements)
+    const read = await t
+      .withIdentity({ subject: curieux })
+      .query(api.mirror.myEntitlements, { now: NOW.getTime() })
     /* La requête ne prend pas d'identifiant en argument : il n'y a pas de
        paramètre à falsifier, et c'est la forme qui le garantit. */
     expect(read?.userId).toBe(curieux)
     expect(read?.licence).toBe(false)
     expect(curieux).not.toBe(victime)
+  })
+})
+
+describe('la lecture des droits date sa propre question', () => {
+  it('la même ligne rend `cloud` avant l’échéance et plus après', async () => {
+    /* Ce qui se casserait sans l'argument : une query Convex ne se rejoue que
+       si les données qu'elle a lues changent, or la fin d'une période n'en
+       change aucune. La même ligne doit donc répondre deux choses selon
+       l'instant qu'on lui donne — sinon l'éditeur afficherait un droit que la
+       première écriture lui refuserait. */
+    const t = testConvex()
+    const userId = await account(t, {
+      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
+      cloudStatus: 'canceled',
+      cloudPeriodEnd: '2026-09-01T00:00:00.000Z',
+    })
+    const as = t.withIdentity({ subject: userId })
+
+    const pendant = await as.query(api.mirror.myEntitlements, {
+      now: Date.parse('2026-08-08T00:00:00.000Z'),
+    })
+    const apres = await as.query(api.mirror.myEntitlements, {
+      now: Date.parse('2026-09-02T00:00:00.000Z'),
+    })
+
+    expect(pendant?.cloud).toBe(true)
+    expect(apres?.cloud).toBe(false)
+    /* L'achat unique ne bouge pas : seule la période a expiré. */
+    expect(apres?.licence).toBe(true)
   })
 })

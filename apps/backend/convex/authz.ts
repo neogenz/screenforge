@@ -60,11 +60,20 @@ function rowOf(doc: Doc<'entitlements'>): EntitlementsRow {
  * Les droits d'un compte. Ne lève jamais : l'absence de ligne est le cas
  * courant — un compte qui n'a rien acheté — et vaut « aucun droit », pas
  * « erreur ».
+ *
+ * `now` n'a délibérément pas de valeur par défaut. Le droit `cloud` compare une
+ * fin de période à l'instant courant, et une query Convex n'est ré-exécutée que
+ * lorsque les données qu'elle a lues changent : rien ne change au moment où la
+ * période se termine, donc une query qui lirait elle-même l'horloge continuerait
+ * de répondre `cloud: true` après l'échéance. Sans défaut, l'appelant doit dire
+ * d'où vient son instant — l'argument de la query pour une lecture, l'horloge de
+ * la transaction pour une écriture — et le cas se décide à la compilation plutôt
+ * qu'à la relecture.
  */
 export async function readEntitlements(
   ctx: QueryCtx,
   userId: Id<'users'>,
-  now: Date = new Date(),
+  now: Date,
 ): Promise<Entitlements> {
   const doc = await ctx.db
     .query('entitlements')
@@ -101,6 +110,12 @@ async function deletionPending(ctx: QueryCtx, userId: Id<'users'>): Promise<bool
  * Fermer la lecture transformerait
  * une fin de période en perte apparente, et fermer la suppression retiendrait
  * en otage des fichiers qu'on ne synchronise plus.
+ *
+ * L'horloge murale par défaut est licite ici, et c'est ce qui rend le mur solide
+ * : tous les appelants sont des mutations, donc l'instant est celui de la
+ * transaction, et aucun client ne le fournit. Un navigateur qui se tromperait
+ * d'heure ne se tromperait donc que d'affichage — l'écriture, elle, est refusée
+ * sur l'heure du déploiement.
  */
 export async function requireCloud(ctx: QueryCtx, now: Date = new Date()): Promise<Id<'users'>> {
   const userId = await requireUser(ctx)

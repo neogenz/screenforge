@@ -109,12 +109,16 @@ async function upload(uploadUrl: string, blob: Blob): Promise<GenericId<'_storag
  * `null` n'est pas « aucun droit » mais « la question ne se pose pas » : pas
  * d'instance configurée, ou pas de session. L'appelant les distingue — un
  * filigrane posé pendant qu'une session se restaure serait un faux reproche.
+ *
+ * L'instant est passé à chaque appel : une query Convex ne se rejoue pas parce
+ * que le temps avance, donc c'est la lecture qui doit dater la question pour que
+ * la fin d'un abonnement se voie sans attendre qu'une donnée bouge.
  */
 export async function fetchRemoteEntitlements(): Promise<Entitlements | null> {
   const connected = connect()
   if (!connected) return null
   const { client, api } = await connected
-  return await client.query(api.mirror.myEntitlements, {})
+  return await client.query(api.mirror.myEntitlements, { now: Date.now() })
 }
 
 export interface RemoteProject {

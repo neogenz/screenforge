@@ -99,6 +99,19 @@ export const pushProject = mutation({
 })
 
 /**
+ * Le plafond du catalogue, et ce qu'il est vraiment.
+ *
+ * Ce n'est pas une limite de produit : rien ne borne le nombre de projets d'un
+ * compte, et personne n'est censé l'atteindre — l'éditeur en dessine une
+ * poignée. C'est une soupape, pour que la lecture reste bornée quelle que soit
+ * la taille de la table, comme l'exigent les règles Convex. Au-dessus, la liste
+ * est tronquée dans l'ordre de création : rien n'est supprimé, ni ici ni sur la
+ * machine, et une poussée continue de passer projet par projet, sans jamais
+ * traverser cette liste.
+ */
+const PROJECT_CATALOGUE_LIMIT = 1000
+
+/**
  * Le catalogue, sans le contenu.
  *
  * C'est ce qui remplace `fetchRemoteProjectRows` et sa pagination par 500 : la
@@ -117,7 +130,7 @@ export const listProjects = query({
     const rows = await ctx.db
       .query('projects')
       .withIndex('by_user', (q) => q.eq('userId', userId))
-      .collect()
+      .take(PROJECT_CATALOGUE_LIMIT)
     return rows.map(({ projectId, name, updatedAt }) => ({ projectId, name, updatedAt }))
   },
 })

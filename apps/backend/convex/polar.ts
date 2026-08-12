@@ -208,7 +208,9 @@ export const createCheckout = action({
 
     const [account, entitlements] = await Promise.all([
       ctx.runQuery(api.users.me, {}),
-      ctx.runQuery(api.mirror.myEntitlements, {}),
+      /* Une action n'est pas une transaction : l'horloge y est celle du
+         déploiement, et c'est elle qui décide du portillon avant paiement. */
+      ctx.runQuery(api.mirror.myEntitlements, { now: Date.now() }),
     ])
 
     /* La règle « le Cloud exige la Licence », dite une première fois : ici pour

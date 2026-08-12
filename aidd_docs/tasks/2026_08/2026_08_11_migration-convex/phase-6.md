@@ -227,6 +227,62 @@ qui reste à constater en ligne : rien de fonctionnel, seulement que les valeurs
 d'environnement sont bien posées, ce que `billing:healthcheck` dit en une
 commande.
 
+**10. Les règles officielles Convex, lues après coup, et ce qu'elles ont trouvé.**
+`npx convex ai-files install` écrit `convex/_generated/ai/guidelines.md` — les
+règles que Convex publie pour qu'un agent écrive correctement contre son API,
+et que la CLI proposait depuis le début sans qu'on la lise. Le backend a été
+audité contre elles, dimension par dimension, chaque écart étant ensuite soumis
+à une contre-lecture chargée de le réfuter : dix signalés, cinq réfutés, cinq
+tenus. Les deux qui portaient un risque réel sont corrigés, les trois autres
+sont refusés ici, avec leur raison.
+
+_Corrigé — l'horloge lue dans une query._ « Do not read the wall clock inside a
+query. Queries are not rerun merely because time advances. » `myEntitlements`
+appelait `readEntitlements` sans instant, donc le défaut `new Date()` de
+[`authz.ts`](../../../../apps/backend/convex/authz.ts) ; or le droit `cloud`
+compare `cloudPeriodEnd` à cet instant. Rien ne change dans la base au moment où
+une période se termine, donc rien ne ré-exécute la query : l'éditeur continuait
+de lire `cloud: true` après l'échéance, et la première écriture le détrompait par
+un `CLOUD_REQUIRED` — exactement l'erreur de sync « à quelqu'un qui n'a rien fait
+de mal » que `entitlements.ts` existe pour éviter. L'instant devient un argument
+de la query, et `readEntitlements` perd son défaut pour que le cas se décide à la
+compilation. Il vient donc du client, et cela ne relâche rien : il ne décide que
+de l'affichage, le mur d'écriture restant `requireCloud`, appelé depuis des
+mutations, sur l'horloge du déploiement. Un test le tient : la même ligne rend
+`cloud: true` avant l'échéance et `false` après.
+
+_Corrigé — la lecture non bornée._ `listProjects` finissait par `.collect()`,
+seule lecture du backend sans borne. `.take(PROJECT_CATALOGUE_LIMIT)` la ferme.
+Ce n'est pas une limite de produit — 1000 projets pour un compte n'arrivera pas —
+mais une soupape : au-dessus, la liste est tronquée, rien n'est supprimé, et une
+poussée passe projet par projet sans jamais traverser cette liste.
+
+_Refusé — dériver les validateurs du schéma._ La règle demande de déclarer une
+forme une fois et d'en dériver les variantes (`.pick`, `.omit`). Appliquée à
+`pushProject` et `listProjects`, elle ferait suivre au contrat public la forme du
+stockage : un champ ajouté demain au schéma entrerait tout seul dans les
+arguments d'une mutation ouverte au client, ou sortirait tout seul dans sa
+réponse. C'est l'inverse de ce qu'on veut à une frontière de confiance, où
+l'énumération explicite _est_ le contrôle. Pour `applyEntitlementsIfNewer`, la
+divergence est en plus délibérée et documentée sur huit lignes (`v.string()` et
+non `v.id('users')`, parce que la valeur vient de Polar).
+
+_Refusé — fusionner les deux lectures du checkout._ « Try to use as few calls
+from actions to queries and mutations as possible. » `createCheckout` lit
+l'adresse du compte et ses droits par deux `ctx.runQuery` parallèles, donc deux
+instantanés. Les deux faits sont indépendants — le portillon ne regarde que
+`licence`, l'adresse n'entre que dans le checkout — et rien de fâcheux ne peut se
+glisser entre les deux. Une query interne de plus pour les réunir coûterait une
+fonction et n'achèterait aucune propriété.
+
+Les cinq écarts réfutés le sont sur pièces et ne laissent rien à faire :
+`download.ts` prend bien un `userId` en argument, mais ce sont des `internalQuery`
+dont l'unique appelant, `http.ts`, lit l'identité dans la session avant
+d'appeler ; le `.js` de `convex.config.ts` est celui que le composant prescrit
+lui-même dans son README ; brander `Entitlements.userId` en `Id<'users'>`
+étamperait comme identifiant de document tout ce que le cache hors-ligne du
+navigateur relit de `localStorage`.
+
 ## Après
 
 Deux améliorations que la migration rend possibles et que ce plan a
