@@ -141,10 +141,15 @@ async function rangée(page: Page) {
     const identité = rangée?.children[0]
     if (!rangée || !outils || !identité) return null
     const témoins = [...identité.querySelectorAll('[role="status"]')]
-    const bordDroitDuTexte = témoins.reduce(
-      (max, témoin) => Math.max(max, témoin.getBoundingClientRect().right),
-      0,
-    )
+    /* Le recouvrement se mesure sur tout ce que la colonne peint, pas sur les
+       seuls témoins : Annuler et Rétablir sont posés à leur droite et portent
+       `shrink-0`, donc c'est un bouton qui sortirait de la piste avant le
+       texte. Mesurer les témoins seuls rendrait le garde-fou d'autant plus
+       indulgent qu'on a ajouté ce qui peut déborder. */
+    const bordDroitDuTexte = [
+      ...témoins,
+      ...identité.querySelectorAll('button:not(.sr-only)'),
+    ].reduce((max, peint) => Math.max(max, peint.getBoundingClientRect().right), 0)
     return {
       /* Sans les deux témoins la mesure ne mesure rien : un `reduce` sur une
          liste vide rend 0, et un recouvrement nul par absence se lit

@@ -125,7 +125,7 @@ export function TopBar() {
     // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
     // le champ qui absorbe, pas la grille.
     <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
-      <ProjectSegment />
+      <ProjectSegment compactTools={compactTools} />
       {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
           garde le groupe central au milieu quand il revient. */}
       {compactTools ? <span /> : <ToolsSegment />}
@@ -153,15 +153,33 @@ function statusLabelClass(written: boolean): string {
   return written ? '' : 'sr-only'
 }
 
-function ProjectSegment() {
+/**
+ * L'identité du projet, son état, et de quoi revenir en arrière.
+ *
+ * Annuler et Rétablir sont ici et non au centre avec les outils de création :
+ * ce ne sont pas des outils, ce sont les deux gestes qui répondent à ce que
+ * l'état d'enregistrement vient d'annoncer. On les lit d'affilée — « Enregistré,
+ * et je peux défaire » — là où, posés en tête du groupe central, ils se lisaient
+ * comme la première chose qu'on ajoute à une planche.
+ *
+ * Ils se replient avec les outils et non avec les actions secondaires, parce que
+ * c'est la liste `useToolActions` qui les porte déjà en tête du menu débordant :
+ * les faire suivre un autre seuil les aurait rendus présents deux fois.
+ */
+function ProjectSegment({ compactTools }: { compactTools: boolean }) {
   const saveStatus = useUIStore((s) => s.saveStatus)
   const written = useStatusLabelsWritten()
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <ProjectName />
-      <ProjectFileMenu />
-      {/*
+    // `gap-1` au dehors, `gap-2` au dedans : le filet veut la même grammaire
+    // qu'ailleurs dans la barre (4px de gouttière + 6px de `mx-1.5` de chaque
+    // côté). Posé directement dans un parent en `gap-2`, il aurait rendu 14px
+    // d'un côté et 10 de l'autre.
+    <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 items-center gap-2">
+        <ProjectName />
+        <ProjectFileMenu />
+        {/*
         L'état informe, il n'alerte pas : casse normale, teinte faible.
 
         Le témoin lui-même ne se masque à aucune largeur. Une application sans
@@ -173,25 +191,63 @@ function ProjectSegment() {
         décorative qui occupait la place du témoin de document modifié a
         disparu ; c'est ce témoin-ci qui la tient désormais.
       */}
-      <span
-        role="status"
-        aria-live="polite"
-        title={SAVE_LABELS[saveStatus]}
-        className={cn(
-          'flex shrink-0 items-center gap-1.5 text-2xs',
-          saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
-        )}
-      >
-        {saveStatus === 'idle' && (
-          <span aria-hidden className="size-2 shrink-0 rounded-xs bg-muted-foreground" />
-        )}
-        {saveStatus === 'saving' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
-        {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
-        {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-        <span className={statusLabelClass(written)}>{SAVE_LABELS[saveStatus]}</span>
-      </span>
-      <SyncIndicator written={written} />
+        <span
+          role="status"
+          aria-live="polite"
+          title={SAVE_LABELS[saveStatus]}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 text-2xs',
+            saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          {saveStatus === 'idle' && (
+            <span aria-hidden className="size-2 shrink-0 rounded-xs bg-muted-foreground" />
+          )}
+          {saveStatus === 'saving' && (
+            <LoaderCircle size={11} className="animate-spin" aria-hidden />
+          )}
+          {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
+          {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
+          <span className={statusLabelClass(written)}>{SAVE_LABELS[saveStatus]}</span>
+        </span>
+        <SyncIndicator written={written} />
+      </div>
+      {!compactTools && <HistoryControls />}
     </div>
+  )
+}
+
+/** Annuler et Rétablir, à la droite de l'état d'enregistrement. */
+function HistoryControls() {
+  const undo = useCanvasStore((s) => s.undo)
+  const redo = useCanvasStore((s) => s.redo)
+  const canUndo = useHistoryStore((s) => s.past.length > 0)
+  const canRedo = useHistoryStore((s) => s.future.length > 0)
+
+  return (
+    <>
+      <Divider />
+      {/* Ces deux-là ne cèdent pas : c'est le nom du projet, à leur gauche, qui
+          se tronque quand la colonne se resserre. */}
+      <IconButton
+        className="shrink-0"
+        aria-label="Annuler"
+        title="Annuler (⌘Z)"
+        disabled={!canUndo}
+        onClick={() => undo()}
+      >
+        <Undo2 size={16} strokeWidth={1.75} />
+      </IconButton>
+      <IconButton
+        className="shrink-0"
+        aria-label="Rétablir"
+        title="Rétablir (⌘⇧Z)"
+        disabled={!canRedo}
+        onClick={() => redo()}
+      >
+        <Redo2 size={16} strokeWidth={1.75} />
+      </IconButton>
+    </>
   )
 }
 
@@ -441,12 +497,14 @@ function ProjectName() {
   )
 }
 
+/**
+ * Les cinq outils d'ajout, et rien d'autre.
+ *
+ * Rien d'autre depuis qu'Annuler et Rétablir sont passés à gauche : le groupe
+ * n'a plus de voisin à séparer, donc plus de filet non plus. Ce qui est au
+ * centre est ce qu'on pose sur la planche, entièrement.
+ */
 function ToolsSegment() {
-  const undo = useCanvasStore((s) => s.undo)
-  const redo = useCanvasStore((s) => s.redo)
-  const canUndo = useHistoryStore((s) => s.past.length > 0)
-  const canRedo = useHistoryStore((s) => s.future.length > 0)
-
   function addLayer(layer: Layer) {
     useCanvasStore.getState().addLayer(layer)
   }
@@ -457,29 +515,7 @@ function ToolsSegment() {
 
   return (
     <div className="flex items-center gap-1 justify-self-center">
-      <IconButton
-        aria-label="Annuler"
-        title="Annuler (⌘Z)"
-        disabled={!canUndo}
-        onClick={() => undo()}
-      >
-        <Undo2 size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
-        aria-label="Rétablir"
-        title="Rétablir (⌘⇧Z)"
-        disabled={!canRedo}
-        onClick={() => redo()}
-      >
-        <Redo2 size={16} strokeWidth={1.75} />
-      </IconButton>
-
-      <Divider />
-
       {/*
-        Les cinq outils d'ajout forment un groupe, et c'est le filet qui le
-        dit — comme partout ailleurs dans cette barre.
-
         Le rail en creux qui les portait reproduisait mot pour mot le conteneur
         de `ToggleGroup`, lequel veut dire « choisis-en un, un est allumé » dans
         le contrôle Uni/Dégradé/Préréglages du même écran. Quatre actions sans
