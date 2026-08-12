@@ -2,7 +2,11 @@ import type { BridgePlan, Hello } from 'bridge'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { automaticArchetype } from '@/lib/ai/archetypes'
 import { normalizeSlot } from '@/lib/slots'
-import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
+import {
+  resolvePalette,
+  validateBriefGroundingCapacity,
+  validateGeneratedPlan,
+} from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { EngineId } from '@/lib/ai/providers'
 
@@ -209,6 +213,9 @@ export async function planViaBridge(
   engine: EngineId,
   model?: string,
 ): Promise<CampaignPlan> {
+  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const capacityFailure = validateBriefGroundingCapacity(brief, expected)
+  if (capacityFailure) throw new Error(capacityFailure)
   const { plan } = await call<{ plan: BridgePlan }>('/plan', token, {
     method: 'POST',
     body: JSON.stringify({
@@ -243,7 +250,6 @@ export async function planViaBridge(
      trois couleurs de la campagne appartiennent à l'utilisateur, qui vient de
      les choisir ou de les faire lire dans ses captures. */
   const palette = resolvePalette(brief)
-  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
   if (plan.screens.length !== expected) {
     throw new Error(
       `Le pont a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected} : rien n’a été repris.`,

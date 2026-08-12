@@ -40,7 +40,7 @@ export interface BriefScreenshot {
 
 export interface CampaignBrief {
   appName: string
-  /** Une phrase : ce que l'application fait. Sert à composer les accroches. */
+  /** Accroche générale vérifiée ; un modèle ne la reprend que si elle fait 3 à 7 mots. */
   pitch: string
   /**
    * La page du produit, si elle existe. Elle ne part que vers un modèle branché
@@ -48,7 +48,7 @@ export interface CampaignBrief {
    * page ferait de ScreenForge un client HTTP au service de ce qu'on lui donne.
    */
   landingUrl?: string
-  /** Faits relus par l'utilisateur. L'URL ci-dessus reste une provenance. */
+  /** Accroches vérifiées, une par ligne. L'URL ci-dessus reste une provenance. */
   productContext?: string
   direction: DirectionId
   /** La palette lue dans les captures, quand l'utilisateur l'a demandée. */
@@ -78,7 +78,7 @@ export interface PlannedScreen {
   slot?: string
   /** Index dans `brief.screenshots`, quand une capture nourrit cette planche. */
   screenshotIndex?: number
-  /** Extrait exact du brief qui justifie l'accroche distante. */
+  /** Fait atomique exact du brief qui justifie l'accroche distante. */
   evidence?: string
   /** Composition choisie et relue avant insertion. */
   layout: ArchetypeId
@@ -280,14 +280,64 @@ function words(value: string): string[] {
   return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
 }
 
-function atomicEvidenceFacts(brief: CampaignBrief, screenshotIndex: number | undefined): string[] {
-  const shot = screenshotIndex === undefined ? undefined : brief.screenshots[screenshotIndex]
+const MIN_GROUNDING_WORDS = 3
+const MAX_GROUNDING_WORDS = 7
+
+function atomicEvidenceFacts(
+  brief: CampaignBrief,
+  screenshotIndex: number | 'all' | undefined,
+): string[] {
+  const selectedShot =
+    typeof screenshotIndex === 'number' ? brief.screenshots[screenshotIndex] : undefined
+  const descriptions =
+    screenshotIndex === 'all'
+      ? brief.screenshots.flatMap((shot) =>
+          shot.assetId && shot.description ? [shot.description] : [],
+        )
+      : selectedShot?.assetId && selectedShot.description
+        ? [selectedShot.description]
+        : []
   const productFacts = (brief.productContext ?? '')
     .split('\n')
     .filter((fact) => fact.trim().length > 0)
-  return [brief.pitch, shot?.description ?? '', ...productFacts].filter(
-    (fact) => fact.trim().length > 0,
-  )
+  return [brief.pitch, ...descriptions, ...productFacts].filter((fact) => fact.trim().length > 0)
+}
+
+function distinctEligibleFacts(facts: readonly string[]): string[] {
+  const seen = new Set<string>()
+  return facts.flatMap((fact) => {
+    const trimmed = fact.trim()
+    const count = words(trimmed).length
+    const normalized = normalizedEvidenceCopy(trimmed)
+    if (
+      count < MIN_GROUNDING_WORDS ||
+      count > MAX_GROUNDING_WORDS ||
+      !normalized ||
+      seen.has(normalized)
+    ) {
+      return []
+    }
+    seen.add(normalized)
+    return [trimmed]
+  })
+}
+
+/** Faits complets que le modèle peut reprendre sans inventer ni tronquer. */
+export function eligibleGroundingFacts(brief: CampaignBrief): string[] {
+  return distinctEligibleFacts(atomicEvidenceFacts(brief, 'all'))
+}
+
+function eligibleScreenGroundingFacts(
+  brief: CampaignBrief,
+  screenshotIndex: number | undefined,
+): string[] {
+  return distinctEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
+}
+
+export function validateBriefGroundingCapacity(brief: CampaignBrief, count: number): string | null {
+  const missing = count - eligibleGroundingFacts(brief).length
+  if (missing <= 0) return null
+  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, ou réduisez le nombre de visuels.`
 }
 
 export function validatePlanScreenLayout(
@@ -343,7 +393,7 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     const headline = screen.headline.trim()
     const normalized = normalizedCopy(headline)
     const count = words(headline).length
-    if (count < 3 || count > 7) {
+    if (count < MIN_GROUNDING_WORDS || count > MAX_GROUNDING_WORDS) {
       return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
     }
     if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
@@ -366,7 +416,7 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     const grounded =
       normalizedEvidence.length > 0 &&
       claimMatchesEvidence(headline, evidence ?? '') &&
-      atomicEvidenceFacts(brief, screen.screenshotIndex).some(
+      eligibleScreenGroundingFacts(brief, screen.screenshotIndex).some(
         (fact) => normalizedEvidenceCopy(fact) === normalizedEvidence,
       )
     if (!grounded) return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`

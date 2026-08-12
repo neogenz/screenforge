@@ -180,6 +180,11 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     if (parsed.data.protocol !== PROTOCOL_VERSION) {
       return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
     }
+    const count = parsed.data.brief.screenCount ?? Math.max(1, parsed.data.brief.screenshots.length)
+    const capacityFailure = validateBriefGroundingCapacity(parsed.data.brief, count)
+    if (capacityFailure) {
+      return context.json(fail('invalid-request', capacityFailure), 400)
+    }
 
     try {
       const answer = await runTurn(state, parsed.data.engine ?? 'codex', {
@@ -345,14 +350,67 @@ function claimMatchesEvidence(headline: string, evidence: string): boolean {
   return normalizedHeadline.length > 0 && normalizedHeadline === normalizedEvidenceCopy(evidence)
 }
 
-function atomicEvidenceFacts(brief: BridgeBrief, screenshotIndex: number | undefined): string[] {
-  const shot = screenshotIndex === undefined ? undefined : brief.screenshots[screenshotIndex]
+const MIN_GROUNDING_WORDS = 3
+const MAX_GROUNDING_WORDS = 7
+
+function words(value: string): string[] {
+  return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
+}
+
+function atomicEvidenceFacts(
+  brief: BridgeBrief,
+  screenshotIndex: number | 'all' | undefined,
+): string[] {
+  const selectedShot =
+    typeof screenshotIndex === 'number' ? brief.screenshots[screenshotIndex] : undefined
+  const descriptions =
+    screenshotIndex === 'all'
+      ? brief.screenshots.flatMap((shot) =>
+          shot.hasAsset && shot.description ? [shot.description] : [],
+        )
+      : selectedShot?.hasAsset && selectedShot.description
+        ? [selectedShot.description]
+        : []
   const productFacts = (brief.productContext ?? '')
     .split('\n')
     .filter((fact) => fact.trim().length > 0)
-  return [brief.pitch, shot?.description ?? '', ...productFacts].filter(
-    (fact) => fact.trim().length > 0,
-  )
+  return [brief.pitch, ...descriptions, ...productFacts].filter((fact) => fact.trim().length > 0)
+}
+
+function distinctEligibleFacts(facts: readonly string[]): string[] {
+  const seen = new Set<string>()
+  return facts.flatMap((fact) => {
+    const trimmed = fact.trim()
+    const count = words(trimmed).length
+    const normalized = normalizedEvidenceCopy(trimmed)
+    if (
+      count < MIN_GROUNDING_WORDS ||
+      count > MAX_GROUNDING_WORDS ||
+      !normalized ||
+      seen.has(normalized)
+    ) {
+      return []
+    }
+    seen.add(normalized)
+    return [trimmed]
+  })
+}
+
+function eligibleGroundingFacts(brief: BridgeBrief): string[] {
+  return distinctEligibleFacts(atomicEvidenceFacts(brief, 'all'))
+}
+
+function eligibleScreenGroundingFacts(
+  brief: BridgeBrief,
+  screenshotIndex: number | undefined,
+): string[] {
+  return distinctEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
+}
+
+function validateBriefGroundingCapacity(brief: BridgeBrief, count: number): string | null {
+  const missing = count - eligibleGroundingFacts(brief).length
+  if (missing <= 0) return null
+  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, ou réduisez le nombre de visuels.`
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -363,8 +421,8 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
   const seen = new Set<string>()
   for (const [index, screen] of plan.screens.entries()) {
     const normalized = normalizedCopy(screen.headline)
-    const wordCount = screen.headline.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu)?.length ?? 0
-    if (wordCount < 3 || wordCount > 7) {
+    const wordCount = words(screen.headline).length
+    if (wordCount < MIN_GROUNDING_WORDS || wordCount > MAX_GROUNDING_WORDS) {
       return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
     }
     if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
@@ -382,7 +440,7 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
     if (
       !normalizedEvidence ||
       !claimMatchesEvidence(screen.headline, evidence) ||
-      !atomicEvidenceFacts(brief, screen.screenshotIndex).some(
+      !eligibleScreenGroundingFacts(brief, screen.screenshotIndex).some(
         (fact) => normalizedEvidenceCopy(fact) === normalizedEvidence,
       )
     ) {
@@ -430,7 +488,7 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',
     '',
     'Écriture des accroches :',
-    '— Une idée par visuel, jamais deux. Trois à six mots. En français.',
+    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
     '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
     '  enfin lisibles » et non « Tableau de bord ».',
     '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
@@ -440,7 +498,9 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '— Le premier visuel porte la promesse générale, les suivants une',
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
-    '— Chaque ligne des accroches produit vérifiées est un fait atomique.',
+    '— Le pitch entier, chaque description de capture associée et chaque ligne',
+    '  des accroches produit vérifiées sont des faits atomiques. Seuls les faits',
+    '  de trois à sept mots sont éligibles.',
     '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
     '  soit la description entière de la capture associée — jamais un fragment.',
     '  headline et evidence sont littéralement identiques hors casse et espaces :',

@@ -108,7 +108,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   // 1) Créer la campagne : deux visuels générés, en calques réels.
   await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()
   await page.getByLabel('Nom de l’app').fill('Cadence')
-  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
   await page.getByRole('option', { name: '2', exact: true }).click()
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()

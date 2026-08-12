@@ -66,7 +66,7 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
 
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Cadence')
-  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
   const styles = page.getByRole('radiogroup', { name: 'Style des visuels' })
   const sober = styles.getByRole('radio', { name: 'Sobre' })
   const nocturnal = styles.getByRole('radio', { name: 'Nocturne' })
@@ -128,7 +128,7 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
 
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Cadence')
-  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
   await page.getByLabel('Captures de l’application').setInputFiles({
     name: 'Le budget dans une poche.png',
     mimeType: 'image/png',
@@ -212,7 +212,7 @@ test('bloque une accroche relue qui dépasse trois lignes jusqu’à sa correcti
   const before = await screens(page)
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Pulpe')
-  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
   await page.getByRole('option', { name: '1', exact: true }).click()
   await page.getByRole('button', { name: 'Proposer 1 visuel' }).click()

@@ -1,8 +1,19 @@
 import { forgetAssets } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
-import { applyToolCalls, type ToolCall, type ToolContext, type ToolResult } from '@/lib/ai/tools'
-import { planFromBrief, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
+import {
+  AI_LIMITS,
+  applyToolCalls,
+  type ToolCall,
+  type ToolContext,
+  type ToolResult,
+} from '@/lib/ai/tools'
+import {
+  planFromBrief,
+  validateBriefGroundingCapacity,
+  type CampaignBrief,
+  type CampaignPlan,
+} from '@/lib/ai/plan'
 import { planViaApi } from '@/lib/ai/direct-api'
 import { planViaBridge } from '@/lib/bridge-client'
 import { aiProvider, type ProviderId } from '@/lib/ai/providers'
@@ -108,13 +119,21 @@ export async function planCampaign(
   if (!source.token) return planFromBrief(brief)
 
   const engine = aiProvider(source.provider).engine
-  if (engine) return planViaBridge(brief, source.token, engine, source.model)
+  if (engine) {
+    const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+    const failure = validateBriefGroundingCapacity(brief, count)
+    if (failure) throw new Error(failure)
+    return planViaBridge(brief, source.token, engine, source.model)
+  }
 
   if (source.provider === 'anthropic' || source.provider === 'openrouter') {
     /* Le modèle est obligatoire ici, contrairement au pont : ces API n'ont pas
        de modèle par défaut, et en coder un en dur serait choisir à la place de
        l'utilisateur un tarif et une qualité. Sans lui, la voie locale. */
     if (!source.model) return planFromBrief(brief)
+    const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+    const failure = validateBriefGroundingCapacity(brief, count)
+    if (failure) throw new Error(failure)
     return planViaApi(source.provider, brief, source.token, source.model)
   }
 

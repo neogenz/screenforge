@@ -185,7 +185,10 @@ describe('plan via une API', () => {
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
     expect(sent).toContain('Accroches produit vérifiées (une par ligne)')
-    expect(sent).toContain('Chaque ligne des accroches produit vérifiées est un fait atomique')
+    expect(sent).toContain('Trois à sept mots')
+    expect(sent).toContain('chaque description de capture associée')
+    expect(sent).toContain('Seuls les faits')
+    expect(sent).toContain('de trois à sept mots sont éligibles')
     expect(sent).toContain('soit le pitch entier')
     expect(sent).toContain('soit la description entière de la capture associée')
     expect(sent).toContain('jamais un fragment')
@@ -193,6 +196,80 @@ describe('plan via une API', () => {
     expect(sent).toContain('mêmes accents, signes et ponctuation')
     expect(sent).toContain('sans omission, enrichissement ni paraphrase')
     expect(sent).toContain('réécrire ensuite dans la revue')
+  })
+
+  it('refuse un brief insuffisant avant tout appel facturable', async () => {
+    const calls = respond(answering(WRITTEN))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext: undefined,
+          screenCount: 4,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('ne compte qu’une fois les doublons et ignore les atomes de 2 ou 8 mots', async () => {
+    const calls = respond(answering(WRITTEN))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext:
+            '  BUDGET   MENSUEL TOUJOURS CLAIR  \nBudget clair\nUn deux trois quatre cinq six sept huit',
+          screenCount: 4,
+          screenshots: [
+            {
+              label: 'Budget',
+              description: 'budget mensuel toujours clair',
+              assetId: 'asset-duplicate',
+            },
+          ],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('appelle le fournisseur quand quatre faits distincts couvrent quatre visuels', async () => {
+    const facts = [
+      'Budget mensuel toujours clair',
+      'Dépenses importantes bien anticipées',
+      'Objectifs annuels toujours visibles',
+      'Épargne sous contrôle',
+    ] as const
+    const screens = facts.map((fact, index) => ({
+      name: `Visuel ${index + 1}`,
+      headline: fact,
+      evidence: fact,
+    }))
+    const calls = respond(answering(JSON.stringify({ screens })))
+    const plan = await planViaApi(
+      'anthropic',
+      {
+        ...BRIEF,
+        pitch: facts[0],
+        productContext: facts.slice(1).join('\n'),
+        screenCount: 4,
+        screenshots: [],
+      },
+      KEY,
+      'claude-x',
+    )
+    expect(calls).toHaveLength(1)
+    expect(plan.screens).toHaveLength(4)
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {

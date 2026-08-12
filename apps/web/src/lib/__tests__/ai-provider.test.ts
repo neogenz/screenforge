@@ -239,6 +239,74 @@ describe('plan via le pont', () => {
     const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN, 'codex')
     expect(plan.palette).toEqual(custom)
   })
+
+  it('refuse un brief insuffisant avant tout RPC vers le pont', async () => {
+    const calls = respond({ '/plan': { body: { plan: PLAN } } })
+    await expect(
+      planViaBridge(
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext: undefined,
+          screenCount: 4,
+          screenshots: [],
+        },
+        TOKEN,
+        'codex',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('ignore au pont les doublons et les atomes hors de 3 à 7 mots', async () => {
+    const calls = respond({ '/plan': { body: { plan: PLAN } } })
+    await expect(
+      planViaBridge(
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext:
+            ' BUDGET   MENSUEL TOUJOURS CLAIR \nBudget clair\nUn deux trois quatre cinq six sept huit',
+          screenCount: 4,
+          screenshots: [],
+        },
+        TOKEN,
+        'codex',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('appelle le pont quand quatre faits distincts couvrent quatre visuels', async () => {
+    const facts = [
+      'Budget mensuel toujours clair',
+      'Dépenses importantes bien anticipées',
+      'Objectifs annuels toujours visibles',
+      'Épargne sous contrôle',
+    ] as const
+    const written = {
+      ...PLAN,
+      screens: facts.map((fact, index) => ({
+        name: `Visuel ${index + 1}`,
+        headline: fact,
+        evidence: fact,
+      })),
+    }
+    const calls = respond({ '/plan': { body: { plan: written } } })
+    const plan = await planViaBridge(
+      {
+        ...BRIEF,
+        pitch: facts[0],
+        productContext: facts.slice(1).join('\n'),
+        screenCount: 4,
+        screenshots: [],
+      },
+      TOKEN,
+      'codex',
+    )
+    expect(calls).toHaveLength(1)
+    expect(plan.screens).toHaveLength(4)
+  })
 })
 
 describe('choix du fournisseur', () => {
@@ -247,6 +315,19 @@ describe('choix du fournisseur', () => {
     const plan = await planCampaign(BRIEF)
     expect(calls).toHaveLength(0)
     expect(plan.screens).toHaveLength(2)
+  })
+
+  it('garde la composition locale disponible sans aucun fait IA éligible', async () => {
+    const calls = respond({})
+    const plan = await planCampaign({
+      ...BRIEF,
+      pitch: '',
+      productContext: undefined,
+      screenCount: 4,
+      screenshots: [],
+    })
+    expect(calls).toHaveLength(0)
+    expect(plan.screens).toHaveLength(4)
   })
 
   it('compose localement quand le pont est choisi mais pas connecté', async () => {

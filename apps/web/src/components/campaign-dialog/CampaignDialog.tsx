@@ -643,13 +643,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onChange={(event) => setAppName(event.target.value)}
                     />
                   </Field>
-                  <Field id={PITCH_FIELD_ID} label="Ce que fait l’app">
+                  <Field id={PITCH_FIELD_ID} label="Accroche générale vérifiée (3 à 7 mots)">
                     <Input
                       id={PITCH_FIELD_ID}
                       font="sans"
                       value={pitch}
                       maxLength={140}
-                      placeholder="Le suivi de budget qui tient dans une poche"
+                      placeholder="Suivez votre budget chaque mois"
                       disabled={busy}
                       onChange={(event) => setPitch(event.target.value)}
                     />
@@ -700,7 +700,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                 {shots.length > 0 && (
                   <details className="rounded-md border border-border px-3 py-2">
                     <summary className="cursor-pointer text-xs font-medium text-foreground">
-                      Décrire les captures
+                      Accroches liées aux captures (3 à 7 mots)
                     </summary>
                     <div className="mt-3 grid gap-3">
                       {shots.map((shot, index) => (
@@ -714,7 +714,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                             font="sans"
                             value={shot.description ?? ''}
                             maxLength={AI_LIMITS.maxScreenshotDescriptionLength}
-                            placeholder="Ce que montre l’écran et le bénéfice visible"
+                            placeholder="Gardez vos priorités toujours visibles"
                             disabled={busy}
                             onChange={(event) => describeShot(index, event.target.value)}
                           />

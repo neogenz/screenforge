@@ -1,7 +1,11 @@
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { automaticArchetype } from '@/lib/ai/archetypes'
 import { normalizeSlot } from '@/lib/slots'
-import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
+import {
+  resolvePalette,
+  validateBriefGroundingCapacity,
+  validateGeneratedPlan,
+} from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
 
@@ -279,7 +283,7 @@ function planPrompt(brief: CampaignBrief, count: number): string {
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief.',
     '',
     'Écriture des accroches :',
-    '— Une idée par visuel, jamais deux. Trois à six mots. En français.',
+    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
     '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
     '  enfin lisibles » et non « Tableau de bord ».',
     '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
@@ -289,7 +293,9 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     '— Le premier visuel porte la promesse générale, les suivants une',
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
-    '— Chaque ligne des accroches produit vérifiées est un fait atomique.',
+    '— Le pitch entier, chaque description de capture associée et chaque ligne',
+    '  des accroches produit vérifiées sont des faits atomiques. Seuls les faits',
+    '  de trois à sept mots sont éligibles.',
     '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
     '  soit la description entière de la capture associée — jamais un fragment.',
     '  headline et evidence sont littéralement identiques hors casse et espaces :',
@@ -369,6 +375,8 @@ export async function planViaApi(
   model: string,
 ): Promise<CampaignPlan> {
   const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const capacityFailure = validateBriefGroundingCapacity(brief, count)
+  if (capacityFailure) throw new Error(capacityFailure)
   const palette = resolvePalette(brief)
   const answer = await complete(provider, key, model, planPrompt(brief, count))
   const raw = extractJson(answer) as RawPlan

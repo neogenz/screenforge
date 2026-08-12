@@ -298,9 +298,10 @@ describe('protocole', () => {
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
     expect(request.prompt).toContain('Accroches produit vérifiées (une par ligne)')
-    expect(request.prompt).toContain(
-      'Chaque ligne des accroches produit vérifiées est un fait atomique',
-    )
+    expect(request.prompt).toContain('Trois à sept mots')
+    expect(request.prompt).toContain('chaque description de capture associée')
+    expect(request.prompt).toContain('Seuls les faits')
+    expect(request.prompt).toContain('de trois à sept mots sont éligibles')
     expect(request.prompt).toContain('soit le pitch entier')
     expect(request.prompt).toContain('soit la description entière de la capture associée')
     expect(request.prompt).toContain('jamais un fragment')
@@ -320,6 +321,87 @@ describe('protocole', () => {
     expect(response.status).toBe(400)
     expect(await response.json()).toMatchObject({ error: 'invalid-request' })
     expect(spawned).not.toHaveBeenCalled()
+  })
+
+  it('refuse un brief insuffisant avant d’allumer le moteur', async () => {
+    const spawned = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(spawned)
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext: undefined,
+          screenCount: 4,
+          screenshots: [],
+        },
+      }),
+    })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      error: 'invalid-request',
+      detail: expect.stringMatching(/Ajoutez 3 accroches.*réduisez le nombre/i),
+    })
+    expect(spawned).not.toHaveBeenCalled()
+  })
+
+  it('déduplique les faits et ignore ceux de 2 ou 8 mots avant le moteur', async () => {
+    const spawned = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(spawned)
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext:
+            ' BUDGET   MENSUEL TOUJOURS CLAIR \r\nBudget clair\r\nUn deux trois quatre cinq six sept huit',
+          screenCount: 4,
+          screenshots: [],
+        },
+      }),
+    })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      error: 'invalid-request',
+      detail: expect.stringMatching(/Ajoutez 3 accroches.*réduisez le nombre/i),
+    })
+    expect(spawned).not.toHaveBeenCalled()
+  })
+
+  it('allume le moteur quand quatre faits distincts couvrent quatre visuels', async () => {
+    const facts = [
+      'Budget mensuel toujours clair',
+      'Dépenses importantes bien anticipées',
+      'Objectifs annuels toujours visibles',
+      'Épargne sous contrôle',
+    ] as const
+    const written = {
+      ...PLAN,
+      screens: facts.map((fact, index) => ({
+        name: `Visuel ${index + 1}`,
+        headline: fact,
+        evidence: fact,
+      })),
+    }
+    const spawned = vi.fn(async () => JSON.stringify(written))
+    const { call } = harness(spawned)
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          pitch: facts[0],
+          productContext: facts.slice(1).join('\n'),
+          screenCount: 4,
+          screenshots: [],
+        },
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ plan: written })
+    expect(spawned).toHaveBeenCalledOnce()
   })
 
   it('dit la version au lieu de deviner quand la page est en avance', async () => {

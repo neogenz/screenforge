@@ -102,7 +102,7 @@ export const briefSchema = z.object({
    * produit et beaucoup à dire du disque.
    */
   landingUrl: z.string().url().max(2048).startsWith('http').optional(),
-  /** Faits copiés puis relus ; jamais le contenu chargé depuis landingUrl. */
+  /** Accroches vérifiées, une par ligne ; jamais le contenu chargé depuis landingUrl. */
   productContext: z.string().max(2400).optional(),
   direction: z.enum(['sobre', 'contraste', 'chaleureux', 'nocturne']),
   /** Combien de visuels le modèle doit proposer. Le plan est borné au même dix. */
