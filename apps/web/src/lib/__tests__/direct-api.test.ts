@@ -188,8 +188,9 @@ describe('plan via une API', () => {
     expect(sent).toContain('même courts (IA, web, clé, app, ZIP')
     expect(sent).toContain('les synonymes ne')
     expect(sent).toContain('exactement les mêmes')
-    expect(sent).toContain('doivent suivre leur ordre dans l’extrait')
-    expect(sent).toContain('ne les réordonne jamais')
+    expect(sent).toContain('valeurs, unités, monnaies, conjonctions')
+    expect(sent).toContain('dans le même ordre que l’extrait source')
+    expect(sent).toContain('ne réordonne rien')
     expect(sent).toContain('extrait evidence plus serré')
   })
 
@@ -331,6 +332,12 @@ describe('plan via une API', () => {
       ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
       ['Budget IA sans clé', 'Budget web sans clé'],
       ['Votre App pro', 'Votre App web'],
+      ['Économisez 1€ par mois', 'Économisez 9€ par mois'],
+      ['Économisez 9€ par mois', 'Économisez 9$ par mois'],
+      ['Exportez PDF et ZIP', 'Exportez PDF ou ZIP'],
+      ['Atteignez 50% cette année', 'Atteignez 75% cette année'],
+      ['Planifiez deux budgets annuels', 'Planifiez neuf budgets annuels'],
+      ['Votre solde passe à +9€', 'Votre solde passe à −9€'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -360,6 +367,12 @@ describe('plan via une API', () => {
       'Gagnez plus et dépensez moins',
       'Planifiez avant et payez après',
       'Budget IA sans clé',
+      'Économisez 1€ par mois',
+      'Économisez 9$ par mois',
+      'Exportez PDF et ZIP',
+      'Atteignez 50% cette année',
+      'Planifiez deux budgets annuels',
+      'Votre solde passe à +9€',
       'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
@@ -408,7 +421,7 @@ describe('plan via une API', () => {
 
   it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
-    const evidence = 'Gagnez vraiment plus et dépensez durablement moins'
+    const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
     await expect(
       planViaApi(

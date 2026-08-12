@@ -398,7 +398,7 @@ const CLAIM_STOPWORDS = new Set([
   'vous',
 ])
 
-const SEMANTIC_MARKERS = new Set([
+const SEMANTIC_TERMS = new Set([
   'pas',
   'non',
   'ni',
@@ -418,6 +418,43 @@ const SEMANTIC_MARKERS = new Set([
   'depuis',
   'entre',
   'quand',
+  'et',
+  'ou',
+  'eur',
+  'usd',
+  'gbp',
+  'jpy',
+  'chf',
+  'percent',
+  'signplus',
+  'signminus',
+  'zero',
+  'deux',
+  'trois',
+  'quatre',
+  'cinq',
+  'six',
+  'sept',
+  'huit',
+  'neuf',
+  'dix',
+  'onze',
+  'douze',
+  'treize',
+  'quatorze',
+  'quinze',
+  'seize',
+  'vingt',
+  'trente',
+  'quarante',
+  'cinquante',
+  'soixante',
+  'cent',
+  'mille',
+  'million',
+  'millions',
+  'aucun',
+  'aucune',
 ])
 
 function normalizedCopy(value: string): string {
@@ -425,15 +462,31 @@ function normalizedCopy(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
+    .replace(/€/g, ' eur ')
+    .replace(/\$/g, ' usd ')
+    .replace(/£/g, ' gbp ')
+    .replace(/¥/g, ' jpy ')
+    .replace(/%/g, ' percent ')
+    .replace(/(^|[\s(])\+\s*(?=\d)/g, '$1 signplus ')
+    .replace(/(^|[\s(])[-−]\s*(?=\d)/g, '$1 signminus ')
+    .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
+    .replace(/(\d)\s*[-−](?=$|[\s)])/g, '$1 signminus ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function isNumericTerm(term: string): boolean {
+  return /^\d+$/.test(term)
 }
 
 function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
     .filter(
-      (term) => SEMANTIC_MARKERS.has(term) || (term.length >= 2 && !CLAIM_STOPWORDS.has(term)),
+      (term) =>
+        isNumericTerm(term) ||
+        SEMANTIC_TERMS.has(term) ||
+        (term.length >= 2 && !CLAIM_STOPWORDS.has(term)),
     )
 }
 
@@ -441,20 +494,18 @@ function termStem(term: string): string {
   return term.length >= 5 ? term.slice(0, 5) : term
 }
 
-function semanticMarkers(value: string): Set<string> {
-  return new Set(
-    normalizedCopy(value)
-      .split(' ')
-      .filter((term) => SEMANTIC_MARKERS.has(term)),
-  )
+function semanticSequence(value: string): string[] {
+  return normalizedCopy(value)
+    .split(' ')
+    .filter((term) => isNumericTerm(term) || SEMANTIC_TERMS.has(term))
 }
 
-function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
-  const claimMarkers = semanticMarkers(headline)
-  const evidenceMarkers = semanticMarkers(evidence)
+function haveSameSemanticSequence(headline: string, evidence: string): boolean {
+  const claimSequence = semanticSequence(headline)
+  const evidenceSequence = semanticSequence(evidence)
   return (
-    claimMarkers.size === evidenceMarkers.size &&
-    [...claimMarkers].every((marker) => evidenceMarkers.has(marker))
+    claimSequence.length === evidenceSequence.length &&
+    claimSequence.every((term, index) => term === evidenceSequence[index])
   )
 }
 
@@ -472,7 +523,7 @@ function claimMatchesEvidence(headline: string, evidence: string): boolean {
   return (
     claimStems.length > 0 &&
     isOrderedSubsequence(claimStems, evidenceStems) &&
-    haveSameSemanticMarkers(headline, evidence)
+    haveSameSemanticSequence(headline, evidence)
   )
 }
 
@@ -565,11 +616,12 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  Tous les termes métier de headline, même courts (IA, web, clé, app, ZIP,',
     '  pro), doivent reprendre le vocabulaire de evidence. Les variantes',
     '  morphologiques sont acceptées, les synonymes ne',
-    '  le sont pas. headline et evidence doivent porter exactement les mêmes',
-    '  marqueurs de négation, relation, quantité et temporalité. Chaque terme',
-    '  porteur et chaque marqueur doivent suivre leur ordre dans l’extrait',
-    '  source : ne les réordonne jamais. Si la source contient un marqueur de plus,',
-    '  choisis un extrait evidence plus serré, sans le',
+    '  le sont pas. headline et evidence doivent reprendre exactement les mêmes',
+    '  valeurs, unités, monnaies, conjonctions et marqueurs de négation, relation,',
+    '  quantité et temporalité, dans le même ordre que l’extrait source. Chaque terme',
+    '  porteur doit lui aussi suivre son ordre dans l’extrait',
+    '  source : ne réordonne rien. Si l’extrait choisi contient un élément',
+    '  sémantique de plus, choisis un extrait evidence plus serré, sans le',
     '  paraphraser. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',

@@ -329,7 +329,7 @@ const CLAIM_STOPWORDS = new Set([
   'vous',
 ])
 
-const SEMANTIC_MARKERS = new Set([
+const SEMANTIC_TERMS = new Set([
   'pas',
   'non',
   'ni',
@@ -349,6 +349,43 @@ const SEMANTIC_MARKERS = new Set([
   'depuis',
   'entre',
   'quand',
+  'et',
+  'ou',
+  'eur',
+  'usd',
+  'gbp',
+  'jpy',
+  'chf',
+  'percent',
+  'signplus',
+  'signminus',
+  'zero',
+  'deux',
+  'trois',
+  'quatre',
+  'cinq',
+  'six',
+  'sept',
+  'huit',
+  'neuf',
+  'dix',
+  'onze',
+  'douze',
+  'treize',
+  'quatorze',
+  'quinze',
+  'seize',
+  'vingt',
+  'trente',
+  'quarante',
+  'cinquante',
+  'soixante',
+  'cent',
+  'mille',
+  'million',
+  'millions',
+  'aucun',
+  'aucune',
 ])
 
 function normalizedCopy(value: string): string {
@@ -356,15 +393,31 @@ function normalizedCopy(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
+    .replace(/€/g, ' eur ')
+    .replace(/\$/g, ' usd ')
+    .replace(/£/g, ' gbp ')
+    .replace(/¥/g, ' jpy ')
+    .replace(/%/g, ' percent ')
+    .replace(/(^|[\s(])\+\s*(?=\d)/g, '$1 signplus ')
+    .replace(/(^|[\s(])[-−]\s*(?=\d)/g, '$1 signminus ')
+    .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
+    .replace(/(\d)\s*[-−](?=$|[\s)])/g, '$1 signminus ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
+}
+
+function isNumericTerm(term: string): boolean {
+  return /^\d+$/.test(term)
 }
 
 function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
     .filter(
-      (term) => SEMANTIC_MARKERS.has(term) || (term.length >= 2 && !CLAIM_STOPWORDS.has(term)),
+      (term) =>
+        isNumericTerm(term) ||
+        SEMANTIC_TERMS.has(term) ||
+        (term.length >= 2 && !CLAIM_STOPWORDS.has(term)),
     )
 }
 
@@ -372,20 +425,18 @@ function termStem(term: string): string {
   return term.length >= 5 ? term.slice(0, 5) : term
 }
 
-function semanticMarkers(value: string): Set<string> {
-  return new Set(
-    normalizedCopy(value)
-      .split(' ')
-      .filter((term) => SEMANTIC_MARKERS.has(term)),
-  )
+function semanticSequence(value: string): string[] {
+  return normalizedCopy(value)
+    .split(' ')
+    .filter((term) => isNumericTerm(term) || SEMANTIC_TERMS.has(term))
 }
 
-function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
-  const claimMarkers = semanticMarkers(headline)
-  const evidenceMarkers = semanticMarkers(evidence)
+function haveSameSemanticSequence(headline: string, evidence: string): boolean {
+  const claimSequence = semanticSequence(headline)
+  const evidenceSequence = semanticSequence(evidence)
   return (
-    claimMarkers.size === evidenceMarkers.size &&
-    [...claimMarkers].every((marker) => evidenceMarkers.has(marker))
+    claimSequence.length === evidenceSequence.length &&
+    claimSequence.every((term, index) => term === evidenceSequence[index])
   )
 }
 
@@ -404,7 +455,7 @@ function claimMatchesEvidence(headline: string, evidence: string): boolean {
   return (
     claimStems.length > 0 &&
     isOrderedSubsequence(claimStems, evidenceStems) &&
-    haveSameSemanticMarkers(headline, evidence)
+    haveSameSemanticSequence(headline, evidence)
   )
 }
 

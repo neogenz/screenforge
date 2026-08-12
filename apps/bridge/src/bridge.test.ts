@@ -301,8 +301,9 @@ describe('protocole', () => {
     expect(request.prompt).toContain('même courts (IA, web, clé, app, ZIP')
     expect(request.prompt).toContain('les synonymes ne')
     expect(request.prompt).toContain('exactement les mêmes')
-    expect(request.prompt).toContain('doivent suivre leur ordre dans l’extrait')
-    expect(request.prompt).toContain('ne les réordonne jamais')
+    expect(request.prompt).toContain('valeurs, unités, monnaies, conjonctions')
+    expect(request.prompt).toContain('dans le même ordre que l’extrait source')
+    expect(request.prompt).toContain('ne réordonne rien')
     expect(request.prompt).toContain('extrait evidence plus serré')
   })
 
@@ -369,6 +370,12 @@ describe('protocole', () => {
       ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
       ['Budget IA sans clé', 'Budget web sans clé'],
       ['Votre App pro', 'Votre App web'],
+      ['Économisez 1€ par mois', 'Économisez 9€ par mois'],
+      ['Économisez 9€ par mois', 'Économisez 9$ par mois'],
+      ['Exportez PDF et ZIP', 'Exportez PDF ou ZIP'],
+      ['Atteignez 50% cette année', 'Atteignez 75% cette année'],
+      ['Planifiez deux budgets annuels', 'Planifiez neuf budgets annuels'],
+      ['Votre solde passe à +9€', 'Votre solde passe à −9€'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -399,6 +406,12 @@ describe('protocole', () => {
       'Gagnez plus et dépensez moins',
       'Planifiez avant et payez après',
       'Budget IA sans clé',
+      'Économisez 1€ par mois',
+      'Économisez 9$ par mois',
+      'Exportez PDF et ZIP',
+      'Atteignez 50% cette année',
+      'Planifiez deux budgets annuels',
+      'Votre solde passe à +9€',
       'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
@@ -440,7 +453,7 @@ describe('protocole', () => {
 
   it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
-    const evidence = 'Gagnez vraiment plus et dépensez durablement moins'
+    const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     const answer = {
       ...PLAN,
       screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
