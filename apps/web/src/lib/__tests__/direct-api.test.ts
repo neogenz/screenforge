@@ -79,7 +79,7 @@ const WRITTEN = JSON.stringify({
     },
     {
       name: 'Budget',
-      headline: 'Gardez vos priorités',
+      headline: 'Gardez chaque priorité',
       evidence: 'gardez chaque priorité visible',
       background: { color: 'pas une couleur' },
     },
@@ -184,9 +184,10 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('tout mot porteur de sens')
+    expect(sent).toContain('Tout mot porteur de sens')
     expect(sent).toContain('les synonymes ne')
-    expect(sent).toContain('négations, relations, quantités et repères temporels')
+    expect(sent).toContain('exactement les mêmes')
+    expect(sent).toContain('extrait evidence plus serré')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -208,10 +209,15 @@ describe('plan via une API', () => {
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
       headline: `Gardez priorité ${index + 1}`,
-      evidence: 'gardez chaque priorité visible',
+      evidence: 'Gardez priorité visible',
     }))
     respond(answering(JSON.stringify({ screens })))
-    const plan = await planViaApi('anthropic', { ...BRIEF, screenCount: 20 }, KEY, 'claude-x')
+    const plan = await planViaApi(
+      'anthropic',
+      { ...BRIEF, productContext: 'Gardez priorité visible', screenCount: 20 },
+      KEY,
+      'claude-x',
+    )
     expect(plan.screens).toHaveLength(10)
   })
 
@@ -314,6 +320,7 @@ describe('plan via une API', () => {
     const contradictions = [
       ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
     for (const [headline, evidence] of contradictions) {
@@ -339,6 +346,7 @@ describe('plan via une API', () => {
     const facts = [
       'Votre budget sans connexion bancaire',
       'Anticipez moins vos dépenses',
+      'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
     for (const fact of facts) {

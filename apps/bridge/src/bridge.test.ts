@@ -297,9 +297,10 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('tout mot porteur de sens')
+    expect(request.prompt).toContain('Tout mot porteur de sens')
     expect(request.prompt).toContain('les synonymes ne')
-    expect(request.prompt).toContain('négations, relations, quantités et repères temporels')
+    expect(request.prompt).toContain('exactement les mêmes')
+    expect(request.prompt).toContain('extrait evidence plus serré')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -361,6 +362,7 @@ describe('protocole', () => {
     const contradictions = [
       ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
     for (const [headline, evidence] of contradictions) {
@@ -387,6 +389,7 @@ describe('protocole', () => {
     for (const fact of [
       'Votre budget sans connexion bancaire',
       'Anticipez moins vos dépenses',
+      'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
       const answer = {

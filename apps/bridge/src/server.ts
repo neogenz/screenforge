@@ -351,7 +351,27 @@ const CLAIM_STOPWORDS = new Set([
   'vous',
 ])
 
-const SHORT_SIGNIFICANT_TERMS = new Set(['pas', 'non', 'ni'])
+const SEMANTIC_MARKERS = new Set([
+  'pas',
+  'non',
+  'ni',
+  'avec',
+  'sans',
+  'plus',
+  'moins',
+  'rien',
+  'seulement',
+  'chaque',
+  'tout',
+  'tous',
+  'toute',
+  'toutes',
+  'avant',
+  'apres',
+  'depuis',
+  'entre',
+  'quand',
+])
 
 function normalizedCopy(value: string): string {
   return value
@@ -366,8 +386,7 @@ function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
     .filter(
-      (term) =>
-        SHORT_SIGNIFICANT_TERMS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
+      (term) => SEMANTIC_MARKERS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
     )
 }
 
@@ -375,10 +394,31 @@ function termStem(term: string): string {
   return term.length >= 5 ? term.slice(0, 5) : term
 }
 
+function semanticMarkers(value: string): Set<string> {
+  return new Set(
+    normalizedCopy(value)
+      .split(' ')
+      .filter((term) => SEMANTIC_MARKERS.has(term)),
+  )
+}
+
+function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
+  const claimMarkers = semanticMarkers(headline)
+  const evidenceMarkers = semanticMarkers(evidence)
+  return (
+    claimMarkers.size === evidenceMarkers.size &&
+    [...claimMarkers].every((marker) => evidenceMarkers.has(marker))
+  )
+}
+
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
   const evidenceStems = new Set(significantTerms(evidence).map(termStem))
-  return claimStems.length > 0 && claimStems.every((stem) => evidenceStems.has(stem))
+  return (
+    claimStems.length > 0 &&
+    claimStems.every((stem) => evidenceStems.has(stem)) &&
+    haveSameSemanticMarkers(headline, evidence)
+  )
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -466,11 +506,13 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
-    '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
-    '  tout mot porteur de sens de headline doit reprendre le vocabulaire de',
+    '  ou de la description de la capture qui prouve l’accroche.',
+    '  Tout mot porteur de sens de headline doit reprendre le vocabulaire de',
     '  evidence. Les variantes morphologiques sont acceptées, les synonymes ne',
-    '  le sont pas. Les négations, relations, quantités et repères temporels',
-    '  doivent eux aussi être repris dans evidence. N’invente jamais',
+    '  le sont pas. headline et evidence doivent porter exactement les mêmes',
+    '  marqueurs de négation, relation, quantité et temporalité. Si la source',
+    '  en contient un de plus, choisis un extrait evidence plus serré, sans le',
+    '  paraphraser. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',

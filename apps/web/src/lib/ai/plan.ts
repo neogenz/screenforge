@@ -282,7 +282,27 @@ const CLAIM_STOPWORDS = new Set([
   'vous',
 ])
 
-const SHORT_SIGNIFICANT_TERMS = new Set(['pas', 'non', 'ni'])
+const SEMANTIC_MARKERS = new Set([
+  'pas',
+  'non',
+  'ni',
+  'avec',
+  'sans',
+  'plus',
+  'moins',
+  'rien',
+  'seulement',
+  'chaque',
+  'tout',
+  'tous',
+  'toute',
+  'toutes',
+  'avant',
+  'apres',
+  'depuis',
+  'entre',
+  'quand',
+])
 
 function normalizedCopy(value: string): string {
   return value
@@ -297,8 +317,7 @@ function significantTerms(value: string): string[] {
   return normalizedCopy(value)
     .split(' ')
     .filter(
-      (term) =>
-        SHORT_SIGNIFICANT_TERMS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
+      (term) => SEMANTIC_MARKERS.has(term) || (term.length >= 4 && !CLAIM_STOPWORDS.has(term)),
     )
 }
 
@@ -306,11 +325,32 @@ function termStem(term: string): string {
   return term.length >= 5 ? term.slice(0, 5) : term
 }
 
+function semanticMarkers(value: string): Set<string> {
+  return new Set(
+    normalizedCopy(value)
+      .split(' ')
+      .filter((term) => SEMANTIC_MARKERS.has(term)),
+  )
+}
+
+function haveSameSemanticMarkers(headline: string, evidence: string): boolean {
+  const claimMarkers = semanticMarkers(headline)
+  const evidenceMarkers = semanticMarkers(evidence)
+  return (
+    claimMarkers.size === evidenceMarkers.size &&
+    [...claimMarkers].every((marker) => evidenceMarkers.has(marker))
+  )
+}
+
 /** Aucun mot porteur de l'accroche ne peut dépasser ce que dit la preuve. */
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
   const claimStems = significantTerms(headline).map(termStem)
   const evidenceStems = new Set(significantTerms(evidence).map(termStem))
-  return claimStems.length > 0 && claimStems.every((stem) => evidenceStems.has(stem))
+  return (
+    claimStems.length > 0 &&
+    claimStems.every((stem) => evidenceStems.has(stem)) &&
+    haveSameSemanticMarkers(headline, evidence)
+  )
 }
 
 function words(value: string): string[] {
