@@ -184,7 +184,8 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('Tout mot porteur de sens')
+    expect(sent).toContain('Tous les termes métier')
+    expect(sent).toContain('même courts (IA, web, clé, app, ZIP')
     expect(sent).toContain('les synonymes ne')
     expect(sent).toContain('exactement les mêmes')
     expect(sent).toContain('doivent suivre leur ordre dans l’extrait')
@@ -208,15 +209,19 @@ describe('plan via une API', () => {
   })
 
   it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
+    const sources = Array.from(
+      { length: 10 },
+      (_unused, index) => `Gardez priorité ${index + 1} visible`,
+    )
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
       headline: `Gardez priorité ${index + 1}`,
-      evidence: 'Gardez priorité visible',
+      evidence: sources[index],
     }))
     respond(answering(JSON.stringify({ screens })))
     const plan = await planViaApi(
       'anthropic',
-      { ...BRIEF, productContext: 'Gardez priorité visible', screenCount: 20 },
+      { ...BRIEF, productContext: sources.join('. '), screenCount: 20 },
       KEY,
       'claude-x',
     )
@@ -324,6 +329,8 @@ describe('plan via une API', () => {
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
       ['Gagnez plus et dépensez moins', 'Gagnez moins et dépensez plus'],
       ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
+      ['Budget IA sans clé', 'Budget web sans clé'],
+      ['Votre App pro', 'Votre App web'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -352,6 +359,7 @@ describe('plan via une API', () => {
       'Anticipez moins vos dépenses',
       'Gagnez plus et dépensez moins',
       'Planifiez avant et payez après',
+      'Budget IA sans clé',
       'Votre budget connecté',
       'Votre budget non connecté',
     ] as const
@@ -376,6 +384,26 @@ describe('plan via une API', () => {
         ),
       ).resolves.toBeDefined()
     }
+  })
+
+  it('ignore les mots-outils mais garde les termes métier courts et les accents normalisés', async () => {
+    const headline = 'Votre budget IA sans clé'
+    const evidence = 'Le budget IA sans une cle'
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).resolves.toBeDefined()
   })
 
   it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {

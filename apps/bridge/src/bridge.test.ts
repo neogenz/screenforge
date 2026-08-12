@@ -297,7 +297,8 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('Tout mot porteur de sens')
+    expect(request.prompt).toContain('Tous les termes métier')
+    expect(request.prompt).toContain('même courts (IA, web, clé, app, ZIP')
     expect(request.prompt).toContain('les synonymes ne')
     expect(request.prompt).toContain('exactement les mêmes')
     expect(request.prompt).toContain('doivent suivre leur ordre dans l’extrait')
@@ -366,6 +367,8 @@ describe('protocole', () => {
       ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
       ['Gagnez plus et dépensez moins', 'Gagnez moins et dépensez plus'],
       ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
+      ['Budget IA sans clé', 'Budget web sans clé'],
+      ['Votre App pro', 'Votre App web'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -395,6 +398,7 @@ describe('protocole', () => {
       'Anticipez moins vos dépenses',
       'Gagnez plus et dépensez moins',
       'Planifiez avant et payez après',
+      'Budget IA sans clé',
       'Votre budget connecté',
       'Votre budget non connecté',
     ]) {
@@ -414,6 +418,24 @@ describe('protocole', () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toEqual({ plan: answer })
     }
+  })
+
+  it('ignore les mots-outils mais garde les termes métier courts et les accents normalisés', async () => {
+    const headline = 'Votre budget IA sans clé'
+    const evidence = 'Le budget IA sans une cle'
+    const answer = {
+      ...PLAN,
+      screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
+    }
+    const { call } = harness(async () => JSON.stringify(answer))
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: { ...BRIEF, pitch: evidence, productContext: undefined, screenshots: [] },
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ plan: answer })
   })
 
   it('accepte des mots sources supplémentaires quand les stems restent dans l’ordre', async () => {
