@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge produit des campagnes App Store ancrées dans le produit, lisibles par défaut et entièrement vérifiables avant insertion."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Fiabiliser la génération de campagnes
