@@ -212,6 +212,37 @@ describe('dernier écrivain gagne', () => {
     expect(await stored(t, premier.blobId)).toBe(false)
     expect(await stored(t, second.blobId)).toBe(true)
   })
+
+  /*
+   * Le `blobId` vient du client — l'envoi le lui rend, c'est même l'argument
+   * qu'on lui demande — donc rien ne garantit qu'il diffère de celui déjà en
+   * place. Renvoyé tel quel avec un horodatage plus récent, il se remplaçait
+   * lui-même : la ligne était corrigée, puis son propre fichier supprimé. Le
+   * projet devenait illisible, et sa suppression de compte butait sur un fichier
+   * qui n'existait plus.
+   */
+  it('ne supprime pas le fichier qu’elle vient de garder', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    const as = t.withIdentity({ subject: userId })
+    const { blobId } = await push(
+      t,
+      userId,
+      { projectId: 'p', name: 'un', updatedAt: 100 },
+      { v: 1 },
+    )
+
+    await as.mutation(api.projects.beginProjectPush, {})
+    const outcome = await as.mutation(api.projects.pushProject, {
+      projectId: 'p',
+      name: 'deux',
+      updatedAt: 200,
+      blobId,
+    })
+
+    expect(outcome).toBe('accepted')
+    expect(await stored(t, blobId)).toBe(true)
+  })
 })
 
 describe('le catalogue', () => {

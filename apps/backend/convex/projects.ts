@@ -90,7 +90,11 @@ export const pushProject = mutation({
     if (existing) {
       const replaced = existing.blobId
       await ctx.db.patch(existing._id, { name, updatedAt, blobId })
-      await ctx.storage.delete(replaced)
+      /* Sauf s'il se remplace lui-même : la ligne pointerait alors sur le
+         fichier qu'on vient d'effacer. Même garde que `confirmAssetUpload`, et
+         pour la même raison — le `blobId` vient du client, donc rien ne
+         garantit qu'il diffère de celui déjà en place. */
+      if (replaced !== blobId) await ctx.storage.delete(replaced)
     } else {
       await ctx.db.insert('projects', { userId, projectId, name, updatedAt, blobId })
     }

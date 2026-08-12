@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { GenericValidator } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
@@ -122,14 +122,7 @@ async function job(t: Stack, userId: string) {
   )
 }
 
-/**
- * Un binaire dont le fichier a déjà disparu.
- *
- * C'est la seule façon de faire échouer `ctx.storage.delete` dans le
- * simulateur, qui lève « Delete on non-existent doc ». La panne y est
- * définitive, là où celle d'origine (`fail.remove`) se rallumait : la reprise se
- * teste donc en **réparant** la ligne, ce que fait `restore`.
- */
+/** Une ligne dont le fichier a déjà disparu. */
 async function withLostFile(t: Stack, userId: Id<'users'>, assetId: string) {
   return await t.run(async (ctx) => {
     const storageId = await ctx.storage.store(new Blob([new Uint8Array(4)], { type: PNG }))
@@ -145,11 +138,29 @@ async function withLostFile(t: Stack, userId: Id<'users'>, assetId: string) {
   })
 }
 
-/** Le stockage répond de nouveau : le fichier existe, la ligne le désigne. */
-async function restore(t: Stack, assetId: Id<'assets'>) {
+/**
+ * Deux lignes sur un seul fichier, ce que rien n'interdit aujourd'hui.
+ *
+ * L'envoi rend son `storageId` au client — c'est l'argument que
+ * `confirmAssetUpload` attend — donc deux `assetId` peuvent confirmer le même
+ * fichier, et un `pushProject` peut réclamer celui d'un binaire. Le déploiement
+ * n'a pas d'index pour l'interdire à l'écriture ; ce qu'il garantit est que la
+ * suppression du compte s'en accommode.
+ */
+async function aliased(t: Stack, userId: Id<'users'>, assetId: string) {
   await t.run(async (ctx) => {
-    const storageId = await ctx.storage.store(new Blob([new Uint8Array(4)], { type: PNG }))
-    await ctx.db.patch(assetId, { storageId })
+    const first = await ctx.db
+      .query('assets')
+      .withIndex('by_user_asset', (q) => q.eq('userId', userId))
+      .first()
+    if (first === null) throw new Error('Aucun binaire à dupliquer.')
+    await ctx.db.insert('assets', {
+      userId,
+      assetId,
+      storageId: first.storageId,
+      contentType: PNG,
+      byteLength: 4,
+    })
   })
 }
 
@@ -169,11 +180,9 @@ async function drain(t: Stack, rounds = 4) {
 }
 
 let t: Stack
-let report: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   t = testConvex()
-  report = vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 /**
@@ -270,8 +279,9 @@ describe('requestAccountDeletion', () => {
   })
 
   it('préserve un job cleanup quand une nouvelle requête prépare le même compte', async () => {
-    const userId = await populated(t, { assets: 0 })
-    await withLostFile(t, userId, 'asset-perdu')
+    /* Assez de binaires pour que la passe rende la main sur son budget : c'est
+       ce qui donne une reprise à préserver. */
+    const userId = await populated(t, { assets: 450 })
     await t.run((ctx) =>
       ctx.db.insert('accountDeletionJobs', {
         userId,
@@ -283,16 +293,21 @@ describe('requestAccountDeletion', () => {
 
     await expect(remove(t, userId)).resolves.toBe('cleanup-pending')
 
-    /* 4 et non 1 : la demande a repris le job en cours au lieu d'en ouvrir un
-       neuf, sinon `attempts` aurait effacé la seule trace de ce qui résiste. */
+    /* Intacts, et non remis à zéro : la demande a repris le job en cours au lieu
+       d'en ouvrir un neuf, sinon `attempts` et `lastError` auraient effacé la
+       seule trace de ce qui résiste. */
     await expect(job(t, userId)).resolves.toMatchObject({
       status: 'cleanup',
-      attempts: 4,
-      lastError: expect.any(String),
+      attempts: 3,
+      lastError: 'storage down',
     })
     /* Le statut `cleanup` a aussi épargné l'identité, qui appartient à la passe
        précédente : une seconde demande ne recommence pas le travail fait. */
     await expect(t.run((ctx) => ctx.db.get(userId))).resolves.not.toBeNull()
+
+    /* La reprise en file appartient au test : la laisser partir après lui la
+       ferait écrire dans un simulateur déjà démonté. */
+    await drain(t)
   })
 
   it('traite deux demandes concurrentes sans perdre la file ni répéter la purge', async () => {
@@ -393,29 +408,35 @@ describe('la reprise', () => {
     })
   })
 
-  /* Critère 6. */
-  it('laisse la ligne en place sur un échec de fichier, puis termine au tour suivant', async () => {
+  /*
+   * Critère 6, dans le sens qui compte : une suppression de compte finit.
+   *
+   * Un fichier absent n'est pas un fichier qui résiste — il n'y a plus d'octet
+   * facturé à reprendre, donc la ligne doit partir. Sans cette distinction, les
+   * deux cas ci-dessous laissaient une ligne que la passe ne pouvait plus faire
+   * avancer, et le cron reprenait le même lot pour toujours : un compte demandé
+   * en suppression ne l'était jamais. Le second cas est celui qu'un client
+   * atteint tout seul, en confirmant deux `assetId` sur un même envoi.
+   *
+   * Ce qu'un refus **réel** du stockage produit — `attempts`, `lastError`, la
+   * ligne conservée — ne se joue plus dans le simulateur, dont la seule panne
+   * possible était justement le fichier absent. `phase-6.md` le porte avec les
+   * autres écarts du simulateur.
+   */
+  it('termine malgré un fichier disparu, et malgré deux lignes sur un seul fichier', async () => {
     const userId = await populated(t, { assets: 1 })
-    const bloqué = await withLostFile(t, userId, 'asset-perdu')
+    await withLostFile(t, userId, 'asset-perdu')
+    await aliased(t, userId, 'asset-copie')
 
-    await expect(remove(t, userId)).resolves.toBe('cleanup-pending')
+    await expect(remove(t, userId)).resolves.toBe('deleted')
 
-    /* Le reste de la passe a bien été commis : lever aurait tout annulé. */
-    const midway = await leftovers(t, userId)
-    expect(midway.users).toBe(0)
-    expect(midway.assets).toBe(1)
-    expect(midway.projects).toBe(0)
-    await expect(job(t, userId)).resolves.toMatchObject({
-      status: 'cleanup',
-      attempts: 1,
-      lastError: expect.any(String),
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 0,
+      assets: 0,
+      projects: 0,
+      jobs: 0,
+      files: 0,
     })
-    expect(report).toHaveBeenCalled()
-
-    await restore(t, bloqué)
-    await expect(t.mutation(internal.accountDeletion.resume, { userId })).resolves.toBe('deleted')
-
-    await expect(leftovers(t, userId)).resolves.toMatchObject({ assets: 0, jobs: 0, files: 0 })
   })
 
   it('reprend un job prepared jusqu’à supprimer identité et fichiers', async () => {

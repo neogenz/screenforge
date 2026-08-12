@@ -67,6 +67,24 @@ function message(error: unknown): string {
  * travail fait, laisse le document dont le fichier résiste, et se retrouve dans
  * `lastError`. C'est la version Convex de « Account deletion cleanup remains
  * queued ».
+ *
+ * **Un fichier déjà parti est un fichier oublié**, et c'est ce qui empêche une
+ * suppression de compte de ne jamais finir. Rien n'interdit à deux lignes de
+ * désigner le même `storageId` : `confirmAssetUpload` accepte celui qu'on lui
+ * donne, donc deux `assetId` peuvent confirmer le même envoi. La première ligne
+ * supprimait alors le fichier, la seconde échouait à le supprimer, la ligne
+ * survivait, la passe ne progressait plus — et le cron reprenait le même lot
+ * indéfiniment, pour un compte qui ne finissait jamais de se supprimer.
+ * Constater l'absence plutôt que l'interdire à l'écriture ne demande ni index
+ * ni lecture supplémentaire à chaque envoi, et couvre le fichier disparu pour
+ * toute autre raison : ce qu'on veut est que la ligne parte, pas qu'un octet
+ * soit effacé une seconde fois. Un refus **réel** du stockage continue, lui, de
+ * laisser la ligne — il reste un octet facturé à reprendre.
+ *
+ * La lecture est dans le `try` comme la suppression : elle interroge le même
+ * stockage, donc elle peut échouer de la même façon, et une erreur qui
+ * s'échapperait d'ici annulerait exactement ce que le `catch` existe pour
+ * sauver.
  */
 async function forget(
   ctx: MutationCtx,
@@ -74,6 +92,7 @@ async function forget(
   budget: Budget,
 ): Promise<boolean> {
   try {
+    if ((await ctx.db.system.get(storageId)) === null) return true
     await ctx.storage.delete(storageId)
     return true
   } catch (error) {
