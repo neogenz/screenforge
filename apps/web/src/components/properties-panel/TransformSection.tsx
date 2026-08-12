@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, Unlink } from 'lucide-react'
+import { CornerUpLeft, Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
+import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
 import { Button } from '@/components/ui/button'
 import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
@@ -107,8 +108,35 @@ export function TransformSection({ layer }: TransformSectionProps) {
     }
   }
 
+  /*
+   * Le seul retour possible quand le calque n'est plus saisissable.
+   *
+   * Hors de sa planche, il perd le clic et le lasso — c'est ce qui empêche un
+   * calque devenu fantôme de voler le clic destiné à la planche voisine. Il
+   * reste désignable depuis la liste des calques, donc le panneau est le seul
+   * endroit où l'utilisateur peut encore agir dessus : sans cette issue, la
+   * sélection ouvrirait sur deux champs de coordonnées et rien d'autre.
+   */
+  const outOfReach = layerOutOfReach(layer)
+
+  function bringBack() {
+    update(clampLayerToBoard(layer))
+  }
+
   return (
     <div className="flex flex-col gap-2">
+      {outOfReach && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
+          <p className="text-2xs text-muted-foreground">
+            Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
+          </p>
+          <Button variant="default" size="sm" onClick={bringBack} className="self-start">
+            <CornerUpLeft size={12} strokeWidth={1.5} aria-hidden />
+            Ramener sur la planche
+          </Button>
+        </div>
+      )}
+
       {/* X / Y */}
       <div className="grid grid-cols-2 gap-2">
         <NumberField

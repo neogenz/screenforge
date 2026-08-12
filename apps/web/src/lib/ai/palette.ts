@@ -42,6 +42,13 @@ function hex(r: number, g: number, b: number): string {
   return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
+/** `#rrggbb` en trois canaux. Un hex illisible rend du noir plutôt que `NaN`. */
+function rgb(value: string): [number, number, number] {
+  const parsed = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value.trim())
+  if (!parsed) return [0, 0, 0]
+  return [parseInt(parsed[1], 16), parseInt(parsed[2], 16), parseInt(parsed[3], 16)]
+}
+
 /** Luminance relative WCAG : ce qui décide si l'encre est noire ou blanche. */
 function luminance(r: number, g: number, b: number): number {
   const channel = (value: number) => {
@@ -56,6 +63,73 @@ function chroma(r: number, g: number, b: number): number {
   const max = Math.max(r, g, b)
   if (max === 0) return 0
   return (max - Math.min(r, g, b)) / max
+}
+
+/**
+ * Les trois opérations que la composition fait sur une couleur, et pas une de
+ * plus.
+ *
+ * Elles vivent ici et non dans les archétypes parce que la palette est déjà
+ * l'endroit qui sait ce qu'est une couleur lisible : `paletteFromScreenshots`
+ * choisit son encre par la même luminance. Un dégradé ou un fond d'accent
+ * inventés ailleurs auraient refait ce calcul, moins bien.
+ */
+
+/** Interpole deux couleurs. `amount` 0 rend la première, 1 la seconde. */
+export function mix(from: string, to: string, amount: number): string {
+  const ratio = Math.min(1, Math.max(0, amount))
+  const [fr, fg, fb] = rgb(from)
+  const [tr, tg, tb] = rgb(to)
+  const at = (start: number, end: number) => Math.round(start + (end - start) * ratio)
+  return hex(at(fr, tr), at(fg, tg), at(fb, tb))
+}
+
+/** Assombrit (`amount` < 0) ou éclaircit (`amount` > 0) une couleur. */
+export function shade(color: string, amount: number): string {
+  return amount < 0 ? mix(color, '#000000', -amount) : mix(color, '#ffffff', amount)
+}
+
+/** Le rapport de contraste WCAG entre deux couleurs, de 1 à 21. */
+export function contrastRatio(left: string, right: string): number {
+  const first = luminance(...rgb(left)) + 0.05
+  const second = luminance(...rgb(right)) + 0.05
+  return first > second ? first / second : second / first
+}
+
+/**
+ * L'encre à poser sur un fond donné : celle du projet si elle tient, sinon
+ * blanc ou noir.
+ *
+ * Une planche générée peut porter un fond que la palette n'a pas choisi — un
+ * accent saturé plein cadre, une borne de dégradé. Y reposer l'encre de la
+ * palette produirait une accroche à 2:1 sur le fond, invisible à l'export, sur
+ * la seule image qui décide du téléchargement. Le seuil est 4,5:1, celui de
+ * l'app elle-même.
+ */
+export const READABLE = 4.5
+
+export function readableInk(backgrounds: readonly string[], preferred: string): string {
+  /* Une liste et non une couleur : sous une accroche posée sur un dégradé, le
+     fond change d'un bout du bloc à l'autre. Le pire des deux bouts décide,
+     sinon la moitié droite d'un titre passe et la gauche ne passe pas. */
+  const worst = (ink: string) =>
+    backgrounds.reduce((low, back) => Math.min(low, contrastRatio(back, ink)), Infinity)
+  if (worst(preferred) >= READABLE) return preferred
+
+  /* Le noir **pur**, et pas le presque-noir du produit. Sur un aplat, le blanc
+     et le noir se croisent à 4,58 : quelle que soit la couleur, l'un des deux
+     tient le seuil. `#141413` a une luminance de 0,0055 au lieu de 0, ce qui
+     suffit à faire tomber le croisement à 4,32 — et la bande où il échoue est
+     celle d'un rose, d'un rouge ou d'un vert de marque très ordinaires. La
+     palette lue dans les captures n'est bornée par aucun préréglage et le mur
+     de clôture peint son accent plein cadre : c'est exactement là que ça
+     tombait. Une accroche à 4,35 sous une fonction qui promet 4,5 dans son
+     propre commentaire, c'est le seuil rendu inutile.
+     Reste un cas où aucune encre ne peut tenir : un dégradé allant du presque
+     noir au presque blanc. Aucun des fonds d'archétype n'en produit — leurs
+     deux bornes sortent d'une même couleur — et on rend alors le moins pire,
+     puisqu'il n'existe rien de mieux à rendre. */
+  return worst('#ffffff') >= worst('#000000') ? '#ffffff' : '#000000'
 }
 
 async function decode(dataUrl: string): Promise<HTMLImageElement> {

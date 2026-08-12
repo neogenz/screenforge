@@ -81,6 +81,83 @@ export function installInteractions({
   const dragSourceScreenIndexes = new Map<RenderedObject, number>()
   const mirrorLast = new Map<string, { left: number; top: number }>()
 
+  /**
+   * Le sosie : ce qu'on voit rester en place pendant qu'on tire une copie.
+   *
+   * Sans lui, Option-glisser fait exactement le bon travail et le montre à
+   * l'envers. L'objet tiré est celui du calque d'origine, la copie n'est écrite
+   * qu'au lâcher : on voit donc l'original quitter sa place, un trou derrière
+   * lui, puis deux apparitions au relâchement. Or ce geste sert à poser une
+   * copie *à un décalage choisi de l'original*, et on ne peut pas viser un
+   * décalage par rapport à quelque chose qu'on a sous le curseur.
+   *
+   * Le sosie est un objet Fabric et rien d'autre : aucun calque, aucune
+   * écriture dans le projet, pas de `data.layerId` — `clone()` ne recopie que
+   * ce qu'on lui nomme, et on ne lui nomme rien. Il est donc invisible à tout
+   * ce qui indexe par calque, et une réconciliation complète ne peut pas le
+   * détruire puisqu'elle ne le connaît pas. C'est ce qui permet de montrer la
+   * duplication pendant le geste sans rien écrire pendant le geste.
+   *
+   * Il est posé à la position de départ mémorisée au `mouse:down`, et non
+   * relue du calque : au moment où Alt est constatée l'objet a déjà bougé, et
+   * le calque n'a pas encore changé — les deux disent la même chose ici, mais
+   * la position de départ est la seule qui reste vraie si une passe de
+   * synchronisation tombe au milieu.
+   *
+   * Un seul objet, pas une sélection multiple : replacer les membres d'une
+   * `ActiveSelection` demande de repasser par la matrice du groupe, et
+   * personne n'a demandé à dupliquer six calques d'un glissement. Le cas
+   * multiple garde donc l'ancien comportement — la copie paraît au lâcher.
+   */
+  const dragOrigin = new Map<RenderedObject, { left: number; top: number }>()
+  let ghost: RenderedObject | null = null
+  let ghostPending = false
+  let ghostGesture = 0
+
+  function dropGhost() {
+    if (!ghost && !ghostPending) return
+    if (ghost) canvas.remove(ghost)
+    ghost = null
+    ghostPending = false
+    // Un clone encore en vol appartient au geste précédent : il se jettera.
+    ghostGesture += 1
+    canvas.requestRenderAll()
+  }
+
+  function raiseGhost(source: RenderedObject) {
+    if (ghost || ghostPending) return
+    const origin = dragOrigin.get(source)
+    const screenIndex = source.data?.screenIndex
+    if (!origin || screenIndex === undefined) return
+    const gesture = ghostGesture
+    ghostPending = true
+    void source
+      .clone()
+      .then((copy) => {
+        if (gesture !== ghostGesture) return
+        const stand = copy as RenderedObject
+        stand.set({
+          left: origin.left,
+          top: origin.top,
+          selectable: false,
+          evented: false,
+          excludeFromExport: true,
+        })
+        stand.objectCaching = false
+        stand.setCoords()
+        ensureScreenClipPath(stand, screenIndex, getProject()?.screens.length ?? 1)
+        // Au rang de l'original : une copie tirée par-dessus doit passer
+        // devant lui, jamais derrière un calque qui les sépare tous les deux.
+        canvas.insertAt(canvas.getObjects().indexOf(source), stand)
+        ghost = stand
+        canvas.requestRenderAll()
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        ghostPending = false
+      })
+  }
+
   function syncTextCursors(): void {
     const active = new Set(canvas.getActiveObjects())
     for (const object of canvas.getObjects() as RenderedObject[]) {
@@ -135,6 +212,20 @@ export function installInteractions({
     })
   }
 
+  /**
+   * Le rang le plus haut d'un écran, calques de gabarit compris.
+   *
+   * Compris, parce que les deux familles partagent une seule échelle de `zIndex`
+   * et qu'une copie posée sous un gabarit disparaîtrait derrière lui.
+   */
+  function topZIndex(screen: Project['screens'][number], project: Project): number {
+    return Math.max(
+      -1,
+      ...screen.layers.map((layer) => layer.zIndex),
+      ...project.layoutLayers.map((layer) => layer.zIndex),
+    )
+  }
+
   const disposeModified = canvas.on('object:modified', (event) => {
     if (syncing.current || !event.target) return
     const target = event.target
@@ -179,7 +270,7 @@ export function installInteractions({
       if (!targetScreen || !layer) continue
       if (dropScreenIndex === null && object.data?.screenIndex !== sourceScreenIndex) {
         object.set('data', { ...object.data, screenIndex: sourceScreenIndex })
-        ensureScreenClipPath(object, sourceScreenIndex)
+        ensureScreenClipPath(object, sourceScreenIndex, project.screens.length)
       }
       localUpdates.push({
         layer,
@@ -192,6 +283,89 @@ export function installInteractions({
       })
     }
     if (localUpdates.length === 0 && layoutUpdates.length === 0) return
+
+    /**
+     * Option (Alt) au lâcher : on dépose une copie, l'original ne bouge pas.
+     *
+     * La touche est lue au relâchement et non à l'appui, comme le Finder : c'est
+     * celle qu'on tient au moment de lâcher qui décide, donc on peut l'enfoncer
+     * ou la relâcher en cours de geste. Restreint à `drag` parce que Fabric
+     * réserve déjà Alt au redimensionnement centré — un coin tiré touche autre
+     * chose qu'une position, et le doubler d'une duplication rendrait les deux
+     * gestes imprévisibles.
+     *
+     * Rien n'est écrit pendant le geste : ajouter un calque change le nombre de
+     * calques de l'écran, ce que `diffProjectChange` classe en `full`, et une
+     * réconciliation complète détruirait l'objet Fabric qu'on est en train de
+     * tirer. On laisse donc le glissement se terminer, puis on écrit la copie à
+     * la position lâchée en laissant l'original à la sienne — la passe de
+     * synchronisation qui suit remet l'objet tiré là où son calque est resté et
+     * fait apparaître la copie sous le curseur. Les deux étant identiques, rien
+     * ne saute à l'œil. Le sosie tient la place de l'original pendant ce
+     * temps-là, et c'est lui qui rend le geste lisible : voir `raiseGhost`.
+     *
+     * Le sosie décide aussi. Il est ce que l'utilisateur a vu, donc le lâcher
+     * produit ce qui était montré, même s'il a relâché Alt sans plus bouger la
+     * souris entre-temps. La touche n'est relue que pour la sélection multiple,
+     * qui n'a pas de sosie.
+     *
+     * Un gabarit est exclu : il est déjà partagé par tous les écrans, le
+     * dupliquer par un glissement ne veut rien dire de précis. Une sélection qui
+     * en mêle un se déplace normalement, plutôt que de n'appliquer que la moitié
+     * du geste.
+     */
+    const duplicating =
+      event.action === 'drag' &&
+      layoutUpdates.length === 0 &&
+      (ghost !== null || Boolean((event.e as MouseEvent | undefined)?.altKey))
+
+    if (duplicating) {
+      recordProjectHistory()
+      if (target instanceof ActiveSelection) {
+        ignoreSelectionCleared = true
+        canvas.discardActiveObject()
+        queueMicrotask(() => {
+          ignoreSelectionCleared = false
+        })
+      }
+      const copiesByScreen = new Map<string, Layer[]>()
+      const copyIds: string[] = []
+      for (const change of localUpdates) {
+        const copy = {
+          ...structuredClone(change.layer),
+          ...change.update,
+          id: crypto.randomUUID(),
+          name: `${change.layer.name} copie`,
+        } as Layer
+        copyIds.push(copy.id)
+        copiesByScreen.set(change.targetScreenId, [
+          ...(copiesByScreen.get(change.targetScreenId) ?? []),
+          copy,
+        ])
+      }
+      const dropScreenId = localUpdates[0].targetScreenId
+      if (dropScreenId !== project.activeScreenId) selectionFromCanvas.current = true
+      setProject({
+        ...project,
+        activeScreenId: dropScreenId,
+        screens: project.screens.map((screen) => {
+          const copies = copiesByScreen.get(screen.id)
+          if (!copies) return screen
+          const top = topZIndex(screen, project)
+          return {
+            ...screen,
+            layers: [
+              ...screen.layers,
+              ...copies.map((copy, index) => ({ ...copy, zIndex: top + index + 1 })),
+            ],
+          }
+        }),
+        updatedAt: nextTimestamp(project.updatedAt),
+      })
+      selectLayers(copyIds)
+      dragSourceScreenIndexes.clear()
+      return
+    }
 
     const transfer = localUpdates.find((change) => change.sourceScreenId !== change.targetScreenId)
     const affectedScreenIds = new Set(
@@ -274,22 +448,28 @@ export function installInteractions({
         dragSourceScreenIndexes.set(object, sourceIndex)
       }
     }
-    const targetScreenIndex = screenIndexAtPoint(
-      getProject()?.screens ?? [],
-      target.getCenterPoint(),
-    )
+    const screens = getProject()?.screens ?? []
+    const targetScreenIndex = screenIndexAtPoint(screens, target.getCenterPoint())
     if (
       targetScreenIndex !== null &&
       localMembers.some((object) => object.data?.screenIndex !== targetScreenIndex)
     ) {
       for (const object of localMembers) {
         object.set('data', { ...object.data, screenIndex: targetScreenIndex })
-        ensureScreenClipPath(object, targetScreenIndex)
+        ensureScreenClipPath(object, targetScreenIndex, screens.length)
       }
       snapTargets = null
     }
 
     const pointerEvent = event.e as MouseEvent | TouchEvent
+    // Le curseur dit qu'on copie, le sosie dit *ce* qu'on copie. Fabric relit
+    // `moveCursor` à chaque déplacement, donc le poser ici suffit ; le sosie
+    // paraît et disparaît avec la touche, si bien qu'enfoncer ou relâcher Alt
+    // en cours de geste montre à chaque fois ce que le lâcher produira.
+    const copying = 'altKey' in pointerEvent && pointerEvent.altKey
+    canvas.moveCursor = copying ? 'copy' : 'move'
+    if (copying && !(target instanceof ActiveSelection) && !target.data?.layout) raiseGhost(target)
+    else if (!copying) dropGhost()
     const freehand = 'metaKey' in pointerEvent && (pointerEvent.metaKey || pointerEvent.ctrlKey)
     if (freehand) {
       guides = []
@@ -319,7 +499,24 @@ export function installInteractions({
     canvas.requestRenderAll()
   })
 
+  /**
+   * La position de départ, prise avant que quoi que ce soit ne bouge.
+   *
+   * `object:moving` est déjà trop tard — il rend compte d'un déplacement fait.
+   */
+  const disposeMouseDown = canvas.on('mouse:down', (event) => {
+    dragOrigin.clear()
+    const target = event.target as RenderedObject | undefined
+    if (!target || target instanceof ActiveSelection || target.data?.layout) return
+    dragOrigin.set(target, { left: target.left, top: target.top })
+  })
+
   const disposeMouseUp = canvas.on('mouse:up', () => {
+    canvas.moveCursor = 'move'
+    // Après `object:modified`, qui a lu sa présence : Fabric clôt la transformation
+    // avant d'annoncer le relâchement.
+    dropGhost()
+    dragOrigin.clear()
     mirrorLast.clear()
     dragSourceScreenIndexes.clear()
     guides = []
@@ -404,6 +601,7 @@ export function installInteractions({
     disposeModified()
     disposeAfterRender()
     disposeMoving()
+    disposeMouseDown()
     disposeMouseUp()
     disposeTextExit()
     disposeTextSelection()

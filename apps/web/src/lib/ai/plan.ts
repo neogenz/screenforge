@@ -1,8 +1,18 @@
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
-import { isBackground } from '@/lib/project-validation'
+import { backgroundToCss } from '@/lib/background-css'
 import { normalizeSlot } from '@/lib/slots'
 import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
+import {
+  assignArchetypes,
+  backgroundFor,
+  composeArchetype,
+  type ArchetypeId,
+  type ArchetypeLayout,
+  type PlanAccent,
+  type PlanBox,
+  type PlanDevice,
+} from '@/lib/ai/archetypes'
 import type { Palette } from '@/lib/ai/palette'
 import type { Background, DeviceModel, ScreenshotSize } from '@/types'
 
@@ -49,11 +59,17 @@ export interface CampaignBrief {
   logo?: { assetId: string; size: ScreenshotSize }
 }
 
+/**
+ * Ce qu'un visuel porte : des mots, un rôle, une capture. Pas un fond.
+ *
+ * Le fond est résolu par `planScreenLayout` au moment où il est lu (voir le
+ * commentaire là-bas). Le laisser aussi ici en ferait deux vérités dont l'une
+ * vieillit dès qu'on retire un visuel de la revue.
+ */
 export interface PlannedScreen {
   name: string
   headline: string
   slot?: string
-  background: Background
   /** Index dans `brief.screenshots`, quand une capture nourrit cette planche. */
   screenshotIndex?: number
 }
@@ -174,7 +190,6 @@ export function planFromBrief(brief: CampaignBrief): CampaignPlan {
       name: label || `${brief.appName} ${index + 1}`.trim(),
       headline: headlineFor(shot, brief, index),
       slot: normalizeSlot(label || `ecran-${index + 1}`),
-      background: { type: 'solid', color: palette.background },
       screenshotIndex: shot?.assetId ? index : undefined,
     }
   })
@@ -205,31 +220,14 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
       return false
     }
     if (screen.slot !== undefined && typeof screen.slot !== 'string') return false
-    /* Le contrat du projet, pas « c'est un objet ». `{}` et
-       `{type: 'arc-en-ciel'}` passaient ici, s'affichaient comme un plan
-       valide, et n'échouaient qu'au clic sur « Poser » — sur le message
-       générique du contrat de projet, qui ne dit pas quel fond est en cause.
-       Rien n'était jamais écrit, mais l'erreur désignait le mauvais endroit. */
-    if (!isBackground(screen.background)) return false
     return screen.screenshotIndex === undefined || typeof screen.screenshotIndex === 'number'
   })
 }
 
-const HEADLINE_WIDTH = SCREEN_WIDTH - 64
-const HEADLINE_TOP = 96
-const HEADLINE_HEIGHT = 120
-const HEADLINE_FONT_SIZE = 48
 const LOGO_TOP = 32
 const LOGO_HEIGHT = 48
-const DEVICE_TOP = 300
-
-/** Une boîte en unités de planche : 1320 × 2868, l'espace du projet. */
-export interface PlanBox {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+/** Ce que le logo doit laisser entre lui et l'accroche qu'il coiffe. */
+const LOGO_GAP = 16
 
 /**
  * Ce qu'un visuel contient et où, avant d'exister.
@@ -240,13 +238,39 @@ export interface PlanBox {
  * composant d'aperçu aurait montré une composition que la pose ne produit pas —
  * une revue qui ment est pire qu'une revue absente, puisqu'on y engage le
  * projet. D'où une fonction, et le constructeur qui la consomme lui aussi.
+ *
+ * Elle ne calcule plus la composition : elle la **résout**. Les coordonnées
+ * viennent de `archetypes.ts`, qui décide de la mise en page ; ce qui reste ici
+ * est ce qu'un archétype ne peut pas connaître — quelle capture nourrit cet
+ * appareil, où va le logo, quel rang porte quelle composition.
  */
-export interface PlanScreenLayout {
-  background: string
-  headline: PlanBox & { text: string; color: string; fontSize: number }
-  device: PlanBox & { assetId?: string; screenshotSize?: ScreenshotSize }
-  /** Uniquement sur le premier visuel, et seulement si un logo a été fourni. */
+export interface PlanScreenLayout extends ArchetypeLayout {
+  archetype: ArchetypeId
+  background: Background
+  device?: PlanDevice & { assetId?: string; screenshotSize?: ScreenshotSize }
+  /** Sur le premier visuel, et sur la planche de clôture quand il y en a une. */
   logo?: PlanBox & { assetId: string; size: ScreenshotSize }
+}
+
+/**
+ * Le logo, posé au-dessus de l'accroche ou sous elle selon la composition.
+ *
+ * Deux planches le portent et pas dix : l'ouverture, qui doit dire de quelle
+ * application il s'agit, et le mur de clôture, qui n'a que des mots et qu'un
+ * logo signe. Répété partout, il devient un filigrane que l'utilisateur efface
+ * huit fois.
+ */
+function logoBox(brief: CampaignBrief, archetype: ArchetypeId): PlanBox | null {
+  if (!brief.logo) return null
+  const width = Math.max(
+    1,
+    Math.round((brief.logo.size.width / brief.logo.size.height) * LOGO_HEIGHT),
+  )
+  const x = Math.round((SCREEN_WIDTH - width) / 2)
+  /* Sur le mur, l'accroche occupe le centre : le logo descend en pied plutôt
+     que de venir la coiffer là où il n'y a pas la place. */
+  const y = archetype === 'mur' ? Math.round(SCREEN_HEIGHT * 0.86) : LOGO_TOP
+  return { x, y, width, height: LOGO_HEIGHT }
 }
 
 export function planScreenLayout(
@@ -257,48 +281,59 @@ export function planScreenLayout(
   const screen = plan.screens[index]
   if (!screen) return null
 
-  const device = getDefaultDeviceSize(plan.deviceModel)
+  const archetype = assignArchetypes(plan.screens.length)[index]
+  const frame = getDefaultDeviceSize(plan.deviceModel)
   const shot =
     screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
 
-  /* Le logo n'est posé que sur le premier visuel : répété dix fois il devient
-     un filigrane, et c'est le visuel d'ouverture qui doit dire de quelle
-     application il s'agit. */
-  const logoHeight = LOGO_HEIGHT
-  const logoWidth = brief.logo
-    ? Math.max(1, Math.round((brief.logo.size.width / brief.logo.size.height) * logoHeight))
-    : 0
+  /* Résolu ici, à chaque lecture, et non porté par le visuel : les deux se
+     désaccordaient au premier « Retirer » de la revue. Le fond était figé à la
+     composition du rang au moment du plan, l'archétype se recalcule sur le
+     nombre de visuels **courant** — retirer le deuxième d'un lot de quatre
+     laissait donc la planche « carte » peinte sur l'accent plein cadre du mur,
+     avec son anneau devenu invisible dessus. Un fond ne survit pas au rang qui
+     l'a choisi ; il n'a donc rien à faire dans `PlannedScreen`. */
+  const background = backgroundFor(archetype, plan.palette)
+
+  const layout = composeArchetype(archetype, {
+    palette: plan.palette,
+    background,
+    headline: screen.headline,
+    deviceAspect: frame.width / frame.height,
+    index,
+  })
+
+  const carriesLogo = Boolean(brief.logo) && (index === 0 || archetype === 'mur')
+  const logo = carriesLogo ? logoBox(brief, archetype) : null
+
+  /* Le logo se pose en haut, et l'archétype ne sait pas qu'il existe : sur
+     l'ouverture, l'accroche commence à 43 et la bande du logo occupe 32 à 80.
+     Mesuré, le texte était peint par-dessus le logo sur le seul visuel que la
+     plupart des gens verront. Ce qui suit le logo descend donc d'autant — le
+     bloc de texte et l'appareil ensemble, pour que l'écart entre eux, lui, ne
+     bouge pas. La composition sans logo n'est pas touchée. */
+  const crowded = logo && logo.y === LOGO_TOP && layout.headline.y < LOGO_TOP + LOGO_HEIGHT
+  const shift = crowded ? LOGO_TOP + LOGO_HEIGHT + LOGO_GAP - layout.headline.y : 0
+  const headline = { ...layout.headline, y: layout.headline.y + shift }
+  const device = layout.device ? { ...layout.device, y: layout.device.y + shift } : undefined
 
   return {
-    background:
-      screen.background.type === 'solid' ? screen.background.color : plan.palette.background,
-    headline: {
-      text: screen.headline,
-      color: plan.palette.ink,
-      fontSize: HEADLINE_FONT_SIZE,
-      x: 32,
-      y: HEADLINE_TOP,
-      width: HEADLINE_WIDTH,
-      height: HEADLINE_HEIGHT,
-    },
-    device: {
-      x: Math.round((SCREEN_WIDTH - device.width) / 2),
-      y: DEVICE_TOP,
-      width: device.width,
-      height: device.height,
-      ...(shot?.assetId && shot.size ? { assetId: shot.assetId, screenshotSize: shot.size } : {}),
-    },
-    ...(index === 0 && brief.logo
+    ...layout,
+    headline,
+    archetype,
+    background,
+    ...(device
       ? {
-          logo: {
-            assetId: brief.logo.assetId,
-            size: brief.logo.size,
-            x: Math.round((SCREEN_WIDTH - logoWidth) / 2),
-            y: LOGO_TOP,
-            width: logoWidth,
-            height: logoHeight,
+          device: {
+            ...device,
+            ...(shot?.assetId && shot.size
+              ? { assetId: shot.assetId, screenshotSize: shot.size }
+              : {}),
           },
         }
+      : {}),
+    ...(carriesLogo && logo && brief.logo
+      ? { logo: { ...logo, assetId: brief.logo.assetId, size: brief.logo.size } }
       : {}),
   }
 }
@@ -331,7 +366,37 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
     if (!layout) continue
 
     calls.push({ tool: 'add_screen', args: { name: screen.name } })
-    calls.push({ tool: 'set_background', args: { background: screen.background } })
+    calls.push({ tool: 'set_background', args: { background: layout.background } })
+
+    /* L'ordre est l'ordre de peinture : `applyToolCalls` empile les calques
+       dans l'ordre des appels. Fond, formes de profondeur, appareil, pastille
+       de lisibilité, logo, puis l'accroche — qui est toujours en dernier,
+       parce qu'une accroche recouverte est une planche perdue. */
+    for (const accent of layout.accentsBehind) calls.push(accentCall(accent))
+
+    if (layout.device) {
+      calls.push({
+        tool: 'add_device',
+        args: {
+          deviceModel: plan.deviceModel,
+          x: layout.device.x,
+          y: layout.device.y,
+          width: layout.device.width,
+          height: layout.device.height,
+          rotation: layout.device.rotation,
+          ...(screen.slot ? { slot: screen.slot } : {}),
+          ...(layout.device.assetId && layout.device.screenshotSize
+            ? {
+                assetId: layout.device.assetId,
+                screenshotWidth: layout.device.screenshotSize.width,
+                screenshotHeight: layout.device.screenshotSize.height,
+              }
+            : {}),
+        },
+      })
+    }
+
+    for (const accent of layout.accentsFront) calls.push(accentCall(accent))
 
     if (layout.logo) {
       calls.push({
@@ -358,29 +423,30 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
         width: layout.headline.width,
         height: layout.headline.height,
         fontSize: layout.headline.fontSize,
+        fontWeight: layout.headline.fontWeight,
         color: layout.headline.color,
-        textAlign: 'center',
-      },
-    })
-
-    calls.push({
-      tool: 'add_device',
-      args: {
-        deviceModel: plan.deviceModel,
-        y: layout.device.y,
-        ...(screen.slot ? { slot: screen.slot } : {}),
-        ...(layout.device.assetId && layout.device.screenshotSize
-          ? {
-              assetId: layout.device.assetId,
-              screenshotWidth: layout.device.screenshotSize.width,
-              screenshotHeight: layout.device.screenshotSize.height,
-            }
-          : {}),
+        textAlign: layout.headline.align,
       },
     })
   }
 
   return calls
+}
+
+function accentCall(accent: PlanAccent): ToolCall {
+  return {
+    tool: 'add_shape',
+    args: {
+      shapeType: accent.shape,
+      x: accent.x,
+      y: accent.y,
+      width: accent.width,
+      height: accent.height,
+      fill: accent.color,
+      opacity: accent.opacity,
+      rotation: accent.rotation,
+    },
+  }
 }
 
 /**
@@ -390,28 +456,68 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
  * harmonise — le fond, l'encre des textes, la teinte des formes et des icônes.
  * Tous les appels sont bornés à l'écran visé, et l'exécuteur le revérifie.
  */
+/**
+ * Repeindre un écran déjà posé, et n'émettre que ce qui change vraiment.
+ *
+ * Le filtrage n'est pas une optimisation, c'est ce qui rend le geste honnête.
+ * « Sobre » vaut `#f2f3f5` sur `#141413`, ce qu'un écran produit par ce même
+ * générateur en direction Sobre porte déjà exactement : repeindre ouvrait alors
+ * une transaction, écrivait un pas d'annulation, annonçait « restylé » et
+ * fermait la boîte sans qu'un seul pixel bouge. L'utilisateur en conclut que le
+ * bouton est cassé, et il a raison de le conclure — un succès qui ne se voit
+ * pas ne se distingue pas d'une panne.
+ *
+ * Rendre une liste vide est donc un résultat, pas un cas dégénéré : l'appelant
+ * y lit « cet écran porte déjà ce style » et le dit, au lieu de fermer.
+ *
+ * `background` est passé à part parce que c'est la propriété de l'écran et non
+ * d'un calque, et parce que la comparaison doit voir un dégradé pour ce qu'il
+ * est : un fond dégradé n'est jamais la même chose qu'un aplat, même si l'une
+ * de ses bornes tombe sur la bonne couleur.
+ *
+ * Le fond posé est celui d'un archétype, jamais l'aplat nu de la palette : le
+ * geste s'appelle « harmoniser avec la campagne », et une campagne ne pose plus
+ * d'aplat. Un écran déjà composé par le générateur en sort donc inchangé, ce que
+ * la liste vide dit à l'appelant. Ce que la fonction ne sait pas et n'a aucun
+ * moyen de savoir : si une forme sert la composition — la pastille de
+ * lisibilité sous une accroche posée sur l'appareil, par exemple — plutôt que
+ * l'ornement. Elle les repeint toutes en accent. Sur un écran que l'utilisateur
+ * a composé lui-même c'est la promesse ; sur un visuel généré, c'est une
+ * pastille qui change de couleur sous son texte.
+ */
 export function restyleCalls(
-  screenLayers: readonly { id: string; type: string; locked: boolean }[],
+  screen: {
+    background: Background
+    /* `fill` en `unknown` : une forme peut porter un dégradé, et c'est
+       précisément un cas où il faut repeindre. La comparaison avec la teinte
+       échoue alors, ce qui est la bonne réponse — pas un cas à écarter. */
+    layers: readonly { id: string; type: string; locked: boolean; color?: string; fill?: unknown }[]
+  },
   palette: Palette,
 ): ToolCall[] {
-  const calls: ToolCall[] = [
-    { tool: 'set_background', args: { background: { type: 'solid', color: palette.background } } },
-  ]
-  for (const layer of screenLayers) {
+  const calls: ToolCall[] = []
+  const wanted = backgroundFor('plein-cadre', palette)
+  /* Comparés par ce qu'ils peignent, pas par leur forme : deux objets aux mêmes
+     couleurs mais aux clés dans un autre ordre sont le même fond, et c'est ce
+     que l'utilisateur voit qui décide s'il reste quelque chose à harmoniser. */
+  if (backgroundToCss(screen.background) !== backgroundToCss(wanted)) {
+    calls.push({ tool: 'set_background', args: { background: wanted } })
+  }
+  for (const layer of screen.layers) {
     if (layer.locked) continue
-    if (layer.type === 'text') {
+    if (layer.type === 'text' && layer.color !== palette.ink) {
       calls.push({
         tool: 'update_layer',
         args: { layerId: layer.id, patch: { color: palette.ink } },
       })
     }
-    if (layer.type === 'icon') {
+    if (layer.type === 'icon' && layer.color !== palette.accent) {
       calls.push({
         tool: 'update_layer',
         args: { layerId: layer.id, patch: { color: palette.accent } },
       })
     }
-    if (layer.type === 'shape') {
+    if (layer.type === 'shape' && layer.fill !== palette.accent) {
       calls.push({
         tool: 'update_layer',
         args: { layerId: layer.id, patch: { fill: palette.accent } },

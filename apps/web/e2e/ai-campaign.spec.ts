@@ -75,15 +75,24 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
   expect(after).toHaveLength(before.length + 3)
   const composed = after[before.length]
   expect(composed.name).toBe('Cadence 1')
-  // De vrais calques : un texte éditable et un appareil, pas une image aplatie.
-  expect(composed.layers.map((layer) => layer.type)).toEqual(['text', 'device-frame'])
-  expect(composed.layers[0].content).toBe('Le budget dans une poche')
-  expect(composed.layers[0].color).toBe('#ffffff')
-  expect(composed.layers[1].slot).toBe('ecran-1')
-  expect(composed.background).toEqual({ type: 'solid', color: '#101114' })
+  /* De vrais calques : un texte éditable et un appareil, pas une image aplatie.
+     Le texte est posé en dernier, et c'est l'ordre qui compte — un visuel où
+     une composition passe par-dessus l'accroche est un visuel raté. */
+  expect(composed.layers.map((layer) => layer.type)).toEqual(['device-frame', 'text'])
+  const headline = composed.layers[composed.layers.length - 1]
+  expect(headline.content).toBe('Le budget dans une poche')
+  expect(headline.color).toBe('#ffffff')
+  expect(composed.layers[0].slot).toBe('ecran-1')
+  /* Le fond vient de l'archétype du rang, jamais de l'aplat de la direction :
+     « Contrasté » vaut #101114, et l'ouverture en fait un voile. Un lot de dix
+     aplats identiques est exactement le défaut que la refonte a supprimé. */
+  expect(composed.background.type).toBe('linear-gradient')
   // La phrase du brief n'est posée qu'une fois : répétée, elle serait un
   // filigrane à effacer sur chacun des visuels suivants.
-  expect(after[before.length + 1].layers[0].content).toBe('Cadence')
+  const second = after[before.length + 1].layers
+  expect(second[second.length - 1].content).toBe('Cadence')
+  // Deux visuels voisins ne portent jamais la même composition.
+  expect(after[before.length + 1].background).not.toEqual(composed.background)
 
   // Un run accepté vaut un pas d'annulation, pas neuf.
   expect(await historyDepth(page)).toBe(depth + 1)
@@ -129,8 +138,10 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
 
   const after = await screens(page)
   expect(after).toHaveLength(before.length + 2)
-  expect(after[before.length].layers[0].content).toBe('Le budget dans une poche')
-  expect(after[before.length + 1].layers[0].content).toBe('Tout tient dans la poche')
+  // L'accroche est le dernier calque posé : rien ne la recouvre.
+  const laid = (index: number) => after[index].layers.at(-1)?.content
+  expect(laid(before.length)).toBe('Le budget dans une poche')
+  expect(laid(before.length + 1)).toBe('Tout tient dans la poche')
 })
 
 test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
@@ -148,7 +159,10 @@ test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
 
   const after = await screens(page)
-  expect(after[1].background).toEqual({ type: 'solid', color: '#1b1f3b' })
+  /* Harmoniser pose le fond d'un visuel de campagne, pas l'aplat de la
+     palette : le geste promet « comme la campagne », et la campagne n'en pose
+     plus d'uni. */
+  expect(after[1].background.type).toBe('linear-gradient')
   expect(after[1].layers[0].color).toBe('#eef1ff')
   // Le premier écran n'a pas été touché : ni son fond, ni l'encre de son texte.
   expect(after[0]).toEqual(before[0])

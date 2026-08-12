@@ -8,6 +8,7 @@ import {
   clipControlsToScreen,
   disposeFabricObjectResource,
   getScreenOffset,
+  intersectsScreen,
   layerToFabricObject,
   needsFabricObjectRecreation,
   type RenderedObject,
@@ -36,30 +37,66 @@ export type CanvasSyncRuntime = {
   generateThumbnails: (screens: Screen[]) => void
 }
 
-const MIN_GRABBABLE = 8
-
-function intersectsScreen(object: RenderedObject, screenIndex: number): boolean {
-  const bounds = object.getBoundingRect()
-  const windowLeft = getScreenOffset(screenIndex)
-  const overlapX =
-    Math.min(bounds.left + bounds.width, windowLeft + SCREEN_WIDTH) -
-    Math.max(bounds.left, windowLeft)
-  const overlapY = Math.min(bounds.top + bounds.height, SCREEN_HEIGHT) - Math.max(bounds.top, 0)
-  return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
-}
-
-export function ensureScreenClipPath(object: RenderedObject, screenIndex: number): void {
-  if (object.data?.clipScreenIndex === screenIndex) return
-  clipContentToScreen(object, screenIndex)
+/**
+ * Réinstalle le rendu écrêté quand la planche de rattachement change.
+ *
+ * Le nombre de planches entre dans la garde au même titre que l'index : le
+ * fantôme hors planche est écrêté au complément de **toutes** les planches, donc
+ * ajouter ou retirer un écran change ce qu'il doit peindre sans qu'aucun calque
+ * n'ait bougé.
+ */
+export function ensureScreenClipPath(
+  object: RenderedObject,
+  screenIndex: number,
+  screenCount: number,
+): void {
+  if (object.data?.clipScreenIndex === screenIndex && object.data?.clipScreenCount === screenCount)
+    return
+  clipContentToScreen(object, screenIndex, screenCount)
   clipControlsToScreen(object, screenIndex)
-  object.set('data', { ...object.data, clipScreenIndex: screenIndex })
+  object.set('data', { ...object.data, clipScreenIndex: screenIndex, clipScreenCount: screenCount })
 }
 
-function applyLayoutInstance(object: RenderedObject, layer: Layer, screenIndex: number): void {
+/**
+ * Ce qu'un calque doit à la planche qui le porte : son écrêtage, et sa prise.
+ *
+ * Une seule fonction pour les deux, appelée par les trois chemins qui posent un
+ * calque — la synchronisation complète, le patch, et l'instance de gabarit —
+ * parce que la prise se réécrit à chaque passe. `applyLayerToFabricObject` ne
+ * connaît qu'un décalage, pas une planche, et remet `selectable`/`evented` à
+ * `!layer.locked` sans savoir où l'objet a atterri : une décision posée dans le
+ * seul chemin de synchronisation serait annulée en silence au patch suivant, à
+ * la première flèche du clavier.
+ *
+ * Perdre la prise n'est pas perdre le calque : la liste des calques le
+ * sélectionne toujours — `setActiveObject` ne lit ni l'un ni l'autre drapeau —
+ * les flèches le déplacent, et le panneau Transformation propose de le ramener.
+ * Ce qu'on lui retire, c'est de répondre à un clic là où il n'est plus visible,
+ * au-dessus de la planche du voisin.
+ */
+function applyScreenPresence(
+  object: RenderedObject,
+  layer: Layer,
+  screenIndex: number,
+  screenCount: number,
+): void {
+  ensureScreenClipPath(object, screenIndex, screenCount)
+  /* Les deux drapeaux, pas un seul : `evented` garde le clic (`_checkTarget`),
+     `selectable` garde le lasso (`collectObjects`, qui ignore `evented`). N'en
+     poser qu'un laisserait un lasso tiré sur la planche voisine ramasser un
+     calque qu'on n'y voit pas — le même défaut, par l'autre porte. */
+  const grabbable = !layer.locked && intersectsScreen(object, screenIndex)
+  object.set({ selectable: grabbable, evented: grabbable })
+}
+
+function applyLayoutInstance(
+  object: RenderedObject,
+  layer: Layer,
+  screenIndex: number,
+  screenCount: number,
+): void {
   applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH)
-  ensureScreenClipPath(object, screenIndex)
-  const visible = intersectsScreen(object, screenIndex)
-  object.set({ selectable: !layer.locked && visible, evented: !layer.locked && visible })
+  applyScreenPresence(object, layer, screenIndex, screenCount)
 }
 
 function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
@@ -209,7 +246,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           rendererType: layer.type,
         })
         applyLayerToFabricObject(object, layer, offset)
-        ensureScreenClipPath(object, screenIndex)
+        applyScreenPresence(object, layer, screenIndex, screens.length)
       }
     }
 
@@ -249,7 +286,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           layout: true,
           rendererType: layer.type,
         })
-        applyLayoutInstance(object, layer, screenIndex)
+        applyLayoutInstance(object, layer, screenIndex, screens.length)
       }
     }
 
@@ -362,6 +399,7 @@ export async function patchCanvas(
     if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
       return false
     applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
+    applyScreenPresence(object, layer, screenIndex, project.screens.length)
   }
 
   for (const layerId of change.layoutLayerIds) {
@@ -373,7 +411,7 @@ export async function patchCanvas(
       const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
       if (!object) return false
       if (needsFabricObjectRecreation(object, layer)) return false
-      applyLayoutInstance(object, layer, index)
+      applyLayoutInstance(object, layer, index, project.screens.length)
     }
   }
 

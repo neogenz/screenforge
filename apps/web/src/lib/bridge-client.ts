@@ -3,6 +3,7 @@ import { AI_LIMITS } from '@/lib/ai/tools'
 import { normalizeSlot } from '@/lib/slots'
 import { resolvePalette } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
+import type { EngineId } from '@/lib/ai/providers'
 
 /**
  * Le client du pont local.
@@ -21,10 +22,10 @@ import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 2
+const PROTOCOL = 3
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
-export type BridgeCapability = 'codex' | 'asc-publish'
+export type BridgeCapability = 'assistant' | 'asc-publish'
 
 /**
  * Un jeton par capacité, en mémoire de module.
@@ -40,20 +41,39 @@ export type BridgeCapability = 'codex' | 'asc-publish'
  * porte fermée. C'est le pont qui le décide, la page ne fait que ne pas
  * mélanger les deux.
  */
-const sessionTokens: Record<BridgeCapability, string> = { codex: '', 'asc-publish': '' }
+const sessionTokens: Record<BridgeCapability, string> = { assistant: '', 'asc-publish': '' }
 
-export function setBridgeToken(capability: BridgeCapability, token: string): void {
+/**
+ * Le moteur avec lequel l'appairage a été fait, retenu avec le jeton.
+ *
+ * La boîte des langues traduit par le même pont sans jamais montrer le choix du
+ * moteur : sans cette mémoire elle repartait sur `codex`, et l'utilisateur qui
+ * n'a que Claude Code installé voyait la traduction échouer après une campagne
+ * réussie, sur une machine où tout était pourtant branché.
+ */
+let sessionEngine: EngineId = 'codex'
+
+export function setBridgeToken(
+  capability: BridgeCapability,
+  token: string,
+  engine?: EngineId,
+): void {
   sessionTokens[capability] = token.trim()
+  if (engine) sessionEngine = engine
 }
 
 export function bridgeToken(capability: BridgeCapability): string {
   return sessionTokens[capability]
 }
 
+export function bridgeEngine(): EngineId {
+  return sessionEngine
+}
+
 export type BridgeStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'ready'; hello: Hello; models: BridgeModel[] }
+  | { state: 'ready'; hello: Hello; engine: EngineId; models: BridgeModel[] }
   | { state: 'error'; message: string; recoverable: boolean }
 
 export interface BridgeModel {
@@ -93,33 +113,79 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
  *
  * Un pont éteint ne répond pas : `fetch` rejette sans statut. Dire « échec
  * réseau » n'apprendrait rien ; dire quelle commande lancer, si.
+ *
+ * Elle nomme deux causes parce que le navigateur les rend indiscernables :
+ * une origine refusée renvoie un 403 *sans* en-tête `Access-Control-Allow-Origin`
+ * — l'early return du pont est avant les en-têtes CORS — donc le navigateur
+ * masque la réponse et `fetch` rejette avec le même `TypeError` qu'un port
+ * fermé. Mesuré sur le cas le plus banal qui soit : le pont tournait, la page
+ * était servie sur 5173, et l'écran répondait « lancez-le » à quelqu'un qui
+ * l'avait lancé. Le pont liste ses origines à son démarrage, d'où le renvoi.
  */
 const UNREACHABLE =
-  'Pont injoignable sur 127.0.0.1:4590. Lancez-le avec « pnpm --filter bridge run start ». Une page servie en HTTPS ne peut pas l’atteindre.'
+  'Pont injoignable sur 127.0.0.1:4590. Lancez-le depuis le dossier ScreenForge avec « pnpm --filter bridge run start ». S’il tourne déjà, il refuse l’adresse de cette page : comparez-la aux origines qu’il liste à son démarrage. Une page servie en HTTPS ne peut pas l’atteindre.'
 
-export async function connectBridge(token: string): Promise<BridgeStatus> {
+/**
+ * Ce que le pont dit de lui-même, sans jeton.
+ *
+ * Séparé de `connectBridge` parce que l'installation guidée s'en sert avant
+ * qu'un jeton n'existe : savoir que le pont tourne et quels assistants il a
+ * trouvés est ce qui transforme la première étape d'une consigne en un état.
+ * Auparavant, on collait un jeton pour apprendre que le pont n'était pas lancé.
+ */
+export async function probeBridge(): Promise<
+  | { state: 'up'; hello: Hello }
+  | { state: 'down'; message: string }
+  | { state: 'mismatch'; message: string }
+> {
   try {
     const hello = await call<Hello>('/hello', '')
     if (hello.protocol !== PROTOCOL) {
       return {
-        state: 'error',
+        state: 'mismatch',
         message: `Le pont parle la version ${hello.protocol}, cette page la ${PROTOCOL}. Mettez-les à jour ensemble.`,
-        recoverable: false,
       }
     }
-    if (!hello.codexAvailable) {
-      return {
-        state: 'error',
-        message:
-          'Le pont tourne, mais la commande « codex » est introuvable. Installez-la et connectez-la.',
-        recoverable: false,
-      }
-    }
-    const { models } = await call<{ models: BridgeModel[] }>('/models', token)
-    return { state: 'ready', hello, models }
+    return { state: 'up', hello }
   } catch (cause) {
-    if (cause instanceof TypeError)
-      return { state: 'error', message: UNREACHABLE, recoverable: true }
+    return {
+      state: 'down',
+      message:
+        cause instanceof TypeError
+          ? UNREACHABLE
+          : cause instanceof Error
+            ? cause.message
+            : 'Le pont n’a pas répondu.',
+    }
+  }
+}
+
+/**
+ * Appaire, pour un moteur donné.
+ *
+ * Le moteur commande deux choses : le refus quand il n'est pas installé, et la
+ * liste de modèles demandée — Codex rend son catalogue, Claude Code ses alias.
+ * Un pont joignable dont le binaire manque est un état à part entière, et le
+ * dire vaut mieux que laisser l'échec arriver au moment de générer.
+ */
+export async function connectBridge(token: string, engine: EngineId): Promise<BridgeStatus> {
+  const probe = await probeBridge()
+  if (probe.state === 'down') return { state: 'error', message: probe.message, recoverable: true }
+  if (probe.state === 'mismatch')
+    return { state: 'error', message: probe.message, recoverable: false }
+
+  const { hello } = probe
+  if (!hello.engines.some((entry) => entry.id === engine)) {
+    return {
+      state: 'error',
+      message: `Le pont tourne, mais la commande « ${engine} » est introuvable sur cette machine. Installez-la, connectez-la, puis réessayez.`,
+      recoverable: false,
+    }
+  }
+  try {
+    const { models } = await call<{ models: BridgeModel[] }>(`/models?engine=${engine}`, token)
+    return { state: 'ready', hello, engine, models }
+  } catch (cause) {
     return {
       state: 'error',
       message: cause instanceof Error ? cause.message : 'Le pont n’a pas répondu.',
@@ -139,6 +205,7 @@ export async function connectBridge(token: string): Promise<BridgeStatus> {
 export async function planViaBridge(
   brief: CampaignBrief,
   token: string,
+  engine: EngineId,
   model?: string,
 ): Promise<CampaignPlan> {
   const { plan } = await call<{ plan: BridgePlan }>('/plan', token, {
@@ -146,6 +213,7 @@ export async function planViaBridge(
     body: JSON.stringify({
       protocol: PROTOCOL,
       deviceModel: brief.deviceModel,
+      engine,
       ...(model ? { model } : {}),
       brief: {
         appName: brief.appName,
@@ -162,27 +230,26 @@ export async function planViaBridge(
     }),
   })
 
-  const screens: PlannedScreen[] = plan.screens
-    .slice(0, Math.min(AI_LIMITS.maxScreens, brief.screenCount))
-    .map((screen, index) => {
-      const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
-      return {
-        name: screen.name.slice(0, AI_LIMITS.maxNameLength),
-        headline: screen.headline.slice(0, AI_LIMITS.maxTextLength),
-        slot: normalizeSlot(screen.slot || screen.name || `ecran-${index + 1}`),
-        background: { type: 'solid', color: screen.background.color },
-        screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
-      }
-    })
+  /* La palette reste celle du brief, jamais celle que le modèle a rendue : les
+     trois couleurs de la campagne appartiennent à l'utilisateur, qui vient de
+     les choisir ou de les faire lire dans ses captures. */
+  const palette = resolvePalette(brief)
+  const kept = Math.min(AI_LIMITS.maxScreens, brief.screenCount, plan.screens.length)
+
+  const screens: PlannedScreen[] = plan.screens.slice(0, kept).map((screen, index) => {
+    const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
+    return {
+      name: screen.name.slice(0, AI_LIMITS.maxNameLength),
+      headline: screen.headline.slice(0, AI_LIMITS.maxTextLength),
+      slot: normalizeSlot(screen.slot || screen.name || `ecran-${index + 1}`),
+      screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
+    }
+  })
 
   return {
     appName: brief.appName,
     direction: brief.direction,
-    /* La palette reste celle du brief, jamais celle que le modèle a rendue :
-       le fond par visuel lui appartient, les trois couleurs de la campagne
-       appartiennent à l'utilisateur, qui vient de les choisir ou de les faire
-       lire dans ses captures. */
-    palette: resolvePalette(brief),
+    palette,
     deviceModel: brief.deviceModel,
     screens,
   }
@@ -200,10 +267,11 @@ export async function translateViaBridge(
   target: { code: string; name: string; script: string },
   texts: readonly string[],
   token: string,
+  engine: EngineId = 'codex',
 ): Promise<string[]> {
   const answer = await call<{ texts: string[] }>('/translate', token, {
     method: 'POST',
-    body: JSON.stringify({ protocol: PROTOCOL, target, texts }),
+    body: JSON.stringify({ protocol: PROTOCOL, target, texts, engine }),
   })
   if (answer.texts.length !== texts.length) {
     throw new Error('Le pont a rendu un nombre de textes inattendu : rien n’a été repris.')

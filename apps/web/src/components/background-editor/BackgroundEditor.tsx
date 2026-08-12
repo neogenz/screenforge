@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Background, ColorStop, GradientFill } from '@/types'
 import { cn } from '@/lib/utils'
+import { backgroundToCss } from '@/lib/background-css'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { Field } from '@/components/ui/field'
@@ -55,24 +56,6 @@ function gradientFillToBackground(fill: GradientFill): Background {
     }
   }
   return { type: 'linear-gradient', angle: fill.angle ?? 135, stops: fill.stops }
-}
-
-function buildPreviewStyle(bg: Background): React.CSSProperties {
-  if (bg.type === 'solid') {
-    return { background: bg.color }
-  }
-  const stops = bg.stops
-    .slice()
-    .sort((a: ColorStop, b: ColorStop) => a.offset - b.offset)
-    .map((s: ColorStop) => `${s.color} ${Math.round(s.offset * 100)}%`)
-    .join(', ')
-
-  if (bg.type === 'radial-gradient') {
-    return {
-      background: `radial-gradient(circle at ${bg.centerX ?? 50}% ${bg.centerY ?? 50}%, ${stops})`,
-    }
-  }
-  return { background: `linear-gradient(${bg.angle}deg, ${stops})` }
 }
 
 function tabFromBackground(bg: Background): Tab {
@@ -162,7 +145,7 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
                 aria-label={`Appliquer le dégradé ${preset.name}`}
                 aria-pressed={selected}
                 title={preset.name}
-                style={buildPreviewStyle(preset.background)}
+                style={{ background: backgroundToCss(preset.background) }}
                 className={cn(
                   'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
                   selected ? 'border-muted-foreground' : 'border-border hover:border-input',

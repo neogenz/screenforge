@@ -39,11 +39,13 @@ async function catalogBoxes(page: Page) {
       id: entry.id as string,
       box: measure(entry.path as string),
       limit: catalog.SHAPE_BOX,
+      declared: [...catalog.drawnBox(entry)] as number[],
     }))
     const icons = catalog.ICON_CATALOG.map((entry) => ({
       id: entry.id as string,
       box: measure(entry.path),
       limit: catalog.ICON_BOX,
+      declared: null,
     }))
     svg.remove()
     return [...shapes, ...icons]
@@ -69,6 +71,29 @@ test('chaque tracé du catalogue tient dans sa boîte', async ({ page }) => {
     expect(Math.max(box.width, box.height), `${id} n'occupe pas sa boîte`).toBeGreaterThan(
       limit / 2,
     )
+  }
+})
+
+/**
+ * `drawn` dit ce que le tracé occupe vraiment, et c'est mesuré ici.
+ *
+ * L'aperçu de campagne dessine ces formes en SVG là où l'éditeur les dessine
+ * par Fabric, et Fabric met un tracé à l'échelle de sa propre boîte englobante.
+ * Les deux ne coïncident que si le `viewBox` de l'aperçu est cette boîte-là.
+ * Elle était supposée valoir 100 × 100 pour toutes : « Ligne » en fait 100 × 12,
+ * ce qui rendait un pavé plein sur la planche et un filet dans l'aperçu — la
+ * revue montrait une composition que la pose ne produisait pas. Un chiffre
+ * recopié à la main se serait démodé au premier tracé retouché ; celui-ci est
+ * relu par un vrai moteur SVG à chaque exécution.
+ */
+test('ce qu’une forme déclare occuper est ce qu’elle occupe', async ({ page }) => {
+  await waitForApp(page)
+  for (const { id, box, declared } of await catalogBoxes(page)) {
+    if (!declared) continue
+    const measured = [box.x, box.y, box.width, box.height]
+    for (const [at, value] of measured.entries()) {
+      expect(declared[at], `${id} — ${['x', 'y', 'largeur', 'hauteur'][at]}`).toBeCloseTo(value, 1)
+    }
   }
 })
 

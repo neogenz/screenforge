@@ -120,6 +120,11 @@ const background: ParamSchema = {
     color,
     angle: { type: 'number', minimum: 0, maximum: 360 },
     stops: { type: 'array', maxItems: 6, items: colorStop },
+    /* Le contrat du projet accepte un centre décalé depuis toujours ; le schéma
+       ne le nommait pas, donc un fond radial centré ailleurs qu'au milieu était
+       refusé ici avant d'atteindre la validation qui l'aurait accepté. */
+    centerX: { type: 'number', minimum: 0, maximum: 100 },
+    centerY: { type: 'number', minimum: 0, maximum: 100 },
   },
   required: ['type'],
   additionalProperties: false,
@@ -130,6 +135,20 @@ const geometry: Record<string, ParamSchema> = {
   y: coordinate,
   width: size,
   height: size,
+  /*
+     La rotation et l'opacité sont posables à la création, et pas seulement par
+     `update_layer`.
+
+     Ce n'est pas une commodité : un plan déterministe construit sa liste
+     d'appels **avant** que le premier ne s'exécute, donc il n'a aucun
+     identifiant de calque à patcher ensuite. Sans ces deux champs ici, un
+     appareil incliné ou une forme d'accent en filigrane étaient hors d'atteinte
+     du constructeur — pas parce que l'éditeur ne sait pas les faire, mais parce
+     que le vocabulaire ne savait pas les dire. C'est exactement ce que
+     l'utilisateur constatait en voyant dix planches identiques et plates.
+  */
+  rotation: { type: 'number', minimum: -360, maximum: 360 },
+  opacity: { type: 'number', minimum: 0, maximum: 1 },
 }
 
 function object(
@@ -266,9 +285,9 @@ export const AI_TOOLS: readonly ToolSchema[] = [
         layerId,
         patch: object({
           name: { type: 'string', maxLength: AI_LIMITS.maxNameLength },
+          /* `geometry` porte déjà la rotation et l'opacité : les redéclarer ici
+             ferait deux définitions du même champ, qui divergeraient. */
           ...geometry,
-          rotation: { type: 'number', minimum: -360, maximum: 360 },
-          opacity: { type: 'number', minimum: 0, maximum: 1 },
           visible: { type: 'boolean' },
           content: { type: 'string', maxLength: AI_LIMITS.maxTextLength },
           fontFamily: { type: 'string', enum: POPULAR_FONTS },
@@ -440,8 +459,9 @@ function findLayer(draft: Project, id: string): { layer: Layer; screen?: Screen 
   return shared ? { layer: shared } : undefined
 }
 
+/** Le seul endroit qui pose la géométrie d'un calque créé — les cinq `add_*`. */
 function place(layer: Layer, args: Record<string, unknown>): Layer {
-  for (const key of ['x', 'y', 'width', 'height'] as const) {
+  for (const key of ['x', 'y', 'width', 'height', 'rotation', 'opacity'] as const) {
     if (typeof args[key] === 'number') layer[key] = args[key]
   }
   return layer

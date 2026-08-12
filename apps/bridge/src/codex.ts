@@ -44,10 +44,19 @@ export class CodexClient {
   /** Le texte final de chaque tour, agrégé depuis `item/completed`. */
   private messages: string[] = []
 
-  constructor(
-    private readonly command = process.env.SCREENFORGE_CODEX_BIN ?? 'codex',
-    private readonly cwd = process.cwd(),
-  ) {}
+  private readonly command: string
+  private readonly cwd: string
+
+  /* Champs déclarés puis affectés, et non des propriétés de paramètre : Node
+     exécute ce fichier en « strip-only », qui retire les types sans rien
+     réécrire, et `private readonly command = …` dans la signature est la seule
+     syntaxe TypeScript qui exige une réécriture. Le pont ne démarrait pas du
+     tout — `pnpm --filter bridge run start`, la commande même que l'écran
+     d'installation donne à copier, s'arrêtait sur ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX. */
+  constructor(command = process.env.SCREENFORGE_CODEX_BIN ?? 'codex', cwd = process.cwd()) {
+    this.command = command
+    this.cwd = cwd
+  }
 
   private start(): ChildProcessWithoutNullStreams {
     if (this.child) return this.child

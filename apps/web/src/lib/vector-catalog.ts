@@ -11,10 +11,18 @@
  * calques, les modèles, les aperçus, l'export, le constructeur IA et la
  * validation. Deux tables auraient divergé au premier ajout.
  *
- * Les formes sont tracées dans une boîte de 100 × 100 qu'elles remplissent :
- * l'objet Fabric est mis à l'échelle, jamais retracé, donc redimensionner ne
- * reconstruit rien. Les icônes gardent la boîte de 24 de leur source et se
- * dessinent au trait.
+ * Les formes sont tracées dans une boîte de 100 × 100 : l'objet Fabric est mis
+ * à l'échelle, jamais retracé, donc redimensionner ne reconstruit rien. Les
+ * icônes gardent la boîte de 24 de leur source et se dessinent au trait.
+ *
+ * Elles n'en occupent pas toutes la totalité, et `drawn` dit laquelle occupe
+ * quoi. Fabric met un tracé à l'échelle de **sa propre** boîte englobante, pas
+ * de celle du catalogue : « Ligne » est un bandeau de 100 × 12, donc un calque
+ * de 88 × 40 le rend en pavé plein, quand un `viewBox` de 100 le rendait en
+ * filet de cinq pixels. Le champ existe pour que l'aperçu de campagne — qui
+ * dessine ces formes en SVG et non par Fabric — les mette à l'échelle de la
+ * même manière. Il est mesuré par un vrai moteur SVG dans `vector-catalog.spec`,
+ * jamais recopié à la main.
  */
 
 export const SHAPE_BOX = 100
@@ -26,10 +34,28 @@ const SHAPES = [
   { id: 'rectangle', label: 'Rectangle', group: 'Base' },
   { id: 'rounded-rect', label: 'Arrondi', group: 'Base' },
   { id: 'circle', label: 'Cercle', group: 'Base' },
-  { id: 'line', label: 'Ligne', group: 'Base', path: 'M0 44h100v12H0z' },
-  { id: 'triangle', label: 'Triangle', group: 'Géométrie', path: 'M50 2 98 96H2z' },
-  { id: 'diamond', label: 'Losange', group: 'Géométrie', path: 'M50 1 99 50 50 99 1 50z' },
-  { id: 'arch', label: 'Arche', group: 'Géométrie', path: 'M4 98V48a46 46 0 0 1 92 0v50z' },
+  { id: 'line', label: 'Ligne', group: 'Base', path: 'M0 44h100v12H0z', drawn: [0, 44, 100, 12] },
+  {
+    id: 'triangle',
+    label: 'Triangle',
+    group: 'Géométrie',
+    path: 'M50 2 98 96H2z',
+    drawn: [2, 2, 96, 94],
+  },
+  {
+    id: 'diamond',
+    label: 'Losange',
+    group: 'Géométrie',
+    path: 'M50 1 99 50 50 99 1 50z',
+    drawn: [1, 1, 98, 98],
+  },
+  {
+    id: 'arch',
+    label: 'Arche',
+    group: 'Géométrie',
+    path: 'M4 98V48a46 46 0 0 1 92 0v50z',
+    drawn: [4, 2, 92, 96],
+  },
   {
     id: 'ring',
     label: 'Anneau',
@@ -41,12 +67,14 @@ const SHAPES = [
     label: 'Étoile',
     group: 'Accent',
     path: 'M50 1 61.76 33.82 96.6 34.86 69.02 56.18 78.8 89.64 50 70 21.2 89.64 30.98 56.18 3.4 34.86 38.24 33.82z',
+    drawn: [3.4, 1, 93.2, 88.64],
   },
   {
     id: 'burst',
     label: 'Éclat',
     group: 'Accent',
     path: 'M50 1 58.8 17.16 74.5 7.56 74.04 25.96 92.44 25.5 82.84 41.2 99 50 82.84 58.8 92.44 74.5 74.04 74.04 74.5 92.44 58.8 82.84 50 99 41.2 82.84 25.5 92.44 25.96 74.04 7.56 74.5 17.16 58.8 1 50 17.16 41.2 7.56 25.5 25.96 25.96 25.5 7.56 41.2 17.16z',
+    drawn: [1, 1, 98, 98],
   },
   {
     id: 'spark',
@@ -59,13 +87,21 @@ const SHAPES = [
     label: 'Goutte',
     group: 'Accent',
     path: 'M50 1C59.55 0.88 71.16 12.84 78.99 21.01C86.82 29.18 97.35 40.69 97 50C96.65 59.31 84.7 68.87 76.87 76.87C69.04 84.87 59.43 97.53 50 98C40.57 98.47 27.97 87.7 20.3 79.7C12.63 71.7 3.76 59.66 4 50C4.24 40.34 14.05 29.88 21.72 21.72C29.38 13.55 40.45 1.12 50 1z',
+    drawn: [4, 1, 93.01, 97.02],
   },
-  { id: 'arrow', label: 'Flèche', group: 'Direction', path: 'M0 32h58V10l42 40-42 40V68H0z' },
+  {
+    id: 'arrow',
+    label: 'Flèche',
+    group: 'Direction',
+    path: 'M0 32h58V10l42 40-42 40V68H0z',
+    drawn: [0, 10, 100, 80],
+  },
   {
     id: 'wave',
     label: 'Vague',
     group: 'Direction',
     path: 'M0 58c17-34 33 34 50 0s33-34 50 0v42H0z',
+    drawn: [0, 32.5, 100, 67.5],
   },
 ] as const
 
@@ -77,6 +113,19 @@ export interface ShapeEntry {
   readonly group: string
   /** Absent pour les primitives Fabric — un rectangle n'a pas besoin d'un tracé. */
   readonly path?: string
+  /**
+   * `[x, y, largeur, hauteur]` réellement occupés dans la boîte de 100.
+   *
+   * Absent quand le tracé la remplit exactement, ce qui est le cas courant.
+   * Mesuré par `getBBox`, jamais estimé : les valeurs viennent de
+   * `vector-catalog.spec`, qui échoue si l'une d'elles ment.
+   */
+  readonly drawn?: readonly [number, number, number, number]
+}
+
+/** La boîte qu'un tracé occupe : la sienne, ou celle du catalogue entière. */
+export function drawnBox(entry: ShapeEntry): readonly [number, number, number, number] {
+  return entry.drawn ?? [0, 0, SHAPE_BOX, SHAPE_BOX]
 }
 
 export const SHAPE_CATALOG: readonly ShapeEntry[] = SHAPES

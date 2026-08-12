@@ -120,6 +120,7 @@ export type RenderedObject = FabricObject & {
     screenId?: string
     screenIndex?: number
     clipScreenIndex?: number
+    clipScreenCount?: number
     layout?: boolean
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
@@ -129,6 +130,141 @@ export type RenderedObject = FabricObject & {
 
 export function getScreenOffset(index: number): number {
   return index * (SCREEN_WIDTH + SCREEN_GAP)
+}
+
+// ─── Hors planche : ce qui est sorti du cadre, et ce qu'il en reste ──────────
+
+/**
+ * Ce qui reste d'un calque une fois sorti de sa planche.
+ *
+ * Une planche ne montre que ce qui lui appartient — c'est ce que l'export
+ * livrera, et une planche qui montre autre chose ment sur son propre contenu.
+ * Mais ce qui en sort n'est pas supprimé pour autant : le calque est toujours
+ * dans la liste, il porte toujours son texte, et il suffit de le ramener. Le
+ * couper net revenait à répondre « effacé » à un geste qui voulait dire
+ * « déplacé ». Mesuré : un calque posé hors de sa planche devenait invisible
+ * partout, tout en restant cliquable au-dessus de la planche VOISINE, où il
+ * volait le clic destiné au calque de celle-ci.
+ *
+ * Un quart, et pas la moitié : il faut lire au premier coup d'œil que ce n'est
+ * pas de la composition. Le grain de la scène est à 5,5 % — à 25 % le fantôme
+ * s'en détache nettement sans jamais se confondre avec un calque posé.
+ */
+export const OFFBOARD_OPACITY = 0.25
+
+/**
+ * De quoi couvrir la scène bien au-delà de ce qu'un calque peut atteindre.
+ *
+ * Le fantôme est écrêté au complément des planches, et un complément a besoin
+ * d'un contour extérieur. Il est large plutôt que calculé sur la boîte de
+ * l'objet, parce qu'une ombre portée déborde de cette boîte-là sans que Fabric
+ * le dise : `getBoundingRect` ignore `shadow`.
+ */
+const STAGE_REACH = 100_000
+
+/**
+ * Une marge d'un demi-pixel avant de déclarer qu'un calque déborde.
+ *
+ * Le liseré d'un tracé mord d'un demi-pixel de part et d'autre de sa boîte. Sans
+ * cette marge, un calque calé pile sur le bord de sa planche déclencherait une
+ * seconde passe de rendu à chaque image, pour un fantôme large de rien.
+ */
+const OFFBOARD_EPSILON = 0.5
+
+/** Le calque sort-il, si peu que ce soit, de la fenêtre de sa planche ? */
+export function escapesScreen(object: FabricObject, screenIndex: number): boolean {
+  const bounds = object.getBoundingRect()
+  const left = getScreenOffset(screenIndex)
+  return (
+    bounds.left < left - OFFBOARD_EPSILON ||
+    bounds.top < -OFFBOARD_EPSILON ||
+    bounds.left + bounds.width > left + SCREEN_WIDTH + OFFBOARD_EPSILON ||
+    bounds.top + bounds.height > SCREEN_HEIGHT + OFFBOARD_EPSILON
+  )
+}
+
+/**
+ * Ce qu'il faut de recouvrement pour qu'un calque reste saisissable.
+ *
+ * En deçà, la prise serait un ruban de quelques pixels : on viserait une chose
+ * pour en attraper une autre.
+ */
+const MIN_GRABBABLE = 8
+
+interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/** Le rectangle a-t-il de quoi être attrapé sur une planche posée en `boardLeft` ? */
+function grabbable(box: Box, boardLeft: number): boolean {
+  const overlapX =
+    Math.min(box.left + box.width, boardLeft + SCREEN_WIDTH) - Math.max(box.left, boardLeft)
+  const overlapY = Math.min(box.top + box.height, SCREEN_HEIGHT) - Math.max(box.top, 0)
+  return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
+}
+
+/** Le calque a-t-il de quoi être attrapé sur la fenêtre de sa planche ? */
+export function intersectsScreen(object: FabricObject, screenIndex: number): boolean {
+  return grabbable(object.getBoundingRect(), getScreenOffset(screenIndex))
+}
+
+/**
+ * Le calque est-il devenu hors de prise sur sa planche ?
+ *
+ * Lu sur la boîte déclarée — celle que les champs X et Y du panneau affichent —
+ * et non sur la boîte que Fabric mesure, parce que c'est ce couple de nombres
+ * que l'utilisateur a sous les yeux quand la question se pose. Les coordonnées
+ * d'un calque sont locales à sa planche, d'où la planche prise en zéro.
+ *
+ * C'est le même seuil que `intersectsScreen`, et il le faut : cette fonction dit
+ * exactement quand le panneau doit offrir le retour, c'est-à-dire quand le
+ * canevas vient de retirer la prise. Un pixel d'écart entre les deux laisserait
+ * un calque injoignable sans rien pour le rappeler.
+ */
+export function layerOutOfReach(layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>): boolean {
+  return !grabbable({ left: layer.x, top: layer.y, width: layer.width, height: layer.height }, 0)
+}
+
+/** Où poser le calque pour qu'il tienne entier sur sa planche. */
+export function clampLayerToBoard(layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>): {
+  x: number
+  y: number
+} {
+  const clamp = (value: number, extent: number, size: number) =>
+    Math.round(Math.min(Math.max(value, 0), Math.max(0, extent - size)))
+  return {
+    x: clamp(layer.x, SCREEN_WIDTH, layer.width),
+    y: clamp(layer.y, SCREEN_HEIGHT, layer.height),
+  }
+}
+
+/**
+ * Restreint le tracé à la scène : tout sauf les planches.
+ *
+ * Toutes les planches, et pas seulement la sienne. Mesuré sur le canevas vivant :
+ * les fonds occupent les indices 0 à N-1 et **tous** les calques viennent après,
+ * donc un fantôme laissé libre se peindrait par-dessus la planche voisine quelle
+ * que soit la direction — il n'y a pas de côté où l'ordre de peinture le
+ * sauverait. Et la pellicule le cuirait dans la vignette de cette voisine :
+ * `install-thumbnails` ne fait qu'un seul `renderAll()` puis recadre l'image
+ * obtenue planche par planche, si bien qu'à l'instant du recadrage il n'y a plus
+ * d'objet à filtrer. Écrêter ici est donc la seule barrière, et elle tient les
+ * deux à la fois — l'écran et la vignette — sans drapeau à lever ni à rabaisser.
+ *
+ * Règle de remplissage « evenodd » : les rectangles des planches sont disjoints,
+ * donc un point du contour extérieur qui tombe dans l'un d'eux est traversé deux
+ * fois et sort du tracé. C'est exactement le complément voulu.
+ */
+function clipToStage(ctx: CanvasRenderingContext2D, screenCount: number): void {
+  ctx.beginPath()
+  ctx.rect(-STAGE_REACH, -STAGE_REACH, STAGE_REACH * 2, STAGE_REACH * 2)
+  for (let index = 0; index < screenCount; index += 1) {
+    ctx.rect(getScreenOffset(index), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+  }
+  ctx.clip('evenodd')
 }
 
 // ─── Sélection : bicolore, écrêtée à la planche ──────────────────────────────
@@ -188,7 +324,47 @@ export function clipControlsToScreen(object: RenderedObject, screenIndex: number
 }
 
 /**
- * Écrête le contenu d'un calque à la fenêtre de sa planche.
+ * Le cadre en pointillé d'un calque qu'on ne peut plus attraper.
+ *
+ * Le fantôme seul ne suffit pas, et c'est mesuré : il est peint avec l'encre du
+ * calque, mais sur la scène et non sur la planche qui lui donnait son fond. Une
+ * accroche presque noire atténuée à un quart compose à 1,05:1 sur la scène
+ * sombre — invisible — et une accroche blanche ferait exactement la même chose
+ * sur la scène claire. La lisibilité du fantôme dépendrait donc des couleurs du
+ * projet et du thème de l'application, ce qui n'est pas une garantie.
+ *
+ * Le cadre n'apparaît qu'une fois la prise perdue, jamais au premier
+ * débordement : un calque qui mord volontairement sur le bord reste visible et
+ * saisissable sur sa planche, et l'entourer à chaque fois ne ferait que du
+ * bruit. Quand il ne reste plus rien à attraper, en revanche, il faut pouvoir le
+ * retrouver — et la paire trait clair sur halo sombre se lit sur n'importe quel
+ * fond, c'est déjà la raison pour laquelle la sélection l'emploie.
+ *
+ * Les épaisseurs sont divisées par le zoom : le contexte est en coordonnées de
+ * scène, où un trait de 1 se réduirait au quart de pixel à 25 % de zoom.
+ */
+function strokeLostFrame(ctx: CanvasRenderingContext2D, object: FabricObject): void {
+  const bounds = object.getBoundingRect()
+  const zoom = object.getViewportTransform()[0] || 1
+  ctx.save()
+  ctx.setLineDash([6 / zoom, 4 / zoom])
+  ctx.lineWidth = 3 / zoom
+  ctx.strokeStyle = SELECTION_HALO
+  ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height)
+  ctx.lineWidth = 1 / zoom
+  ctx.strokeStyle = SELECTION_INK
+  ctx.strokeRect(bounds.left, bounds.top, bounds.width, bounds.height)
+  ctx.restore()
+}
+
+/**
+ * Peint un calque en deux temps : net sur sa planche, fantôme sur la scène.
+ *
+ * Deux passes et non une, parce que ce sont deux affirmations différentes. La
+ * première dit ce que la planche contient — donc ce que l'export livrera. La
+ * seconde dit où est passé le reste, sans prétendre qu'il compte. Voir
+ * `OFFBOARD_OPACITY` pour ce que le fantôme corrige, et `clipToStage` pour
+ * pourquoi il ne peut pas déborder sur la planche d'à côté.
  *
  * Par `ctx.clip()` et non par la propriété `clipPath` de Fabric. Dès qu'un
  * `clipPath` est posé, `needsItsOwnCache()` renvoie vrai : l'objet est peint
@@ -199,7 +375,11 @@ export function clipControlsToScreen(object: RenderedObject, screenIndex: number
  * direct — c'est le flou que montrait la capture. Le réglage `objectCaching`
  * ne suffit pas : `needsItsOwnCache()` passe devant.
  */
-export function clipContentToScreen(object: RenderedObject, screenIndex: number): void {
+export function clipContentToScreen(
+  object: RenderedObject,
+  screenIndex: number,
+  screenCount: number,
+): void {
   const renderPlain = Object.getPrototypeOf(object).render as FabricObject['render']
   object.render = function renderClipped(ctx: CanvasRenderingContext2D) {
     ctx.save()
@@ -211,6 +391,32 @@ export function clipContentToScreen(object: RenderedObject, screenIndex: number)
     ctx.clip()
     renderPlain.call(this, ctx)
     ctx.restore()
+
+    /* Puis ce qui dépasse, sur la scène et atténué. La seconde passe ne coûte
+       que pour les calques qui débordent vraiment, et un calque qui déborde est
+       l'exception — c'est pour ça que la garde est en tête plutôt qu'un
+       écrêtage systématique en deux temps.
+
+       Par `this.opacity` et non par `ctx.globalAlpha` : `_setOpacity` de Fabric
+       **écrase** l'alpha du contexte dès que l'objet a un groupe et que sa
+       transformation court (`ctx.globalAlpha = this.getObjectOpacity()`), ce qui
+       est précisément le cas d'une sélection multiple en cours de glissement —
+       le fantôme y serait repassé à pleine opacité. `this.opacity` alimente les
+       deux branches, celle du groupe comme celle de l'objet seul, et compose
+       avec l'opacité que l'utilisateur a réglée sur son calque. */
+    if (!escapesScreen(this, screenIndex)) return
+    const opacity = this.opacity
+    ctx.save()
+    try {
+      clipToStage(ctx, screenCount)
+      this.opacity = opacity * OFFBOARD_OPACITY
+      renderPlain.call(this, ctx)
+      this.opacity = opacity
+      if (!intersectsScreen(this, screenIndex)) strokeLostFrame(ctx, this)
+    } finally {
+      this.opacity = opacity
+      ctx.restore()
+    }
   }
 }
 

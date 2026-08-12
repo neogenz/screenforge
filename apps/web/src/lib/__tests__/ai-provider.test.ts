@@ -33,20 +33,26 @@ const BRIEF: CampaignBrief = {
 }
 
 const HELLO = {
-  protocol: 2,
+  protocol: 3,
   bridge: '0.1.0',
-  codexAvailable: true,
-  codexVersion: 'codex-cli 0.0.0-test',
+  engines: [
+    { id: 'codex', version: 'codex-cli 0.0.0-test' },
+    { id: 'claude', version: 'claude-cli 0.0.0-test' },
+  ],
   capabilities: { vision: false, structuredOutput: true, reasoning: true },
   ascAvailable: false,
-  tokenVersions: { codex: 1, 'asc-publish': 1 },
+  tokenVersions: { assistant: 1, 'asc-publish': 1 },
 }
 
 function respond(routes: Record<string, { status?: number; body: unknown }>) {
   const calls: { url: string; init?: RequestInit }[] = []
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     calls.push({ url, init })
-    const route = Object.entries(routes).find(([path]) => url.endsWith(path))
+    /* La requête ci-dessus peut porter une chaîne de requête — `/models` prend
+       le moteur en paramètre. Comparer sur le chemin seul évite qu'ajouter un
+       paramètre ne fasse silencieusement rater la route. */
+    const path = url.split('?')[0]
+    const route = Object.entries(routes).find(([known]) => path.endsWith(known))
     if (!route) throw new TypeError('Failed to fetch')
     const [, answer] = route
     return {
@@ -75,8 +81,12 @@ describe('registre des fournisseurs', () => {
     for (const entry of AI_PROVIDERS) {
       expect(entry.dataPath.length).toBeGreaterThan(20)
       expect(entry.capabilities).toMatchObject({ tools: false })
-      expect(['in-process', 'local-bridge']).toContain(entry.transport)
-      expect(['none', 'pairing-token']).toContain(entry.auth)
+      expect(['in-process', 'local-bridge', 'direct-api']).toContain(entry.transport)
+      expect(['none', 'pairing-token', 'api-key']).toContain(entry.auth)
+      /* Tout fournisseur qui demande un secret dit aussi où le chercher : c'est
+         ce que l'installation guidée affiche, et un fournisseur ajouté sans sa
+         marche à suivre serait une case à cocher qui ne marche pas. */
+      expect(Boolean(entry.setup)).toBe(entry.auth !== 'none')
     }
   })
 
@@ -88,21 +98,38 @@ describe('registre des fournisseurs', () => {
 describe('connexion au pont', () => {
   it('dit quoi lancer quand le pont est éteint', async () => {
     respond({})
-    const status = await connectBridge(TOKEN)
+    const status = await connectBridge(TOKEN, 'codex')
     expect(status).toMatchObject({ state: 'error', recoverable: true })
     expect(status).toHaveProperty('message', expect.stringContaining('bridge run start'))
   })
 
   it('refuse une version de protocole différente au lieu de deviner', async () => {
     respond({ '/hello': { body: { ...HELLO, protocol: 99 } } })
-    const status = await connectBridge(TOKEN)
+    const status = await connectBridge(TOKEN, 'codex')
     expect(status).toMatchObject({ state: 'error', recoverable: false })
   })
 
-  it('distingue « pont absent » de « codex absent »', async () => {
-    respond({ '/hello': { body: { ...HELLO, codexAvailable: false } } })
-    const status = await connectBridge(TOKEN)
+  it('distingue « pont absent » de « moteur absent »', async () => {
+    respond({ '/hello': { body: { ...HELLO, engines: [] } } })
+    const status = await connectBridge(TOKEN, 'codex')
+    expect(status).toMatchObject({ state: 'error', recoverable: false })
     expect(status).toHaveProperty('message', expect.stringContaining('codex'))
+  })
+
+  it('refuse le moteur que cette machine n’a pas, et nomme lequel', async () => {
+    respond({ '/hello': { body: { ...HELLO, engines: [{ id: 'codex' }] } } })
+    const status = await connectBridge(TOKEN, 'claude')
+    expect(status).toMatchObject({ state: 'error', recoverable: false })
+    expect(status).toHaveProperty('message', expect.stringContaining('claude'))
+  })
+
+  it('demande les modèles du moteur appairé, pas ceux de l’autre', async () => {
+    const calls = respond({
+      '/hello': { body: HELLO },
+      '/models': { body: { models: [{ id: '', displayName: 'Par défaut' }] } },
+    })
+    await connectBridge(TOKEN, 'claude')
+    expect(calls[1].url).toContain('engine=claude')
   })
 
   it('remonte le refus du jeton tel que le pont le formule', async () => {
@@ -113,7 +140,7 @@ describe('connexion au pont', () => {
         body: { error: 'unauthorized', detail: 'Jeton d’appairage invalide.' },
       },
     })
-    const status = await connectBridge(TOKEN)
+    const status = await connectBridge(TOKEN, 'codex')
     expect(status).toMatchObject({ state: 'error', message: 'Jeton d’appairage invalide.' })
   })
 
@@ -122,7 +149,7 @@ describe('connexion au pont', () => {
       '/hello': { body: HELLO },
       '/models': { body: { models: [{ id: 'modele-test', displayName: 'Modèle test' }] } },
     })
-    const status = await connectBridge(TOKEN)
+    const status = await connectBridge(TOKEN, 'codex')
     expect(status).toMatchObject({ state: 'ready', models: [{ id: 'modele-test' }] })
     const headers = (init?: RequestInit) => init?.headers as Record<string, string>
     expect(headers(calls[0].init)).not.toHaveProperty('Authorization')
@@ -154,7 +181,7 @@ describe('plan via le pont', () => {
 
   it('n’envoie aucune image, ni son identifiant', async () => {
     const calls = respond({ '/plan': { body: { plan: PLAN } } })
-    await planViaBridge(BRIEF, TOKEN)
+    await planViaBridge(BRIEF, TOKEN, 'codex')
     const sent = String(calls[0].init?.body)
     expect(sent).not.toContain('asset-1')
     expect(sent).not.toContain('asset-logo')
@@ -167,7 +194,7 @@ describe('plan via le pont', () => {
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
-    const plan = await planViaBridge(BRIEF, TOKEN)
+    const plan = await planViaBridge(BRIEF, TOKEN, 'codex')
     expect(plan.appName).toBe('Cadence')
     expect(plan.direction).toBe('sobre')
     expect(plan.deviceModel).toBe('iphone-17-pro')
@@ -175,7 +202,7 @@ describe('plan via le pont', () => {
 
   it('ignore un index de capture qui ne désigne aucune image', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
-    const plan = await planViaBridge(BRIEF, TOKEN)
+    const plan = await planViaBridge(BRIEF, TOKEN, 'codex')
     expect(plan.screens[0].screenshotIndex).toBe(0)
     expect(plan.screens[1].screenshotIndex).toBeUndefined()
   })
@@ -198,20 +225,20 @@ describe('plan via le pont', () => {
     // Deux bornes, pas une : le plafond du projet, et le nombre que
     // l'utilisateur a demandé. Un modèle bavard qui rendrait vingt visuels sur
     // quatre demandés en poserait seize que personne n'a voulus.
-    const plan = await planViaBridge({ ...BRIEF, screenCount: 4 }, TOKEN)
+    const plan = await planViaBridge({ ...BRIEF, screenCount: 4 }, TOKEN, 'codex')
     expect(plan.screens.length).toBe(4)
     expect(plan.screens[0].name.length).toBe(AI_LIMITS.maxNameLength)
     expect(plan.screens[0].headline.length).toBe(AI_LIMITS.maxTextLength)
     expect(plan.screens[0].slot).toBe('accueil-principal')
 
-    const generous = await planViaBridge({ ...BRIEF, screenCount: 20 }, TOKEN)
+    const generous = await planViaBridge({ ...BRIEF, screenCount: 20 }, TOKEN, 'codex')
     expect(generous.screens.length).toBe(AI_LIMITS.maxScreens)
   })
 
   it('garde la palette du brief, jamais celle que le modèle a rendue', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
     const custom = { background: '#0a0b0c', ink: '#ffffff', accent: '#ff00aa' }
-    const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN)
+    const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN, 'codex')
     expect(plan.palette).toEqual(custom)
   })
 })
@@ -228,6 +255,37 @@ describe('choix du fournisseur', () => {
     const calls = respond({})
     await planCampaign(BRIEF, { provider: 'codex-bridge' })
     expect(calls).toHaveLength(0)
+  })
+
+  it('compose localement quand une clé est présentée sans modèle choisi', async () => {
+    const calls = respond({})
+    // Ces API n'ont pas de modèle par défaut, et en coder un en dur reviendrait
+    // à choisir un tarif à la place de l'utilisateur.
+    await planCampaign(BRIEF, { provider: 'anthropic', token: TOKEN })
+    expect(calls).toHaveLength(0)
+  })
+
+  it('envoie le moteur choisi au pont, et pas un autre', async () => {
+    const calls = respond({
+      '/plan': {
+        body: {
+          plan: {
+            appName: 'Cadence',
+            direction: 'sobre',
+            deviceModel: 'iphone-17-pro',
+            screens: [
+              {
+                name: 'Accueil',
+                headline: 'Écrit par Claude',
+                background: { type: 'solid', color: '#f2f3f5' },
+              },
+            ],
+          },
+        },
+      },
+    })
+    await planCampaign(BRIEF, { provider: 'claude-bridge', token: TOKEN })
+    expect(JSON.parse(String(calls[0].init?.body)).engine).toBe('claude')
   })
 
   it('passe par le pont dès qu’un jeton est présenté', async () => {

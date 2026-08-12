@@ -6,13 +6,14 @@ import {
   ImageUp,
   Megaphone,
   Paintbrush,
-  Plug,
   RefreshCw,
   Trash2,
 } from 'lucide-react'
 import { registerAsset } from '@/lib/assets'
 import {
   DIRECTIONS,
+  isCampaignPlan,
+  planScreenLayout,
   planToolCalls,
   resolvePalette,
   restyleCalls,
@@ -24,10 +25,19 @@ import {
 import { paletteFromScreenshots, type Palette } from '@/lib/ai/palette'
 import { PlanPreview } from '@/components/campaign-dialog/PlanPreview'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
-import { isCampaignPlan } from '@/lib/ai/plan'
+import { archetypeSpec } from '@/lib/ai/archetypes'
 import { AI_LIMITS } from '@/lib/ai/tools'
-import { connectBridge, setBridgeToken, type BridgeStatus } from '@/lib/bridge-client'
-import { AI_PROVIDERS, aiProvider, type ProviderId } from '@/lib/ai/providers'
+import { connectBridge, setBridgeToken } from '@/lib/bridge-client'
+import { connectApiProvider, setApiKey } from '@/lib/ai/direct-api'
+import { aiProvider, type ProviderId } from '@/lib/ai/providers'
+import { AssistantSetup } from '@/components/campaign-dialog/AssistantSetup'
+import {
+  assistantSession,
+  rememberAssistant,
+  restoreAssistant,
+  type AssistantConnection,
+} from '@/lib/ai/session'
+import { forgetStoredSecret } from '@/lib/ai/key-store'
 import {
   imageImportErrorMessage,
   importImageFile,
@@ -52,7 +62,6 @@ const PITCH_FIELD_ID = 'sf-campaign-pitch'
 const URL_FIELD_ID = 'sf-campaign-url'
 const COUNT_FIELD_ID = 'sf-campaign-count'
 const HEADLINE_FIELD_ID = 'sf-campaign-headline'
-const TOKEN_FIELD_ID = 'sf-campaign-token'
 const ASSIST_PANEL_ID = 'sf-campaign-assist'
 
 /** Le défaut quand aucune capture n'est encore déposée : Apple en montre trois. */
@@ -104,7 +113,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
      choix. */
   const [shotPalette, setShotPalette] = useState<Palette | null>(null)
   const [useShotPalette, setUseShotPalette] = useState(false)
-  const [screenCount, setScreenCount] = useState(DEFAULT_SCREEN_COUNT)
+  const [chosenCount, setChosenCount] = useState(DEFAULT_SCREEN_COUNT)
   const [shots, setShots] = useState<LoadedShot[]>([])
   const [logo, setLogo] = useState<{ assetId: string; size: { width: number; height: number } }>()
   const [plan, setPlan] = useState<CampaignPlan | null>(null)
@@ -115,13 +124,46 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [regenerating, setRegenerating] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [providerId, setProviderId] = useState<ProviderId>('local')
-  /* Le jeton d'appairage vit ici et nulle part ailleurs : il disparaît à la
-     fermeture de l'onglet, comme celui du pont disparaît avec son processus.
-     Rien ne l'écrit dans un stockage, un projet ou un journal. */
-  const [token, setToken] = useState('')
-  const [bridge, setBridge] = useState<BridgeStatus>({ state: 'idle' })
-  const [model, setModel] = useState('')
+  /*
+     L'appairage est repris de la session, pas reconstruit à chaque ouverture.
+
+     Générer ferme la boîte : quand l'état vivait ici, chaque génération coûtait
+     de relancer le pont, recoller le jeton et rechoisir le modèle. Voir
+     `lib/ai/session.ts` pour ce que la session porte, et `lib/ai/key-store.ts`
+     pour ce qui survit à l'onglet — une clé d'API, scellée ; jamais le jeton du
+     pont, qui meurt avec son processus.
+  */
+  const [restored] = useState(assistantSession)
+  const [providerId, setProviderId] = useState<ProviderId>(restored.providerId)
+  const [secret, setSecret] = useState(restored.secret)
+  const [connection, setConnection] = useState<AssistantConnection>(restored.connection)
+  const [model, setModel] = useState(restored.model)
+
+  /* La lecture du disque est asynchrone et la boîte est chargée à la demande :
+     le module et le composant arrivent ensemble, donc la valeur initiale
+     ci-dessus est la meilleure hypothèse et celle-ci est la réponse. Elle ne
+     s'applique qu'à une session vierge — `restoreAssistant` le vérifie — donc
+     ce qui aurait été saisi entre-temps n'est pas écrasé. */
+  useEffect(() => {
+    let cancelled = false
+    void restoreAssistant().then((settled) => {
+      if (cancelled) return
+      setProviderId(settled.providerId)
+      setSecret(settled.secret)
+      setConnection(settled.connection)
+      setModel(settled.model)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /* Une seule écriture, en effet, plutôt qu'un miroir dans chaque `setState` :
+     quatre points d'écriture auraient dérivé au premier oubli, et écrire pendant
+     le rendu ferait de la session un effet de bord du rendu. */
+  useEffect(() => {
+    rememberAssistant({ providerId, secret, connection, model })
+  }, [providerId, secret, connection, model])
   /* Ce que ce run a enregistré, pour pouvoir le rendre au néant s'il est
      abandonné. La ref plutôt que l'état : rien ne s'affiche à partir d'elle, et
      elle est lue dans un démontage. */
@@ -143,6 +185,17 @@ function CampaignDialogContent({ project }: { project: Project }) {
   useEffect(() => () => discardAiAssets(registered.current), [])
 
   const palette = useShotPalette && shotPalette ? shotPalette : undefined
+
+  /* La place qui reste, pas ce que l'App Store accepte en tout.
+     `add_screen` refuse dès que le projet porte dix écrans, or un projet neuf
+     en porte déjà un : la liste proposait donc « 10 visuels » là où dix est
+     impossible, et le lot entier était annulé au clic final, après la revue,
+     sur « Campagne pleine ». Le plafond se lit avant de choisir, pas après
+     avoir relu. Dérivé au rendu et non recopié dans l'état : le projet peut
+     gagner un écran pendant que la boîte est ouverte. */
+  const room = Math.max(0, AI_LIMITS.maxScreens - project.screens.length)
+  const full = room === 0
+  const screenCount = Math.max(1, Math.min(chosenCount, room))
 
   const brief: CampaignBrief = useMemo(
     () => ({
@@ -193,8 +246,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
       })
       setShots(loaded)
       /* Le nombre suit les captures déposées : c'est le cas courant, et
-         l'utilisateur qui en veut plus le dit juste en dessous. */
-      setScreenCount(Math.min(AI_LIMITS.maxScreens, Math.max(1, loaded.length)))
+         l'utilisateur qui en veut plus le dit juste en dessous. Le plafond est
+         appliqué au rendu, pas ici : c'est la place du projet, pas un choix. */
+      setChosenCount(Math.max(1, loaded.length))
       setPlan(null)
       setShotPalette(await paletteFromScreenshots(loaded.map((shot) => shot.assetId)))
     } catch (cause) {
@@ -221,20 +275,87 @@ function CampaignDialogContent({ project }: { project: Project }) {
     }
   }
 
+  /**
+   * Appaire, quel que soit le fournisseur — et sans jamais écrire le secret.
+   *
+   * Les deux familles se rejoignent sur un seul état : le pont rend un `hello`
+   * et une liste de modèles, une API rend son catalogue, et l'installation
+   * guidée affiche la même marche dans les deux cas. Ce qui reste différent est
+   * le seul fait qui compte pour l'utilisateur, et il est dans `providers.ts` :
+   * un jeton n'ouvre qu'un programme de sa machine, une clé est facturée.
+   */
   async function connect() {
-    setBridge({ state: 'checking' })
-    const status = await connectBridge(token.trim())
-    setBridge(status)
-    /* Retenu pour la session, en mémoire de module : la boîte des langues parle
-       au même pont, et faire retaper le même secret par boîte serait une
-       cérémonie sans gain de sécurité. Il meurt au rechargement de la page. */
-    if (status.state === 'ready') {
-      setBridgeToken('codex', token)
+    const trimmed = secret.trim()
+    setConnection({ state: 'checking' })
+
+    const engine = aiProvider(providerId).engine
+    if (engine) {
+      const status = await connectBridge(trimmed, engine)
+      if (status.state !== 'ready') {
+        setConnection({
+          state: 'error',
+          message: status.state === 'error' ? status.message : 'Le pont n’a pas répondu.',
+        })
+        return
+      }
+      /* Retenu pour la session, en mémoire de module : la boîte des langues
+         parle au même pont, et faire retaper le même secret par boîte serait
+         une cérémonie sans gain de sécurité. Il meurt au rechargement. */
+      setBridgeToken('assistant', trimmed, engine)
       setModel(status.models[0]?.id ?? '')
+      setConnection({
+        state: 'ready',
+        models: status.models,
+        detail:
+          `Connecté · ${engine} ${status.hello.engines.find((one) => one.id === engine)?.version ?? ''} · jeton version ${status.hello.tokenVersions.assistant}`.trim(),
+      })
+      return
+    }
+
+    if (providerId === 'anthropic' || providerId === 'openrouter') {
+      const status = await connectApiProvider(providerId, trimmed)
+      if (status.state !== 'ready') {
+        setConnection({
+          state: 'error',
+          message: status.state === 'error' ? status.message : 'Clé refusée.',
+        })
+        return
+      }
+      setApiKey(providerId, trimmed)
+      /* Le premier modèle du catalogue n'est un défaut acceptable que sur une
+         liste courte. Sur les centaines d'OpenRouter, il serait arbitraire :
+         le champ reste vide, et l'étape 3 se coche quand l'utilisateur a
+         choisi. */
+      setModel(status.models.length > 40 ? '' : (status.models[0]?.id ?? ''))
+      setConnection({
+        state: 'ready',
+        models: status.models,
+        detail: `Clé acceptée · ${status.models.length} modèle${status.models.length > 1 ? 's' : ''} disponible${status.models.length > 1 ? 's' : ''}`,
+      })
     }
   }
 
-  const connected = bridge.state === 'ready'
+  const connected = connection.state === 'ready'
+
+  /* Changer de fournisseur remet l'appairage à zéro : un jeton de pont collé
+     dans le champ d'une clé Anthropic ne vaut rien, et un modèle choisi chez
+     l'un n'existe pas chez l'autre. */
+  function pickProvider(next: ProviderId) {
+    setProviderId(next)
+    setSecret('')
+    setModel('')
+    setConnection({ state: 'idle' })
+  }
+
+  /* Le seul chemin de sortie d'une clé enregistrée. Sans lui, la persistance
+     serait à sens unique : une clé collée une fois resterait sur cette machine
+     sans que rien dans l'interface ne sache la retirer. Le fournisseur et le
+     modèle restent choisis — ce sont des préférences, pas des secrets. */
+  function forgetSecret() {
+    setSecret('')
+    setConnection({ state: 'idle' })
+    void forgetStoredSecret(providerId)
+  }
 
   async function compose() {
     setBusy(true)
@@ -242,7 +363,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
     try {
       const proposal = await planCampaign(brief, {
         provider: providerId,
-        token: connected ? token.trim() : undefined,
+        token: connected ? secret.trim() : undefined,
         model: model || undefined,
       })
       // Un plan est une entrée non fiable, même quand il vient d'ici : demain
@@ -314,7 +435,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
         { ...brief, screenCount: 1, screenshots: shot ? [shot] : [] },
         {
           provider: providerId,
-          token: connected ? token.trim() : undefined,
+          token: connected ? secret.trim() : undefined,
           model: model || undefined,
         },
       )
@@ -351,7 +472,17 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
   function harmonize() {
     if (!activeScreen) return
-    const outcome = commitAiRun(restyleCalls(activeScreen.layers, resolvePalette(brief)), {
+    const calls = restyleCalls(activeScreen, resolvePalette(brief))
+    /* Rien à repeindre : on le dit, et on ne ferme pas. Fermer sur un
+       changement nul renvoyait l'utilisateur sur un écran identique en lui
+       ayant pris son brief — la lecture était « le bouton ne marche pas ». */
+    if (calls.length === 0) {
+      setError(
+        `« ${activeScreen.name} » porte déjà ce style. Choisissez une autre direction à l’étape 3 pour voir un changement.`,
+      )
+      return
+    }
+    const outcome = commitAiRun(calls, {
       screenId: activeScreen.id,
     })
     if (!outcome.committed) {
@@ -393,7 +524,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
           ) : (
             // « Proposer », pas « Générer » : le bouton ne pose rien, il montre.
             // C'est la promesse que la relecture tient juste au-dessus.
-            <Button variant="primary" onClick={() => void compose()} loading={busy}>
+            <Button variant="primary" onClick={() => void compose()} loading={busy} disabled={full}>
               <Megaphone size={12} aria-hidden />
               Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
             </Button>
@@ -466,7 +597,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
           {/* Le champ n'apparaît que quand quelqu'un sait le lire. Affiché en
               permanence, il aurait promis une analyse de la page que la
               génération sans modèle ne fait pas et ne peut pas faire. */}
-          {providerId === 'codex-bridge' && (
+          {aiProvider(providerId).transport !== 'in-process' && (
             <>
               <Field id={URL_FIELD_ID} label="Page du produit (facultatif)" className="mt-2">
                 <Input
@@ -529,30 +660,40 @@ function CampaignDialogContent({ project }: { project: Project }) {
           </p>
         </Step>
 
-        <Field id={COUNT_FIELD_ID} label="Combien de visuels">
-          <Select
-            id={COUNT_FIELD_ID}
-            value={String(screenCount)}
-            disabled={busy}
-            onChange={(event) => {
-              setScreenCount(Number(event.target.value))
-              setPlan(null)
-            }}
-          >
-            {Array.from({ length: AI_LIMITS.maxScreens }, (_unused, index) => index + 1).map(
-              (count) => (
-                <option key={count} value={count}>
-                  {count} visuel{count > 1 ? 's' : ''}
-                </option>
-              ),
-            )}
-          </Select>
-        </Field>
-        <p className="-mt-2 text-2xs text-muted-foreground">
-          L’App Store en accepte {AI_LIMITS.maxScreens} par langue. Au-delà de vos captures, les
-          visuels sont posés avec l’appareil vide — « Actualiser les captures » les remplira plus
-          tard.
-        </p>
+        {full ? (
+          <p role="status" className="text-2xs text-muted-foreground">
+            Ce projet porte déjà {AI_LIMITS.maxScreens} écrans, le maximum d’une fiche App Store :
+            aucun visuel ne peut y être ajouté. Supprimez-en un dans la pellicule, ou repeignez
+            l’écran courant au style choisi ci-dessous.
+          </p>
+        ) : (
+          <>
+            <Field id={COUNT_FIELD_ID} label="Combien de visuels">
+              <Select
+                id={COUNT_FIELD_ID}
+                value={String(screenCount)}
+                disabled={busy}
+                onChange={(event) => {
+                  setChosenCount(Number(event.target.value))
+                  setPlan(null)
+                }}
+              >
+                {Array.from({ length: room }, (_unused, index) => index + 1).map((count) => (
+                  <option key={count} value={count}>
+                    {count} visuel{count > 1 ? 's' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <p className="-mt-2 text-2xs text-muted-foreground">
+              {room < AI_LIMITS.maxScreens
+                ? `Ce projet porte déjà ${project.screens.length} écran${project.screens.length > 1 ? 's' : ''} : il reste de la place pour ${room}. L’App Store en accepte ${AI_LIMITS.maxScreens} par langue. `
+                : `L’App Store en accepte ${AI_LIMITS.maxScreens} par langue. `}
+              Au-delà de vos captures, les visuels sont posés avec l’appareil vide — « Actualiser
+              les captures » les remplira plus tard.
+            </p>
+          </>
+        )}
 
         <input
           ref={shotsInput}
@@ -582,20 +723,23 @@ function CampaignDialogContent({ project }: { project: Project }) {
           }}
         />
 
-        <AssistancePanel
-          providerId={providerId}
-          onProvider={(next) => {
-            setProviderId(next)
-            setPlan(null)
-          }}
-          token={token}
-          onToken={setToken}
-          bridge={bridge}
-          onConnect={() => void connect()}
-          model={model}
-          onModel={setModel}
-          busy={busy}
-        />
+        <AssistancePanel providerLabel={aiProvider(providerId).label}>
+          <AssistantSetup
+            providerId={providerId}
+            onProvider={(next) => {
+              pickProvider(next)
+              setPlan(null)
+            }}
+            secret={secret}
+            onSecret={setSecret}
+            connection={connection}
+            onConnect={() => void connect()}
+            onForget={forgetSecret}
+            model={model}
+            onModel={setModel}
+            busy={busy}
+          />
+        </AssistancePanel>
 
         {plan ? (
           <PlanReview
@@ -709,18 +853,6 @@ function StyleChip({
   )
 }
 
-interface AssistanceProps {
-  providerId: ProviderId
-  onProvider: (id: ProviderId) => void
-  token: string
-  onToken: (value: string) => void
-  bridge: BridgeStatus
-  onConnect: () => void
-  model: string
-  onModel: (id: string) => void
-  busy: boolean
-}
-
 /**
  * Qui écrit les accroches, replié tant qu'on ne le cherche pas.
  *
@@ -734,20 +866,20 @@ interface AssistanceProps {
  * « Assistance », la ligne repliée annonçait « Composition locale » : deux mots
  * qui décrivent le transport et pas une seule fois ce qu'ils lui coûtent — des
  * accroches qu'il devra écrire lui-même.
+ *
+ * Ce composant ne fait plus que la divulgation. Le choix et le branchement
+ * vivent dans `AssistantSetup`, parce que cinq fournisseurs, deux familles
+ * d'authentification et trois marches ne sont plus un détail d'un formulaire de
+ * campagne : c'est un écran à part entière, qui a ses propres états.
  */
 function AssistancePanel({
-  providerId,
-  onProvider,
-  token,
-  onToken,
-  bridge,
-  onConnect,
-  model,
-  onModel,
-  busy,
-}: AssistanceProps) {
+  providerLabel,
+  children,
+}: {
+  providerLabel: string
+  children: React.ReactNode
+}) {
   const [open, setOpen] = useState(false)
-  const active = aiProvider(providerId)
 
   return (
     <div className="border-t border-border pt-4">
@@ -765,105 +897,12 @@ function AssistancePanel({
             className={cn('transition-transform duration-150', open ? '' : '-rotate-90')}
           />
           Qui écrit les accroches
-          <span className="ml-auto font-normal text-muted-foreground">{active.label}</span>
+          <span className="ml-auto font-normal text-muted-foreground">{providerLabel}</span>
         </button>
       </h3>
 
-      <div id={ASSIST_PANEL_ID} hidden={!open}>
-        <div
-          className="mt-2 flex flex-col gap-2"
-          role="radiogroup"
-          aria-label="Qui écrit les accroches"
-        >
-          {AI_PROVIDERS.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              role="radio"
-              aria-checked={entry.id === providerId}
-              disabled={busy}
-              onClick={() => onProvider(entry.id)}
-              className={cn(
-                'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground',
-                entry.id === providerId
-                  ? 'border-foreground bg-muted'
-                  : 'border-border hover:border-input',
-              )}
-            >
-              <span className="flex items-center gap-1.5 text-foreground">
-                {entry.id === providerId && <Check size={11} aria-hidden />}
-                {entry.label}
-                {entry.recommended && <span className="text-muted-foreground">· par défaut</span>}
-              </span>
-              <span className="text-muted-foreground">{entry.summary}</span>
-              <span className="text-muted-foreground">{entry.dataPath}</span>
-            </button>
-          ))}
-        </div>
-
-        {providerId === 'codex-bridge' && (
-          <div className="mt-3 flex flex-col gap-2">
-            <p className="text-2xs text-muted-foreground">
-              Lancez le pont avec <code>pnpm --filter bridge run start</code>, puis recopiez le
-              jeton qu’il affiche. Il n’est enregistré nulle part : ni dans le projet, ni dans le
-              navigateur. Il faudra le ressaisir au prochain démarrage.
-            </p>
-            <div className="flex items-end gap-2">
-              <Field id={TOKEN_FIELD_ID} label="Jeton d’appairage" className="min-w-0 flex-1">
-                <Input
-                  id={TOKEN_FIELD_ID}
-                  font="sans"
-                  type="password"
-                  autoComplete="off"
-                  value={token}
-                  disabled={busy}
-                  placeholder="Affiché par le pont à son démarrage"
-                  onChange={(event) => onToken(event.target.value)}
-                />
-              </Field>
-              <Button
-                variant="default"
-                onClick={onConnect}
-                disabled={busy || token.trim().length === 0}
-                loading={bridge.state === 'checking'}
-              >
-                <Plug size={12} aria-hidden />
-                Connecter
-              </Button>
-            </div>
-
-            {bridge.state === 'error' && (
-              <p role="alert" className="flex items-start gap-2 text-2xs text-destructive">
-                <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-                {bridge.message}
-              </p>
-            )}
-
-            {bridge.state === 'ready' && (
-              <>
-                <p role="status" className="text-2xs text-muted-foreground">
-                  Connecté · {bridge.hello.codexVersion ?? 'codex'} · jeton version{' '}
-                  {bridge.hello.tokenVersions.codex}
-                  {bridge.hello.capabilities.reasoning ? ' · raisonnement' : ''}
-                </p>
-                <Select
-                  aria-label="Modèle"
-                  label="Modèle"
-                  value={model}
-                  disabled={busy || bridge.models.length === 0}
-                  onChange={(event) => onModel(event.target.value)}
-                >
-                  {bridge.models.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.displayName}
-                    </option>
-                  ))}
-                </Select>
-              </>
-            )}
-          </div>
-        )}
+      <div id={ASSIST_PANEL_ID} hidden={!open} className="mt-2">
+        {children}
       </div>
     </div>
   )
@@ -906,6 +945,7 @@ function PlanReview({
   busy,
 }: PlanReviewProps) {
   const current = plan.screens[focus]
+  const layout = planScreenLayout(plan, brief, focus)
   const only = plan.screens.length === 1
 
   return (
@@ -976,10 +1016,19 @@ function PlanReview({
                 onChange={(event) => onHeadline(focus, event.target.value)}
               />
             </Field>
+            {/* La composition est nommée parce qu'elle est choisie : à 132px,
+                deux mises en page voisines se distinguent mal, et l'utilisateur
+                qui vient de voir dix visuels identiques a besoin de lire que
+                celui-ci n'est pas celui d'à côté. La capture n'est annoncée que
+                là où un appareil la portera — le libellé de l'archétype dit
+                déjà, sur le visuel de clôture, qu'il n'y en a pas. */}
             <p className="text-2xs text-muted-foreground">
-              {current.screenshotIndex === undefined
-                ? 'Aucune capture pour ce visuel : l’appareil sera posé vide.'
-                : `Capture « ${brief.screenshots[current.screenshotIndex]?.label} », posée dans l’appareil.`}
+              {layout ? `${archetypeSpec(layout.archetype).label}.` : ''}
+              {layout?.device
+                ? current.screenshotIndex === undefined
+                  ? ' Aucune capture pour ce visuel : l’appareil sera posé vide.'
+                  : ` Capture « ${brief.screenshots[current.screenshotIndex]?.label} », posée dans l’appareil.`
+                : ''}
             </p>
             {/* Sous le texte qu'elles concernent, et non collées au bas de la
                 colonne : l'aperçu fait 286px de haut, ce qui laissait un vide

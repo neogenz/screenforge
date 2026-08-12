@@ -20,7 +20,7 @@ import {
   MAX_LOCALE_TEXT_LENGTH,
   MAX_PROJECT_LOCALES,
 } from '@/lib/project-validation'
-import { bridgeToken, translateViaBridge } from '@/lib/bridge-client'
+import { bridgeEngine, bridgeToken, translateViaBridge } from '@/lib/bridge-client'
 import { loadGoogleFont } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -133,14 +133,14 @@ function LocaleDialogContent({ project }: { project: Project }) {
   }
 
   async function translate(target: LocaleVariant, layers: TextLayer[]) {
-    const token = bridgeToken('codex')
+    const token = bridgeToken('assistant')
     if (!token) {
       /* L'erreur nomme le geste, pas l'absence : « aucun pont appairé » décrit
          un état interne à qui n'a jamais entendu parler du pont. La traduction
          à la main reste dite en premier — c'est le chemin qui marche tout de
          suite, et le pont est facultatif par contrat. */
       setError(
-        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou connectez le pont depuis « Composer une campagne » → section Assistance.',
+        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou branchez un modèle depuis « Générer les visuels App Store » → « Qui écrit les accroches ».',
       )
       return
     }
@@ -152,6 +152,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
         { code: target.code, name: target.name, script: target.script },
         sources,
         token,
+        // Le moteur retenu à l'appairage : sur une machine qui n'a que Claude
+        // Code, repartir sur Codex ferait échouer la traduction après une
+        // campagne réussie, avec tout de branché.
+        bridgeEngine(),
       )
       const proposals = Object.fromEntries(
         layers.map((layer, index) => [layer.id, translated[index]]),

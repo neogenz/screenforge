@@ -4,19 +4,42 @@ import { z } from 'zod'
  * Le contrat du pont local, et rien de plus.
  *
  * Le pont est un troisième déployable : un processus qui tourne sur la machine
- * de l'utilisateur, écoute sur `127.0.0.1` et lance `codex app-server`. Ce
- * qu'il expose n'est donc pas une API générale mais **deux verbes** — proposer
- * un plan de campagne, retoucher un écran. Pas de shell, pas de proxy de
- * requêtes arbitraires, pas d'accès au disque : un pont qui accepterait un
- * prompt libre serait une console distante ouverte sur le poste, protégée par
- * un jeton que la page web porte.
+ * de l'utilisateur, écoute sur `127.0.0.1` et lance l'assistant que cette
+ * machine a déjà installé. Ce qu'il expose n'est donc pas une API générale mais
+ * **deux verbes** — proposer un plan de campagne, traduire un lot de textes.
+ * Pas de shell, pas de proxy de requêtes arbitraires, pas d'accès au disque :
+ * un pont qui accepterait un prompt libre serait une console distante ouverte
+ * sur le poste, protégée par un jeton que la page web porte.
  *
  * La version du protocole est comparée à l'octet près des deux côtés. Un pont
  * plus vieux que la page dit ce qu'il est, et la page le dit à l'utilisateur ;
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
+
+/**
+ * Les moteurs que le pont sait lancer.
+ *
+ * Deux binaires, un seul contrat : un prompt entre, du JSON sort. Ce ne sont pas
+ * deux fournisseurs mais deux façons d'atteindre le même endroit — la machine
+ * de l'utilisateur, avec l'abonnement qu'il y a déjà connecté. C'est aussi
+ * pourquoi ils partagent une seule capacité et un seul jeton : appairer « ce
+ * pont peut parler à un modèle local » est la décision, pas « lequel ».
+ */
+export const ENGINES = ['codex', 'claude'] as const
+
+export type EngineId = (typeof ENGINES)[number]
+
+export const engineSchema = z.enum(ENGINES)
+
+/** Un moteur présent sur la machine, tel que le pont l'a sondé. */
+export const engineStatusSchema = z.object({
+  id: engineSchema,
+  version: z.string().max(200).optional(),
+})
+
+export type EngineStatus = z.infer<typeof engineStatusSchema>
 
 /** Ce qu'un fournisseur sait faire, tel que le pont le déclare. */
 export const capabilitiesSchema = z.object({
@@ -33,9 +56,16 @@ export type Capabilities = z.infer<typeof capabilitiesSchema>
 export const helloSchema = z.object({
   protocol: z.number().int(),
   bridge: z.string(),
-  /** Faux tant que `codex` n'est pas installé : la page le dit au lieu d'attendre. */
-  codexAvailable: z.boolean(),
-  codexVersion: z.string().optional(),
+  /**
+   * Les moteurs réellement présents, sondés à chaque `hello`.
+   *
+   * Une liste et non deux booléens : la page affiche ce qu'elle reçoit, donc un
+   * moteur ajouté ici apparaît dans l'installation guidée sans qu'un champ soit
+   * inventé côté navigateur. Une liste vide veut dire que le pont tourne et
+   * qu'aucun assistant n'est installé — un état distinct de « pont éteint », et
+   * la page ne dit pas la même chose dans les deux cas.
+   */
+  engines: z.array(engineStatusSchema),
   capabilities: capabilitiesSchema,
   /** Faux tant que `asc` n'est pas installé : la publication n'est pas proposée. */
   ascAvailable: z.boolean(),
@@ -46,7 +76,7 @@ export const helloSchema = z.object({
    * Une version par capacité : un jeton d'une version passée est mort, et
    * révoquer la publication ne coupe pas la conversation avec le modèle.
    */
-  tokenVersions: z.object({ codex: z.number().int(), 'asc-publish': z.number().int() }),
+  tokenVersions: z.object({ assistant: z.number().int(), 'asc-publish': z.number().int() }),
 })
 
 export type Hello = z.infer<typeof helloSchema>
@@ -78,16 +108,21 @@ export const briefSchema = z.object({
 
 export type BridgeBrief = z.infer<typeof briefSchema>
 
-const backgroundSchema = z.object({
-  type: z.literal('solid'),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-})
-
+/**
+ * Ce qu'un visuel vaut au modèle : un nom, une accroche, un rôle, une capture.
+ *
+ * Pas de couleur de fond. Il en rendait une, et le prompt lui demandait « la
+ * même sur tous les visuels sauf raison de composition » — une consigne qui ne
+ * pouvait produire qu'un lot d'aplats identiques, sur laquelle il fallait
+ * ensuite valider un hexadécimal écrit à la main. La page compose désormais le
+ * fond depuis le rang du visuel et la palette que l'utilisateur a choisie ; un
+ * champ dont la bonne réponse est connue d'avance n'a rien à faire dans un
+ * protocole, il n'y ajoute qu'une façon de se tromper.
+ */
 const plannedScreenSchema = z.object({
   name: z.string().min(1).max(60),
   headline: z.string().min(1).max(400),
   slot: z.string().max(48).optional(),
-  background: backgroundSchema,
   screenshotIndex: z.number().int().min(0).max(9).optional(),
 })
 
@@ -123,17 +158,11 @@ export const PLAN_OUTPUT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'headline', 'background'],
+        required: ['name', 'headline'],
         properties: {
           name: { type: 'string' },
           headline: { type: 'string' },
           slot: { type: 'string' },
-          background: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['type', 'color'],
-            properties: { type: { type: 'string', enum: ['solid'] }, color: { type: 'string' } },
-          },
           screenshotIndex: { type: 'integer' },
         },
       },
@@ -157,6 +186,8 @@ export const translateRequestSchema = z.object({
     script: z.string().max(24),
   }),
   texts: z.array(z.string().max(400)).min(1).max(120),
+  /** Le moteur à lancer. Absent = `codex`, le seul que la version 2 connaissait. */
+  engine: engineSchema.optional(),
 })
 
 export type TranslateRequest = z.infer<typeof translateRequestSchema>
@@ -174,8 +205,10 @@ export const planRequestSchema = z.object({
   protocol: z.number().int(),
   brief: briefSchema,
   deviceModel: z.string().max(64),
-  /** Le modèle demandé, choisi dans la liste rendue par `hello`. */
+  /** Le modèle demandé, choisi dans la liste que le moteur a rendue. */
   model: z.string().max(64).optional(),
+  /** Le moteur à lancer. Absent = `codex`, le seul que la version 2 connaissait. */
+  engine: engineSchema.optional(),
 })
 
 export type PlanRequest = z.infer<typeof planRequestSchema>
@@ -275,8 +308,8 @@ export type BridgeErrorCode =
   | 'forbidden-origin'
   /** Page et pont ne parlent pas la même version. */
   | 'protocol-mismatch'
-  /** `codex` n'est pas installé, ou n'a pas démarré. */
-  | 'codex-unavailable'
+  /** Le moteur demandé n'est pas installé, ou n'a pas démarré. */
+  | 'engine-unavailable'
   /** `asc` n'est pas installé, ou trop ancien pour ce qui est demandé. */
   | 'asc-unavailable'
   /** `asc` a échoué : le détail vient de sa sortie, nettoyée. */
@@ -304,12 +337,22 @@ export const BRIDGE_HOST = '127.0.0.1'
  * Une page servie ailleurs ne parle pas au pont, même avec un jeton valide :
  * le jeton se recopie, l'origine non. `SCREENFORGE_BRIDGE_ORIGINS` en ajoute
  * pour un déploiement local, jamais un joker.
+ *
+ * Les trois ports sont ceux auxquels ScreenForge se sert vraiment : 5173 pour
+ * `pnpm run dev`, 4173 pour `pnpm run preview`, 5199 pour Playwright. Le
+ * premier manquait, et c'est le seul par lequel on développe : la page se
+ * croyait joignable — `bridgeReachable` ne lit que l'hôte — offrait le
+ * fournisseur, acceptait le jeton, et le pont refusait l'origine. La liste
+ * avait été écrite depuis le banc de test et depuis la prévisualisation, jamais
+ * depuis l'application lancée normalement.
  */
 export const DEFAULT_ORIGINS = [
-  'http://localhost:5199',
-  'http://127.0.0.1:5199',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
+  'http://localhost:5199',
+  'http://127.0.0.1:5199',
 ]
 
 export function allowedOrigins(env: string | undefined = process.env.SCREENFORGE_BRIDGE_ORIGINS) {

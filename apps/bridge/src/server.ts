@@ -11,6 +11,7 @@ import {
   type AscRunner,
   type AscState,
 } from './asc.ts'
+import { CLAUDE_MODELS, ClaudeUnavailableError, claudeVersion, runClaudeTurn } from './claude.ts'
 import { CodexClient, CodexUnavailableError, codexVersion } from './codex.ts'
 import {
   BRIDGE_CAPABILITIES,
@@ -34,6 +35,8 @@ import {
   PROTOCOL_VERSION,
   TRANSLATION_OUTPUT_SCHEMA,
   type BridgeError,
+  type EngineId,
+  type EngineStatus,
   type Hello,
   type TranslateRequest,
 } from './protocol.ts'
@@ -50,9 +53,14 @@ import {
  * l'autre.
  *
  * `hello` est la seule route ouverte sans jeton, et elle ne dit que ce qu'une
- * page a besoin de savoir pour proposer l'appairage : version, présence de
- * `codex` et de `asc`, capacités. Pas de modèles, pas de chemins, pas de nom de
+ * page a besoin de savoir pour proposer l'appairage : version, moteurs présents,
+ * présence de `asc`, capacités. Pas de modèles, pas de chemins, pas de nom de
  * machine.
+ *
+ * Deux moteurs, un seul chemin : `runTurn` choisit le binaire et rend du JSON,
+ * et les routes qui l'appellent ne savent pas lequel a répondu. C'est ce qui
+ * garde le protocole identique quel que soit l'assistant installé — la page
+ * demande un plan, pas une commande.
  */
 
 export interface BridgeState {
@@ -69,6 +77,24 @@ function fail(code: BridgeError['error'], detail: string): BridgeError {
 
 function versionMismatch(claimed: number): string {
   return `Le pont parle la version ${PROTOCOL_VERSION}, la page la ${claimed}. Mettez le pont à jour.`
+}
+
+/**
+ * Un tour, quel que soit le moteur.
+ *
+ * Codex reçoit son `outputSchema` par le protocole ; Claude Code le reçoit dans
+ * le prompt et rend son JSON extrait. Les deux rendent la même chose au même
+ * endroit, ce qui laisse `planSchema` seul juge de ce qui est acceptable — un
+ * moteur qui respecte un schéma n'est toujours pas un moteur vérifié.
+ */
+async function runTurn(
+  state: BridgeState,
+  engine: EngineId,
+  turn: { prompt: string; outputSchema: unknown; model?: string },
+): Promise<string> {
+  if (engine === 'claude') return runClaudeTurn(turn)
+  await state.codex.initialize()
+  return state.codex.runTurn(turn)
 }
 
 export function createServer(state: BridgeState, origins = allowedOrigins()) {
@@ -94,15 +120,23 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     verifyToken(state.pairing, capability, bearer(header))
 
   app.get('/hello', async (context) => {
-    const [version, asc] = await Promise.all([
+    /* Sondés en parallèle et à chaque appel : l'utilisateur qui installe son
+       assistant pendant que la boîte est ouverte doit pouvoir réessayer sans
+       redémarrer le pont. C'est exactement le geste que l'installation guidée
+       lui propose. */
+    const [codex, claude, asc] = await Promise.all([
       codexVersion(),
+      claudeVersion(),
       ascProbeOrUndefined(state.asc, state.ascRun),
     ])
+    const engines: EngineStatus[] = [
+      ...(codex ? [{ id: 'codex' as const, version: codex }] : []),
+      ...(claude ? [{ id: 'claude' as const, version: claude }] : []),
+    ]
     const hello: Hello = {
       protocol: PROTOCOL_VERSION,
       bridge: '0.1.0',
-      codexAvailable: Boolean(version),
-      ...(version ? { codexVersion: version } : {}),
+      engines,
       capabilities: { vision: false, structuredOutput: true, reasoning: true },
       ascAvailable: Boolean(asc),
       ...(asc ? { ascVersion: asc.version, ascFlags: asc.flags } : {}),
@@ -111,20 +145,30 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     return context.json(hello)
   })
 
+  /**
+   * Les modèles du moteur demandé.
+   *
+   * Codex en tient un catalogue et le rend ; Claude Code n'en rend aucun et
+   * documente ses alias dans son aide. Les deux répondent donc à la même forme,
+   * mais l'un l'a lue et l'autre la déclare — et la page, qui affiche ce qu'elle
+   * reçoit, n'a pas à connaître la différence.
+   */
   app.get('/models', async (context) => {
-    if (!authorized('codex', context.req.header('Authorization'))) {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
+    const engine = context.req.query('engine') === 'claude' ? 'claude' : 'codex'
+    if (engine === 'claude') return context.json({ models: CLAUDE_MODELS })
     try {
       await state.codex.initialize()
       return context.json({ models: await state.codex.listModels() })
     } catch (error) {
-      return context.json(codexFailure(error), 502)
+      return context.json(engineFailure(error), 502)
     }
   })
 
   app.post('/plan', async (context) => {
-    if (!authorized('codex', context.req.header('Authorization'))) {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
     const parsed = planRequestSchema.safeParse(await context.req.json().catch(() => null))
@@ -136,8 +180,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
 
     try {
-      await state.codex.initialize()
-      const answer = await state.codex.runTurn({
+      const answer = await runTurn(state, parsed.data.engine ?? 'codex', {
         prompt: planPrompt(parsed.data),
         outputSchema: PLAN_OUTPUT_SCHEMA,
         model: parsed.data.model,
@@ -151,12 +194,12 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
       }
       return context.json({ plan: plan.data })
     } catch (error) {
-      return context.json(codexFailure(error), 502)
+      return context.json(engineFailure(error), 502)
     }
   })
 
   app.post('/translate', async (context) => {
-    if (!authorized('codex', context.req.header('Authorization'))) {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
     const parsed = translateRequestSchema.safeParse(await context.req.json().catch(() => null))
@@ -168,8 +211,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
 
     try {
-      await state.codex.initialize()
-      const answer = await state.codex.runTurn({
+      const answer = await runTurn(state, parsed.data.engine ?? 'codex', {
         prompt: translatePrompt(parsed.data),
         outputSchema: TRANSLATION_OUTPUT_SCHEMA,
       })
@@ -185,7 +227,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
       }
       return context.json({ texts: translation.data.texts })
     } catch (error) {
-      return context.json(codexFailure(error), 502)
+      return context.json(engineFailure(error), 502)
     }
   })
 
@@ -237,7 +279,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
   /** Révoquer une capacité : son jeton meurt à l'instant, l'autre survit. */
   app.post('/pair/revoke', async (context) => {
     const body = (await context.req.json().catch(() => ({}))) as { capability?: string }
-    const capability = BRIDGE_CAPABILITIES.find((known) => known === body.capability) ?? 'codex'
+    const capability = BRIDGE_CAPABILITIES.find((known) => known === body.capability) ?? 'assistant'
     if (!authorized(capability, context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
@@ -251,12 +293,18 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
   return app
 }
 
-function codexFailure(error: unknown): BridgeError {
+function engineFailure(error: unknown): BridgeError {
   if (error instanceof CodexUnavailableError) {
     return fail(
-      'codex-unavailable',
-      'Codex n’a pas démarré. Vérifiez que la commande `codex` est installée et connectée.',
+      'engine-unavailable',
+      'Codex n’a pas démarré. Vérifiez que la commande « codex » est installée et connectée.',
     )
+  }
+  if (error instanceof ClaudeUnavailableError) {
+    /* Le message porte la sortie d'erreur du binaire quand il en a produit une :
+       « session expirée » et « modèle inconnu » appellent deux gestes
+       différents, qu'un texte générique effacerait tous les deux. */
+    return fail('engine-unavailable', `Claude Code n’a pas répondu. ${error.message}`.trim())
   }
   return fail(
     'invalid-response',
@@ -311,13 +359,12 @@ function planPrompt(request: {
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',
     'slot est un identifiant en minuscules, chiffres et traits d’union.',
-    'background.color est un hexadécimal cohérent avec le style imposé, identique',
-    'sur tous les visuels sauf raison de composition.',
     '',
     'Rends uniquement le JSON du plan, conforme au schéma fourni.',
-    'Ce plan est exécuté par un constructeur déterministe : il ne pose que des',
-    'écrans, des fonds unis, des textes et des cadres d’appareil. Ne propose rien',
-    'd’autre — tout ce qui sortirait de là serait ignoré sans avertissement.',
+    'Tu écris les mots, et rien d’autre. La composition de chaque visuel — mise en',
+    'page, fond, couleurs, cadrage de l’appareil — est décidée par ScreenForge à',
+    'partir du style imposé et du rang du visuel. N’en propose aucune : le schéma',
+    'ne la reçoit pas, et elle serait ignorée sans avertissement.',
   ]
     .filter(Boolean)
     .join('\n')

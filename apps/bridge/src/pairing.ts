@@ -20,9 +20,14 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
  * le second reçoit tout le lot rendu et lance un téléversement irréversible.
  * Un jeton unique aurait fait de l'appairage à un assistant une autorisation de
  * publier. Ici, refuser une capacité est un geste : on ne recopie pas son jeton.
+ *
+ * La capacité s'appelle `assistant` et non `codex` parce que c'est ce qu'elle
+ * ouvre : le droit de faire écrire un texte par le modèle installé sur cette
+ * machine, quel qu'il soit. Nommée d'après un binaire, elle obligeait
+ * l'installation guidée à parler de « jeton codex » pour brancher Claude Code.
  */
 
-export const BRIDGE_CAPABILITIES = ['codex', 'asc-publish'] as const
+export const BRIDGE_CAPABILITIES = ['assistant', 'asc-publish'] as const
 
 export type BridgeCapability = (typeof BRIDGE_CAPABILITIES)[number]
 
@@ -39,7 +44,7 @@ export function mintToken(): string {
 
 export function createPairing(): Pairing {
   return {
-    codex: { token: mintToken(), version: 1 },
+    assistant: { token: mintToken(), version: 1 },
     'asc-publish': { token: mintToken(), version: 1 },
   }
 }
@@ -78,5 +83,5 @@ export function bearer(header: string | null | undefined): string | undefined {
 }
 
 export function tokenVersions(pairing: Pairing): Record<BridgeCapability, number> {
-  return { codex: pairing.codex.version, 'asc-publish': pairing['asc-publish'].version }
+  return { assistant: pairing.assistant.version, 'asc-publish': pairing['asc-publish'].version }
 }

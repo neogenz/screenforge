@@ -20,6 +20,15 @@ vi.mock('./codex.ts', async (importOriginal) => ({
   codexVersion: async () => 'codex-cli 0.0.0-test',
 }))
 
+/* Claude Code est doublé au même titre que Codex : le sonder pour de vrai
+   ferait dépendre la suite de ce qui est installé sur la machine qui la lance. */
+const claudeTurn = vi.fn(async () => JSON.stringify(PLAN))
+vi.mock('./claude.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./claude.ts')>()),
+  claudeVersion: async () => 'claude-cli 0.0.0-test',
+  runClaudeTurn: (...args: unknown[]) => claudeTurn(...(args as [])),
+}))
+
 const { createServer } = await import('./server.ts')
 const { bearer, createPairing, mintToken, revoke, verifyToken } = await import('./pairing.ts')
 const {
@@ -43,7 +52,6 @@ const PLAN = {
     {
       name: 'Accueil',
       headline: 'Le rythme de vos journées',
-      background: { type: 'solid', color: '#f2f3f5' },
       screenshotIndex: 0,
     },
   ],
@@ -123,7 +131,7 @@ function harness(
       capability?: BridgeCapability
     } = {},
   ) => {
-    const { capability = 'codex', origin = ORIGIN, ...rest } = init
+    const { capability = 'assistant', origin = ORIGIN, ...rest } = init
     const { token = state.pairing[capability].token } = init
     delete (rest as { capability?: unknown }).capability
     delete (rest as { token?: unknown }).token
@@ -166,27 +174,27 @@ describe('appairage', () => {
 
   it('révoque une capacité sans toucher à l’autre', () => {
     const first = createPairing()
-    const second = revoke(first, 'codex')
-    expect(second.codex.version).toBe(first.codex.version + 1)
-    expect(verifyToken(second, 'codex', first.codex.token)).toBe(false)
-    expect(verifyToken(second, 'codex', second.codex.token)).toBe(true)
+    const second = revoke(first, 'assistant')
+    expect(second.assistant.version).toBe(first.assistant.version + 1)
+    expect(verifyToken(second, 'assistant', first.assistant.token)).toBe(false)
+    expect(verifyToken(second, 'assistant', second.assistant.token)).toBe(true)
     // Publier n'a pas été révoqué : son jeton et sa version n'ont pas bougé.
     expect(second['asc-publish']).toEqual(first['asc-publish'])
   })
 
   it('ne fait jamais valoir le jeton d’une capacité pour l’autre', () => {
     const pairing = createPairing()
-    expect(verifyToken(pairing, 'codex', pairing['asc-publish'].token)).toBe(false)
-    expect(verifyToken(pairing, 'asc-publish', pairing.codex.token)).toBe(false)
-    expect(pairing.codex.token).not.toBe(pairing['asc-publish'].token)
+    expect(verifyToken(pairing, 'assistant', pairing['asc-publish'].token)).toBe(false)
+    expect(verifyToken(pairing, 'asc-publish', pairing.assistant.token)).toBe(false)
+    expect(pairing.assistant.token).not.toBe(pairing['asc-publish'].token)
   })
 
   it('refuse un jeton absent, tronqué ou allongé', () => {
     const pairing = createPairing()
-    expect(verifyToken(pairing, 'codex', undefined)).toBe(false)
-    expect(verifyToken(pairing, 'codex', '')).toBe(false)
-    expect(verifyToken(pairing, 'codex', pairing.codex.token.slice(0, -1))).toBe(false)
-    expect(verifyToken(pairing, 'codex', `${pairing.codex.token}x`)).toBe(false)
+    expect(verifyToken(pairing, 'assistant', undefined)).toBe(false)
+    expect(verifyToken(pairing, 'assistant', '')).toBe(false)
+    expect(verifyToken(pairing, 'assistant', pairing.assistant.token.slice(0, -1))).toBe(false)
+    expect(verifyToken(pairing, 'assistant', `${pairing.assistant.token}x`)).toBe(false)
   })
 
   it('ne lit un jeton que derrière le schéma Bearer', () => {
@@ -199,14 +207,14 @@ describe('appairage', () => {
 
   it('révoque à chaud : le jeton présenté meurt sur la réponse même', async () => {
     const { state, call } = harness()
-    const before = state.pairing.codex.token
+    const before = state.pairing.assistant.token
     const publishing = state.pairing['asc-publish'].token
     const response = await call('/pair/revoke', {
       method: 'POST',
-      body: JSON.stringify({ capability: 'codex' }),
+      body: JSON.stringify({ capability: 'assistant' }),
     })
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ capability: 'codex', tokenVersion: 2 })
+    expect(await response.json()).toEqual({ capability: 'assistant', tokenVersion: 2 })
     expect((await call('/models', { token: before })).status).toBe(401)
     expect((await call('/models')).status).toBe(200)
     // La publication n'a pas été révoquée avec elle.
@@ -247,15 +255,17 @@ describe('capacités', () => {
     expect(hello).toEqual({
       protocol: PROTOCOL_VERSION,
       bridge: '0.1.0',
-      codexAvailable: true,
-      codexVersion: 'codex-cli 0.0.0-test',
+      engines: [
+        { id: 'codex', version: 'codex-cli 0.0.0-test' },
+        { id: 'claude', version: 'claude-cli 0.0.0-test' },
+      ],
       capabilities: { vision: false, structuredOutput: true, reasoning: true },
       ascAvailable: true,
       ascVersion: '0.45.4',
       ascFlags: ['--replace', '--dry-run', '--skip-existing', '--output'],
-      tokenVersions: { codex: 1, 'asc-publish': 1 },
+      tokenVersions: { assistant: 1, 'asc-publish': 1 },
     })
-    expect(JSON.stringify(hello)).not.toContain(state.pairing.codex.token)
+    expect(JSON.stringify(hello)).not.toContain(state.pairing.assistant.token)
     expect(JSON.stringify(hello)).not.toContain(state.pairing['asc-publish'].token)
   })
 
@@ -309,8 +319,52 @@ describe('protocole', () => {
     const response = await call('/plan', { method: 'POST', body: planBody() })
     expect(response.status).toBe(502)
     const error = (await response.json()) as { error: string; detail: string }
-    expect(error).toMatchObject({ error: 'codex-unavailable' })
+    expect(error).toMatchObject({ error: 'engine-unavailable' })
     expect(error.detail).toMatch(/codex/i)
+  })
+
+  /**
+   * Le moteur change, le contrat non.
+   *
+   * Ce qui est vérifié n'est pas que Claude Code marche — il est doublé — mais
+   * que le choix du moteur atteint bien le bon binaire et que Codex n'est pas
+   * allumé pour rien. Un aiguillage qui lancerait les deux, ou le mauvais,
+   * n'échouerait pas : il rendrait un plan valide payé au mauvais abonnement.
+   */
+  it('lance le moteur demandé, et lui seul', async () => {
+    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(codexTurn)
+
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({ engine: 'claude' }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ plan: PLAN })
+    expect(claudeTurn).toHaveBeenCalledOnce()
+    expect(codexTurn).not.toHaveBeenCalled()
+  })
+
+  it('sans moteur demandé, reste sur Codex', async () => {
+    claudeTurn.mockClear()
+    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(codexTurn)
+
+    expect((await call('/plan', { method: 'POST', body: planBody() })).status).toBe(200)
+    expect(codexTurn).toHaveBeenCalledOnce()
+    expect(claudeTurn).not.toHaveBeenCalled()
+  })
+
+  it('rend les alias de Claude Code sans allumer Codex', async () => {
+    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(codexTurn)
+    const response = await call('/models?engine=claude')
+    expect(response.status).toBe(200)
+    const { models } = (await response.json()) as { models: { id: string }[] }
+    // Le premier choix est l'absence de choix : celui que l'utilisateur a réglé.
+    expect(models[0]?.id).toBe('')
+    expect(models.map((entry) => entry.id)).toContain('sonnet')
+    expect(codexTurn).not.toHaveBeenCalled()
   })
 
   it('traduit par position, et refuse un lot dont le compte a changé', async () => {
@@ -395,9 +449,20 @@ describe('protocole', () => {
     expect(
       planSchema.safeParse({
         ...PLAN,
-        screens: [{ ...PLAN.screens[0], background: { type: 'solid', color: 'rouge' } }],
+        screens: [{ ...PLAN.screens[0], screenshotIndex: 12 }],
       }).success,
     ).toBe(false)
+  })
+
+  it('ne laisse pas le modèle décider de la composition', () => {
+    /* Zod écarte les clés inconnues sans broncher : ce qui est vérifié ici,
+       c'est qu'un fond proposé ne ressorte pas du schéma, pas qu'il fasse
+       échouer l'appel. La page compose le fond depuis le rang du visuel. */
+    const parsed = planSchema.parse({
+      ...PLAN,
+      screens: [{ ...PLAN.screens[0], background: { type: 'solid', color: '#f2f3f5' } }],
+    })
+    expect(parsed.screens[0]).not.toHaveProperty('background')
   })
 })
 
@@ -410,7 +475,7 @@ describe('publication', () => {
         await call('/asc/publish', {
           method: 'POST',
           body: publishBody(),
-          token: state.pairing.codex.token,
+          token: state.pairing.assistant.token,
         })
       ).status,
     ).toBe(401)

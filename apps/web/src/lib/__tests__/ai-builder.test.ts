@@ -8,11 +8,13 @@ import {
 } from '@/lib/ai/tools'
 import {
   planFromBrief,
+  planScreenLayout,
   planToolCalls,
   isCampaignPlan,
   resolvePalette,
   restyleCalls,
 } from '@/lib/ai/plan'
+import { backgroundFor } from '@/lib/ai/archetypes'
 import { commitAiRun, discardAiAssets } from '@/lib/ai/run'
 import { describeProject } from '@/lib/ai/state'
 import { clearAssets, registerAsset, resolveAsset } from '@/lib/assets'
@@ -270,7 +272,13 @@ describe('le plan', () => {
     const plan = planFromBrief(brief)
     expect(isCampaignPlan(plan)).toBe(true)
     expect(plan.screens.map((screen) => screen.slot)).toEqual(['budget', 'reglages'])
-    expect(plan.screens[0].background).toEqual({ type: 'solid', color: '#101114' })
+    /* Le fond vient de l'archétype du rang, pas de l'aplat de la direction :
+       « Contrasté » vaut `#101114`, et la planche d'ouverture en fait un voile.
+       C'est la couleur de la direction qui reste l'origine — le dégradé s'y
+       ancre — mais plus une planche du lot ne porte l'aplat nu. Il se lit sur
+       la mise en page et non sur le visuel planifié : un fond n'est pas une
+       donnée du plan, c'est une conséquence du rang. */
+    expect(planScreenLayout(plan, brief, 0)?.background.type).toBe('linear-gradient')
   })
 
   it('rejette ce qui n’en est pas un', () => {
@@ -279,18 +287,20 @@ describe('le plan', () => {
     expect(isCampaignPlan(null)).toBe(false)
   })
 
-  it('juge le fond sur le contrat du projet, pas sur « c’est un objet »', () => {
-    // Ces deux-là passaient, s'affichaient comme un plan valide, et n'échouaient
-    // qu'au clic sur « Poser », sur un message qui ne désignait pas le fond.
+  it('pose le fond que l’aperçu a montré, et non un autre', () => {
+    /* Les deux se lisaient à deux endroits : `planScreenLayout` le dérivait du
+       rang pour l'aperçu, `planToolCalls` recopiait celui figé sur le visuel
+       planifié. Retirer un visuel de la revue recalcule les archétypes et
+       laissait donc la pose peindre le fond d'un rang que la planche n'occupe
+       plus. Un seul lecteur, vérifié ici visuel par visuel. */
     const plan = planFromBrief(brief)
-    const avec = (background: unknown) => ({
-      ...plan,
-      screens: [{ ...plan.screens[0], background }, ...plan.screens.slice(1)],
-    })
-    expect(isCampaignPlan(avec({}))).toBe(false)
-    expect(isCampaignPlan(avec({ type: 'arc-en-ciel' }))).toBe(false)
-    expect(isCampaignPlan(avec({ type: 'solid', color: 42 }))).toBe(false)
-    expect(isCampaignPlan(avec({ type: 'solid', color: '#101114' }))).toBe(true)
+    const calls = planToolCalls(plan, brief)
+    const posed = calls
+      .filter((call) => call.tool === 'set_background')
+      .map((call) => (call.args as { background: unknown }).background)
+    expect(posed).toEqual(
+      plan.screens.map((_unused, index) => planScreenLayout(plan, brief, index)?.background),
+    )
   })
 
   it('ne rejoint le projet que par les outils', () => {
@@ -301,11 +311,14 @@ describe('le plan', () => {
 
   it('repeint un écran sans jamais rien créer', () => {
     const calls = restyleCalls(
-      [
-        { id: 'l1', type: 'text', locked: false },
-        { id: 'l2', type: 'shape', locked: false },
-        { id: 'l3', type: 'text', locked: true },
-      ],
+      {
+        background: { type: 'solid', color: '#ffffff' },
+        layers: [
+          { id: 'l1', type: 'text', locked: false, color: '#000000' },
+          { id: 'l2', type: 'shape', locked: false, fill: '#000000' },
+          { id: 'l3', type: 'text', locked: true, color: '#000000' },
+        ],
+      },
       resolvePalette({ direction: 'nocturne' }),
     )
     expect(calls.map((call) => call.tool)).toEqual([
@@ -314,6 +327,33 @@ describe('le plan', () => {
       'update_layer',
     ])
     expect(calls.some((call) => call.tool.startsWith('add_'))).toBe(false)
+  })
+
+  /**
+   * Un écran qui porte déjà la direction demandée ne rend aucun appel.
+   *
+   * C'est le cas mesuré chez l'utilisateur, et il n'a rien d'exotique : les
+   * visuels générés en « Sobre » portent les couleurs de « Sobre », donc
+   * repeindre en « Sobre » est nul par construction. La liste vide est ce qui
+   * permet à la boîte de le dire au lieu d'annoncer un succès invisible.
+   */
+  it('ne rend rien quand l’écran porte déjà la direction', () => {
+    const sobre = resolvePalette({ direction: 'sobre' })
+    expect(
+      restyleCalls(
+        {
+          /* Le fond d'un visuel généré, et non l'aplat de la palette : c'est
+             celui-là que « déjà à ce style » désigne depuis que la campagne
+             n'en pose plus d'uni. */
+          background: backgroundFor('plein-cadre', sobre),
+          layers: [
+            { id: 'l1', type: 'text', locked: false, color: sobre.ink },
+            { id: 'l2', type: 'device-frame', locked: false },
+          ],
+        },
+        sobre,
+      ),
+    ).toEqual([])
   })
 })
 

@@ -3,8 +3,9 @@ import { collectAssetIds } from '@/lib/asset-refs'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { applyToolCalls, type ToolCall, type ToolContext, type ToolResult } from '@/lib/ai/tools'
 import { planFromBrief, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
+import { planViaApi } from '@/lib/ai/direct-api'
 import { planViaBridge } from '@/lib/bridge-client'
-import type { ProviderId } from '@/lib/ai/providers'
+import { aiProvider, type ProviderId } from '@/lib/ai/providers'
 import { useProjectStore } from '@/stores/project.store'
 
 /**
@@ -83,7 +84,11 @@ export function discardAiAssets(assetIds: readonly string[]): void {
 
 export interface PlanSource {
   provider: ProviderId
-  /** Le jeton d'appairage du pont, en mémoire seulement. Voir `bridge-client`. */
+  /**
+   * Le secret du fournisseur choisi, en mémoire seulement : jeton d'appairage
+   * pour le pont, clé d'API pour les deux services. Voir `bridge-client` et
+   * `direct-api` — aucun des deux ne l'écrit nulle part.
+   */
   token?: string
   model?: string
 }
@@ -91,17 +96,27 @@ export interface PlanSource {
 /**
  * Compose le plan, quel que soit celui qui parle.
  *
- * Un seul point d'entrée pour les deux fournisseurs, et une seule sortie : un
- * `CampaignPlan` que l'appelant revalide. Le pont sans jeton retombe sur la
- * composition locale plutôt que d'échouer — un fournisseur choisi mais pas
- * connecté ne doit pas coûter à l'utilisateur le plan qu'il attendait.
+ * Un seul point d'entrée pour tous les fournisseurs, et une seule sortie : un
+ * `CampaignPlan` que l'appelant revalide. Un fournisseur sans secret retombe
+ * sur la composition locale plutôt que d'échouer — choisi mais pas connecté, il
+ * ne doit pas coûter à l'utilisateur le plan qu'il attendait.
  */
 export async function planCampaign(
   brief: CampaignBrief,
   source: PlanSource = { provider: 'local' },
 ): Promise<CampaignPlan> {
-  if (source.provider === 'codex-bridge' && source.token) {
-    return planViaBridge(brief, source.token, source.model)
+  if (!source.token) return planFromBrief(brief)
+
+  const engine = aiProvider(source.provider).engine
+  if (engine) return planViaBridge(brief, source.token, engine, source.model)
+
+  if (source.provider === 'anthropic' || source.provider === 'openrouter') {
+    /* Le modèle est obligatoire ici, contrairement au pont : ces API n'ont pas
+       de modèle par défaut, et en coder un en dur serait choisir à la place de
+       l'utilisateur un tarif et une qualité. Sans lui, la voie locale. */
+    if (!source.model) return planFromBrief(brief)
+    return planViaApi(source.provider, brief, source.token, source.model)
   }
+
   return planFromBrief(brief)
 }

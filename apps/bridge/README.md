@@ -1,8 +1,8 @@
 # Pont local ScreenForge
 
 Un petit processus qui tourne sur votre machine, écoute sur `127.0.0.1:4590` et
-lance deux binaires que vous avez déjà installés : `codex` pour rédiger, `asc`
-pour publier.
+lance des binaires que vous avez déjà installés : `codex` ou `claude` pour
+rédiger, `asc` pour publier.
 
 Il est **optionnel**, et il l'est pour ses deux capacités. Sans lui, ScreenForge
 compose vos campagnes avec son générateur local, qui ne parle à personne, et
@@ -11,33 +11,50 @@ Le pont ne fait jamais rien que vous ne puissiez faire à la main.
 
 ## Deux capacités, deux jetons
 
-| Capacité      | Ce qu'elle lance    | Ce qui la traverse                     |
-| ------------- | ------------------- | -------------------------------------- |
-| `codex`       | `codex app-server`  | des libellés, jamais une image         |
-| `asc-publish` | `asc screenshots …` | les planches d'un lot figé, vers Apple |
+| Capacité      | Ce qu'elle lance                   | Ce qui la traverse                     |
+| ------------- | ---------------------------------- | -------------------------------------- |
+| `assistant`   | `codex app-server` **ou** `claude` | des libellés, jamais une image         |
+| `asc-publish` | `asc screenshots …`                | les planches d'un lot figé, vers Apple |
 
-Chacune a son propre jeton, tiré séparément et révocable séparément. Recopier
-celui de l'assistance n'autorise pas à publier : c'est le seul mécanisme qui
-rende ce refus effectif, et c'est pourquoi les deux ne sont pas un seul secret.
+Une capacité est nommée d'après ce qu'elle ouvre, pas d'après qui répond :
+« écrire mes accroches sur cette machine » ne change pas de nature selon le
+binaire derrière, donc les deux moteurs partagent un seul jeton et le moteur
+voulu voyage dans la requête. Chaque capacité a le sien, tiré séparément et
+révocable séparément. Recopier celui de l'assistance n'autorise pas à publier :
+c'est le seul mécanisme qui rende ce refus effectif, et c'est pourquoi les deux
+ne sont pas un seul secret.
 
 ## Démarrer
+
+Depuis le dossier où vous avez cloné ScreenForge — `--filter` ne résout le
+paquet `bridge` que dans cet espace de travail, et lancé ailleurs il répond
+`No projects matched the filters`, ce qui ressemble à un pont cassé :
 
 ```bash
 pnpm --filter bridge run start
 ```
 
-Le pont affiche **deux** jetons. Copiez celui dont vous avez besoin : « codex »
-dans ScreenForge, section « Assistance » ; « asc-publish » dans la boîte
-« Publier chez Apple ». Ils sont tirés au démarrage et meurent avec le
-processus : au prochain lancement, il en faudra de nouveaux.
+Le pont affiche **deux** jetons. Copiez celui dont vous avez besoin :
+« assistant » dans ScreenForge, section « Qui écrit les accroches » ;
+« asc-publish » dans la boîte « Publier chez Apple ». Ils sont tirés au
+démarrage et meurent avec le processus : au prochain lancement, il en faudra de
+nouveaux.
+
+Il liste aussi, au démarrage, les origines qu'il admet. **Comparez-les à
+l'adresse de votre onglet** : une origine absente de cette liste reçoit un 403
+sans en-tête CORS, le navigateur masque la réponse, et ScreenForge ne peut alors
+rien dire de plus précis que « injoignable » — indiscernable, de son côté, d'un
+port fermé. Par défaut ce sont les ports `5173` (`pnpm run dev`), `4173`
+(`pnpm run preview`) et `5199` (Playwright), sur `localhost` et `127.0.0.1`.
 
 Variables reconnues :
 
-| Variable                     | Rôle                                                         |
-| ---------------------------- | ------------------------------------------------------------ |
-| `SCREENFORGE_BRIDGE_ORIGINS` | Origines admises en plus des locales. Le joker est ignoré.   |
-| `SCREENFORGE_CODEX_BIN`      | Chemin du binaire `codex` si `codex` n'est pas dans le PATH. |
-| `SCREENFORGE_ASC_BIN`        | Chemin du binaire `asc` si `asc` n'est pas dans le PATH.     |
+| Variable                     | Rôle                                                           |
+| ---------------------------- | -------------------------------------------------------------- |
+| `SCREENFORGE_BRIDGE_ORIGINS` | Origines admises en plus des locales. Le joker est ignoré.     |
+| `SCREENFORGE_CODEX_BIN`      | Chemin du binaire `codex` si `codex` n'est pas dans le PATH.   |
+| `SCREENFORGE_CLAUDE_BIN`     | Chemin du binaire `claude` si `claude` n'est pas dans le PATH. |
+| `SCREENFORGE_ASC_BIN`        | Chemin du binaire `asc` si `asc` n'est pas dans le PATH.       |
 
 ## Ce qui traverse le pont
 
@@ -120,12 +137,14 @@ n'a aucun champ pour en saisir. La sortie de `asc` est relue avant de vous être
 rendue : blocs PEM, JWT, chemins `.p8` et paires `clé=valeur` suspectes sont
 remplacés par `[REDACTED]`, et votre dossier personnel apparaît comme `~`.
 
-**Vos identifiants Codex.** Le pont ne les lit pas, ne les copie pas, ne les
-stocke pas. Il lance le binaire `codex` que vous avez installé et connecté, et
-Codex gère son authentification comme il le fait dans votre terminal. Aucun
-`~/.codex` n'est ouvert par ce code. Aucune clé d'API n'est demandée, ni par le
-pont ni par ScreenForge — c'est pourquoi il n'y a rien à chiffrer, rien à
-stocker et rien à faire fuiter.
+**Vos identifiants Codex ou Claude.** Le pont ne les lit pas, ne les copie pas,
+ne les stocke pas. Il lance le binaire que vous avez installé et connecté, et
+celui-ci gère son authentification comme il le fait dans votre terminal. Ni
+`~/.codex` ni `~/.claude` ne sont ouverts par ce code. Aucune clé d'API n'est
+demandée, ni par le pont ni par ScreenForge — c'est pourquoi il n'y a rien à
+chiffrer, rien à stocker et rien à faire fuiter. Le tour Claude Code tourne dans
+un dossier temporaire, pour qu'aucun `CLAUDE.md` du disque ne soit découvert, et
+avec l'outillage entièrement refusé.
 
 **Le réseau local.** L'écoute est sur `127.0.0.1`, jamais `0.0.0.0`. Un pont qui
 écouterait sur toutes les interfaces serait un service exposé au réseau, jeton

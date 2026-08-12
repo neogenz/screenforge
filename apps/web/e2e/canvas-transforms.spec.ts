@@ -52,6 +52,30 @@ async function sceneCenters(page: Page): Promise<{ x: number; y: number }[]> {
   )
 }
 
+/** Les calques de l'écran courant, tels que le projet les garde. */
+async function screenLayers(
+  page: Page,
+): Promise<{ id: string; name: string; x: number; y: number }[]> {
+  return page.evaluate(() => {
+    const project = window.__sfStores?.useProjectStore.getState().project
+    const screen = project?.screens.find((candidate) => candidate.id === project.activeScreenId)
+    return (screen?.layers ?? []).map((layer) => ({
+      id: layer.id,
+      name: layer.name,
+      x: Math.round(layer.x),
+      y: Math.round(layer.y),
+    }))
+  })
+}
+
+async function selectedLayerIds(page: Page): Promise<string[]> {
+  return page.evaluate(() => window.__sfStores?.useCanvasStore.getState().selectedLayerIds ?? [])
+}
+
+async function historyDepth(page: Page): Promise<number> {
+  return page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? -1)
+}
+
 async function setRotation(page: Page, angle: number): Promise<void> {
   const slider = page.getByRole('slider', { name: 'Rotation' })
   await slider.focus()
@@ -200,6 +224,81 @@ test.describe('canvas transforms', () => {
     expectClose(dragged!.angle, rotated!.angle, 0.3)
     expect(dragged!.left).toBeGreaterThan(rotated!.left + 20)
     expect(dragged!.top).toBeGreaterThan(rotated!.top + 5)
+  })
+
+  /**
+   * Option en lâchant dépose une copie et laisse l'original.
+   *
+   * Ce que le test surveille n'est pas « il y a deux calques » mais « l'original
+   * n'a pas bougé » : c'est la moitié du geste qui peut se perdre, puisque
+   * l'objet réellement tiré porte l'identité de l'original et que rien ne le
+   * ramène à sa place sauf la passe de synchronisation. Et un seul pas
+   * d'annulation, parce qu'un geste est un pas.
+   */
+  test('alt-dropping a drag leaves the original and keeps the copy', async ({ page }) => {
+    await addTextLayer(page)
+    await waitForCanvasSettled(page)
+    const before = await screenLayers(page)
+    expect(before).toHaveLength(1)
+    const history = await historyDepth(page)
+
+    const painted = () => page.evaluate(() => window.__sfCanvas?.getObjects().length ?? 0)
+    const paintedBefore = await painted()
+
+    const start = await activeCenter(page)
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 90, start.y + 70, { steps: 12 })
+    // La touche s'enfonce en cours de geste, et cela suffit.
+    await page.keyboard.down('Alt')
+    await page.mouse.move(start.x + 92, start.y + 72, { steps: 2 })
+
+    /* Le sosie tient la place de l'original *pendant* le geste : un objet
+       peint de plus, et aucun calque de plus. C'est ce qui manquait — on
+       voyait l'original quitter sa place, donc rien à quoi mesurer le
+       décalage de la copie qu'on est en train de poser. */
+    await expect.poll(painted).toBe(paintedBefore + 1)
+    expect(await screenLayers(page)).toHaveLength(1)
+
+    await page.mouse.up()
+    await page.keyboard.up('Alt')
+    await waitForCanvasSettled(page)
+
+    // Et il s'efface au lâcher : la copie est un vrai calque, pas le sosie.
+    expect(await painted()).toBe(paintedBefore + 1)
+
+    const after = await screenLayers(page)
+    expect(after).toHaveLength(2)
+    const original = after.find((layer) => layer.id === before[0].id)
+    expect(original).toBeDefined()
+    expectClose(original!.x, before[0].x, 1)
+    expectClose(original!.y, before[0].y, 1)
+
+    const copy = after.find((layer) => layer.id !== before[0].id)!
+    expect(copy.name).toBe(`${before[0].name} copie`)
+    expect(copy.x).toBeGreaterThan(before[0].x + 20)
+    expect(copy.y).toBeGreaterThan(before[0].y + 20)
+    // C'est la copie qu'on tient à la fin du geste, pas l'original.
+    expect(await selectedLayerIds(page)).toEqual([copy.id])
+
+    expect(await historyDepth(page)).toBe(history + 1)
+    await page.keyboard.press('Meta+z')
+    await waitForCanvasSettled(page)
+    expect(await screenLayers(page)).toHaveLength(1)
+  })
+
+  test('a plain drag still moves the layer instead of copying it', async ({ page }) => {
+    await addTextLayer(page)
+    await waitForCanvasSettled(page)
+    const before = await screenLayers(page)
+
+    await dragActiveBody(page, 90, 70)
+    await waitForCanvasSettled(page)
+
+    const after = await screenLayers(page)
+    expect(after).toHaveLength(1)
+    expect(after[0].id).toBe(before[0].id)
+    expect(after[0].x).toBeGreaterThan(before[0].x + 20)
   })
 
   test('undo restores position after drag', async ({ page }) => {
@@ -474,6 +573,52 @@ test.describe('canvas transforms', () => {
       screenIndex: 0,
       clipScreenIndex: 0,
     })
+  })
+
+  /**
+   * Ce qu'un calque sorti de sa planche promet, et ce qu'il ne promet plus.
+   *
+   * Le défaut mesuré avant le fantôme : hors de sa planche, un calque devenait
+   * invisible partout et restait pourtant cliquable **au-dessus de la planche
+   * voisine**, où il volait le clic destiné au calque de celle-ci. Retirer la
+   * prise ferme ce défaut, mais ouvre une impasse : sans le retour du panneau,
+   * la sélection depuis la liste des calques n'aurait plus rien à quoi servir.
+   */
+  test('a layer pushed off its board loses the grab and offers the way back', async ({ page }) => {
+    await addTextLayer(page)
+    const layerId = await page.evaluate(
+      () => window.__sfStores?.useProjectStore.getState().project?.screens[0]?.layers[0]?.id,
+    )
+    expect(layerId).toBeTruthy()
+
+    const grab = async () =>
+      page.evaluate((id) => {
+        const object = window.__sfCanvas
+          ?.getObjects()
+          .find((candidate) => (candidate as DebugObject).data?.layerId === id)
+        return { selectable: object?.selectable, evented: object?.evented }
+      }, layerId)
+
+    expect(await grab()).toEqual({ selectable: true, evented: true })
+
+    const positionX = transformInput(page, 0)
+    await positionX.fill('-600')
+    await positionX.press('Enter')
+    await waitForCanvasSettled(page)
+
+    // Les deux drapeaux : `evented` porte le clic, `selectable` porte le lasso.
+    expect(await grab()).toEqual({ selectable: false, evented: false })
+    // Rien n'est supprimé pour autant — le calque est toujours dans l'écran.
+    expect((await screenLayers(page)).map((layer) => layer.id)).toEqual([layerId])
+
+    const bringBack = page.getByRole('button', { name: 'Ramener sur la planche' })
+    await expect(bringBack).toBeVisible()
+    await bringBack.click()
+    await waitForCanvasSettled(page)
+
+    expect((await screenLayers(page))[0].x).toBe(0)
+    expect(await grab()).toEqual({ selectable: true, evented: true })
+    await expect(bringBack).toBeHidden()
   })
 
   test('repeated transfers stay stable through undo and redo', async ({ page }) => {

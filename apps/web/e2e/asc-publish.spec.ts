@@ -30,14 +30,14 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        protocol: 2,
+        protocol: 3,
         bridge: '0.1.0',
-        codexAvailable: false,
+        engines: [],
         capabilities: { vision: false, structuredOutput: true, reasoning: true },
         ascAvailable: true,
         ascVersion: '0.45.4-fake',
         ascFlags: ['--replace', '--dry-run', '--output'],
-        tokenVersions: { codex: 1, 'asc-publish': 1 },
+        tokenVersions: { assistant: 1, 'asc-publish': 1 },
       }),
     }),
   )
