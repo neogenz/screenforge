@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { openDB } from 'idb'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib/assets'
 import {
   adoptRemoteProject,
@@ -417,5 +417,59 @@ describe('storage', () => {
     const stored = await database()
     expect(await stored.get('projects', 'invalid')).toEqual(invalid)
     stored.close()
+  })
+})
+
+/**
+ * La demande de durabilité, qui n'a le droit d'être posée qu'une fois.
+ *
+ * Elle se mémorise dans le module, donc chaque cas repart d'un import neuf :
+ * c'est la seule façon de vérifier qu'un second appel ne redemande rien, et
+ * c'est précisément ce qui compte, puisque Firefox affiche la question à
+ * l'utilisateur.
+ */
+describe('durabilité du stockage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.resetModules()
+  })
+
+  async function durability(storage: unknown) {
+    vi.resetModules()
+    vi.stubGlobal('navigator', { storage })
+    const { ensureDurableStorage } = await import('@/lib/storage')
+    return ensureDurableStorage
+  }
+
+  it('ne redemande pas ce que le navigateur a déjà accordé', async () => {
+    const persist = vi.fn()
+    const ensure = await durability({ persisted: () => Promise.resolve(true), persist })
+
+    await expect(ensure()).resolves.toBe(true)
+    await expect(ensure()).resolves.toBe(true)
+    expect(persist).not.toHaveBeenCalled()
+  })
+
+  it('ne pose la question qu’une fois, refus compris', async () => {
+    const persist = vi.fn(() => Promise.resolve(false))
+    const ensure = await durability({ persisted: () => Promise.resolve(false), persist })
+
+    await expect(ensure()).resolves.toBe(false)
+    await expect(ensure()).resolves.toBe(false)
+    expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  it('répond non sans lever quand le navigateur ne tient pas la promesse', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const unsupported = await durability(undefined)
+    await expect(unsupported()).resolves.toBe(false)
+
+    const refusing = await durability({
+      persisted: () => Promise.reject(new Error('SecurityError')),
+      persist: vi.fn(),
+    })
+    await expect(refusing()).resolves.toBe(false)
   })
 })

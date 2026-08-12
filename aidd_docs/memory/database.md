@@ -26,6 +26,7 @@ erDiagram
 - `project-validation.ts` defines the strict current project contract shared by ZIP and IndexedDB. `normalizeProject` applies only supported legacy migrations (inline v1 assets and shape gradients), then requires that contract before any activation or rewrite.
 - Invalid local records are left untouched. Latest-project loading skips them and tries the preceding record instead of silently repairing or deleting user data.
 - Autosave is debounced by two seconds and flushes on teardown; delete waits for matching in-flight saves before removing a project and its assets.
+- `ensureDurableStorage()` asks for persistent storage at the first successful commit, not at boot: Firefox prompts the user, and the question only earns itself once there is something to lose. The answer is memoised for the session. Without it the origin stays best-effort, which browsers evict on their own — Safari after seven days without a visit, Chrome under disk pressure. A refusal is reported once, in the account dialog, and only to accounts without the Cloud add-on.
 
 ## Server-side conventions
 

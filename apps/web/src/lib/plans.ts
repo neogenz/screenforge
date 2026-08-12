@@ -41,7 +41,10 @@ export const PLANS: Plan[] = [
     name: 'Licence',
     price: '49 $',
     period: 'une fois',
-    tagline: 'Tout l’éditeur, à vous, mises à jour incluses',
+    /* « à vous » disait l'éditeur et s'entendait comme les projets : ce que la
+       Licence donne est le logiciel, et le travail reste sur la machine, ce que
+       seule la carte Cloud disait — à qui allait la lire. */
+    tagline: 'Tout l’éditeur sur votre machine, mises à jour incluses',
     points: [
       'Exports illimités, sans filigrane',
       'ZIP groupé, un fichier par planche',

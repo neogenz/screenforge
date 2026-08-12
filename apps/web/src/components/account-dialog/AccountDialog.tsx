@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
@@ -6,6 +6,7 @@ import { createPortalSession, deleteAccount } from '@/lib/account'
 import { handleAccountDeletionOutcome } from '@/lib/account-deletion-ui'
 import { signOut, signOutAndReport } from '@/lib/auth'
 import { formatGrantDate } from '@/lib/plans'
+import { ensureDurableStorage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -41,6 +42,24 @@ function AccountDialogContent() {
    * conséquence — c'est elle qu'on lit, pas le mot « confirmer ».
    */
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  /**
+   * Le navigateur s'est-il engagé à garder les projets ?
+   *
+   * `null` tant qu'on ne sait pas : la question est asynchrone, et afficher
+   * l'avertissement pendant qu'elle se pose le ferait clignoter chez ceux qu'il
+   * ne concerne pas. Il n'est dit qu'au négatif, et l'ignorance n'est pas un
+   * négatif.
+   */
+  const [durable, setDurable] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    void ensureDurableStorage().then((granted) => {
+      if (live) setDurable(granted)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
 
   const licence = entitlements?.licence ?? false
   const cloud = entitlements?.cloud ?? false
@@ -117,6 +136,18 @@ function AccountDialogContent() {
             onBuy={() => setShowPricingDialog(true)}
             buyLabel="Ajouter le Cloud"
           />
+          {/* Sous les deux droits, parce que c'est la question qu'ils laissent
+              ouverte : la Licence dit ce qu'on a le droit de faire, jamais où
+              le travail est gardé. Seulement sans Cloud — avec, une copie
+              existe ailleurs et il n'y a rien à signaler — et seulement quand
+              le navigateur a refusé de s'engager, sinon l'avertissement serait
+              faux. */}
+          {!cloud && durable === false && (
+            <p className="border-t border-border pt-2 text-2xs leading-4 text-muted-foreground">
+              Vos projets vivent dans ce navigateur, qui n’a pas garanti de les conserver.
+              Téléchargez-en une copie depuis le menu du projet, ou ajoutez le Cloud.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">

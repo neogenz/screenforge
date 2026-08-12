@@ -373,6 +373,41 @@ et l'URL du déploiement est dans le paquet servi. Ce qui le protège désormais
 préproduction dont les droits sont écrits à la main ; ça ne l'est pas pour la
 production, qui est vide et doit le rester jusqu'à l'ouverture de la vente.
 
+**12. La question que la migration a rendue visible : une Licence payée ne met
+rien à l'abri.** Le nuage ayant enfin un contenu, la carte des données a été
+refaite pour de bon, et elle dit ceci : les projets vivent dans IndexedDB, et
+seul le Cloud — l'abonnement à 39 $/an — en garde une copie ailleurs. Un compte
+qui a payé la Licence à 49 $ et rien d'autre ne synchronise rien, ce qui est le
+modèle voulu et se défend : 49 $ une fois ne financent pas un stockage
+perpétuel. Ce qui ne se défendait pas, c'est ce que l'offre laissait croire.
+
+_Corrigé — l'accroche de la Licence._ « Tout l'éditeur, à vous » s'entendait
+comme « vos projets, à vous », alors que ce que la Licence donne est le
+logiciel. Elle devient « Tout l'éditeur sur votre machine » dans l'éditeur et
+dans les deux langues de la landing. Le prix et la règle ne bougent pas.
+
+_Corrigé — l'éviction silencieuse._ `navigator.storage.persist()` n'était appelé
+nulle part, donc l'origine restait en « meilleur effort » : Safari efface le
+stockage écrit par script après sept jours sans visite, Chrome évince sous
+pression disque. Pour un produit local-first c'est la perte qui n'a demandé
+aucun geste. `ensureDurableStorage()` est demandé au premier commit réussi et
+pas au démarrage — Firefox pose la question à l'utilisateur, et elle ne se
+justifie qu'une fois qu'il y a quelque chose à perdre — puis mémorisé pour la
+session. Trois tests tiennent la mémorisation, le refus et l'absence d'API.
+
+_Ajouté — le seul endroit qui pouvait le dire._ Sous les deux droits de la boîte
+Compte, une phrase apparaît quand il n'y a pas de Cloud **et** que le navigateur
+a refusé de s'engager, et elle renvoie à la copie `.screenforge.zip` du menu de
+projet. Pas de bouton : la boîte Compte n'achète rien, par construction. Pas
+d'avertissement quand la durabilité est accordée, sinon il serait faux — et
+aucun tant qu'elle est inconnue, l'ignorance n'étant pas un négatif.
+
+_Écarté, et c'est un choix de produit._ Faire sauvegarder la Licence dans le
+nuage aurait effacé la différence entre les deux offres et adossé un coût
+récurrent à un paiement unique. La demande initiale — « je m'attends à ce que
+mes projets soient dans le compte que je paye » — reste vraie du Cloud, qui est
+exactement ce qu'il vend.
+
 ## Après
 
 Deux améliorations que la migration rend possibles et que ce plan a
