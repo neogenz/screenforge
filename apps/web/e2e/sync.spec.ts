@@ -98,6 +98,17 @@ async function seedSession(page: Page, session: Session): Promise<void> {
 const accountButton = /Se connecter|Mon compte/
 
 /**
+ * La phrase que la boîte Compte ne dit qu'à qui n'a rien ailleurs.
+ *
+ * Deux tests l'attendent, chacun dans un sens : présente sans Cloud quand le
+ * navigateur a refusé de s'engager, absente dès qu'une copie existe ailleurs.
+ * Une seule constante, parce qu'un fragment recopié aurait cessé de désigner la
+ * même phrase à la première reformulation, et le test « absente » serait passé
+ * en ne trouvant plus rien.
+ */
+const DURABILITY_WARNING = 'n’a pas garanti de les conserver'
+
+/**
  * Attend l'entrée de compte au lieu de la compter tout de suite.
  *
  * `count()` ne patiente pas : appelé pendant que la barre du haut se monte, il
@@ -961,6 +972,29 @@ test.describe('Porte Cloud côté client', () => {
     await page.context().close()
   })
 
+  test('avertit un compte Licence quand le navigateur ne promet rien', async ({
+    browser,
+    baseURL,
+  }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantLicence(admin(), own.userId)).toBe('written')
+    const page = await openApp(browser, baseURL!, own)
+    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+
+    /* Posée ici, la question l'est une fois pour toutes : l'état durable est
+       collant, donc la boîte lira la même réponse que celle-ci. Et la prémisse
+       est affirmée plutôt que contournée par une branche — le jour où Chromium
+       accorderait la durabilité à un profil neuf, ce test doit le dire au lieu
+       de passer sans plus rien vérifier. */
+    const durable = await page.evaluate(() => navigator.storage.persist())
+    expect(durable, 'Chromium a accordé la durabilité à un profil neuf').toBe(false)
+
+    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await expect(page.getByText(DURABILITY_WARNING)).toBeVisible()
+
+    await page.context().close()
+  })
+
   test('une Licence déjà lue reste disponible si sa relecture réseau échoue', async ({
     browser,
     baseURL,
@@ -1009,6 +1043,9 @@ test.describe('Porte Cloud côté client', () => {
       .toBe(true)
 
     await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    /* Le Cloud garde une copie ailleurs : il n'y a rien à signaler, quoi que le
+       navigateur ait répondu sur sa propre durabilité. */
+    await expect(page.getByText(DURABILITY_WARNING)).toBeHidden()
     await page.getByRole('button', { name: 'Se déconnecter' }).click()
     await expect(page.getByRole('button', { name: 'Se connecter' }).first()).toBeVisible()
 

@@ -60,7 +60,15 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `${LAUNCH} pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
+      /* Blanchie, et pas seulement absente : `envDir` désigne la racine de
+         l'espace de travail, où `convex dev` écrit `VITE_CONVEX_URL` dès qu'un
+         déploiement local existe. Ce serveur en héritait, et `boot-shell` — qui
+         mesure que le SDK n'est pas téléchargé par qui n'aura jamais de compte —
+         échouait sur toute machine ayant simplement démarré le backend une fois.
+         Une variable de processus vide l'emporte sur le fichier, `cloudConfigured`
+         reste faux, et l'élagage a lieu comme sans la variable. Même geste que
+         `VITE_COMMERCIAL_LAUNCH` dans la configuration d'avant-lancement. */
+      command: `${LAUNCH} VITE_CONVEX_URL= pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
       url: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
       reuseExistingServer: true,
       timeout: 30_000,
