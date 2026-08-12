@@ -227,8 +227,7 @@ describe('le catalogue', () => {
   })
 
   it('rend 404 sur le blob d’un autre compte, jamais 403', async () => {
-    /* Un 403 confirmerait l'existence, et c'est exactement ce que
-       `storage_assets.sql` refusait de laisser deviner. */
+    /* Un 403 confirmerait l'existence, et l'existence est elle-même privée. */
     const t = testConvex()
     const propriétaire = await cloudAccount(t)
     const curieux = await cloudAccount(t)

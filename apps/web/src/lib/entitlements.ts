@@ -72,18 +72,18 @@ export function cacheEntitlements(entitlements: Entitlements): void {
 }
 
 /**
- * Les droits du compte connecté, lus dans le miroir plutôt que demandés à l'API.
+ * Les droits du compte connecté, lus dans le miroir plutôt que chez Polar.
  *
  * Le miroir existe pour cela : que l'éditeur sache ce qu'il a le droit de faire
- * sans interroger un tiers. Passer par `GET /me` ferait dépendre le filigrane et
- * la sync de la disponibilité d'un second service, pour une donnée que le
- * premier sert déjà.
+ * sans interroger un tiers. Demander l'état du client au vendeur ferait dépendre
+ * le filigrane et la sync de la disponibilité d'un second service, pour une
+ * donnée que le déploiement tient déjà à jour.
  *
- * La lecture est devenue une query Convex, et il n'y a plus rien à traduire ici :
+ * La lecture est une query Convex et il n'y a rien à traduire ici :
  * `mirror.myEntitlements` applique `toEntitlements` côté serveur et rend
- * exactement la forme attendue. C'est aussi ce qui remplace la policy « lisible
- * par son titulaire » — la query ne prend pas d'identifiant en argument, donc il
- * n'y a pas de paramètre à falsifier.
+ * exactement la forme attendue. C'est aussi ce qui la rend lisible par son seul
+ * titulaire — la query ne prend pas d'identifiant en argument, donc il n'y a
+ * aucun paramètre à falsifier.
  *
  * `null` n'est pas « aucun droit » : c'est « la question ne se pose pas » —
  * pas d'instance configurée, ou pas de session. L'appelant les distingue.

@@ -13,8 +13,8 @@
  *    `onProjectCommitted`, à la sortie de la transaction IndexedDB, pas un
  *    abonnement au store.
  * 2. **Rien n'est jamais bloquant.** Une panne de réseau, une session expirée
- *    ou un bucket indisponible changent une pastille et rien d'autre : l'édition
- *    continue, l'autosave local aussi.
+ *    ou un déploiement injoignable changent une pastille et rien d'autre :
+ *    l'édition continue, l'autosave local aussi.
  * 3. **Sans compte ni droit `cloud`, ce module ne s'exécute pas.** `initSync`
  *    sort immédiatement quand l'instance n'est pas configurée, et n'importe
  *    alors rien du SDK.
@@ -66,8 +66,8 @@ function setStatus(status: SyncStatus): void {
  *
  * Une instance, une session, et le droit `cloud` — dans cet ordre. Un compte
  * Licence est un compte local, pas un compte cloud en erreur : sans le droit,
- * aucune requête ne part et aucun `syncStatus` ne s'affiche. La base refuserait
- * l'écriture de toute façon (`public.has_cloud()` garde les policies), mais lui
+ * aucune requête ne part et aucun `syncStatus` ne s'affiche. Le déploiement
+ * refuserait l'écriture de toute façon (`requireCloud` est le mur), mais lui
  * laisser dire non produirait une pastille rouge et un toast d'échec pour une
  * fonction que l'utilisateur n'a simplement pas achetée.
  *

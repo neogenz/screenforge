@@ -5,8 +5,8 @@ import { applyEntitlementsIfNewer, myEntitlements } from './mirror'
 import { testConvex } from './test.helpers'
 
 /**
- * Les écritures du miroir : ce qui remplace `apply_entitlements_if_newer` et la
- * clé `service_role` qui seule pouvait l'appeler.
+ * Les écritures du miroir : la comparaison de fraîcheur, et le fait qu'aucun
+ * client ne puisse les appeler.
  */
 
 const LICENCE = '2026-03-12T09:00:00.000Z'
@@ -93,9 +93,9 @@ describe('applyEntitlementsIfNewer', () => {
   })
 
   it('deux livraisons sur un compte sans ligne n’en créent qu’une', async () => {
-    /* L'unicité que la clé primaire Postgres donnait gratuitement. Convex ne
-       laisse pas choisir la clé du document, donc elle est tenue par
-       l'écriture — et c'est ce test qui le vérifie. */
+    /* Une ligne par compte. Convex ne laisse pas choisir la clé du document,
+       donc l'unicité est tenue par l'écriture — et c'est ce test qui le
+       vérifie. */
     const t = testConvex()
     const userId = await user(t)
     await Promise.all([
@@ -106,10 +106,9 @@ describe('applyEntitlementsIfNewer', () => {
   })
 
   it('ne s’adresse pas depuis un client', () => {
-    /* Ce que la clé `service_role` faisait, en mieux : il n'y a aucun secret à
-       ne pas divulguer, la fonction n'est simplement pas dans la surface
-       publique. `internal.` la trouve, `api.` ne la trouve pas — et le
-       compilateur refuse déjà `api.mirror.applyEntitlementsIfNewer`. */
+    /* Aucun secret à ne pas divulguer : la fonction n'est simplement pas dans
+       la surface publique. `internal.` la trouve, `api.` ne la trouve pas — et
+       le compilateur refuse déjà `api.mirror.applyEntitlementsIfNewer`. */
     expect(marks(applyEntitlementsIfNewer).isInternal).toBe(true)
     expect(marks(applyEntitlementsIfNewer).isPublic).toBeUndefined()
     /* Et le contre-test : la lecture, elle, est bien publique. Sans lui, un

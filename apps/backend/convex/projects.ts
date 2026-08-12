@@ -48,9 +48,9 @@ export const beginProjectPush = mutation({
  * La ligne, après ses octets. Rend `stale` quand le serveur porte déjà une
  * version au moins aussi récente.
  *
- * C'est le `where excluded.updated_at > …` d'`upsert_project_lww`, et il reste
- * atomique sans plpgsql : une mutation Convex est une transaction, donc la
- * lecture et l'écriture ne peuvent pas s'entrelacer avec une autre poussée.
+ * Le dernier écrivain gagne, et la comparaison est atomique sans rien demander
+ * de particulier : une mutation Convex est une transaction, donc la lecture et
+ * l'écriture ne peuvent pas s'entrelacer avec une autre poussée.
  *
  * C'est aussi le seul endroit du dépôt qui écrit `blobId`, donc le seul qui
  * puisse laisser un fichier orphelin. Les deux sorties le nettoient : un refus

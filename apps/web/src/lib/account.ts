@@ -6,16 +6,13 @@ import { errorCode } from '@/lib/convex'
  * Les trois gestes qui engagent le compte : acheter, gérer son abonnement,
  * s'effacer.
  *
- * Ce module s'appelait `lib/api.ts` et il était le client de `apps/api` : un
- * `hc<AppType>` de Hono, un en-tête `Authorization` relu à chaque appel, et une
- * lecture de statuts HTTP. Il ne reste rien de tout cela — trois appels sur le
- * client Convex que `lib/cloud.ts` tient déjà, sur le même déploiement et avec
- * le même jeton. Le nom suit : « api » ne désignait plus rien dans ce dépôt.
+ * Trois appels sur le client Convex que `lib/cloud.ts` tient déjà, sur le même
+ * déploiement et avec le même jeton : pas de second transport à configurer, pas
+ * d'en-tête `Authorization` à reconstruire, pas de statut HTTP à relire.
  *
- * Ce qui n'a pas bougé est la raison d'être des deux premiers : ils demandent le
- * jeton Polar, donc ils ne peuvent pas partir du navigateur. Seul l'endroit où ce
- * jeton est posé a changé. Les droits, eux, se lisent dans le miroir — voir
- * `lib/entitlements.ts`.
+ * Les deux premiers s'exécutent là-haut et non ici parce qu'ils demandent le
+ * jeton Polar, qui n'a rien à faire dans un navigateur. Les droits, eux, se
+ * lisent dans le miroir — voir `lib/entitlements.ts`.
  */
 
 /**

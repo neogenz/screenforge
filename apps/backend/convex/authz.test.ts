@@ -7,10 +7,9 @@ import { errorCode, testConvex } from './test.helpers'
 /**
  * Le mur, du point de vue de quelqu'un qui essaie de passer.
  *
- * Les cinq fichiers de `supabase/tests/` posaient les mêmes questions à la RLS.
- * Ils les posent maintenant au code, et c'est un progrès mesurable : en Convex
- * l'autorisation **est** la fonction, donc un test qui passe prouve la règle et
- * non la configuration d'un moteur tiers.
+ * L'autorisation **est** la fonction : il n'y a pas de moteur tiers à
+ * configurer à côté, donc un test qui passe prouve la règle elle-même et non le
+ * réglage qui l'entoure.
  *
  * Chaque refus est accompagné de son contre-test. Une règle qui refuserait tout
  * passerait sinon une suite entière de refus tout en cassant le produit.

@@ -1,16 +1,15 @@
 /**
  * La règle commerciale, une fois pour toutes.
  *
- * Elle vivait en trois langages : `toEntitlements` dans le service Hono,
- * `public.has_cloud()` en SQL pour la policy RLS, et `projectEntitlements` dans
- * l'éditeur pour l'affichage. Les trois devaient répondre pareil, et rien ne
- * l'imposait ; l'éditeur qui aurait affiché un droit que la base refusait aurait
- * montré une erreur de sync à quelqu'un qui n'avait rien fait de mal.
+ * Un seul fichier décide de ce qu'un compte a le droit de faire, et le serveur
+ * comme l'éditeur l'importent. Deux copies de cette règle finiraient par
+ * répondre différemment, et l'éditeur qui afficherait un droit que le
+ * déploiement refuse montrerait une erreur de sync à quelqu'un qui n'a rien
+ * fait de mal.
  *
- * Ce qui rendait la copie nécessaire a disparu avec Postgres : la sync allait du
- * navigateur à PostgREST en direct, donc le verrou devait être dans le moteur ;
- * Convex n'expose aucune table, le client ne peut appeler que des fonctions
- * écrites ici, et le serveur comme l'éditeur importent désormais ce fichier.
+ * Rien n'oblige à la dédoubler : le client ne peut appeler que des fonctions
+ * écrites ici, il n'existe donc aucun chemin vers les données qui contournerait
+ * ce fichier et demanderait son propre verrou.
  *
  * Il reste volontairement pur — ni réseau, ni base, ni `ctx` — parce que c'est
  * exactement ce qui le rend partageable entre les deux, et testable sans aucun
@@ -38,10 +37,9 @@ export interface ProjectionConfig {
 /**
  * La ligne du miroir : la sortie de la projection, et l'entrée de l'écriture.
  *
- * Les noms restent ceux des colonnes Postgres d'origine, et les dates restent
- * en ISO. Ce n'est pas de la nostalgie : c'est la forme que le webhook produit
- * et que `toEntitlements` consomme, et la renommer n'aurait déplacé la
- * conversion qu'un cran plus loin — dans les deux sens.
+ * Les champs sont en `snake_case` et les dates en ISO : c'est la forme que le
+ * webhook produit et que `toEntitlements` consomme. La renommer ne déplacerait
+ * la conversion qu'un cran plus loin, dans les deux sens.
  */
 export interface EntitlementsRow {
   user_id: string

@@ -13,8 +13,8 @@ import { consume } from './limits'
  *
  * - **Google et GitHub**, les deux fournisseurs déjà offerts avant la migration.
  *   Les applications OAuth ne changent pas, seule l'URL de rappel change.
- * - **Le lien magique**, pour qui ne veut ni compte tiers ni mot de passe. C'est
- *   la porte que Supabase servait, et la seule qui coûte un expéditeur vérifié.
+ * - **Le lien magique**, pour qui ne veut ni compte tiers ni mot de passe. La
+ *   seule des quatre qui coûte un expéditeur vérifié.
  * - **Le mot de passe**, qui n'existait pas avant. Il est là parce qu'une suite
  *   automatisée doit pouvoir ouvrir une session : un lien magique arrive par
  *   courrier et un SSO passe par un tiers, donc ni l'un ni l'autre ne se joue

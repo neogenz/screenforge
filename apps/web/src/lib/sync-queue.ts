@@ -49,12 +49,12 @@ function getDB(): Promise<IDBPDatabase<SyncDB>> {
 /**
  * La clé porte l'utilisateur, pas seulement le projet.
  *
- * Le chemin d'un objet dans Storage est `{user_id}/{asset_id}` : « déjà
- * envoyé » est donc une affirmation sur un dossier, pas sur un fichier. Sans
- * l'identité dans la clé, une seconde session sur le même navigateur hériterait
- * des accusés de réception de la première et ne téléverserait jamais ses
- * propres copies — le projet arriverait dans le cloud avec des images qu'aucune
- * policy ne lui laisserait relire.
+ * Un binaire appartient à un compte : « déjà envoyé » est donc une affirmation
+ * sur un compte, pas sur un fichier. Sans l'identité dans la clé, une seconde
+ * session sur le même navigateur hériterait des accusés de réception de la
+ * première et ne téléverserait jamais ses propres copies — le projet arriverait
+ * dans le nuage en désignant des images que le déploiement ne rend qu'à leur
+ * propriétaire.
  */
 export function syncKey(userId: string, projectId: string): string {
   return `${userId}:${projectId}`

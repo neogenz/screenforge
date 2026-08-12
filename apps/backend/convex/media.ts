@@ -1,12 +1,11 @@
 /**
  * Ce qu'un compte a le droit de téléverser, écrit une fois.
  *
- * Ces valeurs vivaient dans `apps/web/src/lib/image.ts`, où elles bornaient un
- * import local. Le bucket Supabase les redisait de son côté — `file_size_limit`
- * et `allowed_mime_types` — et les deux pouvaient diverger sans que rien ne le
- * signale. Convex ne filtre rien du tout : une URL de téléversement accepte
- * n'importe quel octet, donc le contrôle est du code, et ce code a besoin des
- * mêmes nombres que l'éditeur. Ils sont ici, l'éditeur les réexporte.
+ * Ces valeurs bornaient un import local dans `apps/web/src/lib/image.ts`.
+ * Convex ne filtre rien : une URL de téléversement accepte n'importe quel
+ * octet, donc le plafond est du code serveur, et ce code a besoin des mêmes
+ * nombres que l'éditeur. Deux copies dériveraient sans que rien ne le signale ;
+ * ils sont donc ici, et l'éditeur les réexporte.
  */
 
 export const MAX_IMAGE_FILE_BYTES = 16 * 1024 * 1024

@@ -1,17 +1,16 @@
 /**
  * Le déploiement local, et les gestes que seul le backend peut faire.
  *
- * C'est le pendant de `supabase/tests/stack.mjs` — même rôle, même place hors
- * de `apps/web` — avec une différence qui est le vrai gain de la migration : il
- * n'y a plus de clé `service_role` à ne pas divulguer. La clé d'administration
- * lue ici n'est pas un secret partagé mais une valeur écrite par
- * `convex dev --anonymous` dans un répertoire ignoré par git, propre à cette
- * machine et à ce déploiement anonyme. Elle ne vaut rien ailleurs.
+ * Il vit hors de `apps/web` parce que rien ici n'a de raison d'être compilé
+ * dans le navigateur, à commencer par la clé d'administration. Celle-ci n'est
+ * pas un secret partagé : `convex dev --anonymous` l'écrit dans un répertoire
+ * ignoré par git, propre à cette machine et à ce déploiement anonyme. Elle ne
+ * vaut rien ailleurs.
  *
  * Elle sert à une chose : appeler les `internalMutation`, qu'aucun client ne
- * peut atteindre. C'est ce qui remplace le rôle privilégié, et c'est un
- * meilleur remplacement — la frontière est déclarée dans le code plutôt que
- * tenue par une politique de base de données.
+ * peut atteindre. La frontière entre ce qu'un client peut appeler et le reste
+ * est déclarée dans le code, elle ne dépend d'aucun rôle privilégié qu'il
+ * faudrait ne pas divulguer.
  */
 import { ConvexHttpClient } from 'convex/browser'
 import type { FunctionReference } from 'convex/server'

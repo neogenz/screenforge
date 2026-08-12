@@ -7,29 +7,24 @@ import schema from './schema'
 import { cloudAccount, errorCode, rateLimited, testConvex } from './test.helpers'
 
 /**
- * Le port, cas par cas, de `apps/api/src/routes/account.test.ts`.
+ * La suppression de compte, cas par cas : le seul geste irréversible du
+ * produit, et le plus long fichier de tests du déploiement pour cette seule
+ * raison.
  *
- * Ce fichier était le plus long du backend Hono, et pour une raison qui n'a pas
- * disparu : la suppression de compte est le seul geste irréversible du produit,
- * et ses frontières sont ambiguës. Chacun de ses cas est repris ici, y compris
- * ceux dont la mécanique a changé — ce qui change alors est **ce que le cas
- * observe**, jamais la question qu'il pose.
+ * Deux ambiguïtés sont délibérément hors d'ici, et elles sont nommées plutôt
+ * que laissées invisibles :
  *
- * Quatre cas d'origine n'ont plus de référent, et ils sont nommés plutôt que
- * supprimés en silence :
- *
- * - « un échec `deleteUser` confirmé », « une suppression réussie dont la
- *   réponse se perd » et « un résultat Auth ambigu » interrogeaient tous les
- *   trois le même appel réseau, `auth.admin.deleteUser`, dont la réponse pouvait
- *   se perdre après coup. Ici l'identité se supprime dans la transaction, avec
- *   le reste : elle est là ou elle n'est plus. L'ambiguïté qui subsiste est
- *   entre le navigateur et le déploiement, et c'est `'unknown'` côté client qui
- *   la porte — `api.test.ts` la couvre.
- * - « sans file durable, rien d'irréversible ne commence » vérifiait qu'une
- *   écriture de file ratée arrêtait tout. La file et le travail sont désormais
- *   la même transaction : elle ne peut pas manquer pendant que le reste avance.
- *   Ce que ce cas garde de vrai est vérifié par « sans jeton, rien
- *   d'irréversible ne commence » — la seule barrière qui reste franchissable.
+ * - **Une réponse qui se perd après coup.** L'identité se supprime dans la même
+ *   transaction que le reste : côté déploiement elle est là ou elle n'est plus,
+ *   il n'y a pas de cas ambigu à observer. Ce qui reste incertain est le trajet
+ *   du retour, et c'est `'unknown'` côté client qui le porte —
+ *   `apps/web/src/lib/__tests__/account.test.ts` le couvre.
+ * - **Une file écrite sans que le travail commence.** La file et le travail
+ *   sont la même transaction : elle ne peut pas manquer pendant que le reste
+ *   avance. La seule barrière qui reste franchissable est celle que voit un
+ *   jeton encore valide, et « sans jeton, rien d'irréversible ne commence »
+ *   plus « refuse un envoi de fichier émis après la ligne prepared » la
+ *   vérifient.
  */
 
 const PNG = 'image/png'
@@ -182,13 +177,13 @@ beforeEach(() => {
 })
 
 /**
- * Le test qui remplace `on delete cascade`.
+ * Le test qui tient lieu de cascade.
  *
- * Postgres emportait les lignes filles sans qu'on ait à les nommer. Convex ne le
- * fait pas, donc la liste est écrite à la main — et une liste écrite à la main
- * s'oublie. Celui-ci lit le schéma, pas la liste : une table ajoutée demain avec
- * un champ `userId` fait échouer cette assertion tant qu'elle n'a pas été
- * classée, possédée ou survivante.
+ * Rien n'emporte les lignes filles d'un compte : la liste des tables qui lui
+ * appartiennent est écrite à la main, et une liste écrite à la main s'oublie.
+ * Celui-ci lit le schéma, pas la liste — une table ajoutée demain avec un champ
+ * `userId` fait échouer cette assertion tant qu'elle n'a pas été classée,
+ * possédée ou survivante.
  */
 describe('le schéma, énuméré', () => {
   function fieldsOf(validator: GenericValidator): string[] {

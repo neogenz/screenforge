@@ -58,9 +58,9 @@ const CORS = {
  * L'absence et le refus rendent la même chose, et c'est le point.
  *
  * `storage.getUrl()` a été écarté explicitement : il rend une URL permanente et
- * non révocable, alors que `storage_assets.sql` promettait l'inverse. Une URL
- * porteuse qui traîne dans un historique de navigation est le même problème
- * avec une étape de plus.
+ * non révocable, là où tout le reste de ce fichier n'ouvre un fichier que le
+ * temps d'une requête authentifiée. Une URL porteuse qui traîne dans un
+ * historique de navigation est le même problème avec une étape de plus.
  *
  * Le 404 porte les en-têtes CORS comme les réponses pleines : sans eux le
  * navigateur masque le statut derrière une erreur réseau, et le client ne

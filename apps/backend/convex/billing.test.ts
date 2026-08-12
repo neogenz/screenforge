@@ -7,11 +7,11 @@ import { testConvex } from './test.helpers'
  * Le webhook de bout en bout : signature réelle, analyse réelle du SDK Polar,
  * projection réelle, écriture réelle.
  *
- * Ce sont les charges signées de `apps/api/src/routes/billing.webhook.test.ts`,
- * rejouées telles quelles contre l'`httpAction`. Ce qui change est ce qui devait
- * changer : plus de Postgres en mémoire, la mutation écrit dans le simulateur.
- * Ce qui ne change pas est ce qui compte — les mêmes octets produisent le même
- * miroir, et les trois refus rendent les trois mêmes statuts.
+ * Rien n'est simulé du chemin : les octets sont signés avec le vrai secret,
+ * analysés par le vrai SDK Polar, et la mutation écrit dans le simulateur. Une
+ * suite qui partirait d'un objet déjà analysé prouverait la projection et rien
+ * de la réception — or c'est la réception qui décide si une signature forgée
+ * entre.
  */
 
 const SECRET = 'whsec_screenforge_test'
@@ -317,8 +317,8 @@ describe('POST /billing/webhook', () => {
     expect(await mirror(t)).toHaveLength(0)
   })
 
-  /* Ce que Postgres refusait par une clé étrangère, et que Convex ne refuse
-     pas tout seul : `externalId` est une chaîne venue du dehors. */
+  /* `externalId` est une chaîne venue du dehors, et rien dans le schéma ne
+     garantit qu'elle désigne un compte : c'est la mutation qui le vérifie. */
   it('ignore un identifiant externe qui ne désigne aucun compte', async () => {
     const known = await account(t)
     const body = customerStateChanged({

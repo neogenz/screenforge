@@ -80,10 +80,10 @@ jobs:
   # variables du déploiement Convex et nulle part ailleurs : ni dans le dépôt, ni
   # dans un `.env` committé, ni dans le contexte d'un agent.
   #
-  # Ce qui a disparu avec la migration, et qu'on ne remplace pas : le grep qui
-  # refusait `service_role` dans `apps/web`. Il gardait une clé qui contournait
-  # la RLS ; il n'existe plus de clé qui contourne l'autorisation, parce qu'il
-  # n'existe plus de chemin vers la base à côté des fonctions.
+  # Aucun grep ne garde `apps/web` contre une clé privilégiée qui y aurait
+  # fuité, et c'est délibéré : il n'existe pas de clé qui contourne
+  # l'autorisation, parce qu'il n'existe pas de chemin vers les données à côté
+  # des fonctions.
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 10

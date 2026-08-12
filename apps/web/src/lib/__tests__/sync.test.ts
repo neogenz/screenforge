@@ -91,8 +91,8 @@ describe('catalogue cloud', () => {
        l'éditeur n'a rien à lui, donc « le plus récent » doit être en tête et
        les ex æquo doivent être départagés de façon stable — sinon deux
        navigateurs sur le même compte adoptent deux projets différents.
-       L'ancienne version demandait cet ordre à PostgREST ; un index Convex ne
-       trie pas sur deux champs quelconques, donc il est refait ici. */
+       Un index Convex ne trie pas sur deux champs quelconques, donc l'ordre
+       est refait ici plutôt que demandé au serveur. */
     expect((await fetchRemoteProjectRows()).map((row) => row.projectId)).toEqual(['a', 'c', 'b'])
   })
 })

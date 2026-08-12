@@ -8,20 +8,16 @@ import { consume } from './limits'
 /**
  * La suppression de compte, sans cascade.
  *
- * `apps/api` s'appuyait sur une phrase de Postgres : « une seule instruction
- * suffit, `auth.users` est référencée en `on delete cascade` par `projects` et
- * `entitlements` ». Elle nommait aussi le risque qu'elle évitait — « supprimer
- * table par table recréerait la même chaîne en TypeScript, avec le risque
- * qu'une table ajoutée demain n'y soit jamais inscrite ».
- *
- * Convex n'a pas de cascade : ce risque devient réel, et il ne se tient pas en
- * s'en souvenant. Deux mesures, et elles vont ensemble. La liste vit ici et
- * nulle part ailleurs — ce sont les clés de `IDENTITY_PURGES` et de
+ * Rien ne suit les lignes filles d'un compte : supprimer veut dire nommer
+ * chaque table qui lui appartient, et une chaîne écrite à la main a un défaut
+ * connu — la table ajoutée demain n'y est jamais inscrite. Ce risque ne se
+ * tient pas en s'en souvenant. Deux mesures, et elles vont ensemble. La liste
+ * vit ici et nulle part ailleurs — ce sont les clés de `IDENTITY_PURGES` et de
  * `DATA_PURGES`, réunies dans `TABLES_OWNED_BY_USER`. Et
  * `accountDeletion.test.ts` énumère le schéma : toute table portant un champ
  * `userId` doit être dans cette liste, ou être l'exception déclarée
- * (`accountDeletionJobs`, qui survit exprès au compte). C'est ce test qui
- * remplace le `cascade`, et c'est lui qui attrapera la table ajoutée demain.
+ * (`accountDeletionJobs`, qui survit exprès au compte). C'est ce test qui tient
+ * lieu de cascade, et c'est lui qui attrapera la table ajoutée demain.
  *
  * Le nom du fichier n'est pas en `kebab-case` comme le reste du dépôt, et ce
  * n'est pas un oubli : Convex refuse la poussée d'un module dont le chemin
@@ -29,15 +25,13 @@ import { consume } from './limits'
  * periods »). Il suit donc le nom sous lequel les fonctions s'appellent,
  * `internal.accountDeletion.*`.
  *
- * La machine à états, elle, se transpose sans se repenser : idempotente,
- * sérialisée par compte, et posant sa barrière durable **avant** toute opération
- * irréversible. Ce qui change vraiment est la nature de l'ambiguïté. Chez
- * Supabase, `auth.admin.deleteUser` était un appel réseau dont la réponse
- * pouvait se perdre après coup, d'où trois états d'identité — présente, absente,
- * inconnue. Ici l'identité se supprime dans la même transaction que le reste :
- * elle est là ou elle n'est plus, et il n'y a pas de troisième cas à
- * réconcilier. L'ambiguïté qui reste est entre le navigateur et le déploiement,
- * et c'est `'unknown'`, côté client, qui la porte — comme avant.
+ * La machine à états est idempotente, sérialisée par compte, et pose sa
+ * barrière durable **avant** toute opération irréversible. L'identité se
+ * supprime dans la même transaction que le reste : elle est là ou elle n'est
+ * plus, il n'y a pas de troisième cas à réconcilier côté déploiement. La seule
+ * ambiguïté qui subsiste est entre le navigateur et le déploiement — une
+ * réponse peut se perdre après que tout a été fait — et c'est `'unknown'`,
+ * côté client, qui la porte.
  */
 
 /**

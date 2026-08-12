@@ -82,10 +82,10 @@ export default defineSchema({
   /**
    * Les binaires, et à qui ils appartiennent.
    *
-   * Le bucket portait l'isolation dans le chemin `{user_id}/{asset_id}`. Convex
-   * n'a pas de chemin : la propriété est une colonne, et `by_user_asset` est ce
-   * qui la rend interrogeable sans balayer la table. Aucune lecture ne prend
-   * l'utilisateur en paramètre — il vient du jeton, toujours.
+   * Un fichier Convex n'a pas de chemin où loger l'isolation : la propriété est
+   * un champ, et `by_user_asset` est ce qui la rend interrogeable sans balayer
+   * la table. Aucune lecture ne prend l'utilisateur en paramètre — il vient du
+   * jeton, toujours.
    */
   assets: defineTable({
     userId: v.id('users'),
@@ -99,14 +99,12 @@ export default defineSchema({
    * Les suppressions de compte en cours : la barrière, et ce qu'il reste à
    * faire.
    *
-   * `userId` en `v.string()` et non en `v.id('users')`, pour la raison même qui
-   * faisait écrire à la table Postgres « deliberately no foreign key to
-   * `auth.users` » : cette ligne doit **survivre à l'identité** qu'elle garde et
-   * nettoie. Un `v.id('users')` pointant sur un document supprimé est un
-   * identifiant qui ne résout plus — même conclusion, autre mécanique.
+   * `userId` en `v.string()` et non en `v.id('users')` : cette ligne doit
+   * **survivre à l'identité** qu'elle garde et nettoie, et un `v.id('users')`
+   * qui pointe sur un document supprimé est un identifiant qui ne résout plus.
    *
    * Elle porte donc `userId` sans être « possédée » par le compte au sens de
-   * `account-deletion.ts` : c'est la seule table que le balayage ne balaie pas,
+   * `accountDeletion.ts` : c'est la seule table que le balayage ne balaie pas,
    * puisqu'elle est ce qui dit que le balayage n'est pas fini. Le test qui
    * énumère le schéma connaît cette exception, et elle est la seule.
    */

@@ -10,10 +10,10 @@ import { internalQuery } from './_generated/server'
  * partout ailleurs — la propriété vient de la session, jamais de la requête.
  *
  * Elles rendent `null` et non une erreur : la route traduit ce `null` en 404,
- * et c'est délibéré. Un 403 confirmerait que l'objet existe, ce qui est
- * exactement ce que `storage_assets.sql` refusait de laisser deviner — « un
- * bucket public rendrait l'URL de la capture d'écran d'une app non annoncée
- * devinable ».
+ * et c'est délibéré. Un 403 confirmerait que l'objet existe, or l'existence est
+ * elle-même privée — ce qui est déposé ici est la capture d'écran d'une app
+ * non annoncée, et un identifiant devinable suffirait alors à savoir qu'elle
+ * existe.
  */
 
 export const assetStorageId = internalQuery({

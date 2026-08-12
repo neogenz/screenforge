@@ -6,13 +6,12 @@ import { MAX_IMAGE_FILE_BYTES } from './media'
 import { cloudAccount, errorCode, testConvex } from './test.helpers'
 
 /**
- * Le bucket est devenu du code, donc il se teste comme du code.
+ * Le plafond de téléversement est du code, donc il se teste comme du code.
  *
- * Supabase appliquait `file_size_limit` et `allowed_mime_types` à la réception.
- * Convex n'applique rien : l'URL rendue par `generateUploadUrl` accepte
- * n'importe quel octet, de n'importe quel type. Ce qui remplace le bucket est
- * un contrôle avant (refuser une intention absurde sans dépenser d'URL) et un
- * contrôle après (relire les métadonnées réelles et supprimer le menteur).
+ * Convex n'applique rien à la réception : l'URL rendue par `generateUploadUrl`
+ * accepte n'importe quel octet, de n'importe quel type. Le plafond tient donc
+ * en deux contrôles — un avant (refuser une intention absurde sans dépenser
+ * d'URL) et un après (relire les métadonnées réelles et supprimer le menteur).
  *
  * Le second n'est jouable qu'à moitié dans `convex-test` : son `_storage` ne
  * porte que `size` et `sha256`, jamais le `contentType` qu'un vrai déploiement
@@ -182,9 +181,8 @@ describe('la lecture des binaires', () => {
   })
 
   it('rend 404 sur l’asset d’un autre compte, jamais 403', async () => {
-    /* 403 confirmerait l'existence, et `storage_assets.sql` promettait
-       l'inverse : « un bucket public rendrait l'URL de la capture d'écran
-       d'une app non annoncée devinable ». */
+    /* 403 confirmerait l'existence, et l'existence est elle-même privée : ce
+       qui est déposé ici est la capture d'écran d'une app non annoncée. */
     const t = testConvex()
     const propriétaire = await cloudAccount(t)
     const curieux = await cloudAccount(t)

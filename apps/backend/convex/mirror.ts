@@ -43,18 +43,17 @@ export const myEntitlements = query({
 /**
  * Le miroir n'accepte que ce qui est plus récent que ce qu'il porte.
  *
- * C'est `apply_entitlements_if_newer` en TypeScript, et la comparaison reste
- * atomique sans plpgsql : une mutation Convex est une transaction, donc le
- * `get` puis le `patch` ne peuvent pas s'entrelacer avec un autre webhook. Deux
- * livraisons désordonnées laissent donc la ligne sur la plus récente, quel que
- * soit leur ordre d'arrivée.
+ * La comparaison est atomique sans rien demander de particulier : une mutation
+ * Convex est une transaction, donc le `get` puis le `patch` ne peuvent pas
+ * s'entrelacer avec un autre webhook. Deux livraisons désordonnées laissent la
+ * ligne sur la plus récente, quel que soit leur ordre d'arrivée.
  *
  * `internalMutation` et non `mutation` : une fonction interne n'est pas
- * appelable depuis un client. C'est ce qui remplace la clé `service_role`, et
- * c'est un meilleur remplacement — il n'y a aucun secret à ne pas divulguer.
+ * appelable depuis un client, et il n'y a aucun secret à ne pas divulguer pour
+ * que cela tienne — la frontière est le marqueur, pas une clé.
  *
- * Elle rend le même triplet que la version SQL parce que le webhook s'en sert
- * pour décider s'il journalise :
+ * Elle rend un triplet parce que le webhook s'en sert pour décider s'il
+ * journalise :
  * - `written` : la ligne a été créée ou mise à jour ;
  * - `ignored` : la livraison était plus ancienne que ce que porte la ligne, ou
  *   ne désigne aucun compte ;
@@ -91,9 +90,9 @@ export const applyEntitlementsIfNewer = internalMutation({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .unique()
 
-    /* L'unicité que la clé primaire Postgres donnait gratuitement est tenue
-       ici : une seule branche insère, et elle n'est prise que si la requête
-       indexée n'a rien trouvé — dans la même transaction que l'insertion. */
+    /* Une ligne par compte, et rien dans le schéma ne l'impose : une seule
+       branche insère, et elle n'est prise que si la requête indexée n'a rien
+       trouvé — dans la même transaction que l'insertion. */
     if (existing === null) {
       await ctx.db.insert('entitlements', { userId, ...incoming })
       return 'written'
@@ -105,9 +104,8 @@ export const applyEntitlementsIfNewer = internalMutation({
       await ctx.db.patch(existing._id, incoming)
       return 'written'
     }
-    /* `next === null` face à une ligne datée : ni plus récent ni plus ancien,
-       donc `unchanged` — le SQL disait la même chose, par la propagation de
-       `null` dans ses deux comparaisons. */
+    /* `next === null` face à une ligne datée : la livraison ne se date pas,
+       donc elle n'est ni plus récente ni plus ancienne, donc `unchanged`. */
     return next !== null && next < current ? 'ignored' : 'unchanged'
   },
 })

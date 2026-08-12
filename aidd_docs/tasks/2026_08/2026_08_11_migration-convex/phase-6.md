@@ -164,21 +164,38 @@ déploiement, ouverture commerciale ou non — refuser de le supprimer dans une
 build d'avant-lancement serait retenir des données de quelqu'un qui demande à
 partir. Elle ne dépend plus que de `connect()`.
 
-**5. Critère 1 : le grep rend huit lignes, toutes des commentaires, et elles
-restent.** La commande demandée
-(`grep -rni "supabase" … apps/ scripts/`) rend huit occurrences dans
-`apps/backend/convex/`, aucune dans du code exécutable : ce sont les phrases qui
-disent **pourquoi** une règle existe — « le bucket appliquait `file_size_limit`
-et `allowed_mime_types` à la réception », « `auth.admin.deleteUser` était un
-appel réseau dont la réponse pouvait se perdre ». Les effacer coûterait
-exactement ce que la migration a passé six phases à préserver : la raison
-mesurée derrière chaque contrainte. Ce que le critère voulait prouver — plus
-aucun couplage vivant — est prouvé par les deux autres greps, qui eux rendent
-zéro : aucune dépendance (`grep supabase pnpm-lock.yaml` → 0) et aucun import.
+**5. Critère 1 : tenu, après une seconde passe.** Le premier jet laissait huit
+commentaires nommant Supabase, au motif qu'ils portaient la raison mesurée
+derrière une contrainte. La relecture a montré que ce n'était pas vrai de la
+façon dont c'était écrit : dans chacun des huit, la raison est une phrase sur
+Convex — « rien n'est filtré à la réception », « une mutation est une
+transaction », « la clé du document ne se choisit pas » — et le nom du système
+disparu ne servait qu'à la mettre en contraste. Un lecteur qui ne l'a pas connu
+n'a rien à en tirer, et un lecteur qui voudrait vérifier le contraste ne le
+peut pas : le code cité n'est plus dans le dépôt.
+
+La passe a donc porté plus loin que les huit lignes du grep, sur ~35 sites
+répartis dans vingt fichiers, parce que le même défaut se cachait derrière des
+noms que `supabase` ne trouve pas : `apps/api`, `cloud_gate.sql`,
+`storage_assets.sql`, `upsert_project_lww`, `public.has_cloud()`, PostgREST,
+`service_role`, plpgsql, `hc<AppType>`. Chaque commentaire est réécrit au
+présent, la raison intacte, le pointeur mort supprimé — le renvoi de
+`accountDeletion.test.ts` vers `api.test.ts` était d'ailleurs faux depuis
+l'écart 3, ce fichier s'appelant `account.test.ts`. L'histoire de la migration
+reste écrite en entier, à un seul endroit et daté : ce dossier.
+
+Le grep de contrôle est élargi en conséquence et rend zéro :
+
+```bash
+grep -rniE "supabase|apps/api|postgrest|postgres|service_role|cloud_gate|storage_assets|upsert_project_lww|apply_entitlements|has_cloud\(|account_deletion_pending|auth\.users|plpgsql|\bRLS\b|VITE_API_URL" --include="*.ts" --include="*.tsx" --include="*.yml" --include="*.json" apps/ scripts/ .github/
+```
 
 **6. Critère 2 : `@hono/node-server` reste, et c'est le critère qui se
-trompait.** Il appartient à `apps/bridge`, le pont local, qui n'a rien à voir
-avec la migration et continue de servir `codex` et la publication App Store.
+trompait.** Il appartient à `apps/bridge`
+([`package.json:20`](../../../../apps/bridge/package.json)), le pont local, qui
+n'a rien à voir avec la migration et continue de servir `codex` et la
+publication App Store. Le retirer supprimerait une fonctionnalité vivante ; il
+n'y a donc rien à corriger dans le code, seulement ici.
 `@supabase/supabase-js` a bien quitté les trois `package.json` et le fichier de
 verrouillage.
 

@@ -34,9 +34,9 @@ import { consume } from './limits'
 /**
  * Une variable absente doit faire échouer la fonction qui la lit, avec son nom.
  *
- * `env.ts` et son schéma zod validaient tout au démarrage du processus Hono ;
- * une fonction Convex n'a pas de démarrage où se plaindre. Ce qui remplace ce
- * contrôle est `billing.healthcheck`, appelé par un test de déploiement — et
+ * Une fonction Convex n'a pas de démarrage où se plaindre : rien ne vérifie la
+ * configuration avant qu'un acheteur ne clique. Deux choses tiennent lieu de
+ * ce contrôle — `billing.healthcheck`, appelé après chaque `convex env set`, et
  * cette fonction-ci, qui nomme la variable manquante plutôt que de laisser le
  * SDK échouer sur une chaîne vide.
  */

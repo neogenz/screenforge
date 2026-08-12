@@ -8,8 +8,7 @@ import { MAX_IMAGE_FILE_BYTES, isContentImageType } from './media'
  * Les binaires, et le double contrôle qui n'est pas de la ceinture et des
  * bretelles.
  *
- * Le bucket Supabase appliquait `file_size_limit` et `allowed_mime_types`
- * lui-même, à la réception. Convex ne filtre rien : l'URL rendue par
+ * Convex ne filtre rien à la réception : l'URL rendue par
  * `generateUploadUrl` accepte n'importe quel octet, de n'importe quel type, de
  * n'importe quelle taille. Le premier contrôle refuse une intention absurde
  * avant de dépenser une URL ; le second relit les métadonnées **réelles** du
