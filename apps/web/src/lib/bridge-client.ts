@@ -1,5 +1,6 @@
 import type { BridgePlan, Hello } from 'bridge'
 import { AI_LIMITS } from '@/lib/ai/tools'
+import { automaticArchetype } from '@/lib/ai/archetypes'
 import { normalizeSlot } from '@/lib/slots'
 import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
@@ -253,10 +254,11 @@ export async function planViaBridge(
     const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
     return {
       name: screen.name.slice(0, AI_LIMITS.maxNameLength),
-      headline: screen.headline.slice(0, AI_LIMITS.maxTextLength),
+      headline: screen.headline.slice(0, AI_LIMITS.maxCampaignHeadlineLength),
       evidence: screen.evidence.slice(0, AI_LIMITS.maxEvidenceLength),
       slot: normalizeSlot(screen.slot || screen.name || `ecran-${index + 1}`),
       screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
+      layout: automaticArchetype(index, expected, Boolean(brief.screenshots[at]?.assetId)),
     }
   })
 

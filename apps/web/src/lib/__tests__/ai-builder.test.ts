@@ -303,6 +303,20 @@ describe('le plan', () => {
     )
   })
 
+  it('pose exactement la géométrie choisie dans la revue', () => {
+    const plan = planFromBrief(brief)
+    plan.screens[0] = { ...plan.screens[0], layout: 'bord-coupe' }
+    const preview = planScreenLayout(plan, brief, 0)?.device
+    const call = planToolCalls(plan, brief).find((entry) => entry.tool === 'add_device')
+    expect(call?.args).toMatchObject({
+      x: preview?.x,
+      y: preview?.y,
+      width: preview?.width,
+      height: preview?.height,
+      rotation: preview?.rotation,
+    })
+  })
+
   it('ne rejoint le projet que par les outils', () => {
     const calls = planToolCalls(planFromBrief(brief), brief)
     expect(calls[0].tool).toBe('declare_plan')

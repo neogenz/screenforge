@@ -1,4 +1,5 @@
 import { AI_LIMITS } from '@/lib/ai/tools'
+import { automaticArchetype } from '@/lib/ai/archetypes'
 import { normalizeSlot } from '@/lib/slots'
 import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
@@ -334,10 +335,11 @@ export async function planViaApi(
     const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
     return {
       name: (name || `${brief.appName} ${index + 1}`).slice(0, AI_LIMITS.maxNameLength),
-      headline: headline.slice(0, AI_LIMITS.maxTextLength),
+      headline: headline.slice(0, AI_LIMITS.maxCampaignHeadlineLength),
       evidence: evidence.slice(0, AI_LIMITS.maxEvidenceLength),
       slot: normalizeSlot(slot || name || `ecran-${index + 1}`),
       screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
+      layout: automaticArchetype(index, count, Boolean(brief.screenshots[at]?.assetId)),
     }
   })
 

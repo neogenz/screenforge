@@ -15,7 +15,14 @@ interface ScreenState {
   id: string
   name: string
   background: { type: string; color?: string }
-  layers: { type: string; content?: string; color?: string; slot?: string }[]
+  layers: {
+    type: string
+    content?: string
+    color?: string
+    slot?: string
+    x: number
+    rotation: number
+  }[]
 }
 
 async function screens(page: Page): Promise<ScreenState[]> {
@@ -32,6 +39,8 @@ async function screens(page: Page): Promise<ScreenState[]> {
             content: (layer as { content?: string }).content,
             color: (layer as { color?: string }).color,
             slot: (layer as { slot?: string }).slot,
+            x: layer.x,
+            rotation: layer.rotation,
           })),
         })),
       ),
@@ -162,6 +171,12 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   await expect(panel).toBeFocused()
 
   await secondTab.click()
+  const layoutSelect = page.getByLabel('Mise en page du visuel')
+  const mainDevice = panel.locator('[data-device-frame]').first()
+  const beforeLayout = await mainDevice.getAttribute('style')
+  await layoutSelect.click()
+  await page.getByRole('option', { name: 'Appareil décalé, entièrement visible' }).click()
+  await expect(mainDevice).not.toHaveAttribute('style', beforeLayout ?? '')
   const headline = page.getByLabel('Accroche du visuel 2')
   await expect(headline).toHaveValue('Cadence')
   await headline.fill('Tout tient dans la poche')
@@ -184,6 +199,10 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   const laid = (index: number) => after[index].layers.at(-1)?.content
   expect(laid(before.length)).toBe('Le budget dans une poche')
   expect(laid(before.length + 1)).toBe('Tout tient dans la poche')
+  const secondDevice = after[before.length + 1].layers.find(
+    (layer) => layer.type === 'device-frame',
+  )
+  expect(secondDevice).toMatchObject({ x: 35, rotation: -2 })
 })
 
 test('le restylage ne sort pas de l’écran courant', async ({ page }) => {

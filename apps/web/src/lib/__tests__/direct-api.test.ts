@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiKey, connectApiProvider, extractJson, planViaApi, setApiKey } from '@/lib/ai/direct-api'
-import { assignArchetypes, backgroundFor } from '@/lib/ai/archetypes'
+import { backgroundFor } from '@/lib/ai/archetypes'
 import { planScreenLayout } from '@/lib/ai/plan'
 import type { CampaignBrief } from '@/lib/ai/plan'
 
@@ -232,8 +232,8 @@ describe('plan via une API', () => {
     const fonds = plan.screens.map(
       (_unused, index) => planScreenLayout(plan, BRIEF, index)?.background,
     )
-    expect(fonds[0]).toEqual(backgroundFor(assignArchetypes(2)[0], plan.palette))
-    expect(fonds[1]).toEqual(backgroundFor(assignArchetypes(2)[1], plan.palette))
+    expect(fonds[0]).toEqual(backgroundFor(plan.screens[0].layout, plan.palette))
+    expect(fonds[1]).toEqual(backgroundFor(plan.screens[1].layout, plan.palette))
     expect(fonds[0]).not.toEqual(fonds[1])
   })
 

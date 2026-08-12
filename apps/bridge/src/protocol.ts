@@ -125,7 +125,7 @@ export type BridgeBrief = z.infer<typeof briefSchema>
  */
 const plannedScreenSchema = z.object({
   name: z.string().min(1).max(60),
-  headline: z.string().min(1).max(400),
+  headline: z.string().min(1).max(72),
   slot: z.string().max(48).optional(),
   screenshotIndex: z.number().int().min(0).max(9).optional(),
   evidence: z.string().min(1).max(160),

@@ -24,7 +24,7 @@ import type { ShapeId } from '@/lib/vector-catalog'
  * — deux planches voisines ne portent jamais le même archétype ;
  * — un lot de trois planches ou plus en porte au moins trois différents ;
  * — aucune bande vide d'un quart de planche (« FILL THE FRAME ») ;
- * — un appareil garde au moins 70 % de sa surface dans le cadre ;
+ * — un appareil choisi automatiquement garde au moins 90 % de sa surface dans le cadre ;
  * — l'accroche tient 4,5:1 sur son fond, dégradé compris.
  *
  * Ce que l'adaptation refuse de copier : Shotluma dispose de rendus d'iPhone en
@@ -223,35 +223,33 @@ interface Spec {
 const SPECS: readonly Spec[] = [
   {
     id: 'plein-cadre',
-    label: 'Appareil plein cadre, coupé par le bas',
+    label: 'Appareil centré, entièrement visible',
     background: { kind: 'voile', angle: 165 },
-    deviceWidth: 0.86,
-    deviceX: 0.07,
-    /* 0,25 et non 0,22 : trois lignes de cinquante font 180 px sous une
-       accroche posée à 43, et l'appareil doit commencer après. */
-    deviceY: 0.25,
+    deviceWidth: 0.6,
+    deviceX: 0.2,
+    deviceY: 0.31,
     deviceTilt: 0,
-    headline: { y: 0.045, lines: 3, fontSize: 50, fontWeight: 700, align: 'center' },
+    headline: { y: 0.11, lines: 3, fontSize: 44, fontWeight: 700, align: 'center' },
   },
   {
     id: 'bord-coupe',
-    label: 'Appareil penché, sorti par le bord',
+    label: 'Appareil décalé, entièrement visible',
     background: { kind: 'halo', centerX: 22, centerY: 68 },
-    deviceWidth: 0.78,
-    deviceX: -0.18,
-    deviceY: 0.26,
-    deviceTilt: 6,
-    headline: { y: 0.06, lines: 3, fontSize: 46, fontWeight: 700, align: 'left' },
+    deviceWidth: 0.59,
+    deviceX: 0.08,
+    deviceY: 0.32,
+    deviceTilt: 2,
+    headline: { y: 0.11, lines: 3, fontSize: 42, fontWeight: 700, align: 'left' },
   },
   {
     id: 'carte',
     label: 'Appareil posé, accroche au-dessus',
     background: { kind: 'voile', angle: 200 },
-    deviceWidth: 0.66,
-    deviceX: 0.17,
-    deviceY: 0.32,
+    deviceWidth: 0.59,
+    deviceX: 0.205,
+    deviceY: 0.31,
     deviceTilt: 0,
-    headline: { y: 0.07, lines: 3, fontSize: 46, fontWeight: 700, align: 'center' },
+    headline: { y: 0.11, lines: 3, fontSize: 42, fontWeight: 700, align: 'center' },
   },
   {
     id: 'bas-ancre',
@@ -302,6 +300,10 @@ export function archetypeSpec(id: ArchetypeId): Spec {
 
 export const ARCHETYPE_IDS: readonly ArchetypeId[] = SPECS.map((spec) => spec.id)
 
+export function isArchetypeId(value: unknown): value is ArchetypeId {
+  return ARCHETYPE_IDS.some((id) => id === value)
+}
+
 /**
  * Qui porte quel rang.
  *
@@ -314,17 +316,21 @@ export const ARCHETYPE_IDS: readonly ArchetypeId[] = SPECS.map((spec) => spec.id
  * trois planches. Un cycle plutôt qu'un tirage : deux lots identiques doivent
  * rendre la même chose, ou la revue ne prouve rien de ce que « Ajouter » posera.
  */
-const CYCLE: readonly ArchetypeId[] = ['bord-coupe', 'carte', 'bas-ancre', 'texte-sur-appareil']
+export const SAFE_ARCHETYPE_IDS: readonly ArchetypeId[] = ['plein-cadre', 'carte', 'bord-coupe']
 
-/** À partir de quatre planches, la dernière est le mur sans appareil. */
-const WALL_FROM = 4
+export function automaticArchetype(
+  index: number,
+  count: number,
+  hasScreenshot: boolean,
+): ArchetypeId {
+  if (!hasScreenshot && count > 1 && index === count - 1) return 'mur'
+  return SAFE_ARCHETYPE_IDS[index % SAFE_ARCHETYPE_IDS.length]
+}
 
 export function assignArchetypes(count: number): ArchetypeId[] {
-  return Array.from({ length: Math.max(0, count) }, (_unused, index) => {
-    if (index === 0) return 'plein-cadre'
-    if (count >= WALL_FROM && index === count - 1) return 'mur'
-    return CYCLE[(index - 1) % CYCLE.length]
-  })
+  return Array.from({ length: Math.max(0, count) }, (_unused, index) =>
+    automaticArchetype(index, count, true),
+  )
 }
 
 /** Le sens de l'inclinaison alterne, plutôt que de répéter le même angle. */
@@ -473,7 +479,7 @@ export function backgroundFor(id: ArchetypeId, palette: Palette): Background {
   return resolveBackground(archetypeSpec(id).background, palette)
 }
 
-/** La part de l'appareil qui reste dans le cadre. Shotluma exige 70 %. */
+/** La part de l'appareil qui reste dans le cadre. Le défaut ScreenForge exige 90 %. */
 export function onBoardRatio(device: PlanBox): number {
   const visibleWidth = Math.max(
     0,

@@ -42,6 +42,7 @@ export const AI_LIMITS = {
   minSize: 4,
   maxSize: 2 * SCREEN_HEIGHT,
   maxTextLength: 400,
+  maxCampaignHeadlineLength: 72,
   maxNameLength: 60,
   maxProductContextLength: 2400,
   maxScreenshotDescriptionLength: 240,

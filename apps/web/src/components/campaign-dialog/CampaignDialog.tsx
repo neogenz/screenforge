@@ -25,7 +25,7 @@ import {
 import { paletteFromScreenshots, type Palette } from '@/lib/ai/palette'
 import { PlanPreview } from '@/components/campaign-dialog/PlanPreview'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
-import { archetypeSpec } from '@/lib/ai/archetypes'
+import { archetypeSpec, SAFE_ARCHETYPE_IDS, type ArchetypeId } from '@/lib/ai/archetypes'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { connectBridge, setBridgeToken } from '@/lib/bridge-client'
 import { connectApiProvider, setApiKey } from '@/lib/ai/direct-api'
@@ -418,6 +418,19 @@ function CampaignDialogContent({ project }: { project: Project }) {
     )
   }
 
+  function editLayout(index: number, layout: ArchetypeId) {
+    setPlan((current) =>
+      current
+        ? {
+            ...current,
+            screens: current.screens.map((screen, at) =>
+              at === index ? { ...screen, layout } : screen,
+            ),
+          }
+        : current,
+    )
+  }
+
   function dropScreen(index: number) {
     setPlan((current) => {
       // Un plan vide n'est pas un plan : le bouton se désactive au dernier, et
@@ -593,6 +606,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
             focus={Math.min(focus, plan.screens.length - 1)}
             onFocus={setFocus}
             onHeadline={editScreen}
+            onLayout={editLayout}
             onDrop={dropScreen}
             onRegenerate={connected ? (index) => void regenerate(index) : undefined}
             regenerating={regenerating}
@@ -967,6 +981,7 @@ interface PlanReviewProps {
   focus: number
   onFocus: (index: number) => void
   onHeadline: (index: number, headline: string) => void
+  onLayout: (index: number, layout: ArchetypeId) => void
   onDrop: (index: number) => void
   /** Absent tant qu'aucun modèle n'est branché : voir `regenerate`. */
   onRegenerate?: (index: number) => void
@@ -992,6 +1007,7 @@ function PlanReview({
   focus,
   onFocus,
   onHeadline,
+  onLayout,
   onDrop,
   onRegenerate,
   regenerating,
@@ -1089,11 +1105,27 @@ function PlanReview({
                 id={HEADLINE_FIELD_ID}
                 font="sans"
                 value={current.headline}
-                maxLength={AI_LIMITS.maxTextLength}
+                maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                 disabled={busy || regenerating !== null}
                 onChange={(event) => onHeadline(focus, event.target.value)}
               />
             </Field>
+            <Select
+              aria-label="Mise en page du visuel"
+              label="Mise en page"
+              value={current.layout}
+              disabled={busy || regenerating !== null}
+              onChange={(event) => onLayout(focus, event.target.value as ArchetypeId)}
+            >
+              {[
+                ...SAFE_ARCHETYPE_IDS,
+                ...(current.screenshotIndex === undefined ? (['mur'] as const) : []),
+              ].map((id) => (
+                <option key={id} value={id}>
+                  {archetypeSpec(id).label}
+                </option>
+              ))}
+            </Select>
             {/* La composition est nommée parce qu'elle est choisie : à 132px,
                 deux mises en page voisines se distinguent mal, et l'utilisateur
                 qui vient de voir dix visuels identiques a besoin de lire que

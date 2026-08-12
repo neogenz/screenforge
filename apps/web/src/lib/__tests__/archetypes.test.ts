@@ -3,10 +3,12 @@ import {
   ARCHETYPE_IDS,
   archetypeSpec,
   assignArchetypes,
+  automaticArchetype,
   backgroundFor,
   composeArchetype,
   onBoardRatio,
   PLAN_BOARD,
+  SAFE_ARCHETYPE_IDS,
   tallestEmptyBand,
   type ArchetypeId,
 } from '@/lib/ai/archetypes'
@@ -68,25 +70,20 @@ describe('l’assignation des archétypes', () => {
     }
   })
 
-  it('ouvre sur la composition marquante et ne répète pas la sûre', () => {
+  it('ouvre sur une composition sûre', () => {
     for (let count = 1; count <= 10; count += 1) {
       const assigned = assignArchetypes(count)
       expect(assigned[0]).toBe('plein-cadre')
-      /* « The safe default - use it at most twice per set. » */
-      expect(assigned.filter((id) => id === 'carte').length).toBeLessThanOrEqual(2)
+      expect(assigned.every((id) => SAFE_ARCHETYPE_IDS.includes(id))).toBe(true)
     }
   })
 
-  it('ferme un lot un peu long sur une planche sans appareil, et une seule', () => {
+  it('ne remplace jamais une capture disponible par un mur', () => {
     for (let count = 4; count <= 10; count += 1) {
-      const assigned = assignArchetypes(count)
-      expect(assigned.filter((id) => id === 'mur')).toEqual(['mur'])
-      expect(assigned[count - 1]).toBe('mur')
-    }
-    // En deçà, une planche sur trois sans appareil coûterait trop au lot.
-    for (let count = 1; count <= 3; count += 1) {
       expect(assignArchetypes(count)).not.toContain('mur')
     }
+    expect(automaticArchetype(3, 4, false)).toBe('mur')
+    expect(automaticArchetype(3, 4, true)).not.toBe('mur')
   })
 
   it('rend le même lot deux fois : la revue ne prouve rien si elle tire au sort', () => {
@@ -113,12 +110,12 @@ describe('chaque composition', () => {
     }
   })
 
-  it('laisse au moins 70 % de l’appareil dans le cadre, quel que soit le modèle', () => {
-    for (const id of ARCHETYPE_IDS) {
+  it('laisse au moins 90 % de l’appareil automatique dans le cadre', () => {
+    for (const id of SAFE_ARCHETYPE_IDS) {
       for (const [at, aspect] of ASPECTS.entries()) {
         const { device } = layoutOf(id, PALETTES[0], 0, aspect)
         if (!device) continue
-        expect(onBoardRatio(device), `${id} sur ${MODELS[at]}`).toBeGreaterThanOrEqual(0.7)
+        expect(onBoardRatio(device), `${id} sur ${MODELS[at]}`).toBeGreaterThanOrEqual(0.9)
       }
     }
   })
@@ -147,14 +144,16 @@ describe('chaque composition', () => {
     }
   })
 
-  it('tient l’accroche hors de l’appareil, sauf là où c’est la composition', () => {
-    for (const id of ARCHETYPE_IDS) {
+  it('tient l’accroche hors de chaque appareil automatique et réserve le pied', () => {
+    for (const id of SAFE_ARCHETYPE_IDS) {
       for (const aspect of ASPECTS) {
         const { headline, device } = layoutOf(id, PALETTES[0], 0, aspect)
         if (!device) continue
         const apart =
           headline.y + headline.height <= device.y || headline.y >= device.y + device.height
-        expect(apart || archetypeSpec(id).headline.overDevice === true, `${id}`).toBe(true)
+        expect(apart, `${id}`).toBe(true)
+        expect(Math.abs(device.rotation), `${id}`).toBeLessThanOrEqual(2)
+        expect(device.y + device.height, `${id}`).toBeLessThanOrEqual(PLAN_BOARD.height - 72)
       }
     }
   })
@@ -208,7 +207,7 @@ describe('le lot composé', () => {
         layout?.headline.y,
       ])
     })
-    expect(new Set(signatures).size).toBe(signatures.length)
+    expect(new Set(signatures).size).toBeGreaterThanOrEqual(3)
   })
 
   it('ne rejoint le projet que par des appels que le schéma accepte', () => {
@@ -235,5 +234,21 @@ describe('le lot composé', () => {
     const last = planScreenLayout(plan, brief, brief.screenCount - 1)
     expect(last?.archetype).toBe('mur')
     expect(last?.device).toBeUndefined()
+  })
+
+  it('conserve la dernière capture d’un lot complet au lieu de forcer un mur', () => {
+    const fullBrief: CampaignBrief = {
+      ...brief,
+      screenCount: 4,
+      screenshots: Array.from({ length: 4 }, (_unused, index) => ({
+        label: `Capture ${index + 1}`,
+        assetId: `asset-${index + 1}`,
+        size: { width: 1320, height: 2868 },
+      })),
+    }
+    const plan = planFromBrief(fullBrief)
+    expect(plan.screens[3]).toMatchObject({ screenshotIndex: 3 })
+    expect(plan.screens[3].layout).not.toBe('mur')
+    expect(planScreenLayout(plan, fullBrief, 3)?.device?.assetId).toBe('asset-4')
   })
 })

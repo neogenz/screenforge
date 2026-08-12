@@ -4,9 +4,10 @@ import { backgroundToCss } from '@/lib/background-css'
 import { normalizeSlot } from '@/lib/slots'
 import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
 import {
-  assignArchetypes,
+  automaticArchetype,
   backgroundFor,
   composeArchetype,
+  isArchetypeId,
   type ArchetypeId,
   type ArchetypeLayout,
   type PlanAccent,
@@ -78,6 +79,8 @@ export interface PlannedScreen {
   screenshotIndex?: number
   /** Extrait exact du brief qui justifie l'accroche distante. */
   evidence?: string
+  /** Composition choisie et relue avant insertion. */
+  layout: ArchetypeId
 }
 
 export interface CampaignPlan {
@@ -166,11 +169,13 @@ function headlineFor(
   index: number,
 ): string {
   const label = shot?.label.trim()
-  if (label) return label
+  if (label) return label.slice(0, AI_LIMITS.maxCampaignHeadlineLength)
   // La phrase du brief n'est posée qu'une fois : répétée, elle devient un
   // filigrane que l'utilisateur doit effacer neuf fois.
-  if (index === 0 && brief.pitch.trim()) return brief.pitch.trim()
-  return brief.appName
+  if (index === 0 && brief.pitch.trim()) {
+    return brief.pitch.trim().slice(0, AI_LIMITS.maxCampaignHeadlineLength)
+  }
+  return brief.appName.slice(0, AI_LIMITS.maxCampaignHeadlineLength)
 }
 
 /**
@@ -193,10 +198,11 @@ export function planFromBrief(brief: CampaignBrief): CampaignPlan {
     const shot = brief.screenshots[index]
     const label = shot?.label.trim()
     return {
-      name: label || `${brief.appName} ${index + 1}`.trim(),
+      name: (label || `${brief.appName} ${index + 1}`.trim()).slice(0, AI_LIMITS.maxNameLength),
       headline: headlineFor(shot, brief, index),
       slot: normalizeSlot(label || `ecran-${index + 1}`),
       screenshotIndex: shot?.assetId ? index : undefined,
+      layout: automaticArchetype(index, count, Boolean(shot?.assetId)),
     }
   })
   return {
@@ -222,11 +228,15 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
     const screen = entry as Record<string, unknown>
     if (typeof screen.name !== 'string' || screen.name.length > AI_LIMITS.maxNameLength)
       return false
-    if (typeof screen.headline !== 'string' || screen.headline.length > AI_LIMITS.maxTextLength) {
+    if (
+      typeof screen.headline !== 'string' ||
+      screen.headline.length > AI_LIMITS.maxCampaignHeadlineLength
+    ) {
       return false
     }
     if (screen.slot !== undefined && typeof screen.slot !== 'string') return false
     if (screen.evidence !== undefined && typeof screen.evidence !== 'string') return false
+    if (!isArchetypeId(screen.layout)) return false
     return screen.screenshotIndex === undefined || typeof screen.screenshotIndex === 'number'
   })
 }
@@ -354,7 +364,7 @@ export function planScreenLayout(
   const screen = plan.screens[index]
   if (!screen) return null
 
-  const archetype = assignArchetypes(plan.screens.length)[index]
+  const archetype = screen.layout
   const frame = getDefaultDeviceSize(plan.deviceModel)
   const shot =
     screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]

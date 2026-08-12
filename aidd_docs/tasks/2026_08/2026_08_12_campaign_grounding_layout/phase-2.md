@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Rendre les compositions lisibles et contrôlables
@@ -100,4 +100,3 @@ journey
 | ---- | ------------------- |
 | 1 | Aucun archétype automatique ne masque la capture, le titre ou le filigrane ; une capture disponible n’est jamais remplacée par un mur. |
 | 2 | Changer de mise en page modifie immédiatement l’aperçu et la même géométrie est posée dans le projet. |
-
