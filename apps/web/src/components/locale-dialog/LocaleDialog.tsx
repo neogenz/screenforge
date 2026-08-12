@@ -274,24 +274,29 @@ function LocaleDialogContent({ project }: { project: Project }) {
         {locales.length > 0 && (
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Langue">
             {locales.map((entry) => (
-              <button
+              <label
                 key={entry.code}
-                type="button"
-                role="radio"
-                aria-checked={entry.code === locale?.code}
-                disabled={busy}
-                onClick={() => setSelectedCode(entry.code)}
                 className={cn(
-                  'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                  'relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
+                  'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
+                  busy && 'cursor-not-allowed opacity-50',
                   entry.code === locale?.code
                     ? 'border-foreground bg-muted text-foreground'
                     : 'border-border text-muted-foreground hover:border-input',
                 )}
               >
+                <input
+                  type="radio"
+                  name="screenforge-locale"
+                  value={entry.code}
+                  checked={entry.code === locale?.code}
+                  disabled={busy}
+                  onChange={() => setSelectedCode(entry.code)}
+                  className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                />
                 <span className="tabular">{entry.code}</span>
                 {entry.name}
-              </button>
+              </label>
             ))}
           </div>
         )}

@@ -95,9 +95,26 @@ test.describe('canvas text editing', () => {
     await waitForApp(page)
     await addTextLayer(page)
 
-    await page.getByRole('button', { name: /^Police :/ }).click()
-    await page.getByRole('searchbox', { name: 'Rechercher une police' }).fill('Poppins')
-    await page.getByRole('option', { name: 'Poppins' }).click()
+    const trigger = page.getByRole('button', { name: /^Police :/ })
+    await trigger.click()
+    const search = page.getByRole('combobox', { name: 'Rechercher une police' })
+    await search.fill('Poppins')
+    await search.press('ArrowDown')
+    await expect(search).toBeFocused()
+    await expect(page.getByRole('option', { name: 'Poppins' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await search.press('Enter')
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    const reopenedSearch = page.getByRole('combobox', { name: 'Rechercher une police' })
+    await reopenedSearch.fill('police-introuvable')
+    await expect(page.getByText('Aucune police trouvée', { exact: true })).toBeVisible()
+    await reopenedSearch.press('Escape')
+    await expect(trigger).toBeFocused()
+    await expect(trigger).toHaveAccessibleName('Police : Poppins')
 
     const weight = page.getByRole('combobox', { name: 'Graisse de la police' })
     await weight.click()

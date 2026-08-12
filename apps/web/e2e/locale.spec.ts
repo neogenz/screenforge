@@ -92,3 +92,30 @@ test('une langue se relit, déborde, et bloque son seul export', async ({ page }
   await expect(dialog.getByRole('alert').filter({ hasText: 'px de texte' })).toBeHidden()
   await expect(dialog.getByText(/est exportable/)).toBeVisible()
 })
+
+test('les flèches choisissent une seule langue et Tab sort du groupe', async ({ page }) => {
+  await waitForApp(page)
+  await openLocales(page)
+  const dialog = localeDialog(page)
+
+  for (const [code, name] of [
+    ['de', 'Allemand'],
+    ['fr', 'Français'],
+  ] as const) {
+    await dialog.getByLabel('Code').fill(code)
+    await dialog.getByLabel('Nom').fill(name)
+    await dialog.getByRole('button', { name: 'Ajouter' }).click()
+  }
+
+  const group = dialog.getByRole('radiogroup', { name: 'Langue' })
+  const german = group.getByRole('radio', { name: /de Allemand/ })
+  const french = group.getByRole('radio', { name: /fr Français/ })
+  await german.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(french).toBeFocused()
+  await expect(french).toBeChecked()
+  await expect(german).not.toBeChecked()
+
+  await page.keyboard.press('Tab')
+  expect(await group.evaluate((element) => element.contains(document.activeElement))).toBe(false)
+})

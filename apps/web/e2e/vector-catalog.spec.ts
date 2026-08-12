@@ -176,6 +176,43 @@ test('une forme tracée se choisit dans le sélecteur et se rend en chemin', asy
   await expect.poll(async () => (await firstLayer(page, 'shape'))?.shapeType).toBe('wave')
 })
 
+test('la grille vectorielle suit ses cinq colonnes au clavier', async ({ page }) => {
+  await waitForApp(page)
+  await addShapeLayer(page)
+
+  const trigger = page.getByRole('button', { name: /^Forme : / })
+  await trigger.click()
+  const search = page.getByRole('searchbox', { name: 'Rechercher une forme…' })
+  const list = page.getByRole('listbox', { name: 'Forme' })
+  const options = list.getByRole('option')
+  await expect
+    .poll(() => options.evaluateAll((nodes) => nodes.filter((node) => node.tabIndex === 0).length))
+    .toBe(1)
+
+  await search.press('ArrowDown')
+  await expect(list.getByRole('option', { name: 'Rectangle' })).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(list.getByRole('option', { name: 'Arrondi' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(list.getByRole('option', { name: 'Losange' })).toBeFocused()
+  await page.keyboard.press('ArrowLeft')
+  await expect(list.getByRole('option', { name: 'Triangle' })).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(list.getByRole('option', { name: 'Rectangle' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => (await firstLayer(page, 'shape'))?.shapeType).toBe('triangle')
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  const reopenedSearch = page.getByRole('searchbox', { name: 'Rechercher une forme…' })
+  await reopenedSearch.fill('aucun-vecteur')
+  await expect(page.getByText('Aucun résultat', { exact: true })).toBeVisible()
+  await reopenedSearch.press('Escape')
+  await expect(trigger).toBeFocused()
+  await expect.poll(async () => (await firstLayer(page, 'shape'))?.shapeType).toBe('triangle')
+})
+
 test('une forme et une icône sortent dans le PNG exporté', async ({ page }) => {
   await waitForApp(page)
   await addShapeLayer(page)

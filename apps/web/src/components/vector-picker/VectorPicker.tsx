@@ -41,8 +41,10 @@ export function VectorPicker({
 }: VectorPickerProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [activeId, setActiveId] = useState(value)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const query = search.trim().toLowerCase()
   const filtered = query
@@ -51,7 +53,16 @@ export function VectorPicker({
       )
     : entries
   const groups = groupsOf(filtered)
+  const positioned: { id: string; row: number; column: number }[] = []
+  let nextRow = 0
+  for (const [, items] of groups) {
+    items.forEach((entry, index) => {
+      positioned.push({ id: entry.id, row: nextRow + Math.floor(index / 5), column: index % 5 })
+    })
+    nextRow += Math.ceil(items.length / 5)
+  }
   const current = entries.find((entry) => entry.id === value)
+  const active = filtered.find((entry) => entry.id === activeId) ?? filtered[0]
 
   // Reset the search when the panel closes (derived state, no effect).
   const [prevOpen, setPrevOpen] = useState(open)
@@ -66,13 +77,29 @@ export function VectorPicker({
     return () => cancelAnimationFrame(frame)
   }, [open])
 
+  function close(returnFocus = false) {
+    setOpen(false)
+    if (returnFocus) requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  function focusOption(id: string) {
+    setActiveId(id)
+    const options = listRef.current?.querySelectorAll<HTMLButtonElement>('[data-vector-option]')
+    Array.from(options ?? [])
+      .find((option) => option.dataset.vectorOption === id)
+      ?.focus()
+  }
+
   return (
     <>
       <Button
         ref={triggerRef}
         variant="default"
         size="sm"
-        onClick={() => setOpen((isOpen) => !isOpen)}
+        onClick={() => {
+          setActiveId(value)
+          setOpen((isOpen) => !isOpen)
+        }}
         className="field-surface h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
         aria-label={`${label} : ${current?.label ?? value}`}
         aria-haspopup="listbox"
@@ -91,20 +118,39 @@ export function VectorPicker({
         />
       </Button>
 
-      <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
+      <Popover
+        open={open}
+        anchor={triggerRef}
+        onClose={close}
+        onEscape={() => close(true)}
+        className="w-56"
+      >
         <div className="border-b border-border p-1.5">
           <Input
             ref={searchRef}
             font="sans"
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setActiveId('')
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowDown' || !active) return
+              event.preventDefault()
+              focusOption(active.id)
+            }}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
           />
         </div>
 
-        <div role="listbox" aria-label={label} className="max-h-72 overflow-y-auto p-1">
+        <div
+          ref={listRef}
+          role="listbox"
+          aria-label={label}
+          className="max-h-72 overflow-y-auto p-1"
+        >
           {groups.map(([group, items]) => (
             <div key={group}>
               <div role="presentation" className="field-label px-2 pt-1.5 pb-1">
@@ -119,9 +165,46 @@ export function VectorPicker({
                     aria-selected={entry.id === value}
                     aria-label={entry.label}
                     title={entry.label}
+                    tabIndex={entry.id === active?.id ? 0 : -1}
+                    data-vector-option={entry.id}
+                    onFocus={() => setActiveId(entry.id)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key !== 'ArrowLeft' &&
+                        event.key !== 'ArrowRight' &&
+                        event.key !== 'ArrowUp' &&
+                        event.key !== 'ArrowDown'
+                      ) {
+                        return
+                      }
+
+                      event.preventDefault()
+                      const currentPosition = positioned.find(
+                        (position) => position.id === entry.id,
+                      )
+                      if (!currentPosition) return
+                      const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight'
+                      const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                      const targetRow = currentPosition.row + (backwards ? -1 : 1)
+                      const targetColumn = currentPosition.column + (backwards ? -1 : 1)
+                      const next = horizontal
+                        ? positioned.find(
+                            (position) =>
+                              position.row === currentPosition.row &&
+                              position.column === targetColumn,
+                          )
+                        : positioned
+                            .filter((position) => position.row === targetRow)
+                            .sort(
+                              (a, b) =>
+                                Math.abs(a.column - currentPosition.column) -
+                                Math.abs(b.column - currentPosition.column),
+                            )[0]
+                      if (next) focusOption(next.id)
+                    }}
                     onClick={() => {
                       onChange(entry.id)
-                      setOpen(false)
+                      close(true)
                     }}
                     className={cn(
                       'flex h-8 w-full items-center justify-center rounded-md border border-transparent',

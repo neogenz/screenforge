@@ -41,23 +41,33 @@ async function openWithKeyboard(page: Page, opener: Locator, title: string): Pro
 }
 
 async function expectRingToken(page: Page, control: Locator): Promise<void> {
-  await expect(control).toHaveClass(/focus-visible:ring-ring/)
   await control.evaluate((element) => {
+    const host =
+      element instanceof HTMLInputElement && element.type === 'radio'
+        ? element.closest('label')
+        : element
     const sentinel = document.createElement('button')
     sentinel.type = 'button'
     sentinel.dataset.focusSentinel = ''
     sentinel.className = 'sr-only'
-    element.before(sentinel)
+    host?.before(sentinel)
     sentinel.focus()
   })
   await page.keyboard.press('Tab')
   await expect(control).toBeFocused()
+  expect(
+    await control.evaluate((element) => {
+      const host =
+        element instanceof HTMLInputElement && element.type === 'radio'
+          ? element.closest('label')
+          : element
+      return String(host?.className).includes('ring-ring')
+    }),
+  ).toBe(true)
   await expect
     .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
     .toBe(true)
-  await control.evaluate((element) =>
-    element.parentElement?.querySelector('[data-focus-sentinel]')?.remove(),
-  )
+  await control.evaluate(() => document.querySelector('[data-focus-sentinel]')?.remove())
 }
 
 test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ page }) => {
@@ -94,7 +104,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Générer les visuels App Store').click()
   let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
-  await expectRingToken(page, dialog.getByRole('radio', { name: 'Contrasté' }))
+  await expectRingToken(page, dialog.getByRole('radio', { name: 'Sobre' }))
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
   await expectRingToken(page, assistance)
   await assistance.click()

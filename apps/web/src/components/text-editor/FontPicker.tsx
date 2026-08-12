@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { Command } from 'cmdk'
 import { Check, ChevronDown } from 'lucide-react'
 import { POPULAR_FONTS, isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
@@ -23,12 +23,9 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const query = search.trim().toLowerCase()
-  const filtered = query
-    ? POPULAR_FONTS.filter((family) => family.toLowerCase().includes(query))
-    : POPULAR_FONTS
-  const pinned = query ? [] : filtered.slice(0, PINNED_COUNT)
-  const rest = query ? filtered : filtered.slice(PINNED_COUNT)
+  const searching = search.trim() !== ''
+  const pinned = searching ? [] : POPULAR_FONTS.slice(0, PINNED_COUNT)
+  const rest = searching ? POPULAR_FONTS : POPULAR_FONTS.slice(PINNED_COUNT)
 
   // Reset the search when the panel closes (derived state, no effect).
   const [prevOpen, setPrevOpen] = useState(open)
@@ -44,9 +41,14 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
     return () => cancelAnimationFrame(frame)
   }, [open])
 
+  function close(returnFocus = false) {
+    setOpen(false)
+    if (returnFocus) requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
   function handleSelect(family: string) {
     onChange(family)
-    setOpen(false)
+    close(true)
   }
 
   return (
@@ -74,48 +76,52 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
         />
       </Button>
 
-      <Popover open={open} anchor={triggerRef} onClose={() => setOpen(false)} className="w-56">
-        <div className="border-b border-border p-1.5">
-          <Input
-            ref={searchRef}
-            font="sans"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Rechercher une police…"
-            aria-label="Rechercher une police"
-          />
-        </div>
-
-        <div role="listbox" aria-label="Polices" className="max-h-60 overflow-y-auto p-1">
-          {pinned.length > 0 && (
-            <>
-              <div role="presentation" className="field-label px-2 pb-1 pt-1.5">
-                Populaires
-              </div>
-              {pinned.map((family) => (
-                <FontOption
-                  key={family}
-                  family={family}
-                  selected={family === value}
-                  onSelect={handleSelect}
-                />
-              ))}
-              <div role="presentation" className="hairline mx-1 my-1" />
-            </>
-          )}
-          {rest.map((family) => (
-            <FontOption
-              key={family}
-              family={family}
-              selected={family === value}
-              onSelect={handleSelect}
+      <Popover
+        open={open}
+        anchor={triggerRef}
+        onClose={close}
+        onEscape={() => close(true)}
+        className="w-56"
+      >
+        <Command loop>
+          <div className="border-b border-border p-1.5">
+            <Command.Input
+              ref={searchRef}
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Rechercher une police…"
+              aria-label="Rechercher une police"
+              className="field-surface h-8 w-full px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
             />
-          ))}
-          {filtered.length === 0 && (
-            <div className="field-label px-2 py-3 text-center">Aucune police trouvée</div>
-          )}
-        </div>
+          </div>
+
+          <Command.List label="Polices" className="max-h-60 overflow-y-auto p-1">
+            <Command.Empty className="field-label px-2 py-3 text-center">
+              Aucune police trouvée
+            </Command.Empty>
+            {pinned.length > 0 && (
+              <Command.Group heading="Populaires">
+                {pinned.map((family) => (
+                  <FontOption
+                    key={family}
+                    family={family}
+                    selected={family === value}
+                    onSelect={handleSelect}
+                  />
+                ))}
+              </Command.Group>
+            )}
+            {pinned.length > 0 && <Command.Separator className="hairline mx-1 my-1" />}
+            {rest.map((family) => (
+              <FontOption
+                key={family}
+                family={family}
+                selected={family === value}
+                onSelect={handleSelect}
+              />
+            ))}
+          </Command.List>
+        </Command>
       </Popover>
     </>
   )
@@ -128,7 +134,7 @@ interface FontOptionProps {
 }
 
 function FontOption({ family, selected, onSelect }: FontOptionProps) {
-  const itemRef = useRef<HTMLButtonElement>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
   const [fontLoaded, setFontLoaded] = useState(() => isFontLoaded(family))
 
   // Load the preview font only when the row scrolls into view.
@@ -149,16 +155,14 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
   }, [family, fontLoaded])
 
   return (
-    <button
+    <Command.Item
       ref={itemRef}
-      type="button"
-      role="option"
-      aria-selected={selected}
-      onClick={() => onSelect(family)}
+      value={family}
+      onSelect={() => onSelect(family)}
       className={cn(
         'flex h-8 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm',
-        'transition-colors duration-100 ease-out',
-        'focus-visible:bg-accent',
+        'cursor-default transition-colors duration-100 ease-out',
+        'data-[selected=true]:bg-accent data-[selected=true]:text-foreground',
         selected
           ? 'bg-secondary text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -169,6 +173,6 @@ function FontOption({ family, selected, onSelect }: FontOptionProps) {
       {selected && (
         <Check size={11} strokeWidth={2} className="shrink-0 text-foreground" aria-hidden />
       )}
-    </button>
+    </Command.Item>
   )
 }

@@ -41,21 +41,34 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true')
 
   // Chaque fournisseur dit où passent les données, à l'endroit du choix.
-  await expect(page.getByRole('radio', { name: /ScreenForge seul/ })).toContainText(
+  await expect(page.getByRole('radio', { name: /ScreenForge seul/ }).locator('..')).toContainText(
     'Rien ne quitte cet onglet',
   )
-  await expect(page.getByRole('radio', { name: /Avec Codex/ })).toContainText(
+  await expect(page.getByRole('radio', { name: /Avec Codex/ }).locator('..')).toContainText(
     'aucune image ne traverse le pont',
   )
-  await expect(page.getByRole('radio', { name: /Avec Claude Code/ })).toContainText(
+  await expect(page.getByRole('radio', { name: /Avec Claude Code/ }).locator('..')).toContainText(
     'aucune image ne traverse le pont',
   )
-  await expect(page.getByRole('radio', { name: /clé Anthropic/ })).toContainText(
+  await expect(page.getByRole('radio', { name: /clé Anthropic/ }).locator('..')).toContainText(
     'api.anthropic.com',
   )
 
+  const local = page.getByRole('radio', { name: /ScreenForge seul/ })
+  const openRouter = page.getByRole('radio', { name: /clé OpenRouter/ })
+  await local.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(openRouter).toBeFocused()
+  await expect(openRouter).toBeChecked()
+  await page.keyboard.press('Tab')
+  expect(
+    await page
+      .getByRole('radiogroup', { name: 'Qui écrit les accroches' })
+      .evaluate((element) => element.contains(document.activeElement)),
+  ).toBe(false)
+
   // Et la voie recommandée reste à un clic, sans rien connecter.
-  await page.getByRole('radio', { name: /ScreenForge seul/ }).click()
+  await local.click()
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
   await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
 })

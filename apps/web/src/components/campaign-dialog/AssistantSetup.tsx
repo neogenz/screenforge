@@ -206,18 +206,23 @@ function ProviderChoice({
   onPick: () => void
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      disabled={disabled}
-      onClick={onPick}
+    <label
       className={cn(
-        'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'relative flex cursor-pointer flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
+        'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
+        disabled && 'cursor-not-allowed opacity-50',
         active ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
+      <input
+        type="radio"
+        name="screenforge-ai-provider"
+        value={entry.id}
+        checked={active}
+        disabled={disabled}
+        onChange={onPick}
+        className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      />
       <span className="flex items-center gap-1.5 text-foreground">
         {active && <Check size={11} aria-hidden />}
         {entry.label}
@@ -231,7 +236,7 @@ function ProviderChoice({
           {unavailable}
         </span>
       )}
-    </button>
+    </label>
   )
 }
 

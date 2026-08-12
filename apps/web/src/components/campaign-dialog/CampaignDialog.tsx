@@ -827,29 +827,32 @@ function StyleChip({
   onSelect: () => void
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      disabled={disabled}
+    <label
       title={title}
-      onClick={onSelect}
       className={cn(
-        'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-        'disabled:opacity-50',
+        'relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
+        'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
+        disabled && 'cursor-not-allowed opacity-50',
         selected
           ? 'border-foreground bg-muted text-foreground'
           : 'border-border text-muted-foreground hover:border-input',
       )}
     >
+      <input
+        type="radio"
+        name="screenforge-campaign-style"
+        checked={selected}
+        disabled={disabled}
+        onChange={onSelect}
+        className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      />
       <span
         aria-hidden
         className="size-4 rounded-sm border border-border"
         style={{ background: swatch }}
       />
       {label}
-    </button>
+    </label>
   )
 }
 
@@ -974,15 +977,34 @@ function PlanReview({
         className="mt-2 flex gap-2 overflow-x-auto pb-1"
         role="tablist"
         aria-label="Visuels proposés"
+        aria-orientation="horizontal"
       >
         {plan.screens.map((screen, index) => (
           <button
             key={`${screen.name}-${index}`}
+            id={`campaign-plan-tab-${index}`}
             type="button"
             role="tab"
             aria-selected={index === focus}
+            aria-controls={`campaign-plan-panel-${index}`}
             aria-label={`Visuel ${index + 1} : ${screen.headline}`}
+            tabIndex={index === focus ? 0 : -1}
             onClick={() => onFocus(index)}
+            onKeyDown={(event) => {
+              let next = index
+              if (event.key === 'ArrowRight') next = (index + 1) % plan.screens.length
+              else if (event.key === 'ArrowLeft') {
+                next = (index - 1 + plan.screens.length) % plan.screens.length
+              } else if (event.key === 'Home') next = 0
+              else if (event.key === 'End') next = plan.screens.length - 1
+              else return
+
+              event.preventDefault()
+              onFocus(next)
+              event.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                [next]?.focus()
+            }}
             className={cn(
               'flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors',
               'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
@@ -1003,7 +1025,13 @@ function PlanReview({
       </div>
 
       {current && (
-        <div className="mt-2 flex gap-3">
+        <div
+          id={`campaign-plan-panel-${focus}`}
+          role="tabpanel"
+          aria-labelledby={`campaign-plan-tab-${focus}`}
+          tabIndex={0}
+          className="mt-2 flex gap-3"
+        >
           <PlanPreview plan={plan} brief={brief} index={focus} size="full" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Field id={HEADLINE_FIELD_ID} label={`Accroche du visuel ${focus + 1}`}>
