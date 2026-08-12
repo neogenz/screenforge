@@ -280,9 +280,14 @@ function words(value: string): string[] {
   return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
 }
 
-function evidenceSources(brief: CampaignBrief, screenshotIndex: number | undefined): string[] {
+function atomicEvidenceFacts(brief: CampaignBrief, screenshotIndex: number | undefined): string[] {
   const shot = screenshotIndex === undefined ? undefined : brief.screenshots[screenshotIndex]
-  return [brief.pitch, brief.productContext ?? '', shot?.description ?? ''].filter(Boolean)
+  const productFacts = (brief.productContext ?? '')
+    .split('\n')
+    .filter((fact) => fact.trim().length > 0)
+  return [brief.pitch, shot?.description ?? '', ...productFacts].filter(
+    (fact) => fact.trim().length > 0,
+  )
 }
 
 export function validatePlanScreenLayout(
@@ -361,8 +366,8 @@ export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief):
     const grounded =
       normalizedEvidence.length > 0 &&
       claimMatchesEvidence(headline, evidence ?? '') &&
-      evidenceSources(brief, screen.screenshotIndex).some((source) =>
-        normalizedEvidenceCopy(source).includes(normalizedEvidence),
+      atomicEvidenceFacts(brief, screen.screenshotIndex).some(
+        (fact) => normalizedEvidenceCopy(fact) === normalizedEvidence,
       )
     if (!grounded) return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
   }

@@ -265,9 +265,9 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
     '',
     `Application : ${brief.appName}.`,
-    brief.pitch ? `Ce qu’elle fait : ${brief.pitch}.` : '',
+    brief.pitch ? `Ce qu’elle fait :\n${brief.pitch}` : '',
     brief.productContext
-      ? `Faits produit vérifiés par l’utilisateur :\n${brief.productContext.slice(0, AI_LIMITS.maxProductContextLength)}`
+      ? `Accroches produit vérifiées (une par ligne) :\n${brief.productContext.slice(0, AI_LIMITS.maxProductContextLength)}`
       : '',
     brief.landingUrl
       ? `Provenance des faits : ${brief.landingUrl}. Ne déduis rien de cette URL et ne prétends pas l’avoir consultée.`
@@ -289,13 +289,14 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     '— Le premier visuel porte la promesse générale, les suivants une',
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
-    '— evidence recopie une sous-chaîne littérale du pitch, des faits produit ou',
-    '  de la description de la capture qui prouve l’accroche ; seuls la casse et',
-    '  les espaces peuvent varier. headline et evidence sont littéralement',
-    '  identiques hors casse et espaces : mêmes accents, signes et ponctuation,',
-    '  sans omission, enrichissement ni paraphrase.',
-    '  L’utilisateur pourra réécrire headline ensuite dans la revue. N’invente jamais',
-    '  une preuve et ne cite jamais l’URL comme preuve.',
+    '— Chaque ligne des accroches produit vérifiées est un fait atomique.',
+    '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
+    '  soit la description entière de la capture associée — jamais un fragment.',
+    '  headline et evidence sont littéralement identiques hors casse et espaces :',
+    '  mêmes accents, signes et ponctuation ; sans omission, enrichissement ni paraphrase.',
+    '  Sélectionne et ordonne ces accroches ; l’utilisateur pourra les',
+    '  réécrire ensuite dans la revue. N’invente jamais une preuve et ne cite',
+    '  jamais l’URL comme preuve.',
     '',
     'Rends uniquement cet objet JSON, sans texte autour et sans bloc de code :',
     '{"screens":[{"name":"nom court","headline":"accroche","evidence":"extrait exact du brief","slot":"identifiant-en-minuscules","screenshotIndex":0}]}',

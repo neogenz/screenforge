@@ -839,13 +839,18 @@ function CampaignDialogContent({ project }: { project: Project }) {
                         }}
                       />
                     </Field>
-                    <Field id={CONTEXT_FIELD_ID} label="Faits produit transmis à l’IA">
+                    <Field
+                      id={CONTEXT_FIELD_ID}
+                      label="Accroches produit vérifiées (une par ligne)"
+                    >
                       <Textarea
                         id={CONTEXT_FIELD_ID}
                         value={productContext}
                         maxLength={AI_LIMITS.maxProductContextLength}
                         rows={4}
-                        placeholder="Collez ici les promesses, bénéfices et preuves relus sur votre page. L’URL n’est pas chargée automatiquement."
+                        placeholder={
+                          'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
+                        }
                         disabled={busy}
                         onChange={(event) => {
                           setProductContext(event.target.value)
@@ -854,8 +859,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       />
                     </Field>
                     <p className="text-2xs text-muted-foreground">
-                      ScreenForge ne charge aucune URL arbitraire : seuls ces faits et les
-                      descriptions de captures sont envoyés au rédacteur choisi.
+                      Écrivez des accroches de 3 à 7 mots, prêtes à publier. L’IA les sélectionne et
+                      les ordonne ; vous pourrez les réécrire dans la revue. ScreenForge ne charge
+                      aucune URL arbitraire.
                     </p>
                   </div>
                 )}

@@ -61,7 +61,7 @@ const PLAN = {
 const BRIEF = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
-  productContext: 'Planifiez vos priorités et gardez votre semaine visible.',
+  productContext: 'Planifiez vos priorités\r\n\r\nVotre semaine visible',
   direction: 'sobre',
   screenshots: [
     {
@@ -297,12 +297,17 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('sous-chaîne littérale du pitch')
-    expect(request.prompt).toContain('seuls la casse et')
+    expect(request.prompt).toContain('Accroches produit vérifiées (une par ligne)')
+    expect(request.prompt).toContain(
+      'Chaque ligne des accroches produit vérifiées est un fait atomique',
+    )
+    expect(request.prompt).toContain('soit le pitch entier')
+    expect(request.prompt).toContain('soit la description entière de la capture associée')
+    expect(request.prompt).toContain('jamais un fragment')
     expect(request.prompt).toContain('identiques hors casse et espaces')
     expect(request.prompt).toContain('mêmes accents, signes et ponctuation')
     expect(request.prompt).toContain('sans omission, enrichissement ni paraphrase')
-    expect(request.prompt).toContain('réécrire headline ensuite dans la revue')
+    expect(request.prompt).toContain('réécrire ensuite dans la revue')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -495,7 +500,7 @@ describe('protocole', () => {
     })
   })
 
-  it('exige aussi que la preuve soit une sous-chaîne littérale de la source', async () => {
+  it('exige aussi que la preuve soit littéralement identique à la source', async () => {
     for (const [fact, source] of [
       ['Votre budget clé locale', 'Votre budget cle locale'],
       ['Budget reste stable !', 'Budget reste stable ?'],
@@ -511,6 +516,70 @@ describe('protocole', () => {
         method: 'POST',
         body: planBody({
           brief: { ...BRIEF, pitch: source, productContext: undefined, screenshots: [] },
+        }),
+      })
+      expect(response.status).toBe(502)
+      expect(await response.json()).toMatchObject({
+        error: 'invalid-response',
+        detail: expect.stringContaining('aucun fait'),
+      })
+    }
+  })
+
+  it('accepte chacune des lignes produit non vides comme un fait atomique', async () => {
+    const productContext = 'Première accroche produit\r\n\r\n   \r\nDeuxième accroche validée\r\n'
+    for (const fact of ['Première accroche produit', 'Deuxième accroche validée']) {
+      const answer = {
+        ...PLAN,
+        screens: [
+          { ...PLAN.screens[0], headline: fact, evidence: fact, screenshotIndex: undefined },
+        ],
+      }
+      const { call } = harness(async () => JSON.stringify(answer))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext,
+            screenshots: [],
+          },
+        }),
+      })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ plan: answer })
+    }
+  })
+
+  it('refuse un fragment, un enrichissement et les anciens bypass de sous-chaîne', async () => {
+    const fragments = [
+      ['Budget chaque mois', 'Planifiez votre budget chaque mois'],
+      ['Votre budget toujours sous contrôle', 'Budget toujours sous contrôle'],
+      ['Votre budget dépassé', 'Jamais votre budget dépassé'],
+      ['Votre budget reste stable', 'Sauf exception votre budget reste stable'],
+      ['9€ économisés chaque mois', 'Environ 9€ économisés chaque mois'],
+      ['Budget reste stable', 'Budget reste stable < 9€'],
+      ['Votre accès premium', 'Votre accès premium/premier'],
+      ['Économisez exactement 9€', 'Économisez exactement 9€/9$'],
+      ['Exportez le PDF', 'Exportez le PDF et/ou le ZIP'],
+      ['Votre budget connecté', 'Votre budget connecté/non connecté'],
+    ] as const
+    for (const [evidence, source] of fragments) {
+      const answer = {
+        ...PLAN,
+        screens: [{ ...PLAN.screens[0], headline: evidence, evidence, screenshotIndex: undefined }],
+      }
+      const { call } = harness(async () => JSON.stringify(answer))
+      const response = await call('/plan', {
+        method: 'POST',
+        body: planBody({
+          brief: {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext: `\r\n${source}\r\n\r\n`,
+            screenshots: [],
+          },
         }),
       })
       expect(response.status).toBe(502)

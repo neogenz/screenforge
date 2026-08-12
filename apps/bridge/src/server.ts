@@ -345,6 +345,16 @@ function claimMatchesEvidence(headline: string, evidence: string): boolean {
   return normalizedHeadline.length > 0 && normalizedHeadline === normalizedEvidenceCopy(evidence)
 }
 
+function atomicEvidenceFacts(brief: BridgeBrief, screenshotIndex: number | undefined): string[] {
+  const shot = screenshotIndex === undefined ? undefined : brief.screenshots[screenshotIndex]
+  const productFacts = (brief.productContext ?? '')
+    .split('\n')
+    .filter((fact) => fact.trim().length > 0)
+  return [brief.pitch, shot?.description ?? '', ...productFacts].filter(
+    (fact) => fact.trim().length > 0,
+  )
+}
+
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
   const expected = brief.screenCount ?? Math.max(1, brief.screenshots.length)
   if (plan.screens.length !== expected) {
@@ -369,11 +379,12 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
     }
     const evidence = screen.evidence.trim()
     const normalizedEvidence = normalizedEvidenceCopy(evidence)
-    const sources = [brief.pitch, brief.productContext ?? '', shot?.description ?? '']
     if (
       !normalizedEvidence ||
       !claimMatchesEvidence(screen.headline, evidence) ||
-      !sources.some((source) => normalizedEvidenceCopy(source).includes(normalizedEvidence))
+      !atomicEvidenceFacts(brief, screen.screenshotIndex).some(
+        (fact) => normalizedEvidenceCopy(fact) === normalizedEvidence,
+      )
     ) {
       return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
     }
@@ -404,9 +415,9 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
     '',
     `Application : ${brief.appName}.`,
-    brief.pitch ? `Ce qu’elle fait : ${brief.pitch}.` : '',
+    brief.pitch ? `Ce qu’elle fait :\n${brief.pitch}` : '',
     brief.productContext
-      ? `Faits produit vérifiés par l’utilisateur :\n${brief.productContext}`
+      ? `Accroches produit vérifiées (une par ligne) :\n${brief.productContext}`
       : '',
     brief.landingUrl
       ? `Provenance des faits : ${brief.landingUrl}. Ne déduis rien de cette URL et ne prétends pas l’avoir consultée.`
@@ -429,13 +440,14 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '— Le premier visuel porte la promesse générale, les suivants une',
     '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
     '  que si le brief contient un fait précis qui la justifie.',
-    '— evidence recopie une sous-chaîne littérale du pitch, des faits produit ou',
-    '  de la description de la capture qui prouve l’accroche ; seuls la casse et',
-    '  les espaces peuvent varier. headline et evidence sont littéralement',
-    '  identiques hors casse et espaces : mêmes accents, signes et ponctuation,',
-    '  sans omission, enrichissement ni paraphrase.',
-    '  L’utilisateur pourra réécrire headline ensuite dans la revue. N’invente jamais',
-    '  une preuve et ne cite jamais l’URL comme preuve.',
+    '— Chaque ligne des accroches produit vérifiées est un fait atomique.',
+    '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
+    '  soit la description entière de la capture associée — jamais un fragment.',
+    '  headline et evidence sont littéralement identiques hors casse et espaces :',
+    '  mêmes accents, signes et ponctuation ; sans omission, enrichissement ni paraphrase.',
+    '  Sélectionne et ordonne ces accroches ; l’utilisateur pourra les',
+    '  réécrire ensuite dans la revue. N’invente jamais une preuve et ne cite',
+    '  jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',
     'slot est un identifiant en minuscules, chiffres et traits d’union.',

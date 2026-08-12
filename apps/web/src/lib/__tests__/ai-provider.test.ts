@@ -21,7 +21,7 @@ const TOKEN = '[REDACTED]'
 const BRIEF: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
-  productContext: 'Planifiez vos priorités et gardez votre semaine visible.',
+  productContext: 'Planifiez vos priorités\r\n\r\nVotre semaine visible',
   direction: 'sobre',
   screenCount: 2,
   deviceModel: 'iphone-17-pro',
@@ -170,8 +170,8 @@ describe('plan via le pont', () => {
     screens: [
       {
         name: 'Accueil',
-        headline: 'Rythme de vos journées',
-        evidence: 'Rythme de vos journées',
+        headline: 'Le rythme de vos journées',
+        evidence: 'Le rythme de vos journées',
         slot: 'Accueil Principal',
         background: { type: 'solid', color: '#f2f3f5' },
         screenshotIndex: 0,
@@ -274,8 +274,8 @@ describe('choix du fournisseur', () => {
             screens: [
               {
                 name: 'Accueil',
-                headline: 'Rythme de vos journées',
-                evidence: 'Rythme de vos journées',
+                headline: 'Le rythme de vos journées',
+                evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
               },
               {
@@ -303,8 +303,8 @@ describe('choix du fournisseur', () => {
             screens: [
               {
                 name: 'Accueil',
-                headline: 'Rythme de vos journées',
-                evidence: 'Rythme de vos journées',
+                headline: 'Le rythme de vos journées',
+                evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
               },
               {
@@ -324,6 +324,6 @@ describe('choix du fournisseur', () => {
     })
     expect(calls).toHaveLength(1)
     expect(JSON.parse(String(calls[0].init?.body)).model).toBe('modele-test')
-    expect(plan.screens[0].headline).toBe('Rythme de vos journées')
+    expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
   })
 })

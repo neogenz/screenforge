@@ -22,7 +22,7 @@ const KEY = '[REDACTED]'
 const BRIEF: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
-  productContext: 'Planifiez votre semaine et gardez chaque priorité visible.',
+  productContext: 'Planifiez votre semaine\r\n\r\nGardez chaque priorité',
   direction: 'sobre',
   screenCount: 2,
   deviceModel: 'iphone-17-pro',
@@ -71,8 +71,8 @@ const WRITTEN = JSON.stringify({
   screens: [
     {
       name: 'Accueil',
-      headline: 'Rythme de vos journées',
-      evidence: 'Rythme de vos journées',
+      headline: 'Le rythme de vos journées',
+      evidence: 'Le rythme de vos journées',
       slot: 'Accueil Principal',
       background: { color: '#101114' },
       screenshotIndex: 0,
@@ -184,12 +184,15 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('sous-chaîne littérale du pitch')
-    expect(sent).toContain('seuls la casse et')
+    expect(sent).toContain('Accroches produit vérifiées (une par ligne)')
+    expect(sent).toContain('Chaque ligne des accroches produit vérifiées est un fait atomique')
+    expect(sent).toContain('soit le pitch entier')
+    expect(sent).toContain('soit la description entière de la capture associée')
+    expect(sent).toContain('jamais un fragment')
     expect(sent).toContain('identiques hors casse et espaces')
     expect(sent).toContain('mêmes accents, signes et ponctuation')
     expect(sent).toContain('sans omission, enrichissement ni paraphrase')
-    expect(sent).toContain('réécrire headline ensuite dans la revue')
+    expect(sent).toContain('réécrire ensuite dans la revue')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -208,10 +211,7 @@ describe('plan via une API', () => {
   })
 
   it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
-    const sources = Array.from(
-      { length: 10 },
-      (_unused, index) => `Gardez priorité ${index + 1} visible`,
-    )
+    const sources = Array.from({ length: 10 }, (_unused, index) => `Gardez priorité ${index + 1}`)
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
       headline: `Gardez priorité ${index + 1}`,
@@ -220,7 +220,7 @@ describe('plan via une API', () => {
     respond(answering(JSON.stringify({ screens })))
     const plan = await planViaApi(
       'anthropic',
-      { ...BRIEF, productContext: sources.join('. '), screenCount: 20 },
+      { ...BRIEF, productContext: sources.join('\r\n\r\n'), screenCount: 20 },
       KEY,
       'claude-x',
     )
@@ -460,7 +460,7 @@ describe('plan via une API', () => {
     ).rejects.toThrow(/aucun fait/)
   })
 
-  it('exige aussi que la preuve soit une sous-chaîne littérale de la source', async () => {
+  it('exige aussi que la preuve soit littéralement identique à la source', async () => {
     for (const [fact, source] of [
       ['Votre budget clé locale', 'Votre budget cle locale'],
       ['Budget reste stable !', 'Budget reste stable ?'],
@@ -477,6 +477,65 @@ describe('plan via une API', () => {
             ...BRIEF,
             pitch: source,
             productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
+  })
+
+  it('accepte chacune des lignes produit non vides comme un fait atomique', async () => {
+    const productContext = 'Première accroche produit\r\n\r\n   \r\nDeuxième accroche validée\r\n'
+    for (const fact of ['Première accroche produit', 'Deuxième accroche validée']) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).resolves.toBeDefined()
+    }
+  })
+
+  it('refuse un fragment, un enrichissement et les anciens bypass de sous-chaîne', async () => {
+    const fragments = [
+      ['Budget chaque mois', 'Planifiez votre budget chaque mois'],
+      ['Votre budget toujours sous contrôle', 'Budget toujours sous contrôle'],
+      ['Votre budget dépassé', 'Jamais votre budget dépassé'],
+      ['Votre budget reste stable', 'Sauf exception votre budget reste stable'],
+      ['9€ économisés chaque mois', 'Environ 9€ économisés chaque mois'],
+      ['Budget reste stable', 'Budget reste stable < 9€'],
+      ['Votre accès premium', 'Votre accès premium/premier'],
+      ['Économisez exactement 9€', 'Économisez exactement 9€/9$'],
+      ['Exportez le PDF', 'Exportez le PDF et/ou le ZIP'],
+      ['Votre budget connecté', 'Votre budget connecté/non connecté'],
+    ] as const
+    for (const [evidence, source] of fragments) {
+      respond(
+        answering(JSON.stringify({ screens: [{ name: 'Budget', headline: evidence, evidence }] })),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext: `\r\n${source}\r\n\r\n`,
             screenCount: 1,
             screenshots: [],
           },
@@ -535,7 +594,7 @@ describe('plan via une API', () => {
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {
     respond(answering(`Voici le plan :\n\`\`\`json\n${WRITTEN}\n\`\`\`\nBonne journée.`))
     const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
-    expect(plan.screens[0].headline).toBe('Rythme de vos journées')
+    expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
   })
 
   it('refuse une réponse qui ne contient aucun JSON', () => {
@@ -546,6 +605,6 @@ describe('plan via une API', () => {
     const calls = respond(answering(WRITTEN, 'openrouter'))
     const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
     expect(calls[0].url).toContain('openrouter.ai')
-    expect(plan.screens[0].headline).toBe('Rythme de vos journées')
+    expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
   })
 })
