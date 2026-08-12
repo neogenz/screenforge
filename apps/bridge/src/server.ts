@@ -382,16 +382,15 @@ function significantTerms(value: string): string[] {
     .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
 }
 
+function termStem(term: string): string {
+  return term.length >= 5 ? term.slice(0, 5) : term
+}
+
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const claimTerms = significantTerms(headline)
-  const evidenceTerms = significantTerms(evidence)
-  return claimTerms.some((claim) =>
-    evidenceTerms.some(
-      (fact) =>
-        claim === fact ||
-        (claim.length >= 5 && fact.length >= 5 && claim.slice(0, 5) === fact.slice(0, 5)),
-    ),
-  )
+  const claimStems = significantTerms(headline).map(termStem)
+  const evidenceStems = new Set(significantTerms(evidence).map(termStem))
+  if (!claimStems[0] || !evidenceStems.has(claimStems[0])) return false
+  return new Set(claimStems.filter((stem) => evidenceStems.has(stem))).size >= 2
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -480,8 +479,9 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
     '  ou de la description de la capture qui prouve l’accroche. L’accroche et',
-    '  evidence doivent partager au moins un terme significatif (une variation',
-    '  grammaticale du même mot est acceptée). N’invente jamais',
+    '  evidence doivent partager au moins deux termes significatifs (leurs',
+    '  variantes grammaticales sont acceptées), et le premier terme significatif',
+    '  de l’accroche doit apparaître dans evidence. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',

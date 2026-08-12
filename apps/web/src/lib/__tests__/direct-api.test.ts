@@ -71,7 +71,7 @@ const WRITTEN = JSON.stringify({
   screens: [
     {
       name: 'Accueil',
-      headline: 'Vos journées, enfin lisibles',
+      headline: 'Rythme lisible de vos journées',
       evidence: 'Le rythme de vos journées',
       slot: 'Accueil Principal',
       background: { color: '#101114' },
@@ -80,7 +80,7 @@ const WRITTEN = JSON.stringify({
     {
       name: 'Budget',
       headline: 'Planifiez chaque priorité visible',
-      evidence: 'Planifiez votre semaine',
+      evidence: 'Planifiez votre semaine et gardez chaque priorité visible',
       background: { color: 'pas une couleur' },
     },
   ],
@@ -184,7 +184,8 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('partager au moins un terme significatif')
+    expect(sent).toContain('partager au moins deux termes significatifs')
+    expect(sent).toContain('premier terme significatif')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -205,7 +206,7 @@ describe('plan via une API', () => {
   it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
-      headline: `Vos journées gardent leur rythme ${index + 1}`,
+      headline: `Rythme quotidien de vos journées ${index + 1}`,
       evidence: 'Le rythme de vos journées',
     }))
     respond(answering(JSON.stringify({ screens })))
@@ -275,10 +276,30 @@ describe('plan via une API', () => {
     respond(answering(JSON.stringify(invented)))
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
 
-    const unrelated = JSON.parse(WRITTEN)
-    unrelated.screens[0].headline = 'Automatisez le suivi des dépenses'
-    respond(answering(JSON.stringify(unrelated)))
-    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
+    const sharedDomain = {
+      screens: [
+        {
+          name: 'Budget',
+          headline: 'Partagez votre budget à deux',
+          evidence: 'Suivez votre budget mois par mois',
+        },
+      ],
+    }
+    respond(answering(JSON.stringify(sharedDomain)))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Suivez votre budget mois par mois',
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/aucun fait/)
   })
 
   it('accepte une variation grammaticale du terme qui relie accroche et preuve', async () => {
@@ -288,10 +309,40 @@ describe('plan via une API', () => {
     await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).resolves.toBeDefined()
   })
 
+  it('accepte une accroche Pulpe qui réemploie le prédicat et le vocabulaire du fait', async () => {
+    respond(
+      answering(
+        JSON.stringify({
+          screens: [
+            {
+              name: 'Budget',
+              headline: 'Suivez votre budget chaque mois',
+              evidence: 'Suivez votre budget mois par mois',
+            },
+          ],
+        }),
+      ),
+    )
+    const plan = await planViaApi(
+      'anthropic',
+      {
+        ...BRIEF,
+        appName: 'Pulpe',
+        pitch: 'Suivez votre budget mois par mois',
+        productContext: undefined,
+        screenCount: 1,
+        screenshots: [],
+      },
+      KEY,
+      'claude-x',
+    )
+    expect(plan.screens[0].headline).toBe('Suivez votre budget chaque mois')
+  })
+
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {
     respond(answering(`Voici le plan :\n\`\`\`json\n${WRITTEN}\n\`\`\`\nBonne journée.`))
     const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
-    expect(plan.screens[0].headline).toBe('Vos journées, enfin lisibles')
+    expect(plan.screens[0].headline).toBe('Rythme lisible de vos journées')
   })
 
   it('refuse une réponse qui ne contient aucun JSON', () => {
@@ -302,6 +353,6 @@ describe('plan via une API', () => {
     const calls = respond(answering(WRITTEN, 'openrouter'))
     const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
     expect(calls[0].url).toContain('openrouter.ai')
-    expect(plan.screens[0].headline).toBe('Vos journées, enfin lisibles')
+    expect(plan.screens[0].headline).toBe('Rythme lisible de vos journées')
   })
 })

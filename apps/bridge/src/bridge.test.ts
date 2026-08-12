@@ -72,7 +72,7 @@ const BRIEF = {
   ],
 }
 
-function fakeCodex(answer: () => Promise<string>) {
+function fakeCodex(answer: (request?: unknown) => Promise<string>) {
   return {
     initialize: async () => undefined,
     listModels: async () => [
@@ -120,7 +120,7 @@ function fakeAsc(
 }
 
 function harness(
-  answer: () => Promise<string> = async () => JSON.stringify(PLAN),
+  answer: (request?: unknown) => Promise<string> = async () => JSON.stringify(PLAN),
   asc = fakeAsc(),
 ) {
   const state = {
@@ -288,10 +288,17 @@ describe('capacités', () => {
 
 describe('protocole', () => {
   it('rend un plan quand le modèle respecte le schéma', async () => {
-    const { call } = harness()
+    const turn = vi.fn(async (request?: unknown) => {
+      void request
+      return JSON.stringify(PLAN)
+    })
+    const { call } = harness(turn)
     const response = await call('/plan', { method: 'POST', body: planBody() })
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
+    const request = turn.mock.calls[0]?.[0] as { prompt: string }
+    expect(request.prompt).toContain('au moins deux termes significatifs')
+    expect(request.prompt).toContain('premier terme significatif')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -320,24 +327,63 @@ describe('protocole', () => {
     expect(await response.json()).toMatchObject({ error: 'invalid-response' })
   })
 
-  it('refuse une preuve existante qui ne justifie pas l’accroche', async () => {
+  it('refuse un bénéfice inventé malgré un terme métier commun avec la preuve', async () => {
     const unrelated = {
       ...PLAN,
       screens: [
         {
           ...PLAN.screens[0],
-          headline: 'Automatisez le suivi des dépenses',
-          evidence: 'Le rythme de vos journées',
+          headline: 'Partagez votre budget à deux',
+          evidence: 'Suivez votre budget mois par mois',
         },
       ],
     }
     const { call } = harness(async () => JSON.stringify(unrelated))
-    const response = await call('/plan', { method: 'POST', body: planBody() })
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          pitch: 'Suivez votre budget mois par mois',
+          productContext: undefined,
+        },
+      }),
+    })
     expect(response.status).toBe(502)
     expect(await response.json()).toMatchObject({
       error: 'invalid-response',
       detail: expect.stringContaining('aucun fait'),
     })
+  })
+
+  it('accepte le vocabulaire Pulpe quand prédicat et fait proviennent de la preuve', async () => {
+    const pulpe = {
+      ...PLAN,
+      appName: 'Pulpe',
+      screens: [
+        {
+          ...PLAN.screens[0],
+          headline: 'Suivez votre budget chaque mois',
+          evidence: 'Suivez votre budget mois par mois',
+          screenshotIndex: undefined,
+        },
+      ],
+    }
+    const { call } = harness(async () => JSON.stringify(pulpe))
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        brief: {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: 'Suivez votre budget mois par mois',
+          productContext: undefined,
+          screenshots: [],
+        },
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ plan: pulpe })
   })
 
   it('dit que Codex manque plutôt que d’échouer en silence', async () => {

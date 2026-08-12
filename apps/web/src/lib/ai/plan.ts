@@ -307,17 +307,16 @@ function significantTerms(value: string): string[] {
     .filter((term) => term.length >= 4 && !CLAIM_STOPWORDS.has(term))
 }
 
-/** Une preuve doit nommer au moins un fait que l'accroche réemploie. */
+function termStem(term: string): string {
+  return term.length >= 5 ? term.slice(0, 5) : term
+}
+
+/** Le prédicat et un second terme de l'accroche doivent venir de la preuve. */
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const claimTerms = significantTerms(headline)
-  const evidenceTerms = significantTerms(evidence)
-  return claimTerms.some((claim) =>
-    evidenceTerms.some(
-      (fact) =>
-        claim === fact ||
-        (claim.length >= 5 && fact.length >= 5 && claim.slice(0, 5) === fact.slice(0, 5)),
-    ),
-  )
+  const claimStems = significantTerms(headline).map(termStem)
+  const evidenceStems = new Set(significantTerms(evidence).map(termStem))
+  if (!claimStems[0] || !evidenceStems.has(claimStems[0])) return false
+  return new Set(claimStems.filter((stem) => evidenceStems.has(stem))).size >= 2
 }
 
 function words(value: string): string[] {
