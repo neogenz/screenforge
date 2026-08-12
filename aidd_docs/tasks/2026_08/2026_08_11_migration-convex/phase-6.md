@@ -283,6 +283,96 @@ lui-même dans son README ; brander `Entitlements.userId` en `Id<'users'>`
 étamperait comme identifiant de document tout ce que le cache hors-ligne du
 navigateur relit de `localStorage`.
 
+**11. Les règles de sécurité publiées par Convex, relues une à une, et les
+quatre défauts qu'elles ont fait apparaître.** Les quatre règles de
+[« Best Practices »](https://docs.convex.dev/understanding/best-practices/)
+tiennent sans retouche — validateurs d'arguments sur toutes les fonctions
+publiques, contrôle d'accès sur toutes les fonctions publiques, seules des
+fonctions internes planifiées ou appelées par `ctx.run*`, identité lue dans le
+jeton et jamais dans un argument. C'est en les vérifiant qu'on a lu la
+bibliothèque d'authentification plutôt que sa documentation, et c'est là que se
+trouvaient les défauts.
+
+_Corrigé — la redirection ouverte, et ce qu'elle emportait._ Le rappel
+`redirect` de [`auth.ts`](../../../../apps/backend/convex/auth.ts) rendait
+`redirectTo` dès qu'il commençait par `SITE_URL`. Un préfixe n'est pas un
+domaine : `https://screenforge.app.exemple.invalid` commence par
+`https://screenforge.app`, et `https://screenforge.app@exemple.invalid` aussi —
+l'`@` fait du début une identité d'utilisateur et du reste l'hôte réel. Ce
+n'était pas une redirection ouverte ordinaire : Convex Auth accroche le **code de
+connexion** à la destination, au retour OAuth
+(`Location: setURLSearchParam(destinationUrl, 'code', …)`) comme dans le corps du
+courriel de lien magique. Et `signIn` est une action publique, donc n'importe qui
+demande un lien pour l'adresse de n'importe qui, avec la destination de son
+choix : le courriel arrivait à la victime, le code partait chez l'attaquant.
+`safeRedirect` regarde le caractère qui suit le préfixe — fin de chaîne, `/` ou
+`?` ferment le nom d'hôte, tout le reste le prolonge — ce qui est exactement le
+contrôle du rappel par défaut de la bibliothèque, que le redéfinir avait retiré.
+Quatre destinations refusées et quatre acceptées le tiennent, et la garde a été
+vérifiée en la remettant dans son état d'avant : trois tests tombent.
+
+_Corrigé — le plafond que l'inscription contournait._
+`signIn.maxFailedAttempsPerHour` ne s'applique qu'à `flow:'signIn'` :
+`retrieveAccountWithCredentials.js` est le seul fichier de la bibliothèque à
+importer son `rateLimit.js`. Or `flow:'signUp'` sur une adresse existante
+n'échoue pas — `createAccountFromCredentials` vérifie le secret et **rend le
+compte existant**, dont `signIn` émet aussitôt les jetons. La porte fermée après
+cinq échecs se rouvrait donc en changeant un mot dans la requête, indéfiniment.
+Le fournisseur est enveloppé à `options.authorize` (et non à la racine :
+`providerDefaults` fait `merge(provider, provider.options)`, où la source écrase
+la cible) et prend un jeton `passwordAttempt` par adresse **avant** de déléguer,
+dans les deux flux, remis à zéro par un succès. Le nombre est partagé avec la
+bibliothèque depuis `limits.ts`, sinon le plus permissif des deux aurait décidé.
+Trois tests le tiennent, dont celui qui devine par inscription après avoir épuisé
+la connexion.
+
+_Corrigé — la suppression de compte qui ne pouvait plus finir._ L'envoi rend son
+`storageId` au client — c'est l'argument que `confirmAssetUpload` attend — donc
+deux `assetId` peuvent confirmer le même fichier, et rien ne l'interdit. La purge
+supprimait alors le fichier pour la première ligne, échouait à le supprimer pour
+la seconde, gardait cette ligne, cessait de progresser, et le cron reprenait le
+même lot pour toujours : un compte demandé en suppression ne l'était jamais.
+`forget` constate désormais l'absence avant de supprimer — un fichier déjà parti
+est un fichier oublié, il n'y a plus d'octet facturé à reprendre — ce qui couvre
+du même geste le fichier disparu pour toute autre raison, sans index ni lecture
+de plus à chaque envoi. Un refus **réel** du stockage continue de laisser la
+ligne. Contrepartie assumée : le simulateur n'avait qu'une panne possible, le
+fichier absent, donc la branche `attempts` / `lastError` / `console.error` n'y est
+plus atteignable et rejoint ce qui se vérifie contre un déploiement réel.
+
+_Corrigé — le fichier qui se remplaçait lui-même._ `pushProject` supprimait
+`existing.blobId` après avoir écrit le nouveau, sans vérifier qu'ils diffèrent —
+la garde que `confirmAssetUpload` avait déjà. Le `blobId` venant du client, le
+renvoyer tel quel avec un horodatage plus récent rendait le projet illisible et
+sa suppression de compte bancale. Une ligne, et un test.
+
+_Vérifié et tenu, sans changement._ `ctx.storage.getUrl` n'est appelé nulle part
+— « anyone with the URL can access the file » — et les binaires passent tous par
+l'`httpAction` authentifiée que la documentation prescrit. Le
+`Access-Control-Allow-Origin: '*'` est sans effet ici : aucune autorité ambiante
+n'est en jeu, le seul jeton vit dans le `localStorage` de l'origine de
+l'application, qu'une page tierce ne lit pas. Le webhook Polar lit le corps brut,
+vérifie la signature avant d'analyser, et échoue **fermé** sur un secret absent.
+`auth.config.ts` ne fait confiance qu'à son propre déploiement. Rien de secret ne
+porte le préfixe `VITE_`.
+
+_Laissé, avec sa mesure._ Un fichier téléversé puis jamais confirmé n'est réclamé
+par personne : aucun cron ne balaie `_storage`. Le débit est borné par
+`assetUpload` et `projectPush`, et la reprendre demanderait de parcourir les deux
+tables pour construire l'ensemble des fichiers référencés — donc un balayage
+paginé, à écrire quand le poste stockage devient visible sur la facture, pas
+avant. De même, un seul jeton `projectPush` permet d'insérer plusieurs lignes sur
+un même fichier en variant `projectId` : ce ne sont que des métadonnées, et la
+garde de `forget` fait que leur suppression se passe bien.
+
+_Signalé, et à trancher par une main humaine._ Le mot de passe du compte de test
+est écrit dans `environnements.md`, à côté de l'URL de préproduction. Le publier
+ne change pourtant presque rien : `12345678` figure en tête de toutes les listes,
+et l'URL du déploiement est dans le paquet servi. Ce qui le protège désormais est
+`passwordAttempt`, cinq essais par heure et par adresse. C'est acceptable pour une
+préproduction dont les droits sont écrits à la main ; ça ne l'est pas pour la
+production, qui est vide et doit le rester jusqu'à l'ouverture de la vente.
+
 ## Après
 
 Deux améliorations que la migration rend possibles et que ce plan a
