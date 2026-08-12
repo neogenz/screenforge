@@ -117,6 +117,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [shots, setShots] = useState<LoadedShot[]>([])
   const [logo, setLogo] = useState<{ assetId: string; size: { width: number; height: number } }>()
   const [plan, setPlan] = useState<CampaignPlan | null>(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
   /* Le visuel en cours de relecture. Un index et non l'objet : la revue édite
      le plan, et garder une copie du visuel focalisé ferait deux vérités dont
      l'une vieillit à la première frappe. */
@@ -478,7 +479,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
        ayant pris son brief — la lecture était « le bouton ne marche pas ». */
     if (calls.length === 0) {
       setError(
-        `« ${activeScreen.name} » porte déjà ce style. Choisissez une autre direction à l’étape 3 pour voir un changement.`,
+        `« ${activeScreen.name} » porte déjà ce style. Choisissez une autre direction pour voir un changement.`,
       )
       return
     }
@@ -496,6 +497,24 @@ function CampaignDialogContent({ project }: { project: Project }) {
     close()
   }
 
+  const assistantSetup = (
+    <AssistantSetup
+      providerId={providerId}
+      onProvider={(next) => {
+        pickProvider(next)
+        setPlan(null)
+      }}
+      secret={secret}
+      onSecret={setSecret}
+      connection={connection}
+      onConnect={() => void connect()}
+      onForget={forgetSecret}
+      model={model}
+      onModel={setModel}
+      busy={busy}
+    />
+  )
+
   return (
     <Dialog
       open
@@ -503,243 +522,57 @@ function CampaignDialogContent({ project }: { project: Project }) {
       title="Générer les visuels App Store"
       size="lg"
       flush
-      /* Ce que la génération implique, dit à l'endroit où on la lance — pas
-         dans une page d'aide. La phrase change avec le fournisseur : « tout
-         reste ici » cesserait d'être vrai dès le pont branché. */
       footerNote={
-        providerId === 'local' || !connected
-          ? 'Tout est composé sur votre appareil, en calques modifiables.'
-          : 'Le texte du brief part vers Codex. Les images restent ici. Le résultat est en calques modifiables.'
+        plan
+          ? 'Rien n’est encore ajouté au projet.'
+          : assistantOpen
+            ? 'Ce choix s’applique à toutes les accroches.'
+            : providerId === 'local' || !connected
+              ? 'Les images restent sur votre appareil.'
+              : 'Le brief part vers le modèle ; les images restent ici.'
       }
       footer={
         <>
-          <Button variant="default" onClick={close} disabled={busy}>
-            Annuler
-          </Button>
           {plan ? (
-            <Button variant="primary" onClick={accept} disabled={busy}>
-              <Check size={12} aria-hidden />
-              Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
+            <>
+              <Button variant="default" onClick={() => setPlan(null)} disabled={busy}>
+                Modifier le brief
+              </Button>
+              <Button variant="primary" onClick={accept} disabled={busy}>
+                <Check size={12} aria-hidden />
+                Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
+              </Button>
+            </>
+          ) : assistantOpen ? (
+            <Button variant="default" onClick={() => setAssistantOpen(false)} disabled={busy}>
+              Retour au brief
             </Button>
           ) : (
-            // « Proposer », pas « Générer » : le bouton ne pose rien, il montre.
-            // C'est la promesse que la relecture tient juste au-dessus.
-            <Button variant="primary" onClick={() => void compose()} loading={busy} disabled={full}>
-              <Megaphone size={12} aria-hidden />
-              Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
-            </Button>
+            <>
+              <Button variant="default" onClick={close} disabled={busy}>
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void compose()}
+                loading={busy}
+                disabled={full}
+              >
+                <Megaphone size={12} aria-hidden />
+                Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
+              </Button>
+            </>
           )}
         </>
       }
     >
-      <div className="flex max-h-[60dvh] flex-col gap-4 overflow-y-auto px-6 py-4">
+      <div className="flex max-h-[60dvh] flex-col overflow-y-auto px-6 py-4">
         {error && (
-          <p role="alert" className="flex items-start gap-2 text-2xs text-destructive">
+          <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
             <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
             {error}
           </p>
         )}
-
-        {/* Une phrase, pas un paragraphe. Ce qui entre, ce qui sort, et le fait
-            que rien n'est posé sans relecture — le reste s'apprend en trois
-            étapes numérotées plutôt qu'en explications empilées. */}
-        <p className="text-2xs text-muted-foreground">
-          Vos captures d’écran deviennent les{' '}
-          <strong className="text-foreground">visuels de votre fiche App Store</strong> : un fond,
-          une accroche, l’appareil qui porte la capture. Vous relisez la proposition avant qu’elle
-          n’entre dans le projet.
-        </p>
-
-        <Step index={1} title="Vos captures d’écran">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="default" onClick={() => shotsInput.current?.click()} disabled={busy}>
-              <ImageUp size={12} aria-hidden />
-              {shots.length > 0
-                ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
-                : 'Choisir les captures…'}
-            </Button>
-            <Button variant="default" onClick={() => logoInput.current?.click()} disabled={busy}>
-              <ImageUp size={12} aria-hidden />
-              {logo ? 'Logo choisi' : 'Logo (facultatif)…'}
-            </Button>
-          </div>
-          <p className="mt-2 text-2xs text-muted-foreground">
-            {shots.length > 0
-              ? 'Une capture par visuel, dans l’ordre déposé. Le nom de chaque fichier sert de nom d’écran.'
-              : 'Facultatif : sans capture, les visuels sont posés avec leur fond et leur accroche, l’appareil restant à remplir.'}
-          </p>
-        </Step>
-
-        <Step index={2} title="Votre application">
-          <div className="grid grid-cols-2 gap-2">
-            <Field id={NAME_FIELD_ID} label="Nom">
-              <Input
-                id={NAME_FIELD_ID}
-                font="sans"
-                value={appName}
-                maxLength={60}
-                disabled={busy}
-                onChange={(event) => setAppName(event.target.value)}
-              />
-            </Field>
-            <Field id={PITCH_FIELD_ID} label="Ce qu’elle fait, en une phrase">
-              <Input
-                id={PITCH_FIELD_ID}
-                font="sans"
-                value={pitch}
-                maxLength={140}
-                placeholder="Le suivi de budget qui tient dans une poche"
-                disabled={busy}
-                onChange={(event) => setPitch(event.target.value)}
-              />
-            </Field>
-          </div>
-          {/* Le champ n'apparaît que quand quelqu'un sait le lire. Affiché en
-              permanence, il aurait promis une analyse de la page que la
-              génération sans modèle ne fait pas et ne peut pas faire. */}
-          {aiProvider(providerId).transport !== 'in-process' && (
-            <>
-              <Field id={URL_FIELD_ID} label="Page du produit (facultatif)" className="mt-2">
-                <Input
-                  id={URL_FIELD_ID}
-                  font="sans"
-                  type="url"
-                  inputMode="url"
-                  value={landingUrl}
-                  maxLength={2048}
-                  placeholder="https://monapp.com"
-                  disabled={busy}
-                  onChange={(event) => setLandingUrl(event.target.value)}
-                />
-              </Field>
-              <p className="mt-1.5 text-2xs text-muted-foreground">
-                Citée au modèle comme contexte, pour qu’il reprenne votre vocabulaire. ScreenForge
-                ne la charge jamais lui-même.
-              </p>
-            </>
-          )}
-        </Step>
-
-        <Step index={3} title="Le style des visuels">
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Style des visuels">
-            {DIRECTIONS.map((entry) => (
-              <StyleChip
-                key={entry.id}
-                label={entry.label}
-                swatch={entry.background}
-                selected={!useShotPalette && entry.id === direction}
-                disabled={busy}
-                onSelect={() => {
-                  setDirection(entry.id)
-                  setUseShotPalette(false)
-                  setPlan(null)
-                }}
-              />
-            ))}
-            <StyleChip
-              label="D’après mes captures"
-              /* Pas `transparent` en attendant les captures : une pastille vide
-                 se lit comme une pastille cassée. Le gris de la surface dit
-                 « rien à montrer pour l'instant », ce que le titre confirme. */
-              swatch={shotPalette?.background ?? 'var(--color-muted)'}
-              selected={useShotPalette}
-              disabled={busy || !shotPalette}
-              title={
-                shotPalette
-                  ? 'Les couleurs dominantes lues dans vos captures.'
-                  : 'Déposez des captures : leurs couleurs seront lues ici.'
-              }
-              onSelect={() => {
-                setUseShotPalette(true)
-                setPlan(null)
-              }}
-            />
-          </div>
-          <p className="mt-2 text-2xs text-muted-foreground">
-            Couleur de fond, encre des accroches et teinte des formes, sur tous les visuels.
-          </p>
-        </Step>
-
-        {full ? (
-          <p role="status" className="text-2xs text-muted-foreground">
-            Ce projet porte déjà {AI_LIMITS.maxScreens} écrans, le maximum d’une fiche App Store :
-            aucun visuel ne peut y être ajouté. Supprimez-en un dans la pellicule, ou repeignez
-            l’écran courant au style choisi ci-dessous.
-          </p>
-        ) : (
-          <>
-            <Field id={COUNT_FIELD_ID} label="Combien de visuels">
-              <Select
-                id={COUNT_FIELD_ID}
-                value={String(screenCount)}
-                disabled={busy}
-                onChange={(event) => {
-                  setChosenCount(Number(event.target.value))
-                  setPlan(null)
-                }}
-              >
-                {Array.from({ length: room }, (_unused, index) => index + 1).map((count) => (
-                  <option key={count} value={count}>
-                    {count} visuel{count > 1 ? 's' : ''}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <p className="-mt-2 text-2xs text-muted-foreground">
-              {room < AI_LIMITS.maxScreens
-                ? `Ce projet porte déjà ${project.screens.length} écran${project.screens.length > 1 ? 's' : ''} : il reste de la place pour ${room}. L’App Store en accepte ${AI_LIMITS.maxScreens} par langue. `
-                : `L’App Store en accepte ${AI_LIMITS.maxScreens} par langue. `}
-              Au-delà de vos captures, les visuels sont posés avec l’appareil vide — « Actualiser
-              les captures » les remplira plus tard.
-            </p>
-          </>
-        )}
-
-        <input
-          ref={shotsInput}
-          type="file"
-          multiple
-          accept={SCREENSHOT_IMAGE_ACCEPT}
-          aria-label="Captures de l’application"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(event) => {
-            const chosen = [...(event.target.files ?? [])]
-            event.target.value = ''
-            void loadShots(chosen)
-          }}
-        />
-        <input
-          ref={logoInput}
-          type="file"
-          accept={IMAGE_ACCEPT}
-          aria-label="Logo de l’application"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(event) => {
-            const chosen = event.target.files?.[0]
-            event.target.value = ''
-            void loadLogo(chosen)
-          }}
-        />
-
-        <AssistancePanel providerLabel={aiProvider(providerId).label}>
-          <AssistantSetup
-            providerId={providerId}
-            onProvider={(next) => {
-              pickProvider(next)
-              setPlan(null)
-            }}
-            secret={secret}
-            onSecret={setSecret}
-            connection={connection}
-            onConnect={() => void connect()}
-            onForget={forgetSecret}
-            model={model}
-            onModel={setModel}
-            busy={busy}
-          />
-        </AssistancePanel>
 
         {plan ? (
           <PlanReview
@@ -753,66 +586,234 @@ function CampaignDialogContent({ project }: { project: Project }) {
             regenerating={regenerating}
             busy={busy}
           />
-        ) : null}
+        ) : assistantOpen ? (
+          <AssistancePanel
+            open
+            onOpenChange={setAssistantOpen}
+            providerLabel={aiProvider(providerId).label}
+          >
+            {assistantSetup}
+          </AssistancePanel>
+        ) : (
+          <>
+            <CampaignSection title="Contenu" meta={`${screenCount} visuels`}>
+              <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                  <Field id={NAME_FIELD_ID} label="Nom de l’app">
+                    <Input
+                      id={NAME_FIELD_ID}
+                      font="sans"
+                      value={appName}
+                      maxLength={60}
+                      disabled={busy}
+                      onChange={(event) => setAppName(event.target.value)}
+                    />
+                  </Field>
+                  <Field id={PITCH_FIELD_ID} label="Ce que fait l’app">
+                    <Input
+                      id={PITCH_FIELD_ID}
+                      font="sans"
+                      value={pitch}
+                      maxLength={140}
+                      placeholder="Le suivi de budget qui tient dans une poche"
+                      disabled={busy}
+                      onChange={(event) => setPitch(event.target.value)}
+                    />
+                  </Field>
+                </div>
 
-        {/* Une seconde action, pas une étape de la première : elle ne génère
-            rien, ne regarde ni les captures ni le nombre demandé, et touche un
-            écran qui existe déjà. Sous le même titre que le reste, elle se
-            lisait comme la suite du formulaire. */}
-        {activeScreen && (
-          <div className="border-t border-border pt-4">
-            <h3 className="section-title">Sans rien générer : repeindre l’écran affiché</h3>
-            <p className="mt-1 text-2xs text-muted-foreground">
-              Applique le style choisi à l’étape 3 aux calques déjà posés sur « {activeScreen.name}{' '}
-              » : fond, encre des textes, teinte des formes. Aucun calque n’est créé ni supprimé,
-              aucune capture n’est utilisée.
-            </p>
-            <Button variant="default" className="mt-2" onClick={harmonize} disabled={busy}>
-              <Paintbrush size={12} aria-hidden />
-              Repeindre « {activeScreen.name} »
-            </Button>
-          </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="default"
+                    onClick={() => shotsInput.current?.click()}
+                    disabled={busy}
+                  >
+                    <ImageUp size={12} aria-hidden />
+                    {shots.length > 0
+                      ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
+                      : 'Ajouter les captures…'}
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => logoInput.current?.click()}
+                    disabled={busy}
+                  >
+                    <ImageUp size={12} aria-hidden />
+                    {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
+                  </Button>
+                  {!full && (
+                    <Select
+                      id={COUNT_FIELD_ID}
+                      aria-label="Combien de visuels"
+                      label="Visuels"
+                      className="w-36"
+                      value={String(screenCount)}
+                      disabled={busy}
+                      onChange={(event) => {
+                        setChosenCount(Number(event.target.value))
+                        setPlan(null)
+                      }}
+                    >
+                      {Array.from({ length: room }, (_unused, index) => index + 1).map((count) => (
+                        <option key={count} value={count}>
+                          {count}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+
+                {full ? (
+                  <p role="status" className="text-xs text-muted-foreground">
+                    Le projet contient déjà {AI_LIMITS.maxScreens} écrans. Supprimez-en un pour
+                    créer un nouveau lot.
+                  </p>
+                ) : shots.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Sans capture, les appareils resteront vides.
+                  </p>
+                ) : null}
+
+                <input
+                  ref={shotsInput}
+                  type="file"
+                  multiple
+                  accept={SCREENSHOT_IMAGE_ACCEPT}
+                  aria-label="Captures de l’application"
+                  className="sr-only"
+                  tabIndex={-1}
+                  onChange={(event) => {
+                    const chosen = [...(event.target.files ?? [])]
+                    event.target.value = ''
+                    void loadShots(chosen)
+                  }}
+                />
+                <input
+                  ref={logoInput}
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  aria-label="Logo de l’application"
+                  className="sr-only"
+                  tabIndex={-1}
+                  onChange={(event) => {
+                    const chosen = event.target.files?.[0]
+                    event.target.value = ''
+                    void loadLogo(chosen)
+                  }}
+                />
+              </div>
+            </CampaignSection>
+
+            <CampaignSection title="Direction" meta="Tout le lot">
+              <div
+                className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
+                role="radiogroup"
+                aria-label="Style des visuels"
+              >
+                {DIRECTIONS.map((entry) => (
+                  <StyleChip
+                    key={entry.id}
+                    label={entry.label}
+                    swatch={entry.background}
+                    selected={!useShotPalette && entry.id === direction}
+                    disabled={busy}
+                    onSelect={() => {
+                      setDirection(entry.id)
+                      setUseShotPalette(false)
+                      setPlan(null)
+                    }}
+                  />
+                ))}
+                <StyleChip
+                  label="Mes captures"
+                  ariaLabel="D’après mes captures"
+                  swatch={shotPalette?.background ?? 'var(--color-muted)'}
+                  selected={useShotPalette}
+                  disabled={busy || !shotPalette}
+                  title={
+                    shotPalette
+                      ? 'Les couleurs dominantes lues dans vos captures.'
+                      : 'Ajoutez des captures pour utiliser leurs couleurs.'
+                  }
+                  onSelect={() => {
+                    setUseShotPalette(true)
+                    setPlan(null)
+                  }}
+                />
+              </div>
+              {activeScreen && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={harmonize}
+                  disabled={busy}
+                >
+                  <Paintbrush size={12} aria-hidden />
+                  Appliquer à « {activeScreen.name} »
+                </Button>
+              )}
+            </CampaignSection>
+
+            <CampaignSection
+              title="Accroches"
+              meta={connected ? 'IA connectée' : providerId === 'local' ? 'Sans IA' : 'À connecter'}
+            >
+              <div className="grid gap-3">
+                {aiProvider(providerId).transport !== 'in-process' && (
+                  <Field id={URL_FIELD_ID} label="Page produit (facultatif)">
+                    <Input
+                      id={URL_FIELD_ID}
+                      font="sans"
+                      type="url"
+                      inputMode="url"
+                      value={landingUrl}
+                      maxLength={2048}
+                      placeholder="https://monapp.com"
+                      disabled={busy}
+                      onChange={(event) => setLandingUrl(event.target.value)}
+                    />
+                  </Field>
+                )}
+                <AssistancePanel
+                  open={false}
+                  onOpenChange={setAssistantOpen}
+                  providerLabel={aiProvider(providerId).label}
+                >
+                  {assistantSetup}
+                </AssistancePanel>
+              </div>
+            </CampaignSection>
+          </>
         )}
       </div>
     </Dialog>
   )
 }
 
-/**
- * Une étape numérotée.
- *
- * Le numéro n'est pas un ornement : la boîte demandait des captures au milieu,
- * un nom en haut et un style entre les deux, et la seule façon de savoir dans
- * quel ordre remplir était d'avoir déjà réussi une fois. Trois chiffres disent
- * la séquence sans une phrase de plus.
- */
-function Step({
-  index,
+function CampaignSection({
   title,
+  meta,
   children,
 }: {
-  index: number
   title: string
+  meta: string
   children: React.ReactNode
 }) {
   return (
-    <div>
-      <h3 className="section-title flex items-center gap-2">
-        <span
-          aria-hidden
-          className="tabular flex size-4 items-center justify-center rounded-sm bg-muted text-2xs font-semibold text-muted-foreground"
-        >
-          {index}
-        </span>
-        {title}
-      </h3>
-      <div className="mt-2">{children}</div>
-    </div>
+    <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+      <header>
+        <h3 className="section-title">{title}</h3>
+        <p className="tabular mt-1 text-2xs text-muted-foreground">{meta}</p>
+      </header>
+      <div className="min-w-0">{children}</div>
+    </section>
   )
 }
 
 function StyleChip({
   label,
+  ariaLabel,
   swatch,
   selected,
   disabled,
@@ -820,6 +821,7 @@ function StyleChip({
   onSelect,
 }: {
   label: string
+  ariaLabel?: string
   swatch: string
   selected: boolean
   disabled?: boolean
@@ -830,7 +832,7 @@ function StyleChip({
     <label
       title={title}
       className={cn(
-        'relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
+        'relative flex w-full cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
         'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
         disabled && 'cursor-not-allowed opacity-50',
         selected
@@ -841,6 +843,7 @@ function StyleChip({
       <input
         type="radio"
         name="screenforge-campaign-style"
+        aria-label={ariaLabel}
         checked={selected}
         disabled={disabled}
         onChange={onSelect}
@@ -856,55 +859,40 @@ function StyleChip({
   )
 }
 
-/**
- * Qui écrit les accroches, replié tant qu'on ne le cherche pas.
- *
- * Un seul chemin est proposé par défaut, et c'est celui qui marche sans rien
- * installer ni connecter. Le reste est derrière une divulgation : un utilisateur
- * qui ouvre cette boîte veut des visuels, pas un formulaire de connexion.
- * Replié ne veut pas dire caché — l'en-tête dit toujours qui écrit, sinon la
- * divulgation deviendrait un réglage qu'on oublie avoir changé.
- *
- * Le titre nomme ce qui change pour l'utilisateur et non l'architecture. Sous
- * « Assistance », la ligne repliée annonçait « Composition locale » : deux mots
- * qui décrivent le transport et pas une seule fois ce qu'ils lui coûtent — des
- * accroches qu'il devra écrire lui-même.
- *
- * Ce composant ne fait plus que la divulgation. Le choix et le branchement
- * vivent dans `AssistantSetup`, parce que cinq fournisseurs, deux familles
- * d'authentification et trois marches ne sont plus un détail d'un formulaire de
- * campagne : c'est un écran à part entière, qui a ses propres états.
- */
 function AssistancePanel({
+  open,
+  onOpenChange,
   providerLabel,
   children,
 }: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
   providerLabel: string
   children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(false)
-
   return (
-    <div className="border-t border-border pt-4">
-      <h3 className="section-title">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={ASSIST_PANEL_ID}
-          onClick={() => setOpen((was) => !was)}
-          className="flex w-full items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <ChevronDown
-            size={12}
-            aria-hidden
-            className={cn('transition-transform duration-150', open ? '' : '-rotate-90')}
-          />
-          Qui écrit les accroches
-          <span className="ml-auto font-normal text-muted-foreground">{providerLabel}</span>
-        </button>
-      </h3>
+    <div>
+      <button
+        type="button"
+        aria-label={`Qui écrit les accroches : ${providerLabel}`}
+        aria-expanded={open}
+        aria-controls={ASSIST_PANEL_ID}
+        onClick={() => onOpenChange(!open)}
+        className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <span className="field-label">Rédaction</span>
+        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
+        <ChevronDown
+          size={12}
+          aria-hidden
+          className={cn(
+            'shrink-0 text-muted-foreground transition-transform duration-150',
+            open ? '' : '-rotate-90',
+          )}
+        />
+      </button>
 
-      <div id={ASSIST_PANEL_ID} hidden={!open} className="mt-2">
+      <div id={ASSIST_PANEL_ID} hidden={!open} className="mt-3">
         {children}
       </div>
     </div>
@@ -952,9 +940,9 @@ function PlanReview({
   const only = plan.screens.length === 1
 
   return (
-    <div className="border-t border-border pt-4">
+    <div>
       <h3 className="section-title flex items-center gap-2">
-        À relire avant d’ajouter
+        Vérifiez la proposition
         <span className="ml-auto flex items-center gap-1" aria-hidden>
           {[plan.palette.background, plan.palette.ink, plan.palette.accent].map((color) => (
             <span
@@ -965,9 +953,9 @@ function PlanReview({
           ))}
         </span>
       </h3>
-      <p className="mt-1 text-2xs text-muted-foreground">
-        {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''} à ajouter aux écrans du
-        projet. Rien n’a encore bougé : le bouton en bas les pose, et un seul ⌘Z les retire tous.
+      <p className="mt-1 text-xs text-muted-foreground">
+        Corrigez les accroches avant d’ajouter les {plan.screens.length} visuel
+        {plan.screens.length > 1 ? 's' : ''}.
       </p>
 
       {/* La bande sert à choisir, pas à juger : c'est l'aperçu en dessous qui

@@ -50,6 +50,14 @@ const MODEL_FIELD_ID = 'sf-assistant-model'
  */
 const BROWSABLE_MODELS = 40
 
+const PROVIDER_NAMES: Record<ProviderId, string> = {
+  local: 'Sans IA',
+  'claude-bridge': 'Claude Code',
+  'codex-bridge': 'Codex',
+  anthropic: 'Anthropic',
+  openrouter: 'OpenRouter',
+}
+
 /** Ce que le pont dit de lui-même : constaté, jamais demandé. */
 type BridgeProbe = { state: 'up'; engines: string[] } | { state: 'down'; message: string }
 
@@ -205,10 +213,17 @@ function ProviderChoice({
   unavailable?: string
   onPick: () => void
 }) {
+  const meta =
+    entry.transport === 'in-process'
+      ? 'Local · sans compte'
+      : entry.transport === 'local-bridge'
+        ? 'Sur cet ordinateur · sans clé'
+        : 'En ligne · votre clé'
+
   return (
     <label
       className={cn(
-        'relative flex cursor-pointer flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-2xs transition-colors',
+        'relative flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-3 py-1.5 text-left text-2xs transition-colors',
         'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
         disabled && 'cursor-not-allowed opacity-50',
         active ? 'border-foreground bg-muted' : 'border-border hover:border-input',
@@ -217,6 +232,7 @@ function ProviderChoice({
       <input
         type="radio"
         name="screenforge-ai-provider"
+        aria-label={entry.label}
         value={entry.id}
         checked={active}
         disabled={disabled}
@@ -225,13 +241,12 @@ function ProviderChoice({
       />
       <span className="flex items-center gap-1.5 text-foreground">
         {active && <Check size={11} aria-hidden />}
-        {entry.label}
+        {PROVIDER_NAMES[entry.id]}
         {entry.recommended && <span className="text-muted-foreground">· par défaut</span>}
       </span>
-      <span className="text-muted-foreground">{entry.summary}</span>
-      <span className="text-muted-foreground">{entry.dataPath}</span>
+      <span className="ml-auto shrink-0 text-muted-foreground">{meta}</span>
       {unavailable && (
-        <span className="flex items-start gap-1 text-warning">
+        <span className="flex basis-full items-start gap-1 text-warning">
           <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
           {unavailable}
         </span>
@@ -307,7 +322,7 @@ export function AssistantSetup({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2" role="radiogroup" aria-label="Qui écrit les accroches">
+      <div className="flex flex-col gap-1" role="radiogroup" aria-label="Qui écrit les accroches">
         {AI_PROVIDERS.map((entry) => (
           <ProviderChoice
             key={entry.id}
@@ -324,8 +339,18 @@ export function AssistantSetup({
         ))}
       </div>
 
+      <div className="px-1">
+        <p className="max-w-[65ch] text-xs text-muted-foreground">{active.summary}</p>
+        <details key={active.id} className="mt-1 text-2xs text-muted-foreground">
+          <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
+            Données et confidentialité
+          </summary>
+          <p className="mt-1 pl-3">{active.dataPath}</p>
+        </details>
+      </div>
+
       {active.setup && (viaBridge ? reachable : true) && (
-        <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
           {viaBridge ? (
             <Step rank={1} title="Lancez le pont sur votre ordinateur" done={engineFound}>
               {/* Où, et pas seulement quoi. La commande était donnée seule, donc

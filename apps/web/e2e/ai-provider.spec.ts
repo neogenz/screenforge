@@ -40,22 +40,27 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
   await disclosure.click()
   await expect(disclosure).toHaveAttribute('aria-expanded', 'true')
 
-  // Chaque fournisseur dit où passent les données, à l'endroit du choix.
-  await expect(page.getByRole('radio', { name: /ScreenForge seul/ }).locator('..')).toContainText(
-    'Rien ne quitte cet onglet',
-  )
-  await expect(page.getByRole('radio', { name: /Avec Codex/ }).locator('..')).toContainText(
-    'aucune image ne traverse le pont',
-  )
-  await expect(page.getByRole('radio', { name: /Avec Claude Code/ }).locator('..')).toContainText(
-    'aucune image ne traverse le pont',
-  )
-  await expect(page.getByRole('radio', { name: /clé Anthropic/ }).locator('..')).toContainText(
-    'api.anthropic.com',
-  )
-
   const local = page.getByRole('radio', { name: /ScreenForge seul/ })
+  const codex = page.getByRole('radio', { name: /Avec Codex/ })
   const openRouter = page.getByRole('radio', { name: /clé OpenRouter/ })
+
+  // Les choix se parcourent d'un coup d'œil. Seul le fournisseur retenu
+  // explique son fonctionnement, et le trajet exact des données reste à un
+  // geste : l'information sensible est conservée sans être répétée cinq fois.
+  await expect(local.locator('..')).toContainText('Local · sans compte')
+  await expect(codex.locator('..')).toContainText('Sur cet ordinateur · sans clé')
+  await expect(openRouter.locator('..')).toContainText('En ligne · votre clé')
+  const privacy = page.getByText('Données et confidentialité')
+  await expect(page.getByText(/Rien ne quitte cet onglet/)).toBeHidden()
+  await privacy.click()
+  await expect(page.getByText(/Rien ne quitte cet onglet/)).toBeVisible()
+
+  await codex.click()
+  await expect(page.getByText(/via le Codex déjà installé/)).toBeVisible()
+  await expect(page.getByText(/aucune image ne traverse le pont/)).toBeHidden()
+  await privacy.click()
+  await expect(page.getByText(/aucune image ne traverse le pont/)).toBeVisible()
+
   await local.focus()
   await page.keyboard.press('ArrowLeft')
   await expect(openRouter).toBeFocused()
@@ -69,8 +74,9 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
 
   // Et la voie recommandée reste à un clic, sans rien connecter.
   await local.click()
+  await page.getByRole('button', { name: 'Retour au brief' }).click()
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
-  await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
 })
 
 test('le pont éteint est constaté, pas découvert après coup', async ({ page }) => {
@@ -130,8 +136,9 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
 
   // Et la voie recommandée reste à un clic, sans reconnexion ni redémarrage.
   await page.getByRole('radio', { name: /ScreenForge seul/ }).click()
+  await page.getByRole('button', { name: 'Retour au brief' }).click()
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
-  await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
 })
 
 /**

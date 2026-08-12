@@ -109,13 +109,13 @@ export function TransformSection({ layer }: TransformSectionProps) {
   }
 
   /*
-   * Le seul retour possible quand le calque n'est plus saisissable.
+   * Le retour explicite quand le calque n'est plus saisissable sur sa planche.
    *
    * Hors de sa planche, il perd le clic et le lasso — c'est ce qui empêche un
    * calque devenu fantôme de voler le clic destiné à la planche voisine. Il
-   * reste désignable depuis la liste des calques, donc le panneau est le seul
-   * endroit où l'utilisateur peut encore agir dessus : sans cette issue, la
-   * sélection ouvrirait sur deux champs de coordonnées et rien d'autre.
+   * reste désignable depuis la liste des calques et récupérable en tirant son
+   * fantôme depuis la scène vide. Le panneau garde cette issue directe pour un
+   * calque parti hors du champ ou difficile à viser.
    */
   const outOfReach = layerOutOfReach(layer)
 

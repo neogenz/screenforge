@@ -70,9 +70,10 @@ export function ensureScreenClipPath(
  *
  * Perdre la prise n'est pas perdre le calque : la liste des calques le
  * sélectionne toujours — `setActiveObject` ne lit ni l'un ni l'autre drapeau —
- * les flèches le déplacent, et le panneau Transformation propose de le ramener.
- * Ce qu'on lui retire, c'est de répondre à un clic là où il n'est plus visible,
- * au-dessus de la planche du voisin.
+ * les flèches le déplacent et le panneau Transformation propose de le ramener.
+ * Sur la scène vide, `install-interactions` rend aussi la prise le temps du
+ * geste. Ce qu'on lui retire, c'est de répondre à un clic au-dessus de la
+ * planche du voisin.
  */
 function applyScreenPresence(
   object: RenderedObject,

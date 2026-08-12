@@ -581,8 +581,8 @@ test.describe('canvas transforms', () => {
    * Le défaut mesuré avant le fantôme : hors de sa planche, un calque devenait
    * invisible partout et restait pourtant cliquable **au-dessus de la planche
    * voisine**, où il volait le clic destiné au calque de celle-ci. Retirer la
-   * prise ferme ce défaut, mais ouvre une impasse : sans le retour du panneau,
-   * la sélection depuis la liste des calques n'aurait plus rien à quoi servir.
+   * prise ferme ce défaut. Le panneau garde un retour explicite et la scène
+   * vide rend le fantôme saisissable le temps du seul geste de récupération.
    */
   test('a layer pushed off its board loses the grab and offers the way back', async ({ page }) => {
     await addTextLayer(page)
@@ -619,6 +619,25 @@ test.describe('canvas transforms', () => {
     expect((await screenLayers(page))[0].x).toBe(0)
     expect(await grab()).toEqual({ selectable: true, evented: true })
     await expect(bringBack).toBeHidden()
+  })
+
+  test('a lost layer can be dragged back from the empty stage', async ({ page }) => {
+    await addTextLayer(page)
+    const positionX = transformInput(page, 0)
+    await positionX.fill('-600')
+    await positionX.press('Enter')
+    await waitForCanvasSettled(page)
+
+    const [ghost, board] = await Promise.all([activeCenter(page), screenCenter(page, 0)])
+    await page.mouse.move(ghost.x, ghost.y)
+    await page.mouse.down()
+    await page.mouse.move(board.x, board.y, { steps: 12 })
+    await page.mouse.up()
+    await waitForCanvasSettled(page)
+
+    const [layer] = await screenLayers(page)
+    expect(layer.x).toBeGreaterThanOrEqual(0)
+    await expect(page.getByRole('button', { name: 'Ramener sur la planche' })).toBeHidden()
   })
 
   test('repeated transfers stay stable through undo and redo', async ({ page }) => {

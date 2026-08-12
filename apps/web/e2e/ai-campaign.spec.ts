@@ -55,8 +55,8 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
   const depth = await historyDepth(page)
 
   await openCampaignDialog(page)
-  await page.getByLabel('Nom', { exact: true }).fill('Cadence')
-  await page.getByLabel('Ce qu’elle fait, en une phrase').fill('Le budget dans une poche')
+  await page.getByLabel('Nom de l’app').fill('Cadence')
+  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
   const styles = page.getByRole('radiogroup', { name: 'Style des visuels' })
   const sober = styles.getByRole('radio', { name: 'Sobre' })
   const nocturnal = styles.getByRole('radio', { name: 'Nocturne' })
@@ -71,11 +71,11 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
   // Le nombre commande, et il ne vient d'aucune capture : c'est tout l'intérêt
   // du champ, puisque personne n'a dix captures prêtes en commençant.
   await page.getByLabel('Combien de visuels').click()
-  await page.getByRole('option', { name: '3 visuels' }).click()
+  await page.getByRole('option', { name: '3', exact: true }).click()
 
   // Rien n'est posé avant que le plan n'ait été relu.
   await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
-  await expect(page.getByRole('heading', { name: 'À relire avant d’ajouter' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
   expect(await screens(page)).toHaveLength(before.length)
 
   await page.getByRole('button', { name: 'Ajouter 3 visuels' }).click()
@@ -117,10 +117,10 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   const before = await screens(page)
 
   await openCampaignDialog(page)
-  await page.getByLabel('Nom', { exact: true }).fill('Cadence')
-  await page.getByLabel('Ce qu’elle fait, en une phrase').fill('Le budget dans une poche')
+  await page.getByLabel('Nom de l’app').fill('Cadence')
+  await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
-  await page.getByRole('option', { name: '3 visuels' }).click()
+  await page.getByRole('option', { name: '3', exact: true }).click()
   await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
 
   // La bande donne un visuel par onglet, nommé par son accroche : au-delà de
@@ -182,7 +182,7 @@ test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
 
   await openCampaignDialog(page)
   await page.getByRole('radio', { name: 'Nocturne' }).click()
-  await page.getByRole('button', { name: /^Repeindre/ }).click()
+  await page.getByRole('button', { name: /^Appliquer à/ }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
 
   const after = await screens(page)

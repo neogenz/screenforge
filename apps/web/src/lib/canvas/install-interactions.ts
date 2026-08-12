@@ -16,6 +16,7 @@ import {
   SCREEN_WIDTH,
   fabricObjectToLayerUpdate,
   getScreenOffset,
+  intersectsScreen,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
 import { applyLayerTransfer } from '@/lib/layer-transfer'
@@ -78,6 +79,7 @@ export function installInteractions({
   let publishedFrame: SelectionFrame | null = null
   let guides: Guide[] = []
   let snapTargets: Box[] | null = null
+  let stageRecovery: RenderedObject | null = null
   const dragSourceScreenIndexes = new Map<RenderedObject, number>()
   const mirrorLast = new Map<string, { left: number; top: number }>()
 
@@ -419,11 +421,59 @@ export function installInteractions({
     applyStoreSelection()
   })
 
-  const handleDomMouseDown = () => {
+  const handleDomMouseDown = (event: MouseEvent) => {
     interacting = true
+    const project = getProject()
+    if (!project) return
+    const point = canvas.getScenePoint(event)
+    // Une planche garde la priorité absolue : un fantôme ne doit jamais voler
+    // le clic d'un calque réellement posé dessus.
+    if (screenIndexAtPoint(project.screens, point) !== null) return
+
+    const unlocked = new Set(
+      [...project.screens.flatMap((screen) => screen.layers), ...project.layoutLayers]
+        .filter((layer) => !layer.locked)
+        .map((layer) => layer.id),
+    )
+    const ghost = [...(canvas.getObjects() as RenderedObject[])].reverse().find((object) => {
+      const id = object.data?.layerId ?? object.data?.uid
+      return (
+        Boolean(id && unlocked.has(id)) &&
+        object.data?.screenIndex !== undefined &&
+        !object.evented &&
+        !object.selectable &&
+        object.visible &&
+        object.containsPoint(point)
+      )
+    })
+    if (!ghost) return
+
+    // Fabric doit voir une cible normale pendant ce seul geste. Au repos elle
+    // reste hors du hit-test et du lasso, comme avant.
+    stageRecovery = ghost
+    ghost.set({ selectable: true, evented: true })
   }
   const handleDomMouseUp = () => {
     interacting = false
+    const recovered = stageRecovery
+    stageRecovery = null
+    if (!recovered) return
+    queueMicrotask(() => {
+      const project = getProject()
+      const id = recovered.data?.layerId ?? recovered.data?.uid
+      const screenIndex = recovered.data?.screenIndex
+      const unlocked = Boolean(
+        id &&
+        project &&
+        [...project.screens.flatMap((screen) => screen.layers), ...project.layoutLayers].some(
+          (layer) => layer.id === id && !layer.locked,
+        ),
+      )
+      const grabbable =
+        unlocked && screenIndex !== undefined && intersectsScreen(recovered, screenIndex)
+      recovered.set({ selectable: grabbable, evented: grabbable })
+      canvas.requestRenderAll()
+    })
   }
   canvas.upperCanvasEl.addEventListener('mousedown', handleDomMouseDown, true)
   window.addEventListener('mouseup', handleDomMouseUp, true)
