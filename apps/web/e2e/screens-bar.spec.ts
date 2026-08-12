@@ -1,6 +1,18 @@
-import { expect, test } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { expect, test, type Page } from '@playwright/test'
+import { addScreen, waitForApp } from './helpers'
 import { THUMBNAIL_WIDTH } from '../src/lib/stage'
+
+function tile(page: Page, name: string) {
+  return page.locator(`button[aria-label="Activer ${name}"]`)
+}
+
+async function screenNames(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      window.__sfStores?.useProjectStore.getState().project?.screens.map((screen) => screen.name) ??
+      [],
+  )
+}
 
 /**
  * Renommer un écran depuis la pellicule.
@@ -57,5 +69,84 @@ test.describe('filmstrip rename', () => {
     await expect(page.getByRole('textbox', { name: 'Nom de l’écran' })).toHaveCount(0)
     await expect(page.locator('button[aria-label="Activer Écran 1"]')).toBeVisible()
     await expect(page.locator('button[aria-label="Activer Jeté"]')).toHaveCount(0)
+  })
+})
+
+/**
+ * Retenir plusieurs écrans, et n'en éditer qu'un.
+ *
+ * Deux états qui se ressemblent et ne disent pas la même chose : l'écran
+ * *courant* est celui que la scène montre et que l'on compose, les écrans
+ * *retenus* sont ceux que la prochaine action touchera. Ils coïncident tant
+ * qu'on n'en désigne qu'un, et c'est quand ils divergent que tout se joue — un
+ * menu qui promet « Supprimer » là où il en efface trois est le défaut que ces
+ * tests surveillent, avec la règle du repère : le citron ne se pose que sur le
+ * courant, jamais sur la troupe.
+ */
+test.describe('filmstrip selection', () => {
+  test('multi-selection acts on the group, and says so before it does', async ({ page }) => {
+    await waitForApp(page)
+    await addScreen(page)
+    await addScreen(page)
+    expect(await screenNames(page)).toEqual(['Écran 1', 'Écran 2', 'Écran 3'])
+
+    await tile(page, 'Écran 1').click()
+    await expect(tile(page, 'Écran 1')).toHaveAttribute('aria-current', 'true')
+
+    // ⌘ retient un second écran sans lâcher le premier. L'écran courant suit ce
+    // qu'on vient de désigner ; les deux sont « pressed », le troisième non.
+    await tile(page, 'Écran 3').click({ modifiers: ['Meta'] })
+    await expect(tile(page, 'Écran 1')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tile(page, 'Écran 3')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tile(page, 'Écran 2')).toHaveAttribute('aria-pressed', 'false')
+    // Un seul repère « vous êtes ici », même à deux retenus.
+    await expect(tile(page, 'Écran 3')).toHaveAttribute('aria-current', 'true')
+    await expect(tile(page, 'Écran 1')).not.toHaveAttribute('aria-current', 'true')
+
+    // Le menu annonce la portée avant de l'exercer.
+    await tile(page, 'Écran 3').click({ button: 'right' })
+    await expect(page.getByRole('menuitem', { name: 'Supprimer 2 écrans' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Dupliquer 2 écrans' })).toBeVisible()
+    // Un nom ne se partage pas : renommer reste au singulier.
+    await expect(page.getByRole('menuitem', { name: 'Renommer' })).toBeVisible()
+
+    await page.getByRole('menuitem', { name: 'Supprimer 2 écrans' }).click()
+    expect(await screenNames(page)).toEqual(['Écran 2'])
+
+    // Un geste, un pas d'annulation — pas deux suppressions à défaire.
+    await page.keyboard.press('Meta+z')
+    expect(await screenNames(page)).toEqual(['Écran 1', 'Écran 2', 'Écran 3'])
+  })
+
+  test('shift extends from the screen being edited, and leaves it there', async ({ page }) => {
+    await waitForApp(page)
+    await addScreen(page)
+    await addScreen(page)
+
+    await tile(page, 'Écran 1').click()
+    await tile(page, 'Écran 3').click({ modifiers: ['Shift'] })
+
+    for (const name of ['Écran 1', 'Écran 2', 'Écran 3']) {
+      await expect(tile(page, name)).toHaveAttribute('aria-pressed', 'true')
+    }
+    // L'ancre ne bouge pas : la scène reste sur l'écran qu'on composait, et un
+    // second ⇧ clic rétrécit la même plage au lieu d'en ouvrir une autre.
+    await expect(tile(page, 'Écran 1')).toHaveAttribute('aria-current', 'true')
+    await tile(page, 'Écran 2').click({ modifiers: ['Shift'] })
+    await expect(tile(page, 'Écran 3')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('a plain click drops the group back to one screen', async ({ page }) => {
+    await waitForApp(page)
+    await addScreen(page)
+
+    await tile(page, 'Écran 1').click()
+    await tile(page, 'Écran 2').click({ modifiers: ['Meta'] })
+    await expect(tile(page, 'Écran 1')).toHaveAttribute('aria-pressed', 'true')
+
+    await tile(page, 'Écran 2').click()
+    await expect(tile(page, 'Écran 1')).toHaveAttribute('aria-pressed', 'false')
+    await tile(page, 'Écran 2').click({ button: 'right' })
+    await expect(page.getByRole('menuitem', { name: 'Supprimer', exact: true })).toBeVisible()
   })
 })

@@ -24,15 +24,21 @@ import {
 } from '@/lib/stage'
 import type { Screen } from '@/types'
 
+/** Comment un clic sur une tuile change la sélection de la pellicule. */
+export type PickMode = 'single' | 'toggle' | 'range'
+
 interface ScreenThumbnailProps {
   screen: Screen
   isActive: boolean
+  isSelected: boolean
+  /** Combien d'écrans les actions de cette tuile toucheront — 1 hors sélection multiple. */
+  groupSize: number
   index: number
   canDelete: boolean
   canMoveLeft: boolean
   canMoveRight: boolean
   canPasteSettings: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, mode: PickMode) => void
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
   onCopySettings: (id: string) => void
@@ -41,9 +47,16 @@ interface ScreenThumbnailProps {
   onMove: (index: number, direction: -1 | 1) => void
 }
 
+/** « Dupliquer » pour un écran, « Dupliquer 3 écrans » pour un groupe. */
+function grouped(label: string, size: number): string {
+  return size > 1 ? `${label} ${size} écrans` : label
+}
+
 export const ScreenThumbnail = memo(function ScreenThumbnail({
   screen,
   isActive,
+  isSelected,
+  groupSize,
   index,
   canDelete,
   canMoveLeft,
@@ -144,7 +157,13 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         className={cn(
           'tabular flex w-fit items-center justify-center rounded-sm px-1 text-2xs',
           'transition-colors duration-150 ease-out',
-          isActive ? 'marker-fill font-semibold' : 'font-medium text-muted-foreground',
+          // Trois états, un seul repère. Le citron reste ce qui dit « vous êtes
+          // ici » et ne se pose que sur l'écran courant ; un écran seulement
+          // retenu par la sélection prend une pastille neutre — assez pour se
+          // détacher de la rangée, pas assez pour se disputer le repère.
+          isActive && 'marker-fill font-semibold',
+          !isActive && isSelected && 'bg-secondary font-medium text-foreground',
+          !isActive && !isSelected && 'font-medium text-muted-foreground',
         )}
       >
         {index + 1}
@@ -158,11 +177,24 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       <button
         ref={previewRef}
         type="button"
-        onClick={() => onSelect(screen.id)}
+        // ⌘/Ctrl ajoute ou retire, ⇧ étend depuis l'écran courant, un clic nu
+        // repart de zéro — les trois conventions du système, dans cet ordre de
+        // priorité.
+        onClick={(event) =>
+          onSelect(
+            screen.id,
+            event.metaKey || event.ctrlKey ? 'toggle' : event.shiftKey ? 'range' : 'single',
+          )
+        }
         onDoubleClick={startRename}
         title={`${screen.name} — double-clic pour renommer`}
         aria-label={`Activer ${screen.name}`}
-        aria-pressed={isActive}
+        // `aria-pressed` dit l'appartenance à la sélection, `aria-current`
+        // désigne celui qu'on est en train de modifier. Les deux coïncident tant
+        // qu'on n'en retient qu'un, et c'est justement quand ils divergent
+        // qu'annoncer « sélectionné » pour neuf écrans muets serait faux.
+        aria-pressed={isSelected}
+        aria-current={isActive ? 'true' : undefined}
         // Repère du glisser-déposer : c'est cet élément, et non la colonne, que
         // le navigateur doit photographier pour l'image traînée.
         data-thumbnail-preview
@@ -185,7 +217,11 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // contact tient dans les 8px que le dégagement et la levée laissent
           // sous la tuile ; l'état, lui, est déjà porté par la pastille citron
           // et par cette levée.
-          isActive ? 'shadow-(--shadow-handle)' : 'hover:border-input',
+          // Retenue sans être courante, la tuile garde en permanence la bordure
+          // que le survol lui donnerait : c'est la seule marque disponible qui
+          // ne touche ni l'aperçu ni le citron.
+          isActive && 'shadow-(--shadow-handle)',
+          !isActive && (isSelected ? 'border-input' : 'hover:border-input'),
         )}
       >
         {/* Pas d'`img-outline` ici : le liseré des images sert à détacher une
@@ -217,7 +253,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
         className={cn(
           'block truncate text-center text-2xs',
-          isActive ? 'text-foreground' : 'text-muted-foreground',
+          isActive || isSelected ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
         {screen.name}
@@ -305,13 +341,17 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           label={`Actions de ${screen.name}`}
           onClose={() => setMenuPosition(null)}
           items={[
+            // Le menu annonce ce qu'il va faire, pas seulement ce qu'il fait :
+            // sur une sélection de trois écrans, « Supprimer » en efface trois.
+            // Renommer et copier les réglages restent au singulier — un nom ne
+            // se partage pas, et on copie depuis une source, pas depuis trois.
             {
               label: 'Renommer',
               icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />,
               onSelect: startRename,
             },
             {
-              label: 'Dupliquer',
+              label: grouped('Dupliquer', groupSize),
               icon: <Copy size={11} strokeWidth={1.5} aria-hidden />,
               onSelect: () => onDuplicate(screen.id),
             },
@@ -322,7 +362,10 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
               onSelect: () => onCopySettings(screen.id),
             },
             {
-              label: 'Coller les réglages',
+              label:
+                groupSize > 1
+                  ? `Coller les réglages sur ${groupSize} écrans`
+                  : 'Coller les réglages',
               icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />,
               disabled: !canPasteSettings,
               onSelect: () => onPasteSettings(screen.id),
@@ -341,7 +384,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
               onSelect: () => onMove(index, 1),
             },
             {
-              label: 'Supprimer',
+              label: grouped('Supprimer', groupSize),
               icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />,
               danger: true,
               disabled: !canDelete,

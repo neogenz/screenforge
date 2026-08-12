@@ -5,7 +5,7 @@ import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
 import { IconButton } from '@/components/ui/icon-button'
-import { ScreenThumbnail } from './ScreenThumbnail'
+import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
 import {
@@ -52,37 +52,138 @@ export function ScreensBar() {
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null)
 
-  const handleSelect = useCallback((id: string) => {
-    const project = useProjectStore.getState().project
-    if (id === project?.activeScreenId) return
+  /**
+   * Les écrans retenus, quand il y en a plus d'un.
+   *
+   * L'écran courant reste `project.activeScreenId` et n'a pas bougé de là :
+   * c'est lui que la scène montre, et une pellicule ne décide pas de ce qu'on
+   * édite. `picked` ne dit que ceci — sur quels écrans la prochaine action va
+   * porter. Vide ou réduit à un, tout se comporte comme avant.
+   *
+   * Aucun effet ne le nettoie : il est relu à chaque action contre le projet du
+   * moment, et `multiple` retombe à faux dès qu'il ne contient plus l'écran
+   * courant — ce qui arrive dès qu'on change d'écran depuis le canevas ou
+   * ailleurs. Une sélection périmée s'annule donc d'elle-même.
+   */
+  const [picked, setPicked] = useState<string[]>([])
+  const multiple = picked.length > 1 && picked.includes(activeScreenId)
+
+  /** Sur quoi une action lancée depuis `id` porte réellement. */
+  const targetIds = useCallback(
+    (id: string): string[] => {
+      if (!multiple || !picked.includes(id)) return [id]
+      const live = new Set(useProjectStore.getState().project?.screens.map((s) => s.id) ?? [])
+      return picked.filter((candidate) => live.has(candidate))
+    },
+    [multiple, picked],
+  )
+
+  const activate = useCallback((id: string) => {
+    if (id === useProjectStore.getState().project?.activeScreenId) return
     useProjectStore.getState().setActiveScreenId(id)
     useCanvasStore.getState().clearSelection()
   }, [])
+
+  /**
+   * Clic simple, ⌘/Ctrl pour ajouter ou retirer, ⇧ pour étendre.
+   *
+   * L'ancre de l'étendue est l'écran courant, et ⇧ ne le déplace pas : deux ⇧
+   * clics de suite grandissent ou rétrécissent la même plage au lieu d'en
+   * ouvrir une nouvelle à chaque fois. C'est aussi ce qui laisse la scène sur
+   * l'écran qu'on était en train de composer pendant qu'on en désigne d'autres.
+   */
+  const handleSelect = useCallback(
+    (id: string, mode: PickMode) => {
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const ids = project.screens.map((screen) => screen.id)
+
+      if (mode === 'range') {
+        const anchor = ids.indexOf(project.activeScreenId)
+        const reached = ids.indexOf(id)
+        if (anchor === -1 || reached === -1) return
+        const [from, to] = anchor <= reached ? [anchor, reached] : [reached, anchor]
+        setPicked(ids.slice(from, to + 1))
+        return
+      }
+
+      const group = (multiple ? picked : [project.activeScreenId]).filter((candidate) =>
+        ids.includes(candidate),
+      )
+      if (mode === 'toggle') {
+        if (!group.includes(id)) {
+          setPicked([...group, id])
+          activate(id)
+          return
+        }
+        // On ne se retire pas d'une sélection dont on est le seul membre : il
+        // faut toujours un écran courant, et le retirer n'en désignerait aucun.
+        if (group.length === 1) return
+        const rest = group.filter((candidate) => candidate !== id)
+        setPicked(rest)
+        if (id === project.activeScreenId) activate(rest[0])
+        return
+      }
+
+      setPicked([id])
+      activate(id)
+    },
+    [activate, multiple, picked],
+  )
 
   const handleAdd = useCallback(() => {
     const project = useProjectStore.getState().project
     if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
     useCanvasStore.getState().recordProjectHistory()
-    if (useProjectStore.getState().addScreen()) useCanvasStore.getState().clearSelection()
+    if (useProjectStore.getState().addScreen()) {
+      setPicked([])
+      useCanvasStore.getState().clearSelection()
+    }
   }, [])
 
   const handleRename = useCallback((id: string, name: string) => {
     useProjectStore.getState().renameScreen(id, name)
   }, [])
 
-  const handleDuplicate = useCallback((id: string) => {
-    const project = useProjectStore.getState().project
-    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
-    useCanvasStore.getState().recordProjectHistory()
-    if (useProjectStore.getState().duplicateScreen(id)) useCanvasStore.getState().clearSelection()
-  }, [])
+  const handleDuplicate = useCallback(
+    (id: string) => {
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const room = MAX_PROJECT_SCREENS - project.screens.length
+      if (room <= 0) return
+      const ids = targetIds(id)
+      useCanvasStore.getState().recordProjectHistory()
+      const copies = ids
+        .slice(0, room)
+        .flatMap((target) => useProjectStore.getState().duplicateScreen(target) ?? [])
+      if (copies.length === 0) return
+      // Ce qui n'a pas tenu est dit : un plafond silencieux se lit comme « tout
+      // a été fait », et c'est faux d'exactement ce qui manque.
+      if (copies.length < ids.length) {
+        toast(`${copies.length} copies sur ${ids.length} : maximum ${MAX_PROJECT_SCREENS} écrans.`)
+      }
+      setPicked(copies)
+      useCanvasStore.getState().clearSelection()
+    },
+    [targetIds],
+  )
 
-  const handleDelete = useCallback((id: string) => {
-    const project = useProjectStore.getState().project
-    if (!project || project.screens.length <= 1) return
-    useCanvasStore.getState().recordProjectHistory()
-    if (useProjectStore.getState().removeScreen(id)) useCanvasStore.getState().clearSelection()
-  }, [])
+  const handleDelete = useCallback(
+    (id: string) => {
+      const project = useProjectStore.getState().project
+      if (!project || project.screens.length <= 1) return
+      const ids = targetIds(id)
+      useCanvasStore.getState().recordProjectHistory()
+      // `removeScreen` refuse de descendre sous un écran, donc une sélection
+      // complète en laisse un plutôt que de vider le projet.
+      const removed = ids.filter((target) => useProjectStore.getState().removeScreen(target))
+      if (removed.length === 0) return
+      if (removed.length < ids.length) toast('Un écran au moins doit rester.')
+      setPicked([])
+      useCanvasStore.getState().clearSelection()
+    },
+    [targetIds],
+  )
 
   const handleCopySettings = useCallback((id: string) => {
     const screen = useProjectStore
@@ -96,19 +197,33 @@ export function ScreensBar() {
   const handlePasteSettings = useCallback(
     (id: string) => {
       if (!copiedSettings) return
-      const screen = useProjectStore
-        .getState()
-        .project?.screens.find((candidate) => candidate.id === id)
-      if (!screen) return
-      if (JSON.stringify(screen.background) === JSON.stringify(copiedSettings)) {
-        toast(`${screen.name} utilise déjà ces réglages.`)
+      const project = useProjectStore.getState().project
+      if (!project) return
+      const wanted = JSON.stringify(copiedSettings)
+      const screens = targetIds(id).flatMap(
+        (target) => project.screens.find((candidate) => candidate.id === target) ?? [],
+      )
+      const changing = screens.filter((screen) => JSON.stringify(screen.background) !== wanted)
+      if (changing.length === 0) {
+        toast(
+          screens.length === 1
+            ? `${screens[0]?.name} utilise déjà ces réglages.`
+            : 'Ces écrans utilisent déjà ces réglages.',
+        )
         return
       }
       useCanvasStore.getState().recordProjectHistory()
-      useProjectStore.getState().updateScreenBackground(id, copiedSettings)
-      toast(`Réglages appliqués à ${screen.name}.`, 'success')
+      for (const screen of changing) {
+        useProjectStore.getState().updateScreenBackground(screen.id, copiedSettings)
+      }
+      toast(
+        changing.length === 1
+          ? `Réglages appliqués à ${changing[0].name}.`
+          : `Réglages appliqués à ${changing.length} écrans.`,
+        'success',
+      )
     },
-    [copiedSettings],
+    [copiedSettings, targetIds],
   )
 
   const handleMove = useCallback((index: number, direction: -1 | 1) => {
@@ -124,6 +239,12 @@ export function ScreensBar() {
   }, [])
 
   const handleDragStart = useCallback((index: number, event: React.DragEvent) => {
+    // Un glissement déplace la tuile qu'on tient, jamais un bloc : la rangée ne
+    // sait s'écarter que d'un emplacement, et voir trois tuiles retenues pendant
+    // qu'une seule se déplace promettrait le contraire. La sélection retombe
+    // donc sur ce qu'on a attrapé.
+    // ponytail: réordonner un groupe entier viendra si le besoin se présente.
+    setPicked([])
     dragSourceIndex.current = index
     dragOverIndex.current = index
     event.dataTransfer.effectAllowed = 'move'
@@ -278,6 +399,8 @@ export function ScreensBar() {
           <ScreenThumbnail
             screen={screen}
             isActive={screen.id === activeScreenId}
+            isSelected={multiple ? picked.includes(screen.id) : screen.id === activeScreenId}
+            groupSize={multiple && picked.includes(screen.id) ? picked.length : 1}
             index={index}
             canDelete={list.length > 1}
             canMoveLeft={index > 0}
