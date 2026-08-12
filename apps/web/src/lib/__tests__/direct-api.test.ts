@@ -72,7 +72,7 @@ const WRITTEN = JSON.stringify({
     {
       name: 'Accueil',
       headline: 'Rythme de vos journées',
-      evidence: 'Le rythme de vos journées',
+      evidence: 'Rythme de vos journées',
       slot: 'Accueil Principal',
       background: { color: '#101114' },
       screenshotIndex: 0,
@@ -80,7 +80,7 @@ const WRITTEN = JSON.stringify({
     {
       name: 'Budget',
       headline: 'Gardez chaque priorité',
-      evidence: 'gardez chaque priorité visible',
+      evidence: 'gardez chaque priorité',
       background: { color: 'pas une couleur' },
     },
   ],
@@ -184,13 +184,10 @@ describe('plan via une API', () => {
     expect(sent).toContain('Accueil')
     expect(sent).toContain('Planifiez votre semaine')
     expect(sent).toContain('Vue d’ensemble des priorités')
-    expect(sent).toContain('Tous les mots métier')
-    expect(sent).toContain('même courts (h, s, X, Y, IA, web, clé')
-    expect(sent).toContain('aucun synonyme n’est admis')
-    expect(sent).toContain('evidence peut être plus longue')
-    expect(sent).toContain('mots, valeurs, unités, monnaies, conjonctions')
-    expect(sent).toContain('dans le même ordre que l’extrait source')
-    expect(sent).toContain('extrait evidence plus serré')
+    expect(sent).toContain('reprend mot pour mot l’extrait evidence')
+    expect(sent).toContain('sans omission, enrichissement ni paraphrase')
+    expect(sent).toContain('casse, les accents et la ponctuation')
+    expect(sent).toContain('réécrire headline ensuite dans la revue')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -216,7 +213,7 @@ describe('plan via une API', () => {
     const screens = Array.from({ length: 10 }, (_unused, index) => ({
       name: `Visuel ${index + 1}`,
       headline: `Gardez priorité ${index + 1}`,
-      evidence: sources[index],
+      evidence: `Gardez priorité ${index + 1}`,
     }))
     respond(answering(JSON.stringify({ screens })))
     const plan = await planViaApi(
@@ -341,6 +338,10 @@ describe('plan via une API', () => {
       ['Mode X activé', 'Mode Y activé'],
       ['Votre solde:+9€ confirmé', 'Votre solde:-9€ confirmé'],
       ['Votre accès premium garanti', 'Votre accès premier garanti'],
+      ['Votre budget jamais dépassé', 'Votre budget dépassé'],
+      ['Votre budget sauf imprévus', 'Votre budget imprévus'],
+      ['Budget environ 9€ garanti', 'Budget 9€ garanti'],
+      ['Budget reste < 9€', 'Budget reste > 9€'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -406,9 +407,9 @@ describe('plan via une API', () => {
     }
   })
 
-  it('ignore les mots-outils mais garde les termes métier courts et les accents normalisés', async () => {
+  it('accepte une copie exacte après normalisation de la casse, des accents et de la ponctuation', async () => {
     const headline = 'Votre budget IA sans clé'
-    const evidence = 'Le budget IA sans une cle'
+    const evidence = 'VOTRE BUDGET IA SANS CLE !'
     respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
     await expect(
       planViaApi(
@@ -426,7 +427,7 @@ describe('plan via une API', () => {
     ).resolves.toBeDefined()
   })
 
-  it('accepte des mots sources supplémentaires quand les termes restent dans l’ordre', async () => {
+  it('refuse une evidence enrichie même quand les termes du claim restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
     const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
@@ -443,7 +444,7 @@ describe('plan via une API', () => {
         KEY,
         'claude-x',
       ),
-    ).resolves.toBeDefined()
+    ).rejects.toThrow(/aucun fait/)
   })
 
   it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {

@@ -297,13 +297,10 @@ describe('protocole', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ plan: PLAN })
     const request = turn.mock.calls[0]?.[0] as { prompt: string }
-    expect(request.prompt).toContain('Tous les mots métier')
-    expect(request.prompt).toContain('même courts (h, s, X, Y, IA, web, clé')
-    expect(request.prompt).toContain('aucun synonyme n’est admis')
-    expect(request.prompt).toContain('evidence peut être plus longue')
-    expect(request.prompt).toContain('mots, valeurs, unités, monnaies, conjonctions')
-    expect(request.prompt).toContain('dans le même ordre que l’extrait source')
-    expect(request.prompt).toContain('extrait evidence plus serré')
+    expect(request.prompt).toContain('reprend mot pour mot l’extrait evidence')
+    expect(request.prompt).toContain('sans omission, enrichissement ni paraphrase')
+    expect(request.prompt).toContain('casse, les accents et la ponctuation')
+    expect(request.prompt).toContain('réécrire headline ensuite dans la revue')
   })
 
   it('refuse une requête hors schéma avant d’allumer Codex', async () => {
@@ -379,6 +376,10 @@ describe('protocole', () => {
       ['Mode X activé', 'Mode Y activé'],
       ['Votre solde:+9€ confirmé', 'Votre solde:-9€ confirmé'],
       ['Votre accès premium garanti', 'Votre accès premier garanti'],
+      ['Votre budget jamais dépassé', 'Votre budget dépassé'],
+      ['Votre budget sauf imprévus', 'Votre budget imprévus'],
+      ['Budget environ 9€ garanti', 'Budget 9€ garanti'],
+      ['Budget reste < 9€', 'Budget reste > 9€'],
       ['Votre budget connecté', 'Votre budget non connecté'],
       ['Votre budget non connecté', 'Votre budget connecté'],
     ] as const
@@ -440,9 +441,9 @@ describe('protocole', () => {
     }
   })
 
-  it('ignore les mots-outils mais garde les termes métier courts et les accents normalisés', async () => {
+  it('accepte une copie exacte après normalisation de la casse, des accents et de la ponctuation', async () => {
     const headline = 'Votre budget IA sans clé'
-    const evidence = 'Le budget IA sans une cle'
+    const evidence = 'VOTRE BUDGET IA SANS CLE !'
     const answer = {
       ...PLAN,
       screens: [{ ...PLAN.screens[0], headline, evidence, screenshotIndex: undefined }],
@@ -458,7 +459,7 @@ describe('protocole', () => {
     expect(await response.json()).toEqual({ plan: answer })
   })
 
-  it('accepte des mots sources supplémentaires quand les termes restent dans l’ordre', async () => {
+  it('refuse une evidence enrichie même quand les termes du claim restent dans l’ordre', async () => {
     const headline = 'Gagnez plus dépensez moins'
     const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
     const answer = {
@@ -472,8 +473,11 @@ describe('protocole', () => {
         brief: { ...BRIEF, pitch: evidence, productContext: undefined, screenshots: [] },
       }),
     })
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ plan: answer })
+    expect(response.status).toBe(502)
+    expect(await response.json()).toMatchObject({
+      error: 'invalid-response',
+      detail: expect.stringContaining('aucun fait'),
+    })
   })
 
   it('accepte le vocabulaire Pulpe quand prédicat et fait proviennent de la preuve', async () => {

@@ -327,136 +327,6 @@ const GENERIC_HEADLINES = [
   'votre quotidien enfin plus leger',
 ] as const
 
-const CLAIM_STOPWORDS = new Set([
-  'a',
-  'afin',
-  'alors',
-  'au',
-  'aux',
-  'ca',
-  'ce',
-  'ces',
-  'ceci',
-  'cela',
-  'cette',
-  'comme',
-  'dans',
-  'de',
-  'des',
-  'du',
-  'elle',
-  'elles',
-  'en',
-  'encore',
-  'enfin',
-  'est',
-  'et',
-  'etre',
-  'faire',
-  'il',
-  'ils',
-  'je',
-  'la',
-  'le',
-  'les',
-  'leur',
-  'leurs',
-  'ma',
-  'mais',
-  'me',
-  'mes',
-  'meme',
-  'mon',
-  'ne',
-  'nos',
-  'notre',
-  'nous',
-  'on',
-  'ont',
-  'ou',
-  'par',
-  'pour',
-  'que',
-  'qui',
-  'sa',
-  'se',
-  'ses',
-  'si',
-  'son',
-  'sont',
-  'suis',
-  'sur',
-  'ta',
-  'te',
-  'tes',
-  'ton',
-  'tu',
-  'un',
-  'une',
-  'vos',
-  'votre',
-  'vous',
-])
-
-const SEMANTIC_TERMS = new Set([
-  'pas',
-  'non',
-  'ni',
-  'avec',
-  'sans',
-  'plus',
-  'moins',
-  'rien',
-  'seulement',
-  'chaque',
-  'tout',
-  'tous',
-  'toute',
-  'toutes',
-  'avant',
-  'apres',
-  'depuis',
-  'entre',
-  'quand',
-  'et',
-  'ou',
-  'eur',
-  'usd',
-  'gbp',
-  'jpy',
-  'chf',
-  'percent',
-  'signplus',
-  'signminus',
-  'zero',
-  'deux',
-  'trois',
-  'quatre',
-  'cinq',
-  'six',
-  'sept',
-  'huit',
-  'neuf',
-  'dix',
-  'onze',
-  'douze',
-  'treize',
-  'quatorze',
-  'quinze',
-  'seize',
-  'vingt',
-  'trente',
-  'quarante',
-  'cinquante',
-  'soixante',
-  'cent',
-  'mille',
-  'million',
-  'millions',
-  'aucun',
-  'aucune',
-])
-
 function normalizeSemanticSymbols(value: string): string {
   return value
     .replace(/€/g, ' eur ')
@@ -464,6 +334,8 @@ function normalizeSemanticSymbols(value: string): string {
     .replace(/£/g, ' gbp ')
     .replace(/¥/g, ' jpy ')
     .replace(/%/g, ' percent ')
+    .replace(/</g, ' lessthan ')
+    .replace(/>/g, ' greaterthan ')
     .replace(/\+\s*(?=\d)/g, ' signplus ')
     .replace(/[-−]\s*(?=\d)/g, ' signminus ')
     .replace(/(\d)\s*\+(?=$|[\s)])/g, '$1 signplus ')
@@ -479,47 +351,9 @@ function normalizedCopy(value: string): string {
     .trim()
 }
 
-function isNumericTerm(term: string): boolean {
-  return /^\d+$/.test(term)
-}
-
-function significantTerms(value: string): string[] {
-  return normalizedCopy(value)
-    .split(' ')
-    .filter((term) => SEMANTIC_TERMS.has(term) || (term.length >= 1 && !CLAIM_STOPWORDS.has(term)))
-}
-
-function semanticSequence(value: string): string[] {
-  return normalizedCopy(value)
-    .split(' ')
-    .filter((term) => isNumericTerm(term) || SEMANTIC_TERMS.has(term))
-}
-
-function haveSameSemanticSequence(headline: string, evidence: string): boolean {
-  const claimSequence = semanticSequence(headline)
-  const evidenceSequence = semanticSequence(evidence)
-  return (
-    claimSequence.length === evidenceSequence.length &&
-    claimSequence.every((term, index) => term === evidenceSequence[index])
-  )
-}
-
-function isOrderedSubsequence(claim: string[], evidence: string[]): boolean {
-  let claimIndex = 0
-  for (const evidenceTerm of evidence) {
-    if (evidenceTerm === claim[claimIndex]) claimIndex += 1
-  }
-  return claimIndex === claim.length
-}
-
 function claimMatchesEvidence(headline: string, evidence: string): boolean {
-  const claimTerms = significantTerms(headline)
-  const evidenceTerms = significantTerms(evidence)
-  return (
-    claimTerms.length > 0 &&
-    isOrderedSubsequence(claimTerms, evidenceTerms) &&
-    haveSameSemanticSequence(headline, evidence)
-  )
+  const normalizedHeadline = normalizedCopy(headline)
+  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedCopy(evidence)
 }
 
 function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
@@ -608,14 +442,10 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     '  que si le brief contient un fait précis qui la justifie.',
     '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
     '  ou de la description de la capture qui prouve l’accroche.',
-    '  Tous les mots métier de headline, même courts (h, s, X, Y, IA, web, clé,',
-    '  app, ZIP, pro), doivent être repris exactement de evidence. Aucune variation',
-    '  morphologique ni aucun synonyme n’est admis. evidence peut être plus longue,',
-    '  mais elle garde exactement les mots, valeurs, unités, monnaies, conjonctions',
-    '  et marqueurs de headline, dans le même ordre que l’extrait source. Si',
-    '  l’extrait choisi contient un élément',
-    '  sémantique de plus, choisis un extrait evidence plus serré, sans le',
-    '  paraphraser. N’invente jamais',
+    '  headline reprend mot pour mot l’extrait evidence : même mots, valeurs,',
+    '  unités et symboles, sans omission, enrichissement ni paraphrase. Seules la',
+    '  casse, les accents et la ponctuation non porteuse de sens peuvent varier.',
+    '  L’utilisateur pourra réécrire headline ensuite dans la revue. N’invente jamais',
     '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',
