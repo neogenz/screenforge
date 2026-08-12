@@ -22,11 +22,17 @@ const KEY = '[REDACTED]'
 const BRIEF: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
+  productContext: 'Planifiez votre semaine et gardez chaque priorité visible.',
   direction: 'sobre',
   screenCount: 2,
   deviceModel: 'iphone-17-pro',
   screenshots: [
-    { label: 'Accueil', assetId: 'asset-1', size: { width: 1320, height: 2868 } },
+    {
+      label: 'Accueil',
+      description: 'Vue d’ensemble des priorités de la journée',
+      assetId: 'asset-1',
+      size: { width: 1320, height: 2868 },
+    },
     { label: 'Budget' },
   ],
   logo: { assetId: 'asset-logo', size: { width: 512, height: 512 } },
@@ -66,6 +72,7 @@ const WRITTEN = JSON.stringify({
     {
       name: 'Accueil',
       headline: 'Vos journées, enfin lisibles',
+      evidence: 'Le rythme de vos journées',
       slot: 'Accueil Principal',
       background: { color: '#101114' },
       screenshotIndex: 0,
@@ -73,6 +80,7 @@ const WRITTEN = JSON.stringify({
     {
       name: 'Budget',
       headline: 'Chaque euro à sa place',
+      evidence: 'Le rythme de vos journées',
       background: { color: 'pas une couleur' },
       screenshotIndex: 7,
     },
@@ -175,6 +183,8 @@ describe('plan via une API', () => {
     // Les libellés partent, eux : c'est ce qui permet au modèle d'écrire dans
     // l'ordre des captures, et c'est ce que le fournisseur annonce.
     expect(sent).toContain('Accueil')
+    expect(sent).toContain('Planifiez votre semaine')
+    expect(sent).toContain('Vue d’ensemble des priorités')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -187,16 +197,20 @@ describe('plan via une API', () => {
     expect(plan.palette).toEqual(custom)
   })
 
-  it('borne le nombre de visuels aux deux plafonds', async () => {
-    const many = JSON.stringify({
-      screens: Array.from({ length: 20 }, () => JSON.parse(WRITTEN).screens[0]),
-    })
-    respond(answering(many))
-    expect((await planViaApi('anthropic', BRIEF, KEY, 'claude-x')).screens).toHaveLength(2)
+  it('refuse un compte différent au lieu de tronquer silencieusement', async () => {
+    respond(answering(JSON.stringify({ screens: [JSON.parse(WRITTEN).screens[0]] })))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/au lieu de 2/)
+  })
 
-    respond(answering(many))
-    const generous = await planViaApi('anthropic', { ...BRIEF, screenCount: 20 }, KEY, 'claude-x')
-    expect(generous.screens).toHaveLength(10)
+  it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
+    const screens = Array.from({ length: 10 }, (_unused, index) => ({
+      name: `Visuel ${index + 1}`,
+      headline: `Bénéfice concret numéro ${index + 1}`,
+      evidence: 'Le rythme de vos journées',
+    }))
+    respond(answering(JSON.stringify({ screens })))
+    const plan = await planViaApi('anthropic', { ...BRIEF, screenCount: 20 }, KEY, 'claude-x')
+    expect(plan.screens).toHaveLength(10)
   })
 
   it('normalise le rôle et ignore un index de capture qui ne désigne rien', async () => {
@@ -227,6 +241,18 @@ describe('plan via une API', () => {
     const calls = respond(answering(WRITTEN))
     await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
     expect(String(calls[0].init?.body)).not.toContain('background')
+  })
+
+  it('refuse une accroche générique ou une preuve absente du brief', async () => {
+    const generic = JSON.parse(WRITTEN)
+    generic.screens[0].headline = 'Essayez et sentez la différence'
+    respond(answering(JSON.stringify(generic)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/générique/)
+
+    const invented = JSON.parse(WRITTEN)
+    invented.screens[0].evidence = 'Synchronisation bancaire automatique'
+    respond(answering(JSON.stringify(invented)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
   })
 
   it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {

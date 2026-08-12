@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test'
-import { addDeviceLayer, addTextLayer, findObject, waitForApp, type DebugObject } from './helpers'
+import {
+  addDeviceLayer,
+  addScreen,
+  addTextLayer,
+  findObject,
+  waitForApp,
+  type DebugObject,
+} from './helpers'
 
 test.describe('canvas text editing', () => {
   test('double-click edits text on canvas and persists to the store', async ({ page }) => {
@@ -121,6 +128,52 @@ test.describe('canvas text editing', () => {
     await page.getByRole('option', { name: '900 · Black' }).click()
     await expect(weight).toContainText('900 · Black')
     await expect.poll(() => page.locator('link[data-font-key="Poppins:900"]').count()).toBe(1)
+  })
+
+  test('applies one font change to text selected across screens', async ({ page }) => {
+    await waitForApp(page)
+    await addTextLayer(page)
+    await addScreen(page)
+    await addTextLayer(page)
+
+    const ids = await page.evaluate(
+      () =>
+        window.__sfStores?.useProjectStore
+          .getState()
+          .project?.screens.flatMap((screen) =>
+            screen.layers.filter((layer) => layer.type === 'text').map((layer) => layer.id),
+          ) ?? [],
+    )
+    expect(ids).toHaveLength(2)
+    await page.getByRole('button', { name: 'Basculer le panneau Propriétés' }).click()
+    await page.evaluate((selectedIds) => {
+      const store = window.__sfStores?.useCanvasStore.getState() as
+        { selectLayers: (ids: string[]) => void } | undefined
+      store?.selectLayers(selectedIds)
+    }, ids)
+
+    const toolbar = page.getByRole('toolbar', { name: 'Actions de la sélection' })
+    await expect(toolbar.getByText('2 calques')).toBeVisible()
+    const trigger = toolbar.getByRole('button', { name: /^Police :/ })
+    await trigger.click()
+    await page.getByRole('combobox', { name: 'Rechercher une police' }).fill('Poppins')
+    await page.getByRole('option', { name: 'Poppins' }).click()
+
+    const fonts = () =>
+      page.evaluate(
+        () =>
+          window.__sfStores?.useProjectStore
+            .getState()
+            .project?.screens.flatMap((screen) =>
+              screen.layers
+                .filter((layer) => layer.type === 'text')
+                .map((layer) => layer.fontFamily),
+            ) ?? [],
+      )
+    await expect.poll(fonts).toEqual(['Poppins', 'Poppins'])
+
+    await page.keyboard.press('Meta+z')
+    await expect.poll(fonts).toEqual(['Space Grotesk', 'Space Grotesk'])
   })
 
   test('does not cache a partially loaded multi-weight request', async ({ page }) => {

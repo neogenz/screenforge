@@ -4,6 +4,12 @@ import { Children, isValidElement } from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { cn } from '@/lib/utils'
 
+const EMPTY_OPTION_VALUE = '__screenforge_empty_option__'
+
+function toRadixValue(value: string | number) {
+  return String(value) || EMPTY_OPTION_VALUE
+}
+
 export interface SelectProps {
   value?: string | number
   defaultValue?: string | number
@@ -70,12 +76,14 @@ export function Select({
 }: SelectProps) {
   const options = parseOptions(children)
   const handleValueChange = (next: string) => {
-    onChange?.({ target: { value: next } } as ChangeEvent<HTMLSelectElement>)
+    onChange?.({
+      target: { value: next === EMPTY_OPTION_VALUE ? '' : next },
+    } as ChangeEvent<HTMLSelectElement>)
   }
   return (
     <SelectPrimitive.Root
-      value={value !== undefined ? String(value) : undefined}
-      defaultValue={defaultValue !== undefined ? String(defaultValue) : undefined}
+      value={value !== undefined ? toRadixValue(value) : undefined}
+      defaultValue={defaultValue !== undefined ? toRadixValue(defaultValue) : undefined}
       onValueChange={handleValueChange}
       disabled={disabled}
       name={name}
@@ -120,7 +128,7 @@ export function Select({
             {options.map((option) => (
               <SelectPrimitive.Item
                 key={option.value}
-                value={option.value}
+                value={toRadixValue(option.value)}
                 textValue={option.text}
                 disabled={option.disabled}
                 className={cn(

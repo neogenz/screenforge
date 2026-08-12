@@ -33,6 +33,7 @@ interface CanvasState {
   addLayer: (layer: Layer) => void
   removeLayer: (id: string) => void
   updateLayer: (id: string, updates: Partial<Layer>, options?: EditOptions) => void
+  updateSelectedLayers: (updates: Partial<Layer>, options?: EditOptions) => void
   setTextRange: (range: TextRange | null) => void
   updateBackground: (background: Background, options?: EditOptions) => void
   selectLayer: (id: string) => void
@@ -281,6 +282,35 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         recordCurrent(options?.coalesceKey)
         useProjectStore.getState().updateScreenLayer(screenId, id, updates)
       }
+    },
+
+    updateSelectedLayers: (updates, options) => {
+      const project = useProjectStore.getState().project
+      const ids = new Set(get().selectedLayerIds)
+      if (!project || ids.size === 0) return
+      const changed = (layer: Layer) =>
+        ids.has(layer.id) &&
+        Object.entries(updates).some(([key, value]) => !Object.is(layer[key as keyof Layer], value))
+      const allLayers = [
+        ...project.screens.flatMap((screen) => screen.layers),
+        ...project.layoutLayers,
+      ]
+      if (!allLayers.some(changed)) return
+
+      recordProject(options?.coalesceKey)
+      const update = (layer: Layer): Layer =>
+        ids.has(layer.id) ? ({ ...layer, ...updates } as Layer) : layer
+      useProjectStore.setState({
+        project: {
+          ...project,
+          screens: project.screens.map((screen) => ({
+            ...screen,
+            layers: screen.layers.map(update),
+          })),
+          layoutLayers: project.layoutLayers.map(update),
+          updatedAt: nextTimestamp(project.updatedAt),
+        },
+      })
     },
 
     updateBackground: (background, options) => {

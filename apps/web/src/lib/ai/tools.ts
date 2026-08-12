@@ -43,6 +43,9 @@ export const AI_LIMITS = {
   maxSize: 2 * SCREEN_HEIGHT,
   maxTextLength: 400,
   maxNameLength: 60,
+  maxProductContextLength: 2400,
+  maxScreenshotDescriptionLength: 240,
+  maxEvidenceLength: 160,
 } as const
 
 const HEX_COLOR = '^#[0-9a-fA-F]{6}$'

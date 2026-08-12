@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { addScreen, addTextLayer, waitForApp } from './helpers'
+import { makeSolidPng } from './device-bezel-fixture'
 
 /**
  * Les visuels de la fiche générés d'un coup, puis repris comme le reste.
@@ -119,9 +120,23 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Cadence')
   await page.getByLabel('Ce que fait l’app').fill('Le budget dans une poche')
+  await page.getByLabel('Captures de l’application').setInputFiles({
+    name: 'Le budget dans une poche.png',
+    mimeType: 'image/png',
+    buffer: makeSolidPng(300, 600, [34, 197, 94, 255]),
+  })
+  await expect(page.getByRole('button', { name: '1 capture' })).toBeVisible()
   await page.getByLabel('Combien de visuels').click()
   await page.getByRole('option', { name: '3', exact: true }).click()
   await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
+
+  // La revue emploie le vrai générateur de calques iPhone : châssis, dalle et
+  // capture découpée viennent du même SVG que le canvas final.
+  const devicePreview = page.locator('[data-device-frame="iphone-17-pro-max"]').first()
+  await expect(devicePreview).toBeVisible()
+  const deviceSvg = decodeURIComponent((await devicePreview.getAttribute('src')) ?? '')
+  expect(deviceSvg).toContain('data-part="frame"')
+  expect(deviceSvg).toContain('data-part="screenshot"')
 
   // La bande donne un visuel par onglet, nommé par son accroche : au-delà de
   // trois, « le troisième » ne désigne plus rien.

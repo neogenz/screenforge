@@ -113,7 +113,21 @@ async function loadFont(family: string, weights: string[], key: string): Promise
       document.head.appendChild(link)
     }
 
-    await waitForStylesheet(link)
+    try {
+      await waitForStylesheet(link)
+    } catch {
+      // Certaines familles n'exposent pas toutes les graisses proposées par
+      // l'éditeur (Space Grotesk s'arrête à 700). Google répond alors 400 :
+      // charger la face normale laisse le navigateur synthétiser la graisse
+      // demandée, sans confondre cette variante absente avec une police absente.
+      link.remove()
+      link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`
+      link.dataset.fontKey = key
+      document.head.appendChild(link)
+      await waitForStylesheet(link)
+    }
     const faces = await Promise.all(
       weights.map((weight) => document.fonts.load(`${weight} 16px "${family}"`)),
     )

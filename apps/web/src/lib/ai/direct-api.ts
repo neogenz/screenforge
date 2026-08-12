@@ -1,6 +1,6 @@
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { normalizeSlot } from '@/lib/slots'
-import { resolvePalette } from '@/lib/ai/plan'
+import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
 
@@ -189,6 +189,7 @@ interface RawPlan {
     headline?: unknown
     slot?: unknown
     screenshotIndex?: unknown
+    evidence?: unknown
   }[]
 }
 
@@ -202,7 +203,12 @@ interface RawPlan {
  * serveur dans le paquet du navigateur.
  */
 function planPrompt(brief: CampaignBrief, count: number): string {
-  const shots = brief.screenshots.map((shot, index) => `${index}. ${shot.label}`).join('\n')
+  const shots = brief.screenshots
+    .map(
+      (shot, index) =>
+        `${index}. ${shot.label}${shot.description ? ` — ${shot.description.slice(0, AI_LIMITS.maxScreenshotDescriptionLength)}` : ''}`,
+    )
+    .join('\n')
   return [
     'Tu es directeur artistique de la fiche App Store d’une application iOS.',
     'Tu écris les accroches des visuels de la fiche — ces images que l’utilisateur',
@@ -211,13 +217,16 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     '',
     `Application : ${brief.appName}.`,
     brief.pitch ? `Ce qu’elle fait : ${brief.pitch}.` : '',
+    brief.productContext
+      ? `Faits produit vérifiés par l’utilisateur :\n${brief.productContext.slice(0, AI_LIMITS.maxProductContextLength)}`
+      : '',
     brief.landingUrl
-      ? `Page du produit : ${brief.landingUrl}. Si tu la connais, appuie-toi sur son vocabulaire ; sinon, ignore-la — n’invente rien à partir de l’URL seule.`
+      ? `Provenance des faits : ${brief.landingUrl}. Ne déduis rien de cette URL et ne prétends pas l’avoir consultée.`
       : '',
     `Style visuel imposé : ${brief.direction}.`,
     `Nombre de visuels à proposer : exactement ${count}.`,
     shots
-      ? `Écrans dont une capture est disponible, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex.`
+      ? `Captures décrites par l’utilisateur, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex.`
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief.',
     '',
     'Écriture des accroches :',
@@ -229,10 +238,14 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     '— Ni superlatif creux ni jargon : pas de « révolutionnaire », « puissant »,',
     '  « ultime », « nouvelle génération », « propulsé par l’IA ».',
     '— Le premier visuel porte la promesse générale, les suivants une',
-    '  fonctionnalité concrète chacun, le dernier appelle à l’essai.',
+    '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
+    '  que si le brief contient un fait précis qui la justifie.',
+    '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
+    '  ou de la description de la capture qui prouve l’accroche. N’invente jamais',
+    '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'Rends uniquement cet objet JSON, sans texte autour et sans bloc de code :',
-    '{"screens":[{"name":"nom court","headline":"accroche","slot":"identifiant-en-minuscules","screenshotIndex":0}]}',
+    '{"screens":[{"name":"nom court","headline":"accroche","evidence":"extrait exact du brief","slot":"identifiant-en-minuscules","screenshotIndex":0}]}',
     'Tu écris les mots. La mise en page, les couleurs et les fonds sont composés',
     'par ScreenForge à partir du style imposé — n’en propose aucun, ils seraient',
     'ignorés sans avertissement.',
@@ -307,28 +320,35 @@ export async function planViaApi(
   const raw = extractJson(answer) as RawPlan
 
   const proposed = Array.isArray(raw.screens) ? raw.screens : []
-  if (proposed.length === 0) throw new Error('Le fournisseur n’a proposé aucun visuel.')
+  if (proposed.length !== count) {
+    throw new Error(
+      `Le fournisseur a rendu ${proposed.length} visuel${proposed.length > 1 ? 's' : ''} au lieu de ${count} : rien n’a été repris.`,
+    )
+  }
 
-  const kept = Math.min(count, proposed.length)
-
-  const screens: PlannedScreen[] = proposed.slice(0, kept).map((screen, index) => {
+  const screens: PlannedScreen[] = proposed.map((screen, index) => {
     const name = typeof screen.name === 'string' ? screen.name : ''
     const headline = typeof screen.headline === 'string' ? screen.headline : ''
     const slot = typeof screen.slot === 'string' ? screen.slot : ''
+    const evidence = typeof screen.evidence === 'string' ? screen.evidence : ''
     const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
     return {
       name: (name || `${brief.appName} ${index + 1}`).slice(0, AI_LIMITS.maxNameLength),
-      headline: (headline || brief.appName).slice(0, AI_LIMITS.maxTextLength),
+      headline: headline.slice(0, AI_LIMITS.maxTextLength),
+      evidence: evidence.slice(0, AI_LIMITS.maxEvidenceLength),
       slot: normalizeSlot(slot || name || `ecran-${index + 1}`),
       screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
     }
   })
 
-  return {
+  const plan: CampaignPlan = {
     appName: brief.appName,
     direction: brief.direction,
     palette,
     deviceModel: brief.deviceModel,
     screens,
   }
+  const failure = validateGeneratedPlan(plan, brief)
+  if (failure) throw new Error(`${failure} Rien n’a été repris.`)
+  return plan
 }

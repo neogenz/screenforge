@@ -52,6 +52,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -60,6 +61,7 @@ import type { Project } from '@/types'
 const NAME_FIELD_ID = 'sf-campaign-name'
 const PITCH_FIELD_ID = 'sf-campaign-pitch'
 const URL_FIELD_ID = 'sf-campaign-url'
+const CONTEXT_FIELD_ID = 'sf-campaign-context'
 const COUNT_FIELD_ID = 'sf-campaign-count'
 const HEADLINE_FIELD_ID = 'sf-campaign-headline'
 const ASSIST_PANEL_ID = 'sf-campaign-assist'
@@ -106,6 +108,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [appName, setAppName] = useState(project.name)
   const [pitch, setPitch] = useState('')
   const [landingUrl, setLandingUrl] = useState('')
+  const [productContext, setProductContext] = useState('')
   const [direction, setDirection] = useState<DirectionId>('sobre')
   /* La palette lue dans les captures et le fait de s'en servir sont deux états :
      l'utilisateur peut revenir à « Sobre » puis y retourner sans relire les
@@ -203,6 +206,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       appName: appName.trim() || project.name,
       pitch,
       landingUrl: landingUrl.trim() || undefined,
+      productContext: productContext.trim() || undefined,
       direction,
       palette,
       screenCount,
@@ -214,6 +218,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       appName,
       pitch,
       landingUrl,
+      productContext,
       direction,
       palette,
       screenCount,
@@ -274,6 +279,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  function describeShot(index: number, description: string) {
+    setShots((current) =>
+      current.map((shot, at) => (at === index ? { ...shot, description } : shot)),
+    )
+    setPlan(null)
   }
 
   /**
@@ -393,13 +405,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
    * l'avait écrite. L'alternative — poser puis corriger sur le canevas — coûte
    * un pas d'annulation par correction et se fait sur dix écrans déjà créés.
    */
-  function editScreen(index: number, headline: string) {
+  function editScreen(index: number, headline: string, evidence?: string) {
     setPlan((current) =>
       current
         ? {
             ...current,
             screens: current.screens.map((screen, at) =>
-              at === index ? { ...screen, headline } : screen,
+              at === index ? { ...screen, headline, evidence } : screen,
             ),
           }
         : current,
@@ -440,12 +452,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
           model: model || undefined,
         },
       )
-      const written = isCampaignPlan(proposal) ? proposal.screens[0]?.headline : undefined
+      const written = isCampaignPlan(proposal) ? proposal.screens[0] : undefined
       if (!written) {
         setError('Le modèle n’a rien rendu pour ce visuel : l’accroche est inchangée.')
         return
       }
-      editScreen(index, written)
+      editScreen(index, written.headline, written.evidence)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La proposition a échoué.')
     } finally {
@@ -663,6 +675,33 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   )}
                 </div>
 
+                {shots.length > 0 && (
+                  <details className="rounded-md border border-border px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-foreground">
+                      Décrire les captures
+                    </summary>
+                    <div className="mt-3 grid gap-3">
+                      {shots.map((shot, index) => (
+                        <Field
+                          key={shot.assetId}
+                          id={`sf-campaign-shot-${index}`}
+                          label={`${index + 1}. ${shot.label}`}
+                        >
+                          <Input
+                            id={`sf-campaign-shot-${index}`}
+                            font="sans"
+                            value={shot.description ?? ''}
+                            maxLength={AI_LIMITS.maxScreenshotDescriptionLength}
+                            placeholder="Ce que montre l’écran et le bénéfice visible"
+                            disabled={busy}
+                            onChange={(event) => describeShot(index, event.target.value)}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
                 {full ? (
                   <p role="status" className="text-xs text-muted-foreground">
                     Le projet contient déjà {AI_LIMITS.maxScreens} écrans. Supprimez-en un pour
@@ -761,19 +800,42 @@ function CampaignDialogContent({ project }: { project: Project }) {
             >
               <div className="grid gap-3">
                 {aiProvider(providerId).transport !== 'in-process' && (
-                  <Field id={URL_FIELD_ID} label="Page produit (facultatif)">
-                    <Input
-                      id={URL_FIELD_ID}
-                      font="sans"
-                      type="url"
-                      inputMode="url"
-                      value={landingUrl}
-                      maxLength={2048}
-                      placeholder="https://monapp.com"
-                      disabled={busy}
-                      onChange={(event) => setLandingUrl(event.target.value)}
-                    />
-                  </Field>
+                  <div className="grid gap-3">
+                    <Field id={URL_FIELD_ID} label="Page produit (provenance)">
+                      <Input
+                        id={URL_FIELD_ID}
+                        font="sans"
+                        type="url"
+                        inputMode="url"
+                        value={landingUrl}
+                        maxLength={2048}
+                        placeholder="https://monapp.com"
+                        disabled={busy}
+                        onChange={(event) => {
+                          setLandingUrl(event.target.value)
+                          setPlan(null)
+                        }}
+                      />
+                    </Field>
+                    <Field id={CONTEXT_FIELD_ID} label="Faits produit transmis à l’IA">
+                      <Textarea
+                        id={CONTEXT_FIELD_ID}
+                        value={productContext}
+                        maxLength={AI_LIMITS.maxProductContextLength}
+                        rows={4}
+                        placeholder="Collez ici les promesses, bénéfices et preuves relus sur votre page. L’URL n’est pas chargée automatiquement."
+                        disabled={busy}
+                        onChange={(event) => {
+                          setProductContext(event.target.value)
+                          setPlan(null)
+                        }}
+                      />
+                    </Field>
+                    <p className="text-2xs text-muted-foreground">
+                      ScreenForge ne charge aucune URL arbitraire : seuls ces faits et les
+                      descriptions de captures sont envoyés au rédacteur choisi.
+                    </p>
+                  </div>
                 )}
                 <AssistancePanel
                   open={false}
@@ -1046,6 +1108,11 @@ function PlanReview({
                   : ` Capture « ${brief.screenshots[current.screenshotIndex]?.label} », posée dans l’appareil.`
                 : ''}
             </p>
+            {current.evidence && (
+              <p className="text-2xs text-muted-foreground">
+                Source factuelle : « {current.evidence} »
+              </p>
+            )}
             {/* Sous le texte qu'elles concernent, et non collées au bas de la
                 colonne : l'aperçu fait 286px de haut, ce qui laissait un vide
                 de la hauteur d'une section entre l'accroche et « Retirer ». */}

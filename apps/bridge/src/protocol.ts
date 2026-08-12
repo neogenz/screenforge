@@ -16,7 +16,7 @@ import { z } from 'zod'
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 3
+export const PROTOCOL_VERSION = 4
 
 /**
  * Les moteurs que le pont sait lancer.
@@ -83,6 +83,8 @@ export type Hello = z.infer<typeof helloSchema>
 
 const screenshotSchema = z.object({
   label: z.string().max(60),
+  /** Description relue : les pixels restent locaux, leur sens peut partir. */
+  description: z.string().max(240).optional(),
   /** Présence seulement : aucune image ne traverse le pont. */
   hasAsset: z.boolean(),
 })
@@ -100,6 +102,8 @@ export const briefSchema = z.object({
    * produit et beaucoup à dire du disque.
    */
   landingUrl: z.string().url().max(2048).startsWith('http').optional(),
+  /** Faits copiés puis relus ; jamais le contenu chargé depuis landingUrl. */
+  productContext: z.string().max(2400).optional(),
   direction: z.enum(['sobre', 'contraste', 'chaleureux', 'nocturne']),
   /** Combien de visuels le modèle doit proposer. Le plan est borné au même dix. */
   screenCount: z.number().int().min(1).max(10).optional(),
@@ -124,6 +128,7 @@ const plannedScreenSchema = z.object({
   headline: z.string().min(1).max(400),
   slot: z.string().max(48).optional(),
   screenshotIndex: z.number().int().min(0).max(9).optional(),
+  evidence: z.string().min(1).max(160),
 })
 
 export const planSchema = z.object({
@@ -158,12 +163,13 @@ export const PLAN_OUTPUT_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'headline'],
+        required: ['name', 'headline', 'evidence'],
         properties: {
           name: { type: 'string' },
           headline: { type: 'string' },
           slot: { type: 'string' },
           screenshotIndex: { type: 'integer' },
+          evidence: { type: 'string' },
         },
       },
     },

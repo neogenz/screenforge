@@ -1,7 +1,7 @@
 import type { BridgePlan, Hello } from 'bridge'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { normalizeSlot } from '@/lib/slots'
-import { resolvePalette } from '@/lib/ai/plan'
+import { resolvePalette, validateGeneratedPlan } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { EngineId } from '@/lib/ai/providers'
 
@@ -22,7 +22,7 @@ import type { EngineId } from '@/lib/ai/providers'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 3
+const PROTOCOL = 4
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
 export type BridgeCapability = 'assistant' | 'asc-publish'
@@ -219,11 +219,19 @@ export async function planViaBridge(
         appName: brief.appName,
         pitch: brief.pitch,
         ...(brief.landingUrl ? { landingUrl: brief.landingUrl } : {}),
+        ...(brief.productContext
+          ? { productContext: brief.productContext.slice(0, AI_LIMITS.maxProductContextLength) }
+          : {}),
         direction: brief.direction,
         screenCount: brief.screenCount,
         // Le libellé et la présence, jamais l'image ni son identifiant.
         screenshots: brief.screenshots.map((shot) => ({
           label: shot.label.slice(0, 60),
+          ...(shot.description
+            ? {
+                description: shot.description.slice(0, AI_LIMITS.maxScreenshotDescriptionLength),
+              }
+            : {}),
           hasAsset: Boolean(shot.assetId),
         })),
       },
@@ -234,25 +242,34 @@ export async function planViaBridge(
      trois couleurs de la campagne appartiennent à l'utilisateur, qui vient de
      les choisir ou de les faire lire dans ses captures. */
   const palette = resolvePalette(brief)
-  const kept = Math.min(AI_LIMITS.maxScreens, brief.screenCount, plan.screens.length)
+  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  if (plan.screens.length !== expected) {
+    throw new Error(
+      `Le pont a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected} : rien n’a été repris.`,
+    )
+  }
 
-  const screens: PlannedScreen[] = plan.screens.slice(0, kept).map((screen, index) => {
+  const screens: PlannedScreen[] = plan.screens.map((screen, index) => {
     const at = typeof screen.screenshotIndex === 'number' ? screen.screenshotIndex : index
     return {
       name: screen.name.slice(0, AI_LIMITS.maxNameLength),
       headline: screen.headline.slice(0, AI_LIMITS.maxTextLength),
+      evidence: screen.evidence.slice(0, AI_LIMITS.maxEvidenceLength),
       slot: normalizeSlot(screen.slot || screen.name || `ecran-${index + 1}`),
       screenshotIndex: brief.screenshots[at]?.assetId ? at : undefined,
     }
   })
 
-  return {
+  const result: CampaignPlan = {
     appName: brief.appName,
     direction: brief.direction,
     palette,
     deviceModel: brief.deviceModel,
     screens,
   }
+  const failure = validateGeneratedPlan(result, brief)
+  if (failure) throw new Error(`${failure} Rien n’a été repris.`)
+  return result
 }
 
 /**

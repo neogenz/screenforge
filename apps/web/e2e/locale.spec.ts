@@ -80,7 +80,9 @@ test('une langue se relit, déborde, et bloque son seul export', async ({ page }
   const exportButton = exportDialog.getByRole('button', { name: /Exporter (le ZIP|les PNG)/ })
   await expect(exportButton).toBeEnabled()
 
-  await exportDialog.getByLabel('Langue exportée').click()
+  const languageSelect = exportDialog.getByLabel('Langue exportée')
+  await expect(languageSelect).toContainText('Langue du projet')
+  await languageSelect.click()
   await page.getByRole('option', { name: 'Allemand' }).click()
   await expect(exportDialog.getByRole('alert')).toContainText('Langues')
   await expect(exportButton).toBeDisabled()

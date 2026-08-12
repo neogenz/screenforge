@@ -1,4 +1,4 @@
-import { Smartphone } from 'lucide-react'
+import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { planScreenLayout, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
 import type { PlanAccent, PlanBox } from '@/lib/ai/archetypes'
@@ -10,12 +10,9 @@ import { cn } from '@/lib/utils'
 /**
  * Le visuel tel qu'il sera posé, avant qu'il ne le soit.
  *
- * Dessiné en CSS et non rendu par Fabric : ce qu'un plan pose — un fond, des
- * formes d'accent, un appareil qui porte une capture, un logo, une accroche —
- * est exactement ce qu'une boîte, un SVG et un bloc de texte savent montrer.
- * Instancier un `StaticCanvas` par visuel pour dix visuels, à chaque frappe dans
- * le champ d'accroche, coûterait dix rendus de planche entière pour un aperçu
- * large de cent trente pixels.
+ * Dessiné en CSS et SVG, sans instancier dix `StaticCanvas` à chaque frappe.
+ * L'appareil, lui, passe par `generateDeviceFrameSVG` : c'est le même châssis,
+ * la même dalle et le même cadrage que le calque posé ensuite sur le canvas.
  *
  * Les coordonnées viennent de `planScreenLayout`, la même fonction que le
  * constructeur consomme. C'est ce qui rend l'aperçu opposable : il ne peut pas
@@ -35,11 +32,8 @@ import { cn } from '@/lib/utils'
  * planche large de 440, soit 8,7 % : un aperçu faux, ce qui est pire qu'un
  * aperçu absent.
  *
- * Ce que l'aperçu ne montre pas, et l'assume : le cadre de l'iPhone, dont le SVG
- * n'a rien à dire à cette échelle, et l'accroche lisible — une police de
- * cinquante sur une planche de 440 rendue en 132 fait quinze pixels de haut. La
- * forme du bloc de texte est l'information ; les mots se relisent dans le champ
- * à côté.
+ * L'accroche reste lisible à l'échelle de la planche ; les mots se corrigent
+ * dans le champ à côté.
  */
 
 interface PlanPreviewProps {
@@ -115,7 +109,19 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
   const layout = planScreenLayout(plan, brief, index)
   if (!layout) return null
 
-  const screenshot = resolveAsset(layout.device?.assetId)
+  const config = getDeviceFrame(plan.deviceModel)
+  const deviceSvg = layout.device
+    ? generateDeviceFrameSVG(
+        config,
+        config.colors[0].name,
+        resolveAsset(layout.device.assetId),
+        undefined,
+        layout.device.screenshotSize,
+      )
+    : null
+  const deviceFrame = deviceSvg
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(deviceSvg)}`
+    : undefined
   const logo = resolveAsset(layout.logo?.assetId)
   const width = size === 'thumb' ? 40 : 132
   const scale = width / SCREEN_WIDTH
@@ -135,18 +141,13 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
       ))}
 
       {layout.device && (
-        <div
-          className="overflow-hidden rounded-[12%] border border-black/25 bg-black/85"
+        <img
+          src={deviceFrame}
+          alt=""
+          data-device-frame={plan.deviceModel}
+          className="object-fill drop-shadow-sm"
           style={box(layout.device, layout.device.rotation)}
-        >
-          {screenshot ? (
-            <img src={screenshot} alt="" className="size-full object-cover" />
-          ) : (
-            <span className="flex size-full items-center justify-center text-white/40">
-              <Smartphone size={size === 'thumb' ? 10 : 22} strokeWidth={1.5} />
-            </span>
-          )}
-        </div>
+        />
       )}
 
       {layout.accentsFront.map((accent, at) => (

@@ -34,7 +34,9 @@ import {
   PLAN_OUTPUT_SCHEMA,
   PROTOCOL_VERSION,
   TRANSLATION_OUTPUT_SCHEMA,
+  type BridgeBrief,
   type BridgeError,
+  type BridgePlan,
   type EngineId,
   type EngineStatus,
   type Hello,
@@ -192,6 +194,10 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
           502,
         )
       }
+      const failure = validateGeneratedPlan(plan.data, parsed.data.brief)
+      if (failure) {
+        return context.json(fail('invalid-response', `${failure} Rien n’a été repris.`), 502)
+      }
       return context.json({ plan: plan.data })
     } catch (error) {
       return context.json(engineFailure(error), 502)
@@ -312,6 +318,58 @@ function engineFailure(error: unknown): BridgeError {
   )
 }
 
+const GENERIC_HEADLINES = [
+  'essayez et sentez la difference',
+  'a votre rythme a votre image',
+  'retrouvez tout en un instant',
+  'partagez avec ceux qui comptent',
+  'rien d important ne vous echappe',
+  'votre quotidien enfin plus leger',
+] as const
+
+function normalizedCopy(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
+  const expected = brief.screenCount ?? Math.max(1, brief.screenshots.length)
+  if (plan.screens.length !== expected) {
+    return `Le modèle a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected}.`
+  }
+  const seen = new Set<string>()
+  for (const [index, screen] of plan.screens.entries()) {
+    const normalized = normalizedCopy(screen.headline)
+    const wordCount = screen.headline.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu)?.length ?? 0
+    if (wordCount < 3 || wordCount > 7) {
+      return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
+    }
+    if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
+    seen.add(normalized)
+    if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
+      return `L’accroche ${index + 1} est trop générique pour ce produit.`
+    }
+    const shot =
+      screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
+    if (screen.screenshotIndex !== undefined && !shot?.hasAsset) {
+      return `L’accroche ${index + 1} désigne une capture indisponible.`
+    }
+    const sources = [brief.pitch, brief.productContext ?? '', shot?.description ?? '']
+    if (
+      !sources.some((source) =>
+        normalizedCopy(source).includes(normalizedCopy(screen.evidence.trim())),
+      )
+    ) {
+      return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
+    }
+  }
+  return null
+}
+
 /**
  * Ce qui est envoyé au modèle : un brief, des contraintes, aucune image.
  *
@@ -319,14 +377,14 @@ function engineFailure(error: unknown): BridgeError {
  * déterministe, parce que c'est vrai et que cela évite au modèle de proposer ce
  * que les outils n'acceptent pas.
  */
-function planPrompt(request: {
-  brief: import('./protocol.ts').BridgeBrief
-  deviceModel: string
-}): string {
+function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): string {
   const { brief } = request
   const count = brief.screenCount ?? Math.max(1, brief.screenshots.length)
   const shots = brief.screenshots
-    .map((shot, index) => `${index}. ${shot.label}${shot.hasAsset ? ' (capture fournie)' : ''}`)
+    .map(
+      (shot, index) =>
+        `${index}. ${shot.label}${shot.hasAsset ? ' (capture fournie)' : ''}${shot.description ? ` — ${shot.description}` : ''}`,
+    )
     .join('\n')
   return [
     'Tu es directeur artistique de la fiche App Store d’une application iOS.',
@@ -336,14 +394,17 @@ function planPrompt(request: {
     '',
     `Application : ${brief.appName}.`,
     brief.pitch ? `Ce qu’elle fait : ${brief.pitch}.` : '',
+    brief.productContext
+      ? `Faits produit vérifiés par l’utilisateur :\n${brief.productContext}`
+      : '',
     brief.landingUrl
-      ? `Page du produit : ${brief.landingUrl}. Si tu la connais, appuie-toi sur son vocabulaire et sur les bénéfices qu’elle met en avant ; sinon, ignore-la — n’invente rien à partir de l’URL seule.`
+      ? `Provenance des faits : ${brief.landingUrl}. Ne déduis rien de cette URL et ne prétends pas l’avoir consultée.`
       : '',
     `Style visuel imposé : ${brief.direction}.`,
     `Appareil imposé : ${request.deviceModel}.`,
     `Nombre de visuels à proposer : exactement ${count}.`,
     shots
-      ? `Écrans dont une capture est disponible, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex. Les visuels au-delà de cette liste n’ont pas de capture : laisse screenshotIndex absent.`
+      ? `Captures décrites par l’utilisateur, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex. Les visuels au-delà de cette liste n’ont pas de capture : laisse screenshotIndex absent.`
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',
     '',
     'Écriture des accroches :',
@@ -355,7 +416,11 @@ function planPrompt(request: {
     '— Ni superlatif creux ni jargon : pas de « révolutionnaire », « puissant »,',
     '  « ultime », « nouvelle génération », « propulsé par l’IA ».',
     '— Le premier visuel porte la promesse générale, les suivants une',
-    '  fonctionnalité concrète chacun, le dernier appelle à l’essai.',
+    '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
+    '  que si le brief contient un fait précis qui la justifie.',
+    '— evidence recopie mot pour mot un court extrait du pitch, des faits produit',
+    '  ou de la description de la capture qui prouve l’accroche. N’invente jamais',
+    '  une preuve et ne cite jamais l’URL comme preuve.',
     '',
     'name est un nom d’écran court, pour la barre de l’éditeur.',
     'slot est un identifiant en minuscules, chiffres et traits d’union.',

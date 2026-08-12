@@ -32,7 +32,7 @@ describe('loadGoogleFont', () => {
     expect(isFontLoaded('Retry Sans', ['400'])).toBe(true)
   })
 
-  it('replaces a failed stylesheet before retrying', async () => {
+  it('falls back to the regular face when a requested weight is unavailable', async () => {
     let failedRemoved = false
     const failedLink = {
       sheet: null,
@@ -57,15 +57,13 @@ describe('loadGoogleFont', () => {
     } as unknown as Document)
     const { loadGoogleFont } = await import('@/lib/fonts')
 
-    await expect(loadGoogleFont('Network Retry Sans', ['400'])).resolves.toMatchObject({
-      status: 'fallback',
-    })
-    await expect(loadGoogleFont('Network Retry Sans', ['400'])).resolves.toMatchObject({
+    await expect(loadGoogleFont('Network Retry Sans', ['800'])).resolves.toMatchObject({
       status: 'loaded',
     })
 
     expect(failedLink.remove).toHaveBeenCalledOnce()
     expect(appendChild).toHaveBeenCalledWith(loadedLink)
+    expect(loadedLink.href).not.toContain('wght')
   })
 
   it('deduplicates concurrent requests for the same face', async () => {

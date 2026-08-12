@@ -52,6 +52,7 @@ const PLAN = {
     {
       name: 'Accueil',
       headline: 'Le rythme de vos journées',
+      evidence: 'Le rythme de vos journées',
       screenshotIndex: 0,
     },
   ],
@@ -60,8 +61,15 @@ const PLAN = {
 const BRIEF = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
+  productContext: 'Planifiez vos priorités et gardez votre semaine visible.',
   direction: 'sobre',
-  screenshots: [{ label: 'Accueil', hasAsset: true }],
+  screenshots: [
+    {
+      label: 'Accueil',
+      description: 'Les priorités de la journée sont visibles',
+      hasAsset: true,
+    },
+  ],
 }
 
 function fakeCodex(answer: () => Promise<string>) {

@@ -32,7 +32,7 @@ import {
 import { textColorEdit, textColorValue } from '@/lib/text-styles'
 import { toast } from '@/stores/toast.store'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { getProjectLayers, useProjectStore } from '@/stores/project.store'
+import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import type { SelectionFrame } from '@/hooks/use-canvas'
 import type { AlignMode } from '@/lib/align'
@@ -88,12 +88,22 @@ interface SelectionToolbarProps {
  */
 export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   const propsOpen = useUIStore((state) => state.propsOpen)
-  const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
+  const layers = useProjectStore(
+    useShallow((state) =>
+      state.project
+        ? [
+            ...state.project.screens.flatMap((screen) => screen.layers),
+            ...state.project.layoutLayers,
+          ]
+        : [],
+    ),
+  )
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
 
   if (propsOpen || !frame || selectedLayerIds.length === 0) return null
   const selected = layers.filter((layer) => selectedLayerIds.includes(layer.id))
   if (selected.length === 0) return null
+  const allText = selected.every((layer) => layer.type === 'text')
 
   // Sous la sélection par défaut ; au-dessus quand le bas du stage n'a plus la
   // place, ce qui arrive dès qu'on travaille sur le bas d'un artboard.
@@ -130,7 +140,13 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
 
       <Divider />
       {selected.length === 1 ? (
-        <LayerControls layer={selected[0]} />
+        <LayerControls layer={selected[0]} layerIds={selectedLayerIds} />
+      ) : allText ? (
+        <>
+          <MultiCount count={selected.length} />
+          <Divider />
+          <LayerControls layer={selected[0]} layerIds={selectedLayerIds} />
+        </>
       ) : (
         <MultiCount count={selected.length} />
       )}
@@ -177,12 +193,20 @@ function MultiCount({ count }: { count: number }) {
 }
 
 /** Les réglages les plus utilisés du type sélectionné, jamais l'inventaire complet. */
-function LayerControls({ layer }: { layer: Layer }) {
+function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }) {
   const textRange = useCanvasStore((state) => state.textRange)
-  const update = (updates: Partial<Layer>, coalesceKey?: string) =>
-    useCanvasStore
-      .getState()
-      .updateLayer(layer.id, updates, coalesceKey ? { coalesceKey } : undefined)
+  const multiple = layerIds.length > 1
+  const update = (updates: Partial<Layer>, coalesceKey?: string) => {
+    const store = useCanvasStore.getState()
+    if (!multiple) {
+      store.updateLayer(layer.id, updates, coalesceKey ? { coalesceKey } : undefined)
+      return
+    }
+    const selectionKey = `selection:${[...layerIds].sort().join(',')}`
+    store.updateSelectedLayers(updates, {
+      coalesceKey: coalesceKey?.replace(`layer:${layer.id}`, selectionKey),
+    })
+  }
 
   if (layer.type === 'text') {
     return (
@@ -208,10 +232,12 @@ function LayerControls({ layer }: { layer: Layer }) {
             et le panneau ne sont jamais visibles ensemble, mais ils doivent
             faire la même chose. `textColorEdit` est l'endroit qui le décide. */}
         <ColorControl
-          label={textRange?.layerId === layer.id ? 'Couleur du passage' : 'Couleur du texte'}
-          value={textColorValue(layer, textRange)}
+          label={
+            !multiple && textRange?.layerId === layer.id ? 'Couleur du passage' : 'Couleur du texte'
+          }
+          value={textColorValue(layer, multiple ? null : textRange)}
           onChange={(color) => {
-            const edit = textColorEdit(layer, textRange, color)
+            const edit = textColorEdit(layer, multiple ? null : textRange, color)
             update(edit.updates as Partial<Layer>, edit.coalesceKey)
           }}
         />

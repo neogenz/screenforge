@@ -30,6 +30,8 @@ import type { Background, DeviceModel, ScreenshotSize } from '@/types'
 export interface BriefScreenshot {
   /** Ce que l'utilisateur reconnaît : « Budget », « Réglages ». */
   label: string
+  /** Ce que la capture prouve, sans envoyer ses pixels au modèle. */
+  description?: string
   assetId?: string
   size?: ScreenshotSize
 }
@@ -44,6 +46,8 @@ export interface CampaignBrief {
    * page ferait de ScreenForge un client HTTP au service de ce qu'on lui donne.
    */
   landingUrl?: string
+  /** Faits relus par l'utilisateur. L'URL ci-dessus reste une provenance. */
+  productContext?: string
   direction: DirectionId
   /** La palette lue dans les captures, quand l'utilisateur l'a demandée. */
   palette?: Palette
@@ -72,6 +76,8 @@ export interface PlannedScreen {
   slot?: string
   /** Index dans `brief.screenshots`, quand une capture nourrit cette planche. */
   screenshotIndex?: number
+  /** Extrait exact du brief qui justifie l'accroche distante. */
+  evidence?: string
 }
 
 export interface CampaignPlan {
@@ -220,8 +226,75 @@ export function isCampaignPlan(value: unknown): value is CampaignPlan {
       return false
     }
     if (screen.slot !== undefined && typeof screen.slot !== 'string') return false
+    if (screen.evidence !== undefined && typeof screen.evidence !== 'string') return false
     return screen.screenshotIndex === undefined || typeof screen.screenshotIndex === 'number'
   })
+}
+
+const GENERIC_HEADLINES = [
+  'essayez et sentez la difference',
+  'a votre rythme a votre image',
+  'retrouvez tout en un instant',
+  'partagez avec ceux qui comptent',
+  'rien d important ne vous echappe',
+  'votre quotidien enfin plus leger',
+] as const
+
+function normalizedCopy(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function words(value: string): string[] {
+  return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
+}
+
+function evidenceSources(brief: CampaignBrief, screenshotIndex: number | undefined): string[] {
+  const shot = screenshotIndex === undefined ? undefined : brief.screenshots[screenshotIndex]
+  return [brief.pitch, brief.productContext ?? '', shot?.description ?? ''].filter(Boolean)
+}
+
+/** Valide en bloc une proposition distante avant que la revue puisse la recevoir. */
+export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief): string | null {
+  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  if (plan.screens.length !== expected) {
+    return `Le modèle a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected}.`
+  }
+
+  const seen = new Set<string>()
+  for (const [index, screen] of plan.screens.entries()) {
+    const headline = screen.headline.trim()
+    const normalized = normalizedCopy(headline)
+    const count = words(headline).length
+    if (count < 3 || count > 7) {
+      return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
+    }
+    if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
+    seen.add(normalized)
+    if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) {
+      return `L’accroche ${index + 1} est trop générique pour ce produit.`
+    }
+    if (
+      screen.screenshotIndex !== undefined &&
+      (!Number.isInteger(screen.screenshotIndex) ||
+        !brief.screenshots[screen.screenshotIndex]?.assetId)
+    ) {
+      return `L’accroche ${index + 1} désigne une capture indisponible.`
+    }
+
+    const evidence = screen.evidence?.trim()
+    const grounded = evidence
+      ? evidenceSources(brief, screen.screenshotIndex).some((source) =>
+          normalizedCopy(source).includes(normalizedCopy(evidence)),
+        )
+      : false
+    if (!grounded) return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
+  }
+  return null
 }
 
 const LOGO_TOP = 32

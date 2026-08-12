@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectBridge, planViaBridge } from '@/lib/bridge-client'
 import { AI_PROVIDERS, aiProvider, RECOMMENDED_PROVIDER } from '@/lib/ai/providers'
 import { planCampaign } from '@/lib/ai/run'
-import { AI_LIMITS } from '@/lib/ai/tools'
 import type { CampaignBrief } from '@/lib/ai/plan'
 
 /**
@@ -22,18 +21,24 @@ const TOKEN = '[REDACTED]'
 const BRIEF: CampaignBrief = {
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
+  productContext: 'Planifiez vos priorités et gardez votre semaine visible.',
   direction: 'sobre',
   screenCount: 2,
   deviceModel: 'iphone-17-pro',
   screenshots: [
-    { label: 'Accueil', assetId: 'asset-1', size: { width: 1320, height: 2868 } },
+    {
+      label: 'Accueil',
+      description: 'Les priorités de la journée sont visibles',
+      assetId: 'asset-1',
+      size: { width: 1320, height: 2868 },
+    },
     { label: 'Budget' },
   ],
   logo: { assetId: 'asset-logo', size: { width: 512, height: 512 } },
 }
 
 const HELLO = {
-  protocol: 3,
+  protocol: 4,
   bridge: '0.1.0',
   engines: [
     { id: 'codex', version: 'codex-cli 0.0.0-test' },
@@ -166,6 +171,7 @@ describe('plan via le pont', () => {
       {
         name: 'Accueil',
         headline: 'Le rythme de vos journées',
+        evidence: 'Le rythme de vos journées',
         slot: 'Accueil Principal',
         background: { type: 'solid', color: '#f2f3f5' },
         screenshotIndex: 0,
@@ -173,6 +179,7 @@ describe('plan via le pont', () => {
       {
         name: 'Budget',
         headline: 'Chaque euro à sa place',
+        evidence: 'Le rythme de vos journées',
         background: { type: 'solid', color: '#f2f3f5' },
         screenshotIndex: 7,
       },
@@ -187,9 +194,14 @@ describe('plan via le pont', () => {
     expect(sent).not.toContain('asset-logo')
     expect(sent).not.toContain('data:')
     expect(JSON.parse(sent).brief.screenshots).toEqual([
-      { label: 'Accueil', hasAsset: true },
+      {
+        label: 'Accueil',
+        description: 'Les priorités de la journée sont visibles',
+        hasAsset: true,
+      },
       { label: 'Budget', hasAsset: false },
     ])
+    expect(sent).toContain('Planifiez vos priorités')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
@@ -207,32 +219,18 @@ describe('plan via le pont', () => {
     expect(plan.screens[1].screenshotIndex).toBeUndefined()
   })
 
-  it('borne ce que le modèle a écrit', async () => {
+  it('refuse un compte différent au lieu de tronquer le plan', async () => {
     respond({
       '/plan': {
         body: {
           plan: {
             ...PLAN,
-            screens: Array.from({ length: 20 }, () => ({
-              ...PLAN.screens[0],
-              name: 'n'.repeat(200),
-              headline: 'h'.repeat(900),
-            })),
+            screens: [PLAN.screens[0]],
           },
         },
       },
     })
-    // Deux bornes, pas une : le plafond du projet, et le nombre que
-    // l'utilisateur a demandé. Un modèle bavard qui rendrait vingt visuels sur
-    // quatre demandés en poserait seize que personne n'a voulus.
-    const plan = await planViaBridge({ ...BRIEF, screenCount: 4 }, TOKEN, 'codex')
-    expect(plan.screens.length).toBe(4)
-    expect(plan.screens[0].name.length).toBe(AI_LIMITS.maxNameLength)
-    expect(plan.screens[0].headline.length).toBe(AI_LIMITS.maxTextLength)
-    expect(plan.screens[0].slot).toBe('accueil-principal')
-
-    const generous = await planViaBridge({ ...BRIEF, screenCount: 20 }, TOKEN, 'codex')
-    expect(generous.screens.length).toBe(AI_LIMITS.maxScreens)
+    await expect(planViaBridge(BRIEF, TOKEN, 'codex')).rejects.toThrow(/au lieu de 2/)
   })
 
   it('garde la palette du brief, jamais celle que le modèle a rendue', async () => {
@@ -277,7 +275,13 @@ describe('choix du fournisseur', () => {
               {
                 name: 'Accueil',
                 headline: 'Écrit par Claude',
+                evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
+              },
+              {
+                name: 'Budget',
+                headline: 'Chaque journée garde son rythme',
+                evidence: 'Le rythme de vos journées',
               },
             ],
           },
@@ -300,7 +304,13 @@ describe('choix du fournisseur', () => {
               {
                 name: 'Accueil',
                 headline: 'Écrit par le modèle',
+                evidence: 'Le rythme de vos journées',
                 background: { type: 'solid', color: '#f2f3f5' },
+              },
+              {
+                name: 'Budget',
+                headline: 'Chaque journée garde son rythme',
+                evidence: 'Le rythme de vos journées',
               },
             ],
           },
