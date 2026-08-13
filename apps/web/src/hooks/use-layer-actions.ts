@@ -50,8 +50,11 @@ export function useLayerActions() {
       const duplicates = currentLayers
         .filter((candidate) => ids.includes(candidate.id))
         .map((candidate) => {
+          /* Clone profond, comme aux copier-coller : un étalement partagerait
+             `charStyles` et les sous-objets entre l'original et la copie, et la
+             prochaine édition du clone écrirait dans l'original. */
           const copy: Layer = {
-            ...candidate,
+            ...structuredClone(candidate),
             id: crypto.randomUUID(),
             name: `${candidate.name} copie`,
             x: candidate.x + 16,

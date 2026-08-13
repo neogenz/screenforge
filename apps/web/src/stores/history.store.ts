@@ -37,14 +37,15 @@ interface HistoryState {
 }
 
 function sameProject(left: Project, right: Project): boolean {
+  /* Les horodatages ne sont pas du contenu : deux captures du même projet à
+     deux instants doivent se dédupliquer, comme le fait déjà le chemin écrans
+     qui ne compare que les références de calques et de fond. */
   return (
     left.id === right.id &&
     left.name === right.name &&
     left.activeScreenId === right.activeScreenId &&
     left.globals === right.globals &&
     left.layoutLayers === right.layoutLayers &&
-    left.createdAt === right.createdAt &&
-    left.updatedAt === right.updatedAt &&
     left.screens.length === right.screens.length &&
     left.screens.every((screen, index) => {
       const other = right.screens[index]

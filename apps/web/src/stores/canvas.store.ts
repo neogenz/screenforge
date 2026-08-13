@@ -52,7 +52,7 @@ interface CanvasState {
   redo: () => void
 }
 
-function withoutThumbnail(screen: Screen): Screen {
+export function withoutThumbnail(screen: Screen): Screen {
   const snapshot = { ...screen }
   delete snapshot.thumbnail
   return snapshot

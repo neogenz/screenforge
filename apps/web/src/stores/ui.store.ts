@@ -103,8 +103,8 @@ function onlyModal(flag: ModalFlag, show: boolean): Partial<Record<ModalFlag, bo
 }
 
 const ZOOM_STEP = 0.25
-const ZOOM_MIN = 0.25
-const ZOOM_MAX = 4
+export const ZOOM_MIN = 0.25
+export const ZOOM_MAX = 4
 
 function clampZoom(zoom: number) {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom))

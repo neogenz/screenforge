@@ -22,6 +22,7 @@ import {
 } from '@/lib/canvas/canvas-interactions'
 import type { ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { useProjectStore } from '@/stores/project.store'
 import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Project, Screen } from '@/types'
 
@@ -107,7 +108,14 @@ function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
   if (runtime.fontLoadRequests.has(fontKey)) return
   runtime.fontLoadRequests.add(fontKey)
   void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
-    if (result.status !== 'loaded') return
+    if (result.status !== 'loaded') {
+      /* La clé restait posée pour toujours : une coupure réseau transitoire
+         condamnait le calque au repli système, et le chemin patch refusait la
+         frappe suivante (police non chargée) — une full sync par caractère.
+         On retire la clé : la prochaine édition retentera. */
+      runtime.fontLoadRequests.delete(fontKey)
+      return
+    }
     const canvas = runtime.currentCanvas()
     if (!canvas) return
     for (const object of canvas.getObjects() as RenderedObject[]) {
@@ -116,6 +124,10 @@ function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
       object.setCoords()
     }
     canvas.requestRenderAll()
+    /* La vraie graisse arrive après les vignettes : sans ce second passage la
+       pellicule garderait le repli système jusqu'à la prochaine édition. */
+    const project = useProjectStore.getState().project
+    if (project) runtime.generateThumbnails(project.screens)
   })
 }
 
@@ -154,6 +166,40 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       canvas.remove(object)
       disposeFabricObjectResource(object)
       objectsById.delete(id)
+    }
+
+    /* Tout ce qui doit naître ou renaître se décode en parallèle, avant la
+       boucle d'insertion : dix calques image attendaient dix décodages en
+       file, chacun borné par le réseau ou le décodeur. Le garde de version
+       après le lot protège la suite — un projet plus récent a pu arriver
+       pendant les décodages. */
+    const toCreate = new Map<string, Layer>()
+    for (const screen of screens) {
+      for (const layer of screen.layers) {
+        const existing = objectsById.get(layer.id)
+        if (!existing || needsFabricObjectRecreation(existing, layer)) toCreate.set(layer.id, layer)
+      }
+      for (const layer of layoutLayers) {
+        const layoutId = `layout:${layer.id}:${screen.id}`
+        const existing = objectsById.get(layoutId)
+        if (!existing || needsFabricObjectRecreation(existing, layer)) toCreate.set(layoutId, layer)
+      }
+    }
+    const created = new Map<string, RenderedObject>()
+    await Promise.all(
+      [...toCreate].map(async ([id, layer]) => {
+        const object = await layerToFabricObject(layer)
+        created.set(id, object)
+      }),
+    )
+    if (runtime.syncVersion.current !== version) {
+      for (const object of created.values()) disposeFabricObjectResource(object)
+      return
+    }
+    const takeCreated = (id: string): RenderedObject | undefined => {
+      const object = created.get(id)
+      if (object) created.delete(id)
+      return object
     }
 
     for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
@@ -216,25 +262,19 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       for (const layer of screen.layers) {
         requestLayerFont(layer, runtime)
         let object = objectsById.get(layer.id)
-        if (object && needsFabricObjectRecreation(object, layer)) {
-          const replacement = await layerToFabricObject(layer)
-          if (runtime.syncVersion.current !== version) {
-            disposeFabricObjectResource(replacement)
-            return
-          }
+        const replacement = takeCreated(layer.id)
+        if (object && replacement) {
           canvas.remove(object)
           disposeFabricObjectResource(object)
           object = replacement
           canvas.add(object)
           objectsById.set(layer.id, object)
-        } else if (!object) {
-          object = await layerToFabricObject(layer)
-          if (runtime.syncVersion.current !== version) {
-            disposeFabricObjectResource(object)
-            return
-          }
+        } else if (!object && replacement) {
+          object = replacement
           canvas.add(object)
           objectsById.set(layer.id, object)
+        } else if (!object) {
+          continue
         }
 
         object.set('data', {
@@ -257,25 +297,19 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         const screen = screens[screenIndex]
         const objectId = `layout:${layer.id}:${screen.id}`
         let object = objectsById.get(objectId)
-        if (object && needsFabricObjectRecreation(object, layer)) {
-          const replacement = await layerToFabricObject(layer)
-          if (runtime.syncVersion.current !== version) {
-            disposeFabricObjectResource(replacement)
-            return
-          }
+        const replacement = takeCreated(objectId)
+        if (object && replacement) {
           canvas.remove(object)
           disposeFabricObjectResource(object)
           object = replacement
           canvas.add(object)
           objectsById.set(objectId, object)
-        } else if (!object) {
-          object = await layerToFabricObject(layer)
-          if (runtime.syncVersion.current !== version) {
-            disposeFabricObjectResource(object)
-            return
-          }
+        } else if (!object && replacement) {
+          object = replacement
           canvas.add(object)
           objectsById.set(objectId, object)
+        } else if (!object) {
+          continue
         }
 
         object.set('data', {
@@ -290,6 +324,11 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         applyLayoutInstance(object, layer, screenIndex, screens.length)
       }
     }
+
+    /* Par construction chaque objet pré-créé a son point d'insertion ; s'il en
+       reste, c'est une divergence entre les deux passes — on les dispose plutôt
+       que de laisser fuiter leurs URL. */
+    for (const object of created.values()) disposeFabricObjectResource(object)
 
     const orderedObjects: RenderedObject[] = []
     for (const screen of screens) {

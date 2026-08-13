@@ -6,6 +6,7 @@ import {
   getTotalWidth,
 } from '@/lib/canvas/canvas-utils'
 import { stageInsets } from '@/lib/stage'
+import { ZOOM_MAX, ZOOM_MIN } from '@/stores/ui.store'
 import type { Project } from '@/types'
 
 /** Pas du grain à 100 %, en accord avec `--stage-dot-step` au repos. */
@@ -159,18 +160,28 @@ export function installViewport({
     container.style.setProperty('--stage-dot-y', `${y}px`)
   })
 
+  /* Le zoom se borne comme le store (0.25 – 4), pas avec un plancher local de
+     0.1 : descendre sous 0.25 le plaçait sur la scène pendant que le store
+     restait à 0.25, et la prochaine action de zoom repartait de *sa* valeur en
+     re-centrant le viewport d'un coup. Le `setZoom`, lui, ne court qu'une fois
+     par trame — un pinch de trackpad à 120 Hz ne re-rend pas l'HUD 120 fois. */
+  let pendingZoom: number | null = null
   const disposeWheel = canvas.on('mouse:wheel', ({ e }: { e: WheelEvent }) => {
     e.preventDefault()
     if (e.metaKey || e.ctrlKey) {
-      const zoom = Math.min(4, Math.max(0.1, canvas.getZoom() * 0.999 ** e.deltaY))
+      const zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, canvas.getZoom() * 0.999 ** e.deltaY))
       canvas.zoomToPoint(new Point(e.offsetX, e.offsetY), zoom)
-      setZoom(zoom)
+      pendingZoom = zoom
     } else {
       canvas.relativePan(new Point(-e.deltaX, -e.deltaY))
     }
     if (wheelFrame === null) {
       wheelFrame = requestAnimationFrame(() => {
         wheelFrame = null
+        if (pendingZoom !== null) {
+          setZoom(pendingZoom)
+          pendingZoom = null
+        }
         canvas.requestRenderAll()
       })
     }

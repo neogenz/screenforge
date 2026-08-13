@@ -23,7 +23,10 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  /* Révoqué à la tâche suivante (`0`), l'URL mourait avant que le navigateur
+     ait engagé la lecture du téléchargement — le second export d'un lot
+     cassait le premier. 10 s laissent l'engagement sans retenir le blob. */
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
 export function slugify(text: string): string {

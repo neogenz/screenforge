@@ -1,7 +1,7 @@
 import { collectAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
 import { nextTimestamp } from '@/lib/time'
-import { useCanvasStore } from '@/stores/canvas.store'
+import { useCanvasStore, withoutThumbnail } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useProjectStore } from '@/stores/project.store'
 import type { Project } from '@/types'
@@ -122,7 +122,16 @@ export function runEditorTransaction<T>(
   const usedBefore = collectAssetIds(before)
   const usedAfter = collectAssetIds(after)
 
-  useHistoryStore.getState().record({ kind: 'project', project: before }, coalesceKey)
+  /* Les vignettes ne descendent pas dans la capture : dix écrans de PNG en
+     base64 par pas d'annulation, pour une donnée que la prochaine génération
+     recalcule de toute façon. */
+  useHistoryStore.getState().record(
+    {
+      kind: 'project',
+      project: { ...before, screens: before.screens.map(withoutThumbnail) },
+    },
+    coalesceKey,
+  )
   useProjectStore.setState({ project: after })
   pruneSelection(after)
 
