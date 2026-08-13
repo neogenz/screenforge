@@ -91,7 +91,7 @@ export function FontPicker({ value, onChange, id, label }: FontPickerProps) {
               onValueChange={setSearch}
               placeholder="Rechercher une police…"
               aria-label="Rechercher une police"
-              className="field-surface h-8 w-full px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-muted-foreground"
+              className="field-surface h-8 w-full px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
             />
           </div>
 

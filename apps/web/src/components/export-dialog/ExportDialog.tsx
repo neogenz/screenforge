@@ -16,9 +16,15 @@ import type { Project, Screen } from '@/types'
 
 export function ExportDialog() {
   const showExportDialog = useUIStore((state) => state.showExportDialog)
-  const project = useProjectStore((state) => state.project)
+  if (!showExportDialog) return null
+  return <ExportDialogGate />
+}
 
-  if (!showExportDialog || !project) return null
+/* L'abonnement au projet ne vit que dialogue ouvert : monté en permanence, il
+   re-rendait ce composant à chaque nudge pour retourner `null`. */
+function ExportDialogGate() {
+  const project = useProjectStore((state) => state.project)
+  if (!project) return null
   return <ExportDialogContent project={project} />
 }
 

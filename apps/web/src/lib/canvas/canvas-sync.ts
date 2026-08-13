@@ -186,12 +186,20 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       }
     }
     const created = new Map<string, RenderedObject>()
-    await Promise.all(
+    /* `allSettled`, pas `all` : un rejet (asset image introuvable) faisait
+       rejeter le lot entier, et les objets frères déjà créés — URLs d'objets
+       des mockups compris — n'étaient jamais libérés, à chaque full sync tant
+       que l'asset manquait. Le calque fautif est simplement absent cette passe. */
+    const settled = await Promise.allSettled(
       [...toCreate].map(async ([id, layer]) => {
         const object = await layerToFabricObject(layer)
         created.set(id, object)
       }),
     )
+    for (const result of settled) {
+      if (result.status === 'rejected')
+        console.error('Could not create a canvas object.', result.reason)
+    }
     if (runtime.syncVersion.current !== version) {
       for (const object of created.values()) disposeFabricObjectResource(object)
       return
@@ -448,8 +456,10 @@ export async function patchCanvas(
     const version = runtime.syncVersion.current
     const replacement = await layerToFabricObject(layer)
     if (runtime.syncVersion.current !== version || !canvas.getObjects().includes(object)) {
-      // Un patch concurrent a déjà remplacé l'objet pendant le décodage :
-      // sa version du calque est plus récente, c'est elle qui doit rester.
+      // Un patch concurrent a déjà remplacé l'objet pendant le décodage : cette
+      // passe abandonne. Selon l'ordre de résolution, la version restée sur le
+      // canvas peut être l'ancienne — c'est le repli full sync du retour
+      // `false`, qui relit le projet courant, qui garantit l'état final.
       disposeFabricObjectResource(replacement)
       return null
     }

@@ -18,6 +18,7 @@ import type { Layer } from '@/types'
  */
 export function LayersPanel() {
   const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
+  const activeScreenId = useProjectStore((state) => state.project?.activeScreenId)
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
   const defaultDeviceModel = useProjectStore((state) => state.project?.globals.deviceModel)
 
@@ -72,14 +73,25 @@ export function LayersPanel() {
      La comparaison porte sur `layers`, pas sur la liste filtrée : un calque
      masqué par la recherche n'a pas été supprimé. */
   const [previousLayers, setPreviousLayers] = useState<Layer[]>(layers)
+  const [previousScreenId, setPreviousScreenId] = useState(activeScreenId)
   const [ghosts, setGhosts] = useState<Layer[]>([])
-  if (layers !== previousLayers) {
+  if (activeScreenId !== previousScreenId) {
+    /* Changer d'écran remplace toute la liste : rien n'a été supprimé, et une
+       sortie de masse des calques de l'ancien écran ne dirait rien de vrai. */
+    setPreviousScreenId(activeScreenId)
+    setPreviousLayers(layers)
+    if (ghosts.length > 0) setGhosts([])
+  } else if (layers !== previousLayers) {
     const currentIds = new Set(layers.map((layer) => layer.id))
+    /* Un calque revenu (undo) reprend sa ligne vive : sa copie fantôme part,
+       sinon la liste le montrait deux fois le temps de l'animation. */
+    const survivors = ghosts.filter((ghost) => !currentIds.has(ghost.id))
     const removed = previousLayers.filter(
-      (layer) => !currentIds.has(layer.id) && !ghosts.some((ghost) => ghost.id === layer.id),
+      (layer) => !currentIds.has(layer.id) && !survivors.some((ghost) => ghost.id === layer.id),
     )
     setPreviousLayers(layers)
-    if (removed.length > 0 && previousLayers.length > 0) setGhosts([...ghosts, ...removed])
+    if (removed.length > 0 && previousLayers.length > 0) setGhosts([...survivors, ...removed])
+    else if (survivors.length !== ghosts.length) setGhosts(survivors)
   }
   useEffect(() => {
     if (ghosts.length === 0) return

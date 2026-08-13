@@ -399,6 +399,7 @@ function ProjectFileMenu() {
             // s'écrasait à 17px avant que le nom n'ait commencé à se tronquer.
             className="shrink-0"
             aria-label="Ouvrir le menu Projet"
+            tooltip="Menu Projet"
             aria-busy={busy}
             active={open}
             aria-expanded={open}

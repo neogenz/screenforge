@@ -73,6 +73,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 }: ScreenThumbnailProps) {
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const [editing, setEditing] = useState(false)
+  const [entered, setEntered] = useState(false)
   const [draftName, setDraftName] = useState(screen.name)
   const inputRef = useRef<HTMLInputElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
@@ -116,10 +117,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       // Largeur imposée par la vignette, et non par le libellé : c'est en
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
       style={{ width: THUMBNAIL_WIDTH }}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget) setEntered(true)
+      }}
       className={cn(
-        // Le spring-in ne se joue qu'à la création de la tuile : mémoïsée, elle
-        // ne se relance ni à la sélection ni au renommage.
-        'animate-enter group/thumb relative shrink-0',
+        // Le spring-in ne se joue qu'à la création de la tuile, puis la classe
+        // tombe : réordonner déplace le nœud (`insertBefore`), ce qui redémarre
+        // ses animations CSS — la tuile rejouait son entrée à chaque drop.
+        !entered && 'animate-enter',
+        'group/thumb relative shrink-0',
         'transition-[translate] duration-150 ease-out',
         // L'état sort du coin et revient à la silhouette. Le badge dit lequel,
         // le soulèvement dit lequel de loin : sur une rangée alignée, 4px de

@@ -276,7 +276,13 @@ export default function App() {
             } as CSSProperties
           }
           toastOptions={{
-            classNames: { title: '!leading-5', description: '!leading-5' },
+            classNames: {
+              title: '!leading-5',
+              description: '!leading-5',
+              /* 20px chez Sonner : une troisième hauteur de contrôle, hors
+                 échelle fermée (32/36) — c'est l'audit de scale qui l'a vue. */
+              closeButton: '!size-8',
+            },
             style: {
               boxShadow: 'var(--shadow-lg), var(--hairline-top)',
               fontSize: 'var(--text-sm)',

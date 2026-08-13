@@ -76,10 +76,13 @@
   --color-border: oklch(0.26 0 0);
   --color-input: oklch(0.36 0 0);
   /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair.
-     Un seul langage partout : `ring-1 ring-ring` (le handle de slider est la
-     seule exception, voir `--shadow-handle-focus`). L'état « sélectionné » des
-     cartes de dialogues, lui, ne passe jamais par le ring : `border-foreground
-     bg-muted` — le focus dit « tu es là », la bordure pleine dit « c'est choisi ». */
+     Un pigment, deux épaisseurs : l'outline 2px de la couche `base` habille les
+     contrôles pleins (boutons, switch, inputs nus), et les lignes, cartes et
+     champs composés qui posent `outline-none` le remplacent par `ring-1
+     ring-ring` (le handle de slider est la seule exception, voir
+     `--shadow-handle-focus`). L'état « sélectionné » des cartes de dialogues,
+     lui, ne passe jamais par le ring : `border-foreground bg-muted` — le focus
+     dit « tu es là », la bordure pleine dit « c'est choisi ». */
   --color-ring: var(--color-marker-line);
 
   /* 0.64 et non 0.62 : à 0.62 le rouge tombait à 4.41:1 sur `card`, la surface
@@ -241,8 +244,11 @@
   /* Entrée d'un élément de liste ou d'une vignette : fondu + translation de
      4px avec settle. 220ms, dans le couloir 150–300 des standards du projet. */
   --animate-enter: enter 0.22s var(--ease-settle);
-  /* Sortie symétrique, sans settle : ce qui part ne demande pas d'attention. */
-  --animate-exit: exit 0.18s var(--ease-out);
+  /* Sortie symétrique, sans settle : ce qui part ne demande pas d'attention.
+     `both` retient l'état final : la ligne fantôme vit 60ms de plus que son
+     animation (le temps que React la lâche), et sans fill elle réapparaissait
+     pleine opacité sur cette fin de vie. */
+  --animate-exit: exit 0.18s var(--ease-out) both;
   /* La coche se dessine (succès de toast) plutôt que d'apparaître d'un coup. */
   --animate-check-draw: check-draw 0.28s var(--ease-out-expo) 0.05s both;
 
@@ -770,9 +776,18 @@ input[type='number'] {
   .animate-menu-in,
   .animate-palette-in,
   .animate-check-in,
-  .animate-enter,
-  .animate-exit {
+  .animate-enter {
     animation-name: fade-in;
+  }
+  /* Une sortie remappée sur `fade-in` jouait l'entrée à l'envers : la ligne
+     supprimée *fondait en apparition*. Elle se révèle donc en creux. */
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  .animate-exit {
+    animation-name: fade-out;
   }
   /* La coche dessinée ne se dessine plus : trait plein, tout de suite. */
   .animate-check-draw {

@@ -97,7 +97,7 @@ export function Select({
           'field-surface relative flex h-8 w-full items-center gap-2 pl-2.5 pr-7 text-left outline-none',
           'text-sm text-foreground',
           'transition-[border-color] duration-150 ease-out',
-          'hover:border-input focus:border-muted-foreground',
+          'hover:border-input focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
           'aria-invalid:border-destructive aria-invalid:hover:border-destructive aria-invalid:focus:border-destructive',
           'disabled:pointer-events-none disabled:opacity-40',
           className,

@@ -18,7 +18,6 @@ export function Switch({ checked, onChange, ariaLabel, disabled = false }: Switc
       className={cn(
         'inline-flex h-4 w-7 shrink-0 items-center rounded-full border px-0.5',
         'transition-[background,border-color] duration-150 ease-out',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
         'data-[state=checked]:border-foreground data-[state=checked]:bg-foreground',
         'hover:data-[state=checked]:border-muted-foreground hover:data-[state=checked]:bg-muted-foreground',
         'data-[state=unchecked]:border-input data-[state=unchecked]:bg-muted',

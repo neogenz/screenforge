@@ -70,6 +70,7 @@ export const LayerItem = memo(function LayerItem({
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(layer.name)
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
+  const [entered, setEntered] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
 
@@ -130,9 +131,11 @@ export const LayerItem = memo(function LayerItem({
     } else if (event.altKey && event.key === 'ArrowUp') {
       event.preventDefault()
       actions.moveForward(layer)
+      refocusRow()
     } else if (event.altKey && event.key === 'ArrowDown') {
       event.preventDefault()
       actions.moveBackward(layer)
+      refocusRow()
     } else if (
       !event.metaKey &&
       !event.ctrlKey &&
@@ -147,6 +150,16 @@ export const LayerItem = memo(function LayerItem({
       event.preventDefault()
       onNavigate(layer, event.key, event.shiftKey)
     }
+  }
+
+  /* Réordonner re-trie la liste : React déplace le nœud (`insertBefore`) et le
+     navigateur lâche le focus sur `body` — la flèche suivante nudgerait le
+     canvas au lieu de naviguer. On rend le focus à la ligne une fois le DOM
+     recomposé. */
+  function refocusRow() {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(layer.id)}"]`)?.focus()
+    })
   }
 
   function handleDoubleClick(event: React.MouseEvent) {
@@ -172,11 +185,16 @@ export const LayerItem = memo(function LayerItem({
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget) setEntered(true)
+      }}
       className={cn(
-        // L'entrée se joue à la création du nœud : les lignes sont mémoïsées,
-        // un réglage ultérieur ne la relance pas — et le glisser-déposer, qui
-        // photographie le nœud, n'est pas gêné par une animation terminée.
-        'animate-enter group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+        // L'entrée se joue à la création du nœud, puis la classe tombe :
+        // déplacer un nœud (`insertBefore` d'un réordonnancement DnD ou ⌥↑↓)
+        // redémarre ses animations CSS, et la ligne rejouait son entrée à
+        // chaque déplacement.
+        !entered && 'animate-enter',
+        'group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
         'transition-colors duration-100 ease-out',
         // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
         // L'aplat pesait autant que le contenu du panneau et ne disait pas

@@ -92,10 +92,13 @@ export function installViewport({
     const { insets, width, height } = availableStage()
     const totalWidth = getTotalWidth(screenCount)
     const padding = 48
-    const zoom = Math.min(
-      (width - padding * 2) / totalWidth,
-      (height - padding * 2) / SCREEN_HEIGHT,
-      1,
+    /* Borné aux clamps du store : un fit sous `ZOOM_MIN` mettait le canvas à
+       15 % pendant que le store affichait 25 % — HUD faux, puis saut au premier
+       cran de molette. À beaucoup d'écrans sur fenêtre étroite, le fit montre
+       donc une partie de la scène, panoramique à l'appui, mais un seul zoom. */
+    const zoom = Math.max(
+      ZOOM_MIN,
+      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / SCREEN_HEIGHT, 1),
     )
     canvas.setViewportTransform([
       zoom,
@@ -275,10 +278,10 @@ export function installViewport({
     if (screenIndex === -1) return
     const { insets, width, height } = availableStage()
     const padding = 48
-    const zoom = Math.min(
-      (width - padding * 2) / SCREEN_WIDTH,
-      (height - padding * 2) / SCREEN_HEIGHT,
-      1,
+    // Même borne que `fitAll` : le canvas et le store doivent lire un seul zoom.
+    const zoom = Math.max(
+      ZOOM_MIN,
+      Math.min((width - padding * 2) / SCREEN_WIDTH, (height - padding * 2) / SCREEN_HEIGHT, 1),
     )
     const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
     canvas.setViewportTransform([

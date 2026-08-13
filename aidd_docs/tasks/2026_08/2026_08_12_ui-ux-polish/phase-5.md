@@ -47,6 +47,7 @@ flowchart TD
 
 1. SelectionToolbar : apparition douce sous la sélection (opacity + léger translate, une seule fois par sélection).
 2. Cadre de sélection canvas : micro-settle à la prise de sélection, uniquement si réalisable sans toucher au chemin de rendu Fabric ni au cache — sinon abandonner ce point et le noter.
+   **Abandonné** : tout settle du cadre passe par `drawControls`/`renderCanvas`, donc par du travail Fabric par frame que le critère 3 interdit ; `controls-patch.ts` reste intact et la toolbar porte seule le feedback d'apparition.
 3. CTA Export : état de progression puis morph vers un check de succès avant retour à l'état neutre.
 
 ### `4)` Toast de succès discret

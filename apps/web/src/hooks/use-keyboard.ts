@@ -134,12 +134,18 @@ export function useKeyboard(): void {
       }
 
       // Add text / shape — mêmes actions que la palette (commands.ts).
-      if (!meta && !shift && key.toLowerCase() === 't') {
+      // Une surface à sémantique clavier propre — listbox (typeahead APG),
+      // menu, dialogue — possède les lettres qu'on y tape : un Select ouvert
+      // recevait le typeahead Radix ET un calque derrière lui.
+      const letterOwnedBySurface =
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement.closest('[role="listbox"], [role="menu"], [role="dialog"]') !== null
+      if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 't') {
         e.preventDefault()
         addLayer(createTextLayer(layerCount))
         return
       }
-      if (!meta && !shift && key.toLowerCase() === 'r') {
+      if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 'r') {
         e.preventDefault()
         addLayer(createShapeLayer(layerCount))
         return

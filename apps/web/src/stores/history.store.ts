@@ -46,6 +46,8 @@ function sameProject(left: Project, right: Project): boolean {
     left.activeScreenId === right.activeScreenId &&
     left.globals === right.globals &&
     left.layoutLayers === right.layoutLayers &&
+    left.locales === right.locales &&
+    left.releases === right.releases &&
     left.screens.length === right.screens.length &&
     left.screens.every((screen, index) => {
       const other = right.screens[index]

@@ -61,6 +61,29 @@ test.describe('listbox des calques', () => {
     ).toBe(3)
   })
 
+  test('⌥↑↓ réordonne et garde le focus sur la ligne déplacée', async ({ page }) => {
+    await waitForApp(page)
+    await addThreeLayers(page)
+    const layersOpen = await page.evaluate(
+      () => window.__sfStores?.useUIStore.getState().layersOpen,
+    )
+    if (!layersOpen)
+      await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+
+    /* Réordonner re-trie la liste : React déplace le nœud focalisé
+       (`insertBefore`), ce qui lâchait le focus sur `body` — la flèche
+       suivante nudgeait alors le canvas au lieu de naviguer. */
+    const rows = layerRows(page)
+    await rows.first().focus()
+    const movedId = await rows.first().getAttribute('data-layer-id')
+    await page.keyboard.press('Alt+ArrowDown')
+    await expect(rows.nth(1)).toHaveAttribute('data-layer-id', movedId ?? '')
+    await expect(rows.nth(1)).toBeFocused()
+    await page.keyboard.press('Alt+ArrowUp')
+    await expect(rows.first()).toHaveAttribute('data-layer-id', movedId ?? '')
+    await expect(rows.first()).toBeFocused()
+  })
+
   test('Entrée sélectionne la ligne focalisée, le nudge canvas reste intact hors liste', async ({
     page,
   }) => {
