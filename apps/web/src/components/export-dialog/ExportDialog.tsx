@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Check, Download, FileCheck2, Loader, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth.store'
@@ -87,6 +87,13 @@ function ExportDialogContent({ project }: { project: Project }) {
     [clearError],
   )
 
+  const [justExported, setJustExported] = useState(false)
+  useEffect(() => {
+    if (!justExported) return
+    const timer = window.setTimeout(() => setJustExported(false), 1400)
+    return () => window.clearTimeout(timer)
+  }, [justExported])
+
   const handleExport = useCallback(async () => {
     if (selectedScreens.length === 0 || localeRefused) return
     try {
@@ -97,6 +104,9 @@ function ExportDialogContent({ project }: { project: Project }) {
         exportedLayoutLayers,
         EXPORT_DIMENSIONS,
       )
+      /* Le téléchargement part en silence : le bouton qui vient de produire le
+         lot le confirme une seconde, puis redevient une proposition. */
+      setJustExported(true)
     } catch (cause) {
       /* La limite n'est pas une panne : elle a une réponse, et elle est dans
          la boîte des offres. Les autres échecs restent affichés ici, là où on
@@ -144,12 +154,18 @@ function ExportDialogContent({ project }: { project: Project }) {
               loading={isExporting}
               disabled={selectedScreens.length === 0 || remaining <= 0 || localeRefused}
             >
-              {!isExporting && <Download size={12} aria-hidden />}
-              {isExporting
-                ? 'Export en cours…'
-                : rights.zip
-                  ? 'Exporter le ZIP'
-                  : 'Exporter les PNG'}
+              {justExported ? (
+                <Check size={12} aria-hidden className="animate-check-in" />
+              ) : (
+                !isExporting && <Download size={12} aria-hidden />
+              )}
+              {justExported
+                ? 'Exporté'
+                : isExporting
+                  ? 'Export en cours…'
+                  : rights.zip
+                    ? 'Exporter le ZIP'
+                    : 'Exporter les PNG'}
             </Button>
           )}
         </>

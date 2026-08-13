@@ -173,7 +173,10 @@ export const LayerItem = memo(function LayerItem({
       onContextMenu={handleContextMenu}
       onKeyDown={handleItemKeyDown}
       className={cn(
-        'group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+        // L'entrée se joue à la création du nœud : les lignes sont mémoïsées,
+        // un réglage ultérieur ne la relance pas — et le glisser-déposer, qui
+        // photographie le nœud, n'est pas gêné par une animation terminée.
+        'animate-enter group flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2',
         'transition-colors duration-100 ease-out',
         // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
         // L'aplat pesait autant que le contenu du panneau et ne disait pas

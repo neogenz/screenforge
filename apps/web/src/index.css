@@ -214,6 +214,21 @@
   /* ── Motion : ease-out expo, jamais de rebond ── */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Le settle : un dépassement de 6% puis la cible, pour les entrées de contenu
+     (lignes, vignettes) qui doivent se sentir *posées*, pas apparues. `linear()`
+     natif — pas de moteur JS pour un ressort que le compositeur sait jouer. */
+  --ease-settle: linear(
+    0,
+    0.394 7.6%,
+    0.677 16.6%,
+    0.865 26.4%,
+    0.971 36.6%,
+    1.024 47%,
+    1.042 57.7%,
+    1.036 68.5%,
+    1.016 79.4%,
+    1
+  );
 
   --animate-fade-in: fade-in 0.14s var(--ease-out);
   --animate-slide-up: slide-up 0.2s var(--ease-out-expo);
@@ -223,6 +238,13 @@
      que les entrées de surface : c'est un résultat, pas un panneau qui se
      pose, et à 0,16s la coche apparaît sans qu'on la voie apparaître. */
   --animate-check-in: check-in 0.24s var(--ease-out-expo);
+  /* Entrée d'un élément de liste ou d'une vignette : fondu + translation de
+     4px avec settle. 220ms, dans le couloir 150–300 des standards du projet. */
+  --animate-enter: enter 0.22s var(--ease-settle);
+  /* Sortie symétrique, sans settle : ce qui part ne demande pas d'attention. */
+  --animate-exit: exit 0.18s var(--ease-out);
+  /* La coche se dessine (succès de toast) plutôt que d'apparaître d'un coup. */
+  --animate-check-draw: check-draw 0.28s var(--ease-out-expo) 0.05s both;
 
   @keyframes fade-in {
     from {
@@ -270,6 +292,36 @@
     to {
       opacity: 1;
       transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes enter {
+    from {
+      opacity: 0;
+      translate: 0 4px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  @keyframes exit {
+    from {
+      opacity: 1;
+      translate: 0 0;
+    }
+    to {
+      opacity: 0;
+      translate: 0 4px;
+    }
+  }
+  /* `both` retient le trait plein après la dernière frame : l'animation part
+     avec un léger délai, le temps que le toast lui-même soit posé. */
+  @keyframes check-draw {
+    from {
+      stroke-dashoffset: var(--check-draw-length, 14);
+    }
+    to {
+      stroke-dashoffset: 0;
     }
   }
 }
@@ -717,7 +769,14 @@ input[type='number'] {
   .animate-slide-up,
   .animate-menu-in,
   .animate-palette-in,
-  .animate-check-in {
+  .animate-check-in,
+  .animate-enter,
+  .animate-exit {
     animation-name: fade-in;
+  }
+  /* La coche dessinée ne se dessine plus : trait plein, tout de suite. */
+  .animate-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

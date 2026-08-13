@@ -117,7 +117,9 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
 
   return (
     <div
-      className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
+      // `animate-enter` anime `translate`, une propriété indépendante de
+      // `transform` : le settle ne touche pas le centrage en `translateX(-50%)`.
+      className="island animate-enter pointer-events-auto absolute z-(--z-chrome)
         flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
       // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
       // et des flèches entre contrôles, que cette barre n'a pas — chaque

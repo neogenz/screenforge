@@ -3,6 +3,35 @@ import { toast as sonner } from 'sonner'
 
 export type ToastTone = 'info' | 'success' | 'error'
 
+/**
+ * La coche de succès, dessinée plutôt qu'apparue : le succès est le seul toast
+ * qui confirme un geste de l'utilisateur, il mérite une fin. Le trait joue
+ * `--animate-check-draw`, que `prefers-reduced-motion` neutralise comme les
+ * autres.
+ */
+function CheckDrawn() {
+  return createElement(
+    'svg',
+    {
+      width: 14,
+      height: 14,
+      viewBox: '0 0 14 14',
+      fill: 'none',
+      'aria-hidden': true,
+      className: 'text-success',
+    },
+    createElement('path', {
+      d: 'M2.5 7.5l3 3 6-6.5',
+      stroke: 'currentColor',
+      strokeWidth: 1.8,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      strokeDasharray: 14,
+      className: 'animate-check-draw',
+    }),
+  )
+}
+
 interface ToastOptions {
   duration?: number
   /**
@@ -25,7 +54,7 @@ export function toast(message: string, tone: ToastTone = 'info', options?: Toast
      ni à tabber jusqu'au bouton. */
   const resolved =
     options?.action && options.duration === undefined ? { ...options, duration: Infinity } : options
-  if (tone === 'success') sonner.success(content, resolved)
+  if (tone === 'success') sonner.success(content, { icon: createElement(CheckDrawn), ...resolved })
   else if (tone === 'error') sonner.error(content, resolved)
   else sonner.info(content, resolved)
 }

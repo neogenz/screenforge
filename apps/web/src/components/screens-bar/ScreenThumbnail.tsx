@@ -117,7 +117,9 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
       style={{ width: THUMBNAIL_WIDTH }}
       className={cn(
-        'group/thumb relative shrink-0',
+        // Le spring-in ne se joue qu'à la création de la tuile : mémoïsée, elle
+        // ne se relance ni à la sélection ni au renommage.
+        'animate-enter group/thumb relative shrink-0',
         'transition-[translate] duration-150 ease-out',
         // L'état sort du coin et revient à la silhouette. Le badge dit lequel,
         // le soulèvement dit lequel de loin : sur une rangée alignée, 4px de

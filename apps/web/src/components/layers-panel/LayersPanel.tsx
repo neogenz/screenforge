@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Smartphone } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
@@ -65,6 +65,27 @@ export function LayersPanel() {
     focusId && optionIds.includes(focusId)
       ? focusId
       : (selectedLayerIds.find((id) => optionIds.includes(id)) ?? optionIds[0] ?? null)
+
+  /* Sortie de ligne : le store retire le calque à l'instant de l'action, donc
+     le nœud partirait sans transition. On garde une copie fantôme le temps de
+     l'animation — décorative, inerte, jamais interactive — puis on la lâche.
+     La comparaison porte sur `layers`, pas sur la liste filtrée : un calque
+     masqué par la recherche n'a pas été supprimé. */
+  const [previousLayers, setPreviousLayers] = useState<Layer[]>(layers)
+  const [ghosts, setGhosts] = useState<Layer[]>([])
+  if (layers !== previousLayers) {
+    const currentIds = new Set(layers.map((layer) => layer.id))
+    const removed = previousLayers.filter(
+      (layer) => !currentIds.has(layer.id) && !ghosts.some((ghost) => ghost.id === layer.id),
+    )
+    setPreviousLayers(layers)
+    if (removed.length > 0 && previousLayers.length > 0) setGhosts([...ghosts, ...removed])
+  }
+  useEffect(() => {
+    if (ghosts.length === 0) return
+    const timer = window.setTimeout(() => setGhosts([]), 240)
+    return () => window.clearTimeout(timer)
+  }, [ghosts])
 
   const handleNavigate = useCallback(
     (layer: Layer, key: string, extend: boolean) => {
@@ -239,6 +260,20 @@ export function LayersPanel() {
                 onDrop={handleDrop}
               />
             ))}
+          </div>
+        ))}
+
+        {/* Fantômes de sortie : hors de la listbox (`role="presentation"`),
+            inertes — ils ne doivent ni se lire, ni se focaliser, ni se tirer. */}
+        {ghosts.map((layer) => (
+          <div
+            key={`ghost-${layer.id}`}
+            role="presentation"
+            aria-hidden
+            inert
+            className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
+          >
+            <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
           </div>
         ))}
       </ScrollArea>
