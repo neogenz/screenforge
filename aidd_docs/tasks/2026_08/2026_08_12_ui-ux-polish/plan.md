@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge ne promet aucun modèle clavier qu'il ne tient pas, garde un seul langage de focus et de sélection dans les deux thèmes, résiste aux fragilités mesurées du canvas et de l'historique, et gagne des micro-interactions soignées sans nouvelle dépendance."
-status: in-progress
+status: implemented
 ---
 
 # Plan: polish UX/UI post-durcissement et micro-interactions
