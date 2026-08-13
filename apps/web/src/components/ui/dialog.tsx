@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { DIALOG_SIDEBAR_WIDTH, DIALOG_STACK_MIN_WIDTH } from '@/lib/stage'
@@ -23,6 +23,12 @@ export interface DialogProps {
    */
   footerNote?: ReactNode
   size?: 'sm' | 'md' | 'lg'
+  /**
+   * Retour d'une sous-vue, posé en haut à gauche — avant le titre, qui reste le
+   * nom stable de la boîte. Un retour dans le pied se cherchait en bas à droite,
+   * là où vivent les actions qui avancent, pas celles qui reviennent.
+   */
+  back?: { label: string; onBack: () => void; disabled?: boolean }
   /** Extra content on the right side of the header, before the close button. */
   headerActions?: ReactNode
   /**
@@ -47,6 +53,7 @@ export function Dialog({
   footer,
   footerNote,
   size = 'md',
+  back,
   headerActions,
   flush = false,
 }: DialogProps) {
@@ -91,7 +98,22 @@ export function Dialog({
           )}
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-6 py-4">
-            <DialogPrimitive.Title className="panel-title">{title}</DialogPrimitive.Title>
+            <div className="flex min-w-0 items-center gap-2">
+              {back && (
+                <IconButton
+                  aria-label={back.label}
+                  tooltip={back.label}
+                  size="sm"
+                  disabled={back.disabled}
+                  onClick={back.onBack}
+                >
+                  <ChevronLeft size={15} strokeWidth={1.75} />
+                </IconButton>
+              )}
+              <DialogPrimitive.Title className="panel-title truncate">
+                {title}
+              </DialogPrimitive.Title>
+            </div>
             <div className="flex items-center gap-1">
               {headerActions}
               <IconButton aria-label="Fermer" tooltip="Fermer (Échap)" onClick={onClose} size="sm">

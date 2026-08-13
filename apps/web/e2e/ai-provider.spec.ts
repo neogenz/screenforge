@@ -31,14 +31,14 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
   await waitForApp(page)
   await openCampaignDialog(page)
 
-  // Repliée, mais elle dit lequel est actif sans qu'on l'ouvre.
+  // La rangée dit lequel est actif sans qu'on entre dans la sous-vue.
   const disclosure = page.getByRole('button', { name: /Qui écrit les accroches/ })
-  await expect(disclosure).toHaveAttribute('aria-expanded', 'false')
   await expect(disclosure).toContainText('ScreenForge seul, sans IA')
   await expect(page.getByRole('radio', { name: /ScreenForge seul/ })).toBeHidden()
 
+  // La sous-vue s'ouvre, et son retour vit en haut à gauche de la boîte.
   await disclosure.click()
-  await expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('button', { name: 'Retour au brief' })).toBeVisible()
 
   const local = page.getByRole('radio', { name: /ScreenForge seul/ })
   const codex = page.getByRole('radio', { name: /Avec Codex/ })

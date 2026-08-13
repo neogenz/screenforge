@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Check,
-  ChevronDown,
+  ChevronRight,
   ImageUp,
   Megaphone,
   Paintbrush,
@@ -66,7 +66,6 @@ const URL_FIELD_ID = 'sf-campaign-url'
 const CONTEXT_FIELD_ID = 'sf-campaign-context'
 const COUNT_FIELD_ID = 'sf-campaign-count'
 const HEADLINE_FIELD_ID = 'sf-campaign-headline'
-const ASSIST_PANEL_ID = 'sf-campaign-assist'
 
 /** Le défaut quand aucune capture n'est encore déposée : Apple en montre trois. */
 const DEFAULT_SCREEN_COUNT = 4
@@ -389,6 +388,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
       }
       setPlan(proposal)
       setFocus(0)
+      /* La revue revient toujours au brief : sans ça, « Modifier le brief »
+         depuis une proposition lancée dans la sous-vue rouvrait la sous-vue. */
+      setAssistantOpen(false)
     } catch (cause) {
       /* Le fournisseur distant a lâché. Le message vient du pont, qui sait
          pourquoi ; la boîte reste ouverte et la génération sans modèle reste à
@@ -531,24 +533,6 @@ function CampaignDialogContent({ project }: { project: Project }) {
     close()
   }
 
-  const assistantSetup = (
-    <AssistantSetup
-      providerId={providerId}
-      onProvider={(next) => {
-        pickProvider(next)
-        setPlan(null)
-      }}
-      secret={secret}
-      onSecret={setSecret}
-      connection={connection}
-      onConnect={() => void connect()}
-      onForget={forgetSecret}
-      model={model}
-      onModel={setModel}
-      busy={busy}
-    />
-  )
-
   return (
     <Dialog
       open
@@ -556,6 +540,16 @@ function CampaignDialogContent({ project }: { project: Project }) {
       title="Générer les visuels App Store"
       size="lg"
       flush
+      /* Le retour d'une sous-vue vit en haut à gauche, où on le cherche. Le
+         pied ne porte que ce qui avance : il logeait « Retour au brief » seul
+         en bas à droite, à la place exacte de l'action de validation. */
+      back={
+        plan
+          ? { label: 'Modifier le brief', onBack: () => setPlan(null), disabled: busy }
+          : assistantOpen
+            ? { label: 'Retour au brief', onBack: () => setAssistantOpen(false), disabled: busy }
+            : undefined
+      }
       footerNote={
         plan
           ? 'Rien n’est encore ajouté au projet.'
@@ -566,38 +560,22 @@ function CampaignDialogContent({ project }: { project: Project }) {
               : 'Le brief part vers le modèle ; les images restent ici.'
       }
       footer={
-        <>
-          {plan ? (
-            <>
-              <Button variant="default" onClick={() => setPlan(null)} disabled={busy}>
-                Modifier le brief
-              </Button>
-              <Button variant="primary" onClick={accept} disabled={busy}>
-                <Check size={12} aria-hidden />
-                Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
-              </Button>
-            </>
-          ) : assistantOpen ? (
-            <Button variant="default" onClick={() => setAssistantOpen(false)} disabled={busy}>
-              Retour au brief
+        plan ? (
+          <Button variant="primary" onClick={accept} disabled={busy}>
+            <Check size={12} aria-hidden />
+            Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
+          </Button>
+        ) : (
+          <>
+            <Button variant="default" onClick={close} disabled={busy}>
+              Annuler
             </Button>
-          ) : (
-            <>
-              <Button variant="default" onClick={close} disabled={busy}>
-                Annuler
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => void compose()}
-                loading={busy}
-                disabled={full}
-              >
-                <Megaphone size={12} aria-hidden />
-                Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
-              </Button>
-            </>
-          )}
-        </>
+            <Button variant="primary" onClick={() => void compose()} loading={busy} disabled={full}>
+              <Megaphone size={12} aria-hidden />
+              Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
+            </Button>
+          </>
+        )
       }
     >
       <div className="flex max-h-[60dvh] flex-col overflow-y-auto px-6 py-4">
@@ -622,16 +600,71 @@ function CampaignDialogContent({ project }: { project: Project }) {
             busy={busy}
           />
         ) : assistantOpen ? (
-          <AssistancePanel
-            open
-            onOpenChange={setAssistantOpen}
-            providerLabel={aiProvider(providerId).label}
-          >
-            {assistantSetup}
-          </AssistancePanel>
+          <div className="grid gap-3">
+            <h3 className="section-title">Qui écrit les accroches</h3>
+            <AssistantSetup
+              providerId={providerId}
+              onProvider={(next) => {
+                pickProvider(next)
+                setPlan(null)
+              }}
+              secret={secret}
+              onSecret={setSecret}
+              connection={connection}
+              onConnect={() => void connect()}
+              onForget={forgetSecret}
+              model={model}
+              onModel={setModel}
+              busy={busy}
+            />
+            {/* La matière du rédacteur vit avec lui : ces champs n'existent que
+                pour un modèle branché, et posés dans le brief ils en faisaient
+                l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
+            {aiProvider(providerId).transport !== 'in-process' && (
+              <div className="grid gap-3 border-t border-border pt-3">
+                <Field id={URL_FIELD_ID} label="Page produit (provenance)">
+                  <Input
+                    id={URL_FIELD_ID}
+                    font="sans"
+                    type="url"
+                    inputMode="url"
+                    value={landingUrl}
+                    maxLength={2048}
+                    placeholder="https://monapp.com"
+                    disabled={busy}
+                    onChange={(event) => {
+                      setLandingUrl(event.target.value)
+                      setPlan(null)
+                    }}
+                  />
+                </Field>
+                <Field id={CONTEXT_FIELD_ID} label="Accroches produit vérifiées (une par ligne)">
+                  <Textarea
+                    id={CONTEXT_FIELD_ID}
+                    value={productContext}
+                    maxLength={AI_LIMITS.maxProductContextLength}
+                    rows={4}
+                    placeholder={
+                      'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
+                    }
+                    disabled={busy}
+                    onChange={(event) => {
+                      setProductContext(event.target.value)
+                      setPlan(null)
+                    }}
+                  />
+                </Field>
+                <p className="text-2xs text-muted-foreground">
+                  Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum, prêtes à
+                  publier. L’IA les sélectionne et les ordonne ; vous pourrez les réécrire dans la
+                  revue. ScreenForge ne charge aucune URL arbitraire.
+                </p>
+              </div>
+            )}
+          </div>
         ) : (
           <>
-            <CampaignSection title="Contenu" meta={`${screenCount} visuels`}>
+            <CampaignSection title="Contenu">
               <div className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                   <Field id={NAME_FIELD_ID} label="Nom de l’app">
@@ -766,7 +799,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
               </div>
             </CampaignSection>
 
-            <CampaignSection title="Direction" meta="Tout le lot">
+            <CampaignSection title="Direction">
               <div
                 className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
                 role="radiogroup"
@@ -817,63 +850,18 @@ function CampaignDialogContent({ project }: { project: Project }) {
               )}
             </CampaignSection>
 
-            <CampaignSection
-              title="Accroches"
-              meta={connected ? 'IA connectée' : providerId === 'local' ? 'Sans IA' : 'À connecter'}
-            >
-              <div className="grid gap-3">
-                {aiProvider(providerId).transport !== 'in-process' && (
-                  <div className="grid gap-3">
-                    <Field id={URL_FIELD_ID} label="Page produit (provenance)">
-                      <Input
-                        id={URL_FIELD_ID}
-                        font="sans"
-                        type="url"
-                        inputMode="url"
-                        value={landingUrl}
-                        maxLength={2048}
-                        placeholder="https://monapp.com"
-                        disabled={busy}
-                        onChange={(event) => {
-                          setLandingUrl(event.target.value)
-                          setPlan(null)
-                        }}
-                      />
-                    </Field>
-                    <Field
-                      id={CONTEXT_FIELD_ID}
-                      label="Accroches produit vérifiées (une par ligne)"
-                    >
-                      <Textarea
-                        id={CONTEXT_FIELD_ID}
-                        value={productContext}
-                        maxLength={AI_LIMITS.maxProductContextLength}
-                        rows={4}
-                        placeholder={
-                          'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
-                        }
-                        disabled={busy}
-                        onChange={(event) => {
-                          setProductContext(event.target.value)
-                          setPlan(null)
-                        }}
-                      />
-                    </Field>
-                    <p className="text-2xs text-muted-foreground">
-                      Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum,
-                      prêtes à publier. L’IA les sélectionne et les ordonne ; vous pourrez les
-                      réécrire dans la revue. ScreenForge ne charge aucune URL arbitraire.
-                    </p>
-                  </div>
-                )}
-                <AssistancePanel
-                  open={false}
-                  onOpenChange={setAssistantOpen}
-                  providerLabel={aiProvider(providerId).label}
-                >
-                  {assistantSetup}
-                </AssistancePanel>
-              </div>
+            <CampaignSection title="Accroches">
+              <AssistantRow
+                providerLabel={aiProvider(providerId).label}
+                status={
+                  aiProvider(providerId).auth === 'none'
+                    ? undefined
+                    : connected
+                      ? 'Connecté'
+                      : 'À connecter'
+                }
+                onOpen={() => setAssistantOpen(true)}
+              />
             </CampaignSection>
           </>
         )}
@@ -882,21 +870,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
   )
 }
 
-function CampaignSection({
-  title,
-  meta,
-  children,
-}: {
-  title: string
-  meta: string
-  children: React.ReactNode
-}) {
+function CampaignSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
-      <header>
-        <h3 className="section-title">{title}</h3>
-        <p className="tabular mt-1 text-2xs text-muted-foreground">{meta}</p>
-      </header>
+      <h3 className="section-title">{title}</h3>
       <div className="min-w-0">{children}</div>
     </section>
   )
@@ -950,43 +927,36 @@ function StyleChip({
   return title ? <Tooltip content={title}>{card}</Tooltip> : card
 }
 
-function AssistancePanel({
-  open,
-  onOpenChange,
+/**
+ * La rangée qui mène au choix du rédacteur — une navigation, plus un dépliage.
+ *
+ * Le panneau remplaçait déjà tout le corps de la boîte, mais la rangée portait
+ * `aria-expanded` et un chevron qui tourne : elle annonçait un accordéon qui ne
+ * dépliait rien sous elle, et le retour se cherchait en bas à droite. Le
+ * chevron pointe désormais où l'on va, l'état d'appairage se lit sans entrer,
+ * et le retour est celui de la boîte, en haut à gauche.
+ */
+function AssistantRow({
   providerLabel,
-  children,
+  status,
+  onOpen,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   providerLabel: string
-  children: React.ReactNode
+  status?: string
+  onOpen: () => void
 }) {
   return (
-    <div>
-      <button
-        type="button"
-        aria-label={`Qui écrit les accroches : ${providerLabel}`}
-        aria-expanded={open}
-        aria-controls={ASSIST_PANEL_ID}
-        onClick={() => onOpenChange(!open)}
-        className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <span className="field-label">Rédaction</span>
-        <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
-        <ChevronDown
-          size={12}
-          aria-hidden
-          className={cn(
-            'shrink-0 text-muted-foreground transition-transform duration-150',
-            open ? '' : '-rotate-90',
-          )}
-        />
-      </button>
-
-      <div id={ASSIST_PANEL_ID} hidden={!open} className="mt-3">
-        {children}
-      </div>
-    </div>
+    <button
+      type="button"
+      aria-label={`Qui écrit les accroches : ${providerLabel}`}
+      onClick={onOpen}
+      className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      <span className="field-label">Rédaction</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
+      {status && <span className="shrink-0 text-2xs text-muted-foreground">{status}</span>}
+      <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
+    </button>
   )
 }
 
