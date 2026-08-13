@@ -327,6 +327,23 @@ export function ScreensBar() {
       // avec `aria-pressed`, et c'est exact pour des boutons.
       role="group"
       aria-label="Écrans"
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+        /* La garde globale laisse les flèches à tout ce qui vit dans un
+           `role="group"` : c'est ici qu'elles deviennent la navigation de la
+           pellicule, de vignette en vignette. Entrée active, comme avant. */
+        const buttons = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>('[data-thumbnail-preview]'),
+        )
+        const index = buttons.indexOf(document.activeElement as HTMLElement)
+        if (index === -1) return
+        event.preventDefault()
+        const next =
+          event.key === 'ArrowRight'
+            ? Math.min(buttons.length - 1, index + 1)
+            : Math.max(0, index - 1)
+        buttons[next]?.focus()
+      }}
       // La largeur maximale réserve la gouttière du HUD de zoom : centrée sur la
       // fenêtre, la bande passait sinon sous lui en fenêtre étroite.
       // Le haut porte le dégagement *et* la place du soulèvement : la tuile

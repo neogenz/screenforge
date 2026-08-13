@@ -152,7 +152,7 @@ test.describe('canvas text editing', () => {
       store?.selectLayers(selectedIds)
     }, ids)
 
-    const toolbar = page.getByRole('toolbar', { name: 'Actions de la sélection' })
+    const toolbar = page.getByRole('group', { name: 'Actions de la sélection' })
     await expect(toolbar.getByText('2 calques')).toBeVisible()
     for (const action of [
       'Aligner à gauche',

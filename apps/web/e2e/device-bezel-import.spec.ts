@@ -163,7 +163,7 @@ test('imports, protects, deduplicates and removes an Apple bezel', async ({ page
   const valid = makeDeviceBezelPng()
   await uploadBezel(page, valid, 'iPhone Test Blue.png')
   await expect(page.getByText('iPhone Test Blue.png')).toBeVisible()
-  await expect(page.getByLabel('Modèle d’appareil')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /iPhone 17 Pro Max/ })).toHaveCount(0)
 
   const first = await deviceLayer(page)
   expect(first.importedBezel).toMatchObject({
@@ -180,7 +180,7 @@ test('imports, protects, deduplicates and removes an Apple bezel', async ({ page
   expect((await deviceLayer(page)).importedBezel?.assetId).toBe(first.importedBezel?.assetId)
 
   await page.getByRole('button', { name: 'Retirer le bezel Apple' }).click()
-  await expect(page.getByLabel('Modèle d’appareil')).toBeVisible()
+  await expect(page.getByRole('button', { name: /iPhone 17 Pro Max/ })).toBeVisible()
   expect(await deviceLayer(page)).not.toHaveProperty('importedBezel')
 })
 

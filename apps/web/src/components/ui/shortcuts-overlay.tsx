@@ -9,12 +9,17 @@ const SHORTCUT_GROUPS: { title: string; entries: { keys: string; label: string }
       { keys: '⌘Z', label: 'Annuler' },
       { keys: '⌘⇧Z', label: 'Rétablir' },
       { keys: '⌘S', label: 'Enregistrer' },
+      { keys: '⌘E', label: 'Exporter' },
+      { keys: '⌘⇧L', label: 'Panneau Calques' },
+      { keys: '⌘⇧P', label: 'Panneau Propriétés' },
       { keys: '?', label: 'Raccourcis clavier' },
     ],
   },
   {
     title: 'Calques',
     entries: [
+      { keys: 'T', label: 'Ajouter un texte' },
+      { keys: 'R', label: 'Ajouter une forme' },
       { keys: '⌘C / ⌘X / ⌘V', label: 'Copier / couper / coller' },
       { keys: '⌘D', label: 'Dupliquer' },
       { keys: '⌫', label: 'Supprimer' },

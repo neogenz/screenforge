@@ -97,8 +97,6 @@ export function useKeyboard(): void {
         toggleLayers,
         toggleProps,
         closeDrawers,
-        setShowTemplatesPicker,
-        setShowGlobalsEditor,
         setShowExportDialog,
         setShowShortcuts,
       } = useUIStore.getState()
@@ -248,19 +246,10 @@ export function useKeyboard(): void {
 
       // Escape
       if (key === 'Escape') {
+        /* Les boîtes Radix (export, modèles, réglages globaux…) arrêtent la
+           propagation de la touche — elles se ferment seules, et les branches
+           qui les nommaient ici n'étaient jamais atteintes. */
         const ui = useUIStore.getState()
-        if (ui.showExportDialog) {
-          setShowExportDialog(false)
-          return
-        }
-        if (ui.showTemplatesPicker) {
-          setShowTemplatesPicker(false)
-          return
-        }
-        if (ui.showGlobalsEditor) {
-          setShowGlobalsEditor(false)
-          return
-        }
         if (ui.layersOpen || ui.propsOpen) {
           closeDrawers()
           return

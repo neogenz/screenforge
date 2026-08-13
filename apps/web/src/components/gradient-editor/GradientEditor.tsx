@@ -226,6 +226,12 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
   }
 
   function handleKeyDown(index: number, offset: number, event: React.KeyboardEvent) {
+    if (event.key === 'Home' || event.key === 'End') {
+      // Comme un slider natif : Home et End vont aux bornes de la plage.
+      event.preventDefault()
+      onMove(index, event.key === 'Home' ? 0 : 1)
+      return
+    }
     const step = event.shiftKey ? KEY_STEP_COARSE : KEY_STEP
     const delta = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
     if (delta === 0) return

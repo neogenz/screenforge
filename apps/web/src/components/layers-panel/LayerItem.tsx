@@ -22,8 +22,11 @@ import type { Layer } from '@/types'
 interface LayerItemProps {
   layer: Layer
   isSelected: boolean
+  tabIndex: number
   onSelect: (layer: Layer, event: React.MouseEvent) => void
   onSelectExclusive: (layer: Layer) => void
+  onNavigate: (layer: Layer, key: string, extend: boolean) => void
+  onFocusRow: (layer: Layer) => void
   onDragStart: (layer: Layer, event: React.DragEvent) => void
   onDragOver: (event: React.DragEvent) => void
   onDrop: (layer: Layer, event: React.DragEvent) => void
@@ -53,8 +56,11 @@ function LayerTypeIcon({ type }: { type: Layer['type'] }) {
 export const LayerItem = memo(function LayerItem({
   layer,
   isSelected,
+  tabIndex,
   onSelect,
   onSelectExclusive,
+  onNavigate,
+  onFocusRow,
   onDragStart,
   onDragOver,
   onDrop,
@@ -65,6 +71,7 @@ export const LayerItem = memo(function LayerItem({
   const [editName, setEditName] = useState(layer.name)
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!editing) return
@@ -80,15 +87,21 @@ export const LayerItem = memo(function LayerItem({
     setEditing(true)
   }
 
-  function commitRename() {
+  function commitRename(returnFocus = false) {
     const trimmed = editName.trim()
     if (trimmed && trimmed !== displayName) actions.rename(layer, trimmed)
     setEditing(false)
+    // Entrée et Échap retirent le champ sous le focus : la ligne le reprend.
+    // Un clic dehors (blur), lui, a déjà placé le focus où il a cliqué.
+    if (returnFocus) requestAnimationFrame(() => rowRef.current?.focus())
   }
 
   function handleRenameKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') commitRename()
-    if (event.key === 'Escape') setEditing(false)
+    if (event.key === 'Enter') commitRename(true)
+    if (event.key === 'Escape') {
+      setEditing(false)
+      requestAnimationFrame(() => rowRef.current?.focus())
+    }
   }
 
   function handleContextMenu(event: React.MouseEvent) {
@@ -120,6 +133,19 @@ export const LayerItem = memo(function LayerItem({
     } else if (event.altKey && event.key === 'ArrowDown') {
       event.preventDefault()
       actions.moveBackward(layer)
+    } else if (
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      (event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown' ||
+        event.key === 'Home' ||
+        event.key === 'End')
+    ) {
+      // La garde globale laisse déjà les flèches aux `role="option"` ; c'est
+      // ici qu'elles deviennent la navigation de la listbox.
+      event.preventDefault()
+      onNavigate(layer, event.key, event.shiftKey)
     }
   }
 
@@ -131,12 +157,14 @@ export const LayerItem = memo(function LayerItem({
 
   return (
     <div
+      ref={rowRef}
       role="option"
-      tabIndex={0}
+      tabIndex={tabIndex}
       aria-selected={isSelected}
       aria-label={`${displayName}, ${layer.type}`}
       data-layer-id={layer.id}
       draggable
+      onFocus={() => onFocusRow(layer)}
       onDragStart={(event) => onDragStart(layer, event)}
       onDragOver={onDragOver}
       onDrop={(event) => onDrop(layer, event)}
@@ -169,7 +197,7 @@ export const LayerItem = memo(function LayerItem({
           ref={inputRef}
           value={editName}
           onChange={(event) => setEditName(event.target.value)}
-          onBlur={commitRename}
+          onBlur={() => commitRename()}
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
@@ -232,6 +260,7 @@ export const LayerItem = memo(function LayerItem({
           position={menuPosition}
           label={`Actions de ${displayName}`}
           onClose={() => setMenuPosition(null)}
+          returnFocus={rowRef}
           items={buildLayerMenuItems(layer, actions, { onRename: startRename })}
         />
       )}

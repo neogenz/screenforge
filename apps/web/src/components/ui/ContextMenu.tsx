@@ -19,16 +19,26 @@ interface ContextMenuProps {
   label: string
   items: ContextMenuEntry[]
   onClose: () => void
+  /** Élément qui reprend le focus à la fermeture — la ligne ou la vignette
+      d'où le menu est parti. Sans lui le focus tombait au début du document. */
+  returnFocus?: { current: HTMLElement | null }
 }
 
 /** Free-position menu (canvas right-click), clamped to the viewport by the Radix popper. */
-export function ContextMenu({ position, label, items, onClose }: ContextMenuProps) {
+export function ContextMenu({ position, label, items, onClose, returnFocus }: ContextMenuProps) {
+  function handleClose() {
+    onClose()
+    requestAnimationFrame(() => {
+      if (returnFocus?.current?.isConnected) returnFocus.current.focus()
+    })
+  }
+
   return (
     <DropdownMenuPrimitive.Root
       open
       modal={false}
       onOpenChange={(isOpen) => {
-        if (!isOpen) onClose()
+        if (!isOpen) handleClose()
       }}
     >
       {createPortal(

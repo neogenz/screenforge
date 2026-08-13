@@ -99,13 +99,16 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
     setEditing(true)
   }
 
-  function finishRename() {
+  function finishRename(returnFocus: boolean) {
     setEditing(false)
     // Un écran a toujours un nom : vidé, il retombe sur son rang plutôt que de
     // laisser une tuile anonyme dans la rangée. C'est aussi la façon d'annuler
     // un renommage sans passer par l'historique.
     const next = draftName.trim() || defaultScreenName(index)
     if (next !== screen.name) onRename(screen.id, next)
+    // Au clavier (Entrée, Échap), le champ disparaît sous le focus : il revient
+    // à la vignette. Un clic dehors, lui, place déjà le focus où il a cliqué.
+    if (returnFocus) requestAnimationFrame(() => previewRef.current?.focus())
   }
 
   return (
@@ -275,11 +278,14 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       <Popover
         open={editing}
         anchor={previewRef}
-        onClose={finishRename}
+        onClose={() => finishRename(false)}
         // Dehors valide, Échap annule. Les deux sorties sont distinctes parce
         // que la primitive laisse la touche à qui la demande — un drapeau posé
         // depuis le champ arriverait après elle.
-        onEscape={() => setEditing(false)}
+        onEscape={() => {
+          setEditing(false)
+          requestAnimationFrame(() => previewRef.current?.focus())
+        }}
         side="top"
         align="start"
         className="w-56 p-2"
@@ -292,7 +298,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') finishRename()
+            if (event.key === 'Enter') finishRename(true)
           }}
           placeholder={defaultScreenName(index)}
           aria-label="Nom de l’écran"
@@ -342,6 +348,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           position={menuPosition}
           label={`Actions de ${screen.name}`}
           onClose={() => setMenuPosition(null)}
+          returnFocus={actionsRef}
           items={[
             // Le menu annonce ce qu'il va faire, pas seulement ce qu'il fait :
             // sur une sélection de trois écrans, « Supprimer » en efface trois.

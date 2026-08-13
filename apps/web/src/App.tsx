@@ -264,6 +264,7 @@ export default function App() {
           visibleToasts={4}
           offset={16}
           gap={8}
+          closeButton
           style={
             {
               zIndex: 'var(--z-toast)',

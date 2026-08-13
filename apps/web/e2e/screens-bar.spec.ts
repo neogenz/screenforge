@@ -70,6 +70,48 @@ test.describe('filmstrip rename', () => {
     await expect(page.locator('button[aria-label="Activer Écran 1"]')).toBeVisible()
     await expect(page.locator('button[aria-label="Activer Jeté"]')).toHaveCount(0)
   })
+
+  test('←→ déplacent le focus de vignette en vignette, Entrée active', async ({ page }) => {
+    await waitForApp(page)
+    await addScreen(page)
+    await addScreen(page)
+
+    await tile(page, 'Écran 1').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(tile(page, 'Écran 2')).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(tile(page, 'Écran 3')).toBeFocused()
+    // En bout de rangée, → ne bouge plus.
+    await page.keyboard.press('ArrowRight')
+    await expect(tile(page, 'Écran 3')).toBeFocused()
+
+    await page.keyboard.press('Enter')
+    expect(
+      await page.evaluate(
+        () =>
+          window.__sfStores?.useProjectStore
+            .getState()
+            .project?.screens.findIndex(
+              (screen) =>
+                screen.id === window.__sfStores?.useProjectStore.getState().project?.activeScreenId,
+            ) ?? -1,
+      ),
+    ).toBe(2)
+
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowLeft')
+    await expect(tile(page, 'Écran 1')).toBeFocused()
+  })
+
+  test('un renommage validé au clavier rend le focus à la vignette', async ({ page }) => {
+    await waitForApp(page)
+
+    await tile(page, 'Écran 1').dblclick()
+    const field = page.getByRole('textbox', { name: 'Nom de l’écran' })
+    await field.fill('Onboarding')
+    await page.keyboard.press('Enter')
+    await expect(tile(page, 'Onboarding')).toBeFocused()
+  })
 })
 
 /**

@@ -119,7 +119,12 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
     <div
       className="island animate-fade-in pointer-events-auto absolute z-(--z-chrome)
         flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
-      role="toolbar"
+      // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
+      // et des flèches entre contrôles, que cette barre n'a pas — chaque
+      // contrôle y reste un arrêt de Tab. Le barème complet ne se justifie pas
+      // pour une rangée contextuelle de quelques boutons ; annoncer moins, c'est
+      // annoncer juste.
+      role="group"
       aria-label="Actions de la sélection"
       style={{
         top,

@@ -40,7 +40,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }
 
   function runCommand(command: RegistryCommand) {
-    onClose()
+    /* Même chemin qu'un Échap : le focus revient d'où la palette est partie.
+       Exécuter « Basculer le thème » laissait sinon le focus dans une boîte
+       démontée — au début du document en pratique. */
+    dismiss()
     command.run()
   }
 

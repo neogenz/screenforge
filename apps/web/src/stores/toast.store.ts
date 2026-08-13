@@ -20,7 +20,12 @@ export function toast(message: string, tone: ToastTone = 'info', options?: Toast
   // Le rôle vit dans le contenu : sonner n'en pose pas sur le toast lui-même,
   // et les tests comme les lecteurs d'écran s'appuient sur status/alert.
   const content = createElement('span', { role: tone === 'error' ? 'alert' : 'status' }, message)
-  if (tone === 'success') sonner.success(content, options)
-  else if (tone === 'error') sonner.error(content, options)
-  else sonner.info(content, options)
+  /* Un toast qui propose une action ne s'efface plus tout seul : « Réessayer »
+     doit être atteignable au clavier, et 3,5 s ne suffisent ni à lire l'échec
+     ni à tabber jusqu'au bouton. */
+  const resolved =
+    options?.action && options.duration === undefined ? { ...options, duration: Infinity } : options
+  if (tone === 'success') sonner.success(content, resolved)
+  else if (tone === 'error') sonner.error(content, resolved)
+  else sonner.info(content, resolved)
 }

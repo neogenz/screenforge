@@ -242,11 +242,12 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             open={modelOpen}
             onOpenChange={setModelOpen}
             trigger={
-              <Button
-                variant="default"
-                className="w-full justify-between"
-                aria-label="Modèle d’appareil"
-              >
+              /* Pas d'aria-label ici : le nom accessible naît du contenu
+                 visible (« iPhone 17 Pro Max · 6,9″ »), donc une commande
+                 vocale qui lit l'étiquette à voix haute le nomme exactement
+                 (WCAG 2.5.3). « Modèle d'appareil » ne recouvrait pas ce que
+                 l'écran affiche. */
+              <Button variant="default" className="w-full justify-between">
                 <span className="truncate">{config.modelName}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <span className="tabular text-2xs text-muted-foreground">

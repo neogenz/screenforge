@@ -91,7 +91,7 @@ test.describe('layers panel', () => {
 
   test('device model menu uses its button as trigger and restores focus', async ({ page }) => {
     await addDeviceLayer(page)
-    const trigger = page.getByRole('button', { name: 'Modèle d’appareil' })
+    const trigger = page.getByRole('button', { name: /iPhone 17 Pro Max/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toBeVisible()

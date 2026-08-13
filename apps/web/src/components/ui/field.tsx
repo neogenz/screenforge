@@ -20,9 +20,15 @@ export function Field({ id, label, children, className, inline = false }: FieldP
         className,
       )}
     >
-      <Label htmlFor={id} className="field-label shrink-0">
-        {label}
-      </Label>
+      {/* Sans `id`, un <label> sans `for` est un élément orphelin : il n'associe
+          rien et un validateur le relève. Le span garde la même typographie. */}
+      {id ? (
+        <Label htmlFor={id} className="field-label shrink-0">
+          {label}
+        </Label>
+      ) : (
+        <span className="field-label shrink-0">{label}</span>
+      )}
       {children}
     </div>
   )

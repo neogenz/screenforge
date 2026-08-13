@@ -51,6 +51,60 @@ export function LayersPanel() {
 
   const selectedIds = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
 
+  /* Modèle listbox : un seul arrêt de Tab pour toute la liste, les flèches
+     déplacent le focus de ligne en ligne. Sans ça chaque ligne était un arrêt
+     et les flèches étaient avalées par la garde globale — le rôle annonçait un
+     widget que le clavier ne pouvait pas piloter. */
+  const optionIds = useMemo(
+    () => layerGroups.flatMap((group) => group.layers.map((layer) => layer.id)),
+    [layerGroups],
+  )
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const anchorId = useRef<string | null>(null)
+  const activeFocusId =
+    focusId && optionIds.includes(focusId)
+      ? focusId
+      : (selectedLayerIds.find((id) => optionIds.includes(id)) ?? optionIds[0] ?? null)
+
+  const handleNavigate = useCallback(
+    (layer: Layer, key: string, extend: boolean) => {
+      const ids = optionIds
+      const index = ids.indexOf(layer.id)
+      if (index === -1) return
+      const nextIndex =
+        key === 'ArrowDown'
+          ? Math.min(ids.length - 1, index + 1)
+          : key === 'ArrowUp'
+            ? Math.max(0, index - 1)
+            : key === 'Home'
+              ? 0
+              : ids.length - 1
+      const nextId = ids[nextIndex]
+      if (!nextId || nextId === layer.id) return
+      setFocusId(nextId)
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(nextId)}"]`)?.focus()
+      })
+      if (extend) {
+        // ⇧ étend depuis l'ancre : la dernière sélection exclusive, comme dans
+        // le Finder. Sans ancre enregistrée, la ligne de départ en tient lieu.
+        const anchor = anchorId.current ?? layer.id
+        const anchorIndex = ids.indexOf(anchor)
+        if (anchorIndex === -1) return
+        const [from, to] =
+          anchorIndex <= nextIndex ? [anchorIndex, nextIndex] : [nextIndex, anchorIndex]
+        useCanvasStore.getState().selectLayers(ids.slice(from, to + 1))
+      } else {
+        anchorId.current = nextId
+      }
+    },
+    [optionIds],
+  )
+
+  const handleFocusRow = useCallback((layer: Layer) => {
+    setFocusId(layer.id)
+  }, [])
+
   const handleSelect = useCallback((layer: Layer, event: React.MouseEvent) => {
     const { selectedLayerIds, selectLayer, selectLayers } = useCanvasStore.getState()
     if (event.metaKey || event.ctrlKey) {
@@ -60,11 +114,13 @@ export function LayersPanel() {
           : [...selectedLayerIds, layer.id],
       )
     } else {
+      anchorId.current = layer.id
       selectLayer(layer.id)
     }
   }, [])
 
   const handleSelectExclusive = useCallback((layer: Layer) => {
+    anchorId.current = layer.id
     useCanvasStore.getState().selectLayer(layer.id)
   }, [])
 
@@ -173,8 +229,11 @@ export function LayersPanel() {
                 key={layer.id}
                 layer={layer}
                 isSelected={selectedIds.has(layer.id)}
+                tabIndex={layer.id === activeFocusId ? 0 : -1}
                 onSelect={handleSelect}
                 onSelectExclusive={handleSelectExclusive}
+                onNavigate={handleNavigate}
+                onFocusRow={handleFocusRow}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
