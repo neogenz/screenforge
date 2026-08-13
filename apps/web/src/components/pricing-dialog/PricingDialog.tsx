@@ -157,6 +157,10 @@ function PlanCard({
     <div
       className={cn(
         'flex flex-col gap-3 rounded-lg border p-4',
+        /* Marker et non la recette « sélectionné » (`border-foreground
+           bg-muted`) : la carte « owned » n'est pas un choix à refaire, c'est
+           « vous êtes ici » — l'état que le citron réserve. Seule carte de
+           dialogue à le porter, à dessein. */
         owned ? 'border-marker-line bg-marker-soft' : 'border-border bg-card',
       )}
     >

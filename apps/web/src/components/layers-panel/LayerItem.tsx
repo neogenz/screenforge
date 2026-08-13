@@ -230,10 +230,15 @@ export const LayerItem = memo(function LayerItem({
 
       {/* Deux actions, pas quatre. À 32px pièce, quatre boutons couvraient le
           milieu de la ligne : viser le nom d'un calque basculait sa visibilité.
-          Dupliquer et supprimer restent au menu contextuel et au clavier. */}
+          Dupliquer et supprimer restent au menu contextuel et au clavier.
+          `tabIndex={-1}` : une `option` de listbox n'expose pas d'interactif —
+          la liste promet un seul arrêt de Tab, et ces deux boutons en ajoutaient
+          deux par ligne. À la souris rien ne change ; au clavier, Masquer et
+          Verrouiller restent au menu contextuel (⇧F10 / touche Menu). */}
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <IconButton
           size="sm"
+          tabIndex={-1}
           aria-label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
           tooltip={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
           onClick={(event) => {
@@ -249,6 +254,7 @@ export const LayerItem = memo(function LayerItem({
         </IconButton>
         <IconButton
           size="sm"
+          tabIndex={-1}
           aria-label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
           tooltip={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
           onClick={(event) => {

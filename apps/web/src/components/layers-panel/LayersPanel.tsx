@@ -10,6 +10,8 @@ import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
 import type { Layer } from '@/types'
 
+type LayerRow = { layer: Layer; ghost: boolean }
+
 /**
  * Floating-island layers panel: header + filter, grouped layer list
  * (shared layout layers first, then this screen's), empty states.
@@ -26,46 +28,6 @@ export function LayersPanel() {
   const dragSourceId = useRef<string | null>(null)
 
   const normalizedQuery = query.trim().toLowerCase()
-
-  const layerGroups = useMemo(() => {
-    // Le filtre porte sur le nom affiché : chercher « accrocheur » doit
-    // trouver le calque que la liste montre sous ce mot, pas rien du tout.
-    const matches = (layer: Layer) =>
-      normalizedQuery.length === 0 ||
-      layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
-    const byZIndexDesc = (first: Layer, second: Layer) => second.zIndex - first.zIndex
-    return [
-      {
-        label: 'Partagé · tous les écrans',
-        layers: layers
-          .filter((layer) => layer.scope === 'layout' && matches(layer))
-          .sort(byZIndexDesc),
-      },
-      {
-        label: 'Cet écran',
-        layers: layers
-          .filter((layer) => layer.scope !== 'layout' && matches(layer))
-          .sort(byZIndexDesc),
-      },
-    ].filter((group) => group.layers.length > 0)
-  }, [layers, normalizedQuery])
-
-  const selectedIds = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
-
-  /* Modèle listbox : un seul arrêt de Tab pour toute la liste, les flèches
-     déplacent le focus de ligne en ligne. Sans ça chaque ligne était un arrêt
-     et les flèches étaient avalées par la garde globale — le rôle annonçait un
-     widget que le clavier ne pouvait pas piloter. */
-  const optionIds = useMemo(
-    () => layerGroups.flatMap((group) => group.layers.map((layer) => layer.id)),
-    [layerGroups],
-  )
-  const [focusId, setFocusId] = useState<string | null>(null)
-  const anchorId = useRef<string | null>(null)
-  const activeFocusId =
-    focusId && optionIds.includes(focusId)
-      ? focusId
-      : (selectedLayerIds.find((id) => optionIds.includes(id)) ?? optionIds[0] ?? null)
 
   /* Sortie de ligne : le store retire le calque à l'instant de l'action, donc
      le nœud partirait sans transition. On garde une copie fantôme le temps de
@@ -98,6 +60,53 @@ export function LayersPanel() {
     const timer = window.setTimeout(() => setGhosts([]), 240)
     return () => window.clearTimeout(timer)
   }, [ghosts])
+
+  const layerGroups = useMemo(() => {
+    // Le filtre porte sur le nom affiché : chercher « accrocheur » doit
+    // trouver le calque que la liste montre sous ce mot, pas rien du tout.
+    const matches = (layer: Layer) =>
+      normalizedQuery.length === 0 ||
+      layerDisplayName(layer).toLowerCase().includes(normalizedQuery)
+    const byZIndexDesc = (first: LayerRow, second: LayerRow) =>
+      second.layer.zIndex - first.layer.zIndex
+    /* Les fantômes de sortie sont fusionnés dans leur groupe et triés au même
+       zIndex : la ligne supprimée sort à la place qu'elle occupait, pas
+       reléguée en bas de liste — et elle passe le même filtre que les
+       vivantes, un calque que la recherche masquait ne sort nulle part. */
+    const rowsFor = (isLayout: boolean): LayerRow[] =>
+      [
+        ...layers
+          .filter((layer) => (layer.scope === 'layout') === isLayout && matches(layer))
+          .map((layer) => ({ layer, ghost: false })),
+        ...ghosts
+          .filter((layer) => (layer.scope === 'layout') === isLayout && matches(layer))
+          .map((layer) => ({ layer, ghost: true })),
+      ].sort(byZIndexDesc)
+    return [
+      { label: 'Partagé · tous les écrans', rows: rowsFor(true) },
+      { label: 'Cet écran', rows: rowsFor(false) },
+    ].filter((group) => group.rows.length > 0)
+  }, [layers, normalizedQuery, ghosts])
+
+  const selectedIds = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds])
+
+  /* Modèle listbox : un seul arrêt de Tab pour toute la liste, les flèches
+     déplacent le focus de ligne en ligne. Sans ça chaque ligne était un arrêt
+     et les flèches étaient avalées par la garde globale — le rôle annonçait un
+     widget que le clavier ne pouvait pas piloter. */
+  const optionIds = useMemo(
+    () =>
+      layerGroups.flatMap((group) =>
+        group.rows.filter((row) => !row.ghost).map((row) => row.layer.id),
+      ),
+    [layerGroups],
+  )
+  const [focusId, setFocusId] = useState<string | null>(null)
+  const anchorId = useRef<string | null>(null)
+  const activeFocusId =
+    focusId && optionIds.includes(focusId)
+      ? focusId
+      : (selectedLayerIds.find((id) => optionIds.includes(id)) ?? optionIds[0] ?? null)
 
   const handleNavigate = useCallback(
     (layer: Layer, key: string, extend: boolean) => {
@@ -226,69 +235,79 @@ export function LayersPanel() {
         </div>
       </div>
 
-      <ScrollArea
-        // Pas de `flex-1` : sa base de 0 effondre la liste dans un conteneur à
-        // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
-        // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
-        className="px-2 pb-2"
-        role="listbox"
-        aria-label="Calques"
-        aria-multiselectable
-      >
-        {layers.length === 0 && (
-          <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 text-center">
-            <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
-            <p className="text-sm text-muted-foreground">Écran vide.</p>
-            <p className="max-w-[190px] text-2xs text-muted-foreground">
-              Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
-            </p>
-            <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
-              Ajouter un cadre iPhone
-            </Button>
-          </div>
-        )}
-
-        {layers.length > 0 && layerGroups.length === 0 && (
-          <p className="py-6 text-center text-2xs text-muted-foreground">
-            Aucun calque pour « {query.trim()} »
+      {/* Les états vides vivent hors de la listbox : une listbox n'a que des
+          options (et des groupes) pour enfants exposés, pas un paragraphe et
+          un bouton d'appel. */}
+      {layers.length === 0 && (
+        <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 pb-2 text-center">
+          <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+          <p className="text-sm text-muted-foreground">Écran vide.</p>
+          <p className="max-w-[190px] text-2xs text-muted-foreground">
+            Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
           </p>
-        )}
+          <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
+            Ajouter un cadre iPhone
+          </Button>
+        </div>
+      )}
 
-        {layerGroups.map((group) => (
-          <div key={group.label} role="group" aria-label={group.label}>
-            <p className="field-label px-2 pb-2 pt-4">{group.label}</p>
-            {group.layers.map((layer) => (
-              <LayerItem
-                key={layer.id}
-                layer={layer}
-                isSelected={selectedIds.has(layer.id)}
-                tabIndex={layer.id === activeFocusId ? 0 : -1}
-                onSelect={handleSelect}
-                onSelectExclusive={handleSelectExclusive}
-                onNavigate={handleNavigate}
-                onFocusRow={handleFocusRow}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              />
-            ))}
-          </div>
-        ))}
+      {layers.length > 0 && layerGroups.length === 0 && (
+        <p className="px-2 py-6 text-center text-2xs text-muted-foreground">
+          Aucun calque pour « {query.trim()} »
+        </p>
+      )}
 
-        {/* Fantômes de sortie : hors de la listbox (`role="presentation"`),
-            inertes — ils ne doivent ni se lire, ni se focaliser, ni se tirer. */}
-        {ghosts.map((layer) => (
-          <div
-            key={`ghost-${layer.id}`}
-            role="presentation"
-            aria-hidden
-            inert
-            className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
-          >
-            <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
-          </div>
-        ))}
-      </ScrollArea>
+      {layerGroups.length > 0 && (
+        <ScrollArea
+          // Pas de `flex-1` : sa base de 0 effondre la liste dans un conteneur à
+          // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
+          // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
+          className="px-2 pb-2"
+          role="listbox"
+          aria-label="Calques"
+          aria-multiselectable
+        >
+          {layerGroups.map((group) => (
+            <div key={group.label} role="group" aria-label={group.label}>
+              {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
+                  et un paragraphe n'est pas un enfant de listbox. */}
+              <p aria-hidden className="field-label px-2 pb-2 pt-4">
+                {group.label}
+              </p>
+              {group.rows.map(({ layer, ghost }) =>
+                ghost ? (
+                  /* Fantôme de sortie : hors de l'arbre a11y (`presentation`),
+                     inerte — il ne doit ni se lire, ni se focaliser, ni se
+                     tirer. Il sort à la place que la ligne occupait. */
+                  <div
+                    key={`ghost-${layer.id}`}
+                    role="presentation"
+                    aria-hidden
+                    inert
+                    className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
+                  >
+                    <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
+                  </div>
+                ) : (
+                  <LayerItem
+                    key={layer.id}
+                    layer={layer}
+                    isSelected={selectedIds.has(layer.id)}
+                    tabIndex={layer.id === activeFocusId ? 0 : -1}
+                    onSelect={handleSelect}
+                    onSelectExclusive={handleSelectExclusive}
+                    onNavigate={handleNavigate}
+                    onFocusRow={handleFocusRow}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  />
+                ),
+              )}
+            </div>
+          ))}
+        </ScrollArea>
+      )}
     </aside>
   )
 }

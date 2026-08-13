@@ -122,6 +122,28 @@ test('le cadrage survit à un rechargement', async ({ page }) => {
   expect((await deviceLayer(page)).screenshotSize).toEqual({ width: 300, height: 600 })
 })
 
+test('un scrub continu du cadrage reste sur le chemin patch', async ({ page }) => {
+  await uploadScreenshot(page, 300, 600)
+  await expect.poll(async () => deviceLayer(page)).toHaveProperty('screenshotSize')
+
+  const zoom = page.getByRole('slider', { name: 'Zoom de la capture' })
+  await zoom.focus()
+  // Laisse retomber les syncs de l'import avant de poser le témoin.
+  await page.waitForTimeout(500)
+  const before = await page.evaluate(() => window.__sfSyncVersion?.current ?? -1)
+  expect(before).toBeGreaterThanOrEqual(0)
+
+  /* Le critère de la phase 1 : pendant un drag continu du cadrage, aucune
+     réconciliation complète. Le témoin est `syncVersion`, incrémenté par
+     chaque full sync et par rien d'autre — les patchs sont sérialisés dans
+     `use-canvas`, un tick en retard fusionne au lieu d'échouer. */
+  for (let tick = 0; tick < 24; tick += 1) await zoom.press('ArrowRight')
+  await expect.poll(async () => (await deviceLayer(page)).placement?.zoom).toBeGreaterThan(1)
+  await page.waitForTimeout(600)
+
+  expect(await page.evaluate(() => window.__sfSyncVersion?.current)).toBe(before)
+})
+
 test('un rôle vide de sens ne s’écrit pas', async ({ page }) => {
   const slot = page.getByLabel('Rôle de l’écran dans la campagne')
   await slot.fill('   ---   ')

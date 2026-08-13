@@ -20,7 +20,7 @@ import { installControlsPatch } from '@/lib/canvas/controls-patch'
 import { installInteractions } from '@/lib/canvas/install-interactions'
 import { installThumbnails, type ThumbnailScheduler } from '@/lib/canvas/install-thumbnails'
 import { installViewport, type ViewportController } from '@/lib/canvas/install-viewport'
-import { diffProjectChange } from '@/lib/canvas/project-diff'
+import { diffProjectChange, type ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -28,6 +28,9 @@ import type { Project, Screen } from '@/types'
 
 export { SCREEN_HEIGHT, SCREEN_WIDTH, getScreenOffset, getTotalWidth }
 export type { SelectionFrame } from '@/lib/canvas/canvas-interactions'
+
+type PatchChange = Extract<ProjectChange, { type: 'patch' }>
+type PatchJob = { project: Project; change: PatchChange }
 
 export function useCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -40,6 +43,8 @@ export function useCanvas() {
   const layoutInstances = useRef(new Map<string, RenderedObject[]>())
   const thumbnails = useRef<ThumbnailScheduler | null>(null)
   const viewport = useRef<ViewportController | null>(null)
+  const patchInFlight = useRef(false)
+  const pendingPatch = useRef<PatchJob | 'full' | null>(null)
   const [selectionFrame, setSelectionFrame] = useState<SelectionFrame | null>(null)
 
   const generateThumbnails = useCallback((screens: Screen[]) => {
@@ -96,6 +101,48 @@ export function useCanvas() {
     [generateThumbnails],
   )
 
+  /**
+   * Sérialise les patchs : un seul en vol, les suivants fusionnés puis rejoués.
+   *
+   * Deux patchs simultanés capturaient le même objet ; le premier décodage
+   * résolu le remplaçait, le second échouait, et le repli était une
+   * réconciliation complète — potentiellement à chaque paire de ticks
+   * chevauchés pendant un scrub de cadrage avec une capture lourde, exactement
+   * ce que le chemin patch existe à éviter. Les ticks arrivés pendant un
+   * décodage sont fusionnés (union des calques, projet le plus récent) et
+   * joués en une passe : l'état final est le même, sans course.
+   */
+  const drainPatches = useCallback(
+    async (first: PatchJob) => {
+      patchInFlight.current = true
+      try {
+        let job: PatchJob | null = first
+        while (job) {
+          const patched = await syncPatch(job.project, job.change)
+          if (!patched) {
+            /* Le patch a renoncé (police pas encore chargée, objet absent) :
+               resynchroniser sur le projet *courant*, pas celui capturé, sinon
+               le canvas resterait en retard d'un tick sans qu'aucun événement
+               ne vienne le réveiller. */
+            pendingPatch.current = null
+            await sync(useProjectStore.getState().project ?? job.project)
+            return
+          }
+          const pending = pendingPatch.current
+          pendingPatch.current = null
+          if (pending === 'full') {
+            await sync(useProjectStore.getState().project ?? job.project)
+            return
+          }
+          job = pending
+        }
+      } finally {
+        patchInFlight.current = false
+      }
+    },
+    [sync, syncPatch],
+  )
+
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
     installControlsPatch()
@@ -111,9 +158,16 @@ export function useCanvas() {
     })
     fabricRef.current = canvas
     if (import.meta.env.DEV) {
-      const debug = window as unknown as { __sfCanvas?: Canvas; __sfFabric?: unknown }
+      const debug = window as unknown as {
+        __sfCanvas?: Canvas
+        __sfFabric?: unknown
+        __sfSyncVersion?: { current: number }
+      }
       debug.__sfCanvas = canvas
       debug.__sfFabric = { Rect, ActiveSelection, Point, util }
+      // Instrumentation e2e : une full sync l'incrémente, un patch non — c'est
+      // ainsi que le spec de scrub prouve que le chemin patch tient.
+      debug.__sfSyncVersion = syncVersion
     }
 
     const thumbnailController = installThumbnails({
@@ -194,14 +248,32 @@ export function useCanvas() {
         const change = diffProjectChange(state.project, previous.project)
         if (change.type === 'none') return
         if (change.type === 'patch') {
-          const project = state.project
-          void syncPatch(project, change).then((patched) => {
-            /* Le patch a pu renoncer parce qu'un patch plus récent l'a devancé
-               pendant un décodage : resynchroniser sur le projet *courant*, pas
-               sur celui capturé à l'abonnement, sinon le canvas resterait en
-               retard d'un tick sans qu'aucun événement ne vienne le réveiller. */
-            if (!patched) void sync(useProjectStore.getState().project ?? project)
-          })
+          if (patchInFlight.current) {
+            const pending = pendingPatch.current
+            if (pending === 'full') return
+            if (pending && pending.change.screenId !== change.screenId) {
+              // Deux écrans dans la même fenêtre de décodage : le patch est
+              // mono-écran par définition, la passe complète reprend la main.
+              pendingPatch.current = 'full'
+              return
+            }
+            pendingPatch.current = {
+              project: state.project,
+              change: pending
+                ? {
+                    type: 'patch',
+                    screenId: change.screenId,
+                    layerIds: [...new Set([...pending.change.layerIds, ...change.layerIds])],
+                    layoutLayerIds: [
+                      ...new Set([...pending.change.layoutLayerIds, ...change.layoutLayerIds]),
+                    ],
+                    backgroundChanged: pending.change.backgroundChanged || change.backgroundChanged,
+                  }
+                : change,
+            }
+            return
+          }
+          void drainPatches({ project: state.project, change })
           return
         }
         const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
@@ -209,7 +281,7 @@ export function useCanvas() {
           if (screenCountChanged) viewport.current?.fitAll()
         })
       }),
-    [sync, syncPatch],
+    [sync, drainPatches],
   )
 
   const applyThemeToCanvas = useCallback(() => {

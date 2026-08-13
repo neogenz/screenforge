@@ -50,6 +50,9 @@ declare global {
   interface Window {
     __sfCanvas?: Canvas
     __sfCrash?: () => void
+    /** Incrémenté par chaque full sync, jamais par un patch : c'est le témoin
+        qui prouve qu'un scrub continu reste sur le chemin patch. */
+    __sfSyncVersion?: { current: number }
     /**
      * Le registre d'assets de l'application.
      *
