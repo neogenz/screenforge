@@ -4,11 +4,13 @@ import {
   boxOf,
   collectSnapTargets,
   drawGuides,
+  readChromeColors,
   readSelectionFrame,
   resolveSelectionObjects,
   sameFrame,
   sameIds,
   screenIndexAtPoint,
+  type ChromeColors,
   type SelectionFrame,
 } from '@/lib/canvas/canvas-interactions'
 import { ensureScreenClipPath } from '@/lib/canvas/canvas-sync'
@@ -78,6 +80,7 @@ export function installInteractions({
   let applyingStoreSelection = false
   let publishedFrame: SelectionFrame | null = null
   let guides: Guide[] = []
+  let guideChrome: ChromeColors | null = null
   let snapTargets: Box[] | null = null
   let stageRecovery: RenderedObject | null = null
   const dragSourceScreenIndexes = new Map<RenderedObject, number>()
@@ -479,7 +482,7 @@ export function installInteractions({
   window.addEventListener('mouseup', handleDomMouseUp, true)
 
   const disposeAfterRender = canvas.on('after:render', () => {
-    if (guides.length > 0) drawGuides(canvas, guides)
+    if (guides.length > 0) drawGuides(canvas, guides, (guideChrome ??= readChromeColors()))
     const next = interacting ? null : readSelectionFrame(canvas)
     if (sameFrame(next, publishedFrame)) return
     publishedFrame = next
@@ -570,6 +573,7 @@ export function installInteractions({
     mirrorLast.clear()
     dragSourceScreenIndexes.clear()
     guides = []
+    guideChrome = null
     snapTargets = null
     interacting = false
     applyStoreSelection()

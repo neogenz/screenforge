@@ -1,4 +1,5 @@
 import { PropertiesPanel } from '@/components/properties-panel/PropertiesPanel'
+import { useDeferredUnmount } from '@/hooks/use-deferred-unmount'
 import { useUIStore } from '@/stores/ui.store'
 import { cn } from '@/lib/utils'
 import {
@@ -12,10 +13,12 @@ import {
 /** Right drawer: properties panel sliding over the stage. */
 export function PropertiesDrawer() {
   const open = useUIStore((s) => s.propsOpen)
+  const mounted = useDeferredUnmount(open)
 
   return (
     <div
       aria-hidden={!open}
+      inert={!open}
       className={cn(
         // Voir `LayersDrawer` : la colonne flex est ce qui fait tenir le plafond.
         'fixed flex flex-col z-(--z-chrome) transition-transform duration-200 ease-out-expo',
@@ -30,7 +33,7 @@ export function PropertiesDrawer() {
         width: drawerWidth(DRAWER_WIDTH_PROPS),
       }}
     >
-      <PropertiesPanel />
+      {mounted && <PropertiesPanel />}
     </div>
   )
 }

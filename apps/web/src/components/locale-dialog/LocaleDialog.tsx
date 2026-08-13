@@ -292,7 +292,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   checked={entry.code === locale?.code}
                   disabled={busy}
                   onChange={() => setSelectedCode(entry.code)}
-                  className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                  className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
                 />
                 <span className="tabular">{entry.code}</span>
                 {entry.name}

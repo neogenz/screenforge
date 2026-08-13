@@ -43,6 +43,48 @@ test.describe('command palette', () => {
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
   })
+
+  test('⌘⇧K n’ouvre pas la palette', async ({ page }) => {
+    await waitForApp(page)
+    await page.keyboard.press('Meta+Shift+k')
+    await expect(page.getByRole('dialog', { name: 'Palette de commandes' })).toHaveCount(0)
+  })
+
+  /* Chaque raccourci affiché par la palette doit être câblé : une annonce sans
+     geste est pire qu'une absence, elle apprend un réflexe qui ne marche pas. */
+  test('les raccourcis annoncés par la palette déclenchent leur action', async ({ page }) => {
+    await waitForApp(page)
+
+    await page.keyboard.press('t')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__sfStores?.useProjectStore
+              .getState()
+              .project?.screens.flatMap((screen) => screen.layers)
+              .filter((layer) => layer.type === 'text').length ?? 0,
+        ),
+      )
+      .toBe(1)
+
+    await page.keyboard.press('r')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.__sfStores?.useProjectStore
+              .getState()
+              .project?.screens.flatMap((screen) => screen.layers)
+              .filter((layer) => layer.type === 'shape').length ?? 0,
+        ),
+      )
+      .toBe(1)
+
+    await page.keyboard.press('Meta+e')
+    await expect(page.getByRole('dialog', { name: 'Export officiel' })).toBeVisible()
+    await page.keyboard.press('Escape')
+  })
 })
 
 test.describe('history coalescing', () => {

@@ -15,6 +15,8 @@ export interface ChromeColors {
   artboardShadow: string
   selection: string
   selectionSoft: string
+  guide: string
+  guideHalo: string
 }
 
 export function readChromeColors(): ChromeColors {
@@ -28,6 +30,8 @@ export function readChromeColors(): ChromeColors {
     artboardShadow: read('--color-artboard-shadow', 'rgba(0,0,0,0.5)'),
     selection: read('--color-foreground', '#f7f7f7'),
     selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
+    guide: read('--color-guide', 'rgba(255,255,255,0.85)'),
+    guideHalo: read('--color-guide-halo', 'rgba(0,0,0,0.4)'),
   }
 }
 
@@ -73,7 +77,6 @@ export function applyLassoColors(canvas: Canvas, chrome: ChromeColors): void {
 }
 
 export const SNAP_DISTANCE_PX = 6
-const GUIDE_COLOR = '#ff2d6f'
 
 export function boxOf(object: FabricObject): Box {
   object.setCoords()
@@ -115,14 +118,12 @@ export function screenIndexAtPoint(
   return index === -1 ? null : index
 }
 
-export function drawGuides(canvas: Canvas, guides: Guide[]): void {
+export function drawGuides(canvas: Canvas, guides: Guide[], chrome: ChromeColors): void {
   const ctx = canvas.contextTop
   const retina = canvas.getRetinaScaling()
   const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform
   ctx.save()
   ctx.setTransform(retina, 0, 0, retina, 0, 0)
-  ctx.strokeStyle = GUIDE_COLOR
-  ctx.lineWidth = 1
   ctx.beginPath()
   for (const guide of guides) {
     if (guide.axis === 'x') {
@@ -135,6 +136,11 @@ export function drawGuides(canvas: Canvas, guides: Guide[]): void {
       ctx.lineTo(guide.to * zoomX + panX, y)
     }
   }
+  ctx.strokeStyle = chrome.guideHalo
+  ctx.lineWidth = 3
+  ctx.stroke()
+  ctx.strokeStyle = chrome.guide
+  ctx.lineWidth = 1
   ctx.stroke()
   ctx.restore()
   canvas.contextTopDirty = true

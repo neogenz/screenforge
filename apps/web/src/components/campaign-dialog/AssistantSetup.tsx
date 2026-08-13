@@ -237,7 +237,7 @@ function ProviderChoice({
         checked={active}
         disabled={disabled}
         onChange={onPick}
-        className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
       />
       <span className="flex items-center gap-1.5 text-foreground">
         {active && <Check size={11} aria-hidden />}

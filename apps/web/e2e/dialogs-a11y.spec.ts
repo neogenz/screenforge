@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTextLayer, grantEntitlements, waitForApp } from './helpers'
+import { addTextLayer, grantEntitlements, layerRows, waitForApp } from './helpers'
 
 /**
  * Les cinq boîtes du cycle de vie, au clavier et dans une fenêtre étroite.
@@ -195,6 +195,68 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
   }
+})
+
+test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+  await grantEntitlements(page, { licence: true })
+
+  await page.getByLabel('Générer les visuels App Store').click()
+  const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  const radio = dialog.getByRole('radio', { name: 'Sobre' })
+  await radio.focus()
+  /* L'input invisible couvre toute la carte : sans `outline-none` il peint le
+     contour natif du navigateur par-dessus l'anneau 1px du label — deux
+     indicateurs pour un seul état. */
+  await expect
+    .poll(() => radio.evaluate((element) => getComputedStyle(element).outlineStyle))
+    .toBe('none')
+  await page.keyboard.press('Escape')
+})
+
+test('Escape dans un Select du panneau ne ferme que le Select', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+  const propsOpen = await page.evaluate(() => window.__sfStores?.useUIStore.getState().propsOpen)
+  if (!propsOpen) await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleProps())
+
+  const select = page.getByLabel('Graisse de la police')
+  await expect(select).toBeVisible()
+  await select.click()
+  await expect(select).toHaveAttribute('aria-expanded', 'true')
+
+  await page.keyboard.press('Escape')
+  await expect(select).toHaveAttribute('aria-expanded', 'false')
+  /* Sans le stopPropagation du Select, l'événement remontait au gestionnaire
+     global, qui fermait aussi le drawer sous le menu qu'il venait de fermer. */
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().propsOpen))
+    .toBe(true)
+  await expect(select).toBeVisible()
+})
+
+test('un drawer fermé est inerte et démonté', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+
+  const layersOpen = await page.evaluate(() => window.__sfStores?.useUIStore.getState().layersOpen)
+  if (!layersOpen)
+    await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+  await expect(layerRows(page).first()).toBeVisible()
+
+  await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().layersOpen))
+    .toBe(false)
+
+  /* Inerte tout de suite : Tab ne peut plus atteindre un contrôle d'un panneau
+     traduit hors de l'écran mais encore monté. */
+  const drawer = page.locator('div[aria-hidden="true"][class*="transition-transform"]').first()
+  await expect(drawer).toHaveAttribute('inert', '')
+  /* Démonté une fois la transition de sortie jouée : un scrub du canvas ne
+     re-rend plus un panneau que personne ne voit. */
+  await expect(layerRows(page)).toHaveCount(0, { timeout: 2_000 })
 })
 
 /* Les deux orientations du rail : à gauche quand il porte ce qu'on choisit,

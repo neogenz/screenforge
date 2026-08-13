@@ -93,6 +93,7 @@ declare global {
           setZoom: (zoom: number) => void
           zoomIn: () => void
           zoomOut: () => void
+          toggleLayers: () => void
           toggleProps: () => void
           layersOpen: boolean
           propsOpen: boolean

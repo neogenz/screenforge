@@ -2,14 +2,49 @@ import { useEffect } from 'react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
+import { registerAsset, resolveAsset } from '@/lib/assets'
+import { collectLayerAssetIds } from '@/lib/asset-refs'
+import { createShapeLayer, createTextLayer } from '@/lib/layer-factories'
 import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
 
-let clipboard: Layer[] = []
+interface ClipboardEntry {
+  layer: Layer
+  /** Payloads capturés à la copie : un collage dans un autre projet doit pouvoir
+      ré-enregistrer les images que `hydrateAssets` a effacées entre-temps. */
+  assets: Record<string, string>
+}
 
-function copySelectedLayers(layers: Layer[], selectedLayerIds: string[]): Layer[] {
+let clipboard: ClipboardEntry[] = []
+
+function copySelectedLayers(layers: Layer[], selectedLayerIds: string[]): ClipboardEntry[] {
   const selected = new Set(selectedLayerIds)
-  return layers.filter((layer) => selected.has(layer.id)).map((layer) => structuredClone(layer))
+  return layers
+    .filter((layer) => selected.has(layer.id))
+    .map((layer) => {
+      const ids = new Set<string>()
+      collectLayerAssetIds(layer, ids)
+      const assets: Record<string, string> = {}
+      for (const id of ids) {
+        const dataUrl = resolveAsset(id)
+        if (dataUrl) assets[id] = dataUrl
+      }
+      return { layer: structuredClone(layer), assets }
+    })
+}
+
+function remapClipboardAssets(entry: ClipboardEntry): Layer {
+  const remap = (id: string): string => {
+    const dataUrl = entry.assets[id] ?? resolveAsset(id)
+    return dataUrl ? registerAsset(dataUrl) : id
+  }
+  const layer = structuredClone(entry.layer)
+  if (layer.type === 'image') layer.assetId = remap(layer.assetId)
+  if (layer.type === 'device-frame') {
+    if (layer.screenshotAssetId) layer.screenshotAssetId = remap(layer.screenshotAssetId)
+    if (layer.importedBezel) layer.importedBezel.assetId = remap(layer.importedBezel.assetId)
+  }
+  return layer
 }
 
 function isEditingInput(): boolean {
@@ -41,7 +76,7 @@ export function useKeyboard(): void {
       const key = e.key
 
       // Command palette: global, even from inside inputs.
-      if (meta && key === 'k') {
+      if (meta && !shift && key.toLowerCase() === 'k') {
         e.preventDefault()
         const ui = useUIStore.getState()
         ui.setShowCommandPalette(!ui.showCommandPalette)
@@ -50,9 +85,10 @@ export function useKeyboard(): void {
 
       if (isEditingInput()) return
 
-      const { selectedLayerIds, setLayers, selectLayers, clearSelection, undo, redo } =
+      const { selectedLayerIds, setLayers, selectLayers, clearSelection, undo, redo, addLayer } =
         useCanvasStore.getState()
       const layers = getProjectLayers(useProjectStore.getState().project)
+      const layerCount = layers.length
 
       const {
         zoomIn,
@@ -89,6 +125,25 @@ export function useKeyboard(): void {
       if (meta && !shift && key === 's') {
         e.preventDefault()
         void saveCurrentProject().catch(() => undefined)
+        return
+      }
+
+      // Export dialog
+      if (meta && !shift && key.toLowerCase() === 'e') {
+        e.preventDefault()
+        setShowExportDialog(true)
+        return
+      }
+
+      // Add text / shape — mêmes actions que la palette (commands.ts).
+      if (!meta && !shift && key.toLowerCase() === 't') {
+        e.preventDefault()
+        addLayer(createTextLayer(layerCount))
+        return
+      }
+      if (!meta && !shift && key.toLowerCase() === 'r') {
+        e.preventDefault()
+        addLayer(createShapeLayer(layerCount))
         return
       }
 
@@ -131,7 +186,8 @@ export function useKeyboard(): void {
         let screenZ = layers.filter((layer) => layer.scope !== 'layout').length
         let layoutZ = layers.length - screenZ
         const newIds: string[] = []
-        const pastedLayers = clipboard.map((layer) => {
+        const pastedLayers = clipboard.map((entry) => {
+          const layer = remapClipboardAssets(entry)
           const newLayer: Layer = {
             ...layer,
             id: crypto.randomUUID(),

@@ -392,15 +392,70 @@ export async function patchCanvas(
   if (screenIndex === -1 && change.layerIds.length > 0) return false
   const screen = project.screens[screenIndex]
 
+  /**
+   * Remplace un objet dont la ressource a changé sans quitter le chemin patch.
+   *
+   * Le cadrage d'une capture est écrit dans le raster de l'appareil : chaque
+   * tick du curseur de zoom change la clé de ressource. Renoncer ici renvoyait
+   * à une réconciliation complète — clip, ordre, vignettes de tous les écrans —
+   * soixante fois par seconde de drag. Recréer le seul objet concerné garde le
+   * coût du patch : une image à re-décoder, rien d'autre à rebâtir.
+   */
+  const recreateInPlace = async (
+    object: RenderedObject,
+    layer: Layer,
+    objectId: string,
+  ): Promise<RenderedObject | null> => {
+    const version = runtime.syncVersion.current
+    const replacement = await layerToFabricObject(layer)
+    if (runtime.syncVersion.current !== version || !canvas.getObjects().includes(object)) {
+      // Un patch concurrent a déjà remplacé l'objet pendant le décodage :
+      // sa version du calque est plus récente, c'est elle qui doit rester.
+      disposeFabricObjectResource(replacement)
+      return null
+    }
+    const previousData = object.data
+    const index = canvas.getObjects().indexOf(object)
+    const wasActive = canvas.getActiveObjects().includes(object)
+    canvas.remove(object)
+    disposeFabricObjectResource(object)
+    if (index >= 0) canvas.insertAt(index, replacement)
+    else canvas.add(replacement)
+    replacement.set('data', {
+      ...replacement.data,
+      uid: objectId,
+      layerId: previousData?.layerId,
+      screenId: previousData?.screenId,
+      screenIndex: previousData?.screenIndex,
+      layout: previousData?.layout ?? false,
+    })
+    objectsById.set(objectId, replacement)
+    if (wasActive) {
+      const active = canvas.getActiveObject()
+      if (active instanceof ActiveSelection) {
+        active.add(replacement)
+        canvas.requestRenderAll()
+      } else {
+        canvas.setActiveObject(replacement)
+      }
+    }
+    return replacement
+  }
+
   for (const layerId of change.layerIds) {
     const layer = screen.layers.find((candidate) => candidate.id === layerId)
     const object = objectsById.get(layerId)
     if (!layer || !object) return false
-    if (needsFabricObjectRecreation(object, layer)) return false
+    let target = object
+    if (needsFabricObjectRecreation(object, layer)) {
+      const replacement = await recreateInPlace(object, layer, layerId)
+      if (!replacement) return false
+      target = replacement
+    }
     if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
       return false
-    applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex))
-    applyScreenPresence(object, layer, screenIndex, project.screens.length)
+    applyLayerToFabricObject(target, layer, getScreenOffset(screenIndex))
+    applyScreenPresence(target, layer, screenIndex, project.screens.length)
   }
 
   for (const layerId of change.layoutLayerIds) {
@@ -409,10 +464,16 @@ export async function patchCanvas(
     if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
       return false
     for (let index = 0; index < project.screens.length; index += 1) {
-      const object = objectsById.get(`layout:${layerId}:${project.screens[index].id}`)
+      const objectId = `layout:${layerId}:${project.screens[index].id}`
+      const object = objectsById.get(objectId)
       if (!object) return false
-      if (needsFabricObjectRecreation(object, layer)) return false
-      applyLayoutInstance(object, layer, index, project.screens.length)
+      let target = object
+      if (needsFabricObjectRecreation(object, layer)) {
+        const replacement = await recreateInPlace(object, layer, objectId)
+        if (!replacement) return false
+        target = replacement
+      }
+      applyLayoutInstance(target, layer, index, project.screens.length)
     }
   }
 

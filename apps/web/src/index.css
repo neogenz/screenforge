@@ -114,6 +114,12 @@
   --color-artboard-shadow: oklch(0 0 0 / 0.5);
   /* Voile du lasso. Sa teinte suit `foreground`, seule son alpha change de thème. */
   --color-selection-soft: oklch(0.97 0 0 / 0.14);
+  /* Guides d'alignement : neutres comme le reste du chrome d'artboard. Le halo
+     sombre sous le trait clair les garde lisibles sur un contenu de n'importe
+     quelle couleur — c'est pour ça qu'un trait simple de `foreground` ne suffit
+     pas : sur une planche blanche il disparaît. */
+  --color-guide: oklch(0.97 0 0 / 0.85);
+  --color-guide-halo: oklch(0 0 0 / 0.4);
 
   /* ── Élévation — large, basse en opacité, en trois couches ──
      Namespace shadcn : `shadow-md` pour un îlot, `shadow-lg` pour un menu,
@@ -386,6 +392,8 @@
   --color-artboard-ring: oklch(0 0 0 / 0.1);
   --color-artboard-shadow: oklch(0 0 0 / 0.16);
   --color-selection-soft: oklch(0.18 0 0 / 0.1);
+  --color-guide: oklch(0.18 0 0 / 0.85);
+  --color-guide-halo: oklch(1 0 0 / 0.55);
 
   --shadow-md:
     0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),

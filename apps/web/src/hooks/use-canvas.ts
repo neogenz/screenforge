@@ -196,7 +196,11 @@ export function useCanvas() {
         if (change.type === 'patch') {
           const project = state.project
           void syncPatch(project, change).then((patched) => {
-            if (!patched) void sync(project)
+            /* Le patch a pu renoncer parce qu'un patch plus récent l'a devancé
+               pendant un décodage : resynchroniser sur le projet *courant*, pas
+               sur celui capturé à l'abonnement, sinon le canvas resterait en
+               retard d'un tick sans qu'aucun événement ne vienne le réveiller. */
+            if (!patched) void sync(useProjectStore.getState().project ?? project)
           })
           return
         }

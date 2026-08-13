@@ -117,6 +117,7 @@ export function Select({
         <SelectPrimitive.Content
           position="popper"
           sideOffset={4}
+          onEscapeKeyDown={(event) => event.stopPropagation()}
           className={cn(
             'menu-shadow z-(--z-popover) max-h-72 min-w-(--radix-select-trigger-width) overflow-y-auto',
             'rounded-md border border-border bg-popover text-foreground',

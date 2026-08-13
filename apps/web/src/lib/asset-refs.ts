@@ -1,6 +1,6 @@
 import type { Layer, Project, ProjectSnapshot } from '@/types'
 
-function collectLayerAssetIds(layer: Layer, ids: Set<string>): void {
+export function collectLayerAssetIds(layer: Layer, ids: Set<string>): void {
   switch (layer.type) {
     case 'image':
       ids.add(layer.assetId)
