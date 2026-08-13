@@ -2,6 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
 import * as SlotPrimitive from '@radix-ui/react-slot'
 import type { ButtonHTMLAttributes, Ref } from 'react'
+import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
@@ -42,6 +43,8 @@ export interface ButtonProps
   /** Refuse le clic et préfixe le contenu d'un indicateur, sans masquer le libellé. */
   loading?: boolean
   asChild?: boolean
+  /** Infobulle au survol et au focus — remplace le `title=` natif. */
+  tooltip?: string
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -54,11 +57,12 @@ export function Button({
   className,
   children,
   type = 'button',
+  tooltip,
   ref,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? SlotPrimitive.Root : 'button'
-  return (
+  const button = (
     <Comp
       ref={ref}
       data-slot="button"
@@ -80,4 +84,5 @@ export function Button({
       {children}
     </Comp>
   )
+  return tooltip ? <Tooltip content={tooltip}>{button}</Tooltip> : button
 }

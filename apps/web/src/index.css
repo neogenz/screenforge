@@ -75,7 +75,11 @@
      `input` est la bordure marquée, celle d'un champ au survol. */
   --color-border: oklch(0.26 0 0);
   --color-input: oklch(0.36 0 0);
-  /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair. */
+  /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair.
+     Un seul langage partout : `ring-1 ring-ring` (le handle de slider est la
+     seule exception, voir `--shadow-handle-focus`). L'état « sélectionné » des
+     cartes de dialogues, lui, ne passe jamais par le ring : `border-foreground
+     bg-muted` — le focus dit « tu es là », la bordure pleine dit « c'est choisi ». */
   --color-ring: var(--color-marker-line);
 
   /* 0.64 et non 0.62 : à 0.62 le rouge tombait à 4.41:1 sur `card`, la surface
@@ -139,7 +143,9 @@
   --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.4);
   /* L'anneau que prend la poignée sous le focus clavier et pendant la saisie :
      le même dans les deux cas, parce que c'est le même état — « c'est celle-ci
-     que tu manipules ». */
+     que tu manipules ». Exception assumée au ring-1 ring-ring du contrat de
+     focus : sur une poignée de 14px un anneau d'un pixel se confond avec son
+     bord, et le halo posé *autour* garde la poignée elle-même lisible. */
   --shadow-handle-focus: 0 0 0 4px color-mix(in oklch, var(--color-foreground) 16%, transparent);
   /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
@@ -402,11 +408,22 @@
     0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
     0 32px 64px -32px oklch(0 0 0 / 0.16);
   --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
+  /* Sans override clair la poignée gardait l'ombre sombre à 40% : sur blanc,
+     un liseré noir dur au lieu d'un contact. */
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.18);
   --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
   --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 }
 
 @layer base {
+  /* Dit au navigateur quel thème il peint : barres de défilement, autofill et
+     contrôles natifs suivent le thème au lieu de rester ceux de l'OS. */
+  :root {
+    color-scheme: dark;
+  }
+  .light {
+    color-scheme: light;
+  }
   * {
     margin: 0;
     padding: 0;

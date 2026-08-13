@@ -94,7 +94,7 @@ export function Dialog({
             <DialogPrimitive.Title className="panel-title">{title}</DialogPrimitive.Title>
             <div className="flex items-center gap-1">
               {headerActions}
-              <IconButton aria-label="Fermer" title="Fermer (Échap)" onClick={onClose} size="sm">
+              <IconButton aria-label="Fermer" tooltip="Fermer (Échap)" onClick={onClose} size="sm">
                 <X size={15} strokeWidth={1.75} />
               </IconButton>
             </div>

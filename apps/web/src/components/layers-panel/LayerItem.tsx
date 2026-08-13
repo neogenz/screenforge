@@ -186,7 +186,7 @@ export const LayerItem = memo(function LayerItem({
         <IconButton
           size="sm"
           aria-label={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
-          title={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
+          tooltip={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}
           onClick={(event) => {
             event.stopPropagation()
             actions.setVisibility(layer, !layer.visible)
@@ -201,7 +201,7 @@ export const LayerItem = memo(function LayerItem({
         <IconButton
           size="sm"
           aria-label={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
-          title={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
+          tooltip={layer.locked ? 'Déverrouiller le calque' : 'Verrouiller le calque'}
           onClick={(event) => {
             event.stopPropagation()
             actions.setLocked(layer, !layer.locked)

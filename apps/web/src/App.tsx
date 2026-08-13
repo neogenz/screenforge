@@ -9,6 +9,7 @@ import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
+import { Provider as TooltipProvider } from '@radix-ui/react-tooltip'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
@@ -210,77 +211,79 @@ export default function App() {
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-stage">
-      {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
+    <TooltipProvider>
+      <div className="relative h-full w-full overflow-hidden bg-stage">
+        {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
           niveau 2 et le saut de titre ne renvoyait rien depuis la racine. Le
           nom du projet vit dans son champ, qui se nomme déjà. */}
-      <h1 className="sr-only">ScreenForge</h1>
+        <h1 className="sr-only">ScreenForge</h1>
 
-      {/* Stage: full-bleed canvas */}
-      <main className="absolute inset-0">
-        <CanvasEditor />
-      </main>
-      <div
-        aria-hidden
-        className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)"
-      />
+        {/* Stage: full-bleed canvas */}
+        <main className="absolute inset-0">
+          <CanvasEditor />
+        </main>
+        <div
+          aria-hidden
+          className="stage-vignette pointer-events-none absolute inset-0 z-(--z-stage-veil)"
+        />
 
-      {/* Floating chrome */}
-      <header className="absolute left-3 right-3 top-3 z-(--z-chrome)">
-        <TopBar />
-      </header>
-      <LayersDrawer />
-      <PropertiesDrawer />
-      {/* Centrée tant qu'elle peut encore rétrécir ; ancrée à gauche une fois au
+        {/* Floating chrome */}
+        <header className="absolute left-3 right-3 top-3 z-(--z-chrome)">
+          <TopBar />
+        </header>
+        <LayersDrawer />
+        <PropertiesDrawer />
+        {/* Centrée tant qu'elle peut encore rétrécir ; ancrée à gauche une fois au
           plancher, pour ne pas venir chercher le HUD sous la fenêtre étroite. */}
-      <div
-        className={cn(
-          'absolute bottom-3 z-(--z-chrome)',
-          filmstripCentered ? 'left-1/2 -translate-x-1/2' : 'left-3',
-        )}
-      >
-        <ScreensBar />
-      </div>
-      <div className="absolute bottom-3 right-3 z-(--z-chrome)">
-        <ZoomHud />
-      </div>
+        <div
+          className={cn(
+            'absolute bottom-3 z-(--z-chrome)',
+            filmstripCentered ? 'left-1/2 -translate-x-1/2' : 'left-3',
+          )}
+        >
+          <ScreensBar />
+        </div>
+        <div className="absolute bottom-3 right-3 z-(--z-chrome)">
+          <ZoomHud />
+        </div>
 
-      <input
-        id="sf-image-import-input"
-        type="file"
-        accept={IMAGE_ACCEPT}
-        aria-label="Importer une image"
-        className="sr-only"
-        onChange={(event) => void handleImageImport(event)}
-      />
+        <input
+          id="sf-image-import-input"
+          type="file"
+          accept={IMAGE_ACCEPT}
+          aria-label="Importer une image"
+          className="sr-only"
+          onChange={(event) => void handleImageImport(event)}
+        />
 
-      <Overlays />
-      <Toaster
-        theme={theme}
-        position="bottom-left"
-        duration={3500}
-        visibleToasts={4}
-        offset={16}
-        gap={8}
-        style={
-          {
-            zIndex: 'var(--z-toast)',
-            fontFamily: 'var(--font-sans)',
-            '--normal-bg': 'var(--color-secondary)',
-            '--normal-border': 'var(--color-border)',
-            '--normal-text': 'var(--color-foreground)',
-            '--border-radius': 'var(--radius-md)',
-          } as CSSProperties
-        }
-        toastOptions={{
-          classNames: { title: '!leading-5', description: '!leading-5' },
-          style: {
-            boxShadow: 'var(--shadow-lg), var(--hairline-top)',
-            fontSize: 'var(--text-sm)',
-          },
-        }}
-      />
-    </div>
+        <Overlays />
+        <Toaster
+          theme={theme}
+          position="bottom-left"
+          duration={3500}
+          visibleToasts={4}
+          offset={16}
+          gap={8}
+          style={
+            {
+              zIndex: 'var(--z-toast)',
+              fontFamily: 'var(--font-sans)',
+              '--normal-bg': 'var(--color-secondary)',
+              '--normal-border': 'var(--color-border)',
+              '--normal-text': 'var(--color-foreground)',
+              '--border-radius': 'var(--radius-md)',
+            } as CSSProperties
+          }
+          toastOptions={{
+            classNames: { title: '!leading-5', description: '!leading-5' },
+            style: {
+              boxShadow: 'var(--shadow-lg), var(--hairline-top)',
+              fontSize: 'var(--text-sm)',
+            },
+          }}
+        />
+      </div>
+    </TooltipProvider>
   )
 }
 

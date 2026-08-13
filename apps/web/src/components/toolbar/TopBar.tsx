@@ -194,7 +194,6 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
         <span
           role="status"
           aria-live="polite"
-          title={SAVE_LABELS[saveStatus]}
           className={cn(
             'flex shrink-0 items-center gap-1.5 text-2xs',
             saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
@@ -232,7 +231,7 @@ function HistoryControls() {
       <IconButton
         className="shrink-0"
         aria-label="Annuler"
-        title="Annuler (⌘Z)"
+        tooltip="Annuler (⌘Z)"
         disabled={!canUndo}
         onClick={() => undo()}
       >
@@ -241,7 +240,7 @@ function HistoryControls() {
       <IconButton
         className="shrink-0"
         aria-label="Rétablir"
-        title="Rétablir (⌘⇧Z)"
+        tooltip="Rétablir (⌘⇧Z)"
         disabled={!canRedo}
         onClick={() => redo()}
       >
@@ -272,7 +271,6 @@ function SyncIndicator({ written }: { written: boolean }) {
     <span
       role="status"
       aria-live="polite"
-      title={label}
       className={cn(
         'flex shrink-0 items-center gap-1.5 text-2xs',
         syncStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
@@ -476,6 +474,9 @@ function ProjectName() {
       // Un champ fixe de 160px coupait « Captures App Store — Onboarding v3 »
       // au tiers, sans rien pour lire la suite. Il se dimensionne maintenant sur
       // son contenu entre deux bornes, et le titre natif donne le nom complet.
+      // `title=` et non Tooltip ici, à dessein : une infobulle au focus
+      // surgirait à chaque clic d'édition, exactement quand on n'a pas besoin
+      // d'elle — le survol seul la veut, et c'est le seul geste du natif.
       title={name}
       spellCheck={false}
       className={cn(
@@ -525,7 +526,7 @@ function ToolsSegment() {
       */}
       <IconButton
         aria-label="Ajouter Texte"
-        title="Ajouter : texte"
+        tooltip="Ajouter : texte"
         onClick={() => addLayer(createTextLayer(layerCount()))}
       >
         <Type size={16} strokeWidth={1.75} />
@@ -533,21 +534,21 @@ function ToolsSegment() {
       <DeviceAddTool onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))} />
       <IconButton
         aria-label="Ajouter Image"
-        title="Ajouter : image…"
+        tooltip="Ajouter : image…"
         onClick={() => document.getElementById('sf-image-import-input')?.click()}
       >
         <ImageIcon size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Ajouter Forme"
-        title="Ajouter : forme"
+        tooltip="Ajouter : forme"
         onClick={() => addLayer(createShapeLayer(layerCount()))}
       >
         <Square size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Ajouter Icône"
-        title="Ajouter : icône"
+        tooltip="Ajouter : icône"
         onClick={() => addLayer(createIconLayer(layerCount()))}
       >
         <Star size={16} strokeWidth={1.75} />
@@ -866,7 +867,7 @@ function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
       trigger={
         <IconButton
           aria-label="Ouvrir les autres actions"
-          title="Autres actions"
+          tooltip="Autres actions"
           active={open}
           aria-expanded={open}
         >
@@ -908,7 +909,7 @@ function ActionsSegment({
           d'écran, qui annonçait donc le même bouton dans les deux états. */}
       <IconButton
         aria-label="Basculer le panneau Calques"
-        title="Panneau Calques (⌘⇧L)"
+        tooltip="Panneau Calques (⌘⇧L)"
         active={layersOpen}
         aria-pressed={layersOpen}
         onClick={() => useUIStore.getState().toggleLayers()}
@@ -917,7 +918,7 @@ function ActionsSegment({
       </IconButton>
       <IconButton
         aria-label="Basculer le panneau Propriétés"
-        title="Panneau Propriétés (⌘⇧P)"
+        tooltip="Panneau Propriétés (⌘⇧P)"
         active={propsOpen}
         aria-pressed={propsOpen}
         onClick={() => useUIStore.getState().toggleProps()}
@@ -935,7 +936,7 @@ function ActionsSegment({
             <IconButton
               key={action.id}
               aria-label={action.label}
-              title={action.hint}
+              tooltip={action.hint}
               onClick={action.onSelect}
             >
               <Kbd>⌘K</Kbd>
@@ -944,7 +945,7 @@ function ActionsSegment({
             <IconButton
               key={action.id}
               aria-label={action.label}
-              title={action.hint}
+              tooltip={action.hint}
               active={action.expanded}
               aria-expanded={action.expanded}
               aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
@@ -961,7 +962,6 @@ function ActionsSegment({
         variant="primary"
         size="md"
         aria-label="Ouvrir l’export"
-        title="Exporter les captures App Store"
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
         className="ml-2.5"
       >
@@ -987,7 +987,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       trigger={
         <IconButton
           aria-label="Ajouter un cadre iPhone"
-          title="Ajouter : cadre iPhone"
+          tooltip="Ajouter : cadre iPhone"
           active={open}
           aria-expanded={open}
         >

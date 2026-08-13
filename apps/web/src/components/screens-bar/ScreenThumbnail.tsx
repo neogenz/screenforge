@@ -12,6 +12,7 @@ import {
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
+import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { defaultScreenName } from '@/lib/screens'
 import {
@@ -174,67 +175,68 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           pointeur — `aria-hidden`, `tabIndex={-1}` et une zone de clic étendue à
           la main. Le rang est sorti de l'aperçu mais reste hors du parcours :
           il n'y a toujours qu'une boîte cliquable par écran. */}
-      <button
-        ref={previewRef}
-        type="button"
-        // ⌘/Ctrl ajoute ou retire, ⇧ étend depuis l'écran courant, un clic nu
-        // repart de zéro — les trois conventions du système, dans cet ordre de
-        // priorité.
-        onClick={(event) =>
-          onSelect(
-            screen.id,
-            event.metaKey || event.ctrlKey ? 'toggle' : event.shiftKey ? 'range' : 'single',
-          )
-        }
-        onDoubleClick={startRename}
-        title={`${screen.name} — double-clic pour renommer`}
-        aria-label={`Activer ${screen.name}`}
-        // `aria-pressed` dit l'appartenance à la sélection, `aria-current`
-        // désigne celui qu'on est en train de modifier. Les deux coïncident tant
-        // qu'on n'en retient qu'un, et c'est justement quand ils divergent
-        // qu'annoncer « sélectionné » pour neuf écrans muets serait faux.
-        aria-pressed={isSelected}
-        aria-current={isActive ? 'true' : undefined}
-        // Repère du glisser-déposer : c'est cet élément, et non la colonne, que
-        // le navigateur doit photographier pour l'image traînée.
-        data-thumbnail-preview
-        style={{ height: THUMBNAIL_HEIGHT }}
-        className={cn(
-          // `rounded-md` et non `rounded-xl` : le rayon d'îlot est calibré sur
-          // des surfaces larges, et 21 sur une tuile de 46 en fait une gélule —
-          // 46% de la largeur. La vignette montre un téléphone, pas une pilule.
-          'relative block w-full cursor-pointer overflow-hidden rounded-md bg-muted',
-          'border border-border',
-          'transition-[border-color,box-shadow,scale] duration-150 ease-out',
-          // `scale` et non `transform` : Tailwind v4 écrit la propriété `scale`,
-          // que l'ancienne liste ne nommait pas — l'enfoncement sautait.
-          'active:scale-[0.97] motion-reduce:transition-none',
-          // Seule la tuile courante se détache ; les autres reposent à plat sur
-          // la bande, leur bordure suffit à les découper. `shadow-md` est une
-          // élévation d'îlot : sa nappe basse descend d'une quarantaine de
-          // pixels sous une tuile qui en fait 116, et la boîte de défilement la
-          // tranchait net — `overflow-x: auto` force l'autre axe. L'ombre de
-          // contact tient dans les 8px que le dégagement et la levée laissent
-          // sous la tuile ; l'état, lui, est déjà porté par la pastille citron
-          // et par cette levée.
-          // Retenue sans être courante, la tuile garde en permanence la bordure
-          // que le survol lui donnerait : c'est la seule marque disponible qui
-          // ne touche ni l'aperçu ni le citron.
-          isActive && 'shadow-(--shadow-handle)',
-          !isActive && (isSelected ? 'border-input' : 'hover:border-input'),
-        )}
-      >
-        {/* Pas d'`img-outline` ici : le liseré des images sert à détacher une
+      <Tooltip content={`${screen.name} — double-clic pour renommer`}>
+        <button
+          ref={previewRef}
+          type="button"
+          // ⌘/Ctrl ajoute ou retire, ⇧ étend depuis l'écran courant, un clic nu
+          // repart de zéro — les trois conventions du système, dans cet ordre de
+          // priorité.
+          onClick={(event) =>
+            onSelect(
+              screen.id,
+              event.metaKey || event.ctrlKey ? 'toggle' : event.shiftKey ? 'range' : 'single',
+            )
+          }
+          onDoubleClick={startRename}
+          aria-label={`Activer ${screen.name}`}
+          // `aria-pressed` dit l'appartenance à la sélection, `aria-current`
+          // désigne celui qu'on est en train de modifier. Les deux coïncident tant
+          // qu'on n'en retient qu'un, et c'est justement quand ils divergent
+          // qu'annoncer « sélectionné » pour neuf écrans muets serait faux.
+          aria-pressed={isSelected}
+          aria-current={isActive ? 'true' : undefined}
+          // Repère du glisser-déposer : c'est cet élément, et non la colonne, que
+          // le navigateur doit photographier pour l'image traînée.
+          data-thumbnail-preview
+          style={{ height: THUMBNAIL_HEIGHT }}
+          className={cn(
+            // `rounded-md` et non `rounded-xl` : le rayon d'îlot est calibré sur
+            // des surfaces larges, et 21 sur une tuile de 46 en fait une gélule —
+            // 46% de la largeur. La vignette montre un téléphone, pas une pilule.
+            'relative block w-full cursor-pointer overflow-hidden rounded-md bg-muted',
+            'border border-border',
+            'transition-[border-color,box-shadow,scale] duration-150 ease-out',
+            // `scale` et non `transform` : Tailwind v4 écrit la propriété `scale`,
+            // que l'ancienne liste ne nommait pas — l'enfoncement sautait.
+            'active:scale-[0.97] motion-reduce:transition-none',
+            // Seule la tuile courante se détache ; les autres reposent à plat sur
+            // la bande, leur bordure suffit à les découper. `shadow-md` est une
+            // élévation d'îlot : sa nappe basse descend d'une quarantaine de
+            // pixels sous une tuile qui en fait 116, et la boîte de défilement la
+            // tranchait net — `overflow-x: auto` force l'autre axe. L'ombre de
+            // contact tient dans les 8px que le dégagement et la levée laissent
+            // sous la tuile ; l'état, lui, est déjà porté par la pastille citron
+            // et par cette levée.
+            // Retenue sans être courante, la tuile garde en permanence la bordure
+            // que le survol lui donnerait : c'est la seule marque disponible qui
+            // ne touche ni l'aperçu ni le citron.
+            isActive && 'shadow-(--shadow-handle)',
+            !isActive && (isSelected ? 'border-input' : 'hover:border-input'),
+          )}
+        >
+          {/* Pas d'`img-outline` ici : le liseré des images sert à détacher une
             image posée à même une surface, or celle-ci est déjà encadrée par la
             bordure de la tuile. Les deux traits cumulaient 2px de cadre sur 53
             de large, et le liseré, rectangulaire, se faisait couper aux quatre
             coins par l'écrêtage arrondi — d'où un aperçu qui paraissait rogné. */}
-        {screen.thumbnail ? (
-          <img src={screen.thumbnail} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="block h-full w-full bg-secondary" />
-        )}
-      </button>
+          {screen.thumbnail ? (
+            <img src={screen.thumbnail} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="block h-full w-full bg-secondary" />
+          )}
+        </button>
+      </Tooltip>
 
       {/* Le nom, toujours — son rang à défaut. La rangée n'apparaissait qu'au
           premier renommage, et seuls les écrans nommés y écrivaient : une file

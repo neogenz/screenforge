@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent, Ref } from 'react'
+import { Tooltip } from '@/components/ui/tooltip'
 import { clampNumber, roundTo } from '@/lib/number'
 import { cn } from '@/lib/utils'
 
@@ -111,67 +112,67 @@ export function NumberField({
   const display = editing && draft !== null ? draft : String(roundTo(value, precision))
 
   return (
-    <div
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      title={`${ariaLabel} — glisser pour ajuster`}
-      className={cn(
-        // `flex-1` sert à partager la largeur quand deux champs se suivent en
-        // ligne ; posé seul dans une colonne, il laisse l'algorithme flex fixer
-        // la hauteur et écrase le champ à 19px. `min-h-8` reprend la main.
-        'flex h-8 min-h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
-        'rounded-md border border-input bg-muted shadow-(--shadow-inset)',
-        'transition-[border-color] duration-150 ease-out hover:border-input',
-        // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
-        'focus-within:border-ring focus-within:outline-[1.5px]',
-        'focus-within:outline-offset-2 focus-within:outline-ring',
-        scrubbing && 'select-none border-ring',
-        disabled && 'pointer-events-none opacity-40',
-        className,
-      )}
-    >
-      {label && (
-        <span aria-hidden className="field-label shrink-0 select-none text-muted-foreground">
-          {label}
-        </span>
-      )}
-      <input
-        ref={(node) => {
-          inputRef.current = node
-          if (typeof ref === 'function') ref(node)
-          else if (ref) ref.current = node
-        }}
-        type="number"
-        inputMode="decimal"
-        aria-label={ariaLabel}
-        disabled={disabled}
-        value={display}
-        min={Number.isFinite(min) ? min : undefined}
-        max={Number.isFinite(max) ? max : undefined}
-        step={step}
-        onFocus={(event) => {
-          setEditing(true)
-          setDraft(String(roundTo(value, precision)))
-          event.currentTarget.select()
-        }}
-        onChange={(event) => {
-          setDraft(event.target.value)
-          const parsed = Number(event.target.value)
-          if (event.target.value !== '' && Number.isFinite(parsed)) commit(parsed)
-        }}
-        onBlur={() => {
-          setEditing(false)
-          setDraft(null)
-        }}
-        onKeyDown={handleKeyDown}
+    <Tooltip content={`${ariaLabel} — glisser pour ajuster`}>
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         className={cn(
-          'h-full w-full min-w-0 flex-1 bg-transparent text-sm tabular-nums text-foreground outline-none',
-          // Le curseur texte n'apparaît qu'une fois le champ en édition.
-          editing ? 'cursor-text' : 'cursor-ew-resize',
+          // `flex-1` sert à partager la largeur quand deux champs se suivent en
+          // ligne ; posé seul dans une colonne, il laisse l'algorithme flex fixer
+          // la hauteur et écrase le champ à 19px. `min-h-8` reprend la main.
+          'flex h-8 min-h-8 min-w-0 flex-1 cursor-ew-resize touch-none items-center gap-1.5 px-2.5',
+          'rounded-md border border-input bg-muted shadow-(--shadow-inset)',
+          'transition-[border-color] duration-150 ease-out hover:border-input',
+          // L'anneau de focus vit sur le champ entier, pas sur l'input qu'il contient.
+          'focus-within:border-ring focus-within:ring-1 focus-within:ring-ring',
+          scrubbing && 'select-none border-ring',
+          disabled && 'pointer-events-none opacity-40',
+          className,
         )}
-      />
-    </div>
+      >
+        {label && (
+          <span aria-hidden className="field-label shrink-0 select-none text-muted-foreground">
+            {label}
+          </span>
+        )}
+        <input
+          ref={(node) => {
+            inputRef.current = node
+            if (typeof ref === 'function') ref(node)
+            else if (ref) ref.current = node
+          }}
+          type="number"
+          inputMode="decimal"
+          aria-label={ariaLabel}
+          disabled={disabled}
+          value={display}
+          min={Number.isFinite(min) ? min : undefined}
+          max={Number.isFinite(max) ? max : undefined}
+          step={step}
+          onFocus={(event) => {
+            setEditing(true)
+            setDraft(String(roundTo(value, precision)))
+            event.currentTarget.select()
+          }}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            const parsed = Number(event.target.value)
+            if (event.target.value !== '' && Number.isFinite(parsed)) commit(parsed)
+          }}
+          onBlur={() => {
+            setEditing(false)
+            setDraft(null)
+          }}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            'h-full w-full min-w-0 flex-1 bg-transparent text-sm tabular-nums text-foreground outline-none',
+            // Le curseur texte n'apparaît qu'une fois le champ en édition.
+            editing ? 'cursor-text' : 'cursor-ew-resize',
+          )}
+        />
+      </div>
+    </Tooltip>
   )
 }

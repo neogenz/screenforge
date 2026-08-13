@@ -163,7 +163,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             else if (layer.importedBezel) removeImportedBezel()
           }}
           ariaLabel="Source du cadre"
-          className="w-full"
           disabled={bezelLoading}
         />
       </Field>
@@ -285,7 +284,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 color={color.frame}
                 selected={deviceColor === color.name}
                 onClick={() => onUpdate({ deviceColor: color.name })}
-                title={color.label}
+                tooltip={color.label}
                 aria-label={color.label}
               />
             ))}
@@ -300,7 +299,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             value={orientation}
             onChange={handleOrientationChange}
             ariaLabel="Orientation"
-            className="w-full"
           />
         </Field>
       )}

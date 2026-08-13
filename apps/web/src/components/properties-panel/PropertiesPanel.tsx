@@ -83,7 +83,6 @@ export function PropertiesPanel() {
             {/* Scope — screen-local or shared across all screens */}
             <Segmented
               ariaLabel="Portée du calque"
-              className="w-full"
               options={SCOPE_OPTIONS}
               value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
               onChange={(scope) => setLayerScope(selectedLayer.id, scope)}

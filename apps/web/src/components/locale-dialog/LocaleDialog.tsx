@@ -28,6 +28,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Tooltip } from '@/components/ui/tooltip'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -292,7 +293,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   checked={entry.code === locale?.code}
                   disabled={busy}
                   onChange={() => setSelectedCode(entry.code)}
-                  className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
+                  className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
                 />
                 <span className="tabular">{entry.code}</span>
                 {entry.name}
@@ -323,7 +324,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 variant="default"
                 onClick={() => void translate(locale, layers)}
                 loading={busy}
-                title="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire."
+                tooltip="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire."
               >
                 <Languages size={12} aria-hidden />
                 Pré-remplir via le pont
@@ -425,32 +426,33 @@ function TextRow({
         />
         {/* Relu est un fait qu'on déclare, pas un état qu'on devine : une
             traduction reprise du pont arrive toujours non relue. */}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={variant?.reviewed ?? false}
-          aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
-          title="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait."
-          disabled={disabled}
-          onClick={() =>
-            setLocaleText(
-              locale.code,
-              layer.id,
-              variant?.value ?? '',
-              !(variant?.reviewed ?? false),
-            )
-          }
-          className={cn(
-            'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs transition-colors',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            variant?.reviewed
-              ? 'border-foreground bg-muted text-foreground'
-              : 'border-border text-muted-foreground hover:border-input',
-          )}
-        >
-          <Check size={11} aria-hidden />
-          Relu
-        </button>
+        <Tooltip content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={variant?.reviewed ?? false}
+            aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
+            disabled={disabled}
+            onClick={() =>
+              setLocaleText(
+                locale.code,
+                layer.id,
+                variant?.value ?? '',
+                !(variant?.reviewed ?? false),
+              )
+            }
+            className={cn(
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs transition-colors',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              variant?.reviewed
+                ? 'border-foreground bg-muted text-foreground'
+                : 'border-border text-muted-foreground hover:border-input',
+            )}
+          >
+            <Check size={11} aria-hidden />
+            Relu
+          </button>
+        </Tooltip>
       </div>
       {findings.map((finding) => (
         <p

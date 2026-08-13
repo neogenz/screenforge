@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 export interface SegmentedOption<T extends string> {
   value: T
@@ -32,20 +34,31 @@ export function Segmented<T extends string>({
       value={value}
       onValueChange={(next) => onChange((next || value) as T)}
       disabled={disabled}
-      className={className}
+      className={cn('self-start', className)}
     >
-      {options.map((option) => (
-        <ToggleGroupItem
-          key={option.value}
-          value={option.value}
-          aria-pressed={option.value === value}
-          aria-label={option.ariaLabel ?? option.label}
-          title={option.ariaLabel ?? option.label}
-        >
-          {option.icon}
-          {option.label}
-        </ToggleGroupItem>
-      ))}
+      {options.map((option) => {
+        /* L'infobulle ne sert qu'aux options sans libellé visible : répéter à
+           la souris ce qui est déjà écrit est du bruit, pas une aide. */
+        const hint = option.label ? undefined : option.ariaLabel
+        const item = (
+          <ToggleGroupItem
+            key={option.value}
+            value={option.value}
+            aria-pressed={option.value === value}
+            aria-label={option.ariaLabel ?? option.label}
+          >
+            {option.icon}
+            {option.label}
+          </ToggleGroupItem>
+        )
+        return hint ? (
+          <Tooltip key={option.value} content={hint}>
+            {item}
+          </Tooltip>
+        ) : (
+          item
+        )
+      })}
     </ToggleGroup>
   )
 }

@@ -2,6 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import type { Ref } from 'react'
 import { cn } from '@/lib/utils'
 import { Button, type ButtonProps } from '@/components/ui/button'
+import { Tooltip } from '@/components/ui/tooltip'
 
 const iconButtonVariants = cva(
   [
@@ -9,8 +10,8 @@ const iconButtonVariants = cva(
     'hover:bg-accent hover:text-foreground',
     'focus-visible:border-input',
     'disabled:opacity-35',
-    // Neutre, et non l'accent : ces boutons disent « ce panneau est ouvert »,
-    // pas « c'est ici que vous travaillez ». L'accent est réservé à ce que
+    // Neutre, et non le citron : ces boutons disent « ce panneau est ouvert »,
+    // pas « c'est ici que vous travaillez ». Le citron est réservé à ce que
     // l'utilisateur édite — l'écran courant, le calque sélectionné, le focus.
     //
     // Trois canaux, et non le seul aplat. Mesuré, `bg-secondary` contre la carte
@@ -39,11 +40,13 @@ export interface IconButtonProps
   /** Every icon-only button must be labelled. */
   'aria-label': string
   active?: boolean
+  /** Infobulle au survol et au focus — remplace le `title=` natif. */
+  tooltip?: string
   ref?: Ref<HTMLButtonElement>
 }
 
-export function IconButton({ size, active, className, ref, ...props }: IconButtonProps) {
-  return (
+export function IconButton({ size, active, className, tooltip, ref, ...props }: IconButtonProps) {
+  const button = (
     <Button
       ref={ref}
       variant="ghost"
@@ -53,4 +56,5 @@ export function IconButton({ size, active, className, ref, ...props }: IconButto
       {...props}
     />
   )
+  return tooltip ? <Tooltip content={tooltip}>{button}</Tooltip> : button
 }

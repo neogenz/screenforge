@@ -40,6 +40,25 @@ async function openWithKeyboard(page: Page, opener: Locator, title: string): Pro
   return dialog
 }
 
+/**
+ * Congédie la boîte. Une infobulle ouverte au focus est une couche au-dessus
+ * de la boîte : le premier Échap la congédie elle, le second la boîte — même
+ * règle qu'un Select ouvert dans une modale. La boucle absorbe la course entre
+ * le délai d'apparition de l'infobulle et la première pression.
+ */
+async function closeDialog(page: Page, dialog: Locator): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.keyboard.press('Escape')
+    try {
+      await expect(dialog).toBeHidden({ timeout: 800 })
+      return
+    } catch {
+      // Une couche (infobulle, menu) a pris cet Échap : le suivant ira à la boîte.
+    }
+  }
+  await expect(dialog).toBeHidden()
+}
+
 async function expectRingToken(page: Page, control: Locator): Promise<void> {
   await control.evaluate((element) => {
     const host =
@@ -90,8 +109,7 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
       expect(await activeInsideDialog(page), `${title} : focus échappé au tour ${step}`).toBe(true)
     }
 
-    await page.keyboard.press('Escape')
-    await expect(dialog).toBeHidden()
+    await closeDialog(page, dialog)
     // Et il revient d'où il venait, pas au début du document.
     await expect(opener).toBeFocused()
   }
@@ -109,7 +127,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await expectRingToken(page, assistance)
   await assistance.click()
   await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
-  await page.keyboard.press('Escape')
+  await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les langues').click()
   dialog = page.getByRole('dialog', { name: 'Langues' })
@@ -118,7 +136,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await dialog.getByRole('button', { name: 'Ajouter' }).click()
   await expectRingToken(page, dialog.getByRole('radio', { name: /de Allemand/ }))
   await expectRingToken(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
-  await page.keyboard.press('Escape')
+  await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les releases').click()
   dialog = page.getByRole('dialog', { name: 'Releases' })
@@ -126,17 +144,18 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await dialog.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
-  await page.keyboard.press('Escape')
+  await closeDialog(page, dialog)
 
   await page.getByLabel('Publier chez Apple').click()
   dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
   await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
-  await page.keyboard.press('Escape')
+  await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir l’export').click()
   dialog = page.getByRole('dialog', { name: 'Export officiel' })
   await expectRingToken(page, dialog.getByRole('checkbox').first())
   await expect(dialog.locator('[class~="focus-visible:ring-foreground"]')).toHaveCount(0)
+  await closeDialog(page, dialog)
 })
 
 test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) => {
@@ -192,8 +211,7 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
       )
       .toEqual({ dehors: [], dansLaFenêtre: true, défilementHorizontal: false })
 
-    await page.keyboard.press('Escape')
-    await expect(dialog).toBeHidden()
+    await closeDialog(page, dialog)
   }
 })
 
@@ -212,7 +230,7 @@ test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }
   await expect
     .poll(() => radio.evaluate((element) => getComputedStyle(element).outlineStyle))
     .toBe('none')
-  await page.keyboard.press('Escape')
+  await closeDialog(page, dialog)
 })
 
 test('Escape dans un Select du panneau ne ferme que le Select', async ({ page }) => {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Background, ColorStop, GradientFill } from '@/types'
+import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { backgroundToCss } from '@/lib/background-css'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
@@ -138,19 +139,19 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
           {PRESET_GRADIENTS.map((preset) => {
             const selected = isPresetActive(preset.background, background)
             return (
-              <button
-                key={preset.name}
-                type="button"
-                onClick={() => handlePresetClick(preset.background)}
-                aria-label={`Appliquer le dégradé ${preset.name}`}
-                aria-pressed={selected}
-                title={preset.name}
-                style={{ background: backgroundToCss(preset.background) }}
-                className={cn(
-                  'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
-                  selected ? 'border-muted-foreground' : 'border-border hover:border-input',
-                )}
-              />
+              <Tooltip key={preset.name} content={preset.name}>
+                <button
+                  type="button"
+                  onClick={() => handlePresetClick(preset.background)}
+                  aria-label={`Appliquer le dégradé ${preset.name}`}
+                  aria-pressed={selected}
+                  style={{ background: backgroundToCss(preset.background) }}
+                  className={cn(
+                    'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
+                    selected ? 'border-foreground' : 'border-border hover:border-input',
+                  )}
+                />
+              </Tooltip>
             )
           })}
         </div>

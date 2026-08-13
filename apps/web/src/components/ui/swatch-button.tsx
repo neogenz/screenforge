@@ -1,11 +1,14 @@
 import type { ButtonHTMLAttributes, Ref } from 'react'
 import { Button } from '@/components/ui/button'
+import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface SwatchButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Couleur affichée dans la pastille. Peut être translucide. */
   color: string
   selected?: boolean
+  /** Infobulle au survol et au focus — remplace le `title=` natif. */
+  tooltip?: string
   ref?: Ref<HTMLButtonElement>
 }
 
@@ -19,10 +22,11 @@ export function SwatchButton({
   color,
   selected = false,
   className,
+  tooltip,
   ref,
   ...props
 }: SwatchButtonProps) {
-  return (
+  const button = (
     <Button
       ref={ref}
       variant="ghost"
@@ -44,4 +48,5 @@ export function SwatchButton({
       </span>
     </Button>
   )
+  return tooltip ? <Tooltip content={tooltip}>{button}</Tooltip> : button
 }

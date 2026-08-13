@@ -6,7 +6,10 @@ test.describe('command palette', () => {
     await waitForApp(page)
     const trigger = page.getByRole('button', { name: 'Ouvrir la palette de commandes' })
     await expect(trigger).toHaveAttribute('data-slot', 'icon-button')
-    await expect(trigger).toHaveAttribute('title', 'Palette de commandes (⌘K)')
+    /* L'infobulle est la primitive, pas le `title=` natif : elle se montre au
+       survol comme au focus clavier. */
+    await trigger.hover()
+    await expect(page.getByRole('tooltip')).toContainText('Palette de commandes')
     await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(36)
     await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(36)
 

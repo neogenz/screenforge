@@ -76,7 +76,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         <Command.Input
           aria-label="Rechercher une commande"
           placeholder="Rechercher une commande…"
-          className="h-10 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          className="h-10 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
         />
         <Kbd>esc</Kbd>
       </div>

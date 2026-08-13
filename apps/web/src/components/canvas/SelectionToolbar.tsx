@@ -137,7 +137,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               key={mode}
               size="sm"
               aria-label={label}
-              title={label}
+              tooltip={label}
               onClick={() => useCanvasStore.getState().alignSelection(mode)}
             >
               <Icon size={14} strokeWidth={1.6} aria-hidden />
@@ -163,7 +163,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
           <IconButton
             size="sm"
             aria-label="Dupliquer"
-            title="Dupliquer"
+            tooltip="Dupliquer"
             onClick={() => {
               for (const id of selectedLayerIds) useCanvasStore.getState().duplicateLayer(id)
             }}
@@ -173,7 +173,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
           <IconButton
             size="sm"
             aria-label="Supprimer"
-            title="Supprimer"
+            tooltip="Supprimer"
             className="hover:text-destructive"
             onClick={() => {
               for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
@@ -257,7 +257,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
             size="sm"
             active={layer.textAlign === value}
             aria-label={label}
-            title={label}
+            tooltip={label}
             onClick={() => update({ textAlign: value } as Partial<Layer>)}
           >
             <Icon size={14} strokeWidth={1.6} aria-hidden />
@@ -300,7 +300,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
             color={color.frame}
             selected={color.name === layer.deviceColor}
             aria-label={color.label}
-            title={color.label}
+            tooltip={color.label}
             onClick={() => update({ deviceColor: color.name } as Partial<Layer>)}
           />
         ))}
@@ -385,7 +385,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: Screensh
       <IconButton
         size="sm"
         aria-label="Choisir la capture"
-        title="Choisir la capture"
+        tooltip="Choisir la capture"
         onClick={() => input.current?.click()}
       >
         <ImagePlus size={14} strokeWidth={1.6} aria-hidden />
@@ -421,7 +421,7 @@ function ColorControl({
         color={value}
         selected={open}
         aria-label={label}
-        title={label}
+        tooltip={label}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}

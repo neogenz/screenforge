@@ -79,9 +79,9 @@ function TemplatePickerContent() {
               className={cn(
                 'group flex flex-col gap-2 self-start rounded-lg border p-2 text-left',
                 'transition-[border-color,background] duration-150 ease-out',
-                'focus-visible:outline-none focus-visible:border-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 isSelected
-                  ? 'border-muted-foreground bg-secondary'
+                  ? 'border-foreground bg-muted'
                   : 'border-border hover:border-input hover:bg-accent',
               )}
             >

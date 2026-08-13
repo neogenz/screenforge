@@ -150,7 +150,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                     color={color.frame}
                     selected={draft.deviceColor === color.name}
                     onClick={() => update({ deviceColor: color.name })}
-                    title={color.label}
+                    tooltip={color.label}
                     aria-label={color.label}
                   />
                 ))}

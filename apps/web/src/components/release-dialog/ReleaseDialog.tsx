@@ -384,7 +384,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   onClick={() => void verify(selected)}
                   loading={running === 'verify'}
                   disabled={busy}
-                  title={
+                  tooltip={
                     verdict === 'ok'
                       ? 'Ce lot vient de se rejouer à l’identique. Cliquez pour recommencer.'
                       : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si ce lot se rend encore à l’identique.'
@@ -397,7 +397,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   variant="default"
                   onClick={() => resume(selected)}
                   disabled={busy || diff?.identical}
-                  title={
+                  tooltip={
                     diff?.identical
                       ? 'Le projet est déjà dans cet état.'
                       : 'Ramène les écrans et les réglages du projet dans l’état de ce lot. Le lot, lui, ne bouge pas.'

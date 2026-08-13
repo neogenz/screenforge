@@ -54,6 +54,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip } from '@/components/ui/tooltip'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -918,9 +919,8 @@ function StyleChip({
   title?: string
   onSelect: () => void
 }) {
-  return (
+  const card = (
     <label
-      title={title}
       className={cn(
         'relative flex w-full cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
         'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
@@ -937,7 +937,7 @@ function StyleChip({
         checked={selected}
         disabled={disabled}
         onChange={onSelect}
-        className="absolute inset-0 z-10 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
+        className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
       />
       <span
         aria-hidden
@@ -947,6 +947,7 @@ function StyleChip({
       {label}
     </label>
   )
+  return title ? <Tooltip content={title}>{card}</Tooltip> : card
 }
 
 function AssistancePanel({
@@ -1178,7 +1179,7 @@ function PlanReview({
                 variant="default"
                 onClick={() => onDrop(focus)}
                 disabled={busy || only || regenerating !== null}
-                title={only ? 'Il faut au moins un visuel : utilisez « Annuler ».' : undefined}
+                tooltip={only ? 'Il faut au moins un visuel : utilisez « Annuler ».' : undefined}
               >
                 <Trash2 size={12} aria-hidden />
                 Retirer

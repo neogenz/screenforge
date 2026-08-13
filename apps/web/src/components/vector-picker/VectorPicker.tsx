@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
+import { Tooltip } from '@/components/ui/tooltip'
 import { groupsOf, ICON_BOX, ICON_STROKE, SHAPE_BOX } from '@/lib/vector-catalog'
 import { cn } from '@/lib/utils'
 
@@ -158,63 +159,63 @@ export function VectorPicker({
               </div>
               <div className="grid grid-cols-5 gap-1 px-1 pb-1">
                 {items.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="option"
-                    aria-selected={entry.id === value}
-                    aria-label={entry.label}
-                    title={entry.label}
-                    tabIndex={entry.id === active?.id ? 0 : -1}
-                    data-vector-option={entry.id}
-                    onFocus={() => setActiveId(entry.id)}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key !== 'ArrowLeft' &&
-                        event.key !== 'ArrowRight' &&
-                        event.key !== 'ArrowUp' &&
-                        event.key !== 'ArrowDown'
-                      ) {
-                        return
-                      }
+                  <Tooltip key={entry.id} content={entry.label}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={entry.id === value}
+                      aria-label={entry.label}
+                      tabIndex={entry.id === active?.id ? 0 : -1}
+                      data-vector-option={entry.id}
+                      onFocus={() => setActiveId(entry.id)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key !== 'ArrowLeft' &&
+                          event.key !== 'ArrowRight' &&
+                          event.key !== 'ArrowUp' &&
+                          event.key !== 'ArrowDown'
+                        ) {
+                          return
+                        }
 
-                      event.preventDefault()
-                      const currentPosition = positioned.find(
-                        (position) => position.id === entry.id,
-                      )
-                      if (!currentPosition) return
-                      const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight'
-                      const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-                      const targetRow = currentPosition.row + (backwards ? -1 : 1)
-                      const targetColumn = currentPosition.column + (backwards ? -1 : 1)
-                      const next = horizontal
-                        ? positioned.find(
-                            (position) =>
-                              position.row === currentPosition.row &&
-                              position.column === targetColumn,
-                          )
-                        : positioned
-                            .filter((position) => position.row === targetRow)
-                            .sort(
-                              (a, b) =>
-                                Math.abs(a.column - currentPosition.column) -
-                                Math.abs(b.column - currentPosition.column),
-                            )[0]
-                      if (next) focusOption(next.id)
-                    }}
-                    onClick={() => {
-                      onChange(entry.id)
-                      close(true)
-                    }}
-                    className={cn(
-                      'flex h-8 w-full items-center justify-center rounded-md border border-transparent',
-                      'text-foreground transition-colors duration-120 hover:bg-accent',
-                      'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                      entry.id === value && 'border-border bg-accent',
-                    )}
-                  >
-                    <VectorGlyph entry={entry} kind={kind} size={16} />
-                  </button>
+                        event.preventDefault()
+                        const currentPosition = positioned.find(
+                          (position) => position.id === entry.id,
+                        )
+                        if (!currentPosition) return
+                        const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight'
+                        const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                        const targetRow = currentPosition.row + (backwards ? -1 : 1)
+                        const targetColumn = currentPosition.column + (backwards ? -1 : 1)
+                        const next = horizontal
+                          ? positioned.find(
+                              (position) =>
+                                position.row === currentPosition.row &&
+                                position.column === targetColumn,
+                            )
+                          : positioned
+                              .filter((position) => position.row === targetRow)
+                              .sort(
+                                (a, b) =>
+                                  Math.abs(a.column - currentPosition.column) -
+                                  Math.abs(b.column - currentPosition.column),
+                              )[0]
+                        if (next) focusOption(next.id)
+                      }}
+                      onClick={() => {
+                        onChange(entry.id)
+                        close(true)
+                      }}
+                      className={cn(
+                        'flex h-8 w-full items-center justify-center rounded-md border border-transparent',
+                        'text-foreground transition-colors duration-120 hover:bg-accent',
+                        'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
+                        entry.id === value && 'border-foreground bg-muted',
+                      )}
+                    >
+                      <VectorGlyph entry={entry} kind={kind} size={16} />
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
             </div>

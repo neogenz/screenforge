@@ -429,7 +429,7 @@ export function ScreensBar() {
       >
         <IconButton
           size="sm"
-          title={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
+          tooltip={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
           aria-label="Ajouter un écran"
           onClick={handleAdd}
           disabled={atCapacity}
