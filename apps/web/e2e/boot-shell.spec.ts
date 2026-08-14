@@ -86,10 +86,13 @@ async function expectBootTheme(
       light: document.documentElement.classList.contains('light'),
       background: root.backgroundColor,
       ink: boot.color,
+      /* Les deux valeurs recopient `--color-background`, pas `--color-stage` :
+         le boot peint ce que le chrome peindra en premier au montage, sinon un
+         boot plus sombre que l'application se lit comme un double flash. */
       expectedBackground: resolveColor(
         document.documentElement.classList.contains('light')
           ? 'oklch(0.965 0 0)'
-          : 'oklch(0.145 0 0)',
+          : 'oklch(0.175 0 0)',
       ),
       expectedInk: resolveColor(
         document.documentElement.classList.contains('light') ? 'oklch(0.4 0 0)' : 'oklch(0.78 0 0)',

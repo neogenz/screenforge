@@ -117,9 +117,18 @@ function accountEntryPresent(page: Page): Promise<boolean> {
     )
 }
 
-/** Le témoin de la barre du haut, lisible quelle que soit la largeur. */
+/**
+ * Le témoin de la barre du haut, lisible quelle que soit la largeur.
+ *
+ * Sur son texte et non sur un `title` : le témoin n'en porte plus depuis que
+ * les infobulles passent par la primitive Tooltip, et un état n'est pas une
+ * commande — il se lit, il ne se survole pas. Le libellé se replie en
+ * `sr-only` quand la barre se resserre, jamais en `display:none`, donc il
+ * reste dans le DOM à toute largeur. Ancré, sinon « Enregistré » attraperait
+ * aussi « Enregistrement… ».
+ */
 function syncBadge(page: Page, label: string) {
-  return page.locator(`[role="status"][title="${label}"]`)
+  return page.locator('[role="status"]').filter({ hasText: new RegExp(`^${label}$`) })
 }
 
 function projectName(page: Page) {
@@ -325,7 +334,7 @@ test.describe('Sync cloud', () => {
     const localName = `Édition locale ${Date.now()}`
     await projectName(page).fill(localName)
     await projectName(page).press('Enter')
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     releaseDownload()
@@ -368,7 +377,7 @@ test.describe('Sync cloud', () => {
       localTargetName,
     )
     await page.getByLabel('Ajouter Texte').click()
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     await page.evaluate(
@@ -381,7 +390,7 @@ test.describe('Sync cloud', () => {
       mimeType: 'image/png',
       buffer: makeSolidPng(8, 8, [16, 185, 129, 255]),
     })
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const keptAssetId = await page.evaluate(() => {
@@ -398,7 +407,7 @@ test.describe('Sync cloud', () => {
     await page.getByLabel('Ouvrir le menu Projet').click()
     await page.getByRole('menuitem', { name: `Ouvrir « ${localTargetName} »` }).click()
     await page.getByLabel('Ajouter Texte').click()
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const localTarget = await page.evaluate(() =>
@@ -529,7 +538,7 @@ test.describe('Sync cloud', () => {
       localAName,
     )
     await page.getByLabel('Ajouter Texte').click()
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const localA = await page.evaluate(() =>
@@ -540,7 +549,7 @@ test.describe('Sync cloud', () => {
       localBName,
     )
     await page.getByLabel('Ajouter Texte').click()
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     if (!localA) throw new Error('Could not create the non-target local fixture.')
@@ -616,7 +625,7 @@ test.describe('Sync cloud', () => {
     const editedAName = `${localAName} édité`
     await projectName(page).fill(editedAName)
     await projectName(page).press('Enter')
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     await page.getByLabel('Ouvrir le menu Projet').click()
@@ -873,7 +882,7 @@ test.describe('Sync cloud', () => {
       mimeType: 'image/png',
       buffer: makeSolidPng(8, 8, [220, 38, 38, 255]),
     })
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const assetA = await page.evaluate(() => {
@@ -894,7 +903,7 @@ test.describe('Sync cloud', () => {
       mimeType: 'image/png',
       buffer: makeSolidPng(8, 8, [37, 99, 235, 255]),
     })
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const assetB = await page.evaluate(() => {
@@ -988,7 +997,7 @@ test.describe('Porte Cloud côté client', () => {
     expect(attempts, `requêtes tentées : ${attempts.join(', ')}`).toEqual([])
     /* `SyncIndicator` ne rend rien sur `off` : aucun des quatre libellés n'est
        dans la page, donc pas même « Échec de la synchronisation ». */
-    await expect(page.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(page.locator('[role="status"]').filter({ hasText: /ynchronis/ })).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
 
     await page.context().close()
@@ -1059,7 +1068,7 @@ test.describe('Porte Cloud côté client', () => {
     await page.waitForTimeout(5_000)
 
     expect(attempts, `requêtes tentées : ${attempts.join(', ')}`).toEqual([])
-    await expect(page.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(page.locator('[role="status"]').filter({ hasText: /ynchronis/ })).toHaveCount(0)
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(projectName(page)).toHaveValue(`${marker} local`)
 
@@ -1106,7 +1115,7 @@ test.describe('Porte Cloud côté client', () => {
 
     /* Critère 9 : la sync s'arrête, et le projet reste là, éditable. Le témoin
        disparaît au lieu de passer au rouge. */
-    await expect(abonné.locator('[role="status"][title*="ynchronis"]')).toHaveCount(0)
+    await expect(abonné.getByRole('status', { name: /ynchronis/ })).toHaveCount(0)
     await expect(projectName(abonné)).toHaveValue(marker)
     await projectName(abonné).fill(`${marker} modifié`)
     await projectName(abonné).press('Enter')
@@ -1144,7 +1153,7 @@ test.describe('Rattachement des projets locaux', () => {
        signature du « Projet sans titre » que l'éditeur ouvre au démarrage. Le
        calque en fait un projet de quelqu'un. */
     await page.getByLabel('Ajouter Texte').click()
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
   }
@@ -1171,7 +1180,7 @@ test.describe('Rattachement des projets locaux', () => {
       mimeType: 'image/png',
       buffer: makeSolidPng(8, 8, [59, 130, 246, 255]),
     })
-    await expect(page.locator('[role="status"][title="Enregistré"]')).toBeAttached({
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
     const activeAssetId = await page.evaluate(() => {
