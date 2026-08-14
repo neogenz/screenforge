@@ -1115,7 +1115,7 @@ test.describe('Porte Cloud côté client', () => {
 
     /* Critère 9 : la sync s'arrête, et le projet reste là, éditable. Le témoin
        disparaît au lieu de passer au rouge. */
-    await expect(abonné.getByRole('status', { name: /ynchronis/ })).toHaveCount(0)
+    await expect(abonné.locator('[role="status"]').filter({ hasText: /ynchronis/ })).toHaveCount(0)
     await expect(projectName(abonné)).toHaveValue(marker)
     await projectName(abonné).fill(`${marker} modifié`)
     await projectName(abonné).press('Enter')
