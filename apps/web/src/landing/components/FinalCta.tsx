@@ -7,7 +7,7 @@ import { CtaGhost, CtaPrimary } from './cta'
  * Deux actions, parce que la page en a deux à conclure. Elle défend un prix
  * sur trois sections puis terminait sur « ouvrir gratuitement » : le dernier
  * temps rétractait l'argument commercial. Le gratuit reste l'action première ;
- * la Licence ouvre une notification avant lancement, puis les offres de
+ * Local ouvre une notification avant lancement, puis les offres de
  * l'éditeur dans le profil lancé.
  *
  * Le seul aplat citron de la page, et il est ici.
@@ -45,7 +45,7 @@ export function FinalCta() {
       </p>
       {/* « Pas encore ouvert » légendait le seul bouton qui marche : posée
           sous la rangée, la mention s'alignait à gauche, donc sous le CTA
-          gratuit. Elle appartient au bouton Licence, et le suit quand la
+          gratuit. Elle appartient au bouton Local, et le suit quand la
           rangée passe à la ligne. */}
       {/* Les deux boutons s'inversent sur l'aplat : l'encre devient la couleur
           de remplissage, le citron devient le texte. `outline-ring` est du
@@ -60,10 +60,10 @@ export function FinalCta() {
         </CtaPrimary>
         <div className="flex flex-col">
           <CtaGhost
-            href={offerHref(lang, 'licence')}
+            href={offerHref(lang, 'local')}
             className="border-marker-ink text-marker-ink hover:bg-marker-ink hover:text-marker focus-visible:outline-marker-ink"
           >
-            {t.finalCta.ctaLicence}
+            {t.finalCta.ctaLocal}
           </CtaGhost>
           {!commercialLaunch && (
             <p className="mt-2 text-center font-mono text-2xs text-marker-ink">

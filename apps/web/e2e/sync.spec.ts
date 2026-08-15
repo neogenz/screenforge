@@ -1,5 +1,5 @@
 /**
- * La preuve de ce que l'add-on Cloud vend : un projet repris ailleurs.
+ * La preuve de ce que le plan Cloud vend : un projet repris ailleurs.
  *
  * Tout le reste de la suite e2e vérifie qu'un navigateur retrouve son propre
  * travail. Ici, deux contextes distincts — deux profils, deux IndexedDB, aucune
@@ -12,7 +12,7 @@
  * l'interface, crée la fixture et `SESSION_NAMESPACE` fixe l'emplacement des
  * jetons pour qu'il soit adressable d'ici.
  *
- * L'abonnement Cloud est semé avec la session : la sync est l'add-on payant —
+ * L'abonnement Cloud est semé avec la session : la sync est le service payant —
  * `requireCloud` refuse l'écriture et l'éditeur ne tente rien sans le droit. Un
  * compte fraîchement inscrit est un compte gratuit, donc ce fichier mesurerait
  * la porte commerciale au lieu de la sync. L'octroi passe par
@@ -1158,7 +1158,34 @@ test.describe('Porte Cloud côté client', () => {
   test.skip(!stack, 'déploiement Convex local arrêté')
   test.setTimeout(120_000)
 
-  test('un compte Licence ne tente aucune synchronisation', async ({ browser, baseURL }) => {
+  test('un compte Cloud seul affiche le plan complet sans prérequis Local', async ({
+    browser,
+    baseURL,
+  }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+
+    const page = await openApp(browser, baseURL!, own)
+    await requireAccountEntry(page)
+    await expect
+      .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
+      .toMatchObject({ cloud: true, licence: false, licenceGrantedAt: null })
+
+    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Compte' })
+    await expect(dialog.getByText('Cloud', { exact: true })).toBeVisible()
+    await expect(dialog.getByText(/inclut Local/)).toBeVisible()
+    await expect(
+      dialog.getByText('Synchronisation : projets, images et thème sur chaque machine.'),
+    ).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Factures et paiement' })).toBeVisible()
+    await expect(dialog.getByText(/Licence|add-on|nécessite/i)).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: 'Passer au Cloud' })).toHaveCount(0)
+
+    await page.context().close()
+  })
+
+  test('un compte Local ne tente aucune synchronisation', async ({ browser, baseURL }) => {
     const own = await signUpSession(stack!)
     expect(await grantLicence(admin(), own.userId)).toBe('written')
 
@@ -1186,7 +1213,7 @@ test.describe('Porte Cloud côté client', () => {
     await page.context().close()
   })
 
-  test('avertit un compte Licence quand le navigateur ne promet rien', async ({
+  test('avertit un compte Local quand le navigateur ne promet rien', async ({
     browser,
     baseURL,
   }) => {
@@ -1204,12 +1231,16 @@ test.describe('Porte Cloud côté client', () => {
     expect(durable, 'Chromium a accordé la durabilité à un profil neuf').toBe(false)
 
     await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Compte' })
+    await expect(dialog.getByText('Local', { exact: true })).toBeVisible()
+    await expect(dialog.getByText(/Acquis le 12 mars 2026/)).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Passer au Cloud' })).toBeVisible()
     await expect(page.getByText(DURABILITY_WARNING)).toBeVisible()
 
     await page.context().close()
   })
 
-  test('une Licence déjà lue reste disponible si sa relecture réseau échoue', async ({
+  test('un achat Local déjà lu reste disponible si sa relecture réseau échoue', async ({
     browser,
     baseURL,
   }) => {

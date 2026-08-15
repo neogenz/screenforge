@@ -35,7 +35,7 @@ import { useLang } from '../i18n'
  *
  * Il est centré, et sur la mesure du chapô, parce qu'il appartient à
  * l'argument et pas à l'offre. La section a deux axes : le titre, le chapô et
- * la démonstration tiennent une colonne étroite au centre, les trois cartes et
+ * la démonstration tiennent une colonne étroite au centre, les deux cartes et
  * le comparatif prennent la largeur. Aligné à gauche sur 45 % de la page, le
  * tableau n'était sur ni l'un ni l'autre — seul élément hors axe de la
  * section, avec sept cents pixels de noir à sa droite que rien ne venait

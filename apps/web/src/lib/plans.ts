@@ -48,8 +48,8 @@ export const PLANS: Plan[] = [
     tagline: 'L’éditeur complet et vos projets sur chaque machine',
     points: [
       'Exports illimités et ZIP sans filigrane',
+      'Projets, images et thème synchronisés',
       'Reprendre un projet sur une autre machine',
-      'Sauvegarde cloud, hors du navigateur',
     ],
   },
 ]

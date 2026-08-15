@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: aligner l’éditeur, le compte et la landing sur les deux offres
@@ -180,4 +180,3 @@ BOÎTE COMPTE
 - Un compte Cloud seul est affiché comme pleinement actif; un compte Local historique conserve sa date et son fallback.
 - Les cartes, CTA et dialogues passent clavier, lecteurs d’écran, mobile, clair/sombre et audits de contraste.
 - Le build pré-rendu contient exactement deux offres structurées et aucune offre Free.
-

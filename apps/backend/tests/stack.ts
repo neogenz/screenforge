@@ -212,12 +212,12 @@ export function grantLicence(admin: ConvexHttpClient, userId: string) {
   })
 }
 
-/** La Licence plus l'abonnement Cloud en cours — ce que `requireCloud` exige. */
+/** Un abonnement Cloud autonome en cours, sans achat Local implicite. */
 export function grantCloud(admin: ConvexHttpClient, userId: string) {
   return admin.mutation(applyEntitlements, {
     userId,
     polarCustomerId: customer(userId),
-    licenceGrantedAt: LICENCE_AT,
+    licenceGrantedAt: null,
     cloudStatus: 'active',
     cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
     sourceUpdatedAt: Date.now(),
@@ -225,14 +225,14 @@ export function grantCloud(admin: ConvexHttpClient, userId: string) {
 }
 
 /**
- * La fin de période, telle que Polar la laisse : le statut reste renseigné,
- * c'est la date qui a passé. La Licence, elle, ne bouge pas.
+ * La fin de période d'un Cloud autonome : le statut reste renseigné, c'est la
+ * date qui a passé, et aucun achat Local n'est inventé au passage.
  */
 export function expireCloud(admin: ConvexHttpClient, userId: string) {
   return admin.mutation(applyEntitlements, {
     userId,
     polarCustomerId: customer(userId),
-    licenceGrantedAt: LICENCE_AT,
+    licenceGrantedAt: null,
     cloudStatus: 'active',
     cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
     sourceUpdatedAt: Date.now() + 1,

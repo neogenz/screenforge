@@ -14,7 +14,7 @@ const en = {
   meta: {
     title: 'ScreenForge — App Store screenshots, pixel-exact',
     description:
-      'Editor for iPhone App Store screenshot sets. Pixel-exact exports rendered on your own machine, one ZIP ready for App Store Connect. $49 once, not a subscription.',
+      'Editor for iPhone App Store screenshot sets. Choose $49 Local once or $39/year Cloud for projects, images and settings on every machine.',
   },
   nav: {
     features: 'The editor',
@@ -28,7 +28,7 @@ const en = {
   },
   hero: {
     headline: 'App Store screenshots, down to the pixel.',
-    sub: 'Compose up to ten iPhone screens, export pixel-exact PNGs rendered on your own machine, and upload one ZIP that App Store Connect accepts. One purchase, $49, and the licence is yours.',
+    sub: 'Compose up to ten iPhone screens, export pixel-exact PNGs rendered on your own machine, and upload one ZIP that App Store Connect accepts. Start free, then choose Local or Cloud.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
   },
@@ -168,7 +168,7 @@ const en = {
   ownership: {
     tableLabel: 'Total paid',
     rentLabel: 'AppScreens Pro',
-    ownLabel: 'ScreenForge licence',
+    ownLabel: 'ScreenForge Local',
     rows: [
       { year: 'After 1 year', rent: '$99', own: '$49' },
       { year: 'After 2 years', rent: '$198', own: '$49' },
@@ -177,8 +177,8 @@ const en = {
     footnote: 'AppScreens Pro’s list price is $99/year, checked on 6 August 2026.',
   },
   pricing: {
-    title: 'Pay once. That’s the whole model.',
-    sub: 'The editor runs on your machine. It costs nothing to serve, so you buy it once. Only the cloud, which does cost something every month, is billed yearly.',
+    title: 'Two ways to use ScreenForge.',
+    sub: 'Choose Local once for this machine, or Cloud yearly for the complete editor, your projects, images and settings on every machine.',
     currencyNote: 'Prices in USD, tax included.',
     availability: commercialLaunch
       ? 'The paid plans are open. Purchases start in the editor, where they can be attached to your account.'
@@ -188,27 +188,8 @@ const en = {
     storageLocal: 'On your machine',
     storageCloud: 'On your machine, mirrored to the cloud',
     plans: {
-      free: {
-        name: 'Free',
-        price: '$0',
-        period: '',
-        tagline: 'Judge the editor before paying anything',
-        points: commercialLaunch
-          ? [
-              'The complete editor, every frame and font',
-              '3 exports per project, watermarked',
-              'No account, nothing to install',
-            ]
-          : [
-              'The complete editor, every frame and font',
-              'Unlimited clean exports and grouped ZIP',
-              'No account, nothing to install',
-            ],
-        cta: 'Open the editor',
-        available: true,
-      },
-      licence: {
-        name: 'Licence',
+      local: {
+        name: 'Local',
         price: '$49',
         period: 'once',
         tagline: 'The whole editor on your machine, updates included',
@@ -218,25 +199,21 @@ const en = {
           'Updates forever, nothing to renew',
         ],
         badge: 'Recommended',
-        cta: commercialLaunch ? 'Buy the Licence' : 'Get notified at launch',
+        cta: commercialLaunch ? 'Choose Local' : 'Get notified at launch',
         available: commercialLaunch,
       },
       cloud: {
         name: 'Cloud',
-        price: '+$39',
+        price: '$39',
         period: '/year',
-        tagline: 'Add-on to the Licence: your projects on every machine',
+        tagline: 'The complete editor and your work on every machine',
         points: [
-          'Everything the Licence gives you',
-          'Pick a project up on another machine',
-          'Cloud backup, outside your browser',
+          'Every Local feature while Cloud is active',
+          'Projects, images and theme synced',
+          'Pick up your work on another machine',
         ],
-        /* Le « + » et la ligne « complément » ne suffisaient pas : lu en
-           colonne, le Cloud avait plus de cases « inclus » que la Licence à
-           dix dollars de moins, et se lisait comme une alternative. Le total
-           réel de la première année règle la question sur la carte même. */
-        note: '$88 the first year with the Licence, then $39 a year.',
-        cta: commercialLaunch ? 'Add Cloud' : 'Get notified at launch',
+        note: 'Standalone plan, no Local purchase required.',
+        cta: commercialLaunch ? 'Choose Cloud' : 'Get notified at launch',
         available: commercialLaunch,
       },
     },
@@ -244,29 +221,28 @@ const en = {
     compareHint: 'scroll sideways',
     compareNote: commercialLaunch
       ? 'These are the plans currently enforced by the editor and checkout.'
-      : 'Until accounts open, Free has no cap or watermark and includes the grouped ZIP export.',
+      : 'Until accounts open, the free trial has no cap or watermark and includes the grouped ZIP export.',
     rows: [
       {
         label: 'Exports',
-        values: [
-          commercialLaunch ? '3 per project, watermarked' : 'Unlimited, clean',
-          'Unlimited, clean',
-          'Unlimited, clean',
-        ],
+        values: ['Unlimited, clean', 'Unlimited, clean'],
       },
       {
         label: 'Grouped ZIP export',
-        values: [commercialLaunch ? 'No' : 'Included', 'Included', 'Included'],
+        values: ['Included', 'Included'],
       },
       {
         label: 'Projects stored',
-        values: ['On your machine', 'On your machine', 'Machine + cloud'],
+        values: ['On your machine', 'Machine + cloud'],
       },
-      { label: 'Pick up on another machine', values: ['No', 'No', 'Included'] },
-      { label: 'Backup outside the browser', values: ['No', 'No', 'Included'] },
-      { label: 'Account', values: ['Not needed', 'Required', 'Required'] },
-      { label: 'Updates', values: ['Included', 'Included, forever', 'Included, forever'] },
+      { label: 'Pick up on another machine', values: ['No', 'Included'] },
+      { label: 'Backup outside the browser', values: ['No', 'Included'] },
+      { label: 'Account', values: ['Required for purchase', 'Required'] },
+      { label: 'Updates', values: ['Included, forever', 'Included while active'] },
     ],
+    trialNote: commercialLaunch
+      ? 'Try the complete editor first: three watermarked exports per project, without a paid plan.'
+      : 'Until paid plans open, the trial includes unlimited clean exports and the grouped ZIP.',
   },
   marquee: [
     '1320×2868 px',
@@ -279,10 +255,10 @@ const en = {
     title: 'Questions',
     items: [
       {
-        q: 'What does the free tier include?',
+        q: 'What does the free trial include?',
         a: commercialLaunch
-          ? 'The complete editor, every frame, font and background, plus three watermarked exports per project. The Licence removes the cap and watermark and adds the grouped ZIP.'
-          : 'Today, everything: the complete editor, every frame, every font, every background, unlimited clean exports, the grouped ZIP, and no account. Until the paid plans open, the free tier is the whole product.',
+          ? 'The complete editor, every frame, font and background, plus three watermarked exports per project. Local or Cloud removes the cap and watermark and adds the grouped ZIP.'
+          : 'Today, everything: the complete editor, every frame, every font, every background, unlimited clean exports, the grouped ZIP, and no account. Until the paid plans open, the free trial is the whole product.',
       },
       {
         q: 'Is the editor in English?',
@@ -296,11 +272,11 @@ const en = {
       },
       {
         q: 'Where are my projects stored?',
-        a: 'In your browser, in IndexedDB, on the machine you are using. Nothing is uploaded and nothing needs an account. The Cloud add-on mirrors them to a server so a second machine can pick a project up. The local copy always stays the one you work on.',
+        a: 'With Local, projects stay in IndexedDB on the machine you are using. Cloud also stores the project, its source images and your theme in Convex so another machine can pick it up. The local copy always stays the one you work on.',
       },
       {
         q: 'What happens if I stop paying for Cloud?',
-        a: 'The copies already present on your machines stay local, editable, and exportable because your Licence does not expire. You only lose the cloud mirror and multi-machine pickup.',
+        a: 'Copies already present on your machines stay local and editable. Your cloud data remains readable and deletable, but new sync stops. A separate Local purchase keeps clean exports and ZIP after Cloud ends.',
       },
       {
         q: 'Which dimensions does it export?',
@@ -309,8 +285,8 @@ const en = {
       {
         q: 'Can I get a refund?',
         a: commercialLaunch
-          ? 'Yes. Email us within 14 days of purchase for a full refund, no questions. The free tier exists so you can decide before spending anything.'
-          : 'Yes, once the Licence opens: email us within 14 days of purchase for a full refund, no questions. The free tier exists so you can decide before spending anything.',
+          ? 'Yes. Email us within 14 days of purchase for a full refund, no questions. The free trial exists so you can decide before spending anything.'
+          : 'Yes, once the paid plans open: email us within 14 days of purchase for a full refund, no questions. The free trial exists so you can decide before spending anything.',
       },
     ],
   },
@@ -318,7 +294,7 @@ const en = {
     headline: 'Your next screenshot set, ten minutes from now.',
     body: 'No account, no upload, no card. The editor opens on an empty artboard.',
     cta: 'Open the editor for free',
-    ctaLicence: commercialLaunch ? 'Buy the Licence' : 'Tell me when the Licence opens',
+    ctaLocal: commercialLaunch ? 'Choose Local' : 'Tell me when Local opens',
   },
   footer: {
     contact: 'Contact',
@@ -333,7 +309,7 @@ const fr: Copy = {
   meta: {
     title: 'ScreenForge — des captures App Store au pixel près',
     description:
-      'Éditeur de planches de captures App Store iPhone. Exports au pixel près rendus sur votre machine, un ZIP prêt pour App Store Connect. 49 $ une fois, pas un abonnement.',
+      'Éditeur de captures App Store iPhone. Choisissez Local à 49 $ une fois ou Cloud à 39 $/an pour retrouver projets, images et réglages partout.',
   },
   nav: {
     features: 'L’éditeur',
@@ -347,7 +323,7 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures App Store, au pixel près.',
-    sub: 'Composez jusqu’à dix écrans iPhone, exportez des PNG au pixel près rendus sur votre machine, déposez un ZIP qu’App Store Connect accepte. Un achat, 49 $, et la licence est à vous.',
+    sub: 'Composez jusqu’à dix écrans iPhone, exportez des PNG au pixel près rendus sur votre machine, déposez un ZIP qu’App Store Connect accepte. Commencez gratuitement, puis choisissez Local ou Cloud.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
   },
@@ -464,7 +440,7 @@ const fr: Copy = {
   ownership: {
     tableLabel: 'Total payé',
     rentLabel: 'AppScreens Pro',
-    ownLabel: 'La licence ScreenForge',
+    ownLabel: 'ScreenForge Local',
     rows: [
       { year: 'Après 1 an', rent: '99 $', own: '49 $' },
       { year: 'Après 2 ans', rent: '198 $', own: '49 $' },
@@ -473,8 +449,8 @@ const fr: Copy = {
     footnote: 'Le tarif public d’AppScreens Pro est de 99 $/an, relevé le 6 août 2026.',
   },
   pricing: {
-    title: 'On paie une fois. C’est tout le modèle.',
-    sub: 'L’éditeur tourne sur votre machine : il ne coûte rien à servir, vous l’achetez une fois. Seul le cloud, qui coûte quelque chose tous les mois, se paie tous les ans.',
+    title: 'Deux façons d’utiliser ScreenForge.',
+    sub: 'Choisissez Local une fois pour cette machine, ou Cloud chaque année pour retrouver l’éditeur complet, vos projets, images et réglages sur chaque machine.',
     currencyNote: 'Prix en dollars américains, taxes comprises.',
     availability: commercialLaunch
       ? 'Les offres payantes sont ouvertes. L’achat démarre dans l’éditeur, où il peut être rattaché à votre compte.'
@@ -484,27 +460,8 @@ const fr: Copy = {
     storageLocal: 'Sur votre machine',
     storageCloud: 'Sur votre machine, recopiés dans le cloud',
     plans: {
-      free: {
-        name: 'Gratuit',
-        price: '0 $',
-        period: '',
-        tagline: 'Pour juger l’éditeur avant de dépenser un centime',
-        points: commercialLaunch
-          ? [
-              'L’éditeur complet, tous les cadres et polices',
-              '3 exports par projet, filigranés',
-              'Sans compte, rien à installer',
-            ]
-          : [
-              'L’éditeur complet, tous les cadres et polices',
-              'Exports propres illimités et ZIP groupé',
-              'Sans compte, rien à installer',
-            ],
-        cta: 'Ouvrir l’éditeur',
-        available: true,
-      },
-      licence: {
-        name: 'Licence',
+      local: {
+        name: 'Local',
         price: '49 $',
         period: 'une fois',
         tagline: 'Tout l’éditeur sur votre machine, mises à jour incluses',
@@ -514,21 +471,21 @@ const fr: Copy = {
           'Mises à jour à vie, rien à renouveler',
         ],
         badge: 'Recommandé',
-        cta: commercialLaunch ? 'Acheter la Licence' : 'Être prévenu à l’ouverture',
+        cta: commercialLaunch ? 'Choisir Local' : 'Être prévenu à l’ouverture',
         available: commercialLaunch,
       },
       cloud: {
         name: 'Cloud',
-        price: '+39 $',
+        price: '39 $',
         period: '/an',
-        tagline: 'Complément à la Licence : vos projets sur chaque machine',
+        tagline: 'L’éditeur complet et votre travail sur chaque machine',
         points: [
-          'Tout ce que donne la Licence',
-          'Reprendre un projet sur une autre machine',
-          'Sauvegarde cloud, hors du navigateur',
+          'Toutes les fonctions Local tant que Cloud est actif',
+          'Projets, images et thème synchronisés',
+          'Reprendre votre travail sur une autre machine',
         ],
-        note: '88 $ la première année avec la Licence, puis 39 $ par an.',
-        cta: commercialLaunch ? 'Ajouter le Cloud' : 'Être prévenu à l’ouverture',
+        note: 'Offre autonome, aucun achat Local requis.',
+        cta: commercialLaunch ? 'Choisir Cloud' : 'Être prévenu à l’ouverture',
         available: commercialLaunch,
       },
     },
@@ -536,29 +493,28 @@ const fr: Copy = {
     compareHint: 'faites défiler',
     compareNote: commercialLaunch
       ? 'Ce sont les paliers actuellement appliqués par l’éditeur et le checkout.'
-      : 'Avant l’ouverture des comptes, le Gratuit n’a ni plafond ni filigrane et inclut le ZIP groupé.',
+      : 'Avant l’ouverture des comptes, l’essai n’a ni plafond ni filigrane et inclut le ZIP groupé.',
     rows: [
       {
         label: 'Exports',
-        values: [
-          commercialLaunch ? '3 par projet, filigranés' : 'Illimités, sans filigrane',
-          'Illimités, sans filigrane',
-          'Illimités, sans filigrane',
-        ],
+        values: ['Illimités, sans filigrane', 'Illimités, sans filigrane'],
       },
       {
         label: 'Export ZIP groupé',
-        values: [commercialLaunch ? 'Non' : 'Inclus', 'Inclus', 'Inclus'],
+        values: ['Inclus', 'Inclus'],
       },
       {
         label: 'Projets stockés',
-        values: ['Sur votre machine', 'Sur votre machine', 'Machine + cloud'],
+        values: ['Sur votre machine', 'Machine + cloud'],
       },
-      { label: 'Reprise sur une autre machine', values: ['Non', 'Non', 'Incluse'] },
-      { label: 'Sauvegarde hors navigateur', values: ['Non', 'Non', 'Incluse'] },
-      { label: 'Compte', values: ['Inutile', 'Requis', 'Requis'] },
-      { label: 'Mises à jour', values: ['Incluses', 'Incluses, à vie', 'Incluses, à vie'] },
+      { label: 'Reprise sur une autre machine', values: ['Non', 'Incluse'] },
+      { label: 'Sauvegarde hors navigateur', values: ['Non', 'Incluse'] },
+      { label: 'Compte', values: ['Requis pour l’achat', 'Requis'] },
+      { label: 'Mises à jour', values: ['Incluses, à vie', 'Incluses tant que Cloud est actif'] },
     ],
+    trialNote: commercialLaunch
+      ? 'Essayez d’abord l’éditeur complet : trois exports filigranés par projet, sans offre payante.'
+      : 'Avant l’ouverture des offres, l’essai inclut les exports propres illimités et le ZIP groupé.',
   },
   marquee: [
     '1320×2868 px',
@@ -571,10 +527,10 @@ const fr: Copy = {
     title: 'Questions',
     items: [
       {
-        q: 'Que comprend l’offre gratuite ?',
+        q: 'Que comprend l’essai gratuit ?',
         a: commercialLaunch
-          ? 'L’éditeur complet, tous les cadres, polices et fonds, plus trois exports filigranés par projet. La Licence retire le plafond et le filigrane et ajoute le ZIP groupé.'
-          : 'Aujourd’hui, tout : l’éditeur complet, tous les cadres, toutes les polices, tous les fonds, les exports propres illimités, le ZIP groupé et aucun compte. Jusqu’à l’ouverture des offres, le gratuit est le produit entier.',
+          ? 'L’éditeur complet, tous les cadres, polices et fonds, plus trois exports filigranés par projet. Local ou Cloud retire le plafond et le filigrane et ajoute le ZIP groupé.'
+          : 'Aujourd’hui, tout : l’éditeur complet, tous les cadres, toutes les polices, tous les fonds, les exports propres illimités, le ZIP groupé et aucun compte. Jusqu’à l’ouverture des offres, l’essai gratuit est le produit entier.',
       },
       {
         q: 'L’éditeur est-il en anglais ?',
@@ -588,11 +544,11 @@ const fr: Copy = {
       },
       {
         q: 'Où sont stockés mes projets ?',
-        a: 'Dans votre navigateur, en IndexedDB, sur la machine que vous utilisez. Rien n’est téléversé et aucun compte n’est nécessaire. Le complément Cloud les recopie sur un serveur pour qu’une seconde machine puisse reprendre un projet. La copie locale reste toujours celle sur laquelle vous travaillez.',
+        a: 'Avec Local, les projets restent dans IndexedDB sur la machine utilisée. Cloud stocke aussi le projet, ses images sources et votre thème dans Convex afin qu’une autre machine puisse le reprendre. La copie locale reste toujours celle sur laquelle vous travaillez.',
       },
       {
         q: 'Que se passe-t-il si j’arrête de payer le Cloud ?',
-        a: 'Les copies déjà présentes sur vos machines y restent, modifiables et exportables, car votre Licence n’expire pas. Vous perdez seulement la recopie cloud et la reprise multi-machine.',
+        a: 'Les copies déjà présentes sur vos machines y restent, modifiables. Vos données cloud restent lisibles et supprimables, mais la nouvelle synchronisation s’arrête. Un achat Local séparé conserve les exports propres et le ZIP après Cloud.',
       },
       {
         q: 'Quelles dimensions sont exportées ?',
@@ -601,8 +557,8 @@ const fr: Copy = {
       {
         q: 'Puis-je être remboursé ?',
         a: commercialLaunch
-          ? 'Oui. Écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’offre gratuite existe pour que vous décidiez avant de dépenser.'
-          : 'Oui, dès l’ouverture de la Licence : écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’offre gratuite existe pour que vous décidiez avant de dépenser.',
+          ? 'Oui. Écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’essai gratuit existe pour que vous décidiez avant de dépenser.'
+          : 'Oui, dès l’ouverture des offres payantes : écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’essai gratuit existe pour que vous décidiez avant de dépenser.',
       },
     ],
   },
@@ -610,9 +566,7 @@ const fr: Copy = {
     headline: 'Votre prochaine planche, dans dix minutes.',
     body: 'Sans compte, sans téléversement, sans carte. L’éditeur s’ouvre sur une planche vide.',
     cta: 'Ouvrir l’éditeur gratuitement',
-    ctaLicence: commercialLaunch
-      ? 'Acheter la Licence'
-      : 'Prévenez-moi à l’ouverture de la Licence',
+    ctaLocal: commercialLaunch ? 'Choisir Local' : 'Prévenez-moi à l’ouverture de Local',
   },
   footer: {
     contact: 'Contact',

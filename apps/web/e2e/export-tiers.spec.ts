@@ -103,7 +103,7 @@ test.describe('paliers à l’export', () => {
     expect(row(gratuit, NEUTRAL_ROW)).toEqual(row(licencié, NEUTRAL_ROW))
   })
 
-  test('le quatrième export d’un projet est refusé et propose la Licence', async ({ page }) => {
+  test('le quatrième export d’un projet est refusé et propose Local ou Cloud', async ({ page }) => {
     await waitForApp(page)
     await grantEntitlements(page, { licence: false })
 
@@ -122,7 +122,7 @@ test.describe('paliers à l’export', () => {
        sans issue. */
     await page.getByLabel('Ouvrir l’export').click()
     await expect(page.getByRole('button', { name: 'Exporter les PNG' })).toHaveCount(0)
-    await page.getByRole('button', { name: 'Débloquer avec la Licence' }).click()
+    await page.getByRole('button', { name: 'Débloquer avec Local ou Cloud' }).click()
     await expect(page.getByRole('dialog', { name: 'Offres ScreenForge' })).toBeVisible()
   })
 
@@ -151,7 +151,7 @@ test.describe('paliers à l’export', () => {
     await expect(remainingNotice(page)).toHaveText('3 sur 3')
   })
 
-  test('la Licence retire le filigrane, rend le ZIP et ne compte pas', async ({ page }) => {
+  test('Local retire le filigrane, rend le ZIP et ne compte pas', async ({ page }) => {
     await waitForApp(page)
     await grantEntitlements(page, { licence: true })
 
@@ -169,7 +169,7 @@ test.describe('paliers à l’export', () => {
     expect(download.suggestedFilename()).toMatch(/\.zip$/)
     await page.getByRole('button', { name: 'Annuler' }).click()
 
-    /* Aucune limite de nombre : l'export sous Licence n'a rien décompté, donc
+    /* Aucune limite de nombre : l'export sous Local n'a rien décompté, donc
        le palier gratuit retrouvé est encore entier. */
     await grantEntitlements(page, { licence: false })
     await page.getByLabel('Ouvrir l’export').click()

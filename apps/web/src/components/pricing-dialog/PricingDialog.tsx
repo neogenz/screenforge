@@ -21,12 +21,12 @@ function PricingDialogContent() {
   const setShowPricingDialog = useUIStore((s) => s.setShowPricingDialog)
   const entitlements = useAuthStore((s) => s.entitlements)
   const signedIn = useAuthStore((s) => s.status === 'signed-in')
-  /** Quel bouton attend, pas un booléen global : trois en partagent la boîte. */
+  /** Quel bouton attend, pas un booléen global : deux achats et le portail partagent la boîte. */
   const [pending, setPending] = useState<SellableProduct | 'portal' | null>(null)
 
   const local = entitlements?.licence ?? false
   const cloud = entitlements?.cloud ?? false
-  const hasBillingHistory = local || entitlements?.cloudStatus !== null
+  const hasBillingHistory = local || Boolean(entitlements?.cloudStatus)
 
   async function buy(product: SellableProduct) {
     setPending(product)
@@ -109,14 +109,15 @@ const CHECKOUT_ERRORS: Record<'unauthenticated' | 'rate-limited' | 'failed', str
  * Ce qu'un palier détenu dit de lui-même : une date, pas un simple « oui ».
  *
  * La distinction entre les deux droits est là et nulle part ailleurs : une
- * licence porte le jour où elle a été acquise et rien après, un abonnement
+ * Un achat Local porte le jour où il a été acquis et rien après, un abonnement
  * porte le jour où il s'arrête. C'est aussi ce qu'un utilisateur vient
  * vérifier après une résiliation.
  */
 function ownedNote(id: Plan['id'], entitlements: Entitlements | null): string | undefined {
   if (id === 'local' && entitlements?.licence) {
     const date = formatGrantDate(entitlements.licenceGrantedAt)
-    return date ? `Acquise le ${date}` : 'Acquise'
+    if (date) return `Acquis le ${date}`
+    return entitlements.cloud ? 'Inclus avec Cloud' : 'Actif'
   }
   if (id === 'cloud' && entitlements?.cloud) {
     const date = formatGrantDate(entitlements.cloudPeriodEnd)
@@ -135,8 +136,7 @@ interface PlanCardProps {
 }
 
 /**
- * Une carte par palier, et le Gratuit n'a pas de bouton : il n'y a rien à
- * acheter et rien à activer, c'est l'état où l'on se trouve déjà.
+ * Une carte par offre vendue. L'essai reste hors catalogue.
  */
 function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCardProps) {
   return (
@@ -169,7 +169,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
       <p className="text-2xs leading-4 text-muted-foreground">{plan.tagline}</p>
 
       {/* Une coche par point, et l'icône de stockage nulle part : posée sur les
-          trois lignes elle mettait un disque dur à côté de « 3 exports par
+          chaque ligne elle mettait un disque dur à côté de bénéfices qui ne
           projet », qui n'est pas une histoire de stockage. La carte dit déjà où
           vivent les projets par sa dernière puce. */}
       <ul className="flex flex-col gap-1.5">

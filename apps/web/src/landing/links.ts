@@ -15,18 +15,18 @@ const ADDRESS = 'mailto:hello@screenforge.app'
 /* Deux-points, pas un cadratin : l'objet est du texte rendu dès que le client
    mail s'ouvre, et la page s'interdit les tirets longs partout ailleurs. */
 const SUBJECTS = {
-  en: { licence: 'ScreenForge Licence: notify me', cloud: 'ScreenForge Cloud: notify me' },
+  en: { local: 'ScreenForge Local: notify me', cloud: 'ScreenForge Cloud: notify me' },
   fr: {
-    licence: 'ScreenForge Licence : prévenez-moi',
+    local: 'ScreenForge Local : prévenez-moi',
     cloud: 'ScreenForge Cloud : prévenez-moi',
   },
 } as const
 
-export function notify(lang: Lang, plan: 'licence' | 'cloud') {
+export function notify(lang: Lang, plan: 'local' | 'cloud') {
   return `${ADDRESS}?subject=${encodeURIComponent(SUBJECTS[lang][plan])}`
 }
 
-export function offerHref(lang: Lang, plan: 'licence' | 'cloud') {
+export function offerHref(lang: Lang, plan: 'local' | 'cloud') {
   return commercialLaunch ? '/?offers=open' : notify(lang, plan)
 }
 

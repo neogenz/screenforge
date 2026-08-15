@@ -151,7 +151,7 @@ function ExportDialogContent({ project }: { project: Project }) {
           {remaining <= 0 && billingConfigured ? (
             <Button variant="primary" onClick={() => setShowPricingDialog(true)}>
               <Lock size={12} aria-hidden />
-              Débloquer avec la Licence
+              Débloquer avec Local ou Cloud
             </Button>
           ) : (
             <Button
@@ -363,7 +363,7 @@ function FreeTierNotice({ remaining }: { remaining: number }) {
 
   return (
     <div className="surface-inner p-4">
-      <span className="field-label">Palier gratuit</span>
+      <span className="field-label">Essai gratuit</span>
       <p
         className={cn(
           'mt-1.5 text-sm font-medium tabular-nums',
@@ -383,7 +383,7 @@ function FreeTierNotice({ remaining }: { remaining: number }) {
         </li>
         <li className="flex items-start gap-2">
           <Lock size={12} className="mt-px shrink-0" aria-hidden />
-          ZIP groupé réservé à la Licence
+          ZIP groupé réservé à Local ou Cloud
         </li>
       </ul>
       {billingConfigured && (

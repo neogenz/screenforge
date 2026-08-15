@@ -46,6 +46,16 @@ describe('les gestes de vente hors réseau', () => {
         cloudPeriodEnd: null,
       }),
     ).toBe('Local')
+    expect(
+      planName({
+        userId: 'u2',
+        licence: false,
+        licenceGrantedAt: null,
+        cloud: true,
+        cloudStatus: 'active',
+        cloudPeriodEnd: '2027-03-12T09:00:00Z',
+      }),
+    ).toBe('Cloud')
   })
 
   it('rendent des résultats gérés pour que les dialogues quittent leur attente', async () => {

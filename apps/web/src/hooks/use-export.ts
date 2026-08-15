@@ -35,13 +35,13 @@ function errorMessage(error: unknown): string {
  * Le refus de quota se distingue d'une panne.
  *
  * La boîte d'export affiche un échec en rouge et propose de réessayer ; une
- * limite atteinte demande l'inverse — la Licence, et rien à réessayer. Sans ce
+ * limite atteinte demande l'inverse — Local ou Cloud, et rien à réessayer. Sans ce
  * type, l'appelant devrait reconnaître la limite à son message.
  */
 export class ExportQuotaError extends Error {
   constructor() {
     super(
-      `Limite du palier gratuit atteinte : ${FREE_EXPORTS_PER_PROJECT} exports par projet. La Licence les rend illimités et sans filigrane.`,
+      `Limite de l’essai atteinte : ${FREE_EXPORTS_PER_PROJECT} exports par projet. Local ou Cloud les rend illimités et sans filigrane.`,
     )
     this.name = 'ExportQuotaError'
   }
@@ -162,8 +162,8 @@ export function useExport() {
           const zipBlob = await createExportZip(entries)
           downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
         } else {
-          /* Sans Licence, les PNG descendent un par un : le ZIP groupé est ce
-             que la Licence achète. Les fichiers sont les mêmes, à la
+          /* Sans Local ni Cloud, les PNG descendent un par un : le ZIP groupé est ce
+             que les offres payantes achètent. Les fichiers sont les mêmes, à la
              hiérarchie de dossiers près — le palier gratuit sert à juger
              l'éditeur, pas à repartir avec un lot prêt pour App Store Connect. */
           for (const entry of entries) {

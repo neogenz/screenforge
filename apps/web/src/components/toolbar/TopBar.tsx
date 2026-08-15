@@ -744,7 +744,7 @@ function usePlanAction(): SecondaryAction | null {
 /**
  * Le palier s'écrit, il ne se pictographie pas.
  *
- * « Licence » et « Cloud » n'ont pas de glyphe que l'œil lise sans légende, et
+ * « Local » et « Cloud » n'ont pas de glyphe que l'œil lise sans légende, et
  * la rangée voisine est entièrement en icônes : un mot y devient le seul repère
  * textuel, ce qui est exactement ce qu'on veut d'un état de compte. Le point
  * citron marque le palier payant — même vocabulaire que « vous êtes ici »
@@ -753,7 +753,7 @@ function usePlanAction(): SecondaryAction | null {
 function BadgeIcon({ children }: { children: string }) {
   return (
     <span className="flex items-center gap-1.5 text-2xs font-medium">
-      {children !== 'Gratuit' && (
+      {children !== 'Essai' && (
         <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
       )}
       {children}
