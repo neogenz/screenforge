@@ -3,7 +3,9 @@ import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
 import { auth } from './auth'
+import { acceptable } from './assets'
 import { webhook } from './billing'
+import { MAX_IMAGE_FILE_BYTES, MAX_PROJECT_BLOB_BYTES } from './media'
 
 /**
  * Les routes HTTP du déploiement, servies sur `<deployment>.convex.site`.
@@ -49,9 +51,58 @@ function tail(url: string): string | null {
  */
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   'Access-Control-Max-Age': '86400',
+}
+
+function json(outcome: string, status = 200): Response {
+  return new Response(JSON.stringify({ outcome }), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
+}
+
+function errorCode(error: unknown): string | null {
+  const data: unknown = (error as { data?: unknown })?.data
+  if (typeof data === 'object' && data !== null) return (data as { code?: string }).code ?? null
+  try {
+    const parsed: unknown = JSON.parse(String((error as { message?: string })?.message ?? ''))
+    return typeof parsed === 'object' && parsed !== null
+      ? ((parsed as { code?: string }).code ?? null)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function denied(error: unknown): Response {
+  switch (errorCode(error)) {
+    case 'UNAUTHENTICATED':
+      return json('unauthenticated', 401)
+    case 'CLOUD_REQUIRED':
+      return json('cloud-required', 403)
+    case 'DELETION_PENDING':
+      return json('deletion-pending', 409)
+    case 'RATE_LIMITED':
+      return json('rate-limited', 429)
+    case 'ASSET_REJECTED':
+    case 'PROJECT_REJECTED':
+      return json('rejected', 400)
+    default:
+      return json('failed', 500)
+  }
+}
+
+function contentLength(request: Request): number | null {
+  const value = request.headers.get('Content-Length')
+  if (value === null) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : -1
+}
+
+function contentType(request: Request): string {
+  return (request.headers.get('Content-Type') ?? '').split(';', 1)[0]!.trim().toLowerCase()
 }
 
 /**
@@ -126,6 +177,97 @@ http.route({
 })
 
 http.route({ pathPrefix: '/project-blob/', method: 'OPTIONS', handler: preflight })
+
+http.route({
+  path: '/upload/project',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url)
+    const projectId = url.searchParams.get('projectId') ?? ''
+    const name = url.searchParams.get('name') ?? ''
+    const updatedAtValue = url.searchParams.get('updatedAt')
+    const updatedAt = updatedAtValue === null ? Number.NaN : Number(updatedAtValue)
+    const type = contentType(request)
+    const length = contentLength(request)
+    if (updatedAtValue === null || !Number.isFinite(updatedAt)) return json('rejected', 400)
+
+    try {
+      await ctx.runMutation(internal.projects.authorizeProjectUpload, {
+        projectId,
+        name,
+        updatedAt,
+        contentType: type,
+        byteLength: length,
+      })
+    } catch (error) {
+      return denied(error)
+    }
+
+    const blob = await request.blob()
+    if (type !== 'application/json' || blob.size <= 0 || blob.size > MAX_PROJECT_BLOB_BYTES) {
+      return json('rejected', blob.size > MAX_PROJECT_BLOB_BYTES ? 413 : 400)
+    }
+
+    const blobId = await ctx.storage.store(blob)
+    try {
+      const outcome = await ctx.runMutation(internal.projects.commitProjectUpload, {
+        projectId,
+        name,
+        updatedAt,
+        blobId,
+      })
+      if (outcome !== 'accepted') await ctx.storage.delete(blobId)
+      return json(outcome, outcome === 'too-large' ? 413 : 200)
+    } catch (error) {
+      await ctx.storage.delete(blobId)
+      return denied(error)
+    }
+  }),
+})
+
+http.route({ path: '/upload/project', method: 'OPTIONS', handler: preflight })
+
+http.route({
+  path: '/upload/asset',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const assetId = new URL(request.url).searchParams.get('assetId') ?? ''
+    const type = contentType(request)
+    const length = contentLength(request)
+
+    try {
+      await ctx.runMutation(internal.assets.authorizeAssetUpload, {
+        assetId,
+        contentType: type,
+        byteLength: length,
+      })
+    } catch (error) {
+      return denied(error)
+    }
+
+    const blob = await request.blob()
+    const actualType = blob.type.split(';', 1)[0]!.trim().toLowerCase()
+    if (!acceptable(actualType, blob.size) || blob.size > MAX_IMAGE_FILE_BYTES) {
+      return json('rejected', blob.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
+    }
+
+    const storageId = await ctx.storage.store(blob)
+    try {
+      const accepted = await ctx.runMutation(internal.assets.commitAssetUpload, {
+        assetId,
+        storageId,
+        contentType: actualType,
+      })
+      if (!accepted) await ctx.storage.delete(storageId)
+      return json(accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)
+    } catch (error) {
+      await ctx.storage.delete(storageId)
+      return denied(error)
+    }
+  }),
+})
+
+http.route({ path: '/upload/asset', method: 'OPTIONS', handler: preflight })
 
 /**
  * La seule route que quelqu'un d'autre appelle.

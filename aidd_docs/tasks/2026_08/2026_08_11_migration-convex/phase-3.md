@@ -63,6 +63,13 @@ l'isolation. Convex n'a pas de chemin : la propriété est une colonne, et l'ind
 
 ### 3.2 Poussée
 
+> **Remplacé le 2026-08-15 après review.** Les deux uploads passent désormais
+> par `POST /upload/project` et `POST /upload/asset`. L'action authentifie et
+> borne la requête, crée elle-même le fichier Storage, puis appelle une mutation
+> interne de commit. Aucun `blobId` ou `storageId` n'entre dans l'API publique ni
+> ne revient au navigateur. Les indexes globaux de références protègent les
+> anciens alias pendant leur suppression ou leur remplacement.
+
 `mutation pushProject({ projectId, name, updatedAt, blobId })` :
 
 1. `requireCloud(ctx)`.

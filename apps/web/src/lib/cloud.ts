@@ -1,5 +1,4 @@
 import type { Entitlements } from 'backend/entitlements'
-import type { GenericId } from 'convex/values'
 import { getConvex } from '@/lib/convex'
 import { JWT_STORAGE_KEY } from '@/lib/session-keys'
 import type { Project } from '@/types'
@@ -91,16 +90,29 @@ async function download(path: string): Promise<Blob | null> {
   return await response.blob()
 }
 
-/** Dépose des octets à l'URL rendue par une mutation, et rend leur identifiant. */
-async function upload(uploadUrl: string, blob: Blob): Promise<GenericId<'_storage'>> {
-  const response = await fetch(uploadUrl, {
+/** Envoie les octets à l'action authentifiée; l'identifiant Storage reste serveur. */
+async function upload(path: string, blob: Blob): Promise<string> {
+  const connected = connect()
+  if (!connected) throw new CloudError('Cloud is not configured on this instance.')
+  const { site } = await connected
+  const token = bearer()
+  if (!token) throw new CloudError('No session token to write cloud data with.')
+
+  const response = await fetch(`${site}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': blob.type || 'application/octet-stream',
+    },
     body: blob,
   })
-  if (!response.ok) throw new CloudError(`Upload failed with ${String(response.status)}.`)
-  const { storageId } = (await response.json()) as { storageId: GenericId<'_storage'> }
-  return storageId
+  const { outcome } = (await response.json()) as { outcome?: string }
+  if (!response.ok || !outcome) {
+    throw new CloudError(
+      `Cloud upload failed with ${String(response.status)}${outcome ? ` (${outcome})` : ''}.`,
+    )
+  }
+  return outcome
 }
 
 /**
@@ -145,51 +157,20 @@ export async function fetchRemoteProject(projectId: string): Promise<unknown | n
  * serveur portait déjà une version au moins aussi récente.
  */
 export async function pushRemoteProject(project: Project, payload: unknown): Promise<boolean> {
-  const connected = connect()
-  if (!connected) throw new CloudError('Cloud is not configured on this instance.')
-  const { client, api } = await connected
-
-  const uploadUrl = await client.mutation(api.projects.beginProjectPush, {})
   const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
-  const blobId = await upload(uploadUrl, blob)
-
-  const outcome = await client.mutation(api.projects.pushProject, {
+  const query = new URLSearchParams({
     projectId: project.id,
     name: project.name,
-    updatedAt: project.updatedAt,
-    blobId,
+    updatedAt: String(project.updatedAt),
   })
-  /* `too-large` est une erreur ici et une valeur là-bas : le serveur ne peut
-     pas lever sans annuler la suppression du fichier qu'il vient de refuser. */
-  if (outcome === 'too-large') throw new CloudError(`Project ${project.id} is too large to sync.`)
+  const outcome = await upload(`/upload/project?${query.toString()}`, blob)
   return outcome === 'accepted'
 }
 
 export async function uploadRemoteAsset(assetId: string, blob: Blob): Promise<void> {
-  const connected = connect()
-  if (!connected) throw new CloudError('Cloud is not configured on this instance.')
-  const { client, api } = await connected
-
-  const contentType = blob.type
-  const byteLength = blob.size
-  const uploadUrl = await client.mutation(api.assets.requestAssetUpload, {
-    assetId,
-    contentType,
-    byteLength,
-  })
-  const storageId = await upload(uploadUrl, blob)
-  /* La confirmation est une seconde mutation et pas un simple `await` sur la
-     première : entre les deux, le serveur relit la taille et le type réels du
-     fichier déposé, et le supprime s'ils ne tiennent pas. Il rend `false`
-     plutôt que de lever, pour que cette suppression survive à la transaction ;
-     l'erreur se lève donc ici. */
-  const confirmed = await client.mutation(api.assets.confirmAssetUpload, {
-    assetId,
-    storageId,
-    contentType,
-    byteLength,
-  })
-  if (!confirmed) throw new CloudError(`Cloud refused asset ${assetId}.`)
+  const query = new URLSearchParams({ assetId })
+  const outcome = await upload(`/upload/asset?${query.toString()}`, blob)
+  if (outcome !== 'accepted') throw new CloudError(`Cloud refused asset ${assetId}.`)
 }
 
 export async function downloadRemoteAsset(assetId: string): Promise<Blob> {

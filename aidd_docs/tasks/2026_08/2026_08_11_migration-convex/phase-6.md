@@ -326,25 +326,15 @@ bibliothèque depuis `limits.ts`, sinon le plus permissif des deux aurait décid
 Trois tests le tiennent, dont celui qui devine par inscription après avoir épuisé
 la connexion.
 
-_Corrigé — la suppression de compte qui ne pouvait plus finir._ L'envoi rend son
-`storageId` au client — c'est l'argument que `confirmAssetUpload` attend — donc
-deux `assetId` peuvent confirmer le même fichier, et rien ne l'interdit. La purge
-supprimait alors le fichier pour la première ligne, échouait à le supprimer pour
-la seconde, gardait cette ligne, cessait de progresser, et le cron reprenait le
-même lot pour toujours : un compte demandé en suppression ne l'était jamais.
-`forget` constate désormais l'absence avant de supprimer — un fichier déjà parti
-est un fichier oublié, il n'y a plus d'octet facturé à reprendre — ce qui couvre
-du même geste le fichier disparu pour toute autre raison, sans index ni lecture
-de plus à chaque envoi. Un refus **réel** du stockage continue de laisser la
-ligne. Contrepartie assumée : le simulateur n'avait qu'une panne possible, le
-fichier absent, donc la branche `attempts` / `lastError` / `console.error` n'y est
-plus atteignable et rejoint ce qui se vérifie contre un déploiement réel.
-
-_Corrigé — le fichier qui se remplaçait lui-même._ `pushProject` supprimait
-`existing.blobId` après avoir écrit le nouveau, sans vérifier qu'ils diffèrent —
-la garde que `confirmAssetUpload` avait déjà. Le `blobId` venant du client, le
-renvoyer tel quel avec un horodatage plus récent rendait le projet illisible et
-sa suppression de compte bancale. Une ligne, et un test.
+_Corrigé après review — propriété et alias Storage._ Le navigateur envoie
+désormais les octets à deux actions HTTP authentifiées. Le serveur crée le
+fichier puis transmet son identifiant uniquement à une mutation interne : aucun
+client ne peut rattacher le fichier d'un autre compte. Les indexes
+`projects.by_blobId` et `assets.by_storageId` font passer tous les remplacements,
+retraits et purges par une suppression consciente des références. Un rejeu LWW
+exact nettoie seulement le nouveau fichier créé pour cette requête et conserve
+le blob actif; les alias historiques entre tables ou comptes restent lisibles
+jusqu'au retrait de leur dernière ligne.
 
 _Vérifié et tenu, sans changement._ `ctx.storage.getUrl` n'est appelé nulle part
 — « anyone with the URL can access the file » — et les binaires passent tous par
@@ -356,14 +346,10 @@ vérifie la signature avant d'analyser, et échoue **fermé** sur un secret abse
 `auth.config.ts` ne fait confiance qu'à son propre déploiement. Rien de secret ne
 porte le préfixe `VITE_`.
 
-_Laissé, avec sa mesure._ Un fichier téléversé puis jamais confirmé n'est réclamé
-par personne : aucun cron ne balaie `_storage`. Le débit est borné par
-`assetUpload` et `projectPush`, et la reprendre demanderait de parcourir les deux
-tables pour construire l'ensemble des fichiers référencés — donc un balayage
-paginé, à écrire quand le poste stockage devient visible sur la facture, pas
-avant. De même, un seul jeton `projectPush` permet d'insérer plusieurs lignes sur
-un même fichier en variant `projectId` : ce ne sont que des métadonnées, et la
-garde de `forget` fait que leur suppression se passe bien.
+_Corrigé après review — abandon d'upload._ L'action supprime immédiatement le
+fichier qu'elle vient de créer si la mutation interne refuse le commit, rend
+`stale` ou échoue. Il n'existe plus de fenêtre publique « upload puis
+confirmation » dans laquelle un navigateur abandonne un identifiant Storage.
 
 _Signalé, et à trancher par une main humaine._ Le mot de passe du compte de test
 est écrit dans `environnements.md`, à côté de l'URL de préproduction. Le publier

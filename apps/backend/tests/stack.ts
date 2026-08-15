@@ -17,7 +17,6 @@ import type { FunctionReference } from 'convex/server'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { api, internal } from '../convex/_generated/api.js'
-import type { Id } from '../convex/_generated/dataModel.js'
 
 export interface Stack {
   url: string
@@ -216,17 +215,18 @@ export async function seedRemoteProject(
   session: Session,
   project: { projectId: string; name: string; updatedAt: number; payload: unknown },
 ): Promise<'accepted' | 'stale' | 'too-large'> {
-  const uploadUrl = await session.client.mutation(api.projects.beginProjectPush, {})
-  const blobId = await postBlob(
-    uploadUrl,
-    new Blob([JSON.stringify(project.payload)], { type: 'application/json' }),
-  )
-  return await session.client.mutation(api.projects.pushProject, {
+  const query = new URLSearchParams({
     projectId: project.projectId,
     name: project.name,
-    updatedAt: project.updatedAt,
-    blobId,
+    updatedAt: String(project.updatedAt),
   })
+  return (
+    await postUpload(
+      session,
+      `/upload/project?${query.toString()}`,
+      new Blob([JSON.stringify(project.payload)], { type: 'application/json' }),
+    )
+  ).outcome as 'accepted' | 'stale' | 'too-large'
 }
 
 /** Pose un binaire distant, en suivant les deux mutations du vrai chemin. */
@@ -235,30 +235,40 @@ export async function seedRemoteAsset(
   assetId: string,
   blob: Blob,
 ): Promise<void> {
-  const uploadUrl = await session.client.mutation(api.assets.requestAssetUpload, {
-    assetId,
-    contentType: blob.type,
-    byteLength: blob.size,
-  })
-  const storageId = await postBlob(uploadUrl, blob)
-  const confirmed = await session.client.mutation(api.assets.confirmAssetUpload, {
-    assetId,
-    storageId,
-    contentType: blob.type,
-    byteLength: blob.size,
-  })
-  if (!confirmed) throw new Error(`le déploiement a refusé l’asset ${assetId}`)
+  const result = await tryRemoteAssetUpload(session, assetId, blob)
+  if (result.outcome !== 'accepted') throw new Error(`le déploiement a refusé l’asset ${assetId}`)
 }
 
-async function postBlob(uploadUrl: string, blob: Blob): Promise<Id<'_storage'>> {
-  const response = await fetch(uploadUrl, {
+/** Même transport que le navigateur, avec le statut visible pour les bornes E2E. */
+export async function tryRemoteAssetUpload(
+  session: Session,
+  assetId: string,
+  blob: Blob,
+): Promise<{ status: number; outcome: string }> {
+  const query = new URLSearchParams({ assetId })
+  return await postUpload(session, `/upload/asset?${query.toString()}`, blob)
+}
+
+async function postUpload(
+  session: Session,
+  path: string,
+  blob: Blob,
+): Promise<{ status: number; outcome: string }> {
+  const stack = localConvex()
+  if (!stack) throw new Error('déploiement Convex local absent')
+  const response = await fetch(`${stack.site}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'Content-Type': blob.type || 'application/octet-stream',
+    },
     body: blob,
   })
-  if (!response.ok) throw new Error(`téléversement refusé : ${String(response.status)}`)
-  const body = (await response.json()) as { storageId: Id<'_storage'> }
-  return body.storageId
+  const body = (await response.json()) as { outcome?: string }
+  if (!body.outcome) {
+    throw new Error(`téléversement refusé : ${String(response.status)} ${JSON.stringify(body)}`)
+  }
+  return { status: response.status, outcome: body.outcome }
 }
 
 /** Le catalogue distant, métadonnées seules. */
@@ -304,4 +314,9 @@ export async function dropRemoteProjects(session: Session): Promise<void> {
   for (const row of await listRemote(session)) {
     await session.client.mutation(api.projects.removeProject, { projectId: row.projectId })
   }
+}
+
+/** Retire le compte jetable d'un scénario et ses fichiers. */
+export function deleteRemoteAccount(session: Session) {
+  return session.client.mutation(api.accountDeletion.requestAccountDeletion, {})
 }

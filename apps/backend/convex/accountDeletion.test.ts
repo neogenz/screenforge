@@ -343,14 +343,14 @@ describe('la barrière', () => {
     const userId = await cloudAccount(t)
     const as = t.withIdentity({ subject: userId })
     const upload = () =>
-      as.mutation(api.assets.requestAssetUpload, {
-        assetId: 'asset-1',
-        contentType: PNG,
-        byteLength: 4096,
+      as.fetch('/upload/asset?assetId=asset-1', {
+        method: 'POST',
+        headers: { 'Content-Type': PNG },
+        body: new Blob([new Uint8Array(4096)], { type: PNG }),
       })
 
     /* Le contre-test : sans la ligne, le même appel avec le même jeton passe. */
-    await expect(upload()).resolves.toEqual(expect.any(String))
+    await expect(upload().then((response) => response.status)).resolves.toBe(200)
 
     await t.run((ctx) =>
       ctx.db.insert('accountDeletionJobs', {
@@ -361,9 +361,9 @@ describe('la barrière', () => {
       }),
     )
 
-    await expect(upload()).rejects.toSatisfy(
-      (error: unknown) => errorCode(error) === 'DELETION_PENDING',
-    )
+    const response = await upload()
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ outcome: 'deletion-pending' })
   })
 })
 

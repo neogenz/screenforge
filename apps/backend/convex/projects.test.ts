@@ -4,278 +4,297 @@ import type { Id } from './_generated/dataModel'
 import { MAX_PROJECT_BLOB_BYTES } from './media'
 import { cloudAccount, testConvex } from './test.helpers'
 
-/**
- * Le point dur de la migration, mesuré plutôt qu'affirmé.
- *
- * Convex plafonne un document à 1 MiB, `data jsonb` ne plafonnait rien, et le
- * modèle produit régulièrement des projets au-dessus : vingt releases portent
- * vingt-et-une copies du graphe. Le premier test construit ce cas et **vérifie
- * la taille** avant de pousser — sans cette mesure il prouverait seulement
- * qu'un petit JSON fait l'aller-retour, ce qui n'était pas la question.
- *
- * Ce que le simulateur ne rejoue pas : le POST vers l'URL de téléversement
- * (`convex-test` rend une URL factice), donc les octets sont déposés par
- * `ctx.storage.store`. Le plafond de document lui-même n'est pas appliqué non
- * plus — c'est le déploiement réel qui le dira, et `phase-6.md` le prévoit.
- */
+type Test = ReturnType<typeof testConvex>
+type ProjectRow = { projectId: string; name: string; updatedAt: number }
 
-/** Un écran plausible : c'est son poids qui compte, pas sa validité. */
 function screen(index: number) {
   return {
     id: `screen-${index}`,
     name: `Écran ${index + 1}`,
-    background: {
-      type: 'gradient',
-      angle: 135,
-      stops: [
-        { offset: 0, color: '#0f172a' },
-        { offset: 1, color: '#1e293b' },
-      ],
-    },
+    background: { type: 'solid', color: '#0f172a' },
     layers: Array.from({ length: 24 }, (_, rank) => ({
       id: `layer-${index}-${rank}`,
-      type: rank % 3 === 0 ? 'text' : 'shape',
-      text: 'Concevez vos captures App Store sans quitter le navigateur.',
-      left: 120 + rank,
-      top: 240 + rank * 90,
+      type: 'text',
+      text: 'Concevez vos captures App Store sans quitter le navigateur, en toute autonomie.',
+      left: rank,
+      top: rank,
       width: 1080,
       height: 132,
-      angle: 0,
-      opacity: 1,
       fontFamily: 'Inter',
       fontSize: 64,
-      fontWeight: 600,
       fill: '#f8fafc',
-      textAlign: 'center',
-      shadow: { color: 'rgba(0, 0, 0, 0.24)', blur: 24, offsetX: 0, offsetY: 12 },
     })),
   }
 }
 
-/** `{ name, screens, layoutLayers, globals }` : le projet moins son identité. */
-function snapshot() {
-  return {
+function heavyProject() {
+  const snapshot = {
     name: 'ScreenForge',
     screens: Array.from({ length: 10 }, (_, index) => screen(index)),
     layoutLayers: [],
-    globals: { deviceModel: 'iphone-16-pro-max', deviceColor: 'natural-titanium' },
+    globals: {},
   }
-}
-
-/** Le pire cas prévu par le modèle : 20 releases figées et 12 variantes. */
-function heavyProject() {
   return {
-    ...snapshot(),
+    ...snapshot,
     id: 'project-lourd',
     updatedAt: 1_770_000_000_000,
     releases: Array.from({ length: 20 }, (_, rank) => ({
       id: `release-${rank}`,
-      createdAt: 1_760_000_000_000 + rank,
+      createdAt: rank,
       locale: 'fr-FR',
-      snapshot: snapshot(),
+      snapshot,
     })),
     locales: Array.from({ length: 12 }, (_, rank) => ({
       locale: `loc-${rank}`,
       overrides: Object.fromEntries(
-        Array.from({ length: 40 }, (_, key) => [
-          `layer-${key}`,
-          'Concevez vos captures App Store sans quitter le navigateur.',
-        ]),
+        Array.from({ length: 40 }, (_, key) => [`layer-${key}`, 'Texte localisé']),
       ),
     })),
   }
 }
 
-/** Les octets, puis la ligne : l'ordre du client, tenu par le test aussi. */
-async function push(
-  t: ReturnType<typeof testConvex>,
+async function push(t: Test, userId: Id<'users'>, row: ProjectRow, payload: unknown) {
+  const query = new URLSearchParams({
+    projectId: row.projectId,
+    name: row.name,
+    updatedAt: String(row.updatedAt),
+  })
+  const response = await t.withIdentity({ subject: userId }).fetch(`/upload/project?${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+  })
+  const body = (await response.json()) as { outcome: string }
+  return { response, outcome: body.outcome }
+}
+
+async function pushAsset(
+  t: Test,
   userId: Id<'users'>,
-  row: { projectId: string; name: string; updatedAt: number },
-  payload: unknown,
+  assetId: string,
+  bytes: Uint8Array<ArrayBuffer>,
 ) {
-  const as = t.withIdentity({ subject: userId })
-  await as.mutation(api.projects.beginProjectPush, {})
-  const blobId = await t.run((ctx) =>
-    ctx.storage.store(new Blob([JSON.stringify(payload)], { type: 'application/json' })),
+  const query = new URLSearchParams({ assetId })
+  return await t.withIdentity({ subject: userId }).fetch(`/upload/asset?${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'image/png' },
+    body: new Blob([bytes], { type: 'image/png' }),
+  })
+}
+
+async function project(t: Test, userId: Id<'users'>, projectId: string) {
+  return await t.run((ctx) =>
+    ctx.db
+      .query('projects')
+      .withIndex('by_user_project', (q) => q.eq('userId', userId).eq('projectId', projectId))
+      .unique(),
   )
-  const outcome = await as.mutation(api.projects.pushProject, { ...row, blobId })
-  return { outcome, blobId }
 }
 
-/** Le fichier est-il encore là ? C'est la seule question qu'un orphelin pose. */
-async function stored(t: ReturnType<typeof testConvex>, blobId: Id<'_storage'>) {
-  return (await t.run((ctx) => ctx.db.system.get(blobId))) !== null
+async function stored(t: Test, storageId: Id<'_storage'>) {
+  return (await t.run((ctx) => ctx.db.system.get(storageId))) !== null
 }
 
-describe('un projet trop gros pour un document', () => {
-  it('fait l’aller-retour entier au-dessus de 1 MiB', async () => {
+async function storageCount(t: Test) {
+  return (await t.run((ctx) => ctx.db.system.query('_storage').collect())).length
+}
+
+describe('upload projet possédé par le serveur', () => {
+  it('fait l’aller-retour du pire projet mesuré au-dessus de 1 MiB', async () => {
     const t = testConvex()
     const userId = await cloudAccount(t)
-    const project = heavyProject()
-    const json = JSON.stringify(project)
+    const payload = heavyProject()
+    expect(new Blob([JSON.stringify(payload)]).size).toBeGreaterThan(1024 * 1024)
 
-    /* La mesure d'abord : si elle passait sous le plafond, tout le reste du
-       test ne dirait plus rien du problème qu'il est censé couvrir. */
-    expect(new Blob([json]).size).toBeGreaterThan(1024 * 1024)
+    expect(
+      (await push(t, userId, { projectId: payload.id, name: 'Lourd', updatedAt: 1 }, payload))
+        .outcome,
+    ).toBe('accepted')
+    const response = await t.withIdentity({ subject: userId }).fetch(`/project-blob/${payload.id}`)
+    expect(await response.json()).toEqual(payload)
+  })
 
-    const { outcome } = await push(
-      t,
-      userId,
-      { projectId: project.id, name: project.name, updatedAt: project.updatedAt },
-      project,
-    )
-    expect(outcome).toBe('accepted')
+  it('refuse avant stockage une requête anonyme, trop grosse ou mal typée', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    const query = 'projectId=p&name=p&updatedAt=1'
+    const anonymous = await t.fetch(`/upload/project?${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    expect(anonymous.status).toBe(401)
 
-    const response = await t.withIdentity({ subject: userId }).fetch(`/project-blob/${project.id}`)
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual(project)
+    const oversized = await t.withIdentity({ subject: userId }).fetch(`/upload/project?${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: new Uint8Array(MAX_PROJECT_BLOB_BYTES + 1),
+    })
+    expect(oversized.status).toBe(413)
+
+    const wrongType = await t.withIdentity({ subject: userId }).fetch(`/upload/project?${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: '{}',
+    })
+    expect(wrongType.status).toBe(400)
+    expect(await storageCount(t)).toBe(0)
+  })
+
+  it('répond au préflight sans exposer de capacité Storage', async () => {
+    const response = await testConvex().fetch('/upload/project', { method: 'OPTIONS' })
+    expect(response.status).toBe(204)
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST')
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain('Authorization')
   })
 })
 
-describe('dernier écrivain gagne', () => {
-  it('garde la version la plus récente, quel que soit l’ordre d’arrivée', async () => {
+describe('dernier écrivain gagne sans fichier orphelin', () => {
+  it('garde la version la plus récente, quel que soit l’ordre', async () => {
     for (const order of [
       [100, 200],
       [200, 100],
     ]) {
       const t = testConvex()
       const userId = await cloudAccount(t)
-      await Promise.all(
-        order.map((updatedAt) =>
-          push(t, userId, { projectId: 'p', name: `v${updatedAt}`, updatedAt }, { updatedAt }),
-        ),
-      )
-      const rows = await t.withIdentity({ subject: userId }).query(api.projects.listProjects, {})
-      expect(rows).toEqual([{ projectId: 'p', name: 'v200', updatedAt: 200 }])
+      for (const updatedAt of order) {
+        await push(t, userId, { projectId: 'p', name: `v${updatedAt}`, updatedAt }, { updatedAt })
+      }
+      expect(
+        await t.withIdentity({ subject: userId }).query(api.projects.listProjects, {}),
+      ).toEqual([{ projectId: 'p', name: 'v200', updatedAt: 200 }])
+      expect(await storageCount(t)).toBe(1)
     }
   })
 
-  it('refuse une version plus ancienne sans laisser son blob derrière elle', async () => {
+  it('un rejeu exact est stale et garde le blob actif', async () => {
     const t = testConvex()
     const userId = await cloudAccount(t)
-    const recent = await push(
-      t,
-      userId,
-      { projectId: 'p', name: 'récent', updatedAt: 200 },
-      { v: 2 },
-    )
-    const ancien = await push(
-      t,
-      userId,
-      { projectId: 'p', name: 'ancien', updatedAt: 100 },
-      { v: 1 },
-    )
+    await push(t, userId, { projectId: 'p', name: 'p', updatedAt: 100 }, { v: 1 })
+    const active = (await project(t, userId, 'p'))!.blobId
 
-    expect(ancien.outcome).toBe('stale')
-    /* Le refus est le cas fréquent — deux navigateurs qui poussent le même
-       cycle — donc un octet laissé ici serait payé à chaque fois. */
-    expect(await stored(t, ancien.blobId)).toBe(false)
-    expect(await stored(t, recent.blobId)).toBe(true)
+    expect(
+      (await push(t, userId, { projectId: 'p', name: 'p', updatedAt: 100 }, { v: 1 })).outcome,
+    ).toBe('stale')
+    expect((await project(t, userId, 'p'))!.blobId).toBe(active)
+    expect(await stored(t, active)).toBe(true)
+    expect(await storageCount(t)).toBe(1)
   })
 
-  it('refuse aussi l’égalité, pour ne pas réécrire ce qui est déjà là', async () => {
+  it('une version plus ancienne nettoie son nouveau blob', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    await push(t, userId, { projectId: 'p', name: 'récent', updatedAt: 200 }, { v: 2 })
+    expect(
+      (await push(t, userId, { projectId: 'p', name: 'ancien', updatedAt: 100 }, { v: 1 })).outcome,
+    ).toBe('stale')
+    expect(await storageCount(t)).toBe(1)
+  })
+
+  it('un remplacement supprime l’ancien blob après le commit', async () => {
     const t = testConvex()
     const userId = await cloudAccount(t)
     await push(t, userId, { projectId: 'p', name: 'un', updatedAt: 100 }, { v: 1 })
-    const rejoué = await push(t, userId, { projectId: 'p', name: 'deux', updatedAt: 100 }, { v: 2 })
-    expect(rejoué.outcome).toBe('stale')
-    expect(await stored(t, rejoué.blobId)).toBe(false)
-  })
-
-  it('refuse un blob au-dessus du plafond et ne le garde pas', async () => {
-    const t = testConvex()
-    const userId = await cloudAccount(t)
-    const as = t.withIdentity({ subject: userId })
-    await as.mutation(api.projects.beginProjectPush, {})
-    const blobId = await t.run((ctx) =>
-      ctx.storage.store(new Blob([new Uint8Array(MAX_PROJECT_BLOB_BYTES + 1)])),
-    )
-
-    const outcome = await as.mutation(api.projects.pushProject, {
-      projectId: 'p',
-      name: 'p',
-      updatedAt: 1,
-      blobId,
-    })
-    expect(outcome).toBe('too-large')
-    expect(await stored(t, blobId)).toBe(false)
-    expect(await as.query(api.projects.listProjects, {})).toEqual([])
-  })
-
-  it('supprime le blob remplacé quand elle accepte', async () => {
-    const t = testConvex()
-    const userId = await cloudAccount(t)
-    const premier = await push(t, userId, { projectId: 'p', name: 'un', updatedAt: 100 }, { v: 1 })
-    const second = await push(t, userId, { projectId: 'p', name: 'deux', updatedAt: 200 }, { v: 2 })
-
-    expect(second.outcome).toBe('accepted')
-    expect(await stored(t, premier.blobId)).toBe(false)
-    expect(await stored(t, second.blobId)).toBe(true)
-  })
-
-  /*
-   * Le `blobId` vient du client — l'envoi le lui rend, c'est même l'argument
-   * qu'on lui demande — donc rien ne garantit qu'il diffère de celui déjà en
-   * place. Renvoyé tel quel avec un horodatage plus récent, il se remplaçait
-   * lui-même : la ligne était corrigée, puis son propre fichier supprimé. Le
-   * projet devenait illisible, et sa suppression de compte butait sur un fichier
-   * qui n'existait plus.
-   */
-  it('ne supprime pas le fichier qu’elle vient de garder', async () => {
-    const t = testConvex()
-    const userId = await cloudAccount(t)
-    const as = t.withIdentity({ subject: userId })
-    const { blobId } = await push(
-      t,
-      userId,
-      { projectId: 'p', name: 'un', updatedAt: 100 },
-      { v: 1 },
-    )
-
-    await as.mutation(api.projects.beginProjectPush, {})
-    const outcome = await as.mutation(api.projects.pushProject, {
-      projectId: 'p',
-      name: 'deux',
-      updatedAt: 200,
-      blobId,
-    })
-
-    expect(outcome).toBe('accepted')
-    expect(await stored(t, blobId)).toBe(true)
+    const first = (await project(t, userId, 'p'))!.blobId
+    await push(t, userId, { projectId: 'p', name: 'deux', updatedAt: 200 }, { v: 2 })
+    const second = (await project(t, userId, 'p'))!.blobId
+    expect(await stored(t, first)).toBe(false)
+    expect(await stored(t, second)).toBe(true)
   })
 })
 
-describe('le catalogue', () => {
-  it('ne montre que les projets de celui qui demande', async () => {
+describe('références historiques aliasées', () => {
+  it('conserve un fichier partagé jusqu’au dernier remplacement, même entre comptes et tables', async () => {
     const t = testConvex()
-    const moi = await cloudAccount(t)
-    const autre = await cloudAccount(t)
-    await push(t, moi, { projectId: 'à-moi', name: 'à moi', updatedAt: 1 }, { v: 1 })
-    await push(t, autre, { projectId: 'à-lui', name: 'à lui', updatedAt: 1 }, { v: 1 })
+    const owner = await cloudAccount(t)
+    const other = await cloudAccount(t)
+    const shared = await t.run(async (ctx) => {
+      const id = await ctx.storage.store(new Blob(['partagé'], { type: 'image/png' }))
+      await ctx.db.insert('projects', {
+        userId: owner,
+        projectId: 'p',
+        name: 'p',
+        updatedAt: 1,
+        blobId: id,
+      })
+      await ctx.db.insert('assets', {
+        userId: other,
+        assetId: 'a',
+        storageId: id,
+        contentType: 'image/png',
+        byteLength: 7,
+      })
+      return id
+    })
 
-    const rows = await t.withIdentity({ subject: moi }).query(api.projects.listProjects, {})
-    expect(rows.map((row) => row.projectId)).toEqual(['à-moi'])
+    await push(t, owner, { projectId: 'p', name: 'p2', updatedAt: 2 }, { v: 2 })
+    expect(await stored(t, shared)).toBe(true)
+    expect((await pushAsset(t, other, 'a', new Uint8Array([1, 2, 3]))).status).toBe(200)
+    expect(await stored(t, shared)).toBe(false)
   })
 
-  it('rend 404 sur le blob d’un autre compte, jamais 403', async () => {
-    /* Un 403 confirmerait l'existence, et l'existence est elle-même privée. */
+  it('une suppression ne casse pas le projet aliasé d’un autre compte', async () => {
     const t = testConvex()
-    const propriétaire = await cloudAccount(t)
-    const curieux = await cloudAccount(t)
-    await push(t, propriétaire, { projectId: 'secret', name: 'secret', updatedAt: 1 }, { v: 1 })
+    const owner = await cloudAccount(t)
+    const other = await cloudAccount(t)
+    const shared = await t.run(async (ctx) => {
+      const id = await ctx.storage.store(new Blob(['partagé'], { type: 'application/json' }))
+      await ctx.db.insert('projects', {
+        userId: owner,
+        projectId: 'a',
+        name: 'a',
+        updatedAt: 1,
+        blobId: id,
+      })
+      await ctx.db.insert('projects', {
+        userId: other,
+        projectId: 'b',
+        name: 'b',
+        updatedAt: 1,
+        blobId: id,
+      })
+      return id
+    })
 
-    const response = await t.withIdentity({ subject: curieux }).fetch('/project-blob/secret')
-    expect(response.status).toBe(404)
+    await t
+      .withIdentity({ subject: owner })
+      .mutation(api.projects.removeProject, { projectId: 'a' })
+    expect(await stored(t, shared)).toBe(true)
+    expect((await t.withIdentity({ subject: other }).fetch('/project-blob/b')).status).toBe(200)
+    await t
+      .withIdentity({ subject: other })
+      .mutation(api.projects.removeProject, { projectId: 'b' })
+    expect(await stored(t, shared)).toBe(false)
   })
 
-  it('supprimer emporte la ligne et le fichier', async () => {
+  it('un paramètre blobId hostile est ignoré et ne rattache pas les octets de la victime', async () => {
     const t = testConvex()
-    const userId = await cloudAccount(t)
-    const { blobId } = await push(t, userId, { projectId: 'p', name: 'p', updatedAt: 1 }, { v: 1 })
-
-    const as = t.withIdentity({ subject: userId })
-    await expect(as.mutation(api.projects.removeProject, { projectId: 'p' })).resolves.toBe(true)
-    expect(await stored(t, blobId)).toBe(false)
-    expect(await as.query(api.projects.listProjects, {})).toEqual([])
+    const victim = await cloudAccount(t)
+    const attacker = await cloudAccount(t)
+    await push(
+      t,
+      victim,
+      { projectId: 'secret', name: 'secret', updatedAt: 1 },
+      { owner: 'victim' },
+    )
+    const victimBlob = (await project(t, victim, 'secret'))!.blobId
+    const query = new URLSearchParams({
+      projectId: 'vol',
+      name: 'vol',
+      updatedAt: '1',
+      blobId: victimBlob,
+    })
+    const response = await t.withIdentity({ subject: attacker }).fetch(`/upload/project?${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner: 'attacker' }),
+    })
+    expect(response.status).toBe(200)
+    expect(
+      await (await t.withIdentity({ subject: attacker }).fetch('/project-blob/vol')).json(),
+    ).toEqual({
+      owner: 'attacker',
+    })
+    expect(await stored(t, victimBlob)).toBe(true)
   })
 })

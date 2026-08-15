@@ -77,7 +77,8 @@ export default defineSchema({
     blobId: v.id('_storage'),
   })
     .index('by_user', ['userId'])
-    .index('by_user_project', ['userId', 'projectId']),
+    .index('by_user_project', ['userId', 'projectId'])
+    .index('by_blobId', ['blobId']),
 
   /**
    * Les binaires, et à qui ils appartiennent.
@@ -93,7 +94,9 @@ export default defineSchema({
     storageId: v.id('_storage'),
     contentType: v.string(),
     byteLength: v.number(),
-  }).index('by_user_asset', ['userId', 'assetId']),
+  })
+    .index('by_user_asset', ['userId', 'assetId'])
+    .index('by_storageId', ['storageId']),
 
   /**
    * Les suppressions de compte en cours : la barrière, et ce qu'il reste à

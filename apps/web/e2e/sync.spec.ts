@@ -24,8 +24,10 @@
  * rester exécutable sans backend, comme il l'était sans Docker.
  */
 import { expect, test, type Browser, type Page } from '@playwright/test'
+import { MAX_IMAGE_FILE_BYTES } from 'backend/media'
 import {
   adminClient,
+  deleteRemoteAccount,
   dropRemoteProjects,
   expireCloud,
   grantCloud,
@@ -37,6 +39,7 @@ import {
   seedRemoteAsset,
   seedRemoteProject,
   signUpSession,
+  tryRemoteAssetUpload,
   type Session,
 } from '../../backend/tests/stack'
 import { JWT_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '../src/lib/session-keys'
@@ -215,6 +218,38 @@ test.describe('Sync cloud', () => {
 
   test.afterAll(async () => {
     await dropRemoteProjects(session)
+  })
+
+  test('le transport réel accepte 16 MiB et refuse 17 MiB sans ligne distante', async () => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const acceptedId = `asset-16-${String(Date.now())}`
+    const rejectedId = `asset-17-${String(Date.now())}`
+
+    try {
+      const accepted = await tryRemoteAssetUpload(
+        own,
+        acceptedId,
+        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES)], { type: 'image/png' }),
+      )
+      expect(accepted).toEqual({ status: 200, outcome: 'accepted' })
+
+      const download = await fetch(`${stack!.site}/asset/${acceptedId}`, {
+        headers: { Authorization: `Bearer ${own.token}` },
+      })
+      expect(download.status).toBe(200)
+      expect((await download.arrayBuffer()).byteLength).toBe(MAX_IMAGE_FILE_BYTES)
+
+      const rejected = await tryRemoteAssetUpload(
+        own,
+        rejectedId,
+        new Blob([new Uint8Array(17 * 1024 * 1024)], { type: 'image/png' }),
+      )
+      expect(rejected).toEqual({ status: 413, outcome: 'rejected' })
+      expect(await readRemote(stack!, own, `/asset/${rejectedId}`)).toBeNull()
+    } finally {
+      await deleteRemoteAccount(own)
+    }
   })
 
   test('un projet modifié dans un navigateur arrive dans un autre, images comprises', async ({

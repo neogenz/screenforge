@@ -22,6 +22,7 @@ import type * as media from "../media.js";
 import type * as mirror from "../mirror.js";
 import type * as polar from "../polar.js";
 import type * as projects from "../projects.js";
+import type * as storageReferences from "../storageReferences.js";
 import type * as users from "../users.js";
 
 import type {
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   mirror: typeof mirror;
   polar: typeof polar;
   projects: typeof projects;
+  storageReferences: typeof storageReferences;
   users: typeof users;
 }>;
 

@@ -19,13 +19,13 @@ export const CONTENT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'] 
  * donnait. Un document Convex plafonne à 1 MiB, ce qui a fait sortir le JSON du
  * document vers un fichier — et un fichier sans plafond est un trou de coût.
  *
- * 32 MiB est mesuré sur le pire cas prévu par le modèle : un projet portant
+ * 4 MiB laisse plus de trois fois la taille mesurée du pire cas prévu : un projet portant
  * `MAX_PROJECT_RELEASES` (20) instantanés complets et `MAX_PROJECT_LOCALES`
  * (12) variantes. Les vignettes en sont retirées avant l'envoi
  * (`projectWithoutThumbnails`), et les images ne sont pas dedans — elles ont
  * leur propre chemin, borné par `MAX_IMAGE_FILE_BYTES`.
  */
-export const MAX_PROJECT_BLOB_BYTES = 32 * 1024 * 1024
+export const MAX_PROJECT_BLOB_BYTES = 4 * 1024 * 1024
 
 export function isContentImageType(contentType: string): boolean {
   return (CONTENT_IMAGE_TYPES as readonly string[]).includes(contentType)
