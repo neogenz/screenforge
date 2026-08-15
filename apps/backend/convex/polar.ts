@@ -4,7 +4,7 @@ import { Polar } from '@polar-sh/sdk'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks.js'
 import { ConvexError, v } from 'convex/values'
 import { api, internal } from './_generated/api'
-import { action, internalAction } from './_generated/server'
+import { action, env, internalAction } from './_generated/server'
 import { requireUser } from './authz'
 import { projectCustomerState } from './entitlements'
 import { consume } from './limits'
@@ -40,8 +40,8 @@ import { consume } from './limits'
  * cette fonction-ci, qui nomme la variable manquante plutôt que de laisser le
  * SDK échouer sur une chaîne vide.
  */
-function required(name: string): string {
-  const value = process.env[name]
+function required(name: keyof typeof env): string {
+  const value = env[name]
   if (!value) throw new Error(`Missing Convex environment variable ${name}.`)
   return value
 }
@@ -56,7 +56,7 @@ function polar(): Polar {
     /* `sandbox` a sa propre base d'API, ses propres produits et ses propres
        clés : le même jeton n'ouvre pas les deux. Le défaut est donc le bac à
        sable, pour qu'une variable oubliée ne facture personne. */
-    server: process.env.POLAR_SERVER === 'production' ? 'production' : 'sandbox',
+    server: env.POLAR_SERVER === 'production' ? 'production' : 'sandbox',
   })
   return client
 }

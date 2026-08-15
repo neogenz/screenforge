@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: fermer par assert, review et boucle corrective
@@ -111,7 +111,7 @@ journey
 | 1 | Tests unitaires, types, lint, builds, E2E cloud strict, export et audits sont tous verts sur le diff final. |
 | 1 | Aucun scénario cloud requis n'est sauté et aucun processus de test ne survit à la suite. |
 | 2 | Les facettes coding et frontend de `aidd-dev:03-assert` passent un clean sweep final; la facette architecture ne laisse aucun écart corrigeable. |
-| 3 | `review.md` conclut `approved` avec zéro critical, zéro warning et zéro critère `fix`. |
+| 3 | `review.md` conclut `approve` avec zéro critical, zéro warning et zéro critère `fix`. |
 | 4 | Tout écart découvert possède un contre-test rouge avant correction et vert après, puis le gate complet reste vert. |
 | 5 | L'ancien compte préproduction ne connecte plus et l'arbre courant ne contient plus ses identifiants. |
 | 5 | La PR cible la base de la pile réellement revue et son diff ne contient que la migration et ses corrections. |

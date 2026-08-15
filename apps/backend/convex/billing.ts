@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { httpAction, internalQuery } from './_generated/server'
+import { env, httpAction, internalQuery } from './_generated/server'
 
 /**
  * L'enveloppe HTTP de la vente : le webhook, et l'inventaire des variables.
@@ -59,10 +59,10 @@ const REQUIRED_VARIABLES = [
   'POLAR_CLOUD_PRODUCT_ID',
   'POLAR_LICENCE_BENEFIT_ID',
   'CHECKOUT_SUCCESS_URL',
-]
+] as const
 
 export const healthcheck = internalQuery({
   args: {},
   returns: v.array(v.string()),
-  handler: () => REQUIRED_VARIABLES.filter((name) => !process.env[name]),
+  handler: () => REQUIRED_VARIABLES.filter((name) => !env[name]),
 })

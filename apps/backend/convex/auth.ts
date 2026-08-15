@@ -4,6 +4,7 @@ import Resend from '@auth/core/providers/resend'
 import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
+import { env } from './_generated/server'
 import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
 
 /**
@@ -27,7 +28,7 @@ import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './li
  * la comparaison de préfixe ci-dessous ne tomberait pas sur le même caractère.
  */
 function siteUrl(): string {
-  const url = process.env.SITE_URL
+  const url = env.SITE_URL
   if (!url) throw new Error('SITE_URL is not configured on this deployment.')
   return url.replace(/\/$/, '')
 }
@@ -116,8 +117,8 @@ interface SendParams {
 
 const magicLink = Resend({
   id: 'resend',
-  apiKey: process.env.AUTH_RESEND_KEY,
-  from: process.env.AUTH_EMAIL_FROM ?? 'ScreenForge <onboarding@resend.dev>',
+  apiKey: env.AUTH_RESEND_KEY,
+  from: env.AUTH_EMAIL_FROM ?? 'ScreenForge <onboarding@resend.dev>',
   /*
    * La conversion est celle que la bibliothèque fait elle-même.
    *
