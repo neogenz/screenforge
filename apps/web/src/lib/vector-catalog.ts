@@ -7,9 +7,11 @@
  * personne n'a relu, et un identifiant inconnu est refusé à la validation
  * plutôt que rendu.
  *
- * Une seule source alimente le sélecteur, les propriétés, la liste des
- * calques, les modèles, les aperçus, l'export, le constructeur IA et la
- * validation. Deux tables auraient divergé au premier ajout.
+ * Les identifiants eux-mêmes vivent dans le contrat partagé
+ * (`@screenforge/project-format`, module `catalog-ids`) : la validation du
+ * projet et les schémas d'outils IA en ont besoin sans les tracés. Ici ne
+ * reste que ce qui sert au rendu — libellés, groupes, tracés, boîtes
+ * dessinées — adossé à ces identifiants.
  *
  * Les formes sont tracées dans une boîte de 100 × 100 : l'objet Fabric est mis
  * à l'échelle, jamais retracé, donc redimensionner ne reconstruit rien. Les
@@ -24,11 +26,18 @@
  * même manière. Il est mesuré par un vrai moteur SVG dans `vector-catalog.spec`,
  * jamais recopié à la main.
  */
+import {
+  ICON_BOX,
+  ICON_STROKE,
+  SHAPE_BOX,
+  isIconId,
+  isShapeId,
+  type IconId,
+  type ShapeId,
+} from '@screenforge/project-format/catalog-ids'
 
-export const SHAPE_BOX = 100
-export const ICON_BOX = 24
-/** Épaisseur du trait d'une icône, dans son repère de 24. */
-export const ICON_STROKE = 2
+export { ICON_BOX, ICON_STROKE, SHAPE_BOX, isIconId, isShapeId }
+export type { IconId, ShapeId }
 
 const SHAPES = [
   { id: 'rectangle', label: 'Rectangle', group: 'Base' },
@@ -104,8 +113,6 @@ const SHAPES = [
     drawn: [0, 32.5, 100, 67.5],
   },
 ] as const
-
-export type ShapeId = (typeof SHAPES)[number]['id']
 
 export interface ShapeEntry {
   readonly id: ShapeId
@@ -355,8 +362,6 @@ const ICONS = [
   },
 ] as const
 
-export type IconId = (typeof ICONS)[number]['id']
-
 export interface IconEntry {
   readonly id: IconId
   readonly label: string
@@ -379,13 +384,10 @@ export function iconEntry(id: string): IconEntry | undefined {
   return ICON_BY_ID.get(id)
 }
 
-export function isShapeId(id: unknown): id is ShapeId {
-  return typeof id === 'string' && SHAPE_BY_ID.has(id)
-}
-
-export function isIconId(id: unknown): id is IconId {
-  return typeof id === 'string' && ICON_BY_ID.has(id)
-}
+/* Le catalogue doit couvrir exactement les identifiants du contrat partagé :
+   un identifiant en trop casse ici à la compilation (`ShapeEntry.id`), un
+   identifiant manquant est relevé par `__tests__/vector-catalog.test.ts`,
+   qui compare les listes une à une. */
 
 /** Groupes dans l'ordre du catalogue, pour un sélecteur qui ne les réordonne pas. */
 export function groupsOf<T extends { group: string }>(entries: readonly T[]): [string, T[]][] {

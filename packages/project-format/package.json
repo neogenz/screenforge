@@ -1,0 +1,24 @@
+{
+  "name": "@screenforge/project-format",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "//exports": "Les sources, pas un build : `apps/web` (vite) et le futur `apps/mcp` (Node, types dépouillés à la volée) importent le contrat tel quel — le `build` tsc vers dist/ prouve que le paquet se compile seul, mais rien ne l'exige pour consommer le paquet.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

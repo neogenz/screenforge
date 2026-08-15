@@ -20,6 +20,10 @@
  */
 import type { TextCharStyle, TextCharStyles, TextLayer } from '@/types'
 
+// La forme d'un jeu de styles fait partie du contrat partagé ; l'édition
+// reste ici. Réexport pour les imports `@/lib/text-styles` existants.
+export { isTextCharStyles } from '@screenforge/project-format/text-char-styles'
+
 /** Le passage en cours de sélection dans un calque texte, sur le canevas. */
 export interface TextRange {
   layerId: string
@@ -153,20 +157,6 @@ export function sameCharStyles(
   b: TextCharStyles | undefined,
 ): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
-}
-
-export function isTextCharStyles(value: unknown): value is TextCharStyles {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  for (const [line, columns] of Object.entries(value as Record<string, unknown>)) {
-    if (!Number.isInteger(Number(line)) || Number(line) < 0) return false
-    if (!columns || typeof columns !== 'object' || Array.isArray(columns)) return false
-    for (const [column, style] of Object.entries(columns as Record<string, unknown>)) {
-      if (!Number.isInteger(Number(column)) || Number(column) < 0) return false
-      const fill = (style as { fill?: unknown } | null)?.fill
-      if (typeof fill !== 'string' || !fill) return false
-    }
-  }
-  return true
 }
 
 /**

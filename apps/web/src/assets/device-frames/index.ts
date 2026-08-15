@@ -169,6 +169,11 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
 
 export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.current)
 
+/* Chaque modèle du contrat partagé a son gabarit, et réciproquement. Un modèle
+   en trop casse ici à la compilation (`DeviceFrameConfig.model`, dont
+   `DeviceModel` est la liste `DEVICE_MODEL_IDS` du contrat) ; un modèle
+   manquant est relevé par `__tests__/device-frame-svg.test.ts`. */
+
 export const DEFAULT_DEVICE: DeviceFrameConfig = DEVICE_FRAMES[0]
 
 /**

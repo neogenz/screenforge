@@ -1,4 +1,5 @@
 import { cache } from 'fabric'
+import { CONTENT_FONTS } from '@screenforge/project-format/catalog-ids'
 
 const loadedFonts = new Set<string>()
 const fontPromises = new Map<string, Promise<FontLoadResult>>()
@@ -9,61 +10,10 @@ export interface FontLoadResult {
   message?: string
 }
 
-// `POPULAR_FONTS[0]` sert de police à tout texte neuf : une grotesque au dessin
-// affirmé plutôt qu'un neutre de gabarit.
-export const POPULAR_FONTS = [
-  'Space Grotesk',
-  'Archivo',
-  'Inter',
-  'Roboto',
-  'Open Sans',
-  'Montserrat',
-  'Poppins',
-  'Lato',
-  'Playfair Display',
-  'Oswald',
-  'Raleway',
-  'Nunito',
-  'Merriweather',
-  'Source Sans 3',
-  'PT Sans',
-  'Ubuntu',
-  'Rubik',
-  'Work Sans',
-  'Quicksand',
-  'Barlow',
-  'DM Sans',
-  'Noto Sans',
-  'Fira Sans',
-  'Mulish',
-  'Josefin Sans',
-  'Inconsolata',
-  'Karla',
-  'Cabin',
-  'Libre Baskerville',
-  'EB Garamond',
-  'Crimson Text',
-  'Cormorant Garamond',
-  'Zilla Slab',
-  'Rokkitt',
-  'Arvo',
-  'Bitter',
-  'Exo 2',
-  'Titillium Web',
-  'Anton',
-  'Bebas Neue',
-  'Righteous',
-  'Pacifico',
-  'Dancing Script',
-  'Lobster',
-  'Caveat',
-  'Sacramento',
-  'Great Vibes',
-  'Satisfy',
-  'Comfortaa',
-  'Fredoka One',
-  'Varela Round',
-]
+// La liste vit dans le contrat partagé : les schémas d'outils IA énumèrent les
+// mêmes familles. `POPULAR_FONTS[0]` sert de police à tout texte neuf : une
+// grotesque au dessin affirmé plutôt qu'un neutre de gabarit.
+export const POPULAR_FONTS: readonly string[] = CONTENT_FONTS
 
 export const FONT_WEIGHT_OPTIONS = [
   { value: 300, label: '300 · Léger' },
