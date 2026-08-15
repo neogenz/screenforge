@@ -2,6 +2,7 @@
 import { convexTest } from 'convex-test'
 import rateLimiter from '@convex-dev/rate-limiter/test'
 import schema from './schema'
+import { rateLimiter as limiter, type LimitName } from './limits'
 
 /**
  * Le déploiement, simulé, avec ses composants.
@@ -40,6 +41,14 @@ export async function cloudAccount(t: ReturnType<typeof testConvex>) {
     })
     return userId
   })
+}
+
+export function useRateLimit(t: ReturnType<typeof testConvex>, name: LimitName, key?: string) {
+  return t.run((ctx) => limiter.limit(ctx, name, { key }))
+}
+
+export function rateLimitValue(t: ReturnType<typeof testConvex>, name: LimitName, key?: string) {
+  return t.run((ctx) => limiter.getValue(ctx, name, { key }))
 }
 
 /**

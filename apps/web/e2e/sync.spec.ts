@@ -32,12 +32,15 @@ import {
   expireCloud,
   grantCloud,
   grantLicence,
+  growRefreshChain,
+  inspectDeletedSession,
   listRemote,
   localConvex,
   readRemote,
   remoteProject,
   seedRemoteAsset,
   seedRemoteProject,
+  sessionIdOf,
   signUpSession,
   tryRemoteAssetUpload,
   type Session,
@@ -250,6 +253,17 @@ test.describe('Sync cloud', () => {
     } finally {
       await deleteRemoteAccount(own)
     }
+  })
+
+  test('le cron réel reprend une session de plus de 400 refresh tokens jusqu’à zéro', async () => {
+    const own = await signUpSession(stack!)
+    const sessionId = sessionIdOf(own.token)
+    await growRefreshChain(own, 401)
+
+    expect(await deleteRemoteAccount(own)).toBe('deletion-pending')
+    await expect
+      .poll(() => inspectDeletedSession(admin(), sessionId), { timeout: 30_000 })
+      .toEqual({ session: false, refreshToken: false, verifier: false })
   })
 
   test('un projet modifié dans un navigateur arrive dans un autre, images comprises', async ({

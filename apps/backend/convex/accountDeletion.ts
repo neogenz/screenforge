@@ -1,9 +1,11 @@
+import { authTables } from '@convex-dev/auth/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { internalMutation, mutation, type MutationCtx } from './_generated/server'
+import { internalMutation, internalQuery, mutation, type MutationCtx } from './_generated/server'
 import { requireUser } from './authz'
-import { consume } from './limits'
+import { consume, normalizeEmail, resetAccountLimits } from './limits'
+import { deleteIfUnreferenced } from './storageReferences'
 
 /**
  * La suppression de compte, sans cascade.
@@ -54,6 +56,16 @@ interface Budget {
 
 type Purge = (ctx: MutationCtx, userId: Id<'users'>, budget: Budget) => Promise<void>
 
+export const AUTH_TABLE_CLASSIFICATION = {
+  users: 'identity',
+  authSessions: 'user-child',
+  authAccounts: 'user-child',
+  authRefreshTokens: 'session-child',
+  authVerificationCodes: 'account-child',
+  authVerifiers: 'session-child',
+  authRateLimits: 'account-or-email-child',
+} as const satisfies Record<keyof typeof authTables, string>
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -68,37 +80,101 @@ function message(error: unknown): string {
  * `lastError`. C'est la version Convex de « Account deletion cleanup remains
  * queued ».
  *
- * **Un fichier déjà parti est un fichier oublié**, et c'est ce qui empêche une
- * suppression de compte de ne jamais finir. Rien n'interdit à deux lignes de
- * désigner le même `storageId` : `confirmAssetUpload` accepte celui qu'on lui
- * donne, donc deux `assetId` peuvent confirmer le même envoi. La première ligne
- * supprimait alors le fichier, la seconde échouait à le supprimer, la ligne
- * survivait, la passe ne progressait plus — et le cron reprenait le même lot
- * indéfiniment, pour un compte qui ne finissait jamais de se supprimer.
- * Constater l'absence plutôt que l'interdire à l'écriture ne demande ni index
- * ni lecture supplémentaire à chaque envoi, et couvre le fichier disparu pour
- * toute autre raison : ce qu'on veut est que la ligne parte, pas qu'un octet
- * soit effacé une seconde fois. Un refus **réel** du stockage continue, lui, de
- * laisser la ligne — il reste un octet facturé à reprendre.
+ * Les uploads ne créent plus d'alias, mais les données historiques peuvent en
+ * contenir. La suppression consulte donc les deux indexes de références en
+ * excluant seulement la ligne en cours. Une autre référence conserve les
+ * octets; la dernière les retire. Un refus **réel** du stockage laisse la ligne
+ * et le job pour la reprise suivante.
  *
- * La lecture est dans le `try` comme la suppression : elle interroge le même
- * stockage, donc elle peut échouer de la même façon, et une erreur qui
- * s'échapperait d'ici annulerait exactement ce que le `catch` existe pour
- * sauver.
+ * La recherche et la suppression sont dans le même `try` : leur erreur ne doit
+ * pas annuler le reste de la passe.
  */
 async function forget(
   ctx: MutationCtx,
   storageId: Id<'_storage'>,
   budget: Budget,
+  reference: { table: 'projects'; id: Id<'projects'> } | { table: 'assets'; id: Id<'assets'> },
 ): Promise<boolean> {
   try {
-    if ((await ctx.db.system.get(storageId)) === null) return true
-    await ctx.storage.delete(storageId)
+    await deleteIfUnreferenced(ctx, storageId, reference)
     return true
   } catch (error) {
     budget.failures.push(message(error))
     return false
   }
+}
+
+async function drainRefreshTokens(
+  ctx: MutationCtx,
+  sessionId: Id<'authSessions'>,
+  budget: Budget,
+): Promise<boolean> {
+  while (budget.left > 0) {
+    const rows = await ctx.db
+      .query('authRefreshTokens')
+      .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+      .take(Math.min(BATCH, budget.left))
+    if (rows.length === 0) return true
+    for (const row of rows) {
+      await ctx.db.delete(row._id)
+      budget.left -= 1
+    }
+  }
+  return false
+}
+
+async function drainVerifiers(
+  ctx: MutationCtx,
+  sessionId: Id<'authSessions'>,
+  budget: Budget,
+): Promise<boolean> {
+  while (budget.left > 0) {
+    const rows = await ctx.db
+      .query('authVerifiers')
+      .withIndex('by_sessionId', (q) => q.eq('sessionId', sessionId))
+      .take(Math.min(BATCH, budget.left))
+    if (rows.length === 0) return true
+    for (const row of rows) {
+      await ctx.db.delete(row._id)
+      budget.left -= 1
+    }
+  }
+  return false
+}
+
+async function drainVerificationCodes(
+  ctx: MutationCtx,
+  accountId: Id<'authAccounts'>,
+  budget: Budget,
+): Promise<boolean> {
+  while (budget.left > 0) {
+    const rows = await ctx.db
+      .query('authVerificationCodes')
+      .withIndex('accountId', (q) => q.eq('accountId', accountId))
+      .take(Math.min(BATCH, budget.left))
+    if (rows.length === 0) return true
+    for (const row of rows) {
+      await ctx.db.delete(row._id)
+      budget.left -= 1
+    }
+  }
+  return false
+}
+
+async function deleteAuthRateLimit(
+  ctx: MutationCtx,
+  identifier: string,
+  budget: Budget,
+): Promise<boolean> {
+  const row = await ctx.db
+    .query('authRateLimits')
+    .withIndex('identifier', (q) => q.eq('identifier', identifier))
+    .unique()
+  if (row === null) return true
+  if (budget.left <= 0) return false
+  await ctx.db.delete(row._id)
+  budget.left -= 1
+  return true
 }
 
 /**
@@ -120,17 +196,8 @@ const IDENTITY_PURGES = {
       if (sessions.length === 0) return
 
       for (const session of sessions) {
-        const tokens = await ctx.db
-          .query('authRefreshTokens')
-          .withIndex('sessionId', (q) => q.eq('sessionId', session._id))
-          .take(Math.min(BATCH, budget.left))
-        for (const token of tokens) {
-          await ctx.db.delete(token._id)
-          budget.left -= 1
-        }
-        /* Budget épuisé par les enfants : la session reste, et c'est voulu —
-           un jeton non supprimé pointerait sinon sur une session disparue. La
-           passe suivante reprendra la même session. */
+        if (!(await drainRefreshTokens(ctx, session._id, budget))) return
+        if (!(await drainVerifiers(ctx, session._id, budget))) return
         if (budget.left <= 0) return
         await ctx.db.delete(session._id)
         budget.left -= 1
@@ -148,14 +215,8 @@ const IDENTITY_PURGES = {
       if (accounts.length === 0) return
 
       for (const account of accounts) {
-        const codes = await ctx.db
-          .query('authVerificationCodes')
-          .withIndex('accountId', (q) => q.eq('accountId', account._id))
-          .take(Math.min(BATCH, budget.left))
-        for (const code of codes) {
-          await ctx.db.delete(code._id)
-          budget.left -= 1
-        }
+        if (!(await drainVerificationCodes(ctx, account._id, budget))) return
+        if (!(await deleteAuthRateLimit(ctx, account._id, budget))) return
         if (budget.left <= 0) return
         await ctx.db.delete(account._id)
         budget.left -= 1
@@ -178,7 +239,9 @@ const DATA_PURGES = {
       for (const asset of assets) {
         /* La ligne ne part que si le fichier est parti : la supprimer d'abord
            laisserait un octet facturé que plus rien ne désigne. */
-        if (!(await forget(ctx, asset.storageId, budget))) continue
+        if (!(await forget(ctx, asset.storageId, budget, { table: 'assets', id: asset._id }))) {
+          continue
+        }
         await ctx.db.delete(asset._id)
         budget.left -= 1
         progressed = true
@@ -200,7 +263,9 @@ const DATA_PURGES = {
 
       let progressed = false
       for (const project of projects) {
-        if (!(await forget(ctx, project.blobId, budget))) continue
+        if (!(await forget(ctx, project.blobId, budget, { table: 'projects', id: project._id }))) {
+          continue
+        }
         await ctx.db.delete(project._id)
         budget.left -= 1
         progressed = true
@@ -289,7 +354,20 @@ async function advance(
       return 'deletion-pending'
     }
     const identity = await ctx.db.get(userId)
-    if (identity !== null) await ctx.db.delete(userId)
+    if (identity !== null) {
+      const email = identity.email ? normalizeEmail(identity.email) : undefined
+      if (email && !(await deleteAuthRateLimit(ctx, email, budget))) {
+        await ctx.scheduler.runAfter(0, internal.accountDeletion.resume, { userId: job.userId })
+        return 'deletion-pending'
+      }
+      await resetAccountLimits(ctx, userId, email)
+      if (budget.left <= 0) {
+        await ctx.scheduler.runAfter(0, internal.accountDeletion.resume, { userId: job.userId })
+        return 'deletion-pending'
+      }
+      await ctx.db.delete(userId)
+      budget.left -= 1
+    }
     await ctx.db.patch(job._id, { status: 'cleanup', lastError: null })
   }
 
@@ -393,5 +471,29 @@ export const resumeAll = internalMutation({
       await ctx.scheduler.runAfter(0, internal.accountDeletion.resume, { userId: job.userId })
     }
     return jobs.length
+  },
+})
+
+/** Bounded operator/test proof that no child survived a deleted session. */
+export const inspectSessionCleanup = internalQuery({
+  args: { sessionId: v.id('authSessions') },
+  returns: v.object({ session: v.boolean(), refreshToken: v.boolean(), verifier: v.boolean() }),
+  handler: async (ctx, { sessionId }) => {
+    const [session, refreshToken, verifier] = await Promise.all([
+      ctx.db.get(sessionId),
+      ctx.db
+        .query('authRefreshTokens')
+        .withIndex('sessionId', (q) => q.eq('sessionId', sessionId))
+        .first(),
+      ctx.db
+        .query('authVerifiers')
+        .withIndex('by_sessionId', (q) => q.eq('sessionId', sessionId))
+        .first(),
+    ])
+    return {
+      session: session !== null,
+      refreshToken: refreshToken !== null,
+      verifier: verifier !== null,
+    }
   },
 })

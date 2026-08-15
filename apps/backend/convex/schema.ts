@@ -17,6 +17,7 @@ import { v } from 'convex/values'
  */
 export default defineSchema({
   ...authTables,
+  authVerifiers: authTables.authVerifiers.index('by_sessionId', ['sessionId']),
 
   /**
    * Le miroir des droits : ce que Polar dit, recopié ici pour que l'éditeur

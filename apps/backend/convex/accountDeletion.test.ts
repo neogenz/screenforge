@@ -1,10 +1,23 @@
+import { authTables } from '@convex-dev/auth/server'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { GenericValidator } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { TABLES_OUTLIVING_THE_USER, TABLES_OWNED_BY_USER } from './accountDeletion'
+import {
+  AUTH_TABLE_CLASSIFICATION,
+  TABLES_OUTLIVING_THE_USER,
+  TABLES_OWNED_BY_USER,
+} from './accountDeletion'
+import { consume, EMAIL_SCOPED_LIMITS, USER_SCOPED_LIMITS } from './limits'
 import schema from './schema'
-import { cloudAccount, errorCode, rateLimited, testConvex } from './test.helpers'
+import {
+  cloudAccount,
+  errorCode,
+  rateLimited,
+  rateLimitValue,
+  testConvex,
+  useRateLimit,
+} from './test.helpers'
 
 /**
  * La suppression de compte, cas par cas : le seul geste irréversible du
@@ -28,30 +41,56 @@ import { cloudAccount, errorCode, rateLimited, testConvex } from './test.helpers
  */
 
 const PNG = 'image/png'
+const FIXTURE_EMAIL = 'deletion@screenforge.test'
 
 type Stack = ReturnType<typeof testConvex>
 
 /** Un compte complet : identité, sessions, achats, projets, binaires. */
-async function populated(t: Stack, options: { assets?: number } = {}): Promise<Id<'users'>> {
+async function populated(
+  t: Stack,
+  options: {
+    assets?: number
+    refreshTokens?: number
+    verificationCodes?: number
+    verifiers?: number
+  } = {},
+): Promise<Id<'users'>> {
   const assets = options.assets ?? 1
   return await t.run(async (ctx) => {
-    const userId = await ctx.db.insert('users', { email: 'maxime.desogus@gmail.com' })
+    const userId = await ctx.db.insert('users', { email: FIXTURE_EMAIL })
     const sessionId = await ctx.db.insert('authSessions', {
       userId,
       expirationTime: 4_102_444_800_000,
     })
-    await ctx.db.insert('authRefreshTokens', { sessionId, expirationTime: 4_102_444_800_000 })
+    for (let rank = 0; rank < (options.refreshTokens ?? 1); rank += 1) {
+      await ctx.db.insert('authRefreshTokens', { sessionId, expirationTime: 4_102_444_800_000 })
+    }
+    for (let rank = 0; rank < (options.verifiers ?? 1); rank += 1) {
+      await ctx.db.insert('authVerifiers', { sessionId, signature: `signature-${rank}` })
+    }
     const accountId = await ctx.db.insert('authAccounts', {
       userId,
-      provider: 'password',
-      providerAccountId: 'maxime.desogus@gmail.com',
+      provider: 'test-password',
+      providerAccountId: FIXTURE_EMAIL,
       secret: 'hash',
     })
-    await ctx.db.insert('authVerificationCodes', {
-      accountId,
-      provider: 'password',
-      code: 'code-en-attente',
-      expirationTime: 4_102_444_800_000,
+    for (let rank = 0; rank < (options.verificationCodes ?? 1); rank += 1) {
+      await ctx.db.insert('authVerificationCodes', {
+        accountId,
+        provider: 'test-password',
+        code: `code-${rank}`,
+        expirationTime: 4_102_444_800_000,
+      })
+    }
+    await ctx.db.insert('authRateLimits', {
+      identifier: accountId,
+      lastAttemptTime: Date.now(),
+      attemptsLeft: 1,
+    })
+    await ctx.db.insert('authRateLimits', {
+      identifier: FIXTURE_EMAIL,
+      lastAttemptTime: Date.now(),
+      attemptsLeft: 1,
     })
     await ctx.db.insert('entitlements', {
       userId,
@@ -107,6 +146,8 @@ async function leftovers(t: Stack, userId: Id<'users'>): Promise<Record<string, 
       users: (await ctx.db.get(userId)) === null ? 0 : 1,
       authRefreshTokens: (await ctx.db.query('authRefreshTokens').collect()).length,
       authVerificationCodes: (await ctx.db.query('authVerificationCodes').collect()).length,
+      authVerifiers: (await ctx.db.query('authVerifiers').collect()).length,
+      authRateLimits: (await ctx.db.query('authRateLimits').collect()).length,
       jobs: (await ctx.db.query('accountDeletionJobs').collect()).length,
       files: (await ctx.db.system.query('_storage').collect()).length,
     }
@@ -139,13 +180,8 @@ async function withLostFile(t: Stack, userId: Id<'users'>, assetId: string) {
 }
 
 /**
- * Deux lignes sur un seul fichier, ce que rien n'interdit aujourd'hui.
- *
- * L'envoi rend son `storageId` au client — c'est l'argument que
- * `confirmAssetUpload` attend — donc deux `assetId` peuvent confirmer le même
- * fichier, et un `pushProject` peut réclamer celui d'un binaire. Le déploiement
- * n'a pas d'index pour l'interdire à l'écriture ; ce qu'il garantit est que la
- * suppression du compte s'en accommode.
+ * Deux lignes historiques sur un seul fichier. Le transport actuel ne peut
+ * plus les créer, mais la purge doit rester compatible avec celles qui existent.
  */
 async function aliased(t: Stack, userId: Id<'users'>, assetId: string) {
   await t.run(async (ctx) => {
@@ -216,6 +252,16 @@ describe('le schéma, énuméré', () => {
     expect(TABLES_OUTLIVING_THE_USER).toEqual(['accountDeletionJobs'])
     expect(TABLES_OWNED_BY_USER).not.toContain('accountDeletionJobs')
   })
+
+  it('classe chaque table Convex Auth, y compris les relations sans userId', () => {
+    expect(Object.keys(AUTH_TABLE_CLASSIFICATION).sort()).toEqual(Object.keys(authTables).sort())
+    expect(AUTH_TABLE_CLASSIFICATION).toMatchObject({
+      authRefreshTokens: 'session-child',
+      authVerificationCodes: 'account-child',
+      authVerifiers: 'session-child',
+      authRateLimits: 'account-or-email-child',
+    })
+  })
 })
 
 describe('requestAccountDeletion', () => {
@@ -234,6 +280,8 @@ describe('requestAccountDeletion', () => {
       users: 0,
       authRefreshTokens: 0,
       authVerificationCodes: 0,
+      authVerifiers: 0,
+      authRateLimits: 0,
       jobs: 0,
       files: 0,
     })
@@ -329,11 +377,12 @@ describe('requestAccountDeletion', () => {
   /* Critère 7. */
   it('refuse la quatrième demande de l’heure', async () => {
     const userId = await populated(t, { assets: 0 })
+    const request = () => t.run((ctx) => consume(ctx, 'accountDeletion', userId))
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await expect(remove(t, userId)).resolves.toBe('deleted')
+      await expect(request()).resolves.toBeNull()
     }
 
-    await expect(remove(t, userId)).rejects.toSatisfy(rateLimited)
+    await expect(request()).rejects.toSatisfy(rateLimited)
   })
 })
 
@@ -408,6 +457,62 @@ describe('la reprise', () => {
     })
   })
 
+  for (const count of [99, 100, 101]) {
+    it(`supprime une session et ses ${String(count)} refresh tokens sans orphelin`, async () => {
+      const userId = await populated(t, { assets: 0, refreshTokens: count })
+      await expect(remove(t, userId)).resolves.toBe('deleted')
+      await expect(leftovers(t, userId)).resolves.toMatchObject({
+        users: 0,
+        authSessions: 0,
+        authRefreshTokens: 0,
+        authVerifiers: 0,
+        jobs: 0,
+      })
+    })
+  }
+
+  it('conserve la session quand le budget finit au milieu de 405 refresh tokens', async () => {
+    const userId = await populated(t, { assets: 0, refreshTokens: 405 })
+
+    await expect(remove(t, userId)).resolves.toBe('deletion-pending')
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 1,
+      authSessions: 1,
+      authRefreshTokens: 5,
+      jobs: 1,
+    })
+
+    await drain(t, 8)
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 0,
+      authSessions: 0,
+      authRefreshTokens: 0,
+      authVerifiers: 0,
+      jobs: 0,
+    })
+  })
+
+  it('conserve le compte quand le budget finit au milieu de ses codes', async () => {
+    const userId = await populated(t, { assets: 0, verificationCodes: 405 })
+
+    await expect(remove(t, userId)).resolves.toBe('deletion-pending')
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 1,
+      authAccounts: 1,
+      authVerificationCodes: 8,
+      jobs: 1,
+    })
+
+    await drain(t, 8)
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 0,
+      authAccounts: 0,
+      authVerificationCodes: 0,
+      authRateLimits: 0,
+      jobs: 0,
+    })
+  })
+
   /*
    * Critère 6, dans le sens qui compte : une suppression de compte finit.
    *
@@ -439,6 +544,32 @@ describe('la reprise', () => {
     })
   })
 
+  it('ne supprime pas un fichier encore référencé par un autre compte', async () => {
+    const userId = await populated(t, { assets: 1 })
+    const other = await cloudAccount(t)
+    const shared = await t.run(async (ctx) => {
+      const source = await ctx.db
+        .query('assets')
+        .withIndex('by_user_asset', (q) => q.eq('userId', userId))
+        .first()
+      if (!source) throw new Error('Asset fixture missing.')
+      await ctx.db.insert('projects', {
+        userId: other,
+        projectId: 'alias-autre-compte',
+        name: 'Alias',
+        updatedAt: 1,
+        blobId: source.storageId,
+      })
+      return source.storageId
+    })
+
+    await expect(remove(t, userId)).resolves.toBe('deleted')
+    expect(await t.run((ctx) => ctx.db.system.get(shared))).not.toBeNull()
+    expect(
+      (await t.withIdentity({ subject: other }).fetch('/project-blob/alias-autre-compte')).status,
+    ).toBe(200)
+  })
+
   it('reprend un job prepared jusqu’à supprimer identité et fichiers', async () => {
     const userId = await populated(t, { assets: 2 })
     await t.run((ctx) =>
@@ -465,5 +596,33 @@ describe('la reprise', () => {
 
   it('ne planifie rien quand la file est vide', async () => {
     await expect(t.mutation(internal.accountDeletion.resumeAll, {})).resolves.toBe(0)
+  })
+})
+
+describe('compteurs indirects', () => {
+  it('réinitialise les clés compte et e-mail, jamais les limites globales', async () => {
+    const userId = await populated(t, { assets: 0 })
+    for (const name of USER_SCOPED_LIMITS) await useRateLimit(t, name, userId)
+    for (const name of EMAIL_SCOPED_LIMITS) await useRateLimit(t, name, FIXTURE_EMAIL)
+    await useRateLimit(t, 'passwordSignUpGlobal')
+    await useRateLimit(t, 'magicLinkSendGlobal')
+
+    const globalBefore = await Promise.all([
+      rateLimitValue(t, 'passwordSignUpGlobal'),
+      rateLimitValue(t, 'magicLinkSendGlobal'),
+    ])
+    await expect(remove(t, userId)).resolves.toBe('deleted')
+
+    for (const name of USER_SCOPED_LIMITS) {
+      expect((await rateLimitValue(t, name, userId)).ts).toBe(0)
+    }
+    for (const name of EMAIL_SCOPED_LIMITS) {
+      expect((await rateLimitValue(t, name, FIXTURE_EMAIL)).ts).toBe(0)
+    }
+    const globalAfter = await Promise.all([
+      rateLimitValue(t, 'passwordSignUpGlobal'),
+      rateLimitValue(t, 'magicLinkSendGlobal'),
+    ])
+    expect(globalAfter).toEqual(globalBefore)
   })
 })

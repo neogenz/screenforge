@@ -91,6 +91,38 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, LIMITS)
 /** Les noms déclarés, et rien d'autre : un compteur non déclaré ne compile pas. */
 export type LimitName = keyof typeof LIMITS
 
+export const USER_SCOPED_LIMITS = [
+  'checkout',
+  'assetUpload',
+  'projectPush',
+  'accountDeletion',
+] as const satisfies readonly LimitName[]
+
+export const EMAIL_SCOPED_LIMITS = [
+  'magicLinkSend',
+  'passwordAttempt',
+] as const satisfies readonly LimitName[]
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** Remove only the component keys that belong to the departing account. */
+export async function resetAccountLimits(
+  ctx: RunMutationCtx,
+  userId: string,
+  email?: string,
+): Promise<void> {
+  await Promise.all([
+    ...USER_SCOPED_LIMITS.map((name) => rateLimiter.reset(ctx, name, { key: userId })),
+    ...(email
+      ? EMAIL_SCOPED_LIMITS.map((name) =>
+          rateLimiter.reset(ctx, name, { key: normalizeEmail(email) }),
+        )
+      : []),
+  ])
+}
+
 /** Le code que le client reconnaît ; le texte affiché appartient à l'éditeur. */
 export const RATE_LIMITED = 'RATE_LIMITED' as const
 

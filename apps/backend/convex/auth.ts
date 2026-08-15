@@ -4,7 +4,7 @@ import Resend from '@auth/core/providers/resend'
 import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
-import { clear, consume, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
+import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
 
 /**
  * Qui a le droit d'entrer, et par quelles portes.
@@ -135,9 +135,7 @@ const magicLink = Resend({
 
 /** L'adresse telle que le fournisseur la stocke : c'est elle qui sert de clé. */
 function normalizedEmail(params: Record<string, unknown>): string {
-  return String(params.email ?? '')
-    .trim()
-    .toLowerCase()
+  return normalizeEmail(String(params.email ?? ''))
 }
 
 /**

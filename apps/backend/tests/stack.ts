@@ -17,6 +17,7 @@ import type { FunctionReference } from 'convex/server'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { api, internal } from '../convex/_generated/api.js'
+import type { Id } from '../convex/_generated/dataModel.js'
 
 export interface Stack {
   url: string
@@ -128,11 +129,27 @@ const applyEntitlements = internal.mirror.applyEntitlementsIfNewer as unknown as
   'written' | 'unchanged' | 'ignored'
 >
 
+const inspectSessionCleanup = internal.accountDeletion
+  .inspectSessionCleanup as unknown as FunctionReference<
+  'query',
+  'public',
+  { sessionId: Id<'authSessions'> },
+  { session: boolean; refreshToken: boolean; verifier: boolean }
+>
+
 /** L'identifiant porté par le jeton : `subject` vaut `${userId}|${sessionId}`. */
 export function userIdOf(token: string): string {
   const body = token.split('.')[1] ?? ''
   const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { sub: string }
   return payload.sub.split('|')[0] ?? ''
+}
+
+export function sessionIdOf(token: string): Id<'authSessions'> {
+  const body = token.split('.')[1] ?? ''
+  const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { sub: string }
+  const sessionId = payload.sub.split('|')[1]
+  if (!sessionId) throw new Error('session absente du jeton')
+  return sessionId as Id<'authSessions'>
 }
 
 let accounts = 0
@@ -163,6 +180,22 @@ export async function signUpSession(
   const { token, refreshToken } = result.tokens
   client.setAuth(token)
   return { client, email, password, token, refreshToken, userId: userIdOf(token) }
+}
+
+export async function growRefreshChain(session: Session, count: number): Promise<void> {
+  for (let rank = 0; rank < count; rank += 1) {
+    const result = await session.client.action(api.auth.signIn, {
+      refreshToken: session.refreshToken,
+    })
+    if (!result.tokens) throw new Error(`aucun jeton après refresh ${String(rank + 1)}`)
+    session.token = result.tokens.token
+    session.refreshToken = result.tokens.refreshToken
+    session.client.setAuth(session.token)
+  }
+}
+
+export function inspectDeletedSession(admin: ConvexHttpClient, sessionId: Id<'authSessions'>) {
+  return admin.query(inspectSessionCleanup, { sessionId })
 }
 
 const customer = (userId: string) => `cus_${userId.slice(0, 8)}`
