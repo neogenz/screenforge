@@ -181,6 +181,30 @@ Un seul onglet à la fois : le dernier arrivé évince le précédent, et les ap
 en vol de l'évincé repartent en erreur. Deux onglets se partageant les lots
 donneraient à l'agent un projet qui se contredit d'un appel à l'autre.
 
+## Apprendre à l'agent à s'en servir
+
+`skills/screenforge-mcp/` est la documentation côté agent : le vocabulaire
+complet ([references/tools.md](skills/screenforge-mcp/references/tools.md)),
+quatre recettes ([references/workflows.md](skills/screenforge-mcp/references/workflows.md))
+et la carte des refus ([references/pitfalls.md](skills/screenforge-mcp/references/pitfalls.md)).
+Sans elle, un agent découvre dix-huit outils à plat et compose à l'aveugle sur
+une planche dont il ignore les unités.
+
+Elle se lit telle quelle, et s'installe en pointant dessus depuis le dossier de
+skills de votre agent :
+
+```bash
+# Claude Code
+ln -s "$PWD/apps/mcp/skills/screenforge-mcp" ~/.claude/skills/screenforge-mcp
+# opencode
+ln -s "$PWD/apps/mcp/skills/screenforge-mcp" ~/.config/opencode/skills/screenforge-mcp
+```
+
+Un lien plutôt qu'une copie : `tools.md` recopie les schémas du contrat partagé,
+et `apps/mcp/src/skill-doc.test.ts` échoue dès qu'un outil ou un identifiant de
+catalogue y manque. Une copie posée ailleurs vieillirait sans que rien ne le
+dise.
+
 ## Vérifier
 
 ```bash

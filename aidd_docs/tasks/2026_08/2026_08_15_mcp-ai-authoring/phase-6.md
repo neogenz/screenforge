@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Skill agent « utiliser le MCP ScreenForge »
