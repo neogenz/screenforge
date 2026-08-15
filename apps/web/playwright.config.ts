@@ -64,14 +64,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    {
-      name: 'local-first',
-      testIgnore: [PRELAUNCH_SPECS, CLOUD_SPEC],
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
-      },
-    },
+    /* Le backend local démarre avec les web servers, avant les 149 scénarios
+       local-first. Exécuter Cloud après eux laissait son proxy HTTP inactif
+       plusieurs minutes et rendait l'upload limite de 16 MiB instable. La
+       frontière de transport passe d'abord, sur le moteur que le gate vient
+       de démarrer; les deux projets restent isolés par leurs ports. */
     ...(convex
       ? [
           {
@@ -84,6 +81,14 @@ export default defineConfig({
           },
         ]
       : []),
+    {
+      name: 'local-first',
+      testIgnore: [PRELAUNCH_SPECS, CLOUD_SPEC],
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
+      },
+    },
   ],
   webServer: [
     ...(REQUIRE_CLOUD

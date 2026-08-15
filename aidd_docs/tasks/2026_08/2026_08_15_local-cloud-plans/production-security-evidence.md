@@ -16,7 +16,7 @@ preuve n'est jamais convertie en succès.
 
 | Contrôle | Environnement | Commande ou écran consulté | Résultat nettoyé | Statut | Référence officielle |
 | --- | --- | --- | --- | --- | --- |
-| Gate de release | local + Convex local réel | `pnpm run test:release` | 530 unitaires, 167 E2E release, 2 E2E prelaunch ; 1 fixture Apple externe absente et explicitement skippée ; audits contraste/échelle/landing réussis | `verified-local` | `aidd_docs/memory/coding-assertions.md` |
+| Gate de release | local + Convex local réel | `pnpm run test:release` | 530 unitaires, 168 E2E release, 2 E2E prelaunch ; 1 fixture Apple externe absente et explicitement skippée ; audits contraste/échelle/landing réussis | `verified-local` | `aidd_docs/memory/coding-assertions.md` |
 | Candidate CSP Report-Only et hashes JSON-LD | profils prelaunch + launch | `pnpm run build:profiles` | deux builds, les deux JSON-LD de chaque langue et l'éditeur acceptés ; aucun handler inline | `verified-local` | [Vercel headers](https://vercel.com/docs/headers/security-headers) |
 | Headers HTTP réels et HSTS | Preview + production | `pnpm run audit:security-headers -- <URL_HTTPS>` | aucune URL ScreenForge déployée ; audit réel impossible | `blocked-external` | [HSTS Vercel](https://vercel.com/docs/headers/security-headers#strict-transport-security) |
 | Projet et alias Vercel | équipe Vercel authentifiée | inventaire projets par connecteur le 2026-08-15 | aucun projet ScreenForge trouvé ; publication refusée tant que la cible Preview/Production n'est pas explicitement choisie | `blocked-external` | [déploiement CLI Vercel](https://vercel.com/docs/projects/deploy-from-cli) |

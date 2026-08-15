@@ -50,6 +50,20 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(blocking).not.toContain('blocking')
 })
 
+test('déclare la même icône servie en local sur la landing et l’éditeur', async ({ request }) => {
+  const [app, landing, icon] = await Promise.all([
+    request.get('/'),
+    request.get('/landing.html'),
+    request.get('/favicon.svg'),
+  ])
+
+  for (const html of [await app.text(), await landing.text()]) {
+    expect(html).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml" />')
+  }
+  expect(icon.ok()).toBe(true)
+  expect(icon.headers()['content-type']).toContain('image/svg+xml')
+})
+
 async function expectBootTheme(
   page: import('@playwright/test').Page,
   preference: 'light' | 'dark' | null,
