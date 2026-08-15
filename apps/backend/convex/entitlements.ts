@@ -51,12 +51,6 @@ export interface EntitlementsRow {
 
 export interface Projection {
   row: EntitlementsRow
-  /**
-   * Vrai quand Polar accorde le Cloud à un compte sans Licence. Le droit est
-   * refusé et le cas journalisé : il signifie soit un achat effectué hors de
-   * notre checkout, soit un remboursement de Licence resté à traiter.
-   */
-  cloudRefusedWithoutLicence: boolean
 }
 
 export function projectCustomerState(
@@ -65,7 +59,7 @@ export function projectCustomerState(
   config: ProjectionConfig,
 ): Projection {
   /* Le plus ancien octroi fait foi : un bénéfice ré-accordé après un incident
-     de paiement ne doit pas rajeunir la date d'acquisition de la Licence. */
+     de paiement ne doit pas rajeunir la date d'acquisition de Local. */
   const licenceGrants = state.grantedBenefits
     .filter((grant) => grant.benefitId === config.licenceBenefitId)
     .map((grant) => grant.grantedAt.getTime())
@@ -77,26 +71,19 @@ export function projectCustomerState(
     (subscription) => subscription.productId === config.cloudProductId,
   )
 
-  /* La règle « le Cloud exige la Licence » vit ici en plus du checkout, et
-     c'est délibéré : un achat passé directement depuis Polar contournerait le
-     contrôle d'avant-paiement, et le miroir est le dernier mot. */
-  const cloudRefusedWithoutLicence = Boolean(cloud) && licenceGrantedAt === null
-  const grantCloud = cloud && licenceGrantedAt !== null
-
   return {
     row: {
       user_id: userId,
       polar_customer_id: state.id,
       licence_granted_at: licenceGrantedAt,
-      cloud_status: grantCloud ? cloud.status : null,
+      cloud_status: cloud?.status ?? null,
       /* `endsAt` prime : une résiliation le renseigne à la fin de la période en
          cours, et c'est cette date-là que l'utilisateur voit. À défaut, la fin
          de la période courante, qui est aussi la date de renouvellement. */
-      cloud_period_end: grantCloud
+      cloud_period_end: cloud
         ? ((cloud.endsAt ?? cloud.currentPeriodEnd)?.toISOString() ?? null)
         : null,
     },
-    cloudRefusedWithoutLicence,
   }
 }
 
@@ -132,12 +119,11 @@ export const NO_ENTITLEMENTS = (userId: string): Entitlements => ({
  * qu'il a lui-même conservées, et la reposait à sa façon.
  */
 export function isCloudActive(
-  licence: boolean,
   cloudStatus: string | null,
   cloudPeriodEnd: string | null,
   nowMs: number,
 ): boolean {
-  if (!licence || cloudStatus === null) return false
+  if (cloudStatus === null) return false
   const periodEnd = cloudPeriodEnd ? Date.parse(cloudPeriodEnd) : null
   return periodEnd === null || periodEnd > nowMs
 }
@@ -157,7 +143,7 @@ export function toEntitlements(
     userId,
     licence,
     licenceGrantedAt: row.licence_granted_at,
-    cloud: isCloudActive(licence, row.cloud_status, row.cloud_period_end, now.getTime()),
+    cloud: isCloudActive(row.cloud_status, row.cloud_period_end, now.getTime()),
     cloudStatus: row.cloud_status,
     cloudPeriodEnd: row.cloud_period_end,
   }
@@ -194,12 +180,11 @@ export function rightsOf(entitlements: Entitlements | null, billingOpen: boolean
      basculent ensemble au lieu de créer un palier gratuit sans moyen d'en
      sortir. */
   if (!billingOpen) return { cleanExport: true, zip: true, sync: false }
-  const licence = entitlements?.licence ?? false
+  const paid = (entitlements?.licence ?? false) || (entitlements?.cloud ?? false)
   return {
-    cleanExport: licence,
-    zip: licence,
-    /* Le Cloud, pas la Licence : `Entitlements.cloud` porte déjà la règle
-       « le Cloud exige la Licence » et la fin de période. */
+    cleanExport: paid,
+    zip: paid,
+    /* La synchronisation reste la seule capacité réservée au Cloud actif. */
     sync: entitlements?.cloud ?? false,
   }
 }

@@ -51,8 +51,8 @@ export function getConvex(): Promise<ConvexReactClient> | null {
 /**
  * Le code qu'un `ConvexError` porte, ou `null` pour tout le reste.
  *
- * Le serveur refuse en codes (`UNAUTHENTICATED`, `LICENCE_REQUIRED`,
- * `RATE_LIMITED`) et l'éditeur choisit la phrase : un nom de compteur interne
+ * Le serveur refuse en codes (`UNAUTHENTICATED`, `RATE_LIMITED`) et l'éditeur
+ * choisit la phrase : un nom de compteur interne
  * n'apprend rien à qui a cliqué trop vite, et un message traduit côté serveur
  * serait une traduction de plus à tenir. La lecture est ici plutôt que recopiée
  * chez chaque appelant parce qu'elle porte une hypothèse sur la forme de

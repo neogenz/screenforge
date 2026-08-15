@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   NO_ENTITLEMENTS,
   projectCustomerState,
+  rightsOf,
   toEntitlements,
   type CustomerStateInput,
   type ProjectionConfig,
@@ -42,7 +43,7 @@ function cloudSubscription(
 
 describe('projectCustomerState', () => {
   it('nothing bought yields an empty row', () => {
-    const { row, cloudRefusedWithoutLicence } = projectCustomerState(USER, state(), CONFIG)
+    const { row } = projectCustomerState(USER, state(), CONFIG)
     expect(row).toEqual({
       user_id: USER,
       polar_customer_id: 'cus_1',
@@ -50,7 +51,6 @@ describe('projectCustomerState', () => {
       cloud_status: null,
       cloud_period_end: null,
     })
-    expect(cloudRefusedWithoutLicence).toBe(false)
   })
 
   it('grants the licence from its benefit', () => {
@@ -86,7 +86,7 @@ describe('projectCustomerState', () => {
   })
 
   it('grants the cloud on top of a licence, dated on the current period', () => {
-    const { row, cloudRefusedWithoutLicence } = projectCustomerState(
+    const { row } = projectCustomerState(
       USER,
       state({
         grantedBenefits: [licenceGrant('2026-03-12T09:00:00.000Z')],
@@ -96,7 +96,6 @@ describe('projectCustomerState', () => {
     )
     expect(row.cloud_status).toBe('active')
     expect(row.cloud_period_end).toBe('2027-03-12T09:00:00.000Z')
-    expect(cloudRefusedWithoutLicence).toBe(false)
   })
 
   it('prefers endsAt over the current period once cancelled', () => {
@@ -112,7 +111,7 @@ describe('projectCustomerState', () => {
   })
 
   it('ignores a subscription to another product', () => {
-    const { row, cloudRefusedWithoutLicence } = projectCustomerState(
+    const { row } = projectCustomerState(
       USER,
       state({
         grantedBenefits: [licenceGrant('2026-03-12T09:00:00.000Z')],
@@ -121,20 +120,16 @@ describe('projectCustomerState', () => {
       CONFIG,
     )
     expect(row.cloud_status).toBeNull()
-    expect(cloudRefusedWithoutLicence).toBe(false)
   })
 
-  /* Le cas que le checkout ne peut pas empêcher : un abonnement Cloud créé
-     directement depuis Polar, sur un compte qui n'a pas la Licence. */
-  it('refuses the cloud when the licence is absent, and says so', () => {
-    const { row, cloudRefusedWithoutLicence } = projectCustomerState(
+  it('grants the standalone cloud without a Local purchase', () => {
+    const { row } = projectCustomerState(
       USER,
       state({ activeSubscriptions: [cloudSubscription()] }),
       CONFIG,
     )
-    expect(row.cloud_status).toBeNull()
-    expect(row.cloud_period_end).toBeNull()
-    expect(cloudRefusedWithoutLicence).toBe(true)
+    expect(row.cloud_status).toBe('active')
+    expect(row.cloud_period_end).toBe('2027-03-12T09:00:00.000Z')
   })
 })
 
@@ -177,7 +172,7 @@ describe('toEntitlements', () => {
     expect(later.licence).toBe(true)
   })
 
-  it('never grants the cloud without the licence, whatever the mirror says', () => {
+  it('grants standalone cloud from the mirror without a Local purchase', () => {
     const entitlements = toEntitlements(
       {
         user_id: USER,
@@ -189,6 +184,44 @@ describe('toEntitlements', () => {
       USER,
       NOW,
     )
-    expect(entitlements.cloud).toBe(false)
+    expect(entitlements.cloud).toBe(true)
+  })
+
+  it('leaves no permanent paid right when standalone Cloud expires', () => {
+    const entitlements = toEntitlements(
+      {
+        user_id: USER,
+        polar_customer_id: 'cus_1',
+        licence_granted_at: null,
+        cloud_status: 'canceled',
+        cloud_period_end: '2026-07-01T00:00:00+00:00',
+      },
+      USER,
+      NOW,
+    )
+    expect(entitlements).toMatchObject({ licence: false, cloud: false })
+    expect(rightsOf(entitlements, true)).toEqual({ cleanExport: false, zip: false, sync: false })
+  })
+})
+
+describe('rightsOf', () => {
+  it('maps trial, Local, standalone Cloud and combined rights', () => {
+    const base = NO_ENTITLEMENTS(USER)
+    expect(rightsOf(base, true)).toEqual({ cleanExport: false, zip: false, sync: false })
+    expect(rightsOf({ ...base, licence: true }, true)).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: false,
+    })
+    expect(rightsOf({ ...base, cloud: true }, true)).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: true,
+    })
+    expect(rightsOf({ ...base, licence: true, cloud: true }, true)).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: true,
+    })
   })
 })

@@ -1,5 +1,6 @@
 import { ConvexError } from 'convex/values'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PLANS, planName } from '@/lib/plans'
 
 /**
  * Ce que les dialogues reçoivent quand rien ne se passe bien.
@@ -8,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * toujours ; chaque geste rend donc un résultat, y compris hors réseau. Les
  * refus du serveur arrivent en codes dans un `ConvexError` et non en statuts
  * HTTP — c'est cette traduction-là qui est vérifiée ici, parce qu'un code non
- * reconnu ferait afficher « réessayez » à quelqu'un à qui il manque la Licence.
+ * reconnu affiche l'échec générique plutôt qu'une règle commerciale inventée.
  */
 const cloud = vi.hoisted(() => ({ action: vi.fn(), mutation: vi.fn() }))
 
@@ -32,40 +33,49 @@ beforeEach(() => {
 })
 
 describe('les gestes de vente hors réseau', () => {
+  it('n’expose que les deux offres Local et Cloud', () => {
+    expect(PLANS.map((plan) => plan.id)).toEqual(['local', 'cloud'])
+    expect(planName(null)).toBe('Essai')
+    expect(
+      planName({
+        userId: 'u1',
+        licence: true,
+        licenceGrantedAt: '2026-03-12T09:00:00Z',
+        cloud: false,
+        cloudStatus: null,
+        cloudPeriodEnd: null,
+      }),
+    ).toBe('Local')
+  })
+
   it('rendent des résultats gérés pour que les dialogues quittent leur attente', async () => {
     cloud.action.mockRejectedValue(new TypeError('network down'))
     cloud.mutation.mockRejectedValue(new TypeError('network down'))
 
-    await expect(createCheckout('licence')).resolves.toEqual({ ok: false, reason: 'failed' })
+    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'failed' })
     await expect(createPortalSession()).resolves.toBeNull()
     await expect(deleteAccount()).resolves.toBe('unknown')
   })
 
   it('traduisent chaque refus nommé, et rien d’autre', async () => {
-    cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'LICENCE_REQUIRED' }))
-    await expect(createCheckout('cloud')).resolves.toEqual({
-      ok: false,
-      reason: 'licence-required',
-    })
-
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'UNAUTHENTICATED' }))
-    await expect(createCheckout('licence')).resolves.toEqual({
+    await expect(createCheckout('local')).resolves.toEqual({
       ok: false,
       reason: 'unauthenticated',
     })
 
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'RATE_LIMITED', retryAfter: 1200 }))
-    await expect(createCheckout('licence')).resolves.toEqual({ ok: false, reason: 'rate-limited' })
+    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'rate-limited' })
 
     /* Le contre-test : un code que l'éditeur ne connaît pas ne doit pas hériter
        du message du refus précédent. */
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'SOMETHING_NEW' }))
-    await expect(createCheckout('licence')).resolves.toEqual({ ok: false, reason: 'failed' })
+    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'failed' })
   })
 
   it('rendent l’URL quand le serveur l’ouvre', async () => {
     cloud.action.mockResolvedValueOnce({ url: 'https://sandbox.polar.sh/checkout/abc' })
-    await expect(createCheckout('licence')).resolves.toEqual({
+    await expect(createCheckout('local')).resolves.toEqual({
       ok: true,
       url: 'https://sandbox.polar.sh/checkout/abc',
     })

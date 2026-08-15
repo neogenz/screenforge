@@ -217,9 +217,7 @@ describe('POST /billing/webhook', () => {
     expect(await mirror(t)).toMatchObject([{ licenceGrantedAt: null, cloudStatus: null }])
   })
 
-  /* Critère 4 : Polar accorde le Cloud, la projection le refuse et le journalise. */
-  it('refuse un abonnement Cloud sur un compte sans Licence, et le journalise', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('reflète un abonnement Cloud autonome sans achat Local', async () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
@@ -229,8 +227,13 @@ describe('POST /billing/webhook', () => {
     const response = await post(t, body, sign(body, 'msg_1'))
 
     expect(response.status).toBe(200)
-    expect(await mirror(t)).toMatchObject([{ licenceGrantedAt: null, cloudStatus: null }])
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cus_1'))
+    expect(await mirror(t)).toMatchObject([
+      {
+        licenceGrantedAt: null,
+        cloudStatus: 'active',
+        cloudPeriodEnd: '2027-03-12T09:00:00.000Z',
+      },
+    ])
   })
 
   /* Critère 2, premier volet. */

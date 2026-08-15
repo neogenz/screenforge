@@ -138,15 +138,13 @@ describe('le portillon du Cloud', () => {
     expect(rights.cloud).toBe(false)
   })
 
-  it('refuse le Cloud sans Licence, quoi que dise le miroir', async () => {
-    /* Le cas qu'un achat passé hors de notre checkout peut produire : le
-       miroir est le dernier mot, et il dit non. */
+  it('laisse passer le Cloud autonome sans achat Local', async () => {
     const t = testConvex()
     const userId = await account(t, {
       cloudStatus: 'active',
       cloudPeriodEnd: '2027-03-12T09:00:00.000Z',
     })
-    expect(await gate(t, userId)).toBe('CLOUD_REQUIRED')
+    expect(await gate(t, userId)).toBe('ok')
   })
 })
 

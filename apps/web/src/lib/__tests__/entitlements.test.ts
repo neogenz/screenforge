@@ -37,7 +37,7 @@ describe('rightsOf', () => {
     })
   })
 
-  it('la Licence ouvre l’export propre et le ZIP, jamais la sync', () => {
+  it('Local ouvre l’export propre et le ZIP, jamais la sync', () => {
     expect(rightsOf(entitlements({ licence: true }), true)).toEqual({
       cleanExport: true,
       zip: true,
@@ -45,8 +45,12 @@ describe('rightsOf', () => {
     })
   })
 
-  it('le Cloud ouvre la sync par-dessus la Licence', () => {
-    expect(rightsOf(entitlements({ licence: true, cloud: true }), true).sync).toBe(true)
+  it('le Cloud autonome ouvre export, ZIP et sync', () => {
+    expect(rightsOf(entitlements({ cloud: true }), true)).toEqual({
+      cleanExport: true,
+      zip: true,
+      sync: true,
+    })
   })
 })
 
@@ -75,7 +79,7 @@ describe('cache de droits par compte', () => {
     })
   })
 
-  it('restaure la Licence hors ligne pour le même utilisateur seulement', () => {
+  it('restaure Local hors ligne pour le même utilisateur seulement', () => {
     cacheEntitlements(entitlement('u1', true))
 
     expect(readCachedEntitlements('u1')?.licence).toBe(true)
@@ -160,7 +164,7 @@ describe('le compteur d’exports du palier gratuit', () => {
     expect(exportsLeft('projet-a', gratuit)).toBe(0)
   })
 
-  it('la Licence ne compte pas', () => {
+  it('Local ne compte pas', () => {
     recordExport('projet-a')
     expect(exportsLeft('projet-a', licencié)).toBe(Infinity)
   })

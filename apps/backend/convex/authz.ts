@@ -100,7 +100,7 @@ async function deletionPending(ctx: QueryCtx, userId: Id<'users'>): Promise<bool
 }
 
 /**
- * Le droit d'écrire dans le nuage : un compte, le droit `cloud`, et aucune
+ * Le droit d'écrire dans le nuage : un compte, un abonnement Cloud actif, et aucune
  * suppression en cours — trois conditions en un seul endroit. La propriété des
  * lignes n'en fait pas partie parce qu'elle est structurelle : toute écriture
  * part de l'identifiant que cette fonction rend.

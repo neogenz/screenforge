@@ -4,12 +4,7 @@ import type { Id } from './_generated/dataModel'
 import { cloudAccount, errorCode, rateLimited, testConvex } from './test.helpers'
 
 /**
- * Le contrôle d'avant-paiement, et le compteur qui le précède.
- *
- * Ce qui est vérifié ici n'est pas qu'une erreur s'affiche, mais qu'**aucune
- * session Polar n'est créée** quand le Cloud est demandé sans Licence : une
- * session ouverte est une page de paiement qu'un client peut aller au bout de
- * remplir, et le miroir refuserait ensuite le droit qu'il vient de payer.
+ * Les deux checkouts autonomes, et le compteur qui les précède.
  *
  * Le SDK est remplacé, et lui seul. Tout le reste — l'identité, le compteur, la
  * lecture du miroir — est le vrai code du déploiement : appeler Polar depuis une
@@ -44,12 +39,12 @@ process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'
 
 type Stack = ReturnType<typeof testConvex>
 
-/** Un compte sans aucun achat : le cas de qui vient acheter la Licence. */
+/** Un compte sans aucun achat : les deux offres doivent lui être accessibles. */
 async function newcomer(t: Stack): Promise<Id<'users'>> {
   return await t.run((ctx) => ctx.db.insert('users', {}))
 }
 
-function checkout(t: Stack, userId: Id<'users'> | null, product: 'licence' | 'cloud') {
+function checkout(t: Stack, userId: Id<'users'> | null, product: 'local' | 'cloud') {
   const caller = userId === null ? t : t.withIdentity({ subject: userId })
   return caller.action(api.polar.createCheckout, { product })
 }
@@ -62,10 +57,10 @@ beforeEach(() => {
 })
 
 describe('createCheckout', () => {
-  it('ouvre un checkout pour la Licence', async () => {
+  it('ouvre un checkout pour Local', async () => {
     const userId = await newcomer(t)
 
-    await expect(checkout(t, userId, 'licence')).resolves.toEqual({
+    await expect(checkout(t, userId, 'local')).resolves.toEqual({
       url: 'https://sandbox.polar.sh/checkout/abc',
     })
     /* `externalCustomerId` porte l'`Id<'users'>` : c'est ce qui relie le client
@@ -75,18 +70,8 @@ describe('createCheckout', () => {
     )
   })
 
-  /* Critère 5 : refusé avant tout appel à Polar. */
-  it('refuse le Cloud sans Licence, et ne crée aucune session Polar', async () => {
+  it('ouvre le checkout Cloud pour un compte neuf', async () => {
     const userId = await newcomer(t)
-
-    await expect(checkout(t, userId, 'cloud')).rejects.toSatisfy(
-      (error: unknown) => errorCode(error) === 'LICENCE_REQUIRED',
-    )
-    expect(polarClient.checkouts.create).not.toHaveBeenCalled()
-  })
-
-  it('ouvre le checkout Cloud une fois la Licence détenue', async () => {
-    const userId = await cloudAccount(t)
 
     await expect(checkout(t, userId, 'cloud')).resolves.toMatchObject({ url: expect.any(String) })
     expect(polarClient.checkouts.create).toHaveBeenCalledWith(
@@ -95,7 +80,7 @@ describe('createCheckout', () => {
   })
 
   it('refuse sans session, et ne touche pas à Polar', async () => {
-    await expect(checkout(t, null, 'licence')).rejects.toSatisfy(
+    await expect(checkout(t, null, 'local')).rejects.toSatisfy(
       (error: unknown) => errorCode(error) === 'UNAUTHENTICATED',
     )
     expect(polarClient.checkouts.create).not.toHaveBeenCalled()
@@ -106,10 +91,10 @@ describe('createCheckout', () => {
   it('refuse le onzième checkout de l’heure', async () => {
     const userId = await newcomer(t)
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      await checkout(t, userId, 'licence')
+      await checkout(t, userId, 'local')
     }
 
-    await expect(checkout(t, userId, 'licence')).rejects.toSatisfy(rateLimited)
+    await expect(checkout(t, userId, 'local')).rejects.toSatisfy(rateLimited)
     expect(polarClient.checkouts.create).toHaveBeenCalledTimes(10)
   })
 
@@ -119,10 +104,10 @@ describe('createCheckout', () => {
     const bavard = await newcomer(t)
     const autre = await newcomer(t)
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      await checkout(t, bavard, 'licence')
+      await checkout(t, bavard, 'local')
     }
 
-    await expect(checkout(t, autre, 'licence')).resolves.toMatchObject({ url: expect.any(String) })
+    await expect(checkout(t, autre, 'local')).resolves.toMatchObject({ url: expect.any(String) })
   })
 })
 

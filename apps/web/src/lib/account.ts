@@ -24,8 +24,6 @@ export const billingConfigured = commercialLaunch
 
 export type CheckoutOutcome =
   | { ok: true; url: string }
-  /** Le Cloud demandé sans la Licence — refusé avant tout paiement. */
-  | { ok: false; reason: 'licence-required' }
   | { ok: false; reason: 'unauthenticated' }
   /** Trop de checkouts dans l'heure : chacun crée un objet chez Polar. */
   | { ok: false; reason: 'rate-limited' }
@@ -39,12 +37,11 @@ export type CheckoutOutcome =
  * doit pas inventer une phrase pour un refus qu'il ne connaît pas.
  */
 const CHECKOUT_REFUSALS: Record<string, CheckoutOutcome> = {
-  LICENCE_REQUIRED: { ok: false, reason: 'licence-required' },
   UNAUTHENTICATED: { ok: false, reason: 'unauthenticated' },
   RATE_LIMITED: { ok: false, reason: 'rate-limited' },
 }
 
-export async function createCheckout(product: 'licence' | 'cloud'): Promise<CheckoutOutcome> {
+export async function createCheckout(product: 'local' | 'cloud'): Promise<CheckoutOutcome> {
   const connected = connect()
   if (!billingConfigured || !connected) return { ok: false, reason: 'failed' }
   try {

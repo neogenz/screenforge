@@ -251,16 +251,21 @@ facture personne.
 | -------------------------- | ---------------------------------------------------------------------------- |
 | `POLAR_ACCESS_TOKEN`       | _Settings → Developers → New Token_, portée `checkouts:write`, `customer_sessions:write` |
 | `POLAR_WEBHOOK_SECRET`     | affiché **une seule fois**, à la création du endpoint webhook (voir plus bas) |
-| `POLAR_LICENCE_PRODUCT_ID` | _Products_ → le produit Licence (achat unique) → son `id`                     |
-| `POLAR_CLOUD_PRODUCT_ID`   | _Products_ → le produit Cloud (abonnement annuel) → son `id`                  |
-| `POLAR_LICENCE_BENEFIT_ID` | _Benefits_ → le bénéfice **porté par le produit Licence** → son `id`          |
+| `POLAR_LICENCE_PRODUCT_ID` | _Products_ → le produit Local (achat unique à 49 $) → son `id`                |
+| `POLAR_CLOUD_PRODUCT_ID`   | _Products_ → le produit Cloud autonome (abonnement annuel à 39 $) → son `id`  |
+| `POLAR_LICENCE_BENEFIT_ID` | _Benefits_ → le bénéfice **porté par le produit Local** → son `id`            |
 | `CHECKOUT_SUCCESS_URL`     | choisie, pas lue : l'URL de retour de l'acheteur, sur votre site              |
 
 Le bénéfice mérite son mot : un achat unique n'apparaît pas dans
 `activeSubscriptions` — il n'a pas de période. Sa seule trace dans l'état client
-est le bénéfice qu'il octroie. Le produit Licence doit donc en porter au moins
-un, sans quoi la projection n'accordera jamais `licence`, quel que soit le
-nombre d'achats.
+est le bénéfice qu'il octroie. Le produit Local doit donc en porter au moins un,
+sans quoi la projection n'accordera jamais le droit perpétuel interne
+`licence`, quel que soit le nombre d'achats. Le produit Cloud ne dépend pas de
+ce bénéfice : un compte neuf doit pouvoir acheter et recevoir Cloud directement.
+
+Les noms `POLAR_LICENCE_*` restent une compatibilité interne avec les
+déploiements déjà configurés. Ils désignent désormais l'offre publique Local et
+ne doivent pas réapparaître dans l'interface client.
 
 ```bash
 pnpm exec convex env --env-file .env.preprod set POLAR_SERVER sandbox

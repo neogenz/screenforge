@@ -2,7 +2,7 @@
 
 import { Polar } from '@polar-sh/sdk'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks.js'
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
 import { action, env, internalAction } from './_generated/server'
 import { requireUser } from './authz'
@@ -46,7 +46,7 @@ function required(name: keyof typeof env): string {
   return value
 }
 
-export type SellableProduct = 'licence' | 'cloud'
+export type SellableProduct = 'local' | 'cloud'
 
 let client: Polar | null = null
 
@@ -62,13 +62,10 @@ function polar(): Polar {
 }
 
 function productId(product: SellableProduct): string {
-  return product === 'licence'
+  return product === 'local'
     ? required('POLAR_LICENCE_PRODUCT_ID')
     : required('POLAR_CLOUD_PRODUCT_ID')
 }
-
-/** Le code que l'éditeur reconnaît ; la phrase affichée lui appartient. */
-export const LICENCE_REQUIRED = 'LICENCE_REQUIRED' as const
 
 /** Le SDK Polar conserve le JSON vérifié quand c'est le schéma qui échoue. */
 function invalidEventType(error: unknown): string | null {
@@ -161,7 +158,7 @@ export const applySignedWebhook = internalAction({
        écrire et rien à deviner. */
     if (!state.externalId) return 'ignored' as const
 
-    const { row, cloudRefusedWithoutLicence } = projectCustomerState(state.externalId, state, {
+    const { row } = projectCustomerState(state.externalId, state, {
       licenceBenefitId: required('POLAR_LICENCE_BENEFIT_ID'),
       cloudProductId: required('POLAR_CLOUD_PRODUCT_ID'),
     })
@@ -178,14 +175,6 @@ export const applySignedWebhook = internalAction({
       sourceUpdatedAt: event.timestamp.getTime(),
     })
 
-    if (written === 'written' && cloudRefusedWithoutLicence) {
-      /* Ni une erreur ni un silence : soit un achat effectué hors de notre
-         checkout, soit un remboursement de Licence resté à traiter. Les deux
-         demandent un humain, aucun ne justifie de renvoyer une erreur à Polar. */
-      console.warn(
-        `Polar grants cloud without a licence for customer ${state.id}; entitlement refused.`,
-      )
-    }
     return written
   },
 })
@@ -198,7 +187,7 @@ export const applySignedWebhook = internalAction({
  * qu'elle diverge. Le webhook s'en sert dans l'autre sens.
  */
 export const createCheckout = action({
-  args: { product: v.union(v.literal('licence'), v.literal('cloud')) },
+  args: { product: v.union(v.literal('local'), v.literal('cloud')) },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, { product }): Promise<{ url: string }> => {
     const userId = await requireUser(ctx)
@@ -206,21 +195,7 @@ export const createCheckout = action({
        la route était authentifiée mais illimitée. */
     await consume(ctx, 'checkout', userId)
 
-    const [account, entitlements] = await Promise.all([
-      ctx.runQuery(api.users.me, {}),
-      /* Une action n'est pas une transaction : l'horloge y est celle du
-         déploiement, et c'est elle qui décide du portillon avant paiement. */
-      ctx.runQuery(api.mirror.myEntitlements, { now: Date.now() }),
-    ])
-
-    /* La règle « le Cloud exige la Licence », dite une première fois : ici pour
-       que l'utilisateur la lise avant de payer, et une seconde fois dans la
-       projection, parce qu'un achat créé hors de ce checkout contournerait
-       celle-ci. Sans la règle, un an d'add-on à 39 $ achèterait ce que la
-       Licence à 49 $ achète, et personne ne paierait la Licence. */
-    if (product === 'cloud' && !entitlements?.licence) {
-      throw new ConvexError<{ code: typeof LICENCE_REQUIRED }>({ code: LICENCE_REQUIRED })
-    }
+    const account = await ctx.runQuery(api.users.me, {})
 
     const checkout = await polar().checkouts.create({
       products: [productId(product)],

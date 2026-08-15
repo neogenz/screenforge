@@ -55,7 +55,7 @@ export function readCachedEntitlements(userId: string): Entitlements | null {
        qu'une période a pu se terminer pendant que le navigateur était fermé. */
     return {
       ...parsed,
-      cloud: isCloudActive(parsed.licence, parsed.cloudStatus, parsed.cloudPeriodEnd, Date.now()),
+      cloud: isCloudActive(parsed.cloudStatus, parsed.cloudPeriodEnd, Date.now()),
     }
   } catch (error) {
     console.warn('Could not read cached entitlements.', error)

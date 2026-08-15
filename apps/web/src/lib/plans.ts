@@ -3,17 +3,17 @@ import type { Entitlements } from '@/lib/entitlements'
 /**
  * L'offre, dite une fois.
  *
- * Les mêmes trois paliers que la page d'accueil, mais ce n'est pas une copie
+ * Les mêmes deux offres que la page d'accueil, mais ce n'est pas une copie
  * qu'on aurait oubliée de synchroniser : la landing vend à qui n'a pas de
  * compte, en deux langues, avec un bouton qui n'encaisse pas. Ici l'éditeur
  * s'adresse à quelqu'un de connecté, en français, et le bouton ouvre un
  * checkout. Ce qui doit rester identique, c'est le prix et la règle — et le
  * prix est un littéral des deux côtés parce qu'il est fixé chez Polar, pas ici.
  */
-export type SellableProduct = 'licence' | 'cloud'
+export type SellableProduct = 'local' | 'cloud'
 
 export interface Plan {
-  id: SellableProduct | 'free'
+  id: SellableProduct
   name: string
   price: string
   period: string
@@ -25,24 +25,12 @@ export interface Plan {
 
 export const PLANS: Plan[] = [
   {
-    id: 'free',
-    name: 'Gratuit',
-    price: '0 $',
-    period: '',
-    tagline: 'Pour juger l’éditeur avant de dépenser un centime',
-    points: [
-      'L’éditeur complet, tous les cadres et polices',
-      '3 exports par projet, filigranés',
-      'Sans compte, rien à installer',
-    ],
-  },
-  {
-    id: 'licence',
-    name: 'Licence',
+    id: 'local',
+    name: 'Local',
     price: '49 $',
     period: 'une fois',
-    /* « à vous » disait l'éditeur et s'entendait comme les projets : ce que la
-       Licence donne est le logiciel, et le travail reste sur la machine, ce que
+    /* « à vous » disait l'éditeur et s'entendait comme les projets : ce que
+       Local donne est le logiciel, et le travail reste sur la machine, ce que
        seule la carte Cloud disait — à qui allait la lire. */
     tagline: 'Tout l’éditeur sur votre machine, mises à jour incluses',
     points: [
@@ -55,11 +43,11 @@ export const PLANS: Plan[] = [
   {
     id: 'cloud',
     name: 'Cloud',
-    price: '+39 $',
+    price: '39 $',
     period: '/an',
-    tagline: 'Complément à la Licence : vos projets sur chaque machine',
+    tagline: 'L’éditeur complet et vos projets sur chaque machine',
     points: [
-      'Tout ce que donne la Licence',
+      'Exports illimités et ZIP sans filigrane',
       'Reprendre un projet sur une autre machine',
       'Sauvegarde cloud, hors du navigateur',
     ],
@@ -69,14 +57,14 @@ export const PLANS: Plan[] = [
 /**
  * Le nom du palier détenu.
  *
- * Le Cloud écrase la Licence dans le libellé parce qu'il la contient : les deux
+ * Le Cloud écrase Local dans le libellé parce qu'il en inclut les capacités : les deux
  * droits sont indépendants en base, mais un compte qui a les deux n'a qu'un
  * palier à lire.
  */
 export function planName(entitlements: Entitlements | null): string {
   if (entitlements?.cloud) return 'Cloud'
-  if (entitlements?.licence) return 'Licence'
-  return 'Gratuit'
+  if (entitlements?.licence) return 'Local'
+  return 'Essai'
 }
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
