@@ -1,0 +1,106 @@
+import { z } from 'zod'
+import type { ToolCall } from '@screenforge/project-format'
+
+/**
+ * Le fil entre le démon et l'éditeur ouvert, et rien de plus.
+ *
+ * Un navigateur ne reçoit pas de connexion entrante : c'est donc la page qui
+ * appelle, et le démon qui attend. Deux sens, deux transports — le démon pousse
+ * ses demandes dans un flux SSE que la page tient ouvert, la page rend ses
+ * réponses en `POST`. Rien ici ne ressemble à une API publique : le seul client
+ * légitime est un onglet ScreenForge sur cette machine.
+ *
+ * Les types voyagent en `import type` jusque dans `apps/web` — zod ne quitte
+ * jamais ce paquet, mais une route renommée casse le client à la compilation.
+ */
+
+export const RELAY_PROTOCOL = 1
+export const RELAY_HOST = '127.0.0.1'
+export const DEFAULT_RELAY_PORT = 4591
+
+/**
+ * Le port, déplaçable.
+ *
+ * La machine qui fait tourner la sonde de bout en bout est exactement celle où
+ * quelqu'un travaille sur le démon : un port en dur ferait échouer la suite au
+ * motif qu'elle marche déjà ailleurs.
+ */
+export function relayPort(env: string | undefined = process.env.SCREENFORGE_MCP_PORT): number {
+  const parsed = Number(env)
+  return Number.isInteger(parsed) && parsed > 0 && parsed < 65536 ? parsed : DEFAULT_RELAY_PORT
+}
+
+/**
+ * Les origines admises, et pourquoi celle du serveur de développement y est.
+ *
+ * Une origine refusée et un port fermé sont le même événement dans un
+ * navigateur : le relais répond 403 avant d'écrire le moindre en-tête CORS,
+ * donc `fetch` échoue avec le `TypeError` d'un port qui n'écoute pas. Rien
+ * côté page ne sait les distinguer — la liste doit être juste, pas seulement
+ * défendable. 5173 est le port de `pnpm run dev`, 4173 celui de `vite
+ * preview`, 5199 celui de Playwright.
+ */
+export const DEFAULT_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:5199',
+  'http://127.0.0.1:5199',
+]
+
+export function allowedOrigins(env: string | undefined = process.env.SCREENFORGE_MCP_ORIGINS) {
+  const extra = (env ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0 && origin !== '*')
+  return [...DEFAULT_ORIGINS, ...extra]
+}
+
+/** Une requête sans `Origin` ne vient pas d'un navigateur. */
+export function originAllowed(origin: string | null | undefined, origins: string[]): boolean {
+  return typeof origin === 'string' && origins.includes(origin)
+}
+
+/** Ce que `POST /pair` rend à une page dont l'origine est admise. */
+export interface RelayHello {
+  protocol: number
+  mcp: string
+  token: string
+}
+
+/**
+ * Ce que le démon pousse dans le flux, en un seul événement `calls`.
+ *
+ * Un lot part entier parce qu'il est appliqué entier : la page le passe à
+ * `commitAiRun`, qui valide et écrit en une transaction. Découper le lot en
+ * plusieurs événements rendrait au premier refus un projet à moitié écrit.
+ */
+export interface RelayRequest {
+  id: string
+  calls: ToolCall[]
+}
+
+export const relayResultSchema = z.object({
+  id: z.string().min(1).max(64),
+  ok: z.boolean(),
+  result: z.unknown().optional(),
+  error: z.string().max(2000).optional(),
+})
+
+export type RelayResult = z.infer<typeof relayResultSchema>
+
+/**
+ * L'état que la page pousse : à l'ouverture du flux, puis après chaque écriture.
+ *
+ * Il est poussé et non demandé parce qu'un agent qui lit l'état avant d'agir le
+ * fait à chaque tour : un aller-retour SSE par lecture coûterait une latence
+ * pour une réponse que la page connaît déjà. `unknown` ici, structuré côté
+ * page — le relais transporte, il n'interprète pas.
+ */
+export const relayStateSchema = z.object({ state: z.unknown() })
+
+export interface RelayError {
+  error: 'forbidden-origin' | 'unauthorized' | 'invalid-request' | 'protocol-mismatch'
+  detail: string
+}

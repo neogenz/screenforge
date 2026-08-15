@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Démon MCP `apps/mcp` — stdio agent + relais HTTP/SSE
