@@ -1,5 +1,11 @@
 import type { RelayHello, RelayRequest } from 'mcp'
-import { applyRelayBatch, readProjectState, renderRelayScreen } from '@/lib/mcp/session'
+import {
+  applyRelayBatch,
+  listRelayTemplates,
+  readProjectState,
+  renderRelayScreen,
+  saveRelayTemplate,
+} from '@/lib/mcp/session'
 import { useMcpStore } from '@/stores/mcp.store'
 import { useProjectStore } from '@/stores/project.store'
 
@@ -230,25 +236,32 @@ function listen(mine: number): void {
 }
 
 /**
- * Une demande, deux formes, une seule réponse.
+ * Une demande, quatre formes, une seule réponse.
  *
- * Un lot écrit ; un rendu lit. Le fil ne les distingue que par le champ
- * présent, et c'est volontaire : la corrélation, le délai et les trois façons
- * dont l'éditeur peut disparaître sont les mêmes pour les deux, et les
- * dédoubler aurait dupliqué tout cela pour une différence d'un `if`.
+ * Un lot écrit dans le projet ; un rendu le lit ; un gabarit se range à côté.
+ * Le fil ne les distingue que par le champ présent, et c'est volontaire : la
+ * corrélation, le délai et les trois façons dont l'éditeur peut disparaître
+ * sont les mêmes pour toutes, et les dédoubler aurait dupliqué tout cela pour
+ * une différence de quelques `if`.
  */
 async function answer(request: RelayRequest): Promise<void> {
+  const writesProject = !request.render && !request.saveTemplate && !request.listTemplates
   const outcome = request.render
     ? await renderRelayScreen(request.render)
-    : await applyRelayBatch(request.calls ?? [], fetchAsset)
+    : request.saveTemplate
+      ? await saveRelayTemplate(request.saveTemplate)
+      : request.listTemplates
+        ? listRelayTemplates()
+        : await applyRelayBatch(request.calls ?? [], fetchAsset)
   try {
     await post('/result', {
       id: request.id,
       ok: outcome.committed,
       ...(outcome.committed ? { result: outcome.result } : { error: outcome.error }),
     })
-    // Un rendu ne change rien : repousser l'état après lui ne dirait rien de neuf.
-    if (outcome.committed && !request.render) await pushState()
+    // Seule une écriture dans le projet change l'état : le repousser après une
+    // lecture ou un gabarit rangé ne dirait rien de neuf.
+    if (outcome.committed && writesProject) await pushState()
   } catch (error) {
     // Le lot est appliqué ; c'est le retour qui s'est perdu. L'agent verra son
     // appel expirer, et le flux se rétablira tout seul — rien à défaire ici.

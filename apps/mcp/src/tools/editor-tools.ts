@@ -22,6 +22,12 @@ import { AssetRefusedError } from '../relay/assets.ts'
 import { readProjectState, readScreen } from './get-state.ts'
 import { ADD_IMAGE_SCHEMA, planAddImage, type AddImageArgs } from './add-image.ts'
 import { renderThumbnail, THUMBNAIL_SCHEMA } from './get-thumbnail.ts'
+import {
+  listTemplates,
+  LIST_TEMPLATES_SCHEMA,
+  saveTemplate,
+  SAVE_TEMPLATE_SCHEMA,
+} from './templates.ts'
 
 /**
  * Un outil MCP par entrée du contrat, et pas une ligne de schéma réécrite.
@@ -254,6 +260,39 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
         )
       }
     },
+  )
+
+  /**
+   * Le seul produit d'une session qui survive au projet.
+   *
+   * Enregistrer n'écrit pas dans le projet — c'est pourquoi ces deux-là ne
+   * passent pas par `relay` : ils ne portent aucun appel du contrat, ne sont pas
+   * validés par `validateToolCall` et ne coûtent aucun pas d'annulation. La
+   * bibliothèque vit dans l'IndexedDB de l'onglet, hors des projets, ce qui est
+   * exactement ce qui la rend réutilisable dans le suivant.
+   */
+  server.registerTool(
+    `${TOOL_PREFIX}save_template`,
+    {
+      description:
+        'Enregistre la mise en page d’un écran comme gabarit réutilisable, images comprises, capture d’écran exclue.',
+      inputSchema: fromJsonSchema<{ name: string; description?: string; screenId?: string }>(
+        SAVE_TEMPLATE_SCHEMA,
+        contractValidator,
+      ),
+      annotations: { readOnlyHint: false },
+    },
+    async (args) => saveTemplate(session, args),
+  )
+
+  server.registerTool(
+    `${TOOL_PREFIX}list_templates`,
+    {
+      description: 'Liste les gabarits enregistrés sur ce navigateur, tous projets confondus.',
+      inputSchema: fromJsonSchema<Record<string, never>>(LIST_TEMPLATES_SCHEMA, contractValidator),
+      annotations: { readOnlyHint: true },
+    },
+    async () => listTemplates(session),
   )
 }
 

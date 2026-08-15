@@ -171,7 +171,8 @@ class StdioClient {
 /**
  * @typedef {{ tool: string; args: Record<string, unknown> }} ProbeCall
  * @typedef {{ screenId?: string; maxWidth?: number }} RelayRender
- * @typedef {{ id: string; calls?: ProbeCall[]; render?: RelayRender }} RelayRequest
+ * @typedef {{ name: string; description?: string; screenId?: string }} RelayTemplateSave
+ * @typedef {{ id: string; calls?: ProbeCall[]; render?: RelayRender; saveTemplate?: RelayTemplateSave; listTemplates?: true }} RelayRequest
  * @typedef {{ id: string; mediaType: string; bytes: number }} ProbeClaim
  * @typedef {(request: RelayRequest) => unknown} Answer
  * @typedef {{ content: { type: string; text?: string; data?: string; mimeType?: string }[]; isError?: boolean }} CallToolResult
@@ -191,6 +192,8 @@ class FakeEditor {
   /** @type {ProbeCall[]} */ #applied = []
   /** @type {RelayRender[]} */ #rendered = []
   /** @type {ProbeClaim[]} */ #claimed = []
+  /** @type {RelayTemplateSave[]} */ #templates = []
+  #listed = 0
 
   /** @param {string} base */
   constructor(base) {
@@ -211,6 +214,14 @@ class FakeEditor {
 
   get token() {
     return this.#token
+  }
+
+  get templates() {
+    return this.#templates
+  }
+
+  get listed() {
+    return this.#listed
   }
 
   /** @param {string} id */
@@ -265,7 +276,13 @@ class FakeEditor {
           if (/^event:\s*calls$/m.test(frame)) {
             /** @type {RelayRequest} */
             const request = JSON.parse(/^data:\s*(.*)$/m.exec(frame)?.[1] ?? 'null')
-            if (request.render) {
+            if (request.saveTemplate) {
+              this.#templates.push(request.saveTemplate)
+              await this.#respond(request, { id: 'gabarit-1', name: request.saveTemplate.name })
+            } else if (request.listTemplates) {
+              this.#listed += 1
+              await this.#respond(request, { templates: this.#templates })
+            } else if (request.render) {
               this.#rendered.push(request.render)
               // Un PNG d'un pixel : ce qui se vérifie ici est le transport, pas
               // la peinture — le vrai rendu est celui de `e2e/mcp-assets`.
@@ -373,8 +390,10 @@ async function main() {
         'screenforge_apply',
         /* `add_image` n'apparaît pas deux fois : la version qui prend un chemin
            local remplace celle du contrat sous le même nom, elle ne s'y ajoute
-           pas. Seule la vignette est un nom de plus. */
+           pas. Les trois autres sont des noms de plus. */
         'screenforge_get_thumbnail',
+        'screenforge_save_template',
+        'screenforge_list_templates',
       ].sort(),
       'tools/list ne publie pas exactement le contrat partagé',
     )
@@ -483,14 +502,29 @@ async function main() {
     })
     assert.equal(stray.status, 404, 'le coffre sert un identifiant que personne n’a offert')
 
-    // 7. Le canal JSON-RPC est resté propre.
+    // 7. Les gabarits passent par la page et n'écrivent rien dans le projet.
+    const kept = await client.send('tools/call', {
+      name: 'screenforge_save_template',
+      arguments: { name: 'Ouverture', screenId: 'ecran-1' },
+    })
+    assert.equal(kept.isError, undefined, `gabarit refusé : ${textOf(kept)}`)
+    assert.deepEqual(editor.templates, [{ name: 'Ouverture', screenId: 'ecran-1' }])
+
+    const library = await client.send('tools/call', {
+      name: 'screenforge_list_templates',
+      arguments: {},
+    })
+    assert.equal(library.isError, undefined, `liste refusée : ${textOf(library)}`)
+    assert.equal(editor.listed, 1, 'la liste n’a pas été demandée à la page')
+
+    // 8. Le canal JSON-RPC est resté propre.
     for (const line of client.stdout.split('\n').filter((entry) => entry.trim())) {
       JSON.parse(line)
     }
     assert.match(client.stderr, /Relais ScreenForge/, 'les journaux ne partent pas sur stderr')
 
     console.log(
-      `Sonde MCP : ${tools.length} outils, aller-retour, lot, vignette et image locale vérifiés.`,
+      `Sonde MCP : ${tools.length} outils, aller-retour, lot, vignette, image locale et gabarits vérifiés.`,
     )
   } finally {
     editor.close()

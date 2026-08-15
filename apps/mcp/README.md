@@ -44,6 +44,8 @@ projet ouvert.
 | `screenforge_add_image`         | Pose une image **de votre disque** (logo ou capture) |
 | `screenforge_update_layer`      | Modifie un calque existant                           |
 | `screenforge_apply`             | Applique un lot **en une seule écriture**            |
+| `screenforge_save_template`     | Garde une mise en page réussie comme gabarit         |
+| `screenforge_list_templates`    | Relit les gabarits gardés, tous projets confondus    |
 
 `screenforge_apply` n'est pas une commodité : la page applique un lot par
 `commitAiRun`, donc en une transaction validée et une seule annulation. Dix
@@ -71,6 +73,21 @@ un paramètre près. Sont refusés, chacun avec sa cause nommée : un chemin
 relatif, une extension hors PNG/JPEG/SVG, un fichier absent, plus de 16 Mo (la
 même borne que l'import à la souris, parce que ce qui entre finit dans
 IndexedDB), un SVG donné comme capture d'écran.
+
+### Garder une mise en page
+
+Le lot appartient à une fiche App Store ; la composition trouvée au troisième
+essai n'appartient à rien, et disparaissait avec le projet.
+`screenforge_save_template` la range dans la bibliothèque du navigateur, hors
+des projets — c'est ce qui la rend applicable au projet suivant, à la souris
+comme par l'agent, depuis « Modèles de mise en page ».
+
+Un gabarit emporte ses images (un logo) mais **pas la capture d'écran** : celle-ci
+appartient à la fiche, et un gabarit qui la porterait ferait porter à chaque
+écran construit depuis lui la capture d'un autre. Le cadre iPhone reste, vide,
+et c'est le rafraîchissement par lots qui le remplit. Un nom déjà pris est
+refusé plutôt que suffixé : deux gabarits presque homonymes rendent la
+réapplication aveugle.
 
 ## Démarrer
 
@@ -173,5 +190,5 @@ node scripts/mcp-live-probe.mjs
 La sonde lance le vrai binaire, lui parle le vrai JSON-RPC et joue l'éditeur en
 face : aller-retour, lot en une livraison, appel refusé sans éditeur, identifiant
 hors catalogue refusé avec les valeurs admises, vignette revenue en bloc image,
-fichier local servi sur jeton sans que son chemin ne sorte, et `stdout` resté
-propre.
+fichier local servi sur jeton sans que son chemin ne sorte, gabarit relayé
+jusqu'à la page, et `stdout` resté propre.

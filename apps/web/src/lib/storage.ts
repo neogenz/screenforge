@@ -33,6 +33,18 @@ interface ScreenForgeDB extends DBSchema {
     value: AssetRecord
     indexes: { 'by-project': string }
   }
+  /**
+   * Les gabarits enregistrés, qui n'appartiennent à aucun projet.
+   *
+   * Ils vivent ici plutôt que dans le projet parce que c'est leur seule raison
+   * d'être : une mise en page trouvée dans un projet doit servir au suivant.
+   * Le contenu est décrit par `lib/custom-templates.ts`, qui les valide en les
+   * relisant — le magasin ne fait que les garder.
+   */
+  templates: {
+    key: string
+    value: unknown
+  }
 }
 
 let dbPromise: Promise<IDBPDatabase<ScreenForgeDB>> | null = null
@@ -59,9 +71,18 @@ export function onProjectCommitted(listener: CommitListener): () => void {
   }
 }
 
-function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
+/**
+ * La base, ouverte une fois pour tout ce qui persiste localement.
+ *
+ * Exportée pour les gabarits, et pour eux seuls : deux `openDB` sur le même nom
+ * à deux versions différentes se bloquent l'un l'autre, donc il ne peut y avoir
+ * qu'un endroit qui décrit ce schéma. La montée en v3 n'ouvre qu'un magasin de
+ * plus — rien n'est relu, rien n'est réécrit, et une base v2 s'ouvre en v3 avec
+ * ses projets et ses assets intacts.
+ */
+export function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<ScreenForgeDB>('screenforge', 2, {
+    dbPromise = openDB<ScreenForgeDB>('screenforge', 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('projects')) {
           const store = db.createObjectStore('projects', { keyPath: 'id' })
@@ -70,6 +91,9 @@ function getDB(): Promise<IDBPDatabase<ScreenForgeDB>> {
         if (!db.objectStoreNames.contains('assets')) {
           const store = db.createObjectStore('assets', { keyPath: 'id' })
           store.createIndex('by-project', 'projectId')
+        }
+        if (!db.objectStoreNames.contains('templates')) {
+          db.createObjectStore('templates', { keyPath: 'id' })
         }
       },
       blocking() {

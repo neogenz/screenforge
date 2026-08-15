@@ -89,6 +89,33 @@ export interface RelayRequest {
    * erreur quand l'éditeur n'est pas là.
    */
   render?: RelayRender
+  /**
+   * Un gabarit à figer, ou la bibliothèque à lire.
+   *
+   * Trois champs et non trois protocoles : ce qui change d'une demande à
+   * l'autre est ce que la page fait, pas comment elle est jointe. Les gabarits
+   * vivent dans son IndexedDB — le démon n'en garde aucun, et ne peut donc ni
+   * les lister ni les écrire lui-même.
+   */
+  saveTemplate?: RelayTemplateSave
+  listTemplates?: true
+}
+
+export interface RelayTemplateSave {
+  name: string
+  description?: string
+  /** Par défaut, l'écran actif. */
+  screenId?: string
+}
+
+/** Ce que la page rend pour un gabarit : jamais ses calques, seulement sa fiche. */
+export interface RelayTemplateSummary {
+  id: string
+  name: string
+  description: string
+  source: 'ai' | 'user'
+  layerCount: number
+  createdAt: number
 }
 
 export interface RelayRender {

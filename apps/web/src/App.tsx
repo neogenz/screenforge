@@ -25,6 +25,7 @@ import { commercialLaunch } from '@/lib/commercial-launch'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
 
 const ExportDialog = lazy(() =>
@@ -180,6 +181,17 @@ export default function App() {
    * geste, pas une conséquence d'avoir ouvert l'application.
    */
   useEffect(() => resumeMcp(), [])
+
+  /**
+   * La bibliothèque de gabarits est relue une fois, au démarrage.
+   *
+   * Pas à l'ouverture du sélecteur : un agent peut en enregistrer un pendant que
+   * la boîte est fermée, et la liste doit être juste au moment où elle s'ouvre —
+   * pas après un aller-retour sur IndexedDB que l'utilisateur verrait passer.
+   */
+  useEffect(() => {
+    void useTemplatesStore.getState().hydrate()
+  }, [])
 
   /**
    * La session se branche au montage, pas au premier clic sur « Se connecter ».

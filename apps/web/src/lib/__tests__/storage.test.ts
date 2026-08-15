@@ -45,8 +45,11 @@ function project(name = 'Project', layers: Layer[] = []): Project {
 }
 
 async function database() {
+  // Sans numéro : `listProjects` a déjà ouvert la base à sa version courante, et
+  // la répéter ici en fait un chiffre à mettre à jour à chaque montée de schéma
+  // — ce qui a coûté douze tests en rouge sur un magasin ajouté ailleurs.
   await listProjects()
-  return openDB('screenforge', 2)
+  return openDB('screenforge')
 }
 
 async function clearDatabase() {

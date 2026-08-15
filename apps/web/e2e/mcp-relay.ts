@@ -30,6 +30,9 @@ export interface Answer {
     width?: number
     height?: number
     data?: string
+    id?: string
+    name?: string
+    templates?: { id: string; name: string; source: string; layerCount: number }[]
   }
   error?: string
 }
@@ -48,6 +51,8 @@ export interface Relay {
   claims: () => string[]
   push: (id: string, calls: unknown[]) => void
   askRender: (id: string, render: { screenId?: string; maxWidth?: number }) => void
+  askSaveTemplate: (id: string, save: { name: string; screenId?: string }) => void
+  askListTemplates: (id: string) => void
   waitForStream: () => Promise<void>
   stop: () => Promise<void>
 }
@@ -157,6 +162,8 @@ export async function startRelay(): Promise<Relay> {
     claims: () => claims,
     push: (id, calls) => frame({ id, calls }),
     askRender: (id, render) => frame({ id, render }),
+    askSaveTemplate: (id, saveTemplate) => frame({ id, saveTemplate }),
+    askListTemplates: (id) => frame({ id, listTemplates: true }),
     waitForStream: async () => {
       await expect.poll(() => opened, { timeout: 10_000 }).toBeGreaterThan(0)
     },

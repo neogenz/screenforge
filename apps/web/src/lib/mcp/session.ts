@@ -1,4 +1,6 @@
-import type { RelayRender, RelayRendered } from 'mcp'
+import type { RelayRender, RelayRendered, RelayTemplateSave, RelayTemplateSummary } from 'mcp'
+import type { CustomTemplate } from '@/lib/custom-templates'
+import { useTemplatesStore } from '@/stores/templates.store'
 import { commitAiRun } from '@/lib/ai/run'
 import { describeProject, type ProjectView } from '@/lib/ai/state'
 import type { ToolCall } from '@/lib/ai/tools'
@@ -105,6 +107,39 @@ function base64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + CHUNK))
   }
   return btoa(binary)
+}
+
+/**
+ * Le gabarit que l'agent demande de garder.
+ *
+ * Rien n'est écrit dans le projet : un gabarit vit à côté, dans la bibliothèque
+ * du navigateur, et c'est ce qui le rend réutilisable dans le projet suivant.
+ * Il n'y a donc ni transaction, ni pas d'annulation — supprimer un gabarit se
+ * fait dans le sélecteur, pas au ⌘Z.
+ */
+export async function saveRelayTemplate(input: RelayTemplateSave): Promise<RelayOutcome> {
+  const outcome = await useTemplatesStore.getState().save({ ...input, source: 'ai' })
+  if (!outcome.ok) return { committed: false, error: outcome.error }
+  return { committed: true, result: summarize(outcome.template) }
+}
+
+export function listRelayTemplates(): RelayOutcome {
+  return {
+    committed: true,
+    result: { templates: useTemplatesStore.getState().templates.map(summarize) },
+  }
+}
+
+/** La fiche, jamais les calques : l'agent choisit un gabarit, il ne le relit pas. */
+function summarize(template: CustomTemplate): RelayTemplateSummary {
+  return {
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    source: template.source,
+    layerCount: template.layers.length,
+    createdAt: template.createdAt,
+  }
 }
 
 /**
