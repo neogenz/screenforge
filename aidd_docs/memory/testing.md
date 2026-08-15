@@ -7,7 +7,7 @@
 - Export tests and `scripts/validate-export.mjs` enforce exact dimensions, opaque PNG output, and ZIP structure.
 - `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape.
 - `apps/backend/convex/*.test.ts` run under `convex-test` and cover authorization from the attacker's point of view. Only the third party is faked: real webhook signatures, the real SDK parser, the real mutations.
-- What the simulator does **not** cover, and which is therefore checked by hand against a real deployment: document size limits, cron execution, and the engine's own error messages.
+- What the simulator does **not** cover is exercised by the strict Playwright gate against the real local engine: document size limits, cron execution, and transport behavior. Only failures specific to hosted infrastructure remain manual.
 
 ## Tools
 
@@ -26,7 +26,10 @@
 ## Run
 
 - `pnpm run test:unit`: unit suite.
-- `pnpm run test:e2e`: Chromium E2E suite. Playwright must be invoked from `apps/web` (`pnpm --filter web exec playwright test`) — run from the root it finds no config and loses `baseURL`.
+- `pnpm run test:e2e`: local Chromium suite; the cloud project is omitted when Convex is not already running.
+- `pnpm run test:e2e:release`: strict Chromium suite; Playwright starts Convex on 3210/3211 and fails if any cloud prerequisite is absent.
+- `pnpm run test:release`: complete release proof, including both commercial builds, strict cloud E2E, and audits.
+- Run all commands from the workspace root; root scripts delegate to the owning package.
 - `pnpm --filter backend run test:unit`: the deployment suite (already included in `pnpm run test:unit`).
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
 - GitHub runs the release gate on every push and pull request and uploads Playwright diagnostics on failure.

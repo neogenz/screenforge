@@ -49,7 +49,12 @@ import { JWT_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '../src/lib/session-k
 import { makeSolidPng } from './device-bezel-fixture'
 import { waitForApp } from './helpers'
 
+const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
 const stack = localConvex()
+
+if (REQUIRE_CLOUD && !stack) {
+  throw new Error('SCREENFORGE_REQUIRE_CLOUD=1 mais le déploiement Convex local est absent.')
+}
 
 /** Le client privilégié, celui du webhook — jamais celui d'une assertion. */
 const admin = () => adminClient(stack!)
@@ -130,6 +135,15 @@ function accountEntryPresent(page: Page): Promise<boolean> {
       () => true,
       () => false,
     )
+}
+
+async function requireAccountEntry(page: Page): Promise<void> {
+  const present = await accountEntryPresent(page)
+  if (REQUIRE_CLOUD) {
+    expect(present, 'le mode release exige le serveur Vite cloud').toBe(true)
+    return
+  }
+  test.skip(!present, 'serveur de développement démarré sans VITE_CONVEX_URL')
 }
 
 /**
@@ -290,8 +304,7 @@ test.describe('Sync cloud', () => {
     baseURL,
   }) => {
     const a = await openApp(browser, baseURL!, session)
-    const cloudReady = await accountEntryPresent(a)
-    test.skip(!cloudReady, 'serveur de développement démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(a)
 
     await expect(syncBadge(a, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
@@ -361,7 +374,7 @@ test.describe('Sync cloud', () => {
     const sourceContext = await browser.newContext({ baseURL })
     const source = await sourceContext.newPage()
     await waitForApp(source)
-    test.skip(!(await accountEntryPresent(source)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(source)
     const remoteName = `Cloud retenu ${String(Date.now())}`
     const fixture = await source.evaluate((name) => {
       window.__sfStores?.useProjectStore.getState().createProject(name)
@@ -455,7 +468,7 @@ test.describe('Sync cloud', () => {
     const context = await browser.newContext({ baseURL })
     const page = await context.newPage()
     await waitForApp(page)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     const marker = Date.now()
     const localTargetName = `Cible locale ${String(marker)}`
@@ -595,7 +608,7 @@ test.describe('Sync cloud', () => {
     const context = await browser.newContext({ baseURL })
     const page = await context.newPage()
     await waitForApp(page)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     const marker = Date.now()
     const localAName = `Local non ciblé A ${String(marker)}`
@@ -740,7 +753,7 @@ test.describe('Sync cloud', () => {
     const own = await signUpSession(stack!)
     expect(await grantCloud(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = `Projet asset absent ${String(Date.now())}`
@@ -787,7 +800,7 @@ test.describe('Sync cloud', () => {
     const sourceContext = await browser.newContext({ baseURL: baseURL! })
     const source = await sourceContext.newPage()
     await waitForApp(source)
-    test.skip(!(await accountEntryPresent(source)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(source)
     const marker = Date.now()
     const healthyName = `Cloud sain ${String(marker)}`
     const brokenName = `Cloud incomplet ${String(marker)}`
@@ -859,8 +872,7 @@ test.describe('Sync cloud', () => {
     const own = await signUpSession(stack!)
     expect(await grantCloud(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
-    const cloudReady = await accountEntryPresent(page)
-    test.skip(!cloudReady, 'serveur de développement démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = `Projet hors ligne ${String(Date.now())}`
@@ -900,7 +912,7 @@ test.describe('Sync cloud', () => {
     const own = await signUpSession(stack!)
     expect(await grantCloud(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = Date.now()
@@ -1016,8 +1028,7 @@ test.describe('Porte Cloud côté client', () => {
     expect(await grantLicence(admin(), own.userId)).toBe('written')
 
     const page = await openApp(browser, baseURL!, own)
-    const cloudReady = await accountEntryPresent(page)
-    test.skip(!cloudReady, 'serveur de développement démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     const attempts = watchCloudRequests(page)
 
@@ -1047,7 +1058,7 @@ test.describe('Porte Cloud côté client', () => {
     const own = await signUpSession(stack!)
     expect(await grantLicence(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     /* Posée ici, la question l'est une fois pour toutes : l'état durable est
        collant, donc la boîte lira la même réponse que celle-ci. Et la prémisse
@@ -1070,7 +1081,7 @@ test.describe('Porte Cloud côté client', () => {
     const own = await signUpSession(stack!)
     expect(await grantLicence(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     await expect
       .poll(() =>
@@ -1099,8 +1110,7 @@ test.describe('Porte Cloud côté client', () => {
     expect(await grantCloud(admin(), own.userId)).toBe('written')
 
     const page = await openApp(browser, baseURL!, own)
-    const cloudReady = await accountEntryPresent(page)
-    test.skip(!cloudReady, 'serveur de développement démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = `Projet déconnecté ${String(Date.now())}`
@@ -1148,8 +1158,7 @@ test.describe('Porte Cloud côté client', () => {
     expect(await grantCloud(admin(), own.userId)).toBe('written')
 
     const abonné = await openApp(browser, baseURL!, own)
-    const cloudReady = await accountEntryPresent(abonné)
-    test.skip(!cloudReady, 'serveur de développement démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(abonné)
     await expect(syncBadge(abonné, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
 
     const marker = `Projet expiré ${String(Date.now())}`
@@ -1221,7 +1230,7 @@ test.describe('Rattachement des projets locaux', () => {
     const context = await browser.newContext({ baseURL: baseURL! })
     const page = await context.newPage()
     await waitForApp(page)
-    test.skip(!(await accountEntryPresent(page)), 'serveur démarré sans VITE_CONVEX_URL')
+    await requireAccountEntry(page)
 
     const marque = Date.now()
     const noms = [`Local A ${String(marque)}`, `Local B ${String(marque)}`]

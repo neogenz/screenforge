@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
 import { localConvex } from '../backend/tests/stack'
 
 /**
@@ -13,12 +14,12 @@ import { localConvex } from '../backend/tests/stack'
  * pas porter les deux : celui qui satisfait l'un fait échouer l'autre en
  * silence, ou pire, fait sauter l'autre sans le dire.
  *
- * Le second serveur ne démarre que si le déploiement local tourne. Sinon
- * `sync.spec.ts` se saute tout seul — il vérifie `localConvex()` avant de
- * naviguer — et `pnpm run test:e2e` reste exécutable sans backend, comme il
- * l'était sans Docker.
+ * Le second serveur ne démarre que si le déploiement local tourne en mode
+ * ordinaire. Le gate release possède aussi ce déploiement et interdit les skips
+ * cloud.
  */
-const convex = localConvex()
+const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
+const WORKSPACE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 const LOCAL_FIRST_PORT = 5199
 const CLOUD_PORT = 5198
@@ -30,6 +31,24 @@ const PRELAUNCH_SPECS = '**/*.prelaunch.spec.ts'
 
 /* La vente ouverte : la suite principale mesure les paliers payants. */
 const LAUNCH = 'VITE_COMMERCIAL_LAUNCH=1'
+const configuredConvex = localConvex()
+const convex = REQUIRE_CLOUD
+  ? {
+      url: 'http://127.0.0.1:3210',
+      site: 'http://127.0.0.1:3211',
+      adminKey: '',
+    }
+  : configuredConvex && (await deploymentReady(configuredConvex.url))
+    ? configuredConvex
+    : null
+
+async function deploymentReady(url: string): Promise<boolean> {
+  try {
+    return (await fetch(`${url}/version`, { signal: AbortSignal.timeout(1000) })).ok
+  } catch {
+    return false
+  }
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,6 +58,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list']],
+  globalSetup: REQUIRE_CLOUD ? './e2e/global-setup.ts' : undefined,
   use: {
     viewport: { width: 1600, height: 1000 },
     trace: 'retain-on-failure',
@@ -52,13 +72,33 @@ export default defineConfig({
         baseURL: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
       },
     },
-    {
-      name: 'cloud',
-      testMatch: CLOUD_SPEC,
-      use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${String(CLOUD_PORT)}` },
-    },
+    ...(convex
+      ? [
+          {
+            name: 'cloud',
+            testMatch: CLOUD_SPEC,
+            use: {
+              ...devices['Desktop Chrome'],
+              baseURL: `http://localhost:${String(CLOUD_PORT)}`,
+            },
+          },
+        ]
+      : []),
   ],
   webServer: [
+    ...(REQUIRE_CLOUD
+      ? [
+          {
+            command: 'pnpm run dev:backend',
+            cwd: WORKSPACE_ROOT,
+            url: 'http://127.0.0.1:3210/version',
+            reuseExistingServer: true,
+            timeout: 60_000,
+            stdout: 'pipe' as const,
+            stderr: 'pipe' as const,
+          },
+        ]
+      : []),
     {
       /* Blanchie, et pas seulement absente : `envDir` désigne la racine de
          l'espace de travail, où `convex dev` écrit `VITE_CONVEX_URL` dès qu'un

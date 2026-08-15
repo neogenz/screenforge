@@ -101,7 +101,8 @@ fichier, et il n'y a plus de « pareil » à tenir.
 ## 6.4 Validation
 
 `pnpm run test:release` en entier : `test:unit`, `typecheck`, `lint`,
-`build:profiles`, `test:e2e`, `audit:contrast`, `audit:scale`, `audit:landing`.
+`build:profiles`, `test:e2e:release`, `audit:contrast`, `audit:scale`,
+`audit:landing`. Le gate E2E démarre Convex et refuse désormais tout skip cloud.
 
 Plus, spécifiquement :
 

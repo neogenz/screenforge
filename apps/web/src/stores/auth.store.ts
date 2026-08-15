@@ -34,6 +34,8 @@ interface AuthState {
    * précédent après une déconnexion lèverait le filigrane chez le suivant.
    */
   entitlements: Entitlements | null
+  /** Le cache suffit hors ligne pour l'export, jamais pour démarrer une sync. */
+  entitlementsVerified: boolean
   setUser: (user: CloudUser | null) => void
   setEntitlements: (entitlements: Entitlements | null) => void
 }
@@ -42,6 +44,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   status: 'unknown',
   user: null,
   entitlements: null,
+  entitlementsVerified: false,
 
   setUser: (user) =>
     set((state) => {
@@ -55,6 +58,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
             : userId
               ? readCachedEntitlements(userId)
               : null,
+        entitlementsVerified:
+          userId !== null && userId === (state.user?.id ?? null)
+            ? state.entitlementsVerified
+            : false,
       }
     }),
 
@@ -62,7 +69,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set((state) => {
       if (entitlements && entitlements.userId !== state.user?.id) return state
       if (entitlements) cacheEntitlements(entitlements)
-      return { entitlements }
+      return { entitlements, entitlementsVerified: state.status === 'signed-in' }
     }),
 }))
 
@@ -76,7 +83,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
 export async function refreshEntitlements(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (useAuthStore.getState().status !== 'signed-in' || !userId) {
-    useAuthStore.getState().setEntitlements(null)
+    useAuthStore.setState({ entitlements: null, entitlementsVerified: false })
     return
   }
   try {
@@ -140,7 +147,7 @@ function rememberedUserId(): string | null {
  */
 export function initAuth(): () => void {
   if (!cloudConfigured) {
-    useAuthStore.setState({ status: 'signed-out' })
+    useAuthStore.setState({ status: 'signed-out', entitlementsVerified: false })
     return () => {}
   }
 
@@ -150,6 +157,7 @@ export function initAuth(): () => void {
       status: 'signed-in',
       user: { id: remembered, email: null },
       entitlements: readCachedEntitlements(remembered),
+      entitlementsVerified: false,
     })
   }
 

@@ -45,8 +45,14 @@ pnpm run lint
 # Type check
 pnpm run typecheck
 
-# E2E tests (Playwright, requires chromium — `pnpm exec playwright install chromium` once)
+# E2E local (omet le projet cloud si Convex est arrêté)
 pnpm run test:e2e
+
+# E2E de release (démarre Convex et interdit les skips cloud)
+pnpm run test:e2e:release
+
+# Gate complet de release
+pnpm run test:release
 
 # Local Convex deployment (anonymous) — ports 3210/3211
 pnpm run dev:backend

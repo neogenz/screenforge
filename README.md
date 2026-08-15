@@ -64,17 +64,18 @@ pnpm dev
 
 ## Scripts
 
-| Command                              | Description                                      |
-| ------------------------------------ | ------------------------------------------------ |
-| `pnpm dev`                           | Start the dev server                             |
-| `pnpm build`                         | Type-check + production build                    |
-| `pnpm test`                          | Unit tests + typecheck + lint                    |
-| `pnpm test:e2e`                      | Playwright E2E tests                             |
-| `pnpm test:release`                  | Full release gate (tests, build, E2E, audits)    |
-| `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules |
-| `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)     |
-| `pnpm audit:scale`                   | Spacing scale audit                              |
-| `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)    |
+| Command                              | Description                                       |
+| ------------------------------------ | ------------------------------------------------- |
+| `pnpm dev`                           | Start the dev server                              |
+| `pnpm build`                         | Type-check + production build                     |
+| `pnpm test`                          | Unit tests + typecheck + lint                     |
+| `pnpm test:e2e`                      | E2E local; omits cloud when Convex is stopped     |
+| `pnpm test:e2e:release`              | E2E strict; starts Convex and forbids cloud skips |
+| `pnpm test:release`                  | Full strict gate (tests, builds, E2E, audits)     |
+| `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules  |
+| `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)      |
+| `pnpm audit:scale`                   | Spacing scale audit                               |
+| `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)     |
 
 ## Project structure
 

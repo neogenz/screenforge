@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: rendre le gate cloud obligatoire et reproductible

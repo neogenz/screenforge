@@ -76,7 +76,12 @@ function setStatus(status: SyncStatus): void {
  * la sync dès que la réponse arrive.
  */
 function syncAllowed(state = useAuthStore.getState()): boolean {
-  return cloudConfigured && state.status === 'signed-in' && rightsOf(state.entitlements).sync
+  return (
+    cloudConfigured &&
+    state.status === 'signed-in' &&
+    state.entitlementsVerified &&
+    rightsOf(state.entitlements).sync
+  )
 }
 
 function currentUserId(): string | null {

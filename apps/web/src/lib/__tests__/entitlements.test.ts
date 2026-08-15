@@ -67,7 +67,12 @@ describe('cache de droits par compte', () => {
       getItem: (key: string) => entries.get(key) ?? null,
       setItem: (key: string, value: string) => void entries.set(key, value),
     })
-    useAuthStore.setState({ status: 'signed-out', user: null, entitlements: null })
+    useAuthStore.setState({
+      status: 'signed-out',
+      user: null,
+      entitlements: null,
+      entitlementsVerified: false,
+    })
   })
 
   it('restaure la Licence hors ligne pour le même utilisateur seulement', () => {
@@ -92,6 +97,22 @@ describe('cache de droits par compte', () => {
 
     useAuthStore.getState().setEntitlements(first)
     expect(useAuthStore.getState().entitlements).toEqual(second)
+  })
+
+  it('ne valide jamais le droit Cloud à partir du seul cache', () => {
+    const cached = entitlement('u1', true, true)
+    useAuthStore.setState({
+      status: 'signed-in',
+      user: { id: 'u1', email: null },
+      entitlements: cached,
+      entitlementsVerified: false,
+    })
+
+    useAuthStore.getState().setUser({ id: 'u1', email: 'fixture@screenforge.test' })
+    expect(useAuthStore.getState().entitlementsVerified).toBe(false)
+
+    useAuthStore.getState().setEntitlements(cached)
+    expect(useAuthStore.getState().entitlementsVerified).toBe(true)
   })
 })
 

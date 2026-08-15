@@ -34,10 +34,8 @@ jobs:
   # Ce qu'il faut un vrai navigateur pour établir : le comportement e2e et les
   # deux audits qui mesurent des pixels rendus.
   #
-  # Aucun service n'est démarré ici. Les specs qui ont besoin d'un compte
-  # vérifient `localConvex()` et se sautent d'elles-mêmes en son absence — c'est
-  # la même règle qu'avant, appliquée à un déploiement plutôt qu'à Docker, et
-  # elle vaut que le reste de la suite tourne sans rien à provisionner.
+  # Le gate release démarre lui-même le déploiement Convex anonyme. Une preuve
+  # cloud absente échoue : elle ne peut plus devenir un skip vert.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -57,7 +55,7 @@ jobs:
       # principale pose la variable et prouve les paliers lancés ; son second
       # serveur la force vide et prouve séparément le ZIP propre illimité de la
       # variante pré-lancement.
-      - run: pnpm run test:e2e
+      - run: pnpm run test:e2e:release
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
