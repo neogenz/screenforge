@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Moon,
   Package,
+  Plug2,
   PenLine,
   PanelLeft,
   PanelRight,
@@ -37,6 +38,8 @@ import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
+import { MCP_LABELS, useMcpStore } from '@/stores/mcp.store'
+import { McpStatusDot } from '@/components/mcp/McpStatusDot'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
@@ -771,6 +774,8 @@ function useSecondaryActions(): SecondaryAction[] {
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const mcpStatus = useMcpStore((s) => s.status)
   const theme = useUIStore((s) => s.theme)
 
   return [
@@ -819,6 +824,22 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <CloudUpload size={16} strokeWidth={1.75} />,
       expanded: showPublishDialog,
       onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+    },
+    {
+      id: 'mcp',
+      label: 'Connexion MCP',
+      hint: `Agent externe — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
+      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
+         menu, l'icône retombe dans une fente que le menu dimensionne, et une
+         pastille en absolu y déborderait sur le libellé. */
+      icon: (
+        <span className="inline-flex items-center gap-1">
+          <Plug2 size={16} strokeWidth={1.75} />
+          <McpStatusDot status={mcpStatus} />
+        </span>
+      ),
+      expanded: showMcpDialog,
+      onSelect: () => useUIStore.getState().setShowMcpDialog(!showMcpDialog),
     },
     {
       id: 'templates',

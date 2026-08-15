@@ -7,13 +7,13 @@ import { AppUnavailableError, CallFailedError, type RelaySession } from '../rela
  * `AI_TOOLS`, et `validateToolCall` les refuse par construction : ils ne
  * passent pas par l'exécuteur, qui n'écrit que des mutations. Le démon les sert
  * donc depuis le dernier état poussé par la page — qui pousse à l'ouverture du
- * flux puis après chaque écriture.
+ * flux, après chaque écriture de l'agent, et après celles de l'utilisateur,
+ * groupées : un glissement de calque produit une écriture par image, et aucune
+ * des intermédiaires n'intéresse personne.
  *
  * Poussé plutôt que demandé : un agent relit l'état à presque chaque tour, et
  * un aller-retour SSE par lecture paierait une latence pour une réponse que la
- * page connaît déjà. Le prix est que l'état date de la dernière écriture ; ce
- * qui se passe entre deux écritures, c'est l'utilisateur qui le fait, et il est
- * devant son écran.
+ * page connaît déjà.
  *
  * L'état reste opaque au relais. Il transporte du JSON produit par
  * `describeProject`, et n'en lit que ce qu'il faut pour isoler un écran.

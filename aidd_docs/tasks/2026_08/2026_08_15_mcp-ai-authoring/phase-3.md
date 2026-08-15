@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Côté web — mode MCP, pairing, application live + UI

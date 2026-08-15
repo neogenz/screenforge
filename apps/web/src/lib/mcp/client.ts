@@ -1,0 +1,280 @@
+import type { RelayHello, RelayRequest } from 'mcp'
+import { applyRelayBatch, readProjectState } from '@/lib/mcp/session'
+import { useMcpStore } from '@/stores/mcp.store'
+import { useProjectStore } from '@/stores/project.store'
+
+/**
+ * Le fil sortant vers le démon MCP, tenu par l'onglet.
+ *
+ * Un navigateur ne reçoit pas de connexion entrante : c'est donc la page qui
+ * appelle et le démon qui attend. Elle ouvre un flux `EventSource` par lequel
+ * arrivent les lots, et rend chaque réponse en `POST`. Rien n'écoute ici, rien
+ * n'est exposé : le seul lien avec l'extérieur est celui que l'utilisateur a
+ * demandé, et il meurt avec l'onglet.
+ *
+ * **Le jeton ne quitte jamais la mémoire de ce module** — ni `localStorage`, ni
+ * store, ni projet, ni Cloud. Il est reminté à chaque appairage, et un démon
+ * relancé en émet un autre : le persister rendrait une valeur périmée au
+ * prochain chargement, pour le seul bénéfice de ne pas refaire un appel que
+ * l'utilisateur ne voit pas. Seul le *choix* d'activer le mode est mémorisé.
+ *
+ * `RELAY_PROTOCOL` et `DEFAULT_PORT` sont doublés plutôt qu'importés : les
+ * valeurs du paquet `mcp` vivent à côté de schémas zod, et l'`import type`
+ * garantit que rien de ce paquet n'atteint le bundle. La comparaison de version
+ * confronte les deux copies, et c'est le démon qui tranche.
+ */
+const RELAY_PROTOCOL = 1
+const DEFAULT_PORT = 4591
+
+/** Le choix de l'utilisateur, pas son jeton. */
+const ENABLED_KEY = 'screenforge-mcp'
+
+/**
+ * Le port, déplaçable des deux côtés.
+ *
+ * `SCREENFORGE_MCP_PORT` déplace celui du démon ; sans pendant côté page, cette
+ * option serait un mensonge — l'onglet continuerait d'appeler 4591. Une page
+ * statique ne lit pas de variable d'environnement, donc c'est le stockage local
+ * de l'utilisateur qui porte la valeur. Pas de champ dans l'interface : c'est
+ * un réglage de machine, pas une préférence de projet, et le défaut est bon
+ * partout ailleurs.
+ */
+const PORT_KEY = 'screenforge-mcp-port'
+
+/**
+ * Le rythme des reprises, jusqu'à un quart de minute.
+ *
+ * Un démon qu'on relance revient en quelques secondes ; un démon qu'on n'a pas
+ * l'intention de rallumer ne doit pas coûter une requête par seconde pendant
+ * toute une session d'édition.
+ */
+const BACKOFF_MS = [1000, 2000, 4000, 8000, 15_000]
+
+/**
+ * Le délai avant de repousser l'état après une retouche à la souris.
+ *
+ * L'état part après chaque écriture de l'agent, mais aussi après les nôtres :
+ * un agent qui lit le projet entre deux de ses tours doit y voir ce que
+ * l'utilisateur vient de déplacer, sans quoi il compose contre une version
+ * périmée. Groupé, parce qu'un glissement de calque produit une écriture par
+ * image et qu'aucune des intermédiaires n'intéresse personne.
+ */
+const STATE_DEBOUNCE_MS = 400
+
+let source: EventSource | null = null
+let token = ''
+let attempt = 0
+let timer: ReturnType<typeof setTimeout> | undefined
+let stateTimer: ReturnType<typeof setTimeout> | undefined
+let unwatch: (() => void) | undefined
+/**
+ * Le cycle de connexion courant.
+ *
+ * Appairer est asynchrone et se coupe n'importe où : sans ce compteur, un
+ * « Désactiver » pendant l'appel à `/pair` laissait la réponse arriver après
+ * coup, ouvrir un flux et rallumer un mode que l'utilisateur venait d'éteindre.
+ */
+let cycle = 0
+
+function relayUrl(): string {
+  let port = DEFAULT_PORT
+  try {
+    const stored = Number(localStorage.getItem(PORT_KEY))
+    if (Number.isInteger(stored) && stored > 0 && stored < 65536) port = stored
+  } catch {
+    // Stockage refusé (mode privé strict) : le port par défaut reste juste.
+  }
+  return `http://127.0.0.1:${port}`
+}
+
+function readEnabled(): boolean {
+  try {
+    return localStorage.getItem(ENABLED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function persistEnabled(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(ENABLED_KEY, '1')
+    else localStorage.removeItem(ENABLED_KEY)
+  } catch (error) {
+    console.warn('Could not persist the MCP mode.', error)
+  }
+}
+
+/**
+ * Un démon éteint et une origine refusée sont le même événement.
+ *
+ * Le relais répond 403 avant d'écrire le moindre en-tête CORS, donc le
+ * navigateur retient la réponse et `fetch` rejette avec le `TypeError` d'un
+ * port qui n'écoute pas. Rien ici ne sait les distinguer : le message nomme les
+ * deux causes plutôt que d'en deviner une.
+ */
+const UNREACHABLE =
+  'Le démon MCP ne répond pas. Lancez « pnpm --filter mcp run start », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.'
+
+async function post(path: string, body: unknown): Promise<void> {
+  const response = await fetch(`${relayUrl()}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
+}
+
+async function pair(): Promise<RelayHello> {
+  const response = await fetch(`${relayUrl()}/pair`, { method: 'POST' })
+  if (!response.ok) throw new Error(`Le démon refuse l’appairage (${response.status}).`)
+  return (await response.json()) as RelayHello
+}
+
+function arm(): void {
+  const wait = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)]
+  attempt += 1
+  timer = setTimeout(() => {
+    timer = undefined
+    void open()
+  }, wait)
+}
+
+/** Coupe tout ce qui est en vol, sans toucher au choix de l'utilisateur. */
+function teardown(): void {
+  cycle += 1
+  if (timer !== undefined) clearTimeout(timer)
+  timer = undefined
+  if (stateTimer !== undefined) clearTimeout(stateTimer)
+  stateTimer = undefined
+  unwatch?.()
+  unwatch = undefined
+  source?.close()
+  source = null
+  token = ''
+}
+
+async function open(): Promise<void> {
+  teardown()
+  const mine = cycle
+  useMcpStore.getState().setStatus('connecting')
+
+  let hello: RelayHello
+  try {
+    hello = await pair()
+  } catch {
+    if (mine !== cycle) return
+    useMcpStore.getState().setStatus('error', UNREACHABLE)
+    arm()
+    return
+  }
+  if (mine !== cycle) return
+
+  // Rien à reprendre sur un écart de version : réessayer produirait le même
+  // refus toutes les quinze secondes. La phrase dit quoi faire, et on s'arrête.
+  if (hello.protocol !== RELAY_PROTOCOL) {
+    useMcpStore
+      .getState()
+      .setStatus(
+        'error',
+        `Le démon parle le protocole ${hello.protocol}, cette page le ${RELAY_PROTOCOL}. Mettez ScreenForge et le démon à la même version.`,
+      )
+    return
+  }
+
+  token = hello.token
+  listen(mine)
+}
+
+function listen(mine: number): void {
+  const stream = new EventSource(`${relayUrl()}/events?token=${encodeURIComponent(token)}`)
+  source = stream
+
+  stream.onopen = () => {
+    if (mine !== cycle) return
+    attempt = 0
+    useMcpStore.getState().setStatus('live')
+    void pushState()
+    unwatch = useProjectStore.subscribe(scheduleStatePush)
+  }
+
+  stream.addEventListener('calls', (event) => {
+    if (mine !== cycle) return
+    void answer(JSON.parse((event as MessageEvent<string>).data) as RelayRequest)
+  })
+
+  // Jeton périmé, démon relancé, réseau coupé : `EventSource` ne les distingue
+  // pas non plus. On referme et on réappaire, ce qui répond aux trois.
+  stream.onerror = () => {
+    if (mine !== cycle) return
+    stream.close()
+    source = null
+    unwatch?.()
+    unwatch = undefined
+    useMcpStore.getState().setStatus('connecting')
+    arm()
+  }
+}
+
+async function answer(request: RelayRequest): Promise<void> {
+  const outcome = applyRelayBatch(request.calls)
+  try {
+    await post('/result', {
+      id: request.id,
+      ok: outcome.committed,
+      ...(outcome.committed ? { result: outcome.result } : { error: outcome.error }),
+    })
+    if (outcome.committed) await pushState()
+  } catch (error) {
+    // Le lot est appliqué ; c'est le retour qui s'est perdu. L'agent verra son
+    // appel expirer, et le flux se rétablira tout seul — rien à défaire ici.
+    console.warn('Could not answer the MCP daemon.', error)
+  }
+}
+
+async function pushState(): Promise<void> {
+  if (!token) return
+  // Le groupement en attente n'a plus rien à dire : on part avec l'état d'après.
+  if (stateTimer !== undefined) clearTimeout(stateTimer)
+  stateTimer = undefined
+  await post('/state', { state: readProjectState() })
+}
+
+function scheduleStatePush(): void {
+  if (stateTimer !== undefined) clearTimeout(stateTimer)
+  stateTimer = setTimeout(() => {
+    stateTimer = undefined
+    void pushState().catch(() => {
+      // Le flux dira lui-même qu'il est tombé ; inutile de le dire deux fois.
+    })
+  }, STATE_DEBOUNCE_MS)
+}
+
+/** Le geste : on appaire, on ouvre, on se souvient du choix. */
+export async function enableMcp(): Promise<void> {
+  persistEnabled(true)
+  useMcpStore.getState().setEnabled(true)
+  await open()
+}
+
+/** Le geste inverse : le flux tombe, le jeton est oublié, l'agent est coupé. */
+export function disableMcp(): void {
+  persistEnabled(false)
+  teardown()
+  useMcpStore.getState().setEnabled(false)
+  useMcpStore.getState().setStatus('off')
+}
+
+/**
+ * Au démarrage, et seulement si le choix a déjà été fait.
+ *
+ * Aucun appairage automatique sans ce drapeau : une requête sortante déclenchée
+ * par le seul fait d'ouvrir l'application serait une surprise, et laisser un
+ * agent écrire dans le projet doit rester une décision.
+ */
+export function resumeMcp(): () => void {
+  if (readEnabled()) {
+    useMcpStore.getState().setEnabled(true)
+    void open()
+  }
+  return () => teardown()
+}

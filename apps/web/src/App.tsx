@@ -16,6 +16,7 @@ import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { DUAL_DRAWER_MIN_WIDTH, FILMSTRIP_CENTERED_MIN_WIDTH } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { initSync } from '@/lib/sync'
+import { resumeMcp } from '@/lib/mcp/client'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
@@ -79,6 +80,11 @@ const LocaleDialog = lazy(() =>
 const PublishDialog = lazy(() =>
   import('@/components/publish-dialog/PublishDialog').then((module) => ({
     default: module.PublishDialog,
+  })),
+)
+const McpDialog = lazy(() =>
+  import('@/components/mcp/McpDialog').then((module) => ({
+    default: module.McpDialog,
   })),
 )
 const MigrateProjectsDialog = lazy(() =>
@@ -163,6 +169,17 @@ export default function App() {
       stopAutoSave?.()
     }
   }, [])
+
+  /**
+   * Le mode MCP reprend au démarrage s'il a déjà été demandé, jamais sinon.
+   *
+   * Ici et non dans `main.tsx` pour la même raison que la session et la sync :
+   * c'est un branchement qui doit se défaire, et un module qui s'exécute une
+   * fois n'a nulle part où poser sa fermeture. `resumeMcp` sort immédiatement
+   * sans rien ouvrir quand le drapeau n'est pas posé — l'activation reste un
+   * geste, pas une conséquence d'avoir ouvert l'application.
+   */
+  useEffect(() => resumeMcp(), [])
 
   /**
    * La session se branche au montage, pas au premier clic sur « Se connecter ».
@@ -309,6 +326,7 @@ function Overlays() {
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
 
   return (
     <>
@@ -334,6 +352,7 @@ function Overlays() {
         {showCampaignDialog && <CampaignDialog />}
         {showLocaleDialog && <LocaleDialog />}
         {showPublishDialog && <PublishDialog />}
+        {showMcpDialog && <McpDialog />}
       </Suspense>
     </>
   )

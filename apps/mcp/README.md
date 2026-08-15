@@ -122,6 +122,20 @@ Le démon écoute sur `127.0.0.1:4591`, jamais sur `0.0.0.0`. Les origines admis
 sont celles des serveurs de développement (5173, 4173, 5199) ; ajoutez-en avec
 `SCREENFORGE_MCP_ORIGINS`, déplacez le port avec `SCREENFORGE_MCP_PORT`.
 
+Déplacer le port se fait des deux côtés, sans quoi l'onglet continuerait
+d'appeler 4591. Une page statique ne lit pas de variable d'environnement, donc
+c'est son stockage local qui porte la valeur :
+
+```js
+localStorage.setItem('screenforge-mcp-port', '4592')
+```
+
+Pas de champ dans l'interface : c'est un réglage de machine, pas une préférence
+de projet, et le défaut convient partout ailleurs. Le seul autre reliquat que
+l'onglet garde est `screenforge-mcp`, le drapeau qui dit que le mode a été
+demandé — **jamais le jeton**, qui meurt avec le rechargement comme celui du
+pont meurt avec son processus.
+
 Un seul onglet à la fois : le dernier arrivé évince le précédent, et les appels
 en vol de l'évincé repartent en erreur. Deux onglets se partageant les lots
 donneraient à l'agent un projet qui se contredit d'un appel à l'autre.
