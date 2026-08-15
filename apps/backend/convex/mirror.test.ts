@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { internal } from './_generated/api'
+import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { applyEntitlementsIfNewer, myEntitlements } from './mirror'
+import { applyEntitlementsIfNewer, myEntitlements, setComplimentaryAccess } from './mirror'
 import { testConvex } from './test.helpers'
 
 /**
@@ -115,5 +115,132 @@ describe('applyEntitlementsIfNewer', () => {
        marqueur jamais posé passerait cette assertion en fermant toute l'API. */
     expect(marks(myEntitlements).isPublic).toBe(true)
     expect(marks(myEntitlements).isInternal).toBeUndefined()
+  })
+})
+
+describe('setComplimentaryAccess', () => {
+  const note = 'owner complimentary access'
+
+  it('accorde tous les droits client sans inventer de client Polar', async () => {
+    const t = testConvex()
+    const userId = await user(t)
+
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, {
+        userId,
+        local: true,
+        cloud: true,
+        note,
+      }),
+    ).resolves.toBe('written')
+
+    await expect(
+      t.withIdentity({ subject: userId }).query(api.mirror.myEntitlements, {
+        now: Date.now(),
+      }),
+    ).resolves.toMatchObject({ licence: true, licenceGrantedAt: null, cloud: true })
+    expect(await rows(t)).toMatchObject([
+      {
+        polarCustomerId: null,
+        complimentaryLocal: true,
+        complimentaryCloud: true,
+        complimentaryNote: note,
+      },
+    ])
+  })
+
+  it('est idempotent et refuse une note vide ou trop longue', async () => {
+    const t = testConvex()
+    const userId = await user(t)
+    const grant = { userId, local: true, cloud: true, note }
+
+    await expect(t.mutation(internal.mirror.setComplimentaryAccess, grant)).resolves.toBe('written')
+    await expect(t.mutation(internal.mirror.setComplimentaryAccess, grant)).resolves.toBe(
+      'unchanged',
+    )
+    expect(await rows(t)).toHaveLength(1)
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, { ...grant, note: ' ' }),
+    ).rejects.toThrow(/note/)
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, { ...grant, note: 'x'.repeat(121) }),
+    ).rejects.toThrow(/note/)
+  })
+
+  it('préserve le grant pendant un webhook puis restaure exactement les droits Polar', async () => {
+    const t = testConvex()
+    const userId = await user(t)
+    await t.mutation(internal.mirror.setComplimentaryAccess, {
+      userId,
+      local: true,
+      cloud: true,
+      note,
+    })
+
+    await t.mutation(internal.mirror.applyEntitlementsIfNewer, delivery(userId, 1000))
+    expect(await rows(t)).toMatchObject([
+      {
+        licenceGrantedAt: LICENCE,
+        cloudStatus: null,
+        complimentaryLocal: true,
+        complimentaryCloud: true,
+      },
+    ])
+
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, {
+        userId,
+        local: false,
+        cloud: false,
+        note: 'owner complimentary access revoked',
+      }),
+    ).resolves.toBe('written')
+    await expect(
+      t.withIdentity({ subject: userId }).query(api.mirror.myEntitlements, {
+        now: Date.now(),
+      }),
+    ).resolves.toMatchObject({ licence: true, cloud: false })
+    const [restored] = await rows(t)
+    expect(restored).toMatchObject({ licenceGrantedAt: LICENCE, cloudStatus: null })
+    expect(restored).not.toHaveProperty('complimentaryLocal')
+    expect(restored).not.toHaveProperty('complimentaryCloud')
+    expect(restored).not.toHaveProperty('complimentaryNote')
+  })
+
+  it('supprime une ligne purement complémentaire à la révocation et exige un compte existant', async () => {
+    const t = testConvex()
+    const userId = await user(t)
+    await t.mutation(internal.mirror.setComplimentaryAccess, {
+      userId,
+      local: false,
+      cloud: true,
+      note,
+    })
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, {
+        userId,
+        local: false,
+        cloud: false,
+        note: 'owner complimentary access revoked',
+      }),
+    ).resolves.toBe('written')
+    expect(await rows(t)).toEqual([])
+
+    await t.run((ctx) => ctx.db.delete(userId))
+    await expect(
+      t.mutation(internal.mirror.setComplimentaryAccess, {
+        userId,
+        local: true,
+        cloud: true,
+        note,
+      }),
+    ).rejects.toThrow(/introuvable/)
+  })
+
+  it('reste strictement hors de l’API publique', () => {
+    expect(marks(setComplimentaryAccess).isInternal).toBe(true)
+    expect(marks(setComplimentaryAccess).isPublic).toBeUndefined()
+    /* @ts-expect-error Une fonction interne ne doit pas apparaître sous `api`. */
+    void api.mirror.setComplimentaryAccess
   })
 })

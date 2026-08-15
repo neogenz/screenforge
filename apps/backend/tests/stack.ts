@@ -128,6 +128,13 @@ const applyEntitlements = internal.mirror.applyEntitlementsIfNewer as unknown as
   'written' | 'unchanged' | 'ignored'
 >
 
+const complimentaryAccess = internal.mirror.setComplimentaryAccess as unknown as FunctionReference<
+  'mutation',
+  'public',
+  { userId: string; local: boolean; cloud: boolean; note: string },
+  'written' | 'unchanged'
+>
+
 const inspectSessionCleanup = internal.accountDeletion
   .inspectSessionCleanup as unknown as FunctionReference<
   'query',
@@ -195,6 +202,16 @@ export async function growRefreshChain(session: Session, count: number): Promise
 
 export function inspectDeletedSession(admin: ConvexHttpClient, sessionId: Id<'authSessions'>) {
   return admin.query(inspectSessionCleanup, { sessionId })
+}
+
+/** La dérogation client opérateur, exercée contre le vrai moteur local. */
+export function setComplimentaryAccess(admin: ConvexHttpClient, userId: string, enabled: boolean) {
+  return admin.mutation(complimentaryAccess, {
+    userId,
+    local: enabled,
+    cloud: enabled,
+    note: enabled ? 'owner complimentary access' : 'owner complimentary access revoked',
+  })
 }
 
 const customer = (userId: string) => `cus_${userId.slice(0, 8)}`

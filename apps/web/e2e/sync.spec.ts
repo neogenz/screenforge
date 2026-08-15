@@ -41,6 +41,7 @@ import {
   seedRemoteAsset,
   seedRemoteProject,
   sessionIdOf,
+  setComplimentaryAccess,
   signUpSession,
   tryRemoteAssetUpload,
   type Session,
@@ -1183,6 +1184,51 @@ test.describe('Porte Cloud côté client', () => {
     await expect(dialog.getByRole('button', { name: 'Passer au Cloud' })).toHaveCount(0)
 
     await page.context().close()
+  })
+
+  test('l’accès propriétaire active puis révoque les droits client sans facturation', async ({
+    browser,
+    baseURL,
+  }) => {
+    const own = await signUpSession(stack!)
+    expect(await setComplimentaryAccess(admin(), own.userId, true)).toBe('written')
+
+    const page = await openApp(browser, baseURL!, own)
+    await requireAccountEntry(page)
+    await expect
+      .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
+      .toMatchObject({
+        licence: true,
+        licenceGrantedAt: null,
+        cloud: true,
+        cloudStatus: null,
+        cloudPeriodEnd: null,
+      })
+
+    await page.getByLabel('Ouvrir l’export').click()
+    await expect(page.getByText('Essai gratuit')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Exporter le ZIP' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Annuler' }).click()
+
+    const marker = `Projet propriétaire ${String(Date.now())}`
+    await projectName(page).fill(marker)
+    await projectName(page).press('Enter')
+    await expect.poll(async () => Boolean(await remoteRow(own, marker))).toBe(true)
+
+    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    const account = page.getByRole('dialog', { name: 'Compte' })
+    await expect(account.getByText('Cloud', { exact: true })).toBeVisible()
+    await expect(account.getByRole('button', { name: 'Factures et paiement' })).toHaveCount(0)
+    await account.getByRole('button', { name: 'Fermer' }).click()
+
+    expect(await setComplimentaryAccess(admin(), own.userId, false)).toBe('written')
+    await waitForApp(page)
+    await expect
+      .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
+      .toMatchObject({ licence: false, cloud: false })
+
+    await page.context().close()
+    await dropRemoteProjects(own)
   })
 
   test('un compte Local ne tente aucune synchronisation', async ({ browser, baseURL }) => {

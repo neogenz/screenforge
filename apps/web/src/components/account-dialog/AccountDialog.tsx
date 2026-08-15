@@ -61,6 +61,7 @@ function AccountDialogContent() {
     }
   }, [])
 
+  const local = entitlements?.licence ?? false
   const localPurchased = Boolean(entitlements?.licenceGrantedAt)
   const cloud = entitlements?.cloud ?? false
   const hasBillingHistory = localPurchased || Boolean(entitlements?.cloudStatus)
@@ -69,8 +70,8 @@ function AccountDialogContent() {
   const localSince = dateLabel('Acquis le', entitlements?.licenceGrantedAt)
   const planDetail = cloud
     ? `${cloudEnd ?? 'Actif'} · inclut Local${localPurchased ? ' · Local restera acquis après Cloud' : ''}`
-    : localPurchased
-      ? (localSince ?? 'Achat perpétuel')
+    : local
+      ? (localSince ?? 'Accès Local actif')
       : 'Trois exports filigranés par projet avant achat'
 
   function openPricing() {
@@ -145,7 +146,7 @@ function AccountDialogContent() {
           )}
           {!cloud && (
             <Button variant="default" size="sm" className="mt-3 w-full" onClick={openPricing}>
-              {localPurchased ? 'Passer au Cloud' : 'Voir Local et Cloud'}
+              {local ? 'Passer au Cloud' : 'Voir Local et Cloud'}
             </Button>
           )}
 

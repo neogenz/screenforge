@@ -202,6 +202,28 @@ describe('toEntitlements', () => {
     expect(entitlements).toMatchObject({ licence: false, cloud: false })
     expect(rightsOf(entitlements, true)).toEqual({ cleanExport: false, zip: false, sync: false })
   })
+
+  it('merges complimentary Local and non-expiring Cloud without a Polar purchase', () => {
+    const base = {
+      user_id: USER,
+      polar_customer_id: null,
+      licence_granted_at: null,
+      cloud_status: null,
+      cloud_period_end: null,
+    }
+    expect(toEntitlements({ ...base, complimentary_local: true }, USER, NOW)).toMatchObject({
+      licence: true,
+      licenceGrantedAt: null,
+      cloud: false,
+    })
+    const full = toEntitlements(
+      { ...base, complimentary_local: true, complimentary_cloud: true },
+      USER,
+      NOW,
+    )
+    expect(full).toMatchObject({ licence: true, licenceGrantedAt: null, cloud: true })
+    expect(rightsOf(full, true)).toEqual({ cleanExport: true, zip: true, sync: true })
+  })
 })
 
 describe('rightsOf', () => {

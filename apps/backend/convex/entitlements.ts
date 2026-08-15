@@ -43,10 +43,12 @@ export interface ProjectionConfig {
  */
 export interface EntitlementsRow {
   user_id: string
-  polar_customer_id: string
+  polar_customer_id: string | null
   licence_granted_at: string | null
   cloud_status: string | null
   cloud_period_end: string | null
+  complimentary_local?: boolean
+  complimentary_cloud?: boolean
 }
 
 export interface Projection {
@@ -138,12 +140,14 @@ export function toEntitlements(
   now: Date,
 ): Entitlements {
   if (!row) return NO_ENTITLEMENTS(userId)
-  const licence = row.licence_granted_at !== null
+  const licence = row.licence_granted_at !== null || (row.complimentary_local ?? false)
   return {
     userId,
     licence,
     licenceGrantedAt: row.licence_granted_at,
-    cloud: isCloudActive(row.cloud_status, row.cloud_period_end, now.getTime()),
+    cloud:
+      (row.complimentary_cloud ?? false) ||
+      isCloudActive(row.cloud_status, row.cloud_period_end, now.getTime()),
     cloudStatus: row.cloud_status,
     cloudPeriodEnd: row.cloud_period_end,
   }

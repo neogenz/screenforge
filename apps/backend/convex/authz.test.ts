@@ -21,6 +21,8 @@ type Mirror = {
   licenceGrantedAt?: string | null
   cloudStatus?: string | null
   cloudPeriodEnd?: string | null
+  complimentaryLocal?: boolean
+  complimentaryCloud?: boolean
 }
 
 /** Un compte, et l'état de son miroir. Sans miroir, c'est un compte gratuit. */
@@ -35,6 +37,8 @@ async function account(t: ReturnType<typeof testConvex>, mirror?: Mirror) {
         cloudStatus: mirror.cloudStatus ?? null,
         cloudPeriodEnd: mirror.cloudPeriodEnd ?? null,
         sourceUpdatedAt: null,
+        complimentaryLocal: mirror.complimentaryLocal,
+        complimentaryCloud: mirror.complimentaryCloud,
       })
     }
     return userId
@@ -144,6 +148,12 @@ describe('le portillon du Cloud', () => {
       cloudStatus: 'active',
       cloudPeriodEnd: '2027-03-12T09:00:00.000Z',
     })
+    expect(await gate(t, userId)).toBe('ok')
+  })
+
+  it('laisse passer un accès Cloud complémentaire sans rôle ni abonnement', async () => {
+    const t = testConvex()
+    const userId = await account(t, { complimentaryCloud: true })
     expect(await gate(t, userId)).toBe('ok')
   })
 })

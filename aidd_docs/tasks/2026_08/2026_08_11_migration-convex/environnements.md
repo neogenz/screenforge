@@ -408,6 +408,53 @@ Mesuré le 2026-08-12, pas déduit.
 
 La production est vide et doit le rester tant que la vente n'est pas ouverte.
 
+## Accès propriétaire complémentaire
+
+Cet accès donne exactement les capacités d'un client Local + Cloud. Il ne crée
+ni rôle administrateur, ni client Polar, ni abonnement fictif. Il est accordé
+uniquement après une connexion réelle et vérifiée sur le déploiement ciblé.
+
+Toujours commencer en préproduction. Depuis `apps/backend` :
+
+1. Se connecter une fois dans ScreenForge par Google, GitHub ou lien magique.
+2. Résoudre le compte par son adresse exacte, sans écrire cette adresse dans Git :
+
+```bash
+pnpm exec convex run --env-file .env.preprod --inline-query 'const email = "<OWNER_EMAIL>"; const rows = await ctx.db.query("users").collect(); return rows.filter((row) => row.email === email).map((row) => ({ _id: row._id, email: row.email }));'
+```
+
+Arrêter si le résultat ne contient pas exactement une ligne. Copier son `_id`
+dans la commande suivante, sans le conserver dans un fichier versionné :
+
+```bash
+pnpm exec convex run --env-file .env.preprod mirror:setComplimentaryAccess \
+  '{"userId":"<USER_ID>","local":true,"cloud":true,"note":"owner complimentary access"}'
+```
+
+Contrôler la ligne côté opérateur :
+
+```bash
+pnpm exec convex run --env-file .env.preprod --inline-query 'const userId = "<USER_ID>"; return await ctx.db.query("entitlements").withIndex("by_user", (q) => q.eq("userId", userId)).unique();'
+```
+
+Puis rafraîchir ScreenForge : le compte doit afficher Cloud, permettre un export
+propre et un ZIP, synchroniser un projet avec une image et le thème, puis
+retrouver les trois dans un second contexte navigateur. Supprimer ensuite le
+projet distant de contrôle.
+
+La révocation se garde juste à côté du grant et se teste en préproduction avant
+toute opération en production :
+
+```bash
+pnpm exec convex run --env-file .env.preprod mirror:setComplimentaryAccess \
+  '{"userId":"<USER_ID>","local":false,"cloud":false,"note":"owner complimentary access revoked"}'
+```
+
+Après ce test, réappliquer le grant de préproduction. Seulement après le
+round-trip complet, répéter exactement la résolution, le grant, le contrôle UI
+et le contrôle de ligne avec `.env.production`. Ne jamais réutiliser un
+`userId` entre les deux cibles : une identité est propre à son déploiement.
+
 ## Les fixtures d'authentification
 
 Le fournisseur `test-password` n'est jamais rendu dans l'interface et refuse

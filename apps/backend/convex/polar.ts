@@ -165,7 +165,9 @@ export const applySignedWebhook = internalAction({
 
     const written: Applied = await ctx.runMutation(internal.mirror.applyEntitlementsIfNewer, {
       userId: row.user_id,
-      polarCustomerId: row.polar_customer_id,
+      /* La projection partage sa forme avec une ligne manuelle, où ce champ
+         peut être `null`; cet événement Polar porte, lui, toujours son vrai id. */
+      polarCustomerId: state.id,
       licenceGrantedAt: row.licence_granted_at,
       cloudStatus: row.cloud_status,
       cloudPeriodEnd: row.cloud_period_end,

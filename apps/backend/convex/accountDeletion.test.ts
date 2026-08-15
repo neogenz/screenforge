@@ -99,6 +99,9 @@ async function populated(
       cloudStatus: 'active',
       cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
       sourceUpdatedAt: null,
+      complimentaryLocal: true,
+      complimentaryCloud: true,
+      complimentaryNote: 'owner complimentary access',
     })
     await ctx.db.insert('userSettings', { userId, theme: 'light', updatedAt: 1 })
     const blobId = await ctx.storage.store(new Blob([JSON.stringify({ screens: [] })]))

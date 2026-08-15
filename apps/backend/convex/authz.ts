@@ -53,6 +53,8 @@ function rowOf(doc: Doc<'entitlements'>): EntitlementsRow {
     licence_granted_at: doc.licenceGrantedAt,
     cloud_status: doc.cloudStatus,
     cloud_period_end: doc.cloudPeriodEnd,
+    complimentary_local: doc.complimentaryLocal,
+    complimentary_cloud: doc.complimentaryCloud,
   }
 }
 

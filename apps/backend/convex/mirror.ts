@@ -3,6 +3,8 @@ import { v } from 'convex/values'
 import { internalMutation, query } from './_generated/server'
 import { readEntitlements } from './authz'
 
+const MAX_COMPLIMENTARY_NOTE_LENGTH = 120
+
 /**
  * Les écritures et la lecture du miroir de droits.
  *
@@ -118,5 +120,90 @@ export const applyEntitlementsIfNewer = internalMutation({
     /* `next === null` face à une ligne datée : la livraison ne se date pas,
        donc elle n'est ni plus récente ni plus ancienne, donc `unchanged`. */
     return next !== null && next < current ? 'ignored' : 'unchanged'
+  },
+})
+
+/**
+ * Accès client complémentaire, sans produit Polar ni rôle administrateur.
+ *
+ * La ligne reste le miroir unique du compte : les champs Polar et manuels ne
+ * s'écrasent jamais mutuellement. Passer les deux droits à `false` retire la
+ * dérogation; une ligne créée uniquement pour elle disparaît alors aussi.
+ */
+export const setComplimentaryAccess = internalMutation({
+  args: {
+    userId: v.id('users'),
+    local: v.boolean(),
+    cloud: v.boolean(),
+    note: v.string(),
+  },
+  returns: v.union(v.literal('written'), v.literal('unchanged')),
+  handler: async (ctx, { userId, local, cloud, note: rawNote }) => {
+    if ((await ctx.db.get(userId)) === null) throw new Error('Compte introuvable.')
+
+    const note = rawNote.trim()
+    if (note.length === 0 || note.length > MAX_COMPLIMENTARY_NOTE_LENGTH) {
+      throw new Error(
+        `La note doit contenir entre 1 et ${String(MAX_COMPLIMENTARY_NOTE_LENGTH)} caractères.`,
+      )
+    }
+
+    const existing = await ctx.db
+      .query('entitlements')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    const revoke = !local && !cloud
+
+    if (existing === null) {
+      if (revoke) return 'unchanged'
+      await ctx.db.insert('entitlements', {
+        userId,
+        polarCustomerId: null,
+        licenceGrantedAt: null,
+        cloudStatus: null,
+        cloudPeriodEnd: null,
+        sourceUpdatedAt: null,
+        complimentaryLocal: local || undefined,
+        complimentaryCloud: cloud || undefined,
+        complimentaryNote: note,
+      })
+      return 'written'
+    }
+
+    const currentLocal = existing.complimentaryLocal ?? false
+    const currentCloud = existing.complimentaryCloud ?? false
+    const currentNote = existing.complimentaryNote
+    if (
+      currentLocal === local &&
+      currentCloud === cloud &&
+      (revoke ? currentNote === undefined : currentNote === note)
+    ) {
+      return 'unchanged'
+    }
+
+    if (revoke) {
+      const hasPolarState =
+        existing.polarCustomerId !== null ||
+        existing.licenceGrantedAt !== null ||
+        existing.cloudStatus !== null ||
+        existing.cloudPeriodEnd !== null ||
+        existing.sourceUpdatedAt !== null
+      if (!hasPolarState) await ctx.db.delete(existing._id)
+      else {
+        await ctx.db.patch(existing._id, {
+          complimentaryLocal: undefined,
+          complimentaryCloud: undefined,
+          complimentaryNote: undefined,
+        })
+      }
+      return 'written'
+    }
+
+    await ctx.db.patch(existing._id, {
+      complimentaryLocal: local || undefined,
+      complimentaryCloud: cloud || undefined,
+      complimentaryNote: note,
+    })
+    return 'written'
   },
 })

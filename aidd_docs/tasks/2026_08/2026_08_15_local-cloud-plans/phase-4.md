@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: ajouter puis provisionner un accès propriétaire complet et révocable
@@ -99,3 +99,11 @@ journey
 - Le compte cible est vérifié par identité réelle et réussit un round-trip projet, asset et thème en préprod puis production.
 - La procédure de révocation est testée et documentée avant de considérer le provisioning terminé.
 
+## État d’exécution
+
+Le grant/revoke, sa fusion avec Polar, sa suppression avec le compte, sa surface
+strictement interne et son round-trip contre le moteur Convex local sont
+implémentés et vérifiés. Le provisioning du compte réel reste ouvert : il dépend
+du déploiement sécurisé de la phase 5 puis d’une première connexion vérifiée du
+propriétaire sur préproduction et production. Aucun identifiant de substitution
+n’a été créé.
