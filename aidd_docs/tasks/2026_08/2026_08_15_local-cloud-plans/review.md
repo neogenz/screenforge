@@ -1,7 +1,7 @@
 # Review: offres Local et Cloud avec compte propriétaire
 
 - **Verdict**: blocked
-- **Diff**: `2771c86...c6265f8`
+- **Diff**: `2771c86...cf9d545`
 - **Axes run**: code, functional, relevancy
 - **Date**: 2026_08_15
 - **Findings**: 8 critical, 2 warning, 0 minor
@@ -61,7 +61,7 @@
 - [x] Profils, langues, Compte et Offres partagent noms, prix et règles — `apps/web/e2e/commercial-launch.spec.ts:3`, `scripts/commercial-profile-audit.mjs`
 - [ ] Preview et production passent toute la preuve de sécurité déployée — absence d’URLs, CORS distant, mail, protection et restore (`production-security-evidence.md:21`)
 - [ ] L’assertion ne laisse aucun critère sans preuve — dix critères externes ou de clôture restent ouverts dans ce rapport
-- [ ] La review est approuvée et la browser QA ne laisse aucun écart — verdict actuel `blocked`; browser QA post-review encore à exécuter
+- [ ] La review est approuvée et la browser QA ne laisse aucun écart — browser QA `pass` (`browser-qa/qa.md:3`), mais verdict actuel toujours `blocked` par les preuves externes
 - [ ] Le compte propriétaire est provisionné et les données de preuve distantes nettoyées — provisioning réel non exécuté (`production-security-evidence.md:35`)
 
 ## Findings
@@ -75,8 +75,8 @@
 | 🔴 critical | functional | 5 | `production-security-evidence.md:23` | La Preview privée et les MFA/récupérations GitHub, Vercel et Resend ne sont pas attestées. | Activer et contrôler ces protections avec les identités administrateur, puis dater la preuve nettoyée. |
 | 🔴 critical | functional | 5 | `production-security-evidence.md:32` | Limites, logs, sauvegarde File Storage et restauration hors production ne sont pas prouvés. | Configurer les contrôles disponibles, créer une sauvegarde avec fichiers et réussir un restore drill sur une cible jetable. |
 | 🔴 critical | functional | 6 | `production-security-evidence.md:21` | Le gate local est vert mais le gate de sécurité déployé reste entièrement ouvert. | Fermer les contrôles de phase 5 sur Preview puis production et joindre les sorties nettoyées. |
-| 🔴 critical | functional | 6 | `review.md:70` | L’assertion finale contient encore des critères sans preuve reproductible. | Rejouer `aidd-dev:03-assert` après fermeture de chaque preuve externe jusqu’à 38/38. |
-| 🟡 warning | functional | 6 | `phase-6.md:122` | La clôture exige review approuvée et browser QA sans écart; ce rapport est bloqué et la QA post-review n’est pas encore produite. | Exécuter la browser QA post-review, corriger tout écart, puis refaire la review après les preuves externes. |
+| 🔴 critical | functional | 6 | `review.md:63` | L’assertion finale contient encore des critères sans preuve reproductible. | Rejouer `aidd-dev:03-assert` après fermeture de chaque preuve externe jusqu’à 38/38. |
+| 🟡 warning | functional | 6 | `phase-6.md:122` | La browser QA locale est sans écart, mais la clôture exige aussi une review approuvée; ce rapport reste bloqué par les preuves externes. | Refaire la review et la QA sur la Preview puis la production après fermeture des preuves externes. |
 | 🔴 critical | functional | 6 | `production-security-evidence.md:35` | Le provisioning propriétaire et le nettoyage des éventuelles données distantes ne sont pas réalisés. | Provisionner l’identité confirmée, valider les droits client et supprimer toutes les données jetables créées pour la preuve. |
 
 ## Verification
@@ -84,6 +84,6 @@
 | Metric        | Value                                             |
 | ------------- | ------------------------------------------------- |
 | Verified      | 74% (28/38) |
-| Files checked | 75 fichiers du diff `2771c86...c6265f8`; plans, droits, billing, sync, UI, landing, CSP/CORS, tests et documentation |
+| Files checked | 83 fichiers du diff `2771c86...cf9d545`; plans, droits, billing, sync, UI, landing, CSP/CORS, tests, browser QA et documentation |
 | Unchecked     | Phase 4 critère 5 — fix; phase 5 critères 1, 2, 4, 5, 6 — fix; phase 6 critères 4, 5, 6, 7 — fix |
 | Unplanned     | none |
