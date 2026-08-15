@@ -28,7 +28,6 @@ export interface Stack {
 export interface Session {
   client: ConvexHttpClient
   email: string
-  password: string
   token: string
   refreshToken: string
   userId: string
@@ -163,23 +162,23 @@ let accounts = 0
  */
 export async function signUpSession(
   stack: Stack,
-  options: { email?: string; password?: string } = {},
+  options: { email?: string } = {},
 ): Promise<Session> {
   accounts += 1
   const email =
     options.email ??
     `sync-${String(Date.now())}-${String(process.pid)}-${String(accounts)}@screenforge.test`
-  const password = options.password ?? 'motdepasse-de-test'
+  const password = `fixture-${crypto.randomUUID()}`
   const client = anonClient(stack)
   const result = await client.action(api.auth.signIn, {
-    provider: 'password',
+    provider: 'test-password',
     params: { email, password, flow: 'signUp' },
   })
   if (!result.tokens) throw new Error(`aucun jeton après signUp pour ${email}`)
 
   const { token, refreshToken } = result.tokens
   client.setAuth(token)
-  return { client, email, password, token, refreshToken, userId: userIdOf(token) }
+  return { client, email, token, refreshToken, userId: userIdOf(token) }
 }
 
 export async function growRefreshChain(session: Session, count: number): Promise<void> {

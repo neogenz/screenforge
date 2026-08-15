@@ -11,6 +11,7 @@ import { rateLimited, testConvex } from './test.helpers'
  */
 
 const PASSWORD = 'mot-de-passe-de-test'
+const TEST_PASSWORD_PROVIDER = 'test-password'
 
 let sent: { to: string[]; subject: string }[] = []
 
@@ -37,7 +38,7 @@ afterEach(() => {
 test('un compte se crée par mot de passe, puis se reconnecte', async () => {
   const t = testConvex()
   const created = await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email: 'Essai@Screenforge.test', password: PASSWORD, flow: 'signUp' },
   })
   expect(created.tokens?.token).toBeTypeOf('string')
@@ -45,21 +46,48 @@ test('un compte se crée par mot de passe, puis se reconnecte', async () => {
   /* L'adresse est normalisée à l'inscription : sans cela, `Essai@…` et
      `essai@…` seraient deux comptes, et le second ne retrouverait rien. */
   const signedIn = await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email: 'essai@screenforge.test', password: PASSWORD, flow: 'signIn' },
   })
   expect(signedIn.tokens?.token).toBeTypeOf('string')
 })
 
+test('l’ancien identifiant de provider ne crée plus de session', async () => {
+  const t = testConvex()
+  await expect(
+    t.action(api.auth.signIn, {
+      provider: 'password',
+      params: { email: 'ancienne@screenforge.test', password: PASSWORD, flow: 'signUp' },
+    }),
+  ).rejects.toThrow()
+  await expect(t.run((ctx) => ctx.db.query('users').collect())).resolves.toHaveLength(0)
+})
+
+test.each([
+  'personne@example.com',
+  'personne@screenforge.test.invalid',
+  'personne@fauxscreenforge.test',
+  '@screenforge.test',
+])('la fixture refuse %s avant toute insertion', async (email) => {
+  const t = testConvex()
+  await expect(
+    t.action(api.auth.signIn, {
+      provider: TEST_PASSWORD_PROVIDER,
+      params: { email, password: PASSWORD, flow: 'signUp' },
+    }),
+  ).rejects.toThrow('Adresse réservée aux tests.')
+  await expect(t.run((ctx) => ctx.db.query('users').collect())).resolves.toHaveLength(0)
+})
+
 test('un mot de passe faux ne connecte pas', async () => {
   const t = testConvex()
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email: 'essai@screenforge.test', password: PASSWORD, flow: 'signUp' },
   })
   await expect(
     t.action(api.auth.signIn, {
-      provider: 'password',
+      provider: TEST_PASSWORD_PROVIDER,
       params: { email: 'essai@screenforge.test', password: 'autre-chose', flow: 'signIn' },
     }),
   ).rejects.toThrow()
@@ -69,12 +97,15 @@ test('cinq mots de passe faux ferment la porte au sixième essai', async () => {
   const t = testConvex()
   const email = 'bourrage@screenforge.test'
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email, password: PASSWORD, flow: 'signUp' },
   })
 
   const attempt = (password: string) =>
-    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow: 'signIn' } })
+    t.action(api.auth.signIn, {
+      provider: TEST_PASSWORD_PROVIDER,
+      params: { email, password, flow: 'signIn' },
+    })
 
   for (let i = 0; i < 5; i++) {
     await expect(attempt(`faux-${i}`)).rejects.toThrow()
@@ -93,12 +124,15 @@ test('quatre échecs ne ferment rien, et un succès efface l’ardoise', async (
   const t = testConvex()
   const email = 'presque@screenforge.test'
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email, password: PASSWORD, flow: 'signUp' },
   })
 
   const attempt = (password: string) =>
-    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow: 'signIn' } })
+    t.action(api.auth.signIn, {
+      provider: TEST_PASSWORD_PROVIDER,
+      params: { email, password, flow: 'signIn' },
+    })
 
   for (let i = 0; i < 4; i++) {
     await expect(attempt(`faux-${i}`)).rejects.toThrow()
@@ -130,12 +164,15 @@ test('l’inscription ne rouvre pas la porte que cinq échecs ont fermée', asyn
   const t = testConvex()
   const email = 'contournement@screenforge.test'
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email, password: PASSWORD, flow: 'signUp' },
   })
 
   const guess = (password: string, flow: 'signIn' | 'signUp') =>
-    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow } })
+    t.action(api.auth.signIn, {
+      provider: TEST_PASSWORD_PROVIDER,
+      params: { email, password, flow },
+    })
 
   for (let i = 0; i < 5; i++) {
     await expect(guess(`faux-${i}`, 'signIn')).rejects.toThrow()
@@ -148,13 +185,13 @@ test('deviner par inscription se compte comme deviner par connexion', async () =
   const t = testConvex()
   const email = 'devinette@screenforge.test'
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email, password: PASSWORD, flow: 'signUp' },
   })
 
   const guess = (password: string) =>
     t.action(api.auth.signIn, {
-      provider: 'password',
+      provider: TEST_PASSWORD_PROVIDER,
       params: { email, password, flow: 'signUp' },
     })
 
@@ -171,12 +208,15 @@ test('un succès efface l’ardoise du mot de passe, quel que soit le flux', asy
   const t = testConvex()
   const email = 'ardoise@screenforge.test'
   await t.action(api.auth.signIn, {
-    provider: 'password',
+    provider: TEST_PASSWORD_PROVIDER,
     params: { email, password: PASSWORD, flow: 'signUp' },
   })
 
   const attempt = (password: string, flow: 'signIn' | 'signUp') =>
-    t.action(api.auth.signIn, { provider: 'password', params: { email, password, flow } })
+    t.action(api.auth.signIn, {
+      provider: TEST_PASSWORD_PROVIDER,
+      params: { email, password, flow },
+    })
 
   for (let i = 0; i < 4; i++) {
     await expect(attempt(`faux-${i}`, 'signUp')).rejects.toThrow()

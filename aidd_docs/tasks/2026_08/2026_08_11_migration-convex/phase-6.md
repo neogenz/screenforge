@@ -351,13 +351,12 @@ fichier qu'elle vient de créer si la mutation interne refuse le commit, rend
 `stale` ou échoue. Il n'existe plus de fenêtre publique « upload puis
 confirmation » dans laquelle un navigateur abandonne un identifiant Storage.
 
-_Signalé, et à trancher par une main humaine._ Le mot de passe du compte de test
-est écrit dans `environnements.md`, à côté de l'URL de préproduction. Le publier
-ne change pourtant presque rien : `12345678` figure en tête de toutes les listes,
-et l'URL du déploiement est dans le paquet servi. Ce qui le protège désormais est
-`passwordAttempt`, cinq essais par heure et par adresse. C'est acceptable pour une
-préproduction dont les droits sont écrits à la main ; ça ne l'est pas pour la
-production, qui est vide et doit le rester jusqu'à l'ouverture de la vente.
+_Corrigé après review — identifiants publiés révoqués._ Le compte de test
+préproduction, ses droits et ses données ont été supprimés le 2026-08-15, puis
+l'ancien couple a été vérifié inutilisable. Le provider devient
+`test-password`, limité au domaine réservé `@screenforge.test`, absent de
+l'interface et alimenté par un secret unique généré à chaque scénario. Aucun
+identifiant personnel ou secret partagé ne subsiste dans l'arbre courant.
 
 **12. La question que la migration a rendue visible : une Licence payée ne met
 rien à l'abri.** Le nuage ayant enfin un contenu, la carte des données a été

@@ -75,29 +75,6 @@ export async function signInWithEmail(email: string) {
   }
 }
 
-/**
- * Le mot de passe, une porte et deux directions.
- *
- * `flow` est ce que Convex Auth attend pour distinguer une inscription d'une
- * connexion. Les deux passent par la même fonction parce que la seule différence
- * visible côté produit est le libellé du bouton, et deux fonctions donneraient
- * deux traductions d'erreur à tenir en phase.
- */
-export async function signInWithPassword(
-  email: string,
-  password: string,
-  flow: 'signIn' | 'signUp',
-) {
-  if (!cloudConfigured) return NOT_CONFIGURED
-  try {
-    const { signIn } = await authActions()
-    await signIn('password', { email, password, flow })
-    return { error: null }
-  } catch (error) {
-    return { error: readable(error) }
-  }
-}
-
 export async function signOut() {
   if (!cloudConfigured) return NOT_CONFIGURED
   try {

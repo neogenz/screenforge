@@ -9,17 +9,14 @@ import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './li
 /**
  * Qui a le droit d'entrer, et par quelles portes.
  *
- * Quatre, et chacune a sa raison d'être :
+ * Trois portes utilisateur, plus une fixture invisible :
  *
  * - **Google et GitHub**, les deux fournisseurs déjà offerts avant la migration.
  *   Les applications OAuth ne changent pas, seule l'URL de rappel change.
  * - **Le lien magique**, pour qui ne veut ni compte tiers ni mot de passe. La
  *   seule des quatre qui coûte un expéditeur vérifié.
- * - **Le mot de passe**, qui n'existait pas avant. Il est là parce qu'une suite
- *   automatisée doit pouvoir ouvrir une session : un lien magique arrive par
- *   courrier et un SSO passe par un tiers, donc ni l'un ni l'autre ne se joue
- *   sans intervention humaine. C'est aussi la seule porte qui rend un compte de
- *   test reproductible d'un environnement à l'autre.
+ * - **`test-password`**, réservé aux adresses `@screenforge.test`. Il ouvre une
+ *   session automatisable sans devenir une identité proposée dans le produit.
  */
 
 /**
@@ -84,7 +81,7 @@ export function safeRedirect(redirectTo: string, site: string): string {
  * action ordinaire. Le plafond global est donc la mesure réellement disponible,
  * et il est posé assez haut pour qu'un usage normal ne le touche jamais. Le prix
  * assumé : un balayage peut fermer le lien magique pour une heure, pendant
- * laquelle le mot de passe et les deux SSO restent ouverts.
+ * laquelle les deux SSO restent ouverts.
  */
 async function sendMagicLink(
   { identifier: email, url, provider }: SendParams,
@@ -139,18 +136,22 @@ function normalizedEmail(params: Record<string, unknown>): string {
 }
 
 /**
- * Le mot de passe, sans vérification d'adresse.
+ * Le mot de passe de fixture, sans vérification d'adresse.
  *
  * `verify` n'est pas branché : exiger une confirmation par courriel ferait
- * dépendre cette porte de l'expéditeur, c'est-à-dire exactement de ce dont elle
- * existe pour être indépendante. La contrepartie est explicite — une adresse non
- * vérifiée ne vaut pas identité, donc rien dans l'application ne fait confiance
- * au champ `email` pour autre chose que l'afficher.
+ * dépendre cette porte de l'expéditeur, c'est-à-dire exactement de ce dont la
+ * suite automatisée doit être indépendante. Elle ne reconnaît que le domaine
+ * réservé aux exemples : aucune adresse réelle ne peut entrer par cette voie.
  */
-const basePassword = Password({
+const FIXTURE_EMAIL_SUFFIX = '@screenforge.test'
+
+const baseTestPassword = Password({
+  id: 'test-password',
   profile(params) {
     const email = normalizedEmail(params)
-    if (!email.includes('@')) throw new Error('Adresse e-mail invalide.')
+    if (email.length <= FIXTURE_EMAIL_SUFFIX.length || !email.endsWith(FIXTURE_EMAIL_SUFFIX)) {
+      throw new Error('Adresse réservée aux tests.')
+    }
     return { email }
   },
 })
@@ -169,7 +170,7 @@ type CredentialsAuthorize = (
   ctx: RunMutationCtx,
 ) => Promise<{ userId: string; sessionId?: string } | null>
 
-const materialized = basePassword as unknown as { options: { authorize: CredentialsAuthorize } }
+const materialized = baseTestPassword as unknown as { options: { authorize: CredentialsAuthorize } }
 const attempt = materialized.options.authorize
 
 /**
@@ -188,8 +189,8 @@ const attempt = materialized.options.authorize
  * les échecs consécutifs s'accumulent. Le plafond d'inscription est global et
  * pris en plus, parce que c'est le seul qui morde sur un balayage d'adresses.
  */
-const password = {
-  ...basePassword,
+const testPassword = {
+  ...baseTestPassword,
   options: {
     ...materialized.options,
     authorize: async (params: Record<string, unknown>, ctx: RunMutationCtx) => {
@@ -201,10 +202,10 @@ const password = {
       return result
     },
   },
-} as unknown as typeof basePassword
+} as unknown as typeof baseTestPassword
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [password, magicLink, Google, GitHub],
+  providers: [testPassword, magicLink, Google, GitHub],
 
   /**
    * Le bourrage de code, borné par la bibliothèque — et la moitié du mot de

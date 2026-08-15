@@ -397,42 +397,39 @@ Mesuré le 2026-08-12, pas déduit.
 | `JWKS` / `JWT_PRIVATE_KEY` / `SITE_URL` | oui | oui (`http://localhost:5173`) | oui (`https://screenforge.app`) |
 | Resend, Google, GitHub | non | non | non |
 | Les six valeurs Polar | non | non | non |
-| Compte de test | oui | oui | non, et c'est voulu |
-| Licence + Cloud sur ce compte | oui | oui (jusqu'au 2027-08-12) | — |
+| Fixture Password persistante | non | non | non |
+| Licence + Cloud de fixture | créée à la demande, jetable | aucune | aucune |
 | `projects` / `assets` | selon la suite e2e | vides | vides |
 
 La production est vide et doit le rester tant que la vente n'est pas ouverte.
 
-## Le compte de test
+## Les fixtures d'authentification
 
-Il se crée par la porte « mot de passe » de la dialog de connexion, sans
-courriel à relever et sans tiers :
+Le fournisseur `test-password` n'est jamais rendu dans l'interface et refuse
+toute adresse qui ne finit pas exactement par `@screenforge.test`. La suite
+génère une adresse et un secret uniques à chaque scénario, puis crée la fixture
+à la demande. Aucun identifiant partagé ne vit dans Git ni dans un gestionnaire
+d'environnement.
 
-- adresse : `maxime.desogus@gmail.com`
-- mot de passe : `12345678` (huit caractères, le minimum accepté par le
-  fournisseur `Password`)
+Le compte préproduction auparavant documenté a été supprimé le 2026-08-15, avec
+ses droits et ses données. Une tentative avec l'ancien couple a ensuite été
+refusée. La préproduction et la production ne portent donc aucune fixture
+persistante.
 
-Le formulaire tente la connexion puis, si elle échoue, l'inscription : la
-première soumission crée donc le compte, les suivantes l'ouvrent. Rien à
-préparer côté serveur.
-
-Il existe déjà sur **local** et sur **préproduction**, et porte la Licence et le
-Cloud sur les deux. Ces droits ne viennent pas d'un achat — aucun compte Polar
-n'est branché — mais d'une écriture directe dans le miroir, la fonction interne
-qu'un webhook réel appellerait :
+Pour un scénario automatisé local, `apps/backend/tests/stack.ts` crée la session
+et écrit les droits via la fonction interne qu'un webhook réel appellerait :
 
 ```bash
 pnpm exec convex run --env-file .env.preprod mirror:applyEntitlementsIfNewer \
   '{"userId":"<id du compte>","polarCustomerId":"cus_test","licenceGrantedAt":"2026-08-12T00:00:00.000Z","cloudStatus":"active","cloudPeriodEnd":"2027-08-12T00:00:00.000Z","sourceUpdatedAt":1}'
 ```
 
-Le `userId` se lit sur le tableau de bord, table `users`, ou par
-`pnpm exec convex data --env-file .env.preprod users`. Rien de tout cela n'a été
-fait en **production** : elle est vide, et c'est ce qu'on attend d'elle tant que
-la vente n'est pas ouverte.
+Le `userId` vient du jeton créé par le scénario. Rien de tout cela n'est fait en
+**production** : elle est vide, et c'est ce qu'on attend d'elle tant que la vente
+n'est pas ouverte.
 
-**Pour toute autre adresse que celle du compte de test, l'ordre est contraint :
-le compte d'abord, les droits ensuite.** `applyEntitlementsIfNewer` rend
+**L'ordre reste contraint : le compte d'abord, les droits ensuite.**
+`applyEntitlementsIfNewer` rend
 `ignored` sur un `userId` qu'elle ne connaît pas, et un `userId` n'existe qu'une
 fois le compte créé sur ce déploiement-là. Créez-le donc dans le navigateur,
 lisez son identifiant, puis écrivez ses droits — avec un `sourceUpdatedAt`
@@ -451,9 +448,9 @@ saute.
    changement de cible en faisant passer la préproduction pour déconnectée.
 2. `pnpm run dev:preprod` depuis la racine, puis ouvrir `http://localhost:5173`.
    Vite refusera de démarrer si le port est pris ; c'est voulu.
-3. Se connecter par **« Utiliser un mot de passe »**, avec le compte de test
-   ci-dessus. C'est la seule porte qui ne dépend d'aucune variable de
-   déploiement.
+3. Se connecter par Google, GitHub ou lien magique, après avoir configuré le
+   fournisseur choisi dans les sections précédentes. La porte de fixture n'est
+   pas une fonctionnalité de préproduction manuelle.
 4. **Modifier le projet ouvert** : c'est la modification qui déclenche la
    poussée, pas la connexion. Si une boîte propose de rattacher les autres
    projets locaux, l'accepter — sans elle, un seul projet monte, ce qui ressemble

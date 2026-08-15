@@ -7,9 +7,9 @@
  * premier a fait, images comprises.
  *
  * La session est semée dans `localStorage` plutôt que gagnée par l'interface :
- * l'application propose le lien magique, deux SSO et un mot de passe, or les
- * trois premiers passent par un tiers ou par une boîte aux lettres. Le mot de
- * passe existe pour cette suite, et `SESSION_NAMESPACE` fixe l'emplacement des
+ * l'application ne propose que le lien magique et deux SSO, qui passent par un
+ * tiers ou une boîte aux lettres. Le provider `test-password`, invisible dans
+ * l'interface, crée la fixture et `SESSION_NAMESPACE` fixe l'emplacement des
  * jetons pour qu'il soit adressable d'ici.
  *
  * L'abonnement Cloud est semé avec la session : la sync est l'add-on payant —
@@ -221,6 +221,25 @@ test.describe('Sync cloud', () => {
 
   test.afterAll(async () => {
     await dropRemoteProjects(session)
+  })
+
+  test('la connexion visible reste vérifiable et rend le focus à son appelant', async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    const opener = page.getByRole('button', { name: 'Se connecter' })
+    await opener.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Connexion à ScreenForge' })
+    await expect(dialog.getByRole('button', { name: 'Continuer avec Google' })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Continuer avec GitHub' })).toBeVisible()
+    await expect(dialog.getByLabel('Adresse e-mail')).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Recevoir un lien magique' })).toBeVisible()
+    await expect(dialog.getByText(/mot de passe/i)).toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(opener).toBeFocused()
   })
 
   test('le transport réel accepte 16 MiB et refuse 17 MiB sans ligne distante', async () => {

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: réserver Password aux fixtures et révoquer les identifiants publiés
