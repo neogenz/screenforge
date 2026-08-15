@@ -137,3 +137,45 @@ describe('remplacement et isolation', () => {
     expect((await t.fetch('/asset/privé')).status).toBe(404)
   })
 })
+
+describe('CORS exact sans autorité ambiante', () => {
+  it('reflète seulement une origine configurée et garde les clients serveur utilisables', async () => {
+    const previous = process.env.CORS_ALLOWED_ORIGINS
+    process.env.CORS_ALLOWED_ORIGINS = 'https://preview.screenforge.app,https://screenforge.app'
+    try {
+      const t = testConvex()
+      const userId = await cloudAccount(t)
+      await upload(t, userId, 'cors', new Blob(['octets'], { type: PNG }))
+
+      const allowed = await t.withIdentity({ subject: userId }).fetch('/asset/cors', {
+        headers: { Origin: 'https://screenforge.app' },
+      })
+      expect(allowed.status).toBe(200)
+      expect(allowed.headers.get('Access-Control-Allow-Origin')).toBe('https://screenforge.app')
+      expect(allowed.headers.get('Vary')).toBe('Origin')
+
+      for (const origin of ['https://hostile.example', 'null']) {
+        const rejected = await t.withIdentity({ subject: userId }).fetch('/asset/cors', {
+          headers: { Origin: origin },
+        })
+        expect(rejected.status).toBe(403)
+        expect(rejected.headers.get('Access-Control-Allow-Origin')).toBeNull()
+      }
+
+      const serverClient = await t.withIdentity({ subject: userId }).fetch('/asset/cors')
+      expect(serverClient.status).toBe(200)
+      expect(serverClient.headers.get('Access-Control-Allow-Origin')).toBeNull()
+
+      process.env.CORS_ALLOWED_ORIGINS = 'https://screenforge.app/path'
+      const misconfigured = await t.fetch('/asset/cors', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://screenforge.app' },
+      })
+      expect(misconfigured.status).toBe(403)
+      expect(misconfigured.headers.get('Access-Control-Allow-Origin')).toBeNull()
+    } finally {
+      if (previous === undefined) delete process.env.CORS_ALLOWED_ORIGINS
+      else process.env.CORS_ALLOWED_ORIGINS = previous
+    }
+  })
+})

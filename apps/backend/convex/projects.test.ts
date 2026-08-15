@@ -142,10 +142,16 @@ describe('upload projet possédé par le serveur', () => {
   })
 
   it('répond au préflight sans exposer de capacité Storage', async () => {
-    const response = await testConvex().fetch('/upload/project', { method: 'OPTIONS' })
+    const response = await testConvex().fetch('/upload/project', {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:5173' },
+    })
     expect(response.status).toBe(204)
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5173')
+    expect(response.headers.get('Vary')).toBe('Origin')
     expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST')
     expect(response.headers.get('Access-Control-Allow-Headers')).toContain('Authorization')
+    expect(response.headers.get('Access-Control-Allow-Origin')).not.toBe('*')
   })
 })
 

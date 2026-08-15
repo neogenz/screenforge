@@ -22,16 +22,16 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(html).toMatch(/<div id="root">\s*<div class="boot"/)
 
   // La feuille de polices sort du chemin critique et y revient au chargement.
-  /* Les espaces autour du `=` sont ceux que Prettier met dans l'attribut : le
-     motif serré ne matchait plus depuis qu'il formate le HTML, et l'assertion
-     échouait sur une page pourtant correcte. */
-  expect(html).toMatch(
-    /rel="stylesheet"[\s\S]*?media="print"[\s\S]*?onload="this\.media\s*=\s*'all'"/,
-  )
+  expect(html).toMatch(/rel="stylesheet"[\s\S]*?media="print"[\s\S]*?data-screenforge-font/)
   expect(html).toContain('rel="preload"')
-  expect(html.indexOf("localStorage.getItem('screenforge-theme')")).toBeLessThan(
-    html.indexOf('<style>'),
-  )
+  expect(html).not.toMatch(/\son[a-z]+\s*=/i)
+
+  // Le thème et le retour de la fonte vivent dans le même script same-origin,
+  // avant les styles du boot : aucune permission `unsafe-inline` n'est requise.
+  const boot = await (await request.get('/boot.js')).text()
+  expect(boot).toContain("localStorage.getItem('screenforge-theme')")
+  expect(boot).toContain("querySelectorAll('link[data-screenforge-font]')")
+  expect(html.indexOf('<script src="/boot.js"></script>')).toBeLessThan(html.indexOf('<style>'))
 
   // Une fois monté, React a vidé le conteneur : rien à retirer à la main.
   await waitForApp(page)

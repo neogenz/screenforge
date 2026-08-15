@@ -161,9 +161,10 @@ trois autres portes et la vente, une à une, chacune indépendamment.
 > `…convex.site`, mais le code de session repart ensuite vers le `localhost` de
 > celui qui regarde. Brancher ces trois portes ne rend donc pas la préproduction
 > partageable — seule la machine qui fait tourner Vite peut finir une connexion.
-> Ce qui la rendrait partageable est un site de préproduction publié, et le
-> `SITE_URL` correspondant. Ni l'un ni l'autre n'existe : aucun hébergeur n'est
-> choisi, et aucun fichier du dépôt n'en nomme.
+> Vercel est désormais l'hébergeur choisi et `vercel.json` en fixe le build et
+> les headers, mais aucun projet ScreenForge ni alias préproduction n'existe
+> encore dans l'équipe vérifiée le 2026-08-15. La publication et le `SITE_URL`
+> correspondant restent donc un verrou explicite, pas une origine inventée.
 
 > **Ce qu'aucune de ces valeurs n'est en train de bloquer.** Une variable
 > d'authentification absente ne se signale nulle part : `billing:healthcheck` ne
@@ -523,3 +524,105 @@ elle vise déjà le déploiement anonyme local sans configuration, elle y crée 
 vrais comptes que rien ne supprime, et la clé d'administration qu'elle lit n'a
 pas d'équivalent documenté pour un déploiement du nuage. La préproduction se
 teste à la main, par la séquence ci-dessus.
+
+## Durcissement avant publication
+
+Ces contrôles sont des portes de lancement. Une commande absente ou une preuve
+externe non vérifiée bloque la production ; elle ne devient jamais une case
+cochée par supposition.
+
+### Origines CORS exactes
+
+`CORS_ALLOWED_ORIGINS` est une variable **Convex**, distincte par déploiement.
+Elle contient des origines canoniques séparées par des virgules, sans chemin ni
+joker. HTTP n'est admis que pour les boucles locales documentées. Une variable
+absente n'ouvre que les ports locaux de la suite ; une valeur vide ou mal formée
+ferme toutes les requêtes portant `Origin`. Les clients serveur sans `Origin`
+restent utilisables, mais doivent toujours fournir leur Bearer.
+
+Une fois l'alias préproduction créé, depuis `apps/backend` :
+
+```bash
+pnpm exec convex env --env-file .env.preprod set CORS_ALLOWED_ORIGINS https://<ALIAS_PREPROD_EXACT>
+pnpm exec convex env --env-file .env.production set CORS_ALLOWED_ORIGINS https://screenforge.app
+```
+
+La première valeur reste volontairement un placeholder bloquant : le projet
+Vercel n'existe pas encore, donc aucune origine exacte ne peut être attestée.
+Référence : [variables par déploiement Convex](https://docs.convex.dev/production/environment-variables).
+
+### Variables Vercel et séparation des secrets
+
+Le projet Vercel, une fois créé, ne reçoit que ces deux valeurs publiques :
+
+| Environnement Vercel | `VITE_CONVEX_URL` | `VITE_COMMERCIAL_LAUNCH` |
+| --- | --- | --- |
+| Preview | `https://acrobatic-orca-116.eu-west-1.convex.cloud` | vide jusqu'au passage commercial complet |
+| Production | `https://colorful-caterpillar-775.eu-west-1.convex.cloud` | `1` uniquement au go final |
+
+JWT, OAuth, Resend, Polar et les clés de déploiement restent exclusivement dans
+Convex ou dans les fichiers locaux ignorés. Après chaque build, rechercher dans
+`apps/web/dist` les **noms** `JWT_PRIVATE_KEY`, `AUTH_RESEND_KEY`,
+`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET` et `CONVEX_DEPLOY_KEY` ; ne jamais
+rechercher ni imprimer leurs valeurs. Référence : [portée des variables
+Vercel](https://vercel.com/docs/environment-variables).
+
+| Famille | Propriétaire | Rotation | Révocation |
+| --- | --- | --- | --- |
+| JWT Convex Auth | propriétaire ScreenForge | seulement après incident ou compromission, car toutes les sessions expirent | régénérer par déploiement puis vérifier connexion/déconnexion |
+| OAuth Google/GitHub | propriétaire ScreenForge | après incident ou changement d'équipe | révoquer le secret dans le fournisseur puis remplacer la variable Convex |
+| Resend | propriétaire ScreenForge | annuelle et après incident | révoquer la clé `sending_access`, créer la remplaçante puis poser `AUTH_RESEND_KEY` |
+| Polar | propriétaire ScreenForge | annuelle et après incident | révoquer le token/webhook, remplacer les variables puis rejouer `billing:healthcheck` |
+| Convex deploy keys | propriétaire ScreenForge | après incident ou départ d'un opérateur | `convex deployment token delete <nom>`, une cible à la fois |
+
+### Identité mail dédiée
+
+Créer `auth.screenforge.app` dans Resend, publier exactement les SPF et DKIM
+fournis par son écran Domains, attendre l'état `verified`, puis poser
+`AUTH_EMAIL_FROM="ScreenForge <connexion@auth.screenforge.app>"`. Publier ensuite
+un DMARC d'observation sur `_dmarc.auth.screenforge.app` avec `p=none` et une
+boîte de rapports maîtrisée. La clé doit porter uniquement `sending_access`.
+Envoyer un lien magique sur préproduction puis production avant de considérer
+le contrôle comme réussi. Ne recopier aucun enregistrement depuis ce document :
+Resend génère les valeurs propres au domaine. Référence : [vérification SPF et
+DKIM Resend](https://resend.com/docs/dashboard/domains/introduction).
+
+### Accès d'administration et dépendances
+
+- GitHub, Vercel et Resend : activer une passkey ou la MFA officiellement
+  proposée, conserver deux méthodes de récupération hors dépôt, puis dater le
+  contrôle sans recopier les codes.
+- Vercel : activer `Standard Protection` avec `Vercel Authentication` pour tous
+  les déploiements sauf le domaine de production ; vérifier en navigation privée
+  que la Preview demande une connexion. Cette protection est disponible sur le
+  plan Hobby selon la [documentation Vercel](https://vercel.com/docs/deployment-protection).
+- GitHub : `.github/dependabot.yml` couvre le workspace pnpm et GitHub Actions ;
+  `Dependabot alerts` et `security updates` restent à activer dans les réglages
+  du dépôt, puis chaque PR passe la CI existante.
+- Le compte client propriétaire ne rejoint aucune équipe GitHub, Vercel,
+  Convex, Resend, Polar ou registrar par ce mécanisme.
+
+### Limites, logs, sauvegarde et reprise
+
+Les limites de débit applicatives restent la première borne de coût. Les alertes
+de dépense Vercel et les sauvegardes périodiques Convex ne sont déclarées
+`enabled` qu'après vérification du plan courant dans les tableaux de bord ;
+sinon la preuve porte `unavailable-on-current-plan` et une revue hebdomadaire
+des usages par le propriétaire.
+
+Avant la production et avant toute migration risquée :
+
+1. Dans Convex, créer une sauvegarde manuelle en cochant File Storage ; relever
+   son identifiant et sa date, jamais son contenu dans Git.
+2. Conserver le code par le commit Git et lister uniquement les **noms** des
+   variables ; une sauvegarde Convex ne contient ni code ni variables.
+3. Restaurer dans un déploiement jetable ou préproduction vide, jamais en
+   production : un restore remplace les données de la cible.
+4. Vérifier deux comptes, projets, images et settings, puis supprimer la cible
+   jetable et révoquer ses clés.
+5. Utiliser les logs et Request IDs Convex comme base ; n'ajouter Sentry ou un
+   log stream qu'après un besoin d'alerte hors Dashboard constaté.
+
+Les sauvegardes manuelles sont conservées sept jours ; les sauvegardes
+périodiques exigent Convex Pro et peuvent inclure File Storage. Référence :
+[Backup & Restore Convex](https://docs.convex.dev/database/backup-restore).

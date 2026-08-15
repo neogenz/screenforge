@@ -1,8 +1,17 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: durcir le déploiement et l’exploitation avant production
+
+> État d'exécution au 2026-08-15 : le durcissement local est implémenté et le
+> gate `pnpm run test:release` passe après une itération corrective (530 tests
+> unitaires, 167 E2E release, 2 E2E prelaunch, audits contraste/échelle/landing).
+> La phase reste `in-progress` : aucun projet ScreenForge Vercel ni alias
+> préproduction n'existe, les clés de déploiement Convex ne sont pas présentes
+> dans ce worktree, et DNS mail, MFA, protection Preview et restore drill exigent
+> encore une preuve externe réelle. La CSP reste donc Report-Only sur la future
+> Preview ; l'audit refusera la production tant qu'elle n'est pas bloquante.
 
 ## Architecture projection
 

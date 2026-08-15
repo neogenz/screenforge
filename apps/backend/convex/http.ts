@@ -1,7 +1,7 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
-import { httpAction } from './_generated/server'
+import { env, httpAction } from './_generated/server'
 import { auth } from './auth'
 import { acceptable } from './assets'
 import { webhook } from './billing'
@@ -32,34 +32,63 @@ function tail(url: string): string | null {
   return segment.length > 0 ? decodeURIComponent(segment) : null
 }
 
-/**
- * Ces octets se lisent depuis un autre hôte que celui qui les sert.
- *
- * L'application tourne sur son propre domaine et le déploiement sur
- * `*.convex.site` : toute lecture est cross-origin, et l'en-tête `Authorization`
- * la fait précéder d'un préflight. Sans réponse à ce préflight, le navigateur
- * refuse la requête avant de l'émettre — un `TypeError: Failed to fetch` où le
- * client attendait un statut.
- *
- * L'origine reste `*` au lieu d'une liste déclarée, et ce n'est pas un
- * relâchement : ces routes n'ont aucune autorité ambiante. Rien n'est porté par
- * un cookie, la seule clé est le jeton lu dans le `localStorage` de
- * l'application, qu'une page tierce ne peut pas lire. Une origine hostile qui
- * demande obtient donc le même 404 que n'importe qui sans jeton. Une liste
- * blanche coûterait une variable d'environnement à tenir juste dans trois
- * déploiements, pour empêcher une requête qui ne rend déjà rien.
- */
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
+const LOCAL_CORS_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://localhost:5198',
+  'http://localhost:5199',
+  'http://localhost:5200',
+  'http://127.0.0.1:5173',
+])
+
+const CORS_BASE = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   'Access-Control-Max-Age': '86400',
 }
 
-function json(outcome: string, status = 200): Response {
+/**
+ * Une variable absente n'ouvre que les origines locales documentées. Une
+ * valeur présente doit être une liste d'origines canoniques séparées par des
+ * virgules : ni chemin, ni joker, ni HTTP distant. Toute erreur ferme CORS.
+ */
+function configuredCorsOrigins(): ReadonlySet<string> | null {
+  const configured = env.CORS_ALLOWED_ORIGINS
+  if (configured === undefined) return LOCAL_CORS_ORIGINS
+  if (configured.trim().length === 0) return null
+
+  const origins = new Set<string>()
+  for (const candidate of configured.split(',').map((value) => value.trim())) {
+    try {
+      const url = new URL(candidate)
+      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      if (
+        candidate !== url.origin ||
+        (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
+      ) {
+        return null
+      }
+      origins.add(candidate)
+    } catch {
+      return null
+    }
+  }
+  return origins.size > 0 ? origins : null
+}
+
+function corsHeaders(request: Request): Record<string, string> | null {
+  const origin = request.headers.get('Origin')
+  if (origin === null) return CORS_BASE
+  if (!configuredCorsOrigins()?.has(origin)) return null
+  return { ...CORS_BASE, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
+}
+
+const corsRejected = () =>
+  new Response(null, { status: 403, headers: { 'Cache-Control': 'no-store' } })
+
+function json(cors: Record<string, string>, outcome: string, status = 200): Response {
   return new Response(JSON.stringify({ outcome }), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   })
 }
 
@@ -76,21 +105,21 @@ function errorCode(error: unknown): string | null {
   }
 }
 
-function denied(error: unknown): Response {
+function denied(cors: Record<string, string>, error: unknown): Response {
   switch (errorCode(error)) {
     case 'UNAUTHENTICATED':
-      return json('unauthenticated', 401)
+      return json(cors, 'unauthenticated', 401)
     case 'CLOUD_REQUIRED':
-      return json('cloud-required', 403)
+      return json(cors, 'cloud-required', 403)
     case 'DELETION_PENDING':
-      return json('deletion-pending', 409)
+      return json(cors, 'deletion-pending', 409)
     case 'RATE_LIMITED':
-      return json('rate-limited', 429)
+      return json(cors, 'rate-limited', 429)
     case 'ASSET_REJECTED':
     case 'PROJECT_REJECTED':
-      return json('rejected', 400)
+      return json(cors, 'rejected', 400)
     default:
-      return json('failed', 500)
+      return json(cors, 'failed', 500)
   }
 }
 
@@ -117,29 +146,32 @@ function contentType(request: Request): string {
  * navigateur masque le statut derrière une erreur réseau, et le client ne
  * distinguerait plus « ce projet n'est pas à vous » d'une panne.
  */
-const missing = () => new Response(null, { status: 404, headers: CORS })
+const missing = (cors: Record<string, string>) => new Response(null, { status: 404, headers: cors })
 
 /** La réponse au préflight, identique pour les deux routes de lecture. */
-const preflight = httpAction(() =>
-  Promise.resolve(new Response(null, { status: 204, headers: CORS })),
-)
+const preflight = httpAction((_ctx, request) => {
+  const cors = corsHeaders(request)
+  return Promise.resolve(cors ? new Response(null, { status: 204, headers: cors }) : corsRejected())
+})
 
 http.route({
   pathPrefix: '/asset/',
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
+    const cors = corsHeaders(request)
+    if (!cors) return corsRejected()
     const userId = await getAuthUserId(ctx)
     const assetId = tail(request.url)
-    if (userId === null || assetId === null) return missing()
+    if (userId === null || assetId === null) return missing(cors)
 
     const found = await ctx.runQuery(internal.download.assetStorageId, { userId, assetId })
-    if (!found) return missing()
+    if (!found) return missing(cors)
     const blob = await ctx.storage.get(found.storageId)
-    if (!blob) return missing()
+    if (!blob) return missing(cors)
 
     return new Response(blob, {
       headers: {
-        ...CORS,
+        ...cors,
         'Content-Type': found.contentType,
         /* Privé : la réponse porte les octets d'un compte, et un cache partagé
            les servirait au suivant qui demande la même URL. */
@@ -155,18 +187,20 @@ http.route({
   pathPrefix: '/project-blob/',
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
+    const cors = corsHeaders(request)
+    if (!cors) return corsRejected()
     const userId = await getAuthUserId(ctx)
     const projectId = tail(request.url)
-    if (userId === null || projectId === null) return missing()
+    if (userId === null || projectId === null) return missing(cors)
 
     const blobId = await ctx.runQuery(internal.download.projectBlobId, { userId, projectId })
-    if (!blobId) return missing()
+    if (!blobId) return missing(cors)
     const blob = await ctx.storage.get(blobId)
-    if (!blob) return missing()
+    if (!blob) return missing(cors)
 
     return new Response(blob, {
       headers: {
-        ...CORS,
+        ...cors,
         'Content-Type': 'application/json',
         /* Pas de cache : la ligne change à chaque poussée, et l'identifiant du
            projet ne bouge pas avec elle. */
@@ -182,6 +216,8 @@ http.route({
   path: '/upload/project',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
+    const cors = corsHeaders(request)
+    if (!cors) return corsRejected()
     const url = new URL(request.url)
     const projectId = url.searchParams.get('projectId') ?? ''
     const name = url.searchParams.get('name') ?? ''
@@ -189,7 +225,7 @@ http.route({
     const updatedAt = updatedAtValue === null ? Number.NaN : Number(updatedAtValue)
     const type = contentType(request)
     const length = contentLength(request)
-    if (updatedAtValue === null || !Number.isFinite(updatedAt)) return json('rejected', 400)
+    if (updatedAtValue === null || !Number.isFinite(updatedAt)) return json(cors, 'rejected', 400)
 
     try {
       await ctx.runMutation(internal.projects.authorizeProjectUpload, {
@@ -200,12 +236,12 @@ http.route({
         byteLength: length,
       })
     } catch (error) {
-      return denied(error)
+      return denied(cors, error)
     }
 
     const blob = await request.blob()
     if (type !== 'application/json' || blob.size <= 0 || blob.size > MAX_PROJECT_BLOB_BYTES) {
-      return json('rejected', blob.size > MAX_PROJECT_BLOB_BYTES ? 413 : 400)
+      return json(cors, 'rejected', blob.size > MAX_PROJECT_BLOB_BYTES ? 413 : 400)
     }
 
     const blobId = await ctx.storage.store(blob)
@@ -217,10 +253,10 @@ http.route({
         blobId,
       })
       if (outcome !== 'accepted') await ctx.storage.delete(blobId)
-      return json(outcome, outcome === 'too-large' ? 413 : 200)
+      return json(cors, outcome, outcome === 'too-large' ? 413 : 200)
     } catch (error) {
       await ctx.storage.delete(blobId)
-      return denied(error)
+      return denied(cors, error)
     }
   }),
 })
@@ -231,6 +267,8 @@ http.route({
   path: '/upload/asset',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
+    const cors = corsHeaders(request)
+    if (!cors) return corsRejected()
     const assetId = new URL(request.url).searchParams.get('assetId') ?? ''
     const type = contentType(request)
     const length = contentLength(request)
@@ -242,13 +280,13 @@ http.route({
         byteLength: length,
       })
     } catch (error) {
-      return denied(error)
+      return denied(cors, error)
     }
 
     const blob = await request.blob()
     const actualType = blob.type.split(';', 1)[0]!.trim().toLowerCase()
     if (!acceptable(actualType, blob.size) || blob.size > MAX_IMAGE_FILE_BYTES) {
-      return json('rejected', blob.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
+      return json(cors, 'rejected', blob.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
     }
 
     const storageId = await ctx.storage.store(blob)
@@ -259,10 +297,10 @@ http.route({
         contentType: actualType,
       })
       if (!accepted) await ctx.storage.delete(storageId)
-      return json(accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)
+      return json(cors, accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)
     } catch (error) {
       await ctx.storage.delete(storageId)
-      return denied(error)
+      return denied(cors, error)
     }
   }),
 })

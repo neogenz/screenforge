@@ -16,6 +16,7 @@ const app = defineApp({
     AUTH_EMAIL_FROM: v.optional(v.string()),
     AUTH_RESEND_KEY: v.optional(v.string()),
     CHECKOUT_SUCCESS_URL: v.optional(v.string()),
+    CORS_ALLOWED_ORIGINS: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
     POLAR_CLOUD_PRODUCT_ID: v.optional(v.string()),
     POLAR_LICENCE_BENEFIT_ID: v.optional(v.string()),
