@@ -1,6 +1,10 @@
+import type { RelayRender, RelayRendered } from 'mcp'
 import { commitAiRun } from '@/lib/ai/run'
 import { describeProject, type ProjectView } from '@/lib/ai/state'
 import type { ToolCall } from '@/lib/ai/tools'
+import { resolveRelayAssets, type AssetFetcher } from '@/lib/mcp/assets'
+import { renderScreenToBlob } from '@/lib/export'
+import { SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { useProjectStore } from '@/stores/project.store'
 import { useMcpStore } from '@/stores/mcp.store'
 
@@ -22,14 +26,23 @@ import { useMcpStore } from '@/stores/mcp.store'
 
 export interface RelayOutcome {
   committed: boolean
-  /** Rendu à l'agent tel quel quand le lot est passé. */
-  result?: { results: unknown[]; screenIds: string[]; layerIds: string[] }
-  /** Le message du validateur, quand il ne l'est pas. */
+  /** Rendu à l'agent tel quel quand la demande aboutit. */
+  result?: unknown
+  /** Le message du validateur, quand elle n'aboutit pas. */
   error?: string
 }
 
-export function applyRelayBatch(calls: readonly ToolCall[]): RelayOutcome {
-  const run = commitAiRun(calls)
+export async function applyRelayBatch(
+  calls: readonly ToolCall[],
+  fetchAsset: AssetFetcher,
+): Promise<RelayOutcome> {
+  /* Les images d'abord, hors transaction : télécharger est asynchrone et
+     `runEditorTransaction` ne l'est pas. Une image manquante doit refuser le
+     lot avant qu'il ne commence, pas le laisser à moitié posé. */
+  const resolved = await resolveRelayAssets(calls, fetchAsset)
+  if (resolved.error) return { committed: false, error: resolved.error }
+
+  const run = commitAiRun(resolved.calls, { assetIds: resolved.assetIds })
   if (!run.committed) return { committed: false, error: run.error ?? 'Le lot a été refusé.' }
 
   useMcpStore.getState().noteBatch(calls.length)
@@ -37,6 +50,61 @@ export function applyRelayBatch(calls: readonly ToolCall[]): RelayOutcome {
     committed: true,
     result: { results: run.results, screenIds: run.screenIds, layerIds: run.layerIds },
   }
+}
+
+/**
+ * L'écran rendu pour l'agent, sur une toile jetable.
+ *
+ * Le même moteur que l'export officiel, à un multiplicateur près : montrer à
+ * l'agent autre chose que ce que l'export produira serait la seule façon de
+ * rendre cette boucle nuisible. Rien n'est touché au passage — ni le projet, ni
+ * l'historique, ni la sélection, ni la toile visible.
+ */
+export async function renderRelayScreen(render: RelayRender): Promise<RelayOutcome> {
+  const project = useProjectStore.getState().project
+  if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
+
+  const wanted = render.screenId ?? project.activeScreenId
+  const index = project.screens.findIndex((screen) => screen.id === wanted)
+  if (index < 0) {
+    const known = project.screens.map((screen) => `${screen.id} (${screen.name})`).join(', ')
+    return { committed: false, error: `Aucun écran « ${wanted} ». Écrans du projet : ${known}.` }
+  }
+
+  const screen = project.screens[index]
+  const asked = Math.round(render.maxWidth ?? 640)
+  try {
+    const blob = await renderScreenToBlob(screen, project.layoutLayers, asked / SCREEN_WIDTH, index)
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    /* Les dimensions sont relues dans l'IHDR, jamais recalculées depuis le
+       multiplicateur : c'est la toile qui décide de l'arrondi, et un chiffre
+       annoncé à un pixel du fichier ferait mesurer l'agent sur du faux. */
+    const size = new DataView(bytes.buffer)
+    return {
+      committed: true,
+      result: {
+        screenId: screen.id,
+        width: size.getUint32(16),
+        height: size.getUint32(20),
+        data: base64(bytes),
+      } satisfies RelayRendered,
+    }
+  } catch (error) {
+    return {
+      committed: false,
+      error: error instanceof Error ? error.message : 'Rendu impossible.',
+    }
+  }
+}
+
+/** Par tranches : `fromCharCode` sur un mégapixel dépasse la pile d'appels. */
+function base64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + CHUNK))
+  }
+  return btoa(binary)
 }
 
 /**

@@ -11,9 +11,10 @@ import {
   type RelayHello,
 } from './protocol.ts'
 import { RelaySession, type AppConnection } from './session.ts'
+import { AssetVault } from './assets.ts'
 
 /**
- * Le relais : quatre routes, une seule page légitime, la boucle locale.
+ * Le relais : cinq routes, une seule page légitime, la boucle locale.
  *
  * Le contrôle d'origine passe avant tout le reste et avant le moindre en-tête
  * CORS — un `Origin` refusé repart en 403 nu, donc le navigateur retient la
@@ -22,8 +23,13 @@ import { RelaySession, type AppConnection } from './session.ts'
  *
  * `/events` prend son jeton en query et non en en-tête, parce que
  * `EventSource` ne sait pas en poser. Le flux ne porte que des demandes
- * d'écriture destinées à l'onglet qui l'a ouvert ; il ne rend jamais le projet,
- * qui remonte par `POST /state`.
+ * destinées à l'onglet qui l'a ouvert ; il ne rend jamais le projet, qui
+ * remonte par `POST /state`.
+ *
+ * `/asset/:id` est la seule route qui touche au disque, et elle ne prend pas de
+ * chemin : elle sert un identifiant qu'un appel d'outil a fait entrer dans le
+ * coffre. Une route prenant `?path=` aurait fait de l'onglet un lecteur du
+ * disque entier, à un paramètre près.
  */
 
 export const MCP_VERSION = '0.1.0'
@@ -32,10 +38,11 @@ const HEARTBEAT_MS = 15_000
 export interface RelayState {
   pairing: Pairing
   session: RelaySession
+  assets: AssetVault
 }
 
 export function createRelayState(): RelayState {
-  return { pairing: createPairing(), session: new RelaySession() }
+  return { pairing: createPairing(), session: new RelaySession(), assets: new AssetVault() }
 }
 
 function fail(code: RelayError['error'], detail: string): RelayError {
@@ -113,6 +120,26 @@ export function createRelay(state: RelayState, origins = allowedOrigins()) {
        expiré dont la réponse arrive après coup. Il n'y a plus personne à
        réveiller, et rien à signaler. */
     return context.json({ settled: state.session.settle(parsed.data) })
+  })
+
+  /**
+   * Le fichier local que l'agent a désigné, servi une fois à la page.
+   *
+   * Relu à la demande plutôt que gardé en mémoire : offrir un fichier n'est pas
+   * le copier, et un lot de captures d'écran ferait grossir le démon d'autant.
+   * Un identifiant absent du coffre est un 404 sans détail — il n'y a rien à
+   * apprendre d'une clé qu'on n'a pas.
+   */
+  app.get('/asset/:id', async (context) => {
+    if (!authorized(state, context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    const asset = await state.assets.read(context.req.param('id'))
+    if (!asset) return context.json(fail('invalid-request', 'Fichier inconnu du coffre.'), 404)
+    return context.body(new Uint8Array(asset.bytes), 200, {
+      'Content-Type': asset.mediaType,
+      'Cache-Control': 'no-store',
+    })
   })
 
   app.post('/state', async (context) => {

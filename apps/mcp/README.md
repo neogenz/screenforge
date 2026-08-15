@@ -33,20 +33,44 @@ Un agent qui déraille peut au pire poser un texte au mauvais endroit. Il ne peu
 pas injecter du JSON Fabric, lire une image, ni écrire ailleurs que dans le
 projet ouvert.
 
-| Outil                           | Effet                                                 |
-| ------------------------------- | ----------------------------------------------------- |
-| `screenforge_get_project_state` | Lit le projet, ses écrans, ses calques                |
-| `screenforge_get_screen`        | Lit un écran                                          |
-| `screenforge_add_screen`        | Ajoute une planche                                    |
-| `screenforge_set_background`    | Remplace un fond                                      |
-| `screenforge_add_text` …        | Pose un calque (texte, forme, icône, appareil, image) |
-| `screenforge_update_layer`      | Modifie un calque existant                            |
-| `screenforge_apply`             | Applique un lot **en une seule écriture**             |
+| Outil                           | Effet                                                |
+| ------------------------------- | ---------------------------------------------------- |
+| `screenforge_get_project_state` | Lit le projet, ses écrans, ses calques               |
+| `screenforge_get_screen`        | Lit un écran                                         |
+| `screenforge_get_thumbnail`     | **Voit** un écran rendu, en PNG                      |
+| `screenforge_add_screen`        | Ajoute une planche                                   |
+| `screenforge_set_background`    | Remplace un fond                                     |
+| `screenforge_add_text` …        | Pose un calque (texte, forme, icône, appareil)       |
+| `screenforge_add_image`         | Pose une image **de votre disque** (logo ou capture) |
+| `screenforge_update_layer`      | Modifie un calque existant                           |
+| `screenforge_apply`             | Applique un lot **en une seule écriture**            |
 
 `screenforge_apply` n'est pas une commodité : la page applique un lot par
 `commitAiRun`, donc en une transaction validée et une seule annulation. Dix
 appels séparés seraient dix écritures, et un refus au sixième laisserait cinq
 écrans à moitié composés dans votre projet.
+
+### Voir, et poser une image
+
+Ces deux-là sont les seuls outils que le contrat partagé ne porte pas tels
+quels, et chacun pour une raison qui tient à qui détient quoi.
+
+`screenforge_get_thumbnail` fait rendre un écran **par l'onglet** : les polices
+Google, les gabarits d'appareil et vos captures n'existent que là, et un rendu
+côté démon en serait une approximation qui mentirait exactement là où l'agent a
+besoin de vérité. Le retour est une image MCP, pas une URL. Rien n'est écrit :
+le rendu se fait sur une toile jetable, sans toucher au projet, à l'historique
+ni à la sélection.
+
+`screenforge_add_image` prend un **chemin absolu** sur votre machine. Le chemin
+ne traverse pas : le démon le fait entrer dans un coffre qui vit avec son
+processus, l'appel qui part vers la page ne porte qu'un identifiant, et la page
+récupère les octets par `GET /asset/:id`, sur jeton. La route ne sait pas lire
+un chemin — un `?path=` aurait fait de l'onglet un lecteur de tout le disque, à
+un paramètre près. Sont refusés, chacun avec sa cause nommée : un chemin
+relatif, une extension hors PNG/JPEG/SVG, un fichier absent, plus de 16 Mo (la
+même borne que l'import à la souris, parce que ce qui entre finit dans
+IndexedDB), un SVG donné comme capture d'écran.
 
 ## Démarrer
 
@@ -148,4 +172,6 @@ node scripts/mcp-live-probe.mjs
 
 La sonde lance le vrai binaire, lui parle le vrai JSON-RPC et joue l'éditeur en
 face : aller-retour, lot en une livraison, appel refusé sans éditeur, identifiant
-hors catalogue refusé avec les valeurs admises, et `stdout` resté propre.
+hors catalogue refusé avec les valeurs admises, vignette revenue en bloc image,
+fichier local servi sur jeton sans que son chemin ne sorte, et `stdout` resté
+propre.

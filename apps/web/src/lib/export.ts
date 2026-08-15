@@ -153,22 +153,23 @@ function watermarkObjects(): RenderedObject[] {
   return [veil, text]
 }
 
-export async function exportScreenToBlob(
+/**
+ * La scène rendue, avant tout contrat de sortie.
+ *
+ * Séparée d'`exportScreenToBlob` parce que deux besoins la partagent et qu'un
+ * seul porte le contrat App Store : l'export officiel enchaîne dessus la
+ * conversion en RGB opaque et `assertAppStorePng`, l'aperçu que le MCP rend à
+ * l'agent n'en a que faire — il veut voir la composition, pas la valider chez
+ * Apple. Recopier ce montage aurait fait deux moteurs de rendu, et le second
+ * aurait fini par ne plus montrer ce que le premier exporte.
+ */
+export async function renderScreenToBlob(
   screen: Screen,
   layoutLayers: Layer[],
-  targetWidth: number,
-  targetHeight: number,
+  multiplier: number,
   screenIndex = 0,
   watermark = false,
 ): Promise<Blob> {
-  const scaleX = targetWidth / SCREEN_WIDTH
-  const scaleY = targetHeight / SCREEN_HEIGHT
-  if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
-    throw new Error(
-      `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
-    )
-  }
-
   const layers = sortedLayers(screen, layoutLayers, screenIndex)
   await ensureFonts(layers)
 
@@ -205,18 +206,37 @@ export async function exportScreenToBlob(
 
     const browserPng = await exportCanvas.toBlob({
       format: 'png',
-      multiplier: scaleX,
+      multiplier,
       enableRetinaScaling: false,
     })
     if (!browserPng) throw new Error('Le navigateur a retourné un PNG vide.')
-
-    const blob = await convertCanvasPngToOpaqueRgb(browserPng, targetWidth, targetHeight)
-    assertAppStorePng(await inspectPng(blob), targetWidth, targetHeight)
-    return blob
+    return browserPng
   } finally {
     objects.forEach(disposeFabricObjectResource)
     await exportCanvas.dispose()
   }
+}
+
+export async function exportScreenToBlob(
+  screen: Screen,
+  layoutLayers: Layer[],
+  targetWidth: number,
+  targetHeight: number,
+  screenIndex = 0,
+  watermark = false,
+): Promise<Blob> {
+  const scaleX = targetWidth / SCREEN_WIDTH
+  const scaleY = targetHeight / SCREEN_HEIGHT
+  if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
+    throw new Error(
+      `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
+    )
+  }
+
+  const browserPng = await renderScreenToBlob(screen, layoutLayers, scaleX, screenIndex, watermark)
+  const blob = await convertCanvasPngToOpaqueRgb(browserPng, targetWidth, targetHeight)
+  assertAppStorePng(await inspectPng(blob), targetWidth, targetHeight)
+  return blob
 }
 
 export async function inspectPng(blob: Blob): Promise<PngMetadata> {

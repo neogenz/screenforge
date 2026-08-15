@@ -85,7 +85,9 @@ describe('aller-retour', () => {
     const { state, app } = relay()
     const events = await openStream(state, app)
 
-    const answer = state.session.dispatch([{ tool: 'add_screen', args: { name: 'Accueil' } }])
+    const answer = state.session.dispatch({
+      calls: [{ tool: 'add_screen', args: { name: 'Accueil' } }],
+    })
     const frame = await events.next()
     expect(frame.value?.event).toBe('calls')
     const request = JSON.parse(frame.value!.data) as { id: string; calls: unknown[] }
@@ -126,7 +128,7 @@ describe('un seul éditeur à la fois', () => {
   it('évince le flux précédent et fait échouer ses appels en vol', async () => {
     const { state, app } = relay()
     const first = await openStream(state, app)
-    const orphan = state.session.dispatch([{ tool: 'add_screen', args: {} }])
+    const orphan = state.session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] })
     await first.next()
 
     await openStream(state, app)
@@ -141,16 +143,16 @@ describe('un seul éditeur à la fois', () => {
 
 describe('la session ne laisse rien en suspens', () => {
   it('refuse de dispatcher quand aucun éditeur n’est branché', async () => {
-    await expect(new RelaySession().dispatch([{ tool: 'add_screen', args: {} }])).rejects.toThrow(
-      AppUnavailableError,
-    )
+    await expect(
+      new RelaySession().dispatch({ calls: [{ tool: 'add_screen', args: {} }] }),
+    ).rejects.toThrow(AppUnavailableError)
   })
 
   it('fait échouer les appels en vol à la déconnexion', async () => {
     const session = new RelaySession()
     const connection = { send: () => {}, close: () => {} }
     session.attach(connection)
-    const pending = session.dispatch([{ tool: 'add_screen', args: {} }])
+    const pending = session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] })
     session.detach(connection)
     await expect(pending).rejects.toThrow(/déconnecté/)
   })
@@ -168,6 +170,8 @@ describe('la session ne laisse rien en suspens', () => {
   it('rend la main quand l’éditeur ne répond pas', async () => {
     const session = new RelaySession({ timeoutMs: 5 })
     session.attach({ send: () => {}, close: () => {} })
-    await expect(session.dispatch([{ tool: 'add_screen', args: {} }])).rejects.toThrow(/60 s/)
+    await expect(session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] })).rejects.toThrow(
+      /60 s/,
+    )
   })
 })

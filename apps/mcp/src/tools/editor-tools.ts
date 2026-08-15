@@ -16,8 +16,12 @@ import {
   type ParamSchema,
   type ToolCall,
 } from '@screenforge/project-format'
+import type { RelayState } from '../relay/server.ts'
 import type { RelaySession } from '../relay/session.ts'
+import { AssetRefusedError } from '../relay/assets.ts'
 import { readProjectState, readScreen } from './get-state.ts'
+import { ADD_IMAGE_SCHEMA, planAddImage, type AddImageArgs } from './add-image.ts'
+import { renderThumbnail, THUMBNAIL_SCHEMA } from './get-thumbnail.ts'
 
 /**
  * Un outil MCP par entrée du contrat, et pas une ligne de schéma réécrite.
@@ -121,7 +125,7 @@ async function relay(session: RelaySession, calls: ToolCall[]): Promise<CallTool
   const refusal = reject(calls)
   if (refusal) return refuse(refusal)
   try {
-    return text(await session.dispatch(calls))
+    return text(await session.dispatch({ calls }))
   } catch (error) {
     return refuse(error instanceof Error ? error.message : 'Appel interrompu.')
   }
@@ -156,8 +160,15 @@ const BATCH_SCHEMA: ParamSchema = {
   additionalProperties: false,
 }
 
-export function registerEditorTools(server: McpServer, session: RelaySession): void {
+export function registerEditorTools(server: McpServer, state: RelayState): void {
+  const session = state.session
   for (const tool of AI_TOOLS) {
+    /* `add_image` du contrat exige un `assetId` déjà enregistré dans la page :
+       un agent n'a aucun moyen d'en produire un, donc le publier tel quel
+       serait publier un outil qui ne peut pas aboutir. La version qui prend un
+       chemin local le remplace sous le même nom, plus bas — remplacé et non
+       ajouté, sans quoi deux outils homonymes se disputeraient le catalogue. */
+    if (tool.name === 'add_image') continue
     server.registerTool(
       `${TOOL_PREFIX}${tool.name}`,
       {
@@ -192,6 +203,57 @@ export function registerEditorTools(server: McpServer, session: RelaySession): v
       annotations: { readOnlyHint: false },
     },
     async ({ calls }) => relay(session, calls),
+  )
+
+  /**
+   * La boucle de retour, sans laquelle l'agent compose à l'aveugle.
+   *
+   * Déclaré `readOnlyHint` parce qu'il ne l'est pas qu'en intention : la page
+   * rend sur un `StaticCanvas` jetable et ne touche ni au projet, ni à
+   * l'historique, ni à la sélection. Un agent qui relit un écran après chaque
+   * lot ne doit pas empiler dix pas d'annulation pour l'avoir regardé.
+   */
+  server.registerTool(
+    `${TOOL_PREFIX}get_thumbnail`,
+    {
+      description: 'Rend un écran du projet ouvert en PNG, pour vérifier ce qui vient d’être posé.',
+      inputSchema: fromJsonSchema<{ screenId?: string; maxWidth?: number }>(
+        THUMBNAIL_SCHEMA,
+        contractValidator,
+      ),
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => renderThumbnail(session, args),
+  )
+
+  /**
+   * Le seul outil qui touche au disque, et il ne le fait qu'une fois.
+   *
+   * Le chemin entre dans le coffre et n'en ressort pas : l'appel qui part vers
+   * la page porte un identifiant, et la page le récupère par `GET /asset/:id`.
+   * C'est pour cela que cet outil ne relaie pas directement — il traduit
+   * d'abord un chemin local en un appel du contrat, puis passe par le même
+   * `relay` que tout le reste, donc par la même validation.
+   */
+  server.registerTool(
+    `${TOOL_PREFIX}add_image`,
+    {
+      description:
+        'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre iPhone (role « screenshot »). Donnez un chemin absolu.',
+      inputSchema: fromJsonSchema<AddImageArgs>(ADD_IMAGE_SCHEMA, contractValidator),
+      annotations: { readOnlyHint: false },
+    },
+    async (args) => {
+      try {
+        return await relay(session, [await planAddImage(state.assets, args)])
+      } catch (error) {
+        return refuse(
+          error instanceof AssetRefusedError
+            ? error.message
+            : `Image refusée : ${error instanceof Error ? error.message : 'cause inconnue'}.`,
+        )
+      }
+    },
   )
 }
 

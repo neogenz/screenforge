@@ -27,7 +27,7 @@ const origins = allowedOrigins()
 const port = relayPort()
 const server = new McpServer({ name: 'screenforge', version: MCP_VERSION })
 
-registerEditorTools(server, state.session)
+registerEditorTools(server, state)
 
 serve({ fetch: createRelay(state, origins).fetch, hostname: RELAY_HOST, port }, () => {
   console.error(`Relais ScreenForge sur http://${RELAY_HOST}:${port}`)

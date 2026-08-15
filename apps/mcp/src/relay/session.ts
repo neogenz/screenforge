@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import type { ToolCall } from '@screenforge/project-format'
 import type { RelayRequest, RelayResult } from './protocol.ts'
 
 /**
@@ -115,7 +114,15 @@ export class RelaySession {
     return true
   }
 
-  dispatch(calls: ToolCall[]): Promise<unknown> {
+  /**
+   * Envoie une demande à l'éditeur et attend sa réponse.
+   *
+   * `payload` porte soit un lot à écrire, soit un rendu à lire : ce sont deux
+   * demandes et une seule mécanique — un identifiant, une promesse, un délai.
+   * Les dédoubler aurait dupliqué la corrélation et les trois façons dont elle
+   * échoue.
+   */
+  dispatch(payload: Omit<RelayRequest, 'id'>): Promise<unknown> {
     const connection = this.#connection
     if (!connection) return Promise.reject(new AppUnavailableError())
     const id = this.#newId()
@@ -131,7 +138,7 @@ export class RelaySession {
       timer.unref?.()
       this.#pending.set(id, { resolve, reject, timer })
       try {
-        connection.send({ id, calls })
+        connection.send({ id, ...payload })
       } catch (error) {
         this.#pending.delete(id)
         clearTimeout(timer)

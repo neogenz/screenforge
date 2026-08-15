@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -22,6 +25,44 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DAEMON = fileURLToPath(new URL('../apps/mcp/src/main.ts', import.meta.url))
 const ORIGIN = 'http://localhost:5173'
 const READY_TIMEOUT_MS = 15_000
+
+/**
+ * Un PNG d'un pixel, rendu par le faux éditeur.
+ *
+ * Ce qui se vérifie ici est le transport — que la demande de rendu parte, que
+ * l'image revienne en bloc `image` et non en URL. La peinture, elle, est
+ * vérifiée dans un vrai navigateur par `e2e/mcp-assets.spec.ts`.
+ */
+const ONE_PIXEL_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+/**
+ * Assez de PNG pour que le lecteur d'en-tête du démon y lise une taille.
+ *
+ * Le coffre ne décode pas : il lit l'IHDR et sert les octets tels quels. Un
+ * fichier plus complet n'ajouterait rien à ce que la sonde observe, et cacherait
+ * derrière `sharp` la seule chose qu'elle regarde — que le chemin local reste
+ * sur cette machine.
+ *
+ * @param {number} width
+ * @param {number} height
+ */
+function pngHeader(width, height) {
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(width, 0)
+  ihdr.writeUInt32BE(height, 4)
+  ihdr[8] = 8
+  ihdr[9] = 6
+  const head = Buffer.alloc(8)
+  head.writeUInt32BE(13, 0)
+  head.write('IHDR', 4, 'ascii')
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    head,
+    ihdr,
+    Buffer.alloc(4),
+  ])
+}
 
 /* Le contrat est importé par chemin, pas par nom : le paquet n'est une
    dépendance que des applications, et la sonde vit à la racine. */
@@ -129,9 +170,11 @@ class StdioClient {
 
 /**
  * @typedef {{ tool: string; args: Record<string, unknown> }} ProbeCall
- * @typedef {{ id: string; calls: ProbeCall[] }} RelayRequest
+ * @typedef {{ screenId?: string; maxWidth?: number }} RelayRender
+ * @typedef {{ id: string; calls?: ProbeCall[]; render?: RelayRender }} RelayRequest
+ * @typedef {{ id: string; mediaType: string; bytes: number }} ProbeClaim
  * @typedef {(request: RelayRequest) => unknown} Answer
- * @typedef {{ content: { type: string; text?: string }[]; isError?: boolean }} CallToolResult
+ * @typedef {{ content: { type: string; text?: string; data?: string; mimeType?: string }[]; isError?: boolean }} CallToolResult
  */
 
 /**
@@ -146,6 +189,8 @@ class FakeEditor {
   /** @type {string} */ #token = ''
   #controller = new AbortController()
   /** @type {ProbeCall[]} */ #applied = []
+  /** @type {RelayRender[]} */ #rendered = []
+  /** @type {ProbeClaim[]} */ #claimed = []
 
   /** @param {string} base */
   constructor(base) {
@@ -154,6 +199,31 @@ class FakeEditor {
 
   get applied() {
     return this.#applied
+  }
+
+  get rendered() {
+    return this.#rendered
+  }
+
+  get claimed() {
+    return this.#claimed
+  }
+
+  get token() {
+    return this.#token
+  }
+
+  /** @param {string} id */
+  async #claim(id) {
+    const response = await fetch(`${this.#base}/asset/${id}`, {
+      headers: { Origin: ORIGIN, Authorization: `Bearer ${this.#token}` },
+    })
+    assert.equal(response.status, 200, `le coffre refuse l’asset ${id}`)
+    this.#claimed.push({
+      id,
+      mediaType: response.headers.get('content-type') ?? '',
+      bytes: (await response.arrayBuffer()).byteLength,
+    })
   }
 
   /** @param {Answer} answer */
@@ -195,8 +265,27 @@ class FakeEditor {
           if (/^event:\s*calls$/m.test(frame)) {
             /** @type {RelayRequest} */
             const request = JSON.parse(/^data:\s*(.*)$/m.exec(frame)?.[1] ?? 'null')
-            this.#applied.push(...request.calls)
-            await this.#respond(request, answer(request))
+            if (request.render) {
+              this.#rendered.push(request.render)
+              // Un PNG d'un pixel : ce qui se vérifie ici est le transport, pas
+              // la peinture — le vrai rendu est celui de `e2e/mcp-assets`.
+              await this.#respond(request, {
+                screenId: request.render.screenId ?? 'ecran-1',
+                width: request.render.maxWidth ?? 640,
+                height: 1,
+                data: ONE_PIXEL_PNG,
+              })
+            } else {
+              this.#applied.push(...(request.calls ?? []))
+              // La page va chercher chez le démon les images qu'elle ne connaît
+              // pas : c'est cet aller-retour qui prouve que le chemin local est
+              // resté sur la machine et que seul l'identifiant a voyagé.
+              for (const call of request.calls ?? []) {
+                const id = call.args?.assetId
+                if (typeof id === 'string') await this.#claim(id)
+              }
+              await this.#respond(request, answer(request))
+            }
           }
           boundary = buffer.indexOf('\n\n')
         }
@@ -279,7 +368,14 @@ async function main() {
     const tools = (await client.send('tools/list', {})).tools
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
-      [...AI_TOOLS.map((tool) => `screenforge_${tool.name}`), 'screenforge_apply'].sort(),
+      [
+        ...AI_TOOLS.map((tool) => `screenforge_${tool.name}`),
+        'screenforge_apply',
+        /* `add_image` n'apparaît pas deux fois : la version qui prend un chemin
+           local remplace celle du contrat sous le même nom, elle ne s'y ajoute
+           pas. Seule la vignette est un nom de plus. */
+        'screenforge_get_thumbnail',
+      ].sort(),
       'tools/list ne publie pas exactement le contrat partagé',
     )
     const addIcon = tools.find((tool) => tool.name === 'screenforge_add_icon')
@@ -309,7 +405,7 @@ async function main() {
     assert.match(refusal, /"enum"/, 'le refus ne liste pas les valeurs admises')
 
     // 3. Éditeur branché : l'aller-retour aboutit, et la lecture voit son état.
-    await editor.connect((request) => ({ applied: request.calls.length }))
+    await editor.connect((request) => ({ applied: request.calls?.length ?? 0 }))
 
     const round = await client.send('tools/call', {
       name: 'screenforge_add_screen',
@@ -337,13 +433,65 @@ async function main() {
     })
     assert.deepEqual(JSON.parse(textOf(batch)), { applied: 2 }, 'le lot n’est pas arrivé entier')
 
-    // 5. Le canal JSON-RPC est resté propre.
+    // 5. La vignette revient en image, pas en URL vers une boucle locale.
+    const thumbnail = await client.send('tools/call', {
+      name: 'screenforge_get_thumbnail',
+      arguments: { screenId: 'ecran-1', maxWidth: 480 },
+    })
+    assert.equal(thumbnail.isError, undefined, `vignette refusée : ${textOf(thumbnail)}`)
+    assert.deepEqual(editor.rendered, [{ screenId: 'ecran-1', maxWidth: 480 }])
+    /** @type {CallToolResult} */
+    const rendered = thumbnail
+    const image = rendered.content.find((block) => block.type === 'image')
+    assert.ok(image, 'la vignette ne rapporte aucun bloc image')
+    assert.equal(image.mimeType, 'image/png')
+    assert.equal(image.data, ONE_PIXEL_PNG, 'le PNG rendu par la page n’a pas traversé intact')
+
+    // 6. Une image locale entre par son chemin, et n'en ressort que par son
+    //    identifiant : c'est le coffre qui la sert, sur jeton.
+    const dir = await mkdtemp(join(tmpdir(), 'screenforge-probe-'))
+    const capture = join(dir, 'accueil.png')
+    await writeFile(capture, pngHeader(1290, 2796))
+
+    const posed = await client.send('tools/call', {
+      name: 'screenforge_add_image',
+      arguments: { path: capture, role: 'screenshot', slot: 'ecran-1' },
+    })
+    assert.equal(posed.isError, undefined, `image refusée : ${textOf(posed)}`)
+    /* Annoté : `assert.deepEqual` porte une signature d'assertion, et l'appel
+       de l'étape 3 a rétréci `editor.applied` au lot qu'il comparait. */
+    /** @type {ProbeCall | undefined} */
+    const device = editor.applied.at(-1)
+    assert.ok(device, 'aucun appel n’est parti vers la page')
+    assert.equal(device.tool, 'add_device', 'une capture doit poser un cadre iPhone')
+    assert.deepEqual(
+      [device.args.screenshotWidth, device.args.screenshotHeight],
+      [1290, 2796],
+      'les dimensions ne sont pas celles lues dans l’en-tête',
+    )
+    assert.ok(
+      !JSON.stringify(device).includes(dir),
+      'le chemin local a voyagé jusqu’à la page — seul l’identifiant doit sortir',
+    )
+    assert.equal(editor.claimed.length, 1, 'la page n’est pas allée chercher l’image au coffre')
+    assert.equal(editor.claimed[0].mediaType, 'image/png')
+    assert.equal(editor.claimed[0].id, device.args.assetId)
+
+    // Le coffre ne sert que ce qu'un appel d'outil y a fait entrer.
+    const stray = await fetch(`http://127.0.0.1:${port}/asset/jamais-offert`, {
+      headers: { Origin: ORIGIN, Authorization: `Bearer ${editor.token}` },
+    })
+    assert.equal(stray.status, 404, 'le coffre sert un identifiant que personne n’a offert')
+
+    // 7. Le canal JSON-RPC est resté propre.
     for (const line of client.stdout.split('\n').filter((entry) => entry.trim())) {
       JSON.parse(line)
     }
     assert.match(client.stderr, /Relais ScreenForge/, 'les journaux ne partent pas sur stderr')
 
-    console.log(`Sonde MCP : ${tools.length} outils, aller-retour et lot vérifiés.`)
+    console.log(
+      `Sonde MCP : ${tools.length} outils, aller-retour, lot, vignette et image locale vérifiés.`,
+    )
   } finally {
     editor.close()
     child.kill('SIGTERM')

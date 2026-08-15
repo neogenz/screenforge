@@ -78,7 +78,33 @@ export interface RelayHello {
  */
 export interface RelayRequest {
   id: string
-  calls: ToolCall[]
+  calls?: ToolCall[]
+  /**
+   * Une lecture d'image plutôt qu'une écriture, jamais les deux.
+   *
+   * L'agent qui compose à l'aveugle corrige au jugé. Rendre l'écran est la
+   * seule chose que le démon ne peut pas faire lui-même : les polices, les
+   * gabarits d'appareil et les captures ne vivent que dans l'onglet. La demande
+   * emprunte donc le même fil qu'un lot — même corrélation, même délai, même
+   * erreur quand l'éditeur n'est pas là.
+   */
+  render?: RelayRender
+}
+
+export interface RelayRender {
+  /** Par défaut, l'écran actif. */
+  screenId?: string
+  /** Borné côté page : une planche fait 440 unités de large, pas 4000. */
+  maxWidth?: number
+}
+
+/** Ce que la page rend en réponse à un `render`. */
+export interface RelayRendered {
+  screenId: string
+  width: number
+  height: number
+  /** PNG en base64, sans le préfixe `data:` — c'est ce que MCP transporte. */
+  data: string
 }
 
 export const relayResultSchema = z.object({

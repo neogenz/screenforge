@@ -1,5 +1,5 @@
 import type { RelayHello, RelayRequest } from 'mcp'
-import { applyRelayBatch, readProjectState } from '@/lib/mcp/session'
+import { applyRelayBatch, readProjectState, renderRelayScreen } from '@/lib/mcp/session'
 import { useMcpStore } from '@/stores/mcp.store'
 import { useProjectStore } from '@/stores/project.store'
 
@@ -124,6 +124,20 @@ async function post(path: string, body: unknown): Promise<void> {
   if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
 }
 
+/**
+ * Le fichier local que l'agent a désigné, récupéré une fois.
+ *
+ * Une URL et non un chemin : la page n'a jamais su où le fichier était, et le
+ * démon ne sert que ce qu'un appel d'outil a fait entrer dans son coffre.
+ */
+async function fetchAsset(id: string): Promise<Blob> {
+  const response = await fetch(`${relayUrl()}/asset/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
+  return response.blob()
+}
+
 async function pair(): Promise<RelayHello> {
   const response = await fetch(`${relayUrl()}/pair`, { method: 'POST' })
   if (!response.ok) throw new Error(`Le démon refuse l’appairage (${response.status}).`)
@@ -215,15 +229,26 @@ function listen(mine: number): void {
   }
 }
 
+/**
+ * Une demande, deux formes, une seule réponse.
+ *
+ * Un lot écrit ; un rendu lit. Le fil ne les distingue que par le champ
+ * présent, et c'est volontaire : la corrélation, le délai et les trois façons
+ * dont l'éditeur peut disparaître sont les mêmes pour les deux, et les
+ * dédoubler aurait dupliqué tout cela pour une différence d'un `if`.
+ */
 async function answer(request: RelayRequest): Promise<void> {
-  const outcome = applyRelayBatch(request.calls)
+  const outcome = request.render
+    ? await renderRelayScreen(request.render)
+    : await applyRelayBatch(request.calls ?? [], fetchAsset)
   try {
     await post('/result', {
       id: request.id,
       ok: outcome.committed,
       ...(outcome.committed ? { result: outcome.result } : { error: outcome.error }),
     })
-    if (outcome.committed) await pushState()
+    // Un rendu ne change rien : repousser l'état après lui ne dirait rien de neuf.
+    if (outcome.committed && !request.render) await pushState()
   } catch (error) {
     // Le lot est appliqué ; c'est le retour qui s'est perdu. L'agent verra son
     // appel expirer, et le flux se rétablira tout seul — rien à défaire ici.
