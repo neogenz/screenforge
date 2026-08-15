@@ -100,6 +100,20 @@ export default defineSchema({
     .index('by_storageId', ['storageId']),
 
   /**
+   * Les préférences de compte réellement durables.
+   *
+   * Le thème est volontairement le seul champ : projets, locales et releases
+   * vivent déjà dans le document projet, tandis que zoom, panneaux, jetons et
+   * compteurs d'essai restent locaux. Une ligne par compte est tenue par
+   * l'upsert transactionnel de `settings.ts`.
+   */
+  userSettings: defineTable({
+    userId: v.id('users'),
+    theme: v.union(v.literal('light'), v.literal('dark')),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  /**
    * Les suppressions de compte en cours : la barrière, et ce qu'il reste à
    * faire.
    *

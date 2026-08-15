@@ -100,6 +100,7 @@ async function populated(
       cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
       sourceUpdatedAt: null,
     })
+    await ctx.db.insert('userSettings', { userId, theme: 'light', updatedAt: 1 })
     const blobId = await ctx.storage.store(new Blob([JSON.stringify({ screens: [] })]))
     await ctx.db.insert('projects', {
       userId,
@@ -277,6 +278,7 @@ describe('requestAccountDeletion', () => {
       assets: 0,
       projects: 0,
       entitlements: 0,
+      userSettings: 0,
       users: 0,
       authRefreshTokens: 0,
       authVerificationCodes: 0,

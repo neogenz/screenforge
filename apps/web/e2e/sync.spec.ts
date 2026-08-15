@@ -299,7 +299,7 @@ test.describe('Sync cloud', () => {
       .toEqual({ session: false, refreshToken: false, verifier: false })
   })
 
-  test('un projet modifié dans un navigateur arrive dans un autre, images comprises', async ({
+  test('un projet riche et le thème arrivent dans un autre navigateur, assets compris', async ({
     browser,
     baseURL,
   }) => {
@@ -316,6 +316,85 @@ test.describe('Sync cloud', () => {
       mimeType: 'image/png',
       buffer: makeSolidPng(16, 16, [34, 197, 94, 255]),
     })
+    await a.evaluate(() => {
+      const store = window.__sfStores?.useProjectStore
+      const project = store?.getState().project
+      const image = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((layer) => layer.type === 'image')
+      if (!store || !project || image?.type !== 'image') return
+
+      const layoutLayer = {
+        id: crypto.randomUUID(),
+        type: 'shape' as const,
+        name: 'Accent partagé',
+        x: 24,
+        y: 32,
+        width: 180,
+        height: 64,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: 0,
+        scope: 'layout' as const,
+        shapeType: 'rectangle' as const,
+        fill: '#22c55e',
+      }
+      const device = {
+        id: crypto.randomUUID(),
+        type: 'device-frame' as const,
+        name: 'Capture appareil',
+        x: 320,
+        y: 220,
+        width: 360,
+        height: 780,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        zIndex: project.screens[0]!.layers.length,
+        deviceModel: project.globals.deviceModel,
+        deviceColor: project.globals.deviceColor,
+        orientation: 'portrait' as const,
+        screenshotAssetId: image.assetId,
+        screenshotSize: { width: 16, height: 16 },
+      }
+      const screens = structuredClone(project.screens)
+      screens[0]!.layers.push(device)
+      const globals = { ...structuredClone(project.globals), fontSize: 64 }
+      const snapshot = {
+        name: project.name,
+        screens: structuredClone(screens),
+        layoutLayers: [structuredClone(layoutLayer)],
+        globals: structuredClone(globals),
+      }
+      store.setState({
+        project: {
+          ...project,
+          screens,
+          globals,
+          layoutLayers: [layoutLayer],
+          locales: [{ code: 'fr', name: 'Français', script: 'latin', texts: {} }],
+          releases: [
+            {
+              id: crypto.randomUUID(),
+              name: 'Release de preuve',
+              createdAt: Date.now(),
+              watermarked: false,
+              files: [],
+              snapshot,
+            },
+          ],
+          updatedAt: Date.now() + 1,
+        },
+      })
+      window.__sfStores?.useUIStore.getState().toggleTheme()
+    })
+    await a.waitForTimeout(100)
+    await expect
+      .poll(() => a.evaluate(() => window.__sfStores?.useUIStore.getState().syncStatus))
+      .toBe('synced')
 
     /* La ligne distante porte le nouvel état en moins de 5 s après que
        l'autosave local (2 s de temporisation) l'a commité. */
@@ -328,6 +407,22 @@ test.describe('Sync cloud', () => {
        document. Une régression ici ne casse rien de visible — elle multiplie
        par cent le poids de chaque lecture. */
     expect(JSON.stringify(row!.data)).not.toContain('data:image')
+    const payload = row!.data as {
+      globals: { fontSize: number }
+      layoutLayers: { type: string }[]
+      locales: { code: string }[]
+      releases: { name: string }[]
+      screens: { layers: { type: string; screenshotAssetId?: string }[] }[]
+    }
+    expect(payload.globals.fontSize).toBe(64)
+    expect(payload.layoutLayers.map((layer) => layer.type)).toEqual(['shape'])
+    expect(payload.locales.map((locale) => locale.code)).toEqual(['fr'])
+    expect(payload.releases.map((release) => release.name)).toEqual(['Release de preuve'])
+    expect(
+      payload.screens
+        .flatMap((screen) => screen.layers)
+        .find((layer) => layer.type === 'device-frame')?.screenshotAssetId,
+    ).toBeTruthy()
 
     const b = await openApp(browser, baseURL!, session)
     await expect(projectName(b)).toHaveValue(marker, { timeout: 30_000 })
@@ -359,6 +454,35 @@ test.describe('Sync cloud', () => {
         }),
       )
       .toBe(true)
+    await expect
+      .poll(() =>
+        b.evaluate(() => {
+          const project = window.__sfStores?.useProjectStore.getState().project
+          const layer = project?.screens
+            .flatMap((screen) => screen.layers)
+            .find((candidate) => candidate.type === 'device-frame')
+          return layer?.type === 'device-frame' && layer.screenshotAssetId
+            ? Boolean(window.__sfAssets?.resolveAsset(layer.screenshotAssetId))
+            : false
+        }),
+      )
+      .toBe(true)
+    await expect
+      .poll(() => b.evaluate(() => window.__sfStores?.useUIStore.getState().theme))
+      .toBe('light')
+    await expect
+      .poll(() =>
+        b.evaluate(() => {
+          const project = window.__sfStores?.useProjectStore.getState().project
+          return {
+            fontSize: project?.globals.fontSize,
+            locale: project?.locales?.[0]?.code,
+            release: project?.releases?.[0]?.name,
+            layout: project?.layoutLayers[0]?.type,
+          }
+        }),
+      )
+      .toEqual({ fontSize: 64, locale: 'fr', release: 'Release de preuve', layout: 'shape' })
 
     await a.context().close()
     await b.context().close()
@@ -885,6 +1009,10 @@ test.describe('Sync cloud', () => {
 
     await page.context().setOffline(true)
     await page.getByLabel('Ajouter Texte').click()
+    await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleTheme())
+    await expect
+      .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().theme))
+      .toBe('light')
     await expect(syncBadge(page, 'Hors ligne — reprendra au retour du réseau')).toBeAttached({
       timeout: 15_000,
     })
@@ -900,8 +1028,15 @@ test.describe('Sync cloud', () => {
         { timeout: 30_000 },
       )
       .toBe(true)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const secondBrowser = await openApp(browser, baseURL!, own)
+    await expect
+      .poll(() => secondBrowser.evaluate(() => window.__sfStores?.useUIStore.getState().theme))
+      .toBe('light')
 
     await page.context().close()
+    await secondBrowser.context().close()
     await dropRemoteProjects(own)
   })
 

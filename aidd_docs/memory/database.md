@@ -3,7 +3,7 @@
 ## Setup
 
 - Browser IndexedDB database `screenforge`, schema version 2, accessed through `idb` in `apps/web/src/lib/storage.ts`. A second local database, `screenforge-sync`, holds sync acknowledgements only — it is disposable, which is why it is not a store inside the one carrying user projects.
-- The local copy is authoritative: everything works with no account and no network. The deployment is a mirror the Cloud add-on offers, never a prerequisite.
+- The local copy is authoritative: everything works with no account and no network. The deployment is the mirror offered by the standalone Cloud plan, never a prerequisite.
 - Server side: one Convex deployment, schema in `apps/backend/convex/schema.ts`, local deployment on ports 3210/3211 (`pnpm run dev:backend`). There is no migration step — Convex refuses a push whose existing documents do not satisfy the schema, so the schema file is where the data is looked at.
 
 ## Main entities
@@ -16,6 +16,7 @@ erDiagram
     LAYER }o--o| ASSET : references
     USER ||--o{ PROJECT : "owns (cloud mirror)"
     USER ||--o| ENTITLEMENTS : "has bought"
+    USER ||--o| USER_SETTINGS : "syncs durable preferences"
 ```
 
 ## Conventions
@@ -34,5 +35,7 @@ erDiagram
 - `projects` holds identity and timestamp only; the project document itself is a file (`blobId`). A Convex document caps at 1 MiB and a project with twenty frozen releases exceeds it — and the server has never read inside that JSON, it only compares `updatedAt`.
 - `assets` carries ownership as a column plus the `by_user_asset` index, where the bucket carried it as a `{user_id}/{asset_id}` path. No read takes the user as a parameter; it comes from the token, always.
 - `entitlements` is one row per account, forever — an invariant the write upholds (`applyEntitlementsIfNewer`) rather than a primary key, since Convex does not let you choose one. Dates are stored as ISO strings because nothing compares them in the database; `sourceUpdatedAt` is a number because it *is* compared, and it is what stops a late webhook overwriting a newer one.
+- `userSettings` est une ligne LWW par compte, limitée à `theme: light | dark` et `updatedAt`. Elle reste lisible après expiration Cloud, tandis que son upsert passe par `requireCloud` et n'accepte qu'une version strictement plus récente. Le client conserve la même forme localement, isolée par compte, et réutilise la file de sync des projets.
+- Le document projet complet porte déjà globals, locales, releases, écrans et layout layers; chaque `assetId` source est envoyé avant ce document. Restent exclusivement locaux les clés IA, jetons, cache de droits, compteur d'essai, langue marketing, zoom, sélection, panneaux, dialogues et miniatures dérivées.
 - Privileged work lives in `internalMutation`s. They are unreachable from any client — a boundary declared in the code and enforced by the compiler, which is a better lock than a secret key, since there is no secret to avoid disclosing.
 - `apps/backend/convex/*.test.ts` (`pnpm --filter backend test:unit`) are written from the attacker's point of view and each carries its counter-test — a rule that refused everything would otherwise pass a suite of refusals while breaking the feature.

@@ -24,8 +24,10 @@ import { resolveAsset } from '@/lib/assets'
 import {
   downloadRemoteAsset,
   fetchRemoteProject,
+  fetchRemoteUserSettings,
   listRemoteProjects,
   pushRemoteProject,
+  pushRemoteUserSettings,
   uploadRemoteAsset,
   type RemoteProject,
 } from '@/lib/cloud'
@@ -51,6 +53,13 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore, type SyncStatus } from '@/stores/ui.store'
+import {
+  installUserSettings,
+  newerSettings,
+  onUserSettingsCommitted,
+  readUserSettings,
+  type UserSettings,
+} from '@/lib/user-settings'
 import type { Project } from '@/types'
 
 const PROJECT_DOWNLOAD_CONCURRENCY = 2
@@ -86,6 +95,40 @@ function syncAllowed(state = useAuthStore.getState()): boolean {
 
 function currentUserId(): string | null {
   return useAuthStore.getState().user?.id ?? null
+}
+
+function stillSyncing(userId: string): boolean {
+  return syncAllowed() && currentUserId() === userId
+}
+
+function applySettings(userId: string, settings: UserSettings): void {
+  if (!stillSyncing(userId)) return
+  installUserSettings(userId, settings)
+  useUIStore.getState().setThemeFromSync(settings.theme)
+}
+
+async function syncUserSettings(userId: string): Promise<number> {
+  const local = readUserSettings(userId)
+  const remote = await fetchRemoteUserSettings()
+  if (!stillSyncing(userId)) return local.updatedAt
+
+  const winner = newerSettings(local, remote)
+  if (winner === remote) {
+    applySettings(userId, winner)
+    return winner.updatedAt
+  }
+
+  if (await pushRemoteUserSettings(local)) {
+    applySettings(userId, local)
+    return local.updatedAt
+  }
+  if (!stillSyncing(userId)) return local.updatedAt
+
+  const latest = await fetchRemoteUserSettings()
+  if (!latest) throw new Error('Cloud rejected settings without returning its version.')
+  const canonical = newerSettings(local, latest)
+  applySettings(userId, canonical)
+  return canonical.updatedAt
 }
 
 /** Runs a bounded queue and never returns while a rejected worker is still active. */
@@ -532,6 +575,9 @@ const queued = new Map<string, Project>()
 let ignoredAdoptionCommit: Pick<Project, 'id' | 'updatedAt'> | null = null
 /** Le tirage n'a lieu qu'une fois par session ouverte, à l'ouverture. */
 let pulled = false
+/** Les préférences se tirent à l'ouverture, puis seulement après un changement local. */
+let settingsPulled = false
+let settingsDirty = false
 
 function preserveProject(project: Project | null): void {
   if (!project) return
@@ -552,8 +598,17 @@ async function cycle(): Promise<void> {
   setStatus('syncing')
   let pullIncomplete = false
 
-  if (!pulled) {
-    const result = await pullProjects(userId)
+  const shouldPullProjects = !pulled
+  const shouldSyncSettings = !settingsPulled || settingsDirty
+  const [projectsResult, settingsResult] = await Promise.allSettled([
+    shouldPullProjects ? pullProjects(userId) : Promise.resolve(null),
+    shouldSyncSettings ? syncUserSettings(userId) : Promise.resolve(null),
+  ])
+
+  if (!stillSyncing(userId)) return setStatus('off')
+
+  if (projectsResult.status === 'fulfilled' && projectsResult.value) {
+    const result = projectsResult.value
     preserveProject(result.preservedProject)
     if (result.adopted) toast('Version cloud chargée.', 'info')
     if (result.failedProjectIds.length > 0) {
@@ -562,8 +617,14 @@ async function cycle(): Promise<void> {
     }
     pulled = !pullIncomplete
   }
+  if (settingsResult.status === 'fulfilled' && settingsResult.value !== null) {
+    settingsDirty = readUserSettings(userId).updatedAt > settingsResult.value
+    settingsPulled = !settingsDirty
+  }
+  if (projectsResult.status === 'rejected') throw projectsResult.reason
+  if (settingsResult.status === 'rejected') throw settingsResult.reason
 
-  if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
+  if (!stillSyncing(userId)) return setStatus('off')
   const activeProject = useProjectStore.getState().project
   if (activeProject) await ensureSyncRecord(syncKey(userId, activeProject.id))
   await Promise.all(
@@ -580,7 +641,7 @@ async function cycle(): Promise<void> {
       reportPullFailures(result.failedProjectIds)
     }
   }
-  if (!syncAllowed() || currentUserId() !== userId) return setStatus('off')
+  if (!stillSyncing(userId)) return setStatus('off')
   setStatus(pullIncomplete ? 'error' : 'synced')
 }
 
@@ -647,10 +708,21 @@ export function initSync(): () => void {
      jusqu'à la modification suivante — et un achat du Cloud en cours de session
      ne l'allumerait jamais. */
   let allowed = syncAllowed()
+  let activeUserId = allowed ? currentUserId() : null
   const stopAuth = useAuthStore.subscribe((state) => {
     const next = syncAllowed(state)
-    if (next === allowed) return
+    const nextUserId = next ? (state.user?.id ?? null) : null
+    if (next === allowed && nextUserId === activeUserId) return
+    const accountChanged = nextUserId !== activeUserId
     allowed = next
+    activeUserId = nextUserId
+    if (accountChanged) {
+      pulled = false
+      settingsPulled = false
+      settingsDirty = false
+      queued.clear()
+      ignoredAdoptionCommit = null
+    }
     if (next) {
       /* Un droit qui s'ouvre repart d'un tirage : c'est le moment exact où
          « ouvrir l'app connecté » et « se connecter » deviennent le même geste. */
@@ -659,9 +731,17 @@ export function initSync(): () => void {
       return
     }
     pulled = false
+    settingsPulled = false
+    settingsDirty = false
     queued.clear()
     ignoredAdoptionCommit = null
     setStatus('off')
+  })
+
+  const stopSettings = onUserSettingsCommitted((userId) => {
+    if (!userId || userId !== currentUserId() || !syncAllowed()) return
+    settingsDirty = true
+    schedule()
   })
 
   const onOnline = () => schedule()
@@ -679,6 +759,7 @@ export function initSync(): () => void {
   return () => {
     stopCommits()
     stopAuth()
+    stopSettings()
     stopPrompt()
     window.removeEventListener('online', onOnline)
     window.removeEventListener('offline', onOffline)

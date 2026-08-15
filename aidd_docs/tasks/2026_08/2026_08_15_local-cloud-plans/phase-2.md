@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: garantir la sauvegarde Cloud complète des projets, assets et préférences durables
@@ -116,4 +116,3 @@ journey
 - Un autre compte ne peut ni lire ni écrire projets, assets ou préférences.
 - Après expiration Cloud, les données distantes sont lisibles et supprimables mais aucune nouvelle version n’est acceptée.
 - La suppression de compte ne laisse ni ligne `userSettings` ni blob Storage orphelin.
-

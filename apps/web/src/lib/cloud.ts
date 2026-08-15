@@ -1,6 +1,7 @@
 import type { Entitlements } from 'backend/entitlements'
 import { getConvex } from '@/lib/convex'
 import { JWT_STORAGE_KEY } from '@/lib/session-keys'
+import type { UserSettings } from '@/lib/user-settings'
 import type { Project } from '@/types'
 
 /**
@@ -131,6 +132,20 @@ export async function fetchRemoteEntitlements(): Promise<Entitlements | null> {
   if (!connected) return null
   const { client, api } = await connected
   return await client.query(api.mirror.myEntitlements, { now: Date.now() })
+}
+
+export async function fetchRemoteUserSettings(): Promise<UserSettings | null> {
+  const connected = connect()
+  if (!connected) return null
+  const { client, api } = await connected
+  return await client.query(api.settings.mySettings, {})
+}
+
+export async function pushRemoteUserSettings(settings: UserSettings): Promise<boolean> {
+  const connected = connect()
+  if (!connected) return false
+  const { client, api } = await connected
+  return (await client.mutation(api.settings.upsertSettings, settings)) === 'accepted'
 }
 
 export interface RemoteProject {

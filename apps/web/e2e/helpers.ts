@@ -2,6 +2,7 @@ import { expect, type Download, type Page } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
 import type { Entitlements } from '../src/lib/entitlements'
+import type { Theme } from '../src/lib/user-settings'
 import type { SaveStatus, SyncStatus } from '../src/stores/ui.store'
 import type { Layer, Project } from '../src/types'
 
@@ -76,6 +77,7 @@ declare global {
         }
       }
       useProjectStore: {
+        setState: (partial: { project: Project | null }) => void
         getState: () => {
           project: Project | null
           createProject: (name: string) => void
@@ -93,7 +95,10 @@ declare global {
            ce sont eux qui décident de la largeur de la rangée. */
         setState: (partial: { saveStatus?: SaveStatus; syncStatus?: SyncStatus }) => void
         getState: () => {
+          syncStatus: SyncStatus
+          theme: Theme
           setZoom: (zoom: number) => void
+          toggleTheme: () => void
           zoomIn: () => void
           zoomOut: () => void
           toggleLayers: () => void

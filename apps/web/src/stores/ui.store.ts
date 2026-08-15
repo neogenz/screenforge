@@ -1,7 +1,8 @@
 import { create } from 'zustand'
+import { commitTheme, readBootTheme, type Theme } from '@/lib/user-settings'
+import { useAuthStore } from '@/stores/auth.store'
 
 type ActiveTool = 'select' | 'text' | 'shape' | 'image'
-type Theme = 'light' | 'dark'
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 /**
@@ -63,6 +64,7 @@ interface UIState {
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
+  setThemeFromSync: (theme: Theme) => void
   setSaveStatus: (status: SaveStatus) => void
   setSyncStatus: (status: SyncStatus) => void
 }
@@ -110,16 +112,6 @@ function clampZoom(zoom: number) {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom))
 }
 
-function getInitialTheme(): Theme {
-  try {
-    const saved = localStorage.getItem('screenforge-theme') as Theme | null
-    if (saved === 'light' || saved === 'dark') return saved
-  } catch (error) {
-    console.warn('Could not read the saved theme.', error)
-  }
-  return 'dark'
-}
-
 export const useUIStore = create<UIState>()((set) => ({
   zoom: 1,
   viewportResetKey: 0,
@@ -141,7 +133,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showPublishDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
-  theme: getInitialTheme(),
+  theme: readBootTheme(),
   saveStatus: 'idle',
   syncStatus: 'off',
 
@@ -214,13 +206,12 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleTheme: () =>
     set((state) => {
       const next = state.theme === 'dark' ? 'light' : 'dark'
-      try {
-        localStorage.setItem('screenforge-theme', next)
-      } catch (error) {
-        console.warn('Could not persist the theme.', error)
-      }
+      const auth = useAuthStore.getState()
+      commitTheme(auth.status === 'signed-in' ? (auth.user?.id ?? null) : null, next)
       return { theme: next }
     }),
+
+  setThemeFromSync: (theme) => set({ theme }),
 
   setSaveStatus: (saveStatus) => set({ saveStatus }),
 

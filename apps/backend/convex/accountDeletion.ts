@@ -288,6 +288,21 @@ const DATA_PURGES = {
       }
     }
   },
+
+  /** La préférence de compte. Une seule ligne, supprimée avec le reste. */
+  userSettings: async (ctx, userId, budget) => {
+    while (budget.left > 0) {
+      const rows = await ctx.db
+        .query('userSettings')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .take(Math.min(BATCH, budget.left))
+      if (rows.length === 0) return
+      for (const row of rows) {
+        await ctx.db.delete(row._id)
+        budget.left -= 1
+      }
+    }
+  },
 } satisfies Record<string, Purge>
 
 /**
