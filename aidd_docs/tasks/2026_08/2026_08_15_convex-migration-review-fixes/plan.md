@@ -1,6 +1,6 @@
 ---
 objective: "Fermer tous les constats de la review Convex, rendre les preuves cloud obligatoires et obtenir une review finale approuvée sans régression local-first ni export."
-status: in-progress
+status: implemented
 ---
 
 # Plan: corrections complètes de la migration Convex
