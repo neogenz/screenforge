@@ -1,6 +1,6 @@
 ---
 objective: "Un agent IA externe (Claude, Codex, opencode) pilote l'application ScreenForge lancée — création d'écrans, calques, visuels, copie de screenshot, templates — via un serveur MCP stdio relayé à l'éditeur ouvert."
-status: in-progress
+status: implemented
 ---
 
 # Plan: MCP AI Authoring — pilotage de ScreenForge par un agent externe
