@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
 
 /**
  * Brancher un modèle, marche par marche.
@@ -79,66 +80,6 @@ interface AssistantSetupProps {
   model: string
   onModel: (value: string) => void
   busy: boolean
-}
-
-/**
- * Une marche : son rang, son titre, son état, son contenu.
- *
- * Le rang est un chiffre et non une puce parce que l'ordre est réel — coller un
- * jeton avant de lancer le pont ne marche pas. `done` remplace le chiffre par
- * une coche : une marche franchie n'a plus de numéro à porter, elle a un
- * résultat.
- *
- * **Le seul mouvement de cet écran est celui qu'on est allé chercher.** On
- * quitte l'application, on lance une commande dans un terminal, on revient : ce
- * retour est le moment que la carte doit rendre lisible, et c'est le seul.
- * La coche arrive donc en `check-in` — la même courbe et la même durée que le
- * verdict d'une vérification de release, parce que c'en est un — puis la marche
- * qu'elle débloque s'allume 150 ms plus tard. Ce décalage est ce qui fait lire
- * une cause et un effet là où deux changements simultanés ne montrent qu'un
- * clignotement. Rien d'autre ne bouge : pas d'entrée au montage, pas de
- * transition sur ce qui ne change pas d'état.
- *
- * La remontée du rang à la coche passe par une `key` : sans elle React remplace
- * le contenu du même nœud, et une animation d'entrée ne rejoue pas sur un nœud
- * qui n'entre pas.
- */
-function Step({
-  rank,
-  title,
-  done,
-  muted,
-  children,
-}: {
-  rank: number
-  title: string
-  done?: boolean
-  muted?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        'flex gap-2.5 transition-opacity duration-200 ease-out',
-        muted ? 'opacity-50' : 'opacity-100 delay-150',
-      )}
-    >
-      <span
-        key={done ? 'done' : 'rank'}
-        aria-hidden
-        className={cn(
-          'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm text-2xs tabular-nums',
-          done ? 'animate-check-in bg-marker text-marker-ink' : 'bg-muted text-muted-foreground',
-        )}
-      >
-        {done ? <Check size={10} strokeWidth={3} /> : rank}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="text-2xs font-semibold text-foreground">{title}</p>
-        {children}
-      </div>
-    </div>
-  )
 }
 
 /** Une adresse à ouvrir, jamais un tutoriel recopié qui se périmera ici. */
@@ -319,6 +260,18 @@ export function AssistantSetup({
     return `Pont détecté, mais « ${active.engine} » est introuvable sur cette machine.`
   }
 
+  const bridgeStep = engineFound ? 'done' : found ? 'error' : 'active'
+  const connectionStep = connected
+    ? 'done'
+    : !readyToPair
+      ? 'waiting'
+      : connection.state === 'error'
+        ? 'error'
+        : 'active'
+  const modelStep = connected ? (model ? 'done' : 'active') : 'waiting'
+  const stepCount = viaBridge ? 3 : 2
+  const completedSteps = (viaBridge && engineFound ? 1 : 0) + (connected ? 1 : 0) + (model ? 1 : 0)
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1" role="radiogroup" aria-label="Qui écrit les accroches">
@@ -338,175 +291,198 @@ export function AssistantSetup({
         ))}
       </div>
 
-      <div className="px-1">
-        <p className="max-w-[65ch] text-xs text-muted-foreground">{active.summary}</p>
-        <details key={active.id} className="mt-1 text-2xs text-muted-foreground">
-          <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
-            Données et confidentialité
-          </summary>
-          <p className="mt-1 pl-3">{active.dataPath}</p>
-        </details>
-      </div>
+      <SetupFlow>
+        <div className="px-3 py-2.5">
+          <p className="max-w-[65ch] text-xs text-muted-foreground">{active.summary}</p>
+        </div>
 
-      {active.setup && (viaBridge ? reachable : true) && (
-        <div className="flex flex-col gap-3 border-t border-border pt-3">
-          {viaBridge ? (
-            <Step rank={1} title="Lancez le pont sur votre ordinateur" done={engineFound}>
-              {/* Où, et pas seulement quoi. La commande était donnée seule, donc
+        {active.setup && (viaBridge ? reachable : true) && (
+          <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
+            <SetupProgress
+              label={`Configuration de ${active.label}`}
+              value={completedSteps}
+              max={stepCount}
+            />
+
+            {viaBridge && (
+              <SetupStep
+                rank={1}
+                title="Lancez le pont sur votre ordinateur"
+                state={bridgeStep}
+                result={`Pont détecté, avec « ${active.engine} ».`}
+              >
+                {/* Où, et pas seulement quoi. La commande était donnée seule, donc
                   copiée puis collée dans le terminal tel qu'il était ouvert :
                   `--filter` ne trouve aucun paquet « bridge » hors de cet espace
                   de travail, et l'échec ressemble à un pont cassé. */}
-              <p className="text-2xs text-muted-foreground">
-                Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
-              </p>
-              <CommandLine command={BRIDGE_COMMAND} />
-              <p
-                role="status"
-                className={cn(
-                  'flex items-start gap-1.5 text-2xs',
-                  engineFound ? 'text-muted-foreground' : 'text-warning',
+                <p className="text-2xs text-muted-foreground">
+                  Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
+                </p>
+                <CommandLine command={BRIDGE_COMMAND} />
+                <p
+                  role={found && !engineFound ? 'alert' : 'status'}
+                  className={cn(
+                    'flex items-start gap-1.5 text-2xs',
+                    engineFound ? 'text-muted-foreground' : 'text-warning',
+                  )}
+                >
+                  {found && !engineFound && (
+                    <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
+                  )}
+                  {bridgeStatusLine()}
+                </p>
+                {found?.state === 'up' && !engineFound && (
+                  <p className="text-2xs text-muted-foreground">
+                    {active.setup.requirement}{' '}
+                    <Away href={active.setup.requirementHref}>Comment l’installer</Away>
+                  </p>
                 )}
-              >
-                {found && !engineFound && (
-                  <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
-                )}
-                {bridgeStatusLine()}
-              </p>
-              {found?.state === 'up' && !engineFound && (
+                <div>
+                  <Button variant="default" onClick={recheck} loading={!found} disabled={busy}>
+                    <RefreshCw size={12} aria-hidden />
+                    Vérifier
+                  </Button>
+                </div>
+              </SetupStep>
+            )}
+
+            <SetupStep
+              rank={viaBridge ? 2 : 1}
+              title={viaBridge ? 'Collez le jeton affiché par le pont' : 'Collez votre clé'}
+              state={connectionStep}
+              result={
+                connection.state === 'ready' ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span role="status">{connection.detail}</span>
+                    {active.auth === 'api-key' && secret !== '' && (
+                      <Button variant="ghost" size="sm" onClick={onForget} disabled={busy}>
+                        <Trash2 size={12} aria-hidden />
+                        Oublier cette clé
+                      </Button>
+                    )}
+                  </div>
+                ) : undefined
+              }
+            >
+              {!viaBridge && (
                 <p className="text-2xs text-muted-foreground">
                   {active.setup.requirement}{' '}
-                  <Away href={active.setup.requirementHref}>Comment l’installer</Away>
+                  <Away href={active.setup.requirementHref}>Ouvrir la page des clés</Away>
                 </p>
               )}
-              <div>
-                <Button variant="default" onClick={recheck} loading={!found} disabled={busy}>
-                  <RefreshCw size={12} aria-hidden />
-                  Vérifier
+              <p className="text-2xs text-muted-foreground">{active.setup.secretHelp}</p>
+              <div className="flex items-end gap-2">
+                <Field
+                  id={SECRET_FIELD_ID}
+                  label={active.setup.secretLabel}
+                  className="min-w-0 flex-1"
+                >
+                  <Input
+                    id={SECRET_FIELD_ID}
+                    font="sans"
+                    type="password"
+                    autoComplete="off"
+                    value={secret}
+                    disabled={busy || !readyToPair}
+                    placeholder={active.setup.secretPlaceholder}
+                    onChange={(event) => onSecret(event.target.value)}
+                  />
+                </Field>
+                <Button
+                  variant="default"
+                  onClick={onConnect}
+                  disabled={busy || !readyToPair || secret.trim().length === 0}
+                  loading={connection.state === 'checking'}
+                >
+                  <Plug size={12} aria-hidden />
+                  Connecter
                 </Button>
               </div>
-            </Step>
-          ) : (
-            <Step rank={1} title="Créez une clé chez le fournisseur" done={connected}>
-              <p className="text-2xs text-muted-foreground">
-                {active.setup.requirement}{' '}
-                <Away href={active.setup.requirementHref}>Ouvrir la page des clés</Away>
-              </p>
-            </Step>
-          )}
-
-          <Step
-            rank={2}
-            title={viaBridge ? 'Collez le jeton affiché par le pont' : 'Collez votre clé'}
-            done={connected}
-            muted={!readyToPair}
-          >
-            <p className="text-2xs text-muted-foreground">{active.setup.secretHelp}</p>
-            <div className="flex items-end gap-2">
-              <Field
-                id={SECRET_FIELD_ID}
-                label={active.setup.secretLabel}
-                className="min-w-0 flex-1"
-              >
-                <Input
-                  id={SECRET_FIELD_ID}
-                  font="sans"
-                  type="password"
-                  autoComplete="off"
-                  value={secret}
-                  disabled={busy || !readyToPair}
-                  placeholder={active.setup.secretPlaceholder}
-                  onChange={(event) => onSecret(event.target.value)}
-                />
-              </Field>
-              <Button
-                variant="default"
-                onClick={onConnect}
-                disabled={busy || !readyToPair || secret.trim().length === 0}
-                loading={connection.state === 'checking'}
-              >
-                <Plug size={12} aria-hidden />
-                Connecter
-              </Button>
-            </div>
-            {connection.state === 'error' && (
-              <p role="alert" className="flex items-start gap-1.5 text-2xs text-destructive">
-                <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
-                {connection.message}
-              </p>
-            )}
-            {connected && (
-              <p role="status" className="text-2xs text-muted-foreground">
-                {connection.detail}
-              </p>
-            )}
-            {/* Le retrait n'apparaît que là où il y a quelque chose à retirer :
+              {connection.state === 'error' && (
+                <p role="alert" className="flex items-start gap-1.5 text-2xs text-destructive">
+                  <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
+                  {connection.message}
+                </p>
+              )}
+              {/* Le retrait n'apparaît que là où il y a quelque chose à retirer :
                 seuls les fournisseurs à clé enregistrent, et seulement une clé
                 non vide. L'afficher en permanence promettrait un effacement à
                 qui n'a rien laissé. */}
-            {active.auth === 'api-key' && secret !== '' && (
-              <div>
-                <Button variant="ghost" onClick={onForget} disabled={busy}>
-                  <Trash2 size={12} aria-hidden />
-                  Oublier cette clé
-                </Button>
-              </div>
-            )}
-          </Step>
+              {active.auth === 'api-key' && secret !== '' && (
+                <div>
+                  <Button variant="ghost" onClick={onForget} disabled={busy}>
+                    <Trash2 size={12} aria-hidden />
+                    Oublier cette clé
+                  </Button>
+                </div>
+              )}
+            </SetupStep>
 
-          <Step
-            rank={3}
-            title="Choisissez le modèle"
-            done={connected && model !== ''}
-            muted={!connected}
-          >
-            {connection.state === 'ready' && connection.models.length > BROWSABLE_MODELS ? (
-              <>
-                <Field id={MODEL_FIELD_ID} label="Modèle">
-                  <Input
-                    id={MODEL_FIELD_ID}
-                    font="sans"
-                    list={`${MODEL_FIELD_ID}-options`}
-                    autoComplete="off"
-                    value={model}
-                    disabled={busy}
-                    placeholder="Tapez pour filtrer, ex. anthropic/"
-                    onChange={(event) => onModel(event.target.value)}
-                  />
-                </Field>
-                <datalist id={`${MODEL_FIELD_ID}-options`}>
-                  {connection.models.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.displayName}
-                    </option>
-                  ))}
-                </datalist>
-                <p className="text-2xs text-muted-foreground">
-                  {connection.models.length} modèles disponibles. Tous ne savent pas rendre du JSON
-                  strict : en cas d’échec, essayez-en un autre avant de conclure.
-                </p>
-              </>
-            ) : (
-              <Select
-                aria-label="Modèle"
-                label="Modèle"
-                value={model}
-                disabled={busy || !connected}
-                onChange={(event) => onModel(event.target.value)}
-              >
-                {connection.state === 'ready' ? (
-                  connection.models.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.displayName}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">Après la connexion</option>
-                )}
-              </Select>
-            )}
-          </Step>
-        </div>
-      )}
+            <SetupStep
+              rank={viaBridge ? 3 : 2}
+              title="Choisissez le modèle"
+              state={modelStep}
+              result={model}
+            >
+              {connection.state === 'ready' && connection.models.length > BROWSABLE_MODELS ? (
+                <>
+                  <Field id={MODEL_FIELD_ID} label="Modèle">
+                    <Input
+                      id={MODEL_FIELD_ID}
+                      font="sans"
+                      list={`${MODEL_FIELD_ID}-options`}
+                      autoComplete="off"
+                      value={model}
+                      disabled={busy}
+                      placeholder="Tapez pour filtrer, ex. anthropic/"
+                      onChange={(event) => onModel(event.target.value)}
+                    />
+                  </Field>
+                  <datalist id={`${MODEL_FIELD_ID}-options`}>
+                    {connection.models.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.displayName}
+                      </option>
+                    ))}
+                  </datalist>
+                  <p className="text-2xs text-muted-foreground">
+                    {connection.models.length} modèles disponibles. Tous ne savent pas rendre du
+                    JSON strict : en cas d’échec, essayez-en un autre avant de conclure.
+                  </p>
+                </>
+              ) : (
+                <Select
+                  aria-label="Modèle"
+                  label="Modèle"
+                  value={model}
+                  disabled={busy || !connected}
+                  onChange={(event) => onModel(event.target.value)}
+                >
+                  {connection.state === 'ready' ? (
+                    connection.models.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.displayName}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Après la connexion</option>
+                  )}
+                </Select>
+              )}
+            </SetupStep>
+          </div>
+        )}
+
+        <details
+          key={active.id}
+          className="border-t border-border px-3 py-2 text-2xs text-muted-foreground"
+        >
+          <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
+            Données et confidentialité
+          </summary>
+          <p className="mt-1 max-w-[65ch] pl-3">{active.dataPath}</p>
+        </details>
+      </SetupFlow>
     </div>
   )
 }

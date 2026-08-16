@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Une grammaire d’étapes partagée avec le pont d’assistant
