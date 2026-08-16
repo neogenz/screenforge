@@ -1,6 +1,6 @@
 ---
-objective: "Le branchement d’un agent devient un parcours compact et immédiatement lisible, où ScreenForge montre chaque jalon réel du MCP et où les cinq findings de la review MCP sont corrigés puis vérifiés par la gate complète."
-status: implemented
+objective: "Le branchement d’un agent devient un parcours compact et immédiatement lisible, où ScreenForge montre chaque jalon réel du MCP et où tous les findings des reviews MCP sont corrigés puis vérifiés par la gate complète."
+status: reviewed
 ---
 
 # Plan: Connexion agents — rendre le MCP aussi clair qu’une tâche locale
@@ -9,8 +9,8 @@ status: implemented
 
 | Field      | Value |
 | ---------- | ----- |
-| **Goal**   | Adapter la clarté de la référence aux connexions MCP et au pont d’assistant, tout en refermant les trois warnings et deux findings mineurs de la review MCP. |
-| **Source** | Capture d’écran utilisateur, demande du 2026-08-16 et [`../2026_08_16_mcp-composition-quality/review.md`](../2026_08_16_mcp-composition-quality/review.md). |
+| **Goal**   | Adapter la clarté de la référence aux connexions MCP et au pont d’assistant, puis refermer sans exception les findings fonctionnels, UX et documentaires de leurs reviews. |
+| **Source** | Capture d’écran utilisateur, demandes du 2026-08-16, [`../2026_08_16_mcp-composition-quality/review.md`](../2026_08_16_mcp-composition-quality/review.md) et [`review.md`](./review.md). |
 
 ## Phases
 
@@ -20,6 +20,9 @@ status: implemented
 | 2   | Une grammaire d’étapes partagée avec le pont d’assistant | [`phase-2.md`](./phase-2.md) |
 | 3   | La boîte MCP devient un parcours de connexion clair | [`phase-3.md`](./phase-3.md) |
 | 4   | Templates hydratés avant usage et review refermée | [`phase-4.md`](./phase-4.md) |
+| 5   | La progression assistant reste honnête après oubli d’une clé | [`phase-5.md`](./phase-5.md) |
+| 6   | Une coupure MCP annule atomiquement la sauvegarde d’un gabarit | [`phase-6.md`](./phase-6.md) |
+| 7   | La documentation borne exactement les écritures MCP | [`phase-7.md`](./phase-7.md) |
 
 ## Decisions
 

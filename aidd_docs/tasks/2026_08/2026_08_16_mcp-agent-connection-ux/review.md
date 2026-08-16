@@ -1,7 +1,7 @@
-# Review: Connexion agents — parcours MCP et assistant
+# Review: Connexion agents — parcours MCP, assistant et corrections finales
 
 - **Verdict**: approve
-- **Diff**: `f951682...a1b0022`
+- **Diff**: `f951682...70bb7c0`
 - **Axes run**: code, functional, relevancy
 - **Date**: 2026_08_16
 - **Findings**: 0 critical, 0 warning, 0 minor
@@ -48,6 +48,24 @@
 - [x] La gate agrégée inclut tests, builds, E2E et audits sans skip ajouté dans ce diff — `package.json:15`
 - [x] Les trois warnings et deux minors historiques sont absents des findings courants — `aidd_docs/tasks/2026_08/2026_08_16_mcp-agent-connection-ux/review.md:8`
 
+### Phase 5 — La progression assistant reste honnête après oubli d’une clé
+
+- [x] Un modèle retenu sans connexion prête ne compte aucun jalon terminé — `apps/web/src/components/campaign-dialog/AssistantSetup.tsx:230`
+- [x] Une connexion prête avec son modèle rend exactement deux jalons terminés — `apps/web/src/components/campaign-dialog/AssistantSetup.tsx:230`
+- [x] Après « Oublier cette clé », la barre affiche `0 sur 2`, la connexion est active et le modèle attend — `apps/web/e2e/ai-provider.spec.ts:229`
+
+### Phase 6 — Une coupure MCP annule atomiquement la sauvegarde d’un gabarit
+
+- [x] Une coupure du cycle avant le commit abandonne la transaction IndexedDB au lieu d’écrire puis supprimer — `apps/web/src/lib/custom-templates.ts:183`; `apps/web/src/lib/mcp/client.ts:284`
+- [x] Une sauvegarde utilisateur sans signal conserve le comportement existant — `apps/web/src/stores/templates.store.ts:72`; `apps/web/src/stores/__tests__/templates.store.test.ts:76`
+- [x] Après abandon, ni le store courant ni une nouvelle hydratation ne contiennent le gabarit — `apps/web/src/stores/__tests__/templates.store.test.ts:123`
+- [x] Le chemin d’abandon ne dépend plus d’un `delete` compensatoire susceptible d’échouer — `apps/web/src/stores/templates.store.ts:135`
+
+### Phase 7 — La documentation borne exactement les écritures MCP
+
+- [x] Le README ne prétend plus que toute écriture hors projet est impossible — `apps/mcp/README.md:32`
+- [x] Le README limite explicitement les écritures au projet ouvert et à la bibliothèque locale de gabarits, sans accès arbitraire au système de fichiers — `apps/mcp/README.md:32`
+
 ## Findings
 
 | Sev | Kind | Phase | Location | Issue | Fix |
@@ -59,7 +77,7 @@ None.
 
 | Metric        | Value |
 | ------------- | ----- |
-| Verified      | 100% (28/28) |
-| Files checked | `apps/web/src/lib/mcp/client.ts`, `apps/web/src/lib/mcp/session.ts`, `apps/web/src/stores/mcp.store.ts`, `apps/web/src/stores/templates.store.ts`, `apps/web/src/components/ui/setup-flow.tsx`, `apps/web/src/components/campaign-dialog/AssistantSetup.tsx`, `apps/web/src/components/mcp/McpDialog.tsx`, `apps/mcp/README.md`, probe, tests et plans associés |
+| Verified      | 100% (37/37) |
+| Files checked | `phase-5.md`, `phase-6.md`, `phase-7.md`, `apps/web/src/lib/mcp/client.ts`, `apps/web/src/lib/mcp/session.ts`, `apps/web/src/lib/custom-templates.ts`, `apps/web/src/stores/mcp.store.ts`, `apps/web/src/stores/templates.store.ts`, `apps/web/src/components/ui/setup-flow.tsx`, `apps/web/src/components/campaign-dialog/AssistantSetup.tsx`, `apps/web/src/components/mcp/McpDialog.tsx`, `apps/mcp/README.md`, probe, tests et plans associés |
 | Unchecked     | none |
 | Unplanned     | none |
