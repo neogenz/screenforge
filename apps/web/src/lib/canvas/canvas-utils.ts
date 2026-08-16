@@ -151,11 +151,22 @@ export type RenderedObject = FabricObject & {
 export function rewrapTextbox(object: Textbox & RenderedObject): void {
   object.initDimensions()
   const declared = object.data?.declaredWidth
-  // `set` et non `initDimensions` une seconde fois : poser `width` ne réenroule
-  // pas — c'est précisément pourquoi `applyLayerToFabricObject` doit appeler les
-  // deux, dans cet ordre.
-  if (declared !== undefined && object.width !== declared) object.set({ width: declared })
+  // `_set` et non `set`, et c'est tout l'enjeu : `Textbox.textLayoutProperties`
+  // déclare `width`, donc `FabricText.set` rappelle `initDimensions`, qui
+  // regonfle aussitôt à `dynamicMinWidth` — la restauration rebondissait sans
+  // rien changer, dans le seul cas pour lequel elle existe. `_set` est le
+  // setter que `initDimensions` emploie lui-même sur ce même champ, une ligne
+  // plus haut dans Fabric. `declared-width.test.ts` épingle cette raison au
+  // contrat de Fabric plutôt qu'à ce commentaire.
+  if (declared !== undefined && object.width !== declared) {
+    ;(object as unknown as FabricInternalSetter)._set('width', declared)
+  }
   object.setCoords()
+}
+
+/** Le setter interne de Fabric, absent de ses déclarations publiques. */
+interface FabricInternalSetter {
+  _set(key: string, value: unknown): void
 }
 
 export function getScreenOffset(index: number): number {

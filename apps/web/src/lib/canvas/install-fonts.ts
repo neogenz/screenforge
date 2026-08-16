@@ -40,11 +40,35 @@ export function remeasureTextObjects(objects: RenderedObject[]): void {
  * seule façon qu'une police chargée par une autre porte — l'aperçu du sélecteur,
  * la revue de locales, un export — remesure aussi ce qui est à l'écran.
  */
+/**
+ * La scène est-elle concernée par cette famille ?
+ *
+ * Fabric purge par famille, donc une famille que personne ne porte n'invalide
+ * aucune mesure ici. Sans cette question, faire défiler le sélecteur de polices
+ * — qui charge la graisse 400 de chaque famille visible, une quarantaine au
+ * catalogue — relançait la mesure de toute la scène une fois par ligne
+ * survolée, pour des polices qu'aucun calque n'utilise.
+ *
+ * Elle décide seulement s'il faut réagir, jamais qui remesurer : une comparaison
+ * de chaînes choisit mal ses cibles (`Inter, system-ui, sans-serif` est une pile,
+ * pas une famille), mais elle répond très bien à « est-ce que quelqu'un ici
+ * porte ce nom ». Au moindre doute, on remesure tout.
+ */
+function sceneUsesFamily(objects: RenderedObject[], family: string): boolean {
+  const wanted = family.toLowerCase()
+  return objects.some(
+    (object) =>
+      object instanceof Textbox && object.fontFamily.toLowerCase().split(',')[0].trim() === wanted,
+  )
+}
+
 export function installFonts(runtime: FontsInstall): { cleanup: () => void } {
-  const unsubscribe = onFontMetricsChanged(() => {
+  const unsubscribe = onFontMetricsChanged((family) => {
     const canvas = runtime.currentCanvas()
     if (!canvas) return
-    remeasureTextObjects(canvas.getObjects() as RenderedObject[])
+    const objects = canvas.getObjects() as RenderedObject[]
+    if (!sceneUsesFamily(objects, family)) return
+    remeasureTextObjects(objects)
     canvas.requestRenderAll()
     /* La vraie graisse arrive après les vignettes : sans ce second passage la
        pellicule garderait le repli système jusqu'à la prochaine édition. */

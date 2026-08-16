@@ -15,13 +15,16 @@ import type { RenderedObject } from '@/lib/canvas/canvas-utils'
  * découplage lui-même qui est vérifié, pas seulement chacune de ses deux moitiés.
  */
 
+const FAMILY = 'Scene Sans'
+
 /** Un `Textbox` sans DOM : `instanceof` tient, rien n'est jamais mesuré. */
-function stubTextbox(declaredWidth?: number): Textbox & RenderedObject {
+function stubTextbox(options: { family?: string; declaredWidth?: number } = {}) {
   const box = Object.create(Textbox.prototype) as Textbox & RenderedObject
+  box.fontFamily = options.family ?? FAMILY
   box.initDimensions = vi.fn()
   box.setCoords = vi.fn()
-  box.set = vi.fn() as unknown as Textbox['set']
-  if (declaredWidth !== undefined) box.data = { declaredWidth }
+  Object.assign(box, { _set: vi.fn() })
+  if (options.declaredWidth !== undefined) box.data = { declaredWidth: options.declaredWidth }
   return box
 }
 
@@ -69,7 +72,7 @@ describe('installFonts', () => {
     const shape = { setCoords: vi.fn() } as unknown as RenderedObject
     const { canvas, generateThumbnails, loadGoogleFont } = await installed([...boxes, shape])
 
-    await loadGoogleFont('Scene Sans', ['400'])
+    await loadGoogleFont(FAMILY, ['400'])
 
     for (const box of boxes) expect(box.initDimensions).toHaveBeenCalledTimes(1)
     expect(shape.setCoords).not.toHaveBeenCalled()
@@ -77,24 +80,51 @@ describe('installFonts', () => {
     expect(generateThumbnails).toHaveBeenCalledWith(project.screens)
   })
 
+  it('réenroule aussi les boîtes des autres familles, car le cache est purgé par famille', async () => {
+    const carrier = stubTextbox()
+    const neighbour = stubTextbox({ family: 'Autre Sans' })
+    const { loadGoogleFont } = await installed([carrier, neighbour])
+
+    await loadGoogleFont(FAMILY, ['400'])
+
+    expect(neighbour.initDimensions).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignore une famille que personne ne porte sur la scène', async () => {
+    // Le sélecteur de polices charge l'aperçu de chaque famille du catalogue :
+    // sans cette porte, faire défiler sa liste remesurait toute la scène par
+    // ligne survolée.
+    const box = stubTextbox()
+    const { canvas, generateThumbnails, loadGoogleFont } = await installed([box])
+
+    await loadGoogleFont('Police Jamais Posée', ['400'])
+
+    expect(box.initDimensions).not.toHaveBeenCalled()
+    expect(canvas.requestRenderAll).not.toHaveBeenCalled()
+    expect(generateThumbnails).not.toHaveBeenCalled()
+  })
+
   it('ne touche plus rien après le démontage du canevas', async () => {
     const box = stubTextbox()
     const { controller, canvas, loadGoogleFont } = await installed([box])
 
     controller.cleanup()
-    await loadGoogleFont('Unmounted Sans', ['400'])
+    await loadGoogleFont(FAMILY, ['400'])
 
     expect(box.initDimensions).not.toHaveBeenCalled()
     expect(canvas.requestRenderAll).not.toHaveBeenCalled()
   })
 
   it('rend à la boîte la largeur que le calque déclare', async () => {
-    const box = stubTextbox(320)
+    const box = stubTextbox({ declaredWidth: 320 })
     Object.defineProperty(box, 'width', { value: 512, writable: true })
     const { loadGoogleFont } = await installed([box])
 
-    await loadGoogleFont('Wide Word Sans', ['400'])
+    await loadGoogleFont(FAMILY, ['400'])
 
-    expect(box.set).toHaveBeenCalledWith({ width: 320 })
+    expect((box as unknown as { _set: ReturnType<typeof vi.fn> })._set).toHaveBeenCalledWith(
+      'width',
+      320,
+    )
   })
 })

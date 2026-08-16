@@ -16,8 +16,13 @@ import {
  * effectivement chargée au moment de la mesure. `object:modified` relit ensuite
  * la géométrie : sans garde, une mesure faite sur la police de secours devenait
  * une donnée du projet, différente d'un navigateur à l'autre et exportée telle
- * quelle. Le gonflement est ici posé à la main — aucune police réelle n'est
- * nécessaire pour prouver ce qui part vers le projet.
+ * quelle.
+ *
+ * Le double du `Textbox` reproduit **les deux** mouvements de Fabric, pas
+ * seulement celui qui arrange : `initDimensions` gonfle, et `set` relance
+ * `initDimensions` parce que `width` est déclarée dans `textLayoutProperties`.
+ * Un double qui n'aurait fait qu'assigner aurait validé une restauration qui
+ * rebondit — c'est exactement ce qu'une première version de ce fichier a fait.
  */
 function bumpedTextbox(options: {
   declaredWidth: number
@@ -30,11 +35,24 @@ function bumpedTextbox(options: {
   box.height = 120
   box.opacity = 1
   box.setCoords = vi.fn()
-  box.set = ((props: Record<string, unknown>) => Object.assign(box, props)) as Textbox['set']
   // Ce que fait Fabric quand un mot ne tient pas dans la boîte.
-  box.initDimensions = () => {
-    box.width = options.measuredWidth
+  const bump = () => {
+    if (options.measuredWidth > box.width) box.width = options.measuredWidth
   }
+  box.initDimensions = bump
+  // `FabricText.set` : toute propriété de mise en page relance `initDimensions`.
+  box.set = ((props: Record<string, unknown>) => {
+    Object.assign(box, props)
+    if ('width' in props) bump()
+    return box
+  }) as Textbox['set']
+  // `_set` écrit sans relancer la mise en page — c'est ce que Fabric emploie
+  // lui-même pour poser `dynamicMinWidth`.
+  Object.assign(box, {
+    _set: (key: string, value: unknown) => {
+      Object.assign(box, { [key]: value })
+    },
+  })
   box.calcTransformMatrix = () => [options.scaleX ?? 1, 0, 0, 1, 500, 400]
   return box
 }
@@ -73,6 +91,15 @@ describe('largeur déclarée', () => {
     rewrapTextbox(box)
 
     expect(box.width).toBe(512)
+  })
+
+  /**
+   * La raison d'employer `_set` vit chez Fabric, pas dans un commentaire : si
+   * une mise à jour retire `width` de cette liste, `set` redevient utilisable et
+   * ce test le dira. S'il la garde, il interdit d'y revenir par inadvertance.
+   */
+  it('constate que Fabric relance la mise en page sur un set de width', () => {
+    expect(Textbox.textLayoutProperties).toContain('width')
   })
 
   /**
