@@ -87,14 +87,14 @@ importers:
         specifier: 0.41.3
         version: 0.41.3
       '@convex-dev/auth':
-        specifier: ^0.0.94
-        version: 0.0.94(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)
+        specifier: ^0.0.95
+        version: 0.0.95(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)
       '@convex-dev/rate-limiter':
         specifier: ^0.3.2
         version: 0.3.2(convex@1.43.0(react@19.2.8))(react@19.2.8)
       '@polar-sh/sdk':
-        specifier: ^0.35.0
-        version: 0.35.4
+        specifier: ^0.49.0
+        version: 0.49.0
       convex:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -127,11 +127,11 @@ importers:
   apps/bridge:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.9
-        version: 1.19.17(hono@4.13.1)
+        specifier: ^2.1.0
+        version: 2.1.0(hono@4.13.2)
       hono:
-        specifier: ^4.10.6
-        version: 4.13.1
+        specifier: ^4.13.2
+        version: 4.13.2
       zod:
         specifier: ^4.1.14
         version: 4.4.3
@@ -149,8 +149,8 @@ importers:
   apps/mcp:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.9
-        version: 1.19.17(hono@4.13.1)
+        specifier: ^2.1.0
+        version: 2.1.0(hono@4.13.2)
       '@modelcontextprotocol/server':
         specifier: ^2.0.0
         version: 2.0.0
@@ -158,8 +158,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/project-format
       hono:
-        specifier: ^4.10.6
-        version: 4.13.1
+        specifier: ^4.13.2
+        version: 4.13.2
       zod:
         specifier: ^4.1.14
         version: 4.4.3
@@ -177,8 +177,8 @@ importers:
   apps/web:
     dependencies:
       '@convex-dev/auth':
-        specifier: ^0.0.94
-        version: 0.0.94(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)
+        specifier: ^0.0.95
+        version: 0.0.95(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)
       '@radix-ui/react-dialog':
         specifier: ^1.1.23
         version: 1.1.23(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -237,8 +237,8 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1
       lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.8)
+        specifier: ^1.31.0
+        version: 1.31.0(react@19.2.8)
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -246,8 +246,8 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
       sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^2.0.8
+        version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -255,8 +255,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       zustand:
-        specifier: ^5.0.14
-        version: 5.0.14(@types/react@19.2.18)(react@19.2.8)
+        specifier: ^5.0.15
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
     devDependencies:
       '@playwright/test':
         specifier: ^1.62.1
@@ -481,8 +481,8 @@ packages:
     resolution: {integrity: sha512-TzlTVpKPjaqW6qOYjQcYUDuGsLCNsvFHVBXkYGTAnf5V37jCWrE5haKNXzz0WZUtVHjrpV76L1buANjwXMfT8w==}
     engines: {node: '>=22'}
 
-  '@convex-dev/auth@0.0.94':
-    resolution: {integrity: sha512-A/ily6mXQFhSOUAYoiVZdzAZj3RBhiU4d2MOqpEByL7Uzzub6Y+MYQCzSTi0hQzE1dv7dVHprFku0lQuiq6A5w==}
+  '@convex-dev/auth@0.0.95':
+    resolution: {integrity: sha512-LgUujfXRm7FcdYpTozjn0MHdVFxaxvZdWVFOQEkrL4AkY+k/8E8B4EFjJOG9S8Pq6QWfLJ8MCObeMJg0hAfKzA==}
     hasBin: true
     peerDependencies:
       '@auth/core': ^0.41.1
@@ -775,9 +775,9 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@hono/node-server@1.19.17':
-    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
-    engines: {node: '>=18.14.1'}
+  '@hono/node-server@2.1.0':
+    resolution: {integrity: sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg==}
+    engines: {node: '>=20'}
     peerDependencies:
       hono: ^4
 
@@ -1077,14 +1077,8 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@polar-sh/sdk@0.35.4':
-    resolution: {integrity: sha512-vv4Ptl5jNsHIZoLvzKr0wR+dGXJOpz8VWOOTEGqaiYx6YJvzIvrayg52qp8ZtBjsRBkySLZS2EVTV3wDHTACwA==}
-    hasBin: true
-    peerDependencies:
-      '@modelcontextprotocol/sdk': '>=1.5.0 <1.10.0'
-    peerDependenciesMeta:
-      '@modelcontextprotocol/sdk':
-        optional: true
+  '@polar-sh/sdk@0.49.0':
+    resolution: {integrity: sha512-9UYb70iKjJCtWYlu0OF5HLYBLmkxHwqr2RlXwuxXQgRGqq56IQWlVG+NO7e1YJ7I5GW0CBHhGIjRbQ9hYM6ycQ==}
 
   '@radix-ui/number@1.1.3':
     resolution: {integrity: sha512-Road2bidD0uu/1BGDOWNdPI06g0lIRy6IF9GZcIrDK2KGItfor8IQwQa+yM2ERgHM1MmHxaxpTzk0/Jp42lNfA==}
@@ -2725,8 +2719,8 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  hono@4.13.1:
-    resolution: {integrity: sha512-kdJoFVv2xmayw6cY09H7AbMJMt8Jn5jdlEdXsP7AGBdF2DIptVlKlOLKXP41yPip4/a3yQPv9gVcJYI8YY04dw==}
+  hono@4.13.2:
+    resolution: {integrity: sha512-JydRilDRkYBQMt9qR9U92mXxmbGqsqSn/IKOrh4e7/gEbn+0zSr8igTu0obwJoNGN4sez28DIql7FBHWydoJpA==}
     engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@4.0.0:
@@ -3119,8 +3113,8 @@ packages:
     resolution: {integrity: sha512-P1FlFBGCMPMXu+EGdVD9W4Mjm0DqsusmKgO7Xc33mI5X1bklmsQb0hfzPhXomQr9waWIBDsiOjvr1e6BTaUqpA==}
     deprecated: This package has been deprecated. Please see https://lucia-auth.com/lucia-v3/migrate.
 
-  lucide-react@1.28.0:
-    resolution: {integrity: sha512-fARAFJULsGuDDydjp6+6blekG/sBIM29TerzLjc9bQUKAcEfrSc4ZQKb25KRz4OMKd87cZTb5dgq0w/T6KufVg==}
+  lucide-react@1.31.0:
+    resolution: {integrity: sha512-G8u2eEtoHUnUa9f8lbvqDhCiORMnYLdUEo06EEG9MQvHQrInKcX3Pa2TH39MM5qyzRcWETxB0+aOwAPI1g1kEg==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -3603,11 +3597,15 @@ packages:
     resolution: {integrity: sha512-kCZr2V3ch9i00x8zXRhjUNVcjG9ijES5dDudkXvUVCT5QlJNQWElSJdZqyPemffHoLNUYwOcou0Fy+ojN0uHSQ==}
     engines: {node: '>= 18'}
 
-  sonner@2.0.7:
-    resolution: {integrity: sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==}
+  sonner@2.0.8:
+    resolution: {integrity: sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==}
     peerDependencies:
+      '@types/react': ^18.0.0 || ^19.0.0
       react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -4105,17 +4103,14 @@ packages:
   zod@3.22.4:
     resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
   zod@4.1.11:
     resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
-  zustand@5.0.14:
-    resolution: {integrity: sha512-/8tAspM5LMPr28b3fwLYrtdj77ECpfZviaP75CMTnwO8ISyaE4GDIG/9rDDYq/cH9D2Xw2A2RXglLInmVBQB/g==}
+  zustand@5.0.15:
+    resolution: {integrity: sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
@@ -4372,7 +4367,7 @@ snapshots:
 
   '@conventional-changelog/template@1.2.1': {}
 
-  '@convex-dev/auth@0.0.94(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)':
+  '@convex-dev/auth@0.0.95(@auth/core@0.41.3)(convex@1.43.0(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@auth/core': 0.41.3
       '@oslojs/crypto': 1.0.1
@@ -4595,9 +4590,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@hono/node-server@1.19.17(hono@4.13.1)':
+  '@hono/node-server@2.1.0(hono@4.13.2)':
     dependencies:
-      hono: 4.13.1
+      hono: 4.13.2
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -4818,10 +4813,10 @@ snapshots:
     dependencies:
       playwright: 1.62.1
 
-  '@polar-sh/sdk@0.35.4':
+  '@polar-sh/sdk@0.49.0':
     dependencies:
       standardwebhooks: 1.0.0
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@radix-ui/number@1.1.3': {}
 
@@ -6596,7 +6591,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  hono@4.13.1: {}
+  hono@4.13.2: {}
 
   html-encoding-sniffer@4.0.0:
     dependencies:
@@ -6932,7 +6927,7 @@ snapshots:
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
 
-  lucide-react@1.28.0(react@19.2.8):
+  lucide-react@1.31.0(react@19.2.8):
     dependencies:
       react: 19.2.8
 
@@ -7412,10 +7407,12 @@ snapshots:
 
   smol-toml@1.8.0: {}
 
-  sonner@2.0.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  sonner@2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
+    optionalDependencies:
+      '@types/react': 19.2.18
 
   source-map-js@1.2.1: {}
 
@@ -7889,13 +7886,11 @@ snapshots:
 
   zod@3.22.4: {}
 
-  zod@3.25.76: {}
-
   zod@4.1.11: {}
 
   zod@4.4.3: {}
 
-  zustand@5.0.14(@types/react@19.2.18)(react@19.2.8):
+  zustand@5.0.15(@types/react@19.2.18)(react@19.2.8):
     optionalDependencies:
       '@types/react': 19.2.18
       react: 19.2.8
