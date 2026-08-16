@@ -23,6 +23,10 @@ const FILL: Record<McpStatus, string> = {
 
 export function McpStatusDot({ status, className }: { status: McpStatus; className?: string }) {
   return (
-    <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', FILL[status], className)} />
+    <span
+      aria-hidden
+      data-status={status}
+      className={cn('size-1.5 shrink-0 rounded-full', FILL[status], className)}
+    />
   )
 }

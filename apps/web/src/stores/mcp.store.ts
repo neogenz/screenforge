@@ -32,6 +32,7 @@ export const MCP_LABELS: Record<McpStatus, string> = {
 export interface McpState {
   status: McpStatus
   connectionStep: McpConnectionStep
+  daemonVersion: string
   /**
    * Une phrase que l'utilisateur peut suivre, jamais une trace. Vide hors
    * erreur : elle survivrait autrement à la reconnexion qui l'a réparée.
@@ -52,6 +53,7 @@ export interface McpState {
 
   setStatus: (status: McpStatus, message?: string) => void
   setConnectionStep: (step: McpConnectionStep) => void
+  setDaemonVersion: (version: string) => void
   setEnabled: (enabled: boolean) => void
   noteBatch: (calls: number) => void
 }
@@ -59,6 +61,7 @@ export interface McpState {
 export const useMcpStore = create<McpState>()((set) => ({
   status: 'off',
   connectionStep: 'daemon',
+  daemonVersion: '',
   message: '',
   enabled: false,
   appliedBatches: 0,
@@ -67,6 +70,8 @@ export const useMcpStore = create<McpState>()((set) => ({
   setStatus: (status, message = '') => set({ status, message }),
 
   setConnectionStep: (connectionStep) => set({ connectionStep }),
+
+  setDaemonVersion: (daemonVersion) => set({ daemonVersion }),
 
   setEnabled: (enabled) => set({ enabled }),
 

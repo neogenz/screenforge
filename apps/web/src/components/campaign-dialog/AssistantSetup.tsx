@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, Check, Copy, ExternalLink, Plug, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertCircle, Check, ExternalLink, Plug, RefreshCw, Trash2 } from 'lucide-react'
 import { probeBridge } from '@/lib/bridge-client'
 import { AI_PROVIDERS, BRIDGE_COMMAND, aiProvider, bridgeReachable } from '@/lib/ai/providers'
 import type { AiProvider, ProviderId } from '@/lib/ai/providers'
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
+import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
 
 /**
  * Brancher un modèle, marche par marche.
@@ -94,49 +94,6 @@ function Away({ href, children }: { href: string; children: React.ReactNode }) {
       {children}
       <ExternalLink size={10} aria-hidden />
     </a>
-  )
-}
-
-/**
- * La commande, copiable en un geste.
- *
- * Recopier `pnpm --filter bridge run start` à la main produit des fautes de
- * frappe dont l'échec ressemble à un pont cassé. Le bouton retombe en silence
- * si le presse-papier est refusé — le texte reste sélectionnable, et une erreur
- * sur une commodité serait plus bruyante que le problème.
- */
-function CommandLine({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1600)
-    return () => clearTimeout(timer)
-  }, [copied])
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <code className="min-w-0 flex-1 truncate rounded-sm bg-muted px-2 py-1 text-2xs text-foreground">
-        {command}
-      </code>
-      <Button
-        variant="ghost"
-        aria-label={`Copier « ${command} »`}
-        onClick={() => {
-          void navigator.clipboard
-            ?.writeText(command)
-            .then(() => setCopied(true))
-            .catch(() => undefined)
-        }}
-      >
-        {copied ? (
-          <Check size={12} className="animate-check-in" aria-hidden />
-        ) : (
-          <Copy size={12} aria-hidden />
-        )}
-        {copied ? 'Copié' : 'Copier'}
-      </Button>
-    </div>
   )
 }
 
@@ -318,7 +275,7 @@ export function AssistantSetup({
                 <p className="text-2xs text-muted-foreground">
                   Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
                 </p>
-                <CommandLine command={BRIDGE_COMMAND} />
+                <SetupCommand command={BRIDGE_COMMAND} />
                 <p
                   role={found && !engineFound ? 'alert' : 'status'}
                   className={cn(

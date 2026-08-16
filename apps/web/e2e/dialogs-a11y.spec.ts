@@ -103,6 +103,16 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
     // Le focus entre dans la boîte, il ne reste pas sur la page en dessous.
     expect(await activeInsideDialog(page), `${title} : focus resté dehors`).toBe(true)
 
+    if (title === 'Connexion MCP') {
+      await expect(dialog.locator('[data-slot="setup-step"]')).toHaveCount(3)
+      await expect(
+        dialog.getByRole('progressbar', { name: 'Progression de la connexion MCP' }),
+      ).toBeVisible()
+      const details = dialog.locator('details')
+      await dialog.getByText('Détails de connexion').click()
+      await expect(details).toHaveAttribute('open', '')
+    }
+
     /* Le piège tient sur un tour complet. Vingt-cinq tabulations dépassent le
        nombre de contrôles de la plus fournie, donc au moins un bouclage est
        exercé : c'est là qu'un piège cassé laisse filer le focus vers la barre

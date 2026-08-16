@@ -32,6 +32,7 @@ import { useProjectStore } from '@/stores/project.store'
  */
 const RELAY_PROTOCOL = 1
 const DEFAULT_PORT = 4591
+export const MCP_COMMAND = 'pnpm --filter mcp run start'
 
 /** Le choix de l'utilisateur, pas son jeton. */
 const ENABLED_KEY = 'screenforge-mcp'
@@ -120,8 +121,7 @@ function persistEnabled(enabled: boolean): void {
  * port qui n'écoute pas. Rien ici ne sait les distinguer : le message nomme les
  * deux causes plutôt que d'en deviner une.
  */
-const UNREACHABLE =
-  'Le démon MCP ne répond pas. Lancez « pnpm --filter mcp run start », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.'
+const UNREACHABLE = `Le démon MCP ne répond pas. Lancez « ${MCP_COMMAND} », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.`
 
 async function post(path: string, body: unknown, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${relayUrl()}${path}`, {
@@ -183,6 +183,7 @@ async function open(): Promise<void> {
   teardown()
   const mine = cycle
   useMcpStore.getState().setConnectionStep('daemon')
+  useMcpStore.getState().setDaemonVersion('')
   useMcpStore.getState().setStatus('connecting')
 
   let hello: RelayHello
@@ -195,6 +196,7 @@ async function open(): Promise<void> {
     return
   }
   if (mine !== cycle) return
+  useMcpStore.getState().setDaemonVersion(hello.mcp)
 
   // Rien à reprendre sur un écart de version : réessayer produirait le même
   // refus toutes les quinze secondes. La phrase dit quoi faire, et on s'arrête.
@@ -341,7 +343,13 @@ export function disableMcp(): void {
   teardown()
   useMcpStore.getState().setEnabled(false)
   useMcpStore.getState().setConnectionStep('daemon')
+  useMcpStore.getState().setDaemonVersion('')
   useMcpStore.getState().setStatus('off')
+}
+
+/** Adresse locale visible dans les détails, sans le jeton de session. */
+export function mcpRelayAddress(): string {
+  return relayUrl()
 }
 
 /**

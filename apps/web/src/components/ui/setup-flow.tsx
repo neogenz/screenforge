@@ -1,5 +1,7 @@
-import { AlertCircle, Check } from 'lucide-react'
+import { AlertCircle, Check, Copy } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { HTMLAttributes, ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type SetupStepState = 'waiting' | 'active' | 'done' | 'error'
@@ -19,12 +21,14 @@ export function SetupStep({
   title,
   state,
   result,
+  announce = true,
   children,
 }: {
   rank: number
   title: string
   state: SetupStepState
   result?: ReactNode
+  announce?: boolean
   children?: ReactNode
 }) {
   const current = state === 'active' || state === 'error'
@@ -58,7 +62,7 @@ export function SetupStep({
       </span>
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="text-2xs font-semibold text-foreground">{title}</p>
-        {state === 'active' && (
+        {announce && state === 'active' && (
           <span role="status" aria-live="polite" className="sr-only">
             Étape active : {title}
           </span>
@@ -96,6 +100,43 @@ export function SetupProgress({
           {value} sur {max}
         </span>
       )}
+    </div>
+  )
+}
+
+export function SetupCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1600)
+    return () => clearTimeout(timer)
+  }, [copied])
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
+      <code className="min-w-0 flex-1 overflow-x-auto rounded-sm bg-muted px-2 py-1 text-2xs text-foreground">
+        {command}
+      </code>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="self-start sm:self-auto"
+        aria-label={`Copier « ${command} »`}
+        onClick={() => {
+          void navigator.clipboard
+            ?.writeText(command)
+            .then(() => setCopied(true))
+            .catch(() => undefined)
+        }}
+      >
+        {copied ? (
+          <Check size={12} className="animate-check-in" aria-hidden />
+        ) : (
+          <Copy size={12} aria-hidden />
+        )}
+        {copied ? 'Copié' : 'Copier'}
+      </Button>
     </div>
   )
 }

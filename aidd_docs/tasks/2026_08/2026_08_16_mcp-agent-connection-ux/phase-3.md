@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: La boîte MCP devient un parcours de connexion clair
