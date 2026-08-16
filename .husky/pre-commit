@@ -1,1 +1,12 @@
+node scripts/publication-audit.mjs staged
+gitleaks_bin=${GITLEAKS_BIN:-node_modules/.bin/gitleaks}
+test -x "$gitleaks_bin" || {
+  echo 'Gitleaks v8.29.1 is required. Run: pnpm run setup:gitleaks' >&2
+  exit 1
+}
+test "$("$gitleaks_bin" version)" = '8.29.1' || {
+  echo 'Gitleaks must be exactly v8.29.1.' >&2
+  exit 1
+}
+"$gitleaks_bin" git --staged --redact=100 --no-banner
 pnpm exec lint-staged

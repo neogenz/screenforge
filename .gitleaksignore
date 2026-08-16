@@ -1,0 +1,2 @@
+# Fixture JWT synthétique de redaction, sans identifiant exploitable.
+3a3f52b9ae3bcf3f453f656d51a7766cb1fd9ec3:apps/bridge/src/bridge.test.ts:generic-api-key:551

@@ -1,0 +1,545 @@
+import { Hono } from 'hono'
+import {
+  AscAmbiguousError,
+  AscFailedError,
+  AscUnavailableError,
+  ascProbeOrUndefined,
+  createAscState,
+  execRunner,
+  runPublish,
+  stepsOf,
+  type AscRunner,
+  type AscState,
+} from './asc.ts'
+import { CLAUDE_MODELS, ClaudeUnavailableError, claudeVersion, runClaudeTurn } from './claude.ts'
+import {
+  BRIDGE_CAPABILITIES,
+  bearer,
+  createPairing,
+  revoke,
+  tokenVersions,
+  verifyToken,
+  type BridgeCapability,
+  type Pairing,
+} from './pairing.ts'
+import {
+  allowedOrigins,
+  ascPublishRequestSchema,
+  originAllowed,
+  planRequestSchema,
+  planSchema,
+  translateRequestSchema,
+  translationSchema,
+  PLAN_OUTPUT_SCHEMA,
+  PROTOCOL_VERSION,
+  TRANSLATION_OUTPUT_SCHEMA,
+  type BridgeBrief,
+  type BridgeError,
+  type BridgePlan,
+  type EngineStatus,
+  type Hello,
+  type TranslateRequest,
+} from './protocol.ts'
+import { redactDiagnostic } from './redaction.ts'
+
+/**
+ * Le pont, et les deux choses qu'il sait faire.
+ *
+ * Trois contrôles s'appliquent avant tout traitement, dans cet ordre : origine,
+ * jeton **de la capacité demandée**, version de protocole. L'origine d'abord
+ * parce qu'elle ne coûte rien et qu'elle est la seule que l'attaquant ne peut
+ * pas recopier — un jeton lu dans une capture d'écran voyage, l'origine d'une
+ * page non. La capacité ensuite : parler à un modèle et publier chez Apple sont
+ * deux autorisations distinctes, et le jeton de l'une ne vaut jamais pour
+ * l'autre.
+ *
+ * `hello` est la seule route ouverte sans jeton, et elle ne dit que ce qu'une
+ * page a besoin de savoir pour proposer l'appairage : version, moteurs présents,
+ * présence de `asc`, capacités. Pas de modèles, pas de chemins, pas de nom de
+ * machine.
+ *
+ * Le moteur annoncé ne dispose d'aucun outil local : la page demande un plan,
+ * jamais une commande.
+ */
+
+export interface BridgeState {
+  pairing: Pairing
+  asc: AscState
+  /** Injecté par les tests : aucun processus n'y est lancé. */
+  ascRun: AscRunner
+  assistantRun: typeof runClaudeTurn
+  assistantProbe: typeof claudeVersion
+}
+
+function fail(code: BridgeError['error'], detail: string): BridgeError {
+  return { error: code, detail: redactDiagnostic(detail) }
+}
+
+function versionMismatch(claimed: number): string {
+  return `Le pont parle la version ${PROTOCOL_VERSION}, la page la ${claimed}. Mettez le pont à jour.`
+}
+
+export function createServer(state: BridgeState, origins = allowedOrigins()) {
+  const app = new Hono()
+  let helloCache: { value: Omit<Hello, 'tokenVersions'>; expiresAt: number } | undefined
+  let helloInFlight: Promise<Omit<Hello, 'tokenVersions'>> | undefined
+
+  const probe = () => {
+    if (helloCache && Date.now() < helloCache.expiresAt) return Promise.resolve(helloCache.value)
+    if (helloInFlight) return helloInFlight
+    helloInFlight = Promise.all([
+      state.assistantProbe(),
+      ascProbeOrUndefined(state.asc, state.ascRun),
+    ])
+      .then(([claude, asc]) => {
+        const engines: EngineStatus[] = claude ? [{ id: 'claude', version: claude }] : []
+        const value: Omit<Hello, 'tokenVersions'> = {
+          protocol: PROTOCOL_VERSION,
+          bridge: '0.1.0',
+          engines,
+          capabilities: { vision: false, structuredOutput: true, reasoning: true },
+          ascAvailable: Boolean(asc),
+          ...(asc ? { ascVersion: asc.version, ascFlags: asc.flags } : {}),
+        }
+        helloCache = { value, expiresAt: Date.now() + 5_000 }
+        return value
+      })
+      .finally(() => {
+        helloInFlight = undefined
+      })
+    return helloInFlight
+  }
+
+  app.use('*', async (context, next) => {
+    const origin = context.req.header('Origin')
+    /* Sans `Origin`, la requête ne vient pas d'un navigateur : `curl` sur la
+       boucle locale, un test, un autre outil. Le jeton reste exigé. */
+    if (origin !== undefined && !originAllowed(origin, origins)) {
+      return context.json(fail('forbidden-origin', `Origine refusée : ${origin}`), 403)
+    }
+    if (origin) {
+      context.header('Access-Control-Allow-Origin', origin)
+      context.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+      context.header('Vary', 'Origin')
+    }
+    if (context.req.method === 'OPTIONS') return context.body(null, 204)
+    await next()
+  })
+
+  const authorized = (capability: BridgeCapability, header: string | undefined) =>
+    verifyToken(state.pairing, capability, bearer(header))
+
+  app.get('/hello', async (context) => {
+    const hello: Hello = {
+      ...(await probe()),
+      tokenVersions: tokenVersions(state.pairing),
+    }
+    return context.json(hello)
+  })
+
+  /**
+   * Les modèles du moteur demandé.
+   *
+   * Claude Code ne rend pas de catalogue et documente ses alias dans son aide.
+   */
+  app.get('/models', async (context) => {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    const engine = context.req.query('engine') ?? 'claude'
+    if (engine !== 'claude') {
+      return context.json(
+        fail('engine-unavailable', 'Ce moteur est désactivé par la politique de sécurité.'),
+        400,
+      )
+    }
+    return context.json({ models: CLAUDE_MODELS })
+  })
+
+  app.post('/plan', async (context) => {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    const parsed = planRequestSchema.safeParse(await context.req.json().catch(() => null))
+    if (!parsed.success) {
+      return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
+    }
+    if (parsed.data.protocol !== PROTOCOL_VERSION) {
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
+    }
+    const count = parsed.data.brief.screenCount ?? Math.max(1, parsed.data.brief.screenshots.length)
+    const capacityFailure = validateBriefGroundingCapacity(parsed.data.brief, count)
+    if (capacityFailure) {
+      return context.json(fail('invalid-request', capacityFailure), 400)
+    }
+
+    try {
+      const answer = await state.assistantRun({
+        prompt: planPrompt(parsed.data),
+        outputSchema: PLAN_OUTPUT_SCHEMA,
+        model: parsed.data.model,
+      })
+      const plan = planSchema.safeParse(JSON.parse(answer))
+      if (!plan.success) {
+        return context.json(
+          fail('invalid-response', 'Le plan rendu par le modèle est hors schéma.'),
+          502,
+        )
+      }
+      const failure = validateGeneratedPlan(plan.data, parsed.data.brief)
+      if (failure) {
+        return context.json(fail('invalid-response', `${failure} Rien n’a été repris.`), 502)
+      }
+      return context.json({ plan: plan.data })
+    } catch (error) {
+      return context.json(engineFailure(error), 502)
+    }
+  })
+
+  app.post('/translate', async (context) => {
+    if (!authorized('assistant', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    const parsed = translateRequestSchema.safeParse(await context.req.json().catch(() => null))
+    if (!parsed.success) {
+      return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
+    }
+    if (parsed.data.protocol !== PROTOCOL_VERSION) {
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
+    }
+
+    try {
+      const answer = await state.assistantRun({
+        prompt: translatePrompt(parsed.data),
+        outputSchema: TRANSLATION_OUTPUT_SCHEMA,
+      })
+      const translation = translationSchema.safeParse(JSON.parse(answer))
+      /* Le compte doit correspondre exactement : la page rattache les textes par
+         position, et une liste plus courte décalerait chaque accroche d'un
+         écran. Mieux vaut ne rien rendre qu'une traduction déplacée. */
+      if (!translation.success || translation.data.texts.length !== parsed.data.texts.length) {
+        return context.json(
+          fail('invalid-response', 'Le modèle n’a pas rendu autant de textes qu’il en a reçu.'),
+          502,
+        )
+      }
+      return context.json({ texts: translation.data.texts })
+    } catch (error) {
+      return context.json(engineFailure(error), 502)
+    }
+  })
+
+  /**
+   * Publie un lot déjà rendu, haché et vérifié.
+   *
+   * La page envoie les planches et l'empreinte du lot, jamais le projet vivant :
+   * ce qui part chez Apple est ce qui a été figé et relu, pas ce qui se trouvait
+   * sur le canevas à l'instant du clic. Le pont ne recalcule pas les images — il
+   * les écrit et lance `asc`.
+   *
+   * Des images traversent ici, et c'est la seule route où c'est vrai : leur
+   * destination est Apple, pas un modèle. C'est exactement ce que les jetons par
+   * capacité rendent lisible — appairer un assistant n'autorise pas à publier,
+   * et autoriser à publier ne montre rien à un modèle.
+   */
+  app.post('/asc/publish', async (context) => {
+    if (!authorized('asc-publish', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton de publication invalide.'), 401)
+    }
+    const parsed = ascPublishRequestSchema.safeParse(await context.req.json().catch(() => null))
+    if (!parsed.success) {
+      return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
+    }
+    if (parsed.data.protocol !== PROTOCOL_VERSION) {
+      return context.json(fail('protocol-mismatch', versionMismatch(parsed.data.protocol)), 409)
+    }
+
+    try {
+      return context.json(await runPublish(state.asc, parsed.data, state.ascRun))
+    } catch (error) {
+      /* Les étapes franchies partent avec l'échec : « où » est l'information
+         qui distingue un binaire absent d'un lot refusé par Apple. */
+      const steps = stepsOf(error)
+      if (error instanceof AscUnavailableError) {
+        return context.json({ ...fail('asc-unavailable', error.message), steps }, 502)
+      }
+      /* Le sort du téléversement est inconnu : le pont ne rejoue rien de
+         lui-même, parce qu'un second envoi doublerait les captures chez Apple.
+         C'est un 409, pas un 502 : rien ne dit que ça a échoué. */
+      if (error instanceof AscAmbiguousError) {
+        return context.json({ ...fail('ambiguous-timeout', error.message), steps }, 409)
+      }
+      const detail = error instanceof AscFailedError ? error.message : 'Publication interrompue.'
+      return context.json({ ...fail('asc-failed', detail), steps }, 502)
+    }
+  })
+
+  /** Révoquer une capacité : son jeton meurt à l'instant, l'autre survit. */
+  app.post('/pair/revoke', async (context) => {
+    const body = (await context.req.json().catch(() => ({}))) as { capability?: string }
+    const capability = BRIDGE_CAPABILITIES.find((known) => known === body.capability) ?? 'assistant'
+    if (!authorized(capability, context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    state.pairing = revoke(state.pairing, capability)
+    console.log(
+      `\nNouveau jeton « ${capability} » (version ${state.pairing[capability].version}) :\n${state.pairing[capability].token}\n`,
+    )
+    return context.json({ capability, tokenVersion: state.pairing[capability].version })
+  })
+
+  return app
+}
+
+function engineFailure(error: unknown): BridgeError {
+  if (error instanceof ClaudeUnavailableError) {
+    return fail('engine-unavailable', `Claude Code n’a pas répondu. ${error.message}`.trim())
+  }
+  return fail(
+    'invalid-response',
+    error instanceof Error ? error.message : 'Échec de la génération.',
+  )
+}
+
+const GENERIC_HEADLINES = [
+  'essayez et sentez la difference',
+  'a votre rythme a votre image',
+  'retrouvez tout en un instant',
+  'partagez avec ceux qui comptent',
+  'rien d important ne vous echappe',
+  'votre quotidien enfin plus leger',
+] as const
+
+function normalizedCopy(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function normalizedEvidenceCopy(value: string): string {
+  return value.normalize('NFC').toLocaleLowerCase('fr').replace(/\s+/g, ' ').trim()
+}
+
+function claimMatchesEvidence(headline: string, evidence: string): boolean {
+  const normalizedHeadline = normalizedEvidenceCopy(headline)
+  return normalizedHeadline.length > 0 && normalizedHeadline === normalizedEvidenceCopy(evidence)
+}
+
+const MIN_GROUNDING_WORDS = 3
+const MAX_GROUNDING_WORDS = 7
+const MAX_GROUNDING_LENGTH = 72
+
+function words(value: string): string[] {
+  return value.match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu) ?? []
+}
+
+type GroundingFactFailure = 'word-count' | 'too-long' | 'generic'
+
+function groundingFactFailure(value: string): GroundingFactFailure | null {
+  const trimmed = value.trim()
+  const count = words(trimmed).length
+  if (count < MIN_GROUNDING_WORDS || count > MAX_GROUNDING_WORDS) return 'word-count'
+  if (trimmed.length > MAX_GROUNDING_LENGTH) return 'too-long'
+  const normalized = normalizedCopy(trimmed)
+  if (GENERIC_HEADLINES.some((generic) => normalized.includes(generic))) return 'generic'
+  return null
+}
+
+function atomicEvidenceFacts(
+  brief: BridgeBrief,
+  screenshotIndex: number | 'all' | undefined,
+): string[] {
+  const selectedShot =
+    typeof screenshotIndex === 'number' ? brief.screenshots[screenshotIndex] : undefined
+  const descriptions =
+    screenshotIndex === 'all'
+      ? brief.screenshots.flatMap((shot) =>
+          shot.hasAsset && shot.description ? [shot.description] : [],
+        )
+      : selectedShot?.hasAsset && selectedShot.description
+        ? [selectedShot.description]
+        : []
+  const productFacts = (brief.productContext ?? '')
+    .split('\n')
+    .filter((fact) => fact.trim().length > 0)
+  return [brief.pitch, ...descriptions, ...productFacts].filter((fact) => fact.trim().length > 0)
+}
+
+function intrinsicallyEligibleFacts(facts: readonly string[]): string[] {
+  return facts.flatMap((fact) => {
+    const trimmed = fact.trim()
+    return groundingFactFailure(trimmed) ? [] : [trimmed]
+  })
+}
+
+function distinctEligibleFacts(facts: readonly string[]): string[] {
+  const seen = new Set<string>()
+  return intrinsicallyEligibleFacts(facts).flatMap((fact) => {
+    const normalized = normalizedCopy(fact)
+    if (!normalized || seen.has(normalized)) return []
+    seen.add(normalized)
+    return [fact]
+  })
+}
+
+function eligibleGroundingFacts(brief: BridgeBrief): string[] {
+  return distinctEligibleFacts(atomicEvidenceFacts(brief, 'all'))
+}
+
+function eligibleScreenGroundingFacts(
+  brief: BridgeBrief,
+  screenshotIndex: number | undefined,
+): string[] {
+  return intrinsicallyEligibleFacts(atomicEvidenceFacts(brief, screenshotIndex))
+}
+
+function validateBriefGroundingCapacity(brief: BridgeBrief, count: number): string | null {
+  const missing = count - eligibleGroundingFacts(brief).length
+  if (missing <= 0) return null
+  return `Ajoutez ${missing} accroche${missing > 1 ? 's' : ''} produit vérifiée${missing > 1 ? 's' : ''} de 3 à 7 mots, spécifique${missing > 1 ? 's' : ''} et de ${MAX_GROUNDING_LENGTH} caractères maximum, ou réduisez le nombre de visuels.`
+}
+
+function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | null {
+  const expected = brief.screenCount ?? Math.max(1, brief.screenshots.length)
+  if (plan.screens.length !== expected) {
+    return `Le modèle a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected}.`
+  }
+  const seen = new Set<string>()
+  for (const [index, screen] of plan.screens.entries()) {
+    const normalized = normalizedCopy(screen.headline)
+    const factFailure = groundingFactFailure(screen.headline)
+    if (factFailure === 'word-count') {
+      return `L’accroche ${index + 1} doit contenir entre 3 et 7 mots.`
+    }
+    if (factFailure === 'too-long') {
+      return `L’accroche ${index + 1} dépasse ${MAX_GROUNDING_LENGTH} caractères.`
+    }
+    if (factFailure === 'generic') {
+      return `L’accroche ${index + 1} est trop générique pour ce produit.`
+    }
+    if (seen.has(normalized)) return `L’accroche ${index + 1} répète une autre proposition.`
+    seen.add(normalized)
+    const shot =
+      screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
+    if (screen.screenshotIndex !== undefined && !shot?.hasAsset) {
+      return `L’accroche ${index + 1} désigne une capture indisponible.`
+    }
+    const evidence = screen.evidence.trim()
+    const normalizedEvidence = normalizedEvidenceCopy(evidence)
+    if (
+      !normalizedEvidence ||
+      !claimMatchesEvidence(screen.headline, evidence) ||
+      !eligibleScreenGroundingFacts(brief, screen.screenshotIndex).some(
+        (fact) => normalizedEvidenceCopy(fact) === normalizedEvidence,
+      )
+    ) {
+      return `L’accroche ${index + 1} n’est justifiée par aucun fait du brief.`
+    }
+  }
+  return null
+}
+
+/**
+ * Ce qui est envoyé au modèle : un brief, des contraintes, aucune image.
+ *
+ * Le prompt dit explicitement que la réponse sera exécutée par un constructeur
+ * déterministe, parce que c'est vrai et que cela évite au modèle de proposer ce
+ * que les outils n'acceptent pas.
+ */
+function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): string {
+  const { brief } = request
+  const count = brief.screenCount ?? Math.max(1, brief.screenshots.length)
+  const shots = brief.screenshots
+    .map(
+      (shot, index) =>
+        `${index}. ${shot.label}${shot.hasAsset ? ' (capture fournie)' : ''}${shot.description ? ` — ${shot.description}` : ''}`,
+    )
+    .join('\n')
+  return [
+    'Tu es directeur artistique de la fiche App Store d’une application iOS.',
+    'Tu écris les accroches des visuels de la fiche — ces images que l’utilisateur',
+    'fait défiler avant de télécharger. Les trois premières décident du',
+    'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
+    '',
+    `Application : ${brief.appName}.`,
+    brief.pitch ? `Ce qu’elle fait :\n${brief.pitch}` : '',
+    brief.productContext
+      ? `Accroches produit vérifiées (une par ligne) :\n${brief.productContext}`
+      : '',
+    brief.landingUrl
+      ? `Provenance des faits : ${brief.landingUrl}. Ne déduis rien de cette URL et ne prétends pas l’avoir consultée.`
+      : '',
+    `Style visuel imposé : ${brief.direction}.`,
+    `Appareil imposé : ${request.deviceModel}.`,
+    `Nombre de visuels à proposer : exactement ${count}.`,
+    shots
+      ? `Captures décrites par l’utilisateur, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex. Les visuels au-delà de cette liste n’ont pas de capture : laisse screenshotIndex absent.`
+      : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',
+    '',
+    'Écriture des accroches :',
+    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
+    '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
+    '  enfin lisibles » et non « Tableau de bord ».',
+    '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
+    '  l’application, aucun point final, aucune majuscule décorative.',
+    '— Ni superlatif creux ni jargon : pas de « révolutionnaire », « puissant »,',
+    '  « ultime », « nouvelle génération », « propulsé par l’IA ».',
+    '— Le premier visuel porte la promesse générale, les suivants une',
+    '  fonctionnalité concrète chacun. Une conclusion ne peut appeler à l’essai',
+    '  que si le brief contient un fait précis qui la justifie.',
+    '— Le pitch entier, chaque description de capture associée et chaque ligne',
+    '  des accroches produit vérifiées sont des faits atomiques. Seuls les faits',
+    '  de trois à sept mots, spécifiques au produit et de 72 caractères maximum',
+    '  sont éligibles.',
+    '  evidence reprend en entier soit une de ces lignes, soit le pitch entier,',
+    '  soit la description entière de la capture associée — jamais un fragment.',
+    '  headline et evidence sont littéralement identiques hors casse et espaces :',
+    '  mêmes accents, signes et ponctuation ; sans omission, enrichissement ni paraphrase.',
+    '  Sélectionne et ordonne ces accroches ; l’utilisateur pourra les',
+    '  réécrire ensuite dans la revue. N’invente jamais une preuve et ne cite',
+    '  jamais l’URL comme preuve.',
+    '',
+    'name est un nom d’écran court, pour la barre de l’éditeur.',
+    'slot est un identifiant en minuscules, chiffres et traits d’union.',
+    '',
+    'Rends uniquement le JSON du plan, conforme au schéma fourni.',
+    'Tu écris les mots, et rien d’autre. La composition de chaque visuel — mise en',
+    'page, fond, couleurs, cadrage de l’appareil — est décidée par ScreenForge à',
+    'partir du style imposé et du rang du visuel. N’en propose aucune : le schéma',
+    'ne la reçoit pas, et elle serait ignorée sans avertissement.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
+ * Ce qui est demandé au modèle : traduire, pas réécrire.
+ *
+ * L'ordre et le nombre sont exigés parce que la page rattache par position, et
+ * la brièveté parce qu'une accroche traduite qui double de longueur déborde de
+ * la boîte où elle est posée — la revue le signalera, mais autant ne pas le
+ * provoquer.
+ */
+function translatePrompt(request: TranslateRequest): string {
+  return [
+    `Traduis en ${request.target.name} (${request.target.code}) les accroches de captures App Store ci-dessous.`,
+    'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
+    'Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.',
+    'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
+    '',
+    ...request.texts.map((text, index) => `${index + 1}. ${text}`),
+  ].join('\n')
+}
+
+export function createState(): BridgeState {
+  return {
+    pairing: createPairing(),
+    asc: createAscState(),
+    ascRun: execRunner,
+    assistantRun: runClaudeTurn,
+    assistantProbe: claudeVersion,
+  }
+}

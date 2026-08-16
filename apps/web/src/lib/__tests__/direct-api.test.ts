@@ -1,0 +1,712 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { apiKey, connectApiProvider, extractJson, planViaApi, setApiKey } from '@/lib/ai/direct-api'
+import { backgroundFor } from '@/lib/ai/archetypes'
+import { planScreenLayout } from '@/lib/ai/plan'
+import type { CampaignBrief } from '@/lib/ai/plan'
+
+/**
+ * Ce que la page promet au sujet des fournisseurs à clé.
+ *
+ * Trois promesses, et ce sont celles qui coûteraient cher si elles étaient
+ * fausses : **aucune image ne part**, **la clé n'est écrite nulle part**, et
+ * **le brief revient tel que l'utilisateur l'a choisi**. Un modèle distant a le
+ * droit d'écrire les mots ; il n'a pas le droit de changer la palette, le nom de
+ * l'application ni le nombre de visuels demandés.
+ *
+ * Aucun identifiant réel : la clé est une chaîne factice, l'API un `fetch`
+ * simulé. Rien de ce fichier ne sort de la machine.
+ */
+
+const KEY = '[REDACTED]'
+
+const BRIEF: CampaignBrief = {
+  appName: 'Cadence',
+  pitch: 'Le rythme de vos journées',
+  productContext: 'Planifiez votre semaine\r\n\r\nGardez chaque priorité',
+  direction: 'sobre',
+  screenCount: 2,
+  deviceModel: 'iphone-17-pro',
+  screenshots: [
+    {
+      label: 'Accueil',
+      description: 'Vue d’ensemble des priorités de la journée',
+      assetId: 'asset-1',
+      size: { width: 1320, height: 2868 },
+    },
+    { label: 'Budget' },
+  ],
+  logo: { assetId: 'asset-logo', size: { width: 512, height: 512 } },
+}
+
+function respond(routes: Record<string, { status?: number; body: unknown }>) {
+  const calls: { url: string; init?: RequestInit }[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      const route = Object.entries(routes).find(([path]) => url.includes(path))
+      if (!route) throw new TypeError('Failed to fetch')
+      const [, answer] = route
+      return {
+        ok: (answer.status ?? 200) < 400,
+        status: answer.status ?? 200,
+        json: async () => answer.body,
+      } as Response
+    }),
+  )
+  return calls
+}
+
+/** Un plan écrit par le modèle, avec de quoi vérifier ce qui est repris de force. */
+function answering(
+  text: string,
+  provider: 'anthropic' | 'openrouter' = 'anthropic',
+): Record<string, { status?: number; body: unknown }> {
+  return provider === 'anthropic'
+    ? { '/messages': { body: { content: [{ type: 'text', text }] } } }
+    : { '/chat/completions': { body: { choices: [{ message: { content: text } }] } } }
+}
+
+const WRITTEN = JSON.stringify({
+  screens: [
+    {
+      name: 'Accueil',
+      headline: 'Le rythme de vos journées',
+      evidence: 'Le rythme de vos journées',
+      slot: 'Accueil Principal',
+      background: { color: '#101114' },
+      screenshotIndex: 0,
+    },
+    {
+      name: 'Budget',
+      headline: 'Gardez chaque priorité',
+      evidence: 'gardez chaque priorité',
+      background: { color: 'pas une couleur' },
+    },
+  ],
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  setApiKey('anthropic', '')
+  setApiKey('openrouter', '')
+})
+
+/**
+ * Un stockage qui enregistre au lieu de stocker.
+ *
+ * Le test tourne sans navigateur, donc il n'y a rien à relire après coup : ce
+ * qui est vérifié est qu'aucune écriture n'est **tentée**. C'est la forme forte
+ * — un `setItem` ajouté demain à `direct-api.ts` ferait tomber ce test, là où
+ * relire un stockage vide n'aurait rien prouvé de plus qu'en l'absence du
+ * navigateur.
+ */
+function recordingStorage() {
+  const writes: string[] = []
+  const fake = {
+    setItem: (_name: string, value: string) => writes.push(value),
+    getItem: () => null,
+    removeItem: () => undefined,
+    clear: () => undefined,
+    key: () => null,
+    length: 0,
+  }
+  vi.stubGlobal('localStorage', fake)
+  vi.stubGlobal('sessionStorage', fake)
+  return writes
+}
+
+describe('la clé reste en mémoire', () => {
+  it('ne l’écrit ni dans le stockage local, ni dans le stockage de session', () => {
+    const writes = recordingStorage()
+    setApiKey('anthropic', KEY)
+    expect(apiKey('anthropic')).toBe(KEY)
+    expect(writes).toEqual([])
+  })
+
+  it('garde les deux fournisseurs séparés : une clé ne vaut pas pour l’autre', () => {
+    setApiKey('anthropic', KEY)
+    expect(apiKey('openrouter')).toBe('')
+  })
+})
+
+describe('connexion', () => {
+  it('valide la clé en demandant le catalogue, sans facturer un tour', async () => {
+    const calls = respond({
+      '/models': { body: { data: [{ id: 'claude-x', display_name: 'Claude X' }] } },
+    })
+    const status = await connectApiProvider('anthropic', KEY)
+    expect(status).toMatchObject({ state: 'ready', models: [{ id: 'claude-x' }] })
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toContain('/models')
+  })
+
+  it('présente la clé d’Anthropic là où Anthropic l’attend, et pas ailleurs', async () => {
+    const calls = respond({ '/models': { body: { data: [{ id: 'claude-x' }] } } })
+    await connectApiProvider('anthropic', KEY)
+    const headers = calls[0].init?.headers as Record<string, string>
+    expect(headers['x-api-key']).toBe(KEY)
+    expect(headers).not.toHaveProperty('Authorization')
+    expect(headers['anthropic-version']).toBeTruthy()
+  })
+
+  it('présente la clé d’OpenRouter en porteur', async () => {
+    const calls = respond({ '/models': { body: { data: [{ id: 'un/modele' }] } } })
+    await connectApiProvider('openrouter', KEY)
+    const headers = calls[0].init?.headers as Record<string, string>
+    expect(headers.Authorization).toBe(`Bearer ${KEY}`)
+    expect(headers).not.toHaveProperty('x-api-key')
+  })
+
+  it('dit quoi faire d’une clé refusée, pas un code', async () => {
+    respond({ '/models': { status: 401, body: {} } })
+    const status = await connectApiProvider('anthropic', KEY)
+    expect(status.state).toBe('error')
+    expect(status).toHaveProperty('message', expect.stringContaining('recopiée'))
+  })
+
+  it('ne prétend pas être connecté sur un catalogue vide', async () => {
+    respond({ '/models': { body: { data: [] } } })
+    expect((await connectApiProvider('anthropic', KEY)).state).toBe('error')
+  })
+})
+
+describe('plan via une API', () => {
+  it('n’envoie aucune image, ni son identifiant', async () => {
+    const calls = respond(answering(WRITTEN))
+    await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
+    const sent = String(calls[0].init?.body)
+    expect(sent).not.toContain('asset-1')
+    expect(sent).not.toContain('asset-logo')
+    expect(sent).not.toContain('data:')
+    // Les libellés partent, eux : c'est ce qui permet au modèle d'écrire dans
+    // l'ordre des captures, et c'est ce que le fournisseur annonce.
+    expect(sent).toContain('Accueil')
+    expect(sent).toContain('Planifiez votre semaine')
+    expect(sent).toContain('Vue d’ensemble des priorités')
+    expect(sent).toContain('Accroches produit vérifiées (une par ligne)')
+    expect(sent).toContain('Trois à sept mots')
+    expect(sent).toContain('chaque description de capture associée')
+    expect(sent).toContain('Seuls les faits')
+    expect(sent).toContain('de trois à sept mots, spécifiques au produit')
+    expect(sent).toContain('72 caractères maximum')
+    expect(sent).toContain('soit le pitch entier')
+    expect(sent).toContain('soit la description entière de la capture associée')
+    expect(sent).toContain('jamais un fragment')
+    expect(sent).toContain('identiques hors casse et espaces')
+    expect(sent).toContain('mêmes accents, signes et ponctuation')
+    expect(sent).toContain('sans omission, enrichissement ni paraphrase')
+    expect(sent).toContain('réécrire ensuite dans la revue')
+  })
+
+  it('refuse un brief insuffisant avant tout appel facturable', async () => {
+    const calls = respond(answering(WRITTEN))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext: undefined,
+          screenCount: 4,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('ne compte qu’une fois les doublons et ignore les atomes de 2 ou 8 mots', async () => {
+    const calls = respond(answering(WRITTEN))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Budget mensuel toujours clair',
+          productContext:
+            '  BUDGET   MENSUEL TOUJOURS CLAIR  \nBudget clair\nUn deux trois quatre cinq six sept huit',
+          screenCount: 4,
+          screenshots: [
+            {
+              label: 'Budget',
+              description: 'budget mensuel toujours clair',
+              assetId: 'asset-duplicate',
+            },
+          ],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('applique au préflight les collisions finales, les génériques et la limite de 72 caractères', async () => {
+    const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'
+    const cases = [
+      {
+        pitch: 'Budget éclairé chaque mois',
+        productContext: 'Budget eclaire chaque mois\nBudget éclairé, chaque mois!',
+        screenCount: 3,
+      },
+      {
+        pitch: 'À votre rythme, à votre image',
+        productContext: undefined,
+        screenCount: 1,
+      },
+      { pitch: tooLong, productContext: undefined, screenCount: 1 },
+    ] as const
+    for (const entry of cases) {
+      const calls = respond(answering(WRITTEN))
+      await expect(
+        planViaApi('anthropic', { ...BRIEF, ...entry, screenshots: [] }, KEY, 'claude-x'),
+      ).rejects.toThrow(/Ajoutez .*réduisez le nombre/i)
+      expect(calls).toHaveLength(0)
+    }
+  })
+
+  it('appelle le fournisseur quand quatre faits distincts couvrent quatre visuels', async () => {
+    const facts = [
+      'Budget mensuel toujours clair',
+      'Dépenses importantes bien anticipées',
+      'Objectifs annuels toujours visibles',
+      'Épargne sous contrôle',
+    ] as const
+    const screens = facts.map((fact, index) => ({
+      name: `Visuel ${index + 1}`,
+      headline: fact,
+      evidence: fact,
+    }))
+    const calls = respond(answering(JSON.stringify({ screens })))
+    const plan = await planViaApi(
+      'anthropic',
+      {
+        ...BRIEF,
+        pitch: facts[0],
+        productContext: facts.slice(1).join('\n'),
+        screenCount: 4,
+        screenshots: [],
+      },
+      KEY,
+      'claude-x',
+    )
+    expect(calls).toHaveLength(1)
+    expect(plan.screens).toHaveLength(4)
+  })
+
+  it('reprend de force ce que l’utilisateur a choisi', async () => {
+    respond(answering(JSON.stringify({ ...JSON.parse(WRITTEN), appName: 'Autre nom' })))
+    const custom = { background: '#0a0b0c', ink: '#ffffff', accent: '#ff00aa' }
+    const plan = await planViaApi('anthropic', { ...BRIEF, palette: custom }, KEY, 'claude-x')
+    expect(plan.appName).toBe('Cadence')
+    expect(plan.direction).toBe('sobre')
+    expect(plan.deviceModel).toBe('iphone-17-pro')
+    expect(plan.palette).toEqual(custom)
+  })
+
+  it('refuse un compte différent au lieu de tronquer silencieusement', async () => {
+    respond(answering(JSON.stringify({ screens: [JSON.parse(WRITTEN).screens[0]] })))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/au lieu de 2/)
+  })
+
+  it('borne la demande au plafond du projet tout en exigeant le compte exact', async () => {
+    const sources = Array.from({ length: 10 }, (_unused, index) => `Gardez priorité ${index + 1}`)
+    const screens = Array.from({ length: 10 }, (_unused, index) => ({
+      name: `Visuel ${index + 1}`,
+      headline: `Gardez priorité ${index + 1}`,
+      evidence: `Gardez priorité ${index + 1}`,
+    }))
+    respond(answering(JSON.stringify({ screens })))
+    const plan = await planViaApi(
+      'anthropic',
+      { ...BRIEF, productContext: sources.join('\r\n\r\n'), screenCount: 20 },
+      KEY,
+      'claude-x',
+    )
+    expect(plan.screens).toHaveLength(10)
+  })
+
+  it('normalise le rôle et laisse sans appareil un visuel sans index disponible', async () => {
+    respond(answering(WRITTEN))
+    const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
+    expect(plan.screens[0].slot).toBe('accueil-principal')
+    expect(plan.screens[0].screenshotIndex).toBe(0)
+    expect(plan.screens[1].screenshotIndex).toBeUndefined()
+  })
+
+  it('refuse un index de capture invalide avant de normaliser le plan', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].screenshotIndex = 7
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/indisponible/)
+  })
+
+  it('refuse un texte trop long au lieu de le tronquer', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].headline = 'x'.repeat(73)
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/hors contrat/)
+  })
+
+  it('refuse une accroche qui occuperait plus de trois lignes', async () => {
+    const invalid = JSON.parse(WRITTEN)
+    invalid.screens[0].headline = 'Wmmmmmmmmmmm Wmmmmmmmmmmm Wmmmmmmmmmmm'
+    respond(answering(JSON.stringify(invalid)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/trois lignes/)
+  })
+
+  it('compose le fond depuis le rang, et non depuis ce que le modèle a proposé', async () => {
+    respond(answering(WRITTEN))
+    const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
+    /* Le modèle a rendu « #101114 » sur le premier visuel et « pas une
+       couleur » sur le second. Ni l'un ni l'autre n'arrive : le fond appartient
+       à la composition, la composition au rang, et le visuel planifié n'en
+       porte aucun. Deux visuels voisins ne partagent donc jamais le même. */
+    expect(plan.screens[0]).not.toHaveProperty('background')
+    const fonds = plan.screens.map(
+      (_unused, index) => planScreenLayout(plan, BRIEF, index)?.background,
+    )
+    expect(fonds[0]).toEqual(backgroundFor(plan.screens[0].layout, plan.palette))
+    expect(fonds[1]).toEqual(backgroundFor(plan.screens[1].layout, plan.palette))
+    expect(fonds[0]).not.toEqual(fonds[1])
+  })
+
+  it('n’envoie plus au modèle de couleur à choisir', async () => {
+    const calls = respond(answering(WRITTEN))
+    await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
+    expect(String(calls[0].init?.body)).not.toContain('background')
+  })
+
+  it('refuse une accroche générique ou une preuve absente du brief', async () => {
+    const generic = JSON.parse(WRITTEN)
+    generic.screens[0].headline = 'Essayez et sentez la différence'
+    respond(answering(JSON.stringify(generic)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/générique/)
+
+    const invented = JSON.parse(WRITTEN)
+    invented.screens[0].evidence = 'Synchronisation bancaire automatique'
+    respond(answering(JSON.stringify(invented)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
+
+    const sharedDomain = {
+      screens: [
+        {
+          name: 'Budget',
+          headline: 'Suivez votre budget en couple',
+          evidence: 'Suivez votre budget mois par mois',
+        },
+      ],
+    }
+    respond(answering(JSON.stringify(sharedDomain)))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: 'Suivez votre budget mois par mois',
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/aucun fait/)
+  })
+
+  it('refuse une variation grammaticale absente de la preuve', async () => {
+    const rewritten = JSON.parse(WRITTEN)
+    rewritten.screens[0].headline = 'Rythmez vos journées'
+    respond(answering(JSON.stringify(rewritten)))
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(/aucun fait/)
+  })
+
+  it('refuse les inversions de relation et de quantité malgré le reste du vocabulaire', async () => {
+    const contradictions = [
+      ['Votre budget avec connexion bancaire', 'Votre budget sans connexion bancaire'],
+      ['Anticipez plus vos dépenses', 'Anticipez moins vos dépenses'],
+      ['Gagnez plus et dépensez moins', 'Gagnez moins et dépensez plus'],
+      ['Planifiez avant et payez après', 'Planifiez après et payez avant'],
+      ['Budget IA sans clé', 'Budget web sans clé'],
+      ['Votre App pro', 'Votre App web'],
+      ['Économisez 1€ par mois', 'Économisez 9€ par mois'],
+      ['Économisez 9€ par mois', 'Économisez 9$ par mois'],
+      ['Exportez PDF et ZIP', 'Exportez PDF ou ZIP'],
+      ['Atteignez 50% cette année', 'Atteignez 75% cette année'],
+      ['Planifiez deux budgets annuels', 'Planifiez neuf budgets annuels'],
+      ['Votre solde passe à +9€', 'Votre solde passe à −9€'],
+      ['Plan h inclus', 'Plan s inclus'],
+      ['Mode X activé', 'Mode Y activé'],
+      ['Votre solde:+9€ confirmé', 'Votre solde:-9€ confirmé'],
+      ['Votre accès premium garanti', 'Votre accès premier garanti'],
+      ['Votre budget jamais dépassé', 'Votre budget dépassé'],
+      ['Votre budget sauf imprévus', 'Votre budget imprévus'],
+      ['Budget environ 9€ garanti', 'Budget 9€ garanti'],
+      ['Budget reste < 9€', 'Budget reste > 9€'],
+      ['Budget reste ≤ 9€', 'Budget reste ≥ 9€'],
+      ['Budget vaut ≈ 9€', 'Budget vaut 9€'],
+      ['Budget reste ≠ zéro', 'Budget reste zéro'],
+      ['Budget suit ⊕ objectif', 'Budget suit ⊗ objectif'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+      ['Votre budget clé locale', 'Votre budget cle locale'],
+      ['Votre budget connecté', 'Votre budget non connecté'],
+      ['Votre budget non connecté', 'Votre budget connecté'],
+    ] as const
+    for (const [headline, evidence] of contradictions) {
+      respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: evidence,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
+  })
+
+  it('accepte les relations et quantités quand la preuve les dit exactement', async () => {
+    const facts = [
+      'Votre budget sans connexion bancaire',
+      'Anticipez moins vos dépenses',
+      'Gagnez plus et dépensez moins',
+      'Planifiez avant et payez après',
+      'Budget IA sans clé',
+      'Économisez 1€ par mois',
+      'Économisez 9$ par mois',
+      'Exportez PDF et ZIP',
+      'Atteignez 50% cette année',
+      'Planifiez deux budgets annuels',
+      'Votre solde passe à +9€',
+      'Plan h inclus',
+      'Mode X activé',
+      'Votre solde:+9€ confirmé',
+      'Votre accès premium garanti',
+      'Budget reste ≤ 9€',
+      'Budget vaut ≈ 9€',
+      'Budget reste ≠ zéro',
+      'Budget suit ⊕ objectif',
+      'Budget reste stable !',
+      'Votre budget connecté',
+      'Votre budget non connecté',
+    ] as const
+    for (const fact of facts) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: fact,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).resolves.toBeDefined()
+    }
+  })
+
+  it('accepte une copie exacte après normalisation de la casse et des espaces', async () => {
+    const headline = 'Votre budget IA sans clé'
+    const evidence = '  VOTRE   BUDGET IA SANS CLÉ  '
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).resolves.toBeDefined()
+  })
+
+  it('refuse une evidence enrichie même quand les termes du claim restent dans l’ordre', async () => {
+    const headline = 'Gagnez plus dépensez moins'
+    const evidence = 'Gagnez vraiment plus, dépensez durablement moins'
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/aucun fait/)
+  })
+
+  it('exige aussi que la preuve soit littéralement identique à la source', async () => {
+    for (const [fact, source] of [
+      ['Votre budget clé locale', 'Votre budget cle locale'],
+      ['Budget reste stable !', 'Budget reste stable ?'],
+    ] as const) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: source,
+            productContext: undefined,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
+  })
+
+  it('accepte chacune des lignes produit non vides comme un fait atomique', async () => {
+    const productContext = 'Première accroche produit\r\n\r\n   \r\nDeuxième accroche validée\r\n'
+    for (const fact of ['Première accroche produit', 'Deuxième accroche validée']) {
+      respond(
+        answering(
+          JSON.stringify({ screens: [{ name: 'Budget', headline: fact, evidence: fact }] }),
+        ),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).resolves.toBeDefined()
+    }
+  })
+
+  it('refuse un fragment, un enrichissement et les anciens bypass de sous-chaîne', async () => {
+    const fragments = [
+      ['Budget chaque mois', 'Planifiez votre budget chaque mois'],
+      ['Votre budget toujours sous contrôle', 'Budget toujours sous contrôle'],
+      ['Votre budget dépassé', 'Jamais votre budget dépassé'],
+      ['Votre budget reste stable', 'Sauf exception votre budget reste stable'],
+      ['9€ économisés chaque mois', 'Environ 9€ économisés chaque mois'],
+      ['Budget reste stable', 'Budget reste stable < 9€'],
+      ['Votre accès premium', 'Votre accès premium/premier'],
+      ['Économisez exactement 9€', 'Économisez exactement 9€/9$'],
+      ['Exportez le PDF', 'Exportez le PDF et/ou le ZIP'],
+      ['Votre budget connecté', 'Votre budget connecté/non connecté'],
+    ] as const
+    for (const [evidence, source] of fragments) {
+      respond(
+        answering(JSON.stringify({ screens: [{ name: 'Budget', headline: evidence, evidence }] })),
+      )
+      await expect(
+        planViaApi(
+          'anthropic',
+          {
+            ...BRIEF,
+            pitch: 'Le rythme de vos journées',
+            productContext: `\r\n${source}\r\n\r\n`,
+            screenCount: 1,
+            screenshots: [],
+          },
+          KEY,
+          'claude-x',
+        ),
+      ).rejects.toThrow(/aucun fait/)
+    }
+  })
+
+  it('accepte plusieurs accroches Pulpe entièrement reprises de leur preuve', async () => {
+    const cases = [
+      ['Suivez votre budget chaque mois', 'Suivez votre budget chaque mois'],
+      ['Planifiez votre budget sur l’année', 'Planifiez votre budget sur l’année'],
+    ] as const
+    for (const [headline, evidence] of cases) {
+      respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+      const plan = await planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      )
+      expect(plan.screens[0].headline).toBe(headline)
+    }
+  })
+
+  it('refuse les variations morphologiques même quand leur préfixe correspond', async () => {
+    const headline = 'Planifiez vos budgets annuels'
+    const evidence = 'Planification de votre budget annuel'
+    respond(answering(JSON.stringify({ screens: [{ name: 'Budget', headline, evidence }] })))
+    await expect(
+      planViaApi(
+        'anthropic',
+        {
+          ...BRIEF,
+          appName: 'Pulpe',
+          pitch: evidence,
+          productContext: undefined,
+          screenCount: 1,
+          screenshots: [],
+        },
+        KEY,
+        'claude-x',
+      ),
+    ).rejects.toThrow(/aucun fait/)
+  })
+
+  it('accepte un JSON encadré de politesses plutôt que de faire repayer le tour', async () => {
+    respond(answering(`Voici le plan :\n\`\`\`json\n${WRITTEN}\n\`\`\`\nBonne journée.`))
+    const plan = await planViaApi('anthropic', BRIEF, KEY, 'claude-x')
+    expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
+  })
+
+  it('refuse une réponse qui ne contient aucun JSON', () => {
+    expect(() => extractJson('Je ne peux pas vous aider.')).toThrow()
+  })
+
+  it('passe par OpenRouter quand c’est OpenRouter qui est choisi', async () => {
+    const calls = respond(answering(WRITTEN, 'openrouter'))
+    const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
+    expect(calls[0].url).toContain('openrouter.ai')
+    expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
+  })
+})

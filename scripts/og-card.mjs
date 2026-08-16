@@ -12,10 +12,10 @@ import { chromium } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const out = fileURLToPath(new URL('../public/og-landing.png', import.meta.url))
+const out = fileURLToPath(new URL('../apps/web/public/og-landing.png', import.meta.url))
 /* Les woff2 sont chargés par URL de fichier : `setContent` sert une page
    `about:blank`, où un chemin relatif ne résout rien. */
-const FONTS = new URL('../public/fonts', import.meta.url).href
+const FONTS = new URL('../apps/web/public/fonts', import.meta.url).href
 
 /* La carte disait « Ten iPhone screens » et en dessinait neuf. Le nombre est
    lu dans `dimensions.ts` plutôt que recopié : il apparaît deux fois sur cette
@@ -23,7 +23,7 @@ const FONTS = new URL('../public/fonts', import.meta.url).href
    ensemble. */
 const SCREENS = Number(
   /MAX_PROJECT_SCREENS = (\d+)/.exec(
-    readFileSync(new URL('../src/lib/dimensions.ts', import.meta.url), 'utf8'),
+    readFileSync(new URL('../apps/web/src/lib/dimensions.ts', import.meta.url), 'utf8'),
   )?.[1],
 )
 
@@ -67,7 +67,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   <h1>App Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
     <p class="lede">${SCREENS} iPhone screens, one ZIP, exported at native 1320&times;2868.
-      <span class="price">$49 <span class="mark">once</span>.</span></p>
+      <span class="price">$49 <span class="mark">Local</span> or $39/year Cloud.</span></p>
     <div class="strip" style="--sheets:${SCREENS}">${sheets}</div>
   </div>
 </body></html>`

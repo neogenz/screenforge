@@ -6,10 +6,21 @@ import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist', 'test-results', 'playwright-report'] },
+  {
+    ignores: [
+      '**/dist',
+      '**/dist-ssr',
+      '**/build',
+      '**/test-results',
+      '**/playwright-report',
+      '.claude/worktrees/**',
+      // Écrit par `convex dev`, réécrit à chaque poussée : le corriger ne tient pas.
+      '**/convex/_generated',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/*/src/**/*.{ts,tsx}', 'packages/*/src/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -25,15 +36,25 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['e2e/**/*.ts'],
+    files: ['apps/*/e2e/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },
     },
   },
   {
+    // Les fonctions Convex ne vivent pas dans `src/` : sans ce bloc, tout le
+    // backend serait le seul code du dépôt que rien ne relit.
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['*.config.ts'],
+    files: ['apps/backend/**/*.ts'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+    },
+  },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['apps/*/*.config.ts'],
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.node,

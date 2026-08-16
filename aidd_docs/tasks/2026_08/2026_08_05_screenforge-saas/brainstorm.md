@@ -70,6 +70,15 @@ Partage des responsabilités :
 
 ## Hypothèses ouvertes & risques (à trancher au design)
 
+> Document daté du 2026-08-05, conservé tel quel — il enregistre ce qui était su
+> ce jour-là. Deux points ci-dessous ont été tranchés depuis, contre ce qui était
+> supposé ici : le **2** (le pricing n'est pas un abonnement mais une licence
+> perpétuelle plus un add-on annuel, et la limite du gratuit porte sur l'export)
+> et le **5** (Merchant of Record, donc la TVA n'est plus à notre charge —
+> Stripe direct est écarté). Voir
+> [`../2026_08_06_offre-commerciale/pricing.md`](../2026_08_06_offre-commerciale/pricing.md)
+> et le [plan](./plan.md) réaligné le 2026-08-07.
+
 1. **Sync IDB → cloud** : stratégie de conflit (last-write-wins ? versioning ?), déclencheur (manuel/auto), file offline — le vrai sujet de design.
 2. **Modèle de pricing** : gratuit limité vs payant, limites (projets, exports) — impacte schéma DB et Stripe.
 3. **Migration anonyme → compte** : rattacher un projet local à un compte après inscription (probablement oui, à spécifier).

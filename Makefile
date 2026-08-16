@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev preview build typecheck lint test test-unit test-e2e test-release audit-contrast validate-export
+.PHONY: help dev dev-backend preview build typecheck lint test test-unit test-e2e test-release audit-contrast validate-export
 
 help:
 	@printf '%s\n' \
 		'ScreenForge workflows:' \
 		'  make dev                         Start the development server' \
+		'  make dev-backend                 Start the local Convex deployment' \
 		'  make preview                     Preview the production build' \
 		'  make build                       Build the production application' \
 		'  make typecheck                   Check TypeScript types' \
@@ -19,6 +20,9 @@ help:
 
 dev:
 	pnpm run dev
+
+dev-backend:
+	pnpm run dev:backend
 
 preview:
 	pnpm run preview

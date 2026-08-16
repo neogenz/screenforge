@@ -1,0 +1,797 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@source "../index.html";
+@source "./**/*.tsx";
+@source "./**/*.ts";
+
+/*
+ * ScreenForge — design system.
+ *
+ * La nomenclature est celle de shadcn : `background`, `card`, `popover`,
+ * `muted`, `secondary`, `accent`, `border`, `input`, `ring`, `destructive`.
+ * Tout composant shadcn posé ici s'habille sans pont ni surcharge. Ce fichier
+ * n'ajoute que ce que shadcn n'a pas et que le produit exige : un fond de
+ * scène, une marque d'état, deux signaux non destructifs, le chrome d'artboard
+ * et un empilement nommé.
+ *
+ * Le chrome reste à chroma 0 : la seule couleur du produit vient des artboards,
+ * et un chrome teinté fausserait le jugement de l'utilisateur sur ses propres
+ * couleurs. Une exception, le citron `marker` : il ne dit jamais « action », il
+ * dit « ici » — outil actif, écran courant, focus, ligne sélectionnée. Il porte
+ * ce nom et non `accent` parce que chez shadcn `accent` est la surface de
+ * survol neutre ; garder le citron sous ce nom piégerait tout composant amont.
+ * L'action primaire, elle, reste un aplat clair : deux couleurs qui crient font
+ * une interface sans hiérarchie.
+ *
+ * Séparation par la matière plutôt que par le trait : en sombre les bordures
+ * s'effacent et c'est l'ombre portée qui détache les surfaces.
+ * Typographie : Inter variable, une seule famille, chiffres tabulaires natifs.
+ * Motion : ease-out expo, 120–200ms, transform/opacité uniquement.
+ */
+/* `static` et non `@theme` seul : par défaut Tailwind n'émet que les variables
+   dont une utilitaire est effectivement générée, ce qui laissait les paires
+   `*-foreground` absentes de `:root` alors que le bloc `.light`, écrit à la
+   main, les déclarait toutes. Le contrat shadcn doit être complet des deux
+   côtés — sans quoi « poser un composant amont sans pont » n'est vrai qu'après
+   qu'un fichier l'ait déjà référencé. */
+@theme static {
+  /* ── Surfaces (dark, défaut) — chroma 0, la scène est le point le plus sombre ── */
+  /* Ajout produit : shadcn n'a pas de fond de scène. C'est le fond derrière les
+     artboards, plus sombre que tout le reste, et il reste à 0.145 et non au noir
+     pur — un entourage noir maximise le contraste simultané autour d'un artboard
+     clair et fausse le jugement couleur, qui est la tâche du produit. */
+  --color-stage: oklch(0.145 0 0);
+  /* L'encre du grain de la scène. Décoratif et rien d'autre : il ne porte
+     aucune information, donc il ne passe pas la matrice de contraste — un alpha
+     de 5% y échouerait par construction, pour la seule raison qu'il n'est pas
+     du texte. Chroma 0 comme tout ce qui borde la planche. */
+  --color-stage-dot: oklch(1 0 0 / 0.055);
+  --color-background: oklch(0.175 0 0);
+  --color-card: oklch(0.215 0 0);
+  --color-popover: oklch(0.215 0 0);
+  /* En creux : plus sombre que la carte qui le porte. C'est ce qui fait lire un champ. */
+  --color-muted: oklch(0.165 0 0);
+  /* En relief : au-dessus de la carte. Boutons au repos, options actives, vignettes. */
+  --color-secondary: oklch(0.26 0 0);
+  /* Un palier au-dessus du relief : c'est le rôle de `accent` chez shadcn, la
+     surface de survol neutre. L'état « sélectionné » ou « ouvert » redescend sur
+     `secondary`, comme le fait `data-[state=on]` en amont. */
+  --color-accent: oklch(0.3 0 0);
+
+  /* Luminances choisies pour tenir 4.5:1 sur stage, background, card, muted et secondary. */
+  --color-foreground: oklch(0.97 0 0);
+  --color-card-foreground: oklch(0.97 0 0);
+  --color-popover-foreground: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.78 0 0);
+
+  /* L'unique aplat plein de l'interface : blanc sur graphite, noir sur blanc. */
+  --color-primary: oklch(0.97 0 0);
+  --color-primary-foreground: oklch(0.145 0 0);
+
+  /* Bordures discrètes : en sombre c'est l'ombre qui détache, pas le trait.
+     `input` est la bordure marquée, celle d'un champ au survol. */
+  --color-border: oklch(0.26 0 0);
+  --color-input: oklch(0.36 0 0);
+  /* Le focus est un état : c'est donc le citron qui le porte, pas un gris clair.
+     Un pigment, deux épaisseurs : l'outline 2px de la couche `base` habille les
+     contrôles pleins (boutons, switch, inputs nus), et les lignes, cartes et
+     champs composés qui posent `outline-none` le remplacent par `ring-1
+     ring-ring` (le handle de slider est la seule exception, voir
+     `--shadow-handle-focus`). L'état « sélectionné » des cartes de dialogues,
+     lui, ne passe jamais par le ring : `border-foreground bg-muted` — le focus
+     dit « tu es là », la bordure pleine dit « c'est choisi ». */
+  --color-ring: var(--color-marker-line);
+
+  /* 0.64 et non 0.62 : à 0.62 le rouge tombait à 4.41:1 sur `card`, la surface
+     où il porte du texte — messages d'erreur, compteur épuisé, suppression de
+     compte. L'écart est invisible à l'œil (#de4e4b → #e55551), le plancher ne
+     l'est pas. */
+  --color-destructive: oklch(0.64 0.18 25);
+  --color-destructive-foreground: oklch(0.97 0 0);
+
+  /* ── Marque d'état — ajout produit ──
+     Employée en aplat, en anneau ou en pastille ; jamais comme couleur de texte,
+     un citron lisible sur sombre ne l'est plus sur clair. Le texte posé dessus
+     est `marker-ink`, contrasté 12:1. */
+  --color-marker: oklch(0.87 0.2 124);
+  --color-marker-hover: oklch(0.92 0.2 124);
+  --color-marker-ink: oklch(0.24 0.05 124);
+  --color-marker-soft: oklch(0.87 0.2 124 / 0.11);
+  --color-marker-line: oklch(0.87 0.2 124 / 0.55);
+
+  /* Signaux non destructifs : shadcn n'a que `destructive`. */
+  --color-success: oklch(0.65 0.12 155);
+  --color-warning: oklch(0.72 0.11 75);
+
+  /* ── Chrome d'artboard — ajouts produit, lus par Fabric au runtime ──
+     Rien de chromatique ne touche l'artboard : un anneau citron autour d'un
+     dégradé violet fausse le jugement de l'utilisateur sur sa propre couleur.
+     L'écran courant se signale par la valeur, pas par la teinte.
+
+     Un seul liseré, le même partout : il dit où finit une planche blanche
+     posée sur une scène presque blanche, jamais lequel des écrans est courant.
+     La variante « active » a été retirée — posée sur l'arête, donc sous les
+     calques, le premier téléphone qui touchait le bord la recouvrait. */
+  --color-artboard-ring: oklch(1 0 0 / 0.1);
+  /* Couleur seule : Fabric compose son ombre à partir de blur et offset en JS,
+     et c'est cette ombre qui porte désormais l'état. */
+  --color-artboard-shadow: oklch(0 0 0 / 0.5);
+  /* Voile du lasso. Sa teinte suit `foreground`, seule son alpha change de thème. */
+  --color-selection-soft: oklch(0.97 0 0 / 0.14);
+  /* Guides d'alignement : neutres comme le reste du chrome d'artboard. Le halo
+     sombre sous le trait clair les garde lisibles sur un contenu de n'importe
+     quelle couleur — c'est pour ça qu'un trait simple de `foreground` ne suffit
+     pas : sur une planche blanche il disparaît. */
+  --color-guide: oklch(0.97 0 0 / 0.85);
+  --color-guide-halo: oklch(0 0 0 / 0.4);
+
+  /* ── Élévation — large, basse en opacité, en trois couches ──
+     Namespace shadcn : `shadow-md` pour un îlot, `shadow-lg` pour un menu,
+     `shadow-xl` pour une modale. */
+  --shadow-md:
+    0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4),
+    0 24px 48px -24px oklch(0 0 0 / 0.55);
+  --shadow-lg:
+    0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45),
+    0 32px 64px -32px oklch(0 0 0 / 0.6);
+  --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65);
+  /* Une poignée n'est pas un îlot : elle ne plane pas, elle se détache de ce
+     qu'elle touche. D'où une ombre de contact d'un pixel, et non les trois
+     couches de l'échelle ci-dessus. Deux copies de cette valeur vivaient dans
+     deux composants, à deux alphas différents — la différence était une dérive,
+     pas une intention. */
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.4);
+  /* L'anneau que prend la poignée sous le focus clavier et pendant la saisie :
+     le même dans les deux cas, parce que c'est le même état — « c'est celle-ci
+     que tu manipules ». Exception assumée au ring-1 ring-ring du contrat de
+     focus : sur une poignée de 14px un anneau d'un pixel se confond avec son
+     bord, et le halo posé *autour* garde la poignée elle-même lisible. */
+  --shadow-handle-focus: 0 0 0 4px color-mix(in oklch, var(--color-foreground) 16%, transparent);
+  /* Un pixel d'ombre interne en haut du champ : la seule chose qui le creuse. */
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
+  /* Lumière rasante sur l'arête haute d'un îlot. */
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
+
+  /* ── Type — une seule famille, quatre tailles ──
+     `text-xs` (12) et `text-sm` (14) sont celles de Tailwind, et `text-sm` est
+     la taille de travail de shadcn : bouton, champ, item de menu. `text-base`
+     (16) coiffe les titres. La seule addition est le micro-libellé : il n'y a
+     pas d'échelon sous 12 en amont, et une étiquette de champ à 12 dans un
+     panneau dense pèse autant que la valeur qu'elle nomme.
+     L'ancienne échelle rendait 10, 10.5, 11, 11.5, 12.5 et 15 — six tailles
+     dans une bande de 5px, dont quatre séparées d'un pixel ou moins. À cet
+     écart rien ne hiérarchise : ça se lit comme une inconstance, pas comme
+     un niveau. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+
+  /* ── Interlignage — en px, multiples de 4, jamais un ratio ──
+     Un ratio produit une hauteur de ligne fractionnaire (11 × 1,3 = 14,3),
+     donc un bloc de deux lignes qui ne retombe sur aucune graduation et un
+     voisin qui ne s'aligne plus. Les trois tailles se replient sur deux
+     valeurs — 16 pour le micro-libellé, 20 pour le corps et les titres — et
+     ce sont celles que Tailwind pose déjà en amont pour `text-xs` (12/16),
+     `text-sm` (14/20) et `text-base` (16/24).
+
+     Le namespace nommé est retiré : `leading-tight`, `-snug`, `-relaxed` et
+     `-loose` sont des ratios, donc autant de manières de rouvrir la brèche à
+     la prochaine modification. Restent les valeurs numériques, dérivées de
+     `--spacing` et donc multiples de 4 par construction : `leading-4` = 16,
+     `leading-5` = 20, `leading-6` = 24. `pnpm run audit:scale` refuse toute
+     hauteur de ligne rendue hors de cette grille. */
+  --leading-*: initial;
+
+  /* ── Radius — un seul réglage, la chaîne shadcn en dérive ──
+     Les multiplicateurs sont des cinquièmes, donc toute valeur amont multiple
+     de 5px sort la chaîne entière en entiers. 15px donne 6/9/12/15/21 : des
+     îlots franchement arrondis sans que les contrôles de 32 deviennent des
+     gélules, ce que 20px (8/12/16/20/28) leur faisait. */
+  --radius: 0.9375rem;
+  --radius-xs: calc(var(--radius) * 0.4);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+
+  /* Retrait d'îlot, dérivé et non choisi : « rayon intérieur = rayon extérieur
+     − retrait » n'est vraie que si le retrait vaut l'écart entre les deux
+     rayons. À 6px, un contrôle en `rounded-md` posé contre le bord d'un îlot
+     en `rounded-xl` suit exactement sa courbe, et la règle tient toute seule
+     si `--radius` bouge. */
+  --island-padding: calc(var(--radius-xl) - var(--radius-md));
+
+  /* ── z-index : 6 niveaux nommés, rien d'autre — ajout produit ── */
+  /* Le voile passe devant le canvas et derrière le chrome. Au même niveau que
+     lui, seul l'ordre du DOM les départageait : ça casse au premier déplacement. */
+  --z-stage-veil: 10;
+  --z-chrome: 20;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-popover: 70;
+  --z-toast: 80;
+
+  /* ── Motion : ease-out expo, jamais de rebond ── */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Le settle : un dépassement de 6% puis la cible, pour les entrées de contenu
+     (lignes, vignettes) qui doivent se sentir *posées*, pas apparues. `linear()`
+     natif — pas de moteur JS pour un ressort que le compositeur sait jouer. */
+  --ease-settle: linear(
+    0,
+    0.394 7.6%,
+    0.677 16.6%,
+    0.865 26.4%,
+    0.971 36.6%,
+    1.024 47%,
+    1.042 57.7%,
+    1.036 68.5%,
+    1.016 79.4%,
+    1
+  );
+
+  --animate-fade-in: fade-in 0.14s var(--ease-out);
+  --animate-slide-up: slide-up 0.2s var(--ease-out-expo);
+  --animate-menu-in: menu-in 0.16s var(--ease-out-expo);
+  --animate-palette-in: palette-in 0.16s var(--ease-out-expo);
+  /* L'arrivée d'un verdict sur le contrôle qui vient d'être cliqué. Plus lente
+     que les entrées de surface : c'est un résultat, pas un panneau qui se
+     pose, et à 0,16s la coche apparaît sans qu'on la voie apparaître. */
+  --animate-check-in: check-in 0.24s var(--ease-out-expo);
+  /* Entrée d'un élément de liste ou d'une vignette : fondu + translation de
+     4px avec settle. 220ms, dans le couloir 150–300 des standards du projet. */
+  --animate-enter: enter 0.22s var(--ease-settle);
+  /* Sortie symétrique, sans settle : ce qui part ne demande pas d'attention.
+     `both` retient l'état final : la ligne fantôme vit 60ms de plus que son
+     animation (le temps que React la lâche), et sans fill elle réapparaissait
+     pleine opacité sur cette fin de vie. */
+  --animate-exit: exit 0.18s var(--ease-out) both;
+  /* La coche se dessine (succès de toast) plutôt que d'apparaître d'un coup. */
+  --animate-check-draw: check-draw 0.28s var(--ease-out-expo) 0.05s both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-3px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes check-in {
+    from {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes palette-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes enter {
+    from {
+      opacity: 0;
+      translate: 0 4px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  @keyframes exit {
+    from {
+      opacity: 1;
+      translate: 0 0;
+    }
+    to {
+      opacity: 0;
+      translate: 0 4px;
+    }
+  }
+  /* `both` retient le trait plein après la dernière frame : l'animation part
+     avec un léger délai, le temps que le toast lui-même soit posé. */
+  @keyframes check-draw {
+    from {
+      stroke-dashoffset: var(--check-draw-length, 14);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
+/* ── Marques d'état ──
+   Déclarées en `@utility` et non en classe de composant : c'est ce qui permet
+   de les préfixer d'un variant (`data-[active=true]:marker-fill`). */
+
+/* Aplat citron, encre sombre — la marque forte : écran courant, coche. */
+@utility marker-fill {
+  background: var(--color-marker);
+  color: var(--color-marker-ink);
+}
+
+/* Marque discrète : voile et liseré, le texte garde sa couleur. */
+@utility marker-soft {
+  background: var(--color-marker-soft);
+  box-shadow: inset 0 0 0 1px var(--color-marker-line);
+}
+
+/* ── Grain de la scène ──
+   Une grille de points derrière les planches. Un aplat ne donne aucune échelle :
+   la planche y flottait sans que rien ne dise à quelle distance on la regarde,
+   et son ombre était le seul indice qu'elle était posée sur quelque chose.
+
+   Le pas n'appartient à aucune échelle fermée du projet — ce n'est ni un rayon,
+   ni un écart entre contrôles, ni une hauteur — et il n'a donc pas à tomber sur
+   la grille de 4. Il se lit ici et nulle part ailleurs. */
+@utility stage-grain {
+  /* Les trois valeurs sont réécrites à chaque rendu du canevas, depuis la
+     transformation de viewport : le grain est ancré à la scène, pas à la
+     fenêtre. Posé fixe il glissait sous les planches au premier panoramique,
+     et c'est précisément le contraire de ce qu'un sol doit faire. Celles-ci
+     sont les valeurs de repos, avant que Fabric n'ait rendu une fois. */
+  --stage-dot-step: 22px;
+  --stage-dot-x: 0px;
+  --stage-dot-y: 0px;
+  background-image: radial-gradient(circle at 1px 1px, var(--color-stage-dot) 1px, transparent 0);
+  background-size: var(--stage-dot-step) var(--stage-dot-step);
+  background-position: var(--stage-dot-x) var(--stage-dot-y);
+}
+
+/* ── Défilement de la pellicule ──
+   Horizontal seulement, et sa barre a sa place réservée.
+
+   La bande fait exactement la hauteur de son contenu — c'est ce que
+   `filmstripHeight` calcule et ce que la scène réserve. Une barre horizontale
+   classique prend une dizaine de pixels dans cette hauteur : le contenu ne
+   tient plus, et `overflow-x: auto` forçant l'autre axe, une barre verticale
+   apparaissait sur une rangée qui n'a qu'une ligne. `overflow-y: hidden` est le
+   seul appariement qui ne force rien, et `FILMSTRIP_SCROLLBAR` rend à la barre
+   horizontale la hauteur qu'elle prend.
+
+   Les propriétés standard plutôt que `::-webkit-scrollbar` : depuis Chromium
+   121 la première l'emporte sur la seconde, les déclarer toutes deux serait se
+   contredire. Une barre fine et neutre, sur une bande qui flotte au-dessus du
+   canevas et n'a pas de surface à elle. */
+@utility filmstrip-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* ── Light — même structure, neutre vrai (chroma 0) ── */
+.light {
+  /* Deux niveaux, pas cinq : la scène est claire et les îlots sont blancs, et
+     c'est l'ombre qui les sépare, pas un écart de clarté. La rampe montait de
+     0.9 à 1.0 en cinq crans, ce qui donnait une scène grise sur laquelle tout
+     flottait par défaut ; à 0.965 la scène n'a plus qu'un cran d'avance sur le
+     blanc, et `--shadow-md` a d'autant plus de marge pour creuser qu'elle est
+     claire. Chroma 0 malgré la maquette, qui teinte tout en bleuté : l'œil
+     compense une dominante posée contre la planche, et l'utilisateur corrige
+     alors dans son export une couleur qui n'y est pas. */
+  --color-stage: oklch(0.965 0 0);
+  /* Le point s'assombrit sur fond clair, là où il s'éclaircit sur fond sombre :
+     c'est le seul jeton de grain, il change de sens et pas seulement de valeur. */
+  --color-stage-dot: oklch(0 0 0 / 0.09);
+  /* Le fond du `body`, que `#root` recouvre entièrement : il n'apparaît qu'au
+     rebond de défilement et sous le squelette de démarrage. Aligné sur la scène
+     pour qu'aucun des deux ne s'annonce avant l'autre. */
+  --color-background: oklch(0.965 0 0);
+  --color-card: oklch(1 0 0);
+  --color-popover: oklch(1 0 0);
+  /* En clair le creux doit rester sous `secondary` : à 0.965 les deux se confondaient
+     et une pastille active posée dans un conteneur en creux devenait invisible. */
+  --color-muted: oklch(0.945 0 0);
+  --color-secondary: oklch(0.975 0 0);
+  --color-accent: oklch(0.945 0 0);
+
+  --color-foreground: oklch(0.18 0 0);
+  --color-card-foreground: oklch(0.18 0 0);
+  --color-popover-foreground: oklch(0.18 0 0);
+  --color-secondary-foreground: oklch(0.18 0 0);
+  --color-accent-foreground: oklch(0.18 0 0);
+  /* Le creux (0.945) est désormais le fond le plus exigeant du thème clair, la
+     scène étant remontée au-dessus de lui : cette valeur y tient 4.5:1. */
+  --color-muted-foreground: oklch(0.4 0 0);
+
+  --color-primary: oklch(0.18 0 0);
+  --color-primary-foreground: oklch(1 0 0);
+
+  --color-border: oklch(0.915 0 0);
+  --color-input: oklch(0.82 0 0);
+
+  --color-destructive: oklch(0.55 0.19 25);
+  --color-destructive-foreground: oklch(1 0 0);
+
+  /* Même citron : il reste un aplat, et son encre sombre y tient 12:1 dans les
+     deux thèmes. Ce qui change en clair, c'est le voile — 0.16 d'un citron très
+     lumineux disparaît sur blanc. */
+  --color-marker: oklch(0.85 0.2 124);
+  --color-marker-hover: oklch(0.8 0.2 124);
+  --color-marker-ink: oklch(0.24 0.05 124);
+  /* 0.28 sur blanc virait au surligneur : la ligne sélectionnée pesait plus que
+     tout le reste du panneau. 0.16 tient encore le « ici » sans crier. */
+  --color-marker-soft: oklch(0.8 0.2 124 / 0.16);
+  --color-marker-line: oklch(0.72 0.18 124 / 0.9);
+
+  --color-success: oklch(0.5 0.11 155);
+  --color-warning: oklch(0.55 0.1 70);
+
+  --color-artboard-ring: oklch(0 0 0 / 0.1);
+  --color-artboard-shadow: oklch(0 0 0 / 0.16);
+  --color-selection-soft: oklch(0.18 0 0 / 0.1);
+  --color-guide: oklch(0.18 0 0 / 0.85);
+  --color-guide-halo: oklch(1 0 0 / 0.55);
+
+  --shadow-md:
+    0 1px 1px oklch(0 0 0 / 0.04), 0 6px 16px -6px oklch(0 0 0 / 0.1),
+    0 24px 48px -24px oklch(0 0 0 / 0.14);
+  --shadow-lg:
+    0 2px 6px oklch(0 0 0 / 0.05), 0 12px 32px -10px oklch(0 0 0 / 0.12),
+    0 32px 64px -32px oklch(0 0 0 / 0.16);
+  --shadow-xl: 0 8px 24px -8px oklch(0 0 0 / 0.1), 0 40px 96px -24px oklch(0 0 0 / 0.2);
+  /* Sans override clair la poignée gardait l'ombre sombre à 40% : sur blanc,
+     un liseré noir dur au lieu d'un contact. */
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.18);
+  --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
+}
+
+@layer base {
+  /* Dit au navigateur quel thème il peint : barres de défilement, autofill et
+     contrôles natifs suivent le thème au lieu de rester ceux de l'OS. */
+  :root {
+    color-scheme: dark;
+  }
+  .light {
+    color-scheme: light;
+  }
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-size: 14px;
+    line-height: 20px;
+    /* Inter est déjà réglée pour le petit corps : pas de tracking correctif. */
+    letter-spacing: 0;
+    font-optical-sizing: auto;
+    /* cv05 l à empattement, cv08 majuscule I à empattement, ss03 esperluette simplifiée. */
+    font-feature-settings:
+      'cv05' 1,
+      'cv08' 1,
+      'ss03' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  #root {
+    width: 100dvw;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  ::selection {
+    background: var(--color-foreground);
+    color: var(--color-card);
+  }
+  button {
+    font-family: inherit;
+  }
+
+  /* ── Ce qui se clique le dit au survol ──
+     Tailwind v4 a retiré `cursor: pointer` des boutons de sa Preflight : mesuré
+     sur cette page, 35 contrôles rendaient la flèche et 7 le doigt, sans qu'une
+     seule ligne de l'application ait décidé lequel. Pire pour ce qui n'est pas
+     un `button` : un `div[role="menuitem"]` retombe sur `auto`, qui au-dessus
+     d'un texte devient le curseur d'insertion — l'entrée d'un menu se présentait
+     comme un paragraphe à sélectionner.
+
+     La règle est en couche `base`, donc n'importe quelle utilitaire `cursor-*`
+     posée sur un composant la gagne : `command-palette` garde sa flèche, la
+     poignée de dégradé son `ew-resize`, la prise d'un calque son `grab`. Le rôle
+     décide, pas la balise — c'est le même contrat que celui que les lecteurs
+     d'écran lisent, et il n'y a donc rien de plus à tenir à jour. */
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'],
+  [role='option'],
+  [role='tab'],
+  [role='switch']:not([aria-disabled='true']),
+  [role='checkbox'],
+  [role='radio'] {
+    cursor: pointer;
+  }
+  /* Le fond d'un menu n'est pas une entrée, et une entrée désactivée ne reçoit
+     plus le pointeur (`pointer-events: none`) : c'est le conteneur qui répond à
+     sa place, et sans cette ligne il répondait l'insertion de texte. */
+  [role='menu'],
+  [role='listbox'] {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ── Îlot flottant : barre, drawers, filmstrip ── */
+  .island {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md), var(--hairline-top);
+    /* L'îlot porte son retrait : laissé à chaque consommateur, il rendait 0, 0,
+       6, 8 et 10px selon la barre. */
+    padding: var(--island-padding);
+  }
+  /* Un drawer fait exception : son en-tête vient à fleur de bord, et c'est son
+     contenu qui porte le retrait. */
+  .island-flush {
+    padding: 0;
+  }
+
+  /* Bas de zone défilante : le contenu s'estompe tant qu'il en reste sous le
+     pli. Un masque ne peint pas, il ne mange donc pas la zone cliquable du
+     dernier contrôle. */
+  .scroll-fade[data-fade] {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+  }
+
+  /* ── Scène : vignette discrète, les artboards portent la lumière ── */
+  .stage-vignette {
+    pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 42%, transparent 60%, oklch(0.08 0 0 / 0.35) 100%);
+  }
+  .light .stage-vignette {
+    background: radial-gradient(120% 90% at 50% 42%, transparent 62%, oklch(0.3 0 0 / 0.1) 100%);
+  }
+
+  /* ── Hiérarchie de texte — trois niveaux, écarts francs ──
+     L'ancienne échelle tenait dans 1,5px entre le libellé et le titre : à cet
+     écart rien ne hiérarchise, tout se lit comme un même bloc gris. */
+  .panel-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+    color: var(--color-foreground);
+    line-height: 20px;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.006em;
+    color: var(--color-foreground);
+    line-height: 20px;
+  }
+  .field-label {
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--color-muted-foreground);
+    line-height: 16px;
+  }
+  /* Valeurs numériques : Inter a des chiffres tabulaires, pas besoin d'une mono. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Surfaces ── */
+  .surface-inner {
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+  }
+  .surface-modal {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl), var(--hairline-top);
+  }
+  .menu-shadow {
+    box-shadow: var(--shadow-lg), var(--hairline-top);
+  }
+  /* Un champ se lit en creux : fond plus sombre que sa carte, ombre interne d'un pixel. */
+  .field-surface {
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* Damier alpha : ce qui distingue un blanc opaque d'un transparent. */
+  .checkerboard {
+    background-color: oklch(1 0 0);
+    background-image:
+      linear-gradient(45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+      linear-gradient(-45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%),
+      linear-gradient(-45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%);
+    background-size: 8px 8px;
+    background-position:
+      0 0,
+      0 4px,
+      4px -4px,
+      -4px 0;
+  }
+
+  .img-outline {
+    outline: 1px solid oklch(1 0 0 / 0.1);
+    outline-offset: -1px;
+  }
+  .light .img-outline {
+    outline: 1px solid oklch(0 0 0 / 0.1);
+  }
+
+  /* Zone de frappe d'au moins 44px, sans changer la taille visuelle.
+     `inset: -8px` ajoutait 16px quelle que soit la cible : 36px sur un libellé
+     de 20, soit un nom qui mentait. Un pseudo-élément centré à `min-*: 44px`
+     dit ce qu'il fait et vaut pour n'importe quelle taille d'hôte. */
+  .hit-44 {
+    position: relative;
+  }
+  .hit-44::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Le minimum de la 2.5.8, pour les poignées qui se côtoient.
+     Une zone de 44 sur des arrêts de dégradé volerait la prise du voisin ;
+     à 24 elle ne mord que sur ce qui se chevauche déjà à l'œil. */
+  .hit-24 {
+    position: relative;
+  }
+  .hit-24::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: 100%;
+    min-width: 24px;
+    min-height: 24px;
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  /* En-tête de groupe cmdk : la grammaire field-label, posée par le composant. */
+  [cmdk-group-heading] {
+    padding: 10px 8px 4px;
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    line-height: 16px;
+    color: var(--color-muted-foreground);
+  }
+}
+
+/* ── Form primitives ── */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Scrollbar — fine */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-input);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+
+/* ── Mouvement réduit ──
+   Le kill global supprimait aussi le retour d'état : survol, focus et sélection
+   basculaient d'un cran à l'autre sans transition, et un menu apparaissait sans
+   qu'on voie d'où. On ne coupe donc que le déplacement — glissements d'entrée et
+   transitions de `transform` — et on garde une fondu court, qui informe sans
+   bouger. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* Une transition de `transform` est un déplacement : c'est elle qui gêne,
+       pas la couleur ni l'opacité, qui restent à leur durée d'origine. */
+    transition-property:
+      color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow;
+  }
+
+  /* Les entrées qui déplacent ou qui grandissent : elles gardent leur durée et
+     leur courbe, et ne font plus que se révéler. `fade-in`, sans `transform`,
+     est déjà conforme. */
+  .animate-slide-up,
+  .animate-menu-in,
+  .animate-palette-in,
+  .animate-check-in,
+  .animate-enter {
+    animation-name: fade-in;
+  }
+  /* Une sortie remappée sur `fade-in` jouait l'entrée à l'envers : la ligne
+     supprimée *fondait en apparition*. Elle se révèle donc en creux. */
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  .animate-exit {
+    animation-name: fade-out;
+  }
+  /* La coche dessinée ne se dessine plus : trait plein, tout de suite. */
+  .animate-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

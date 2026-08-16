@@ -1,0 +1,316 @@
+import { expect, test, type Locator, type Page } from '@playwright/test'
+import { addTextLayer, layerRows, waitForApp } from './helpers'
+
+/**
+ * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
+ *
+ * Chaque phase a livré sa boîte et reporté cette vérification ; elle arrive
+ * donc ici pour toutes d'un coup, et toute boîte ajoutée depuis rejoint la
+ * liste plutôt que d'ouvrir sa propre vérification. Deux choses sont mesurées,
+ * pas deux
+ * opinions : on peut ouvrir, parcourir et refermer chaque boîte sans souris
+ * et sans perdre le focus, et à 375px rien n'y déborde de sa case.
+ *
+ * Le seuil d'empilement vient de `lib/stage.ts`, jamais d'une copie — c'est la
+ * même leçon que la pellicule restée à 142.
+ */
+
+import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
+
+/** Libellé du bouton d'ouverture, puis nom accessible de la boîte. */
+const DIALOGS = [
+  ['Actualiser les captures', 'Actualiser les captures'],
+  ['Ouvrir les releases', 'Releases'],
+  ['Générer les visuels App Store', 'Générer les visuels App Store'],
+  ['Ouvrir les langues', 'Langues'],
+  ['Publier chez Apple', 'Publier chez Apple'],
+  ['Connexion MCP', 'Connexion MCP'],
+  ['Ouvrir l’export', 'Export officiel'],
+] as const
+
+function activeInsideDialog(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const active = document.activeElement
+    return Boolean(active && active.closest('[role="dialog"]'))
+  })
+}
+
+async function openWithKeyboard(page: Page, opener: Locator, title: string): Promise<Locator> {
+  await opener.focus()
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: title })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+/**
+ * Congédie la boîte. Une infobulle ouverte au focus est une couche au-dessus
+ * de la boîte : le premier Échap la congédie elle, le second la boîte — même
+ * règle qu'un Select ouvert dans une modale. La boucle absorbe la course entre
+ * le délai d'apparition de l'infobulle et la première pression.
+ */
+async function closeDialog(page: Page, dialog: Locator): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.keyboard.press('Escape')
+    try {
+      await expect(dialog).toBeHidden({ timeout: 800 })
+      return
+    } catch {
+      // Une couche (infobulle, menu) a pris cet Échap : le suivant ira à la boîte.
+    }
+  }
+  await expect(dialog).toBeHidden()
+}
+
+async function expectRingToken(page: Page, control: Locator): Promise<void> {
+  await control.evaluate((element) => {
+    const host =
+      element instanceof HTMLInputElement && element.type === 'radio'
+        ? element.closest('label')
+        : element
+    const sentinel = document.createElement('button')
+    sentinel.type = 'button'
+    sentinel.dataset.focusSentinel = ''
+    sentinel.className = 'sr-only'
+    host?.before(sentinel)
+    sentinel.focus()
+  })
+  await page.keyboard.press('Tab')
+  await expect(control).toBeFocused()
+  expect(
+    await control.evaluate((element) => {
+      const host =
+        element instanceof HTMLInputElement && element.type === 'radio'
+          ? element.closest('label')
+          : element
+      return String(host?.className).includes('ring-ring')
+    }),
+  ).toBe(true)
+  await expect
+    .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
+    .toBe(true)
+  await control.evaluate(() => document.querySelector('[data-focus-sentinel]')?.remove())
+}
+
+test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ page }) => {
+  await waitForApp(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  for (const [label, title] of DIALOGS) {
+    const opener = page.getByLabel(label)
+    const dialog = await openWithKeyboard(page, opener, title)
+
+    // Le focus entre dans la boîte, il ne reste pas sur la page en dessous.
+    expect(await activeInsideDialog(page), `${title} : focus resté dehors`).toBe(true)
+
+    /* Le piège tient sur un tour complet. Vingt-cinq tabulations dépassent le
+       nombre de contrôles de la plus fournie, donc au moins un bouclage est
+       exercé : c'est là qu'un piège cassé laisse filer le focus vers la barre
+       d'adresse ou vers la barre supérieure. */
+    for (let step = 0; step < 25; step += 1) {
+      await page.keyboard.press('Tab')
+      expect(await activeInsideDialog(page), `${title} : focus échappé au tour ${step}`).toBe(true)
+    }
+
+    await closeDialog(page, dialog)
+    // Et il revient d'où il venait, pas au début du document.
+    await expect(opener).toBeFocused()
+  }
+})
+
+test('les contrôles composites des dialogues partagent le focus citron', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+
+  await page.getByLabel('Générer les visuels App Store').click()
+  let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  await expectRingToken(page, dialog.getByRole('radio', { name: 'Sobre' }))
+  const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
+  await expectRingToken(page, assistance)
+  await assistance.click()
+  await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
+  await closeDialog(page, dialog)
+
+  await page.getByLabel('Ouvrir les langues').click()
+  dialog = page.getByRole('dialog', { name: 'Langues' })
+  await dialog.getByLabel('Code').fill('de')
+  await dialog.getByLabel('Nom').fill('Allemand')
+  await dialog.getByRole('button', { name: 'Ajouter' }).click()
+  await expectRingToken(page, dialog.getByRole('radio', { name: /de Allemand/ }))
+  await expectRingToken(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
+  await closeDialog(page, dialog)
+
+  await page.getByLabel('Ouvrir les releases').click()
+  dialog = page.getByRole('dialog', { name: 'Releases' })
+  await dialog.getByLabel('Nom du lot').fill('1.0.0')
+  await dialog.getByRole('button', { name: 'Figer une release' }).click()
+  await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await closeDialog(page, dialog)
+
+  await page.getByLabel('Publier chez Apple').click()
+  dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
+  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await closeDialog(page, dialog)
+
+  await page.getByLabel('Ouvrir l’export').click()
+  dialog = page.getByRole('dialog', { name: 'Export officiel' })
+  await expectRingToken(page, dialog.getByRole('checkbox').first())
+  await expect(dialog.locator('[class~="focus-visible:ring-foreground"]')).toHaveCount(0)
+  await closeDialog(page, dialog)
+})
+
+test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) => {
+  await waitForApp(page)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await addTextLayer(page)
+
+  // Un lot figé : sans lui, deux des boîtes n'affichent que leur état vide, et
+  // c'est justement leur colonne de contenu qui est à l'étroit.
+  await page.getByLabel('Ouvrir les releases').click()
+  await page.getByLabel('Nom du lot').fill('1.0.0')
+  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await page.keyboard.press('Escape')
+
+  for (const [label, title] of DIALOGS) {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.getByLabel(label).click()
+    const dialog = page.getByRole('dialog', { name: title })
+    await expect(dialog).toBeVisible()
+
+    await page.setViewportSize({ width: 375, height: 720 })
+    // La mise en page répond à un `matchMedia` que React traite au tick
+    // suivant : mesurer dans la foulée rendrait la disposition d'avant.
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const panel = document.querySelector('[role="dialog"]')
+          if (!panel) return null
+          const box = panel.getBoundingClientRect()
+          const dehors: string[] = []
+          for (const élément of panel.querySelectorAll('*')) {
+            const style = getComputedStyle(élément)
+            // Une ellipse et une case à défilement sont des décisions, pas des
+            // débordements : elles annoncent elles-mêmes qu'elles coupent.
+            if (style.textOverflow === 'ellipsis') continue
+            if (style.overflowX === 'auto' || style.overflowX === 'scroll') continue
+            const rect = élément.getBoundingClientRect()
+            if (rect.width === 0) continue
+            if (rect.left < box.left - 0.5 || rect.right > box.right + 0.5) {
+              dehors.push(
+                `${élément.tagName.toLowerCase()}.${élément.className.toString().slice(0, 40)}`,
+              )
+            }
+          }
+          return {
+            dehors: dehors.slice(0, 4),
+            dansLaFenêtre: box.left >= -0.5 && box.right <= window.innerWidth + 0.5,
+            défilementHorizontal: document.documentElement.scrollWidth > window.innerWidth,
+          }
+        }),
+      )
+      .toEqual({ dehors: [], dansLaFenêtre: true, défilementHorizontal: false })
+
+    await closeDialog(page, dialog)
+  }
+})
+
+test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+
+  await page.getByLabel('Générer les visuels App Store').click()
+  const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  const radio = dialog.getByRole('radio', { name: 'Sobre' })
+  await radio.focus()
+  /* L'input invisible couvre toute la carte : sans `outline-none` il peint le
+     contour natif du navigateur par-dessus l'anneau 1px du label — deux
+     indicateurs pour un seul état. */
+  await expect
+    .poll(() => radio.evaluate((element) => getComputedStyle(element).outlineStyle))
+    .toBe('none')
+  await closeDialog(page, dialog)
+})
+
+test('Escape dans un Select du panneau ne ferme que le Select', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+  const propsOpen = await page.evaluate(() => window.__sfStores?.useUIStore.getState().propsOpen)
+  if (!propsOpen) await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleProps())
+
+  const select = page.getByLabel('Graisse de la police')
+  await expect(select).toBeVisible()
+  await select.click()
+  await expect(select).toHaveAttribute('aria-expanded', 'true')
+
+  await page.keyboard.press('Escape')
+  await expect(select).toHaveAttribute('aria-expanded', 'false')
+  /* Sans le stopPropagation du Select, l'événement remontait au gestionnaire
+     global, qui fermait aussi le drawer sous le menu qu'il venait de fermer. */
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().propsOpen))
+    .toBe(true)
+  await expect(select).toBeVisible()
+})
+
+test('un drawer fermé est inerte et démonté', async ({ page }) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+
+  const layersOpen = await page.evaluate(() => window.__sfStores?.useUIStore.getState().layersOpen)
+  if (!layersOpen)
+    await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+  await expect(layerRows(page).first()).toBeVisible()
+
+  await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().layersOpen))
+    .toBe(false)
+
+  /* Inerte tout de suite : Tab ne peut plus atteindre un contrôle d'un panneau
+     traduit hors de l'écran mais encore monté. */
+  const drawer = page.locator('div[aria-hidden="true"][class*="transition-transform"]').first()
+  await expect(drawer).toHaveAttribute('inert', '')
+  /* Démonté une fois la transition de sortie jouée : un scrub du canvas ne
+     re-rend plus un panneau que personne ne voit. */
+  await expect(layerRows(page)).toHaveCount(0, { timeout: 2_000 })
+})
+
+/* Les deux orientations du rail : à gauche quand il porte ce qu'on choisit,
+   à droite quand il récapitule ce que la colonne principale décide. Empiler
+   n'est pas la même opération dans les deux sens — les bordures changent de
+   côté et l'ordre du DOM avec elles. */
+const BOÎTES_À_COLONNES = [
+  ['Ouvrir les releases', 'Releases'],
+  ['Ouvrir l’export', 'Export officiel'],
+] as const
+
+for (const [label, title] of BOÎTES_À_COLONNES) {
+  test(`« ${title} » empile ses colonnes sous le seuil`, async ({ page }) => {
+    await waitForApp(page)
+
+    /* Ouverte au large : sous `TOP_BAR_COMPACT_WIDTH` le bouton part au menu de
+       débordement, et la traversée de ce menu est déjà mesurée ailleurs. Ce qui
+       se joue ici est la boîte, pas la barre. */
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.getByLabel(label).click()
+    const dialog = page.getByRole('dialog', { name: title })
+    await expect(dialog).toBeVisible()
+
+    const colonnes = () =>
+      page.evaluate(() => {
+        const grille = document.querySelector('[role="dialog"] [data-dialog-columns]')
+        return grille ? getComputedStyle(grille).gridTemplateColumns.split(' ').length : -1
+      })
+
+    await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH + 80, height: 800 })
+    await expect.poll(colonnes).toBe(2)
+
+    /* Sous le seuil, elles s'empilent. À 375px la boîte fait 343 : deux colonnes
+       y laissaient 103px au formulaire, assez pour un champ mais pas pour lire sa
+       valeur — la boîte ne débordait pas, elle devenait illisible en silence. */
+    await page.setViewportSize({ width: DIALOG_STACK_MIN_WIDTH - 80, height: 800 })
+    await expect.poll(colonnes).toBe(1)
+  })
+}

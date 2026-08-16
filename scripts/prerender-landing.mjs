@@ -14,7 +14,7 @@ import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+const root = fileURLToPath(new URL('../apps/web/', import.meta.url))
 const dist = join(root, 'dist')
 const ssrOut = join(root, 'dist-ssr')
 
@@ -71,12 +71,11 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
     `    <link rel="alternate" hreflang="x-default" href="/landing.html" />`,
   ].join('\n')
   /* Le bloc SoftwareApplication de landing.html est statique : la page FR
-     servait donc un descriptif et trois offres en anglais. Il est réécrit dans
+     servait donc un descriptif et des offres en anglais. Il est réécrit dans
      la langue du document, depuis copy.ts. Les prix restent ici — ce sont des
      données structurées, pas du texte, et ils ne se traduisent pas. */
   const plans = copy[lang].pricing.plans
-  const OFFER_PRICES = { free: '0', licence: '49', cloud: '39' }
-  const OFFER_AVAILABILITY = { free: 'InStock', licence: 'PreOrder', cloud: 'PreOrder' }
+  const OFFER_PRICES = { local: '0', cloud: '39' }
   const software = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -84,12 +83,12 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
     applicationCategory: 'DesignApplication',
     operatingSystem: 'Web',
     description: meta.description,
-    offers: /** @type {const} */ (['free', 'licence', 'cloud']).map((key) => ({
+    offers: /** @type {const} */ (['local', 'cloud']).map((key) => ({
       '@type': 'Offer',
       name: plans[key].name,
       price: OFFER_PRICES[key],
       priceCurrency: 'USD',
-      availability: `https://schema.org/${OFFER_AVAILABILITY[key]}`,
+      availability: `https://schema.org/${plans[key].available ? 'InStock' : 'PreOrder'}`,
       description: [plans[key].tagline, ...plans[key].points].join('. '),
     })),
   }

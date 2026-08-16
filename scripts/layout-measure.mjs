@@ -46,7 +46,7 @@ const report = await page.evaluate(() => {
 
   const stores = window.__sfStores
   if (!canvas || !stores) throw new Error('ScreenForge debug handles unavailable')
-  /** @type {Array<import('../e2e/helpers').DebugObject & { clipPath?: { left?: number; top?: number } }>} */
+  /** @type {Array<import('../apps/web/e2e/helpers').DebugObject & { clipPath?: { left?: number; top?: number } }>} */
   const rendered = /** @type {never} */ (canvas.getObjects())
   const objects = rendered
     .filter((o) => o.data?.rendererType === 'device-frame')

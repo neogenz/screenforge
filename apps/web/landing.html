@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScreenForge — App Store screenshots, pixel-exact</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta
+      name="description"
+      content="Free local editor for pixel-exact iPhone App Store screenshots. Cloud is $39/year for account, sync, projects, images, settings and managed backups."
+    />
+    <!-- La vitrine est sombre uniquement : sans cette déclaration le navigateur
+         rend les barres de défilement et les contrôles natifs en clair. -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <!-- Le prerender (scripts/prerender-landing.mjs) remplace titre, description,
+         balises Open Graph et lang par document, injecte canonical + hreflang et
+         le JSON-LD FAQ de la langue. Les hrefs ci-dessous sont relatifs en
+         attendant le domaine. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:title" content="ScreenForge — App Store screenshots, pixel-exact" />
+    <meta
+      property="og:description"
+      content="Design pixel-exact App Store screenshots free with Local, or add $39/year Cloud for sync, managed storage and backups."
+    />
+    <meta property="og:image" content="/og-landing.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ScreenForge",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Web",
+        "description": "Editor for iPhone App Store screenshot sets. Pixel-exact exports rendered in the browser, one ZIP ready for App Store Connect.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Local",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock",
+            "description": "Free local use: complete editor, unlimited clean exports and grouped ZIP, with projects kept on this machine."
+          },
+          {
+            "@type": "Offer",
+            "name": "Cloud",
+            "price": "39",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock",
+            "description": "Yearly managed service: every Local feature plus account, sync, projects, source images, settings and backups."
+          }
+        ]
+      }
+    </script>
+    <!-- Les deux voix de la vitrine sont auto-hébergées et préchargées : la
+         serif porte le `<h1>`, donc l'élément LCP, et la mono la bande de
+         spécification juste dessous. Un `preload` exige une URL connue à
+         l'écriture du document — ce qu'une feuille Google ne donne pas, étant
+         une indirection au-dessus du fichier. `crossorigin` n'est pas
+         facultatif même en même origine : une police est toujours récupérée en
+         mode CORS, et sans lui le préchargement est ignoré puis refait.
+         Déclarations `@font-face` dans `src/landing/landing.css`. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-400.woff2" crossorigin />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/ibm-plex-mono-400.woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/ibm-plex-mono-600.woff2"
+      crossorigin
+    />
+    <!-- Inter ne porte plus que le texte courant : la plage d'axes descend de
+         100..900 à 400..700, les graisses extrêmes étant passées à la serif. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      media="print"
+      data-screenforge-font
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
+      />
+    </noscript>
+    <script src="/boot.js"></script>
+    <style>
+      html {
+        background: oklch(0.145 0 0);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/landing/main.tsx"></script>
+  </body>
+</html>

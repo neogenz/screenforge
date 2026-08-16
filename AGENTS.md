@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project
 
-**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Replaces paid tools like AppScreens.com. Zero backend, zero recurring cost.
+**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Local is free and complete without a backend; the optional managed Cloud account, sync and storage service is paid.
 
 See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1320x2868 for 6.9", etc.) and pass App Store Connect validation.
 
@@ -24,32 +24,54 @@ See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1
 
 ## Commands
 
+Every command runs from the repository root; the root scripts delegate to the
+workspace package that owns them (`pnpm --filter web …`). Never `cd apps/web`
+to run a script — the audits and probes in `scripts/` resolve their paths from
+the root and would read the wrong tree.
+
 ```bash
 # Dev
-npm run dev
+pnpm run dev
 
-# Build
-npm run build
+# Build (Vite + prerender of the two landing documents)
+pnpm run build
 
 # Preview production build
-npm run preview
+pnpm run preview
 
-# Lint
-npm run lint
+# Lint (one flat config at the root, covering every package)
+pnpm run lint
 
 # Type check
-npm run typecheck
+pnpm run typecheck
 
-# E2E tests (Playwright, requires chromium — `npx playwright install chromium` once)
-npm run test:e2e
+# E2E local (omet le projet cloud si Convex est arrêté)
+pnpm run test:e2e
+
+# E2E de release (démarre Convex et interdit les skips cloud)
+pnpm run test:e2e:release
+
+# Gate complet de release
+pnpm run test:release
+
+# Local Convex deployment (anonymous) — ports 3210/3211
+pnpm run dev:backend
+
+# Deploy the backend to preprod, then to production
+pnpm run deploy:preprod
+pnpm run deploy:prod
+
+# Validate or deploy the immutable release selected by a SemVer tag
+pnpm run test:release-tag
+pnpm run verify:release-tag v0.1.0
 
 # Validate an exported ZIP against App Store rules
-npm run validate:export -- <file.zip>
+pnpm run validate:export -- <file.zip>
 ```
 
 ## Testing
 
-- E2E specs live in `e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
+- E2E specs live in `apps/web/e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
 - Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class. Panel inputs are located by aria-label ("Position X", "Largeur", "Rotation"…), never positionally.
 - `e2e/export.spec.ts` verifies the exported ZIP is pixel-exact (1320×2868, PNG-24 opaque) — the critical path.
 - `e2e/command-palette.spec.ts` covers the ⌘K palette and history coalescing (nudge burst = one undo step).
@@ -57,8 +79,52 @@ npm run validate:export -- <file.zip>
 
 ## Architecture
 
+### Workspace
+
 ```
-src/
+.                          # pnpm workspace root — tooling only, no product code
+  pnpm-workspace.yaml      # packages: apps/* + packages/*
+  package.json             # root scripts delegate to --filter web; eslint/prettier/husky live here
+  eslint.config.js         # one flat config for every package (patterns are apps/*/… and packages/*/…)
+  .env.example             # single env file for the whole stack; apps/web reads it via envDir
+  scripts/                 # audits and probes — resolve paths from the root, run from the root
+  packages/
+    project-format/        # the project contract: types, validation, dimensions, AI tool schemas
+  apps/
+    web/                   # the editor + the landing, the app that used to be the repository
+      index.html           # editor entry
+      landing.html         # marketing entry (prerendered per language at build)
+      e2e/ src/ public/
+    backend/               # the Convex deployment: schema, auth, authorization, sale, deletion
+      convex/              # functions — the only surface a client can reach
+      tests/stack.ts       # what only the backend can do (internal mutations), for the e2e suite
+    bridge/                # optional local daemon: 127.0.0.1 only, spawns `codex app-server`
+    mcp/                   # optional local daemon: MCP on stdio for an agent, SSE relay to the open tab
+```
+
+`backend`, `bridge` and `mcp` are declared as `devDependencies` of `web` so a
+renamed contract breaks at compile time rather than at runtime. The backend's
+`api` and `Entitlements` also arrive through a dynamic `import()`, so no
+deployment code sits in the critical bundle — `e2e/boot-shell.spec.ts` measures
+it. Bridge and MCP contracts remain type-only.
+
+`packages/project-format` is the exception: it is a real dependency, imported at
+runtime by the editor and by `apps/mcp`. It is consumed **as source** — its
+`exports` point at `src/index.ts`, which vite compiles for the browser and Node
+reads by stripping types. The `build` script only proves it compiles alone,
+without Fabric and without the DOM; nothing consumes `dist/`.
+
+`@types/react` and `@types/react-dom` are declared **twice** on purpose: in
+`apps/web` because the app imports them, and at the root because a dependency's
+`.d.ts` that imports `react` without declaring `@types/react` as a peer (cmdk)
+resolves its types by walking up from `node_modules/.pnpm/`, a path that never
+crosses `apps/web/node_modules`. Without the root copy those props degrade to
+`any` silently, and `noImplicitAny` fails somewhere unrelated.
+
+### Application
+
+```
+apps/web/src/
   components/
     ui/                  # Design-system primitives (CVA): Button, IconButton, Input,
                          # NumberField (scrub), Slider, Segmented, Switch, Field, Select,

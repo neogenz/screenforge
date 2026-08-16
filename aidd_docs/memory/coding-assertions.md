@@ -4,10 +4,12 @@
 
 | Order | Command | Checks |
 | ----- | ------- | ------ |
-| 1 | `pnpm test` | Unit tests, application/tooling TypeScript, and ESLint. |
+| 1 | `pnpm run setup:gitleaks` | Install the pinned official detector once per clone. |
+| 2 | `pnpm test` | Unit tests, publication audit, application/tooling TypeScript, and ESLint. |
 
 ## Before push
 
 | Order | Command | Checks |
 | ----- | ------- | ------ |
-| 1 | `pnpm run test:release` | Fast gate, production build, Chromium E2E, and contrast audit. |
+| 1 | `node_modules/.bin/gitleaks git --redact=100 --no-banner` | Full-history secret scan. |
+| 2 | `pnpm run test:release` | Format, publication, unit, type, lint, one production build, strict Cloud Chromium E2E and audits. |

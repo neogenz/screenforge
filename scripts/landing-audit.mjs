@@ -11,7 +11,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
+const root = fileURLToPath(new URL('../apps/web/', import.meta.url))
 const failures = []
 
 /* ── Contraste : les couples propres à la landing, thème sombre ── */
@@ -99,6 +99,20 @@ for (const file of sources) {
       failures.push(`${file.replace(root, '')}: ${ban.label}`)
     }
   }
+}
+
+const commercialCopy = sources.map((file) => readFileSync(file, 'utf8')).join('\n')
+const COMMERCIAL_BANS = [
+  { pattern: /commercialLaunch/, label: 'ancien interrupteur de lancement commercial' },
+  { pattern: /(?:\$49|49\s*\$)/, label: 'ancien prix Local payant' },
+  { pattern: /(?:free trial|essai gratuit)/i, label: 'ancien essai Local' },
+  {
+    pattern: /(?:three watermarked exports|trois exports filigranés)/i,
+    label: 'ancien quota Local',
+  },
+]
+for (const ban of COMMERCIAL_BANS) {
+  if (ban.pattern.test(commercialCopy)) failures.push(`offre : ${ban.label}`)
 }
 
 /* ── Prérendu : la page livrée doit être lisible sans JavaScript ──

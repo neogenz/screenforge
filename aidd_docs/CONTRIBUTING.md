@@ -13,5 +13,6 @@ Add or edit a file under `aidd_docs/memory/`. See [`memory/README.md`](memory/RE
 
 ## House conventions
 
-- <A naming or placement rule specific to this repo>
-- <What belongs in memory versus a rule versus a doc here>
+- Everything under `aidd_docs/` is public, versioned project context. Never put secrets, customer data, personal filesystem paths, or raw logs there.
+- Put sensitive local notes under the ignored `.private/` directory and never reference them from versioned content.
+- Memory records durable, current project facts; task directories contain scoped plans and sanitized evidence; generated rules or skills are reserved for cross-cutting behavior.

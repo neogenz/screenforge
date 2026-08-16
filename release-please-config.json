@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "eb12bc5471a2a37cbac7ef71f946424a93c1f4ab",
+  "release-type": "node",
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "include-v-in-release-name": true,
+  "label": "autorelease: pending",
+  "release-label": "autorelease: tagged",
+  "changelog-sections": [
+    { "type": "feat", "section": "Fonctionnalités" },
+    { "type": "fix", "section": "Corrections" },
+    { "type": "perf", "section": "Performances" },
+    { "type": "refactor", "section": "Refactorisations" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "test", "section": "Tests" },
+    { "type": "build", "section": "Build" },
+    { "type": "ci", "section": "Intégration continue" },
+    { "type": "chore", "section": "Maintenance" }
+  ],
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "screenforge",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

@@ -1,0 +1,139 @@
+name: Deploy Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+
+concurrency:
+  group: screenforge-production
+  queue: max
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install pinned Gitleaks
+        run: sh scripts/setup-gitleaks.sh
+      - name: Scan every Git ref
+        run: node_modules/.bin/gitleaks git --redact=100 --no-banner --log-opts=--all
+      - name: Audit tracked publication content
+        run: node scripts/publication-audit.mjs tracked
+      - name: Validate release tag provenance
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          pnpm run test:release-tag
+          pnpm run verify:release-tag "$RELEASE_TAG"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Run release gate
+        run: pnpm run test:release
+      - name: Scan Playwright diagnostics before upload
+        id: scan-diagnostics
+        if: failure() && hashFiles('apps/web/playwright-report/**', 'apps/web/test-results/**') != ''
+        run: |
+          node scripts/publication-audit.mjs paths apps/web/playwright-report apps/web/test-results
+          for path in apps/web/playwright-report apps/web/test-results; do
+            test ! -e "$path" || node_modules/.bin/gitleaks dir "$path" --redact=100 --no-banner --max-archive-depth=2
+          done
+      - name: Upload Playwright diagnostics
+        if: failure() && steps.scan-diagnostics.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-playwright-diagnostics
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 3
+
+  deploy:
+    name: Deploy tagged release
+    needs: validate
+    if: github.repository == 'neogenz/screenforge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check production configuration
+        run: |
+          test -n "$CONVEX_DEPLOY_KEY"
+          test -n "$PRODUCTION_URL"
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+          test -n "$VERCEL_TOKEN"
+      - name: Pull production settings
+        run: pnpm exec vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+      - name: Build immutable production candidate
+        run: pnpm exec vercel build --prod --token "$VERCEL_TOKEN"
+      - name: Deploy staged production candidate
+        id: staged
+        run: |
+          deployment_url=$(pnpm exec vercel deploy --prebuilt --prod --skip-domain --archive=tgz --token "$VERCEL_TOKEN")
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+      - name: Deploy Convex production backend
+        run: pnpm run deploy:ci --message "$GITHUB_SHA"
+      - name: Smoke test staged candidate
+        env:
+          DEPLOYMENT_URL: ${{ steps.staged.outputs.url }}
+        run: |
+          for path in / /landing.html /landing-fr.html; do
+            pnpm exec vercel curl "$path" --deployment "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN" -- --fail --silent --show-error --output /dev/null
+          done
+          pnpm exec vercel curl / --deployment "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN" -- --fail --silent --show-error --dump-header "$RUNNER_TEMP/staged-headers" --output /dev/null
+          node scripts/security-headers-audit.mjs --headers-file "$RUNNER_TEMP/staged-headers"
+      - name: Promote tested candidate
+        env:
+          DEPLOYMENT_URL: ${{ steps.staged.outputs.url }}
+        run: pnpm exec vercel promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN"
+      - name: Verify production
+        id: verify-production
+        continue-on-error: true
+        run: |
+          pnpm run audit:security-headers "$PRODUCTION_URL"
+          curl --fail --silent --show-error --output /dev/null "$PRODUCTION_URL/landing.html"
+          curl --fail --silent --show-error --output /dev/null "$PRODUCTION_URL/landing-fr.html"
+      - name: Roll back failed web promotion
+        if: steps.verify-production.outcome == 'failure'
+        run: pnpm exec vercel rollback --yes --token "$VERCEL_TOKEN"
+      - name: Fail after rollback
+        if: steps.verify-production.outcome == 'failure'
+        run: exit 1
