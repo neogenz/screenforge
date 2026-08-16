@@ -22,9 +22,51 @@ const json = (body: unknown, status = 200): Response =>
     headers: { 'Content-Type': 'application/json' },
   })
 
+export const MAX_WEBHOOK_BYTES = 256 * 1024
+
+async function readWebhookBody(
+  request: Request,
+): Promise<{ body: string } | { error: 'INVALID_BODY' | 'PAYLOAD_TOO_LARGE'; status: 400 | 413 }> {
+  const declared = request.headers.get('Content-Length')
+  if (declared !== null) {
+    const parsed = Number(declared)
+    if (!Number.isSafeInteger(parsed) || parsed < 0) return { error: 'INVALID_BODY', status: 400 }
+    if (parsed > MAX_WEBHOOK_BYTES) return { error: 'PAYLOAD_TOO_LARGE', status: 413 }
+  }
+
+  if (!request.body) return { error: 'INVALID_BODY', status: 400 }
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > MAX_WEBHOOK_BYTES) {
+      await reader.cancel()
+      return { error: 'PAYLOAD_TOO_LARGE', status: 413 }
+    }
+    chunks.push(value)
+  }
+
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  try {
+    return { body: new TextDecoder('utf-8', { fatal: true }).decode(bytes) }
+  } catch {
+    return { error: 'INVALID_BODY', status: 400 }
+  }
+}
+
 export const webhook = httpAction(async (ctx, request) => {
+  const payload = await readWebhookBody(request)
+  if ('error' in payload) return json({ error: payload.error }, payload.status)
   const outcome = await ctx.runAction(internal.polar.applySignedWebhook, {
-    body: await request.text(),
+    body: payload.body,
     id: request.headers.get('webhook-id') ?? '',
     timestamp: request.headers.get('webhook-timestamp') ?? '',
     signature: request.headers.get('webhook-signature') ?? '',

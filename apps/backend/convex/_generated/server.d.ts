@@ -27,6 +27,7 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly AUTH_EMAIL_FROM: string | undefined;
   readonly AUTH_RESEND_KEY: string | undefined;
+  readonly AUTH_TEST_PASSWORD: string | undefined;
   readonly CHECKOUT_SUCCESS_URL: string | undefined;
   readonly CORS_ALLOWED_ORIGINS: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;

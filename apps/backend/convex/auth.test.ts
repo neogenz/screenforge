@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { api } from './_generated/api'
+import { testPasswordEnabled } from './auth'
 import { rateLimited, testConvex } from './test.helpers'
 
 /**
@@ -33,6 +34,14 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+test('le mot de passe de test exige un flag et un déploiement loopback', () => {
+  expect(testPasswordEnabled(undefined, 'http://localhost:5173')).toBe(false)
+  expect(testPasswordEnabled('1', 'http://127.0.0.1:5173')).toBe(true)
+  expect(() => testPasswordEnabled('1', 'https://screenforge.app')).toThrow(
+    'restricted to loopback',
+  )
 })
 
 test('un compte se crée par mot de passe, puis se reconnecte', async () => {

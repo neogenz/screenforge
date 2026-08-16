@@ -18,6 +18,7 @@ import type * as download from "../download.js";
 import type * as entitlements from "../entitlements.js";
 import type * as http from "../http.js";
 import type * as limits from "../limits.js";
+import type * as maintenance from "../maintenance.js";
 import type * as media from "../media.js";
 import type * as mirror from "../mirror.js";
 import type * as polar from "../polar.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   entitlements: typeof entitlements;
   http: typeof http;
   limits: typeof limits;
+  maintenance: typeof maintenance;
   media: typeof media;
   mirror: typeof mirror;
   polar: typeof polar;

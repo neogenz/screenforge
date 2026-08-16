@@ -118,6 +118,17 @@ function denied(cors: Record<string, string>, error: unknown): Response {
     case 'ASSET_REJECTED':
     case 'PROJECT_REJECTED':
       return json(cors, 'rejected', 400)
+    case 'ASSET_SIZE_LIMIT':
+    case 'PROJECT_SIZE_LIMIT':
+      return json(cors, 'file-too-large', 413)
+    case 'ASSET_COUNT_LIMIT':
+      return json(cors, 'asset-count-limit', 409)
+    case 'PROJECT_COUNT_LIMIT':
+      return json(cors, 'project-count-limit', 409)
+    case 'ASSET_STORAGE_LIMIT':
+      return json(cors, 'asset-storage-limit', 413)
+    case 'PROJECT_STORAGE_LIMIT':
+      return json(cors, 'project-storage-limit', 413)
     default:
       return json(cors, 'failed', 500)
   }

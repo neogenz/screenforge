@@ -8,6 +8,15 @@ export default function globalSetup(): void {
 
   execFileSync(
     'pnpm',
+    ['--filter', 'backend', 'exec', 'convex', 'env', 'set', 'AUTH_TEST_PASSWORD', '1'],
+    {
+      cwd: WORKSPACE_ROOT,
+      stdio: 'inherit',
+    },
+  )
+
+  execFileSync(
+    'pnpm',
     [
       '--filter',
       'backend',

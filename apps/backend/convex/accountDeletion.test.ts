@@ -109,6 +109,7 @@ async function populated(
       name: 'ScreenForge',
       updatedAt: 1_770_000_000_000,
       blobId,
+      byteLength: 14,
     })
     for (let rank = 0; rank < assets; rank += 1) {
       const storageId = await ctx.storage.store(new Blob([new Uint8Array(4)], { type: PNG }))
@@ -295,6 +296,23 @@ describe('requestAccountDeletion', () => {
 
     await expect(remove(t, userId)).resolves.toBe('deleted')
     await expect(job(t, userId)).resolves.toBeNull()
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toBeNull()
+  })
+
+  it('reste disponible après expiration du droit Cloud', async () => {
+    const userId = await populated(t)
+    await t.run(async (ctx) => {
+      const entitlement = await ctx.db
+        .query('entitlements')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique()
+      await ctx.db.patch(entitlement!._id, {
+        cloudStatus: 'canceled',
+        cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+      })
+    })
+
+    await expect(remove(t, userId)).resolves.toBe('deleted')
     await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toBeNull()
   })
 
@@ -562,6 +580,7 @@ describe('la reprise', () => {
         name: 'Alias',
         updatedAt: 1,
         blobId: source.storageId,
+        byteLength: 4,
       })
       return source.storageId
     })

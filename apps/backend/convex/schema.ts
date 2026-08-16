@@ -76,6 +76,7 @@ export default defineSchema({
     name: v.string(),
     updatedAt: v.number(),
     blobId: v.id('_storage'),
+    byteLength: v.number(),
   })
     .index('by_user', ['userId'])
     .index('by_user_project', ['userId', 'projectId'])
@@ -96,6 +97,7 @@ export default defineSchema({
     contentType: v.string(),
     byteLength: v.number(),
   })
+    .index('by_user', ['userId'])
     .index('by_user_asset', ['userId', 'assetId'])
     .index('by_storageId', ['storageId']),
 

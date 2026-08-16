@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: borner et durcir toutes les écritures Cloud
@@ -115,3 +115,11 @@ journey
 | 2 | Aucune mutation de contenu Cloud n’accepte un droit fourni par le client et toutes refusent sans session propriétaire et Cloud actif. |
 | 3 | Le cleanup interne supprime uniquement les blobs non référencés, par lots bornés et sans donnée sensible dans les logs. |
 | 4 | Production ne peut pas démarrer avec `test-password`; un webhook surdimensionné est refusé avant allocation complète et tout événement accepté reste signé. |
+
+## Evidence
+
+- `pnpm test` : 522 tests unitaires, typecheck et lint passent.
+- Les tests couvrent plafonds exacts, cumul, remplacement, concurrence, expiration, propriété et nettoyage idempotent.
+- La migration locale a renseigné les 5 projets historiques; préproduction et production contenaient 0 projet à migrer.
+- Le schéma final et les fonctions ont été déployés sur `acrobatic-orca-116` puis `colorful-caterpillar-775`.
+- `AUTH_TEST_PASSWORD` est absent des deux environnements hébergés; les clés de déploiement temporaires ont été révoquées puis supprimées du disque.

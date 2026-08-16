@@ -1,6 +1,7 @@
 import { Webhook } from 'standardwebhooks'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from './_generated/dataModel'
+import { MAX_WEBHOOK_BYTES } from './billing'
 import { testConvex } from './test.helpers'
 
 /**
@@ -98,7 +99,7 @@ function sign(body: string, id: string, secret = SECRET) {
 
 type Stack = ReturnType<typeof testConvex>
 
-function post(t: Stack, body: string, headers: Record<string, string>) {
+function post(t: Stack, body: BodyInit, headers: Record<string, string>) {
   return t.fetch('/billing/webhook', { method: 'POST', body, headers })
 }
 
@@ -289,6 +290,46 @@ describe('POST /billing/webhook', () => {
 
     await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
     expect(await mirror(t)).toHaveLength(0)
+  })
+
+  it('accepte exactement la limite puis refuse un Content-Length supérieur', async () => {
+    const userId = await account(t)
+    const base = customerStateChanged({ externalId: userId })
+    const exact = base + ' '.repeat(MAX_WEBHOOK_BYTES - new TextEncoder().encode(base).byteLength)
+    const accepted = await post(t, exact, {
+      ...sign(exact, 'msg_exact'),
+      'content-length': String(MAX_WEBHOOK_BYTES),
+    })
+    expect(accepted.status).toBe(200)
+
+    const rejected = await post(t, '{}', {
+      ...sign('{}', 'msg_declared_large'),
+      'content-length': String(MAX_WEBHOOK_BYTES + 1),
+    })
+    expect(rejected.status).toBe(413)
+    await expect(rejected.json()).resolves.toEqual({ error: 'PAYLOAD_TOO_LARGE' })
+  })
+
+  it('borne aussi un corps sans taille déclarée et refuse un UTF-8 invalide', async () => {
+    const oversized = await post(
+      t,
+      new Uint8Array(MAX_WEBHOOK_BYTES + 1),
+      sign('{}', 'msg_stream_large'),
+    )
+    expect(oversized.status).toBe(413)
+
+    const invalid = await post(t, new Uint8Array([0xff]), sign('{}', 'msg_invalid_utf8'))
+    expect(invalid.status).toBe(400)
+    await expect(invalid.json()).resolves.toEqual({ error: 'INVALID_BODY' })
+    expect(await mirror(t)).toHaveLength(0)
+  })
+
+  it.each(['', '{'])('demande de rejouer un JSON signé vide ou invalide', async (body) => {
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const response = await post(t, body, sign(body, `msg_bad_json_${body.length}`))
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toEqual({ error: 'INVALID_CUSTOMER_STATE' })
+    expect(report).toHaveBeenCalled()
   })
 
   /* `externalId` est une chaîne venue du dehors, et rien dans le schéma ne

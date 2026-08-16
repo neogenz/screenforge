@@ -27,7 +27,7 @@
     "deploy:preprod": "convex deploy --env-file .env.preprod",
     "deploy:prod": "convex deploy --env-file .env.production",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:unit": "vitest run convex"
+    "test:unit": "AUTH_TEST_PASSWORD=1 SITE_URL=http://localhost:5173 vitest run convex"
   },
   "dependencies": {
     "@auth/core": "0.41.1",

@@ -33,6 +33,11 @@ import { components } from './_generated/api'
  */
 export const PASSWORD_ATTEMPTS_PER_HOUR = 5
 
+export const MAX_PROJECTS_PER_ACCOUNT = 100
+export const MAX_PROJECT_BYTES_PER_ACCOUNT = 128 * 1024 * 1024
+export const MAX_ASSETS_PER_ACCOUNT = 500
+export const MAX_ASSET_BYTES_PER_ACCOUNT = 512 * 1024 * 1024
+
 const LIMITS = {
   /**
    * Deviner un mot de passe, quel que soit le flux qui sert à le présenter.

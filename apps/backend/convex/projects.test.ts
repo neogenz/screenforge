@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { api } from './_generated/api'
+import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import { MAX_PROJECT_BYTES_PER_ACCOUNT, MAX_PROJECTS_PER_ACCOUNT } from './limits'
 import { MAX_PROJECT_BLOB_BYTES } from './media'
-import { cloudAccount, testConvex } from './test.helpers'
+import { cloudAccount, errorCode, testConvex } from './test.helpers'
 
 type Test = ReturnType<typeof testConvex>
 type ProjectRow = { projectId: string; name: string; updatedAt: number }
@@ -209,6 +210,107 @@ describe('dernier écrivain gagne sans fichier orphelin', () => {
   })
 })
 
+describe('quotas de stockage projet', () => {
+  it('borne le nombre de projets, y compris deux créations concurrentes, puis libère la place', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    const candidates = await t.run(async (ctx) => {
+      const blobId = await ctx.storage.store(new Blob(['x'], { type: 'application/json' }))
+      for (let index = 0; index < MAX_PROJECTS_PER_ACCOUNT - 1; index += 1) {
+        await ctx.db.insert('projects', {
+          userId,
+          projectId: `seed-${index}`,
+          name: `seed-${index}`,
+          updatedAt: 1,
+          blobId,
+          byteLength: 1,
+        })
+      }
+      return await Promise.all([
+        ctx.storage.store(new Blob(['a'], { type: 'application/json' })),
+        ctx.storage.store(new Blob(['b'], { type: 'application/json' })),
+      ])
+    })
+
+    const concurrent = await Promise.allSettled(
+      ['a', 'b'].map((projectId, index) =>
+        t.withIdentity({ subject: userId }).mutation(internal.projects.commitProjectUpload, {
+          projectId,
+          name: projectId,
+          updatedAt: 1,
+          blobId: candidates[index]!,
+        }),
+      ),
+    )
+    expect(
+      concurrent.filter((result) => result.status === 'fulfilled' && result.value === 'accepted'),
+    ).toHaveLength(1)
+    expect(
+      concurrent.filter(
+        (result) =>
+          result.status === 'rejected' && errorCode(result.reason) === 'PROJECT_COUNT_LIMIT',
+      ),
+    ).toHaveLength(1)
+    expect(await t.run((ctx) => ctx.db.query('projects').collect())).toHaveLength(
+      MAX_PROJECTS_PER_ACCOUNT,
+    )
+
+    await t.withIdentity({ subject: userId }).mutation(api.projects.removeProject, {
+      projectId: 'seed-0',
+    })
+    expect(
+      (await push(t, userId, { projectId: 'c', name: 'c', updatedAt: 1 }, {})).response.status,
+    ).toBe(200)
+  })
+
+  it('borne le cumul et soustrait la version remplacée', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    await t.run(async (ctx) => {
+      const blobId = await ctx.storage.store(new Blob(['x'], { type: 'application/json' }))
+      await ctx.db.insert('projects', {
+        userId,
+        projectId: 'plein',
+        name: 'plein',
+        updatedAt: 1,
+        blobId,
+        byteLength: MAX_PROJECT_BYTES_PER_ACCOUNT,
+      })
+    })
+
+    const blocked = await push(t, userId, { projectId: 'autre', name: 'autre', updatedAt: 1 }, {})
+    expect(blocked.response.status).toBe(413)
+    expect(blocked.outcome).toBe('project-storage-limit')
+    expect(
+      (await push(t, userId, { projectId: 'plein', name: 'plein', updatedAt: 2 }, {})).outcome,
+    ).toBe('accepted')
+  })
+})
+
+it('après expiration, le projet reste lisible et supprimable mais plus modifiable', async () => {
+  const t = testConvex()
+  const userId = await cloudAccount(t)
+  await push(t, userId, { projectId: 'p', name: 'p', updatedAt: 1 }, { value: 1 })
+  await t.run(async (ctx) => {
+    const entitlement = await ctx.db
+      .query('entitlements')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    await ctx.db.patch(entitlement!._id, {
+      cloudStatus: 'canceled',
+      cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+    })
+  })
+
+  expect((await t.withIdentity({ subject: userId }).fetch('/project-blob/p')).status).toBe(200)
+  expect(
+    (await push(t, userId, { projectId: 'p', name: 'p', updatedAt: 2 }, {})).response.status,
+  ).toBe(403)
+  await expect(
+    t.withIdentity({ subject: userId }).mutation(api.projects.removeProject, { projectId: 'p' }),
+  ).resolves.toBe(true)
+})
+
 describe('références historiques aliasées', () => {
   it('conserve un fichier partagé jusqu’au dernier remplacement, même entre comptes et tables', async () => {
     const t = testConvex()
@@ -222,6 +324,7 @@ describe('références historiques aliasées', () => {
         name: 'p',
         updatedAt: 1,
         blobId: id,
+        byteLength: 8,
       })
       await ctx.db.insert('assets', {
         userId: other,
@@ -251,6 +354,7 @@ describe('références historiques aliasées', () => {
         name: 'a',
         updatedAt: 1,
         blobId: id,
+        byteLength: 8,
       })
       await ctx.db.insert('projects', {
         userId: other,
@@ -258,6 +362,7 @@ describe('références historiques aliasées', () => {
         name: 'b',
         updatedAt: 1,
         blobId: id,
+        byteLength: 8,
       })
       return id
     })

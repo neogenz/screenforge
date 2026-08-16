@@ -205,8 +205,23 @@ const testPassword = {
   },
 } as unknown as typeof baseTestPassword
 
+export function testPasswordEnabled(flag: string | undefined, site: string | undefined): boolean {
+  if (flag !== '1') return false
+  if (!site) throw new Error('AUTH_TEST_PASSWORD requires SITE_URL.')
+  const url = new URL(site)
+  if (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
+    return true
+  }
+  throw new Error('AUTH_TEST_PASSWORD is restricted to loopback deployments.')
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [testPassword, magicLink, Google, GitHub],
+  providers: [
+    ...(testPasswordEnabled(env.AUTH_TEST_PASSWORD, env.SITE_URL) ? [testPassword] : []),
+    magicLink,
+    Google,
+    GitHub,
+  ],
 
   /**
    * Le bourrage de code, borné par la bibliothèque — et la moitié du mot de

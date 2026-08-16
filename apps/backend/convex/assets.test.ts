@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from './_generated/dataModel'
+import { api } from './_generated/api'
 import { acceptable } from './assets'
+import { MAX_ASSET_BYTES_PER_ACCOUNT, MAX_ASSETS_PER_ACCOUNT } from './limits'
 import { MAX_IMAGE_FILE_BYTES } from './media'
 import { cloudAccount, testConvex } from './test.helpers'
 
@@ -136,6 +138,79 @@ describe('remplacement et isolation', () => {
     expect((await t.withIdentity({ subject: other }).fetch('/asset/privé')).status).toBe(404)
     expect((await t.fetch('/asset/privé')).status).toBe(404)
   })
+})
+
+describe('quotas de stockage asset', () => {
+  it('borne le nombre puis permet une création après suppression', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(new Blob(['x'], { type: PNG }))
+      for (let index = 0; index < MAX_ASSETS_PER_ACCOUNT; index += 1) {
+        await ctx.db.insert('assets', {
+          userId,
+          assetId: `seed-${index}`,
+          storageId,
+          contentType: PNG,
+          byteLength: 1,
+        })
+      }
+    })
+
+    const blocked = await upload(t, userId, 'nouveau', new Blob(['x'], { type: PNG }))
+    expect(blocked.response.status).toBe(409)
+    expect(blocked.body.outcome).toBe('asset-count-limit')
+    await t.withIdentity({ subject: userId }).mutation(api.assets.removeAsset, {
+      assetId: 'seed-0',
+    })
+    expect(
+      (await upload(t, userId, 'nouveau', new Blob(['x'], { type: PNG }))).response.status,
+    ).toBe(200)
+  })
+
+  it('borne le cumul et soustrait l’asset remplacé', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(new Blob(['x'], { type: PNG }))
+      await ctx.db.insert('assets', {
+        userId,
+        assetId: 'plein',
+        storageId,
+        contentType: PNG,
+        byteLength: MAX_ASSET_BYTES_PER_ACCOUNT,
+      })
+    })
+
+    const blocked = await upload(t, userId, 'autre', new Blob(['x'], { type: PNG }))
+    expect(blocked.response.status).toBe(413)
+    expect(blocked.body.outcome).toBe('asset-storage-limit')
+    expect((await upload(t, userId, 'plein', new Blob(['x'], { type: PNG }))).body.outcome).toBe(
+      'accepted',
+    )
+  })
+})
+
+it('après expiration, l’asset reste lisible et supprimable mais plus modifiable', async () => {
+  const t = testConvex()
+  const userId = await cloudAccount(t)
+  await upload(t, userId, 'a', new Blob(['x'], { type: PNG }))
+  await t.run(async (ctx) => {
+    const entitlement = await ctx.db
+      .query('entitlements')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    await ctx.db.patch(entitlement!._id, {
+      cloudStatus: 'canceled',
+      cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+    })
+  })
+
+  expect((await t.withIdentity({ subject: userId }).fetch('/asset/a')).status).toBe(200)
+  expect((await upload(t, userId, 'a', new Blob(['y'], { type: PNG }))).response.status).toBe(403)
+  await expect(
+    t.withIdentity({ subject: userId }).mutation(api.assets.removeAsset, { assetId: 'a' }),
+  ).resolves.toBe(true)
 })
 
 describe('CORS exact sans autorité ambiante', () => {

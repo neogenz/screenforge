@@ -15,6 +15,7 @@ const app = defineApp({
   env: {
     AUTH_EMAIL_FROM: v.optional(v.string()),
     AUTH_RESEND_KEY: v.optional(v.string()),
+    AUTH_TEST_PASSWORD: v.optional(v.string()),
     CHECKOUT_SUCCESS_URL: v.optional(v.string()),
     CORS_ALLOWED_ORIGINS: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
