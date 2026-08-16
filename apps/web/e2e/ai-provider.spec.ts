@@ -99,9 +99,9 @@ test('le pont éteint est constaté, pas découvert après coup', async ({ page 
   /* Le pont n'est pas là, et la page l'a constaté toute seule : c'est écrit
      avant qu'on ait rien tapé, et le champ du jeton reste inerte — coller un
      secret dans un pont éteint ne peut produire qu'un échec. */
-  await expect(page.getByRole('status').filter({ hasText: 'bridge run start' })).toBeVisible()
-  await expect(page.getByLabel('Jeton d’appairage')).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Connecter' })).toBeDisabled()
+  await expect(page.getByRole('alert').filter({ hasText: 'bridge run start' })).toBeVisible()
+  await expect(page.getByLabel('Jeton d’appairage')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Connecter' })).toBeHidden()
   // Et le bouton qui relit cet état est là, plutôt qu'un rechargement de page.
   await expect(page.getByRole('button', { name: 'Vérifier' })).toBeEnabled()
 })
@@ -116,6 +116,10 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
   await page.getByRole('button', { name: /Qui écrit les accroches/ }).click()
   await page.getByRole('radio', { name: /clé Anthropic/ }).click()
 
+  const flow = page.locator('[data-slot="setup-flow"]')
+  await expect(flow.getByRole('progressbar')).toHaveAttribute('max', '2')
+  await expect(flow.locator('[data-state="active"], [data-state="error"]')).toHaveCount(1)
+
   // Une clé ne s'installe pas : la première marche est une adresse, et le champ
   // est immédiatement utilisable.
   const field = page.getByLabel('Clé d’API Anthropic')
@@ -123,6 +127,7 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
   await field.fill('cle-factice-invalide')
   await page.getByRole('button', { name: 'Connecter' }).click()
   await expect(page.getByRole('alert')).toContainText('recopiée')
+  await expect(flow.locator('[data-state="active"], [data-state="error"]')).toHaveCount(1)
 
   // La clé n'est écrite nulle part : ni stockage local, ni session.
   const persisted = await page.evaluate(() => {
@@ -139,6 +144,27 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
   await page.getByRole('button', { name: 'Retour au brief' }).click()
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
   await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
+})
+
+test('le parcours reste contenu à largeur étroite et en mouvement réduit', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.route('http://127.0.0.1:4590/**', (route: Route) => route.abort())
+
+  await waitForApp(page)
+  await openCampaignDialog(page)
+  await page.setViewportSize({ width: 420, height: 820 })
+  await page.getByRole('button', { name: /Qui écrit les accroches/ }).click()
+  await page.getByRole('radio', { name: /Avec Claude Code/ }).click()
+
+  const flow = page.locator('[data-slot="setup-flow"]')
+  await expect(flow).toBeVisible()
+  const rendering = await flow.evaluate((element) => ({
+    contained: element.scrollWidth <= element.clientWidth,
+    transition: getComputedStyle(element.querySelector('[data-slot="setup-step"]')!)
+      .transitionProperty,
+  }))
+  expect(rendering.contained).toBe(true)
+  expect(rendering.transition).not.toContain('transform')
 })
 
 /**
@@ -179,11 +205,14 @@ test('une clé acceptée est reprise au rechargement, et s’oublie sur demande'
   await expect(disclosure).toContainText('clé Anthropic')
   await disclosure.click()
   await expect(page.getByLabel('Clé d’API Anthropic')).toHaveValue(FAKE_KEY)
+  await expect(
+    page.getByRole('progressbar', { name: /Configuration de .*Anthropic/ }),
+  ).toHaveAttribute('value', '0')
 
   /* Rien ne s'est reconnecté tout seul : ouvrir une fenêtre ne déclenche pas de
      requête sortante, et le modèle attend le clic. */
   await expect(page.getByRole('button', { name: 'Connecter' })).toBeEnabled()
-  await expect(page.getByRole('combobox', { name: 'Modèle' })).toBeDisabled()
+  await expect(page.getByRole('combobox', { name: 'Modèle' })).toBeHidden()
 
   // Ni le stockage local ni la session ne la portent — elle est scellée ailleurs.
   const inClearStorage = await page.evaluate((key) => {

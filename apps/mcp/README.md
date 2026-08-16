@@ -29,9 +29,10 @@ icônes, polices), bornes numériques, aucune propriété non déclarée. Le sch
 annoncé à l'agent et le schéma revalidé dans le navigateur sont le même objet —
 c'est ce que le paquet partagé existe pour garantir.
 
-Un agent qui déraille peut au pire poser un texte au mauvais endroit. Il ne peut
-pas injecter du JSON Fabric, lire une image, ni écrire ailleurs que dans le
-projet ouvert.
+Un agent qui déraille peut au pire modifier le projet ouvert au mauvais endroit.
+Il ne peut pas injecter du JSON Fabric ni écrire ailleurs. Il peut en revanche
+lire l’état structuré du projet et demander une miniature PNG rendue par
+l’onglet : cette boucle visuelle est ce qui lui permet de vérifier sa composition.
 
 | Outil                             | Effet                                                                     |
 | --------------------------------- | ------------------------------------------------------------------------- |

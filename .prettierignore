@@ -6,6 +6,8 @@ apps/backend/convex/_generated
 **/test-results
 **/playwright-report
 pnpm-lock.yaml
+# Généré par Release Please ; son format appartient au générateur.
+CHANGELOG.md
 .pnpm-store
 aidd_docs
 specs

@@ -1,6 +1,6 @@
 ---
 objective: 'Une police qui arrive remesure toute la scène par le seul canal qui possède cet événement, et aucune largeur mesurée sur la police de secours n’atteint le projet.'
-status: pending
+status: implemented
 ---
 
 # Plan: la mesure du texte suit la police, et la largeur déclarée suit le calque

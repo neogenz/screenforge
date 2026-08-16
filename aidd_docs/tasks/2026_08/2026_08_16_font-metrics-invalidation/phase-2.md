@@ -1,5 +1,5 @@
 ---
-status: pending
+status: implemented
 ---
 
 # Instruction: la largeur déclarée survit à ce que Fabric a mesuré

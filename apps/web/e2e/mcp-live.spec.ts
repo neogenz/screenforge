@@ -1,6 +1,9 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
+
+const PNG_8x4 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAYAAACzzX7wAAAAEklEQVR4nGPQqzX6jw8z0F4BADXlO4E81RYZAAAAAElFTkSuQmCC'
 
 /**
  * L'agent conduit l'éditeur ouvert, et ce qu'il pose s'annule d'un geste.
@@ -20,11 +23,24 @@ async function historyDepth(page: Page): Promise<number> {
   return page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? 0)
 }
 
+async function expectConnectionFlow(dialog: Locator, completed: number) {
+  const flow = dialog.locator('[data-slot="setup-flow"]')
+  await expect(flow.locator('[data-slot="setup-step"]')).toHaveCount(3)
+  await expect(flow.getByRole('progressbar')).toHaveAttribute('value', String(completed))
+  await expect(flow.locator('[data-state="active"], [data-state="error"]')).toHaveCount(1)
+}
+
 test.describe('connexion MCP', () => {
   test('un lot de l’agent vaut une écriture et une seule annulation', async ({ page }) => {
     const relay = await startRelay()
     try {
       await connect(page, relay)
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await expectConnectionFlow(dialog, 3)
+      await dialog.getByText('Détails de connexion').click()
+      await expect(dialog.getByText('MCP 0.1.0-test')).toBeVisible()
+      await expect(dialog.getByText(/127\.0\.0\.1:\d+ · loopback/)).toBeVisible()
+      await expect(dialog.getByText(/miniature rendue/)).toBeVisible()
 
       // L'état part sans qu'on le demande : un agent qui lit avant d'agir ne
       // doit pas payer un aller-retour pour ce que la page connaît déjà.
@@ -84,6 +100,11 @@ test.describe('connexion MCP', () => {
 
       // L'état est repoussé après l'écriture : l'agent voit ce qu'il a fait.
       await expect.poll(() => relay.states.length).toBeGreaterThan(1)
+
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      const reopened = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await reopened.getByText('Détails de connexion').click()
+      await expect(reopened.getByText('1 lot · 3 appels')).toBeVisible()
     } finally {
       await relay.stop()
     }
@@ -123,7 +144,13 @@ test.describe('connexion MCP', () => {
       await connect(page, relay)
       expect(relay.live()).toBe(1)
 
-      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      let dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await dialog.getByRole('button', { name: 'Fermer' }).click()
+      await expect(dialog).toBeHidden()
+      expect(relay.live()).toBe(1)
+
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByRole('button', { name: 'Désactiver' }).click()
       await expect(dialog.getByRole('status')).toHaveText('Inactive')
 
@@ -135,6 +162,62 @@ test.describe('connexion MCP', () => {
       expect(relay.live()).toBe(0)
       await expect(dialog.getByRole('button', { name: 'Activer' })).toBeVisible()
     } finally {
+      await relay.stop()
+    }
+  })
+
+  test('désactiver pendant un asset retardé interdit toute mutation tardive', async ({ page }) => {
+    const relay = await startRelay()
+    let releaseAsset = () => {}
+    let markRequested = () => {}
+    const held = new Promise<void>((resolve) => {
+      releaseAsset = resolve
+    })
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve
+    })
+    try {
+      relay.serve('coffre-retarde', Buffer.from(PNG_8x4, 'base64'))
+      await page.route('**/asset/coffre-retarde', async (route) => {
+        markRequested()
+        await held
+        try {
+          await route.continue()
+        } catch {
+          // La désactivation annule précisément cette requête.
+        }
+      })
+      await connect(page, relay)
+
+      const before = await layerTypes(page)
+      const depth = await historyDepth(page)
+      relay.push('lot-retarde', [
+        {
+          tool: 'add_image',
+          args: {
+            assetId: 'coffre-retarde',
+            originalWidth: 8,
+            originalHeight: 4,
+            width: 80,
+            height: 40,
+          },
+        },
+      ])
+      await requested
+
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await dialog.getByRole('button', { name: 'Désactiver' }).click()
+      releaseAsset()
+
+      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect.poll(() => relay.live(), { timeout: 10_000 }).toBe(0)
+      await page.waitForTimeout(500)
+      expect(await layerTypes(page)).toEqual(before)
+      expect(await historyDepth(page)).toBe(depth)
+      expect(relay.answers).toHaveLength(0)
+      expect(relay.opened()).toBe(1)
+    } finally {
+      releaseAsset()
       await relay.stop()
     }
   })
@@ -183,16 +266,38 @@ test.describe('connexion MCP', () => {
     const relay = await startRelay()
     const port = relay.port
     await relay.stop()
+    let recovered: Awaited<ReturnType<typeof startRelay>> | undefined
 
-    await page.addInitScript((closed: number) => {
-      localStorage.setItem('screenforge-mcp-port', String(closed))
-    }, port)
-    await waitForApp(page)
+    try {
+      await page.addInitScript((closed: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(closed))
+      }, port)
+      await waitForApp(page)
 
-    await page.getByRole('button', { name: 'Connexion MCP' }).click()
-    const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-    await dialog.getByRole('button', { name: 'Activer' }).click()
-    await expect(dialog.getByRole('status')).toHaveText('Injoignable')
-    await expect(dialog.getByText(/pnpm --filter mcp run start/)).toBeVisible()
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await dialog.getByRole('button', { name: 'Activer' }).click()
+      await expect(dialog.getByRole('status')).toHaveText('Injoignable')
+      await expectConnectionFlow(dialog, 0)
+      await expect(dialog.getByRole('alert')).toContainText(/pnpm --filter mcp run start/)
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+      const copy = dialog.getByRole('button', { name: /^Copier/ })
+      await copy.click()
+      await expect(copy).toContainText('Copié')
+
+      await page.setViewportSize({ width: 375, height: 800 })
+      expect(
+        await dialog
+          .locator('[data-slot="setup-flow"]')
+          .evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true)
+
+      recovered = await startRelay(port)
+      await dialog.getByRole('button', { name: 'Réessayer' }).click()
+      await expect(dialog.getByRole('status')).toHaveText('Connectée')
+      await expectConnectionFlow(dialog, 3)
+    } finally {
+      await recovered?.stop()
+    }
   })
 })

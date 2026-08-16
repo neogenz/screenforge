@@ -56,7 +56,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    /* Le backend local démarre avec les web servers, avant les 149 scénarios
+    /* Le backend local démarre avec les web servers, avant les scénarios
        local-first. Exécuter Cloud après eux laissait son proxy HTTP inactif
        plusieurs minutes et rendait l'upload limite de 16 MiB instable. La
        frontière de transport passe d'abord, sur le moteur que le gate vient

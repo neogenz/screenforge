@@ -101,7 +101,8 @@ for (const file of sources) {
   }
 }
 
-const commercialCopy = sources.map((file) => readFileSync(file, 'utf8')).join('\n')
+const commercialSources = [...sources, fileURLToPath(new URL('./og-card.mjs', import.meta.url))]
+const commercialCopy = commercialSources.map((file) => readFileSync(file, 'utf8')).join('\n')
 const COMMERCIAL_BANS = [
   { pattern: /commercialLaunch/, label: 'ancien interrupteur de lancement commercial' },
   { pattern: /(?:\$49|49\s*\$)/, label: 'ancien prix Local payant' },

@@ -828,7 +828,7 @@ function useSecondaryActions(): SecondaryAction[] {
     {
       id: 'mcp',
       label: 'Connexion MCP',
-      hint: `Agent externe — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
+      hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
       /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
          menu, l'icône retombe dans une fente que le menu dimensionne, et une
          pastille en absolu y déborderait sur le libellé. */
