@@ -1,6 +1,6 @@
 ---
 objective: "Le branchement d’un agent devient un parcours compact et immédiatement lisible, où ScreenForge montre chaque jalon réel du MCP et où les cinq findings de la review MCP sont corrigés puis vérifiés par la gate complète."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Connexion agents — rendre le MCP aussi clair qu’une tâche locale

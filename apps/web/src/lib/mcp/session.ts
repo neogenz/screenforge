@@ -213,12 +213,22 @@ function base64(bytes: Uint8Array): string {
  * fait dans le sélecteur, pas au ⌘Z.
  */
 export async function saveRelayTemplate(input: RelayTemplateSave): Promise<RelayOutcome> {
-  const outcome = await useTemplatesStore.getState().save({ ...input, source: 'ai' })
-  if (!outcome.ok) return { committed: false, error: outcome.error }
-  return { committed: true, result: summarize(outcome.template) }
+  const saving = useTemplatesStore.getState().save({ ...input, source: 'ai' })
+  templateSaves.add(saving)
+  try {
+    const outcome = await saving
+    if (!outcome.ok) return { committed: false, error: outcome.error }
+    return { committed: true, result: summarize(outcome.template) }
+  } finally {
+    templateSaves.delete(saving)
+  }
 }
 
-export function listRelayTemplates(): RelayOutcome {
+const templateSaves = new Set<Promise<unknown>>()
+
+export async function listRelayTemplates(): Promise<RelayOutcome> {
+  await useTemplatesStore.getState().hydrate()
+  await Promise.all(templateSaves)
   return {
     committed: true,
     result: { templates: useTemplatesStore.getState().templates.map(summarize) },

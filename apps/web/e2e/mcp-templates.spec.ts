@@ -88,7 +88,7 @@ test.describe('gabarits enregistrés par l’agent', () => {
     }
   })
 
-  test('l’agent relit sa bibliothèque, et un nom déjà pris est refusé', async ({ page }) => {
+  test('save puis list reste ordonné au démarrage et après rechargement', async ({ page }) => {
     const relay = await startRelay()
     try {
       await connect(page, relay)
@@ -96,23 +96,35 @@ test.describe('gabarits enregistrés par l’agent', () => {
       await compose(page, relay)
 
       relay.askSaveTemplate('gabarit-a', { name: 'Réutilisable' })
-      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(2)
-      expect(relay.answers[1].ok).toBe(true)
-
-      // Refus explicite, pas un suffixe posé dans le dos de l'agent : deux
-      // « Réutilisable » presque homonymes rendraient la réapplication aveugle.
-      relay.askSaveTemplate('gabarit-b', { name: 'Réutilisable' })
-      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(3)
-      expect(relay.answers[2].ok).toBe(false)
-      expect(relay.answers[2].error).toMatch(/s’appelle déjà/)
-
       relay.askListTemplates('liste-1')
-      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(4)
-      const listed = relay.answers[3].result?.templates ?? []
+      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(3)
+      expect(relay.answers.find((answer) => answer.id === 'gabarit-a')?.ok).toBe(true)
+
+      const listed =
+        relay.answers.find((answer) => answer.id === 'liste-1')?.result?.templates ?? []
       expect(listed).toHaveLength(1)
       expect(listed[0].name).toBe('Réutilisable')
       expect(listed[0].source).toBe('ai')
       expect(listed[0].layerCount).toBe(2)
+
+      const opened = relay.opened()
+      await page.reload({ waitUntil: 'networkidle' })
+      await waitForApp(page)
+      await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBeGreaterThan(opened)
+
+      relay.askListTemplates('liste-2')
+      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(4)
+      const reloaded =
+        relay.answers.find((answer) => answer.id === 'liste-2')?.result?.templates ?? []
+      expect(reloaded.map((template) => template.name)).toEqual(['Réutilisable'])
+
+      // Refus explicite après la relecture du disque, pas un suffixe posé dans
+      // le dos de l'agent : il n'existe toujours qu'un seul gabarit de ce nom.
+      relay.askSaveTemplate('gabarit-b', { name: 'Réutilisable' })
+      await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(5)
+      const collision = relay.answers.find((answer) => answer.id === 'gabarit-b')
+      expect(collision?.ok).toBe(false)
+      expect(collision?.error).toMatch(/s’appelle déjà/)
     } finally {
       await relay.stop()
     }

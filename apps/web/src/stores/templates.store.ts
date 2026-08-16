@@ -45,20 +45,31 @@ interface TemplatesState {
   remove: (id: string) => Promise<void>
 }
 
+let hydrating: Promise<void> | null = null
+
 export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
   templates: [],
   hydrated: false,
 
   hydrate: async () => {
+    if (get().hydrated) return
+    const current = (hydrating ??= (async () => {
+      try {
+        set({ templates: await readCustomTemplates(), hydrated: true })
+      } catch (error) {
+        console.warn('Could not read the saved templates.', error)
+        set({ hydrated: true })
+      }
+    })())
     try {
-      set({ templates: await readCustomTemplates(), hydrated: true })
-    } catch (error) {
-      console.warn('Could not read the saved templates.', error)
-      set({ hydrated: true })
+      await current
+    } finally {
+      if (hydrating === current) hydrating = null
     }
   },
 
   save: async (input) => {
+    await get().hydrate()
     const name = input.name.trim()
     if (!name) return { ok: false, error: 'Un gabarit a besoin d’un nom.' }
     if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
@@ -129,6 +140,7 @@ export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
   },
 
   remove: async (id) => {
+    await get().hydrate()
     await deleteCustomTemplate(id)
     set((state) => ({ templates: state.templates.filter((template) => template.id !== id) }))
   },

@@ -283,7 +283,7 @@ async function answer(request: RelayRequest): Promise<void> {
       : request.saveTemplate
         ? await saveRelayTemplate(request.saveTemplate)
         : request.listTemplates
-          ? listRelayTemplates()
+          ? await listRelayTemplates()
           : request.refreshScreenshots
             ? await refreshRelayScreenshots(request.refreshScreenshots, loadAsset, isCurrent)
             : await applyRelayBatch(request.calls ?? [], loadAsset, isCurrent)
