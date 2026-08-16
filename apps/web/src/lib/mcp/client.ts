@@ -281,7 +281,7 @@ async function answer(request: RelayRequest): Promise<void> {
     const outcome = request.render
       ? await renderRelayScreen(request.render)
       : request.saveTemplate
-        ? await saveRelayTemplate(request.saveTemplate)
+        ? await saveRelayTemplate(request.saveTemplate, isCurrent)
         : request.listTemplates
           ? await listRelayTemplates()
           : request.refreshScreenshots

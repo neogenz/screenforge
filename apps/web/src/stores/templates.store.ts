@@ -41,11 +41,12 @@ interface TemplatesState {
   templates: CustomTemplate[]
   hydrated: boolean
   hydrate: () => Promise<void>
-  save: (input: TemplateSaveInput) => Promise<TemplateSaveOutcome>
+  save: (input: TemplateSaveInput, canCommit?: () => boolean) => Promise<TemplateSaveOutcome>
   remove: (id: string) => Promise<void>
 }
 
 let hydrating: Promise<void> | null = null
+const SAVE_CANCELLED = 'L’enregistrement a été annulé.'
 
 export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
   templates: [],
@@ -68,8 +69,9 @@ export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
     }
   },
 
-  save: async (input) => {
+  save: async (input, canCommit = () => true) => {
     await get().hydrate()
+    if (!canCommit()) return { ok: false, error: SAVE_CANCELLED }
     const name = input.name.trim()
     if (!name) return { ok: false, error: 'Un gabarit a besoin d’un nom.' }
     if (name.length > MAX_TEMPLATE_NAME_LENGTH) {
@@ -127,6 +129,7 @@ export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
     if (!isCustomTemplate(template)) {
       return { ok: false, error: 'Cet écran ne produit pas un gabarit valide.' }
     }
+    if (!canCommit()) return { ok: false, error: SAVE_CANCELLED }
 
     try {
       await writeCustomTemplate(template)
@@ -135,6 +138,10 @@ export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
       return { ok: false, error: 'Le gabarit n’a pas pu être écrit sur ce navigateur.' }
     }
 
+    if (!canCommit()) {
+      await deleteCustomTemplate(template.id)
+      return { ok: false, error: SAVE_CANCELLED }
+    }
     set((state) => ({ templates: [template, ...state.templates] }))
     return { ok: true, template }
   },

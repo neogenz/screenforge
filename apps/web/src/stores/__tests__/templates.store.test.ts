@@ -91,4 +91,23 @@ describe('hydratation de la bibliothèque de gabarits', () => {
     expect(storage.write).not.toHaveBeenCalled()
     expect(useTemplatesStore.getState().templates).toEqual([template])
   })
+
+  it('retire une sauvegarde terminée après la coupure du cycle MCP', async () => {
+    const writing = deferred<void>()
+    storage.write.mockReturnValue(writing.promise)
+    useTemplatesStore.setState({ templates: [], hydrated: true })
+    let current = true
+
+    const saving = saveRelayTemplate({ name: 'Trop tard' }, () => current)
+    await vi.waitFor(() => expect(storage.write).toHaveBeenCalledTimes(1))
+    current = false
+    writing.resolve()
+
+    await expect(saving).resolves.toEqual({
+      committed: false,
+      error: 'L’enregistrement a été annulé.',
+    })
+    expect(storage.remove).toHaveBeenCalledOnce()
+    expect(useTemplatesStore.getState().templates).toEqual([])
+  })
 })

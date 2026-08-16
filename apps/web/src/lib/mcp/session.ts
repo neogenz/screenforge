@@ -212,8 +212,11 @@ function base64(bytes: Uint8Array): string {
  * Il n'y a donc ni transaction, ni pas d'annulation — supprimer un gabarit se
  * fait dans le sélecteur, pas au ⌘Z.
  */
-export async function saveRelayTemplate(input: RelayTemplateSave): Promise<RelayOutcome> {
-  const saving = useTemplatesStore.getState().save({ ...input, source: 'ai' })
+export async function saveRelayTemplate(
+  input: RelayTemplateSave,
+  canCommit: () => boolean = () => true,
+): Promise<RelayOutcome> {
+  const saving = useTemplatesStore.getState().save({ ...input, source: 'ai' }, canCommit)
   templateSaves.add(saving)
   try {
     const outcome = await saving
