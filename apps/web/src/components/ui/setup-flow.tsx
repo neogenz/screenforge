@@ -1,10 +1,32 @@
 import { AlertCircle, Check, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { HTMLAttributes, ReactNode } from 'react'
+import { cva } from 'class-variance-authority'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type SetupStepState = 'waiting' | 'active' | 'done' | 'error'
+
+const setupStepVariants = cva(
+  'grid grid-cols-[1rem_minmax(0,1fr)] gap-2.5 transition-opacity duration-200 ease-out',
+  {
+    variants: { state: { waiting: 'opacity-50', active: '', done: '', error: '' } },
+  },
+)
+
+const setupMarkerVariants = cva(
+  'mt-0.5 flex size-4 items-center justify-center rounded-sm border text-2xs tabular-nums',
+  {
+    variants: {
+      state: {
+        waiting: 'border-border bg-muted text-muted-foreground',
+        active: 'marker-fill border-marker',
+        done: 'border-border bg-secondary text-foreground',
+        error: 'border-destructive bg-destructive text-destructive-foreground',
+      },
+    },
+  },
+)
 
 export function SetupFlow({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
@@ -37,21 +59,9 @@ export function SetupStep({
       data-slot="setup-step"
       data-state={state}
       aria-current={state === 'active' ? 'step' : undefined}
-      className={cn(
-        'grid grid-cols-[1rem_minmax(0,1fr)] gap-2.5 transition-opacity duration-200 ease-out',
-        state === 'waiting' && 'opacity-50',
-      )}
+      className={setupStepVariants({ state })}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'mt-0.5 flex size-4 items-center justify-center rounded-sm border text-2xs tabular-nums',
-          state === 'active' && 'marker-fill border-marker',
-          state === 'done' && 'border-border bg-secondary text-foreground',
-          state === 'error' && 'border-destructive bg-destructive text-destructive-foreground',
-          state === 'waiting' && 'border-border bg-muted text-muted-foreground',
-        )}
-      >
+      <span aria-hidden className={setupMarkerVariants({ state })}>
         {state === 'done' ? (
           <Check size={10} strokeWidth={3} className="animate-check-in" />
         ) : state === 'error' ? (
