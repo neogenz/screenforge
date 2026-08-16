@@ -1,5 +1,10 @@
 # Preuve de sécurité avant lancement
 
+> **Archive de baseline — remplacée le 2026-08-16.** Ce relevé prouve seulement
+> l’état local de l’ancien modèle et ne peut autoriser ni production ni
+> publication. La nouvelle preuve, nécessairement expurgée, est définie par
+> [`phase-5.md`](./phase-5.md) et [`phase-6.md`](./phase-6.md).
+
 | Champ | Valeur |
 | --- | --- |
 | Date | 2026-08-15 |

@@ -50,10 +50,8 @@ function rowOf(doc: Doc<'entitlements'>): EntitlementsRow {
   return {
     user_id: doc.userId,
     polar_customer_id: doc.polarCustomerId,
-    licence_granted_at: doc.licenceGrantedAt,
     cloud_status: doc.cloudStatus,
     cloud_period_end: doc.cloudPeriodEnd,
-    complimentary_local: doc.complimentaryLocal,
     complimentary_cloud: doc.complimentaryCloud,
   }
 }

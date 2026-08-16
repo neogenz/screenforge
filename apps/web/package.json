@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "test:unit": "vitest run src",
-    "test:e2e": "playwright test && playwright test --config playwright.prelaunch.config.ts"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.94",

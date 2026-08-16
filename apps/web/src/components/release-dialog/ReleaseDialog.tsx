@@ -29,14 +29,12 @@ import {
 import { MAX_PROJECT_RELEASES, MAX_RELEASE_NAME_LENGTH } from '@/lib/project-validation'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import { saveCurrentProject } from '@/lib/storage'
-import { rightsOf } from '@/lib/entitlements'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -90,7 +88,6 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   const [running, setRunning] = useState<'freeze' | 'verify' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [checks, setChecks] = useState<{ releaseId: string; results: ReleaseCheck[] } | null>(null)
-  const watermarked = !rightsOf(useAuthStore((state) => state.entitlements)).cleanExport
 
   const selected =
     releases.find((release) => release.id === selectedId) ?? releases[releases.length - 1]
@@ -134,13 +131,12 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         })
       : snapshotOf(project)
     try {
-      const files = await renderReleaseFiles(snapshot, watermarked, setProgress)
+      const files = await renderReleaseFiles(snapshot, setProgress)
       const release = freezeRelease(
         crypto.randomUUID(),
         name.trim() || `Lot du ${formatDate(Date.now())}`,
         snapshot,
         files,
-        watermarked,
         Date.now(),
         locale?.code,
       )

@@ -17,8 +17,6 @@ const MAX_COMPLIMENTARY_NOTE_LENGTH = 120
 
 const entitlementsShape = v.object({
   userId: v.string(),
-  licence: v.boolean(),
-  licenceGrantedAt: v.union(v.string(), v.null()),
   cloud: v.boolean(),
   cloudStatus: v.union(v.string(), v.null()),
   cloudPeriodEnd: v.union(v.string(), v.null()),
@@ -84,7 +82,6 @@ export const applyEntitlementsIfNewer = internalMutation({
      */
     userId: v.string(),
     polarCustomerId: v.string(),
-    licenceGrantedAt: v.union(v.string(), v.null()),
     cloudStatus: v.union(v.string(), v.null()),
     cloudPeriodEnd: v.union(v.string(), v.null()),
     sourceUpdatedAt: v.union(v.number(), v.null()),
@@ -133,12 +130,11 @@ export const applyEntitlementsIfNewer = internalMutation({
 export const setComplimentaryAccess = internalMutation({
   args: {
     userId: v.id('users'),
-    local: v.boolean(),
     cloud: v.boolean(),
     note: v.string(),
   },
   returns: v.union(v.literal('written'), v.literal('unchanged')),
-  handler: async (ctx, { userId, local, cloud, note: rawNote }) => {
+  handler: async (ctx, { userId, cloud, note: rawNote }) => {
     if ((await ctx.db.get(userId)) === null) throw new Error('Compte introuvable.')
 
     const note = rawNote.trim()
@@ -152,46 +148,37 @@ export const setComplimentaryAccess = internalMutation({
       .query('entitlements')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .unique()
-    const revoke = !local && !cloud
+    const revoke = !cloud
 
     if (existing === null) {
       if (revoke) return 'unchanged'
       await ctx.db.insert('entitlements', {
         userId,
         polarCustomerId: null,
-        licenceGrantedAt: null,
         cloudStatus: null,
         cloudPeriodEnd: null,
         sourceUpdatedAt: null,
-        complimentaryLocal: local || undefined,
         complimentaryCloud: cloud || undefined,
         complimentaryNote: note,
       })
       return 'written'
     }
 
-    const currentLocal = existing.complimentaryLocal ?? false
     const currentCloud = existing.complimentaryCloud ?? false
     const currentNote = existing.complimentaryNote
-    if (
-      currentLocal === local &&
-      currentCloud === cloud &&
-      (revoke ? currentNote === undefined : currentNote === note)
-    ) {
+    if (currentCloud === cloud && (revoke ? currentNote === undefined : currentNote === note)) {
       return 'unchanged'
     }
 
     if (revoke) {
       const hasPolarState =
         existing.polarCustomerId !== null ||
-        existing.licenceGrantedAt !== null ||
         existing.cloudStatus !== null ||
         existing.cloudPeriodEnd !== null ||
         existing.sourceUpdatedAt !== null
       if (!hasPolarState) await ctx.db.delete(existing._id)
       else {
         await ctx.db.patch(existing._id, {
-          complimentaryLocal: undefined,
           complimentaryCloud: undefined,
           complimentaryNote: undefined,
         })
@@ -200,7 +187,6 @@ export const setComplimentaryAccess = internalMutation({
     }
 
     await ctx.db.patch(existing._id, {
-      complimentaryLocal: local || undefined,
       complimentaryCloud: cloud || undefined,
       complimentaryNote: note,
     })

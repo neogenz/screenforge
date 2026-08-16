@@ -8,7 +8,7 @@
  * landing.html, dans le calcul de `CostCompare` et dans la carte sociale
  * (`pnpm exec node scripts/og-card.mjs`).
  */
-import { commercialLaunch } from '@/lib/commercial-launch'
+const commercialLaunch = true
 
 const en = {
   meta: {

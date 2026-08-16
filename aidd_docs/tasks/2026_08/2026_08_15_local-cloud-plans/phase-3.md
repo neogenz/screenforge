@@ -1,8 +1,8 @@
 ---
-status: done
+status: pending
 ---
 
-# Instruction: aligner l’éditeur, le compte et la landing sur les deux offres
+# Instruction: réécrire la landing, le pricing et le compte
 
 ## Architecture projection
 
@@ -11,45 +11,41 @@ status: done
 ```txt
 .
 ├── apps/web/
-│   ├── landing.html                                ✏️ JSON-LD sans offre Free ni add-on
-│   ├── src/
-│   │   ├── components/pricing-dialog/
-│   │   │   └── PricingDialog.tsx                  ✏️ deux cartes achetables, aucun verrou
-│   │   ├── components/account-dialog/
-│   │   │   └── AccountDialog.tsx                  ✏️ plan courant, sync et gestion client
-│   │   ├── landing/
-│   │   │   ├── copy.ts                            ✏️ copie EN/FR Local et Cloud
-│   │   │   ├── links.ts                           ✏️ identifiants d’offre Local et Cloud
-│   │   │   └── components/
-│   │   │       ├── Pricing.tsx                    ✏️ deux cartes et comparaison deux colonnes
-│   │   │       ├── CostCompare.tsx                ✏️ argument ajusté aux deux modèles
-│   │   │       └── FinalCta.tsx                   ✏️ CTA Local et Cloud cohérents
-│   │   └── lib/plans.ts                           ✏️ libellés, prix et état Essai hors catalogue
-│   └── e2e/
-│       ├── commercial-launch.spec.ts              ✏️ surfaces à deux offres dans les deux profils
-│       ├── dialogs-a11y.spec.ts                   ✏️ navigation clavier des nouvelles grilles
-│       └── export-tiers.spec.ts                   ✏️ essai, Local et Cloud
-├── scripts/
-│   ├── prerender-landing.mjs                      ✏️ deux offres structurées
-│   ├── commercial-profile-audit.mjs               ✏️ textes Local/Cloud attendus
-│   └── og-card.mjs                                ✏️ promesse commerciale sans Licence
-└── aidd_docs/memory/
-    ├── design.md                                  ✏️ surfaces tarifaires à deux choix
-    └── project-brief.md                           ✏️ modèle commercial canonique
+│   ├── e2e/
+│   │   ├── landing.spec.ts                         ✏️ deux offres exactes en français et anglais
+│   │   ├── export-tiers.spec.ts                    ✏️ Local illimité et Cloud limité à la sync
+│   │   ├── account.spec.ts                         ✏️ compte et abonnement Cloud seulement
+│   │   └── sync.spec.ts                            ✏️ login et entitlement avant write
+│   └── src/
+│       ├── App.tsx                                 ✏️ retirer le démarrage commercial conditionnel
+│       ├── landing/copy.ts                         ✏️ Local gratuit et Cloud payant
+│       ├── landing/links.ts                        ✏️ Local vers l’éditeur, Cloud vers le compte
+│       ├── landing/components/Pricing.tsx          ✏️ deux cartes sans faux troisième état
+│       ├── landing/components/FinalCta.tsx         ✏️ CTA Local immédiat et CTA Cloud
+│       ├── components/pricing-dialog/PricingDialog.tsx ✏️ Local informatif, checkout Cloud seul
+│       ├── components/account-dialog/AccountDialog.tsx ✏️ session, état Cloud, portail et déconnexion
+│       ├── components/export-dialog/ExportDialog.tsx ✏️ supprimer quota, watermark et upsell
+│       ├── components/release-dialog/ReleaseDialog.tsx ✏️ releases nouvelles toujours propres
+│       ├── components/publish-dialog/PublishDialog.tsx ✏️ migration des anciens lots filigranés
+│       └── lib/__tests__/
+│           ├── landing-copy.test.ts                ✏️ vocabulaire et prix cohérents
+│           └── plans.test.ts                       ✏️ catalogue visible exact
+├── README.md                                       ✏️ Local complet sans backend, Cloud opéré
+└── PRD.md                                          ✏️ deux offres et parcours client
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Visiteur essaie gratuitement l’éditeur] --> B[Ouvre les offres]
-  B --> C{Choix visible}
-  C -->|Local| D[Paiement unique, données sur cette machine]
-  C -->|Cloud| E[Abonnement annuel, compte et sync Convex]
-  D --> F[Compte affiche Local acquis]
-  E --> G[Compte affiche Cloud actif et prochaine échéance]
-  F --> H[Peut passer à Cloud sans verrou]
-  G --> I[Peut gérer factures et abonnement chez Polar]
+  A[Landing ScreenForge] --> B{Choix visible}
+  B -->|Local Gratuit| C[Ouvrir l’éditeur sans compte]
+  C --> D[Créer puis exporter PNG ou ZIP propres]
+  B -->|Cloud 39 USD par an| E[Voir sync stockage et sauvegarde]
+  E --> F[Créer une session]
+  F --> G[S’abonner via Polar]
+  G --> H[Retour compte avec Cloud actif]
+  H --> I[Activer la synchronisation]
 ```
 
 ## Test Scope
@@ -59,124 +55,92 @@ flowchart TD
 title: Test scope
 ---
 journey
-  section Landing
-    Lire les tarifs EN et FR => exactement deux cartes Local et Cloud avec prix cohérents: 5: browser
-  section Essai
-    Ouvrir l’éditeur sans achat => essai accessible mais aucune troisième offre affichée: 5: browser
-  section Achat
-    Ouvrir la boîte des offres connecté => Local et Cloud ont chacun un checkout actif: 5: browser
-  section Compte
-    Lire un compte Local puis Cloud => plan courant échéance sync et portail compréhensibles: 5: browser
-  section Accessibilité
-    Parcourir cartes boutons tableau et dialogue au clavier => ordre focus nom et état explicites: 5: browser
-  section Métadonnées
-    Construire les deux langues => JSON-LD Open Graph et HTML pré-rendu ne citent plus Licence ou add-on: 5: cli
+  section Setup
+    Ouvrir la landing pré-rendue en français et anglais => contenu localisé disponible: 5: browser
+  section Happy path
+    Choisir Local puis exporter un ZIP propre => aucun login ou paiement demandé: 5: browser
+  section Edge case - Cloud sans backend
+    Ouvrir un clone sans URL Convex puis choisir Cloud => indisponibilité expliquée sans casser Local: 1: browser
+  section Edge case - abonnement expiré
+    Ouvrir Compte avec Cloud expiré => réabonnement proposé et données Local intactes: 1: browser
+  section Teardown
+    Fermer dialogues et nettoyer session de test => retour à la landing neutre: 5: browser
 ```
 
 ## Wireframe
 
 ```txt
-LANDING — TARIFS
-┌──────────────────────────────────────────────────────────────────┐
-│ (1) Deux façons d’utiliser ScreenForge                           │
-│     Essayez dans le navigateur, choisissez seulement au paiement │
-│                                                                  │
-│ ┌────────────────────────┐  ┌──────────────────────────────────┐ │
-│ │ (2) LOCAL              │  │ (3) CLOUD                       │ │
-│ │ 49 $ · une fois        │  │ 39 $ / an                       │ │
-│ │ Projets sur la machine │  │ Projets + images + réglages     │ │
-│ │ Exports propres + ZIP  │  │ sur chaque machine             │ │
-│ │ [ Choisir Local ]      │  │ [ Choisir Cloud ]              │ │
-│ └────────────────────────┘  └──────────────────────────────────┘ │
-│ (4) L’essai gratuit reste disponible avant achat                 │
-│ (5) Comparatif détaillé Local | Cloud                            │
-└──────────────────────────────────────────────────────────────────┘
+Landing / section Offres
+┌───────────────────────────────────────────────────────────────────────┐
+│ Choisissez où vivent vos projets                                     │
+│                                                                       │
+│ ┌─────────────────────────────┐  ┌─────────────────────────────────┐ │
+│ │ Local                       │  │ Cloud                           │ │
+│ │ Gratuit                     │  │ 39 USD / an                     │ │
+│ │ Sans compte                 │  │ Compte client                   │ │
+│ │ ✓ Éditeur complet           │  │ ✓ Tout Local                    │ │
+│ │ ✓ Exports illimités         │  │ ✓ Projets, images et settings   │ │
+│ │ ✓ Aucun filigrane           │  │ ✓ Sync et sauvegardes Convex    │ │
+│ │ ✓ ZIP                       │  │ ✓ Portail de facturation        │ │
+│ │ [ Ouvrir l’éditeur ]        │  │ [ Choisir Cloud ]               │ │
+│ └─────────────────────────────┘  └─────────────────────────────────┘ │
+│ Local fonctionne sans connexion. Cloud nécessite une session et un   │
+│ abonnement actif; l’arrêt de Cloud ne bloque jamais l’éditeur Local.  │
+└───────────────────────────────────────────────────────────────────────┘
 
-BOÎTE OFFRES
-┌──────────────────────────────────────────────────────────────────┐
-│ (6) Offres ScreenForge                                      [×] │
-│ ┌────────────────────────┐  ┌──────────────────────────────────┐ │
-│ │ Local · 49 $ une fois  │  │ Cloud · 39 $ / an              │ │
-│ │ [ Acheter Local ]      │  │ [ Choisir Cloud ]              │ │
-│ └────────────────────────┘  └──────────────────────────────────┘ │
-│ (7) Connexion requise / état du plan détenu                      │
-│ (8) Factures et abonnement                                      │
-└──────────────────────────────────────────────────────────────────┘
-
-BOÎTE COMPTE
-┌──────────────────────────────────────────────┐
-│ (9) Compte                               [×] │
-│     identité vérifiée                         │
-│                                              │
-│ (10) Plan actuel : Cloud                      │
-│      Actif jusqu’au … · inclut Local          │
-│ (11) Sync : projets, images et thème           │
-│                                              │
-│ [ Factures et paiement ]                      │
-│ [ Se déconnecter ]                            │
-│ ──────────────────────────────────────────── │
-│ [ Supprimer mon compte ]                      │
-└──────────────────────────────────────────────┘
-
-1. Titre et promesse : deux modèles, pas trois paliers.
-2. Local : achat perpétuel et stockage uniquement local.
-3. Cloud : abonnement autonome qui inclut toutes les capacités Local.
-4. Essai : accessible, mais clairement hors du catalogue payant.
-5. Comparaison : seulement les colonnes Local et Cloud.
-6. Dialogue : mêmes noms, prix et avantages que la landing.
-7. État : demande de connexion ou badge actif, jamais de bouton verrouillé.
-8. Portail : facturation déléguée à Polar.
-9. Identité : compte Convex vérifié existant.
-10. Plan courant : une lecture principale; un Local acheté séparément reste mentionné comme fallback.
-11. Sync : périmètre explicite et état existant, sans promettre les secrets ou caches.
+Éditeur / Export                       Éditeur / Compte
+┌───────────────────────────────┐      ┌───────────────────────────────┐
+│ Exporter                      │      │ Compte ScreenForge           │
+│ PNG propres · illimités       │      │ Cloud : actif / expiré       │
+│ [ Exporter ] [ Télécharger ZIP ]     │ [ Gérer l’abonnement ]        │
+│ Aucun prix ni quota ici.      │      │ [ Se déconnecter ]           │
+└───────────────────────────────┘      └───────────────────────────────┘
 ```
 
 ## Tasks to do
 
-### `1)` Réduire toutes les surfaces commerciales à deux offres
+### `1)` Présenter exactement deux offres
 
-> L’essai est une porte d’entrée, pas une carte concurrente.
+> Le texte commercial décrit l’architecture réelle.
 
-1. Retirer `free` de `PLANS` et passer les grilles de trois à deux colonnes.
-2. Renommer chaque occurrence utilisateur de Licence en Local et chaque occurrence « complément/add-on » en plan Cloud autonome.
-3. Afficher Cloud comme incluant les bénéfices Local, les projets, assets et préférences sur chaque machine.
-4. Supprimer verrous, cadenas, messages « nécessite la Licence » et ordre d’achat imposé.
-5. Conserver un message discret vers l’essai gratuit et ses trois exports filigranés, sans le présenter comme une troisième formule.
+1. Remplacer essai, Licence, Local payant, watermark et ouverture commerciale par Local gratuit et Cloud payant dans les copies FR/EN, SEO, FAQ et comparatifs.
+2. Afficher Local à 0 avec éditeur complet, exports illimités propres et ZIP; son CTA ouvre immédiatement l’éditeur.
+3. Afficher Cloud à 39 USD/an avec compte, sync, projets, images, settings et sauvegardes Convex; son CTA ouvre connexion/checkout.
+4. Ne pas prétendre que publier le code donne le service Cloud, les secrets opérateur, les sauvegardes ou un entitlement.
+5. Faire échouer l’audit landing sur tout ancien vocabulaire commercial ou toute troisième offre.
 
-### `2)` Rendre le compte lisible avec les cas historiques
+### `2)` Retirer le commerce des chemins Local
 
-> Une personne doit savoir ce qui reste après une résiliation.
+> Export et release n’affichent plus de monétisation.
 
-1. Afficher un plan courant unique : Cloud s’il est actif, sinon Local s’il a été acquis, sinon Essai.
-2. Pour Cloud, afficher l’échéance et « inclut Local »; si Local a aussi été acheté séparément, préciser qu’il restera après Cloud.
-3. Pour Local, afficher la date d’acquisition et un CTA de passage à Cloud sans prérequis.
-4. Afficher le périmètre de sync sous forme de texte court : projets, images et thème.
-5. Garder le portail Polar, la déconnexion, la suppression en deux temps et l’avertissement de stockage durable existants.
+1. Supprimer quota, exports restants, filigrane, achat Local et upgrade Cloud de l’ExportDialog.
+2. Créer les nouvelles releases avec des rendus propres; lorsqu’un lot historique est marqué filigrané, expliquer qu’il doit être régénéré avant publication plutôt que de le déclarer propre.
+3. Limiter les appels à Offres/Compte aux actions Cloud : synchroniser, se connecter, gérer l’abonnement.
+4. Vérifier navigation clavier, focus, noms accessibles et états de chargement de chaque CTA.
 
-### `3)` Aligner landing, SEO et profils commerciaux
+### `3)` Rendre le compte strictement Cloud
 
-> Un prix ou un nom ne change jamais dans un seul fichier.
+> Aucun compte n’est requis pour Local.
 
-1. Mettre à jour les copies EN/FR, FAQ, comparatif, CTA final, liens d’attente et note d’arrêt de Cloud.
-2. Faire produire au JSON-LD exactement deux `Offer`, avec les mêmes prix et périodes que les cartes.
-3. Adapter `CostCompare` pour ne pas faire croire que seule l’offre Local définit tout le produit; garder uniquement l’argument encore exact.
-4. Mettre à jour l’OG card et les audits qui recherchent `Licence`, `Acheter la Licence` ou les trois anciennes cartes.
-5. Tester prélaunch et launch : avant ouverture les deux CTA notifient, après ouverture les deux ouvrent le parcours d’achat approprié.
+1. Afficher session, Cloud actif/expiré, période et portail Polar, sans badge ou achat Local.
+2. Si Convex n’est pas configuré dans un clone, désactiver uniquement les CTA Cloud avec une explication; ne jamais bloquer l’éditeur ou l’export.
+3. Après checkout, rafraîchir l’état depuis le backend plutôt que depuis le retour URL ou localStorage.
+4. Afficher les erreurs de quota Cloud avec la limite atteinte et une action de suppression, sans valeur interne ni donnée d’un autre compte.
 
-### `4)` Préserver le langage visuel et l’accessibilité
+### `4)` Aligner les documents produit publics
 
-> La structure change; les primitives et les tokens ne changent pas.
+> Le README d’un clone neuf doit suffire à comprendre Local.
 
-1. Réutiliser `Dialog`, `Button`, `SpecLabel` et les styles existants; ne pas créer de nouvelle primitive de carte.
-2. Garder un seul CTA principal par carte et un état de chargement identifié par produit.
-3. Vérifier les noms accessibles, l’ordre clavier, le focus de fermeture, les tables défilables et les vues mobile/desktop.
-4. Capturer landing et dialogues en clair/sombre pour détecter alignements, lignes de base et débordements après le passage à deux colonnes.
+1. Documenter installation, build, lancement et export Local sans Convex.
+2. Décrire Cloud comme service opéré distinct exigeant compte et abonnement actif; ne pas publier les procédures ou valeurs secrètes.
+3. Mettre PRD, README et mentions tarifaires au même vocabulaire et au même prix.
+4. Ajouter les prérequis légaux et licence au gate de publication sans rédiger une licence ad hoc.
 
 ## Test acceptance criteria
 
-- Landing, dialogue Offres et compte n’affichent que Local et Cloud comme offres.
-- Aucun texte visible, JSON-LD ou audit commercial ne décrit Cloud comme un add-on ou ne demande Licence.
-- Les prix sont 49 $ une fois pour Local et 39 $/an pour Cloud dans les deux langues et les deux profils.
-- Un compte Cloud seul est affiché comme pleinement actif; un compte Local historique conserve sa date et son fallback.
-- Les cartes, CTA et dialogues passent clavier, lecteurs d’écran, mobile, clair/sombre et audits de contraste.
-- Le build pré-rendu contient exactement deux offres structurées et aucune offre Free.
+| Task | Acceptance criteria |
+| --- | --- |
+| 1 | Landing FR/EN, SEO et FAQ montrent exactement Local gratuit et Cloud à 39 USD/an, sans essai paywall, Licence ou filigrane. |
+| 2 | Export, ZIP et nouvelle release fonctionnent sans surface commerciale; un ancien artifact filigrané ne peut être publié comme propre sans régénération. |
+| 3 | Le compte ne vend que Cloud, se fie à l’état serveur et son absence ne retire aucune capacité Local. |
+| 4 | Un lecteur du README peut lancer Local sans Convex et comprend que le service Cloud opéré reste payant. |

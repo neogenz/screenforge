@@ -18,10 +18,8 @@ import { errorCode, testConvex } from './test.helpers'
 const NOW = new Date('2026-08-08T00:00:00.000Z')
 
 type Mirror = {
-  licenceGrantedAt?: string | null
   cloudStatus?: string | null
   cloudPeriodEnd?: string | null
-  complimentaryLocal?: boolean
   complimentaryCloud?: boolean
 }
 
@@ -33,11 +31,9 @@ async function account(t: ReturnType<typeof testConvex>, mirror?: Mirror) {
       await ctx.db.insert('entitlements', {
         userId,
         polarCustomerId: 'cus_1',
-        licenceGrantedAt: mirror.licenceGrantedAt ?? null,
         cloudStatus: mirror.cloudStatus ?? null,
         cloudPeriodEnd: mirror.cloudPeriodEnd ?? null,
         sourceUpdatedAt: null,
-        complimentaryLocal: mirror.complimentaryLocal,
         complimentaryCloud: mirror.complimentaryCloud,
       })
     }
@@ -95,18 +91,11 @@ describe('le portillon du Cloud', () => {
     expect(await gate(t, await account(t))).toBe('CLOUD_REQUIRED')
   })
 
-  it('refuse la Licence seule — le Cloud est un droit à part', async () => {
-    const t = testConvex()
-    const userId = await account(t, { licenceGrantedAt: '2026-03-12T09:00:00.000Z' })
-    expect(await gate(t, userId)).toBe('CLOUD_REQUIRED')
-  })
-
   it('laisse passer un abonnement en cours', async () => {
     /* Le contre-test : sans lui, un portillon qui refuserait tout le monde
        passerait les deux cas précédents. */
     const t = testConvex()
     const userId = await account(t, {
-      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
       cloudStatus: 'active',
       cloudPeriodEnd: '2027-03-12T09:00:00.000Z',
     })
@@ -117,17 +106,15 @@ describe('le portillon du Cloud', () => {
     /* L'utilisateur a payé l'année, il l'a jusqu'au bout. */
     const t = testConvex()
     const userId = await account(t, {
-      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
       cloudStatus: 'canceled',
       cloudPeriodEnd: '2026-11-01T00:00:00.000Z',
     })
     expect(await gate(t, userId)).toBe('ok')
   })
 
-  it('refuse une période terminée, sans toucher à la Licence', async () => {
+  it('refuse une période terminée', async () => {
     const t = testConvex()
     const userId = await account(t, {
-      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
       cloudStatus: 'canceled',
       cloudPeriodEnd: '2026-07-01T00:00:00.000Z',
     })
@@ -136,9 +123,6 @@ describe('le portillon du Cloud', () => {
     const rights = await t
       .withIdentity({ subject: userId })
       .run((ctx) => readEntitlements(ctx, userId, NOW))
-    /* Ce que la fin de période n'emporte pas : l'achat unique. Le confondre
-       avec l'abonnement retirerait l'export propre à quelqu'un qui l'a payé. */
-    expect(rights.licence).toBe(true)
     expect(rights.cloud).toBe(false)
   })
 
@@ -163,16 +147,16 @@ describe('ce qui reste ouvert quand le droit s’éteint', () => {
     /* « Un abonnement qui se termine ne doit emporter aucune donnée. » Fermer
        la lecture transformerait une fin de période en perte apparente. */
     const t = testConvex()
-    const userId = await account(t, { licenceGrantedAt: '2026-03-12T09:00:00.000Z' })
+    const userId = await account(t)
     const read = await t
       .withIdentity({ subject: userId })
       .query(api.mirror.myEntitlements, { now: NOW.getTime() })
-    expect(read).toMatchObject({ userId, licence: true, cloud: false })
+    expect(read).toMatchObject({ userId, cloud: false })
   })
 
   it('personne ne lit le miroir d’un autre', async () => {
     const t = testConvex()
-    const victime = await account(t, { licenceGrantedAt: '2026-03-12T09:00:00.000Z' })
+    const victime = await account(t, { cloudStatus: 'active', cloudPeriodEnd: '2099-01-01' })
     const curieux = await account(t)
     const read = await t
       .withIdentity({ subject: curieux })
@@ -180,7 +164,7 @@ describe('ce qui reste ouvert quand le droit s’éteint', () => {
     /* La requête ne prend pas d'identifiant en argument : il n'y a pas de
        paramètre à falsifier, et c'est la forme qui le garantit. */
     expect(read?.userId).toBe(curieux)
-    expect(read?.licence).toBe(false)
+    expect(read?.cloud).toBe(false)
     expect(curieux).not.toBe(victime)
   })
 })
@@ -194,7 +178,6 @@ describe('la lecture des droits date sa propre question', () => {
        première écriture lui refuserait. */
     const t = testConvex()
     const userId = await account(t, {
-      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
       cloudStatus: 'canceled',
       cloudPeriodEnd: '2026-09-01T00:00:00.000Z',
     })
@@ -209,7 +192,5 @@ describe('la lecture des droits date sa propre question', () => {
 
     expect(pendant?.cloud).toBe(true)
     expect(apres?.cloud).toBe(false)
-    /* L'achat unique ne bouge pas : seule la période a expiré. */
-    expect(apres?.licence).toBe(true)
   })
 })

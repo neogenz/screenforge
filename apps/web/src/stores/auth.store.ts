@@ -31,10 +31,10 @@ interface AuthState {
    * Ce que le compte a acheté, ou `null` tant qu'on ne le sait pas — y compris
    * quand il n'y a pas d'instance configurée. Les droits vivent avec la
    * session parce qu'ils s'éteignent avec elle : garder ceux du compte
-   * précédent après une déconnexion lèverait le filigrane chez le suivant.
+   * précédent après une déconnexion afficherait un abonnement erroné au suivant.
    */
   entitlements: Entitlements | null
-  /** Le cache suffit hors ligne pour l'export, jamais pour démarrer une sync. */
+  /** Le cache informe hors ligne, mais ne suffit jamais pour démarrer une sync. */
   entitlementsVerified: boolean
   setUser: (user: CloudUser | null) => void
   setEntitlements: (entitlements: Entitlements | null) => void
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
  *
  * Appelé à chaque changement de session, et au retour d'un checkout : le
  * webhook peut arriver après la redirection de Polar, donc l'appelant relance.
- * L'échec n'écrase rien — un réseau coupé ne doit pas retirer une licence.
+ * L'échec n'écrase rien — un réseau coupé ne doit pas masquer l'état connu.
  */
 export async function refreshEntitlements(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
@@ -131,12 +131,10 @@ function rememberedUserId(): string | null {
  * `signed-out` — rien n'attend une réponse qui ne viendra pas, et rien du client
  * n'est chargé.
  *
- * La session mémorisée est posée avant de s'abonner, et c'est ce qui rend une
- * Licence utilisable hors ligne. Convex Auth ne dit « connecté » qu'une fois sa
- * WebSocket authentifiée : sans réseau, cet état n'arrive jamais, et le compte
- * paierait le filigrane pour un export qui n'a besoin de personne. Le client
- * qui précédait relisait sa session dans `localStorage` sans rien demander, et
- * c'est exactement ce que ces trois lignes rétablissent.
+ * La session mémorisée est posée avant de s'abonner pour afficher le dernier
+ * état Cloud connu. Elle ne permet jamais une écriture sans confirmation du
+ * déploiement : Convex Auth ne dit « connecté » qu'une fois sa WebSocket
+ * authentifiée.
  *
  * Le rafraîchissement des droits suit le changement d'utilisateur plutôt que
  * d'être appelé par le pont : c'est la même règle qu'avant la migration, et elle
@@ -212,5 +210,5 @@ async function pollForPurchase(): Promise<void> {
 }
 
 function summarize(entitlements: Entitlements | null): string {
-  return `${entitlements?.licence ?? false}:${entitlements?.cloud ?? false}`
+  return String(entitlements?.cloud ?? false)
 }

@@ -1,8 +1,8 @@
 ---
-status: in-progress
+status: pending
 ---
 
-# Instruction: ajouter puis provisionner un accès propriétaire complet et révocable
+# Instruction: fermer les findings web et bridge
 
 ## Architecture projection
 
@@ -10,29 +10,33 @@ status: in-progress
 
 ```txt
 .
-├── apps/backend/convex/
-│   ├── schema.ts                         ✏️ champs optionnels de dérogation sur le miroir existant
-│   ├── mirror.ts                         ✏️ mutation interne idempotente grant/revoke
-│   ├── mirror.test.ts                    ✏️ fusion Polar, révocation et surface non publique
-│   ├── entitlements.ts                   ✏️ fusion du droit manuel et de l’état Polar
-│   ├── entitlements.test.ts              ✏️ accès complet sans faux abonnement
-│   └── accountDeletion.test.ts           ✏️ disparition de la dérogation avec le compte
-└── aidd_docs/tasks/2026_08/2026_08_11_migration-convex/
-    └── environnements.md                 ✏️ procédure opérateur grant, vérification et revoke
+├── vercel.json                              ✏️ CSP bloquante et anti-framing appliqué
+├── scripts/security-headers-audit.mjs       ✏️ refuser une politique seulement Report-Only
+├── apps/web/e2e/security-headers.spec.ts    ✏️ framing et ressources essentielles
+└── apps/bridge/
+    ├── README.md                            ✏️ frontière locale et moteurs réellement sûrs
+    └── src/
+        ├── redaction.ts                     ✅ redaction commune des diagnostics
+        ├── asc.ts                           ✏️ réutiliser la redaction commune
+        ├── claude.ts                        ✏️ nettoyer stderr et erreurs avant exposition
+        ├── codex.ts                         ✏️ neutraliser ou désactiver le moteur sans no-tools dur
+        ├── server.ts                        ✏️ probes bornés, cache single-flight et erreurs nettoyées
+        ├── main.ts                          ✏️ probes bornés au démarrage
+        └── bridge.test.ts                   ✏️ injection, secrets, timeout, cache et concurrence
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Propriétaire ouvre ScreenForge production] --> B[Connexion Google GitHub ou lien magique vérifié]
-  B --> C[Compte Convex réel créé]
-  C --> D[Opérateur résout son userId sur la cible]
-  D --> E[Mutation interne accorde Local et Cloud manuels]
-  E --> F[Lecture myEntitlements confirme tous les droits]
-  F --> G[Test réel projet image thème et export]
-  H[Révocation demandée] --> I[Mutation interne retire la dérogation]
-  I --> J[Droits Polar éventuels restent seuls applicables]
+  A[Navigateur ouvre ScreenForge] --> B[CSP bloquante et anti-framing actifs]
+  B --> C[Page autorisée charge uniquement ses sources prévues]
+  C --> D[Utilisateur contacte le bridge sur 127.0.0.1]
+  D --> E[/hello retourne un état mis en cache et borné]
+  E --> F{Moteur sans outils locaux garanti}
+  F -->|oui| G[Texte non fiable envoyé avec schéma de sortie]
+  F -->|non| H[Moteur absent de la liste]
+  G --> I[Réponse ou diagnostic expurgé]
 ```
 
 ## Test Scope
@@ -43,67 +47,63 @@ title: Test scope
 ---
 journey
   section Setup
-    Créer un compte vérifié sans achat => aucun droit et aucun identifiant spécial en code: 5: api
-  section Grant
-    Appeler la mutation interne avec Local et Cloud => toutes les capacités client actives sans échéance: 5: api
-  section Idempotence
-    Rejouer exactement le même grant => une seule ligne et même résultat: 5: api
-  section Polar
-    Recevoir ensuite un webhook Polar => état facturé mis à jour sans écraser la dérogation: 5: api
-  section Revoke
-    Retirer le grant => seuls les droits Polar valides restent: 5: api
-  section Sécurité
-    Chercher la mutation dans l’API publique ou appeler depuis un client => fonction inaccessible: 5: api
-  section Suppression
-    Supprimer le compte propriétaire de test => droits manuels et facturés supprimés ensemble: 5: api
+    Démarrer web et bridge avec probes factices => surfaces locales disponibles: 5: cli
+  section Happy path
+    Charger landing et éditeur puis générer un plan => CSP active et JSON valide: 5: browser
+  section Edge case - prompt injection
+    Demander au moteur de lire fichiers et environnement => aucun outil local utilisable: 1: api
+  section Edge case - amplification
+    Appeler hello en parallèle avec probes lents => un seul probe borné sert les réponses: 1: api
+  section Edge case - diagnostic sensible
+    Faire échouer un binaire avec token clé et chemin personnel => réponse entièrement expurgée: 1: api
+  section Teardown
+    Arrêter bridge et serveurs de test => aucun processus enfant restant: 5: cli
 ```
 
 ## Tasks to do
 
-### `1)` Ajouter la dérogation minimale au miroir existant
+### `1)` Appliquer réellement la politique navigateur
 
-> Pas de faux client Polar, pas de date artificielle, pas de nouvelle table pour une ligne.
+> `frame-ancestors` doit protéger la réponse servie, pas seulement produire un rapport.
 
-1. Ajouter aux entitlements des champs optionnels de droit manuel Local et Cloud, absents pour tous les clients ordinaires.
-2. Fusionner ces champs dans `readEntitlements` et `rightsOf` : un grant Cloud manuel donne toutes les capacités client et n’expire pas; un grant Local manuel donne export et ZIP seulement.
-3. Laisser `applyEntitlementsIfNewer` modifier uniquement les champs Polar afin qu’un webhook ne puisse ni accorder ni retirer la dérogation.
-4. Ajouter une mutation **interne** `setComplimentaryAccess` qui prend un `Id<'users'>`, les deux booléens et une note opérateur courte, puis upsert ou révoque de façon idempotente.
-5. Vérifier au niveau des marqueurs Convex et des types générés que la fonction n’existe pas sous `api.*`.
+1. Valider la CSP actuelle sur Preview, corriger les dernières violations nécessaires, puis la déplacer de `Content-Security-Policy-Report-Only` vers `Content-Security-Policy`.
+2. Conserver `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'none'` et les sources exactes; refuser jokers et `unsafe-eval`.
+3. Ajouter `X-Frame-Options: DENY` comme défense de compatibilité et conserver les headers `nosniff`, referrer et permissions.
+4. Faire échouer l’audit build/déployé si seule une CSP report-only existe, si l’anti-framing manque ou si une origine imprévue apparaît.
+5. Rejouer landing FR/EN, éditeur, auth, fontes, import, sync et export sous la politique bloquante.
 
-### `2)` Documenter une opération sûre et réversible
+### `2)` Empêcher le bridge de lire la machine pour du texte non fiable
 
-> L’identité arrive d’une connexion vérifiée; aucune credential n’est créée par script.
+> Un prompt système et un sandbox read-only ne sont pas une interdiction de lecture.
 
-1. Ajouter à `environnements.md` les commandes exactes de lecture du compte, grant, contrôle et revoke avec `--env-file` explicite.
-2. Ne jamais écrire l’e-mail réel, un mot de passe, un jeton ou un `userId` de production dans Git; utiliser des placeholders clairement remplacés au moment de l’opération.
-3. Exiger un essai sur préprod avec un compte jetable avant la mutation de production.
-4. Journaliser dans la note que le grant est « owner complimentary access » sans attribuer de rôle administrateur.
-5. Garder la commande de révocation juste à côté de la commande de grant.
+1. Conserver Claude seulement avec sa liste matérielle `--disallowed-tools`, son cwd temporaire, son timeout et son schéma de sortie.
+2. Vérifier le protocole Codex épinglé : s’il n’expose pas une allowlist vide des outils intégrés, retirer Codex des moteurs annoncés et de l’UI bridge; ne pas présenter un cwd temporaire comme une isolation de lecture.
+3. Ne réactiver Codex que lorsqu’un test d’intégration prouve qu’un prompt injecté ne peut appeler shell, read, glob, grep, web ou MCP.
+4. Conserver l’authentification du CLI sur la machine sans lire, copier ou journaliser ses jetons.
 
-### `3)` Provisionner le compte réel
+### `3)` Borner le probe public sans casser l’appairage
 
-> Cette étape est externe au code et ne s’exécute qu’après connexion du propriétaire.
+> `/hello` peut rester tokenless, mais pas lancer des processus sans limite.
 
-1. Se connecter une fois sur le déploiement cible avec Google, GitHub ou lien magique afin que Convex crée l’identité vérifiée.
-2. Résoudre l’unique `userId` correspondant dans la table `users` de la cible; arrêter si zéro ou plusieurs lignes correspondent.
-3. Accorder Local et Cloud via la mutation interne, d’abord en préprod puis en production.
-4. Rafraîchir le compte et vérifier dans l’UI le plan Cloud, l’export propre, le ZIP et la sync.
-5. Créer un projet avec une image, changer le thème, le reprendre sur un second contexte navigateur puis supprimer ce projet distant de test.
+1. Regrouper les probes Codex, Claude et ASC dans une promesse single-flight partagée avec timeout par processus.
+2. Mettre en cache le résultat quelques secondes; une nouvelle tentative après expiration redétecte bien un binaire installé pendant l’assistant.
+3. Borner stdout/stderr de chaque version probe, tuer le processus au timeout et résoudre en « absent » sans stack brute.
+4. Tester rafale parallèle, cache, expiration, binaire bloqué, sortie énorme et processus absent.
+
+### `4)` Expurger toutes les erreurs qui quittent le bridge
+
+> Une seule fonction de redaction couvre ASC, Claude, Codex et le serveur.
+
+1. Déplacer la fonction existante d’ASC dans `redaction.ts` et la réutiliser à chaque frontière HTTP ou console.
+2. Masquer clés privées, JWT, couples `key/token/secret/password`, fichiers P8, chemins personnels et chaînes excessives.
+3. Ne jamais renvoyer directement stderr, stdout, `error.message`, commande complète ou environnement d’un binaire.
+4. Garder un message utile et court après redaction et tester les combinaisons ainsi que les faux positifs nécessaires.
 
 ## Test acceptance criteria
 
-- Aucun e-mail propriétaire, mot de passe, userId ou secret n’est versionné.
-- La mutation de grant est interne, idempotente, révocable et limitée à un compte existant.
-- Le grant complet active export propre, ZIP et Cloud sans conférer d’accès admin.
-- Un webhook Polar ultérieur ne retire pas la dérogation; sa révocation restaure exactement les droits Polar en cours.
-- Le compte cible est vérifié par identité réelle et réussit un round-trip projet, asset et thème en préprod puis production.
-- La procédure de révocation est testée et documentée avant de considérer le provisioning terminé.
-
-## État d’exécution
-
-Le grant/revoke, sa fusion avec Polar, sa suppression avec le compte, sa surface
-strictement interne et son round-trip contre le moteur Convex local sont
-implémentés et vérifiés. Le provisioning du compte réel reste ouvert : il dépend
-du déploiement sécurisé de la phase 5 puis d’une première connexion vérifiée du
-propriétaire sur préproduction et production. Aucun identifiant de substitution
-n’a été créé.
+| Task | Acceptance criteria |
+| --- | --- |
+| 1 | Les réponses Preview et production portent une CSP bloquante avec anti-framing; l’application complète fonctionne sans violation utile. |
+| 2 | Aucun moteur annoncé pour du contenu non fiable ne dispose d’un outil de lecture, shell, web ou MCP; Codex reste désactivé tant que ce contrat n’est pas prouvable. |
+| 3 | Une rafale `/hello` ne crée qu’un probe par binaire, chaque enfant expire et une installation devient visible après le TTL. |
+| 4 | Aucun diagnostic HTTP ou console ne contient secret, clé, JWT, fichier P8, chemin personnel ou sortie brute non bornée. |

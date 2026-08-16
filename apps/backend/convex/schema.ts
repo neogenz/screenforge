@@ -23,11 +23,6 @@ export default defineSchema({
    * Le miroir des droits : ce que Polar dit, recopié ici pour que l'éditeur
    * n'ait jamais à demander à Polar.
    *
-   * Deux droits indépendants et jamais un « plan » : Local est un achat unique
-   * et perpétuel, le Cloud un abonnement annuel qui a une fin de
-   * période. Une colonne d'énumération ne pourrait pas porter « a payé une
-   * fois, et est abonné depuis mars ».
-   *
    * - **Dates en ISO** et non en millisecondes : elles ne sont jamais comparées
    *   par la base — aucun index ne les porte, `toEntitlements` les analyse à la
    *   lecture — et c'est déjà la forme du contrat client. Les stocker en nombre
@@ -47,13 +42,11 @@ export default defineSchema({
     /* `null` est une ligne de dérogation sans historique Polar, jamais un faux
        identifiant client. Le premier webhook réel remplira ce champ. */
     polarCustomerId: v.union(v.string(), v.null()),
-    licenceGrantedAt: v.union(v.string(), v.null()),
     cloudStatus: v.union(v.string(), v.null()),
     cloudPeriodEnd: v.union(v.string(), v.null()),
     sourceUpdatedAt: v.union(v.number(), v.null()),
     /* Absents chez les clients ordinaires. La note reste côté opérateur et ne
        fait pas partie de `myEntitlements`. */
-    complimentaryLocal: v.optional(v.boolean()),
     complimentaryCloud: v.optional(v.boolean()),
     complimentaryNote: v.optional(v.string()),
   }).index('by_user', ['userId']),

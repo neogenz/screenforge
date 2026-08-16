@@ -31,7 +31,6 @@ import {
   dropRemoteProjects,
   expireCloud,
   grantCloud,
-  grantLicence,
   growRefreshChain,
   inspectDeletedSession,
   listRemote,
@@ -1170,12 +1169,12 @@ test.describe('Porte Cloud côté client', () => {
     await requireAccountEntry(page)
     await expect
       .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
-      .toMatchObject({ cloud: true, licence: false, licenceGrantedAt: null })
+      .toMatchObject({ cloud: true })
 
     await page.getByRole('button', { name: 'Mon compte' }).first().click()
     const dialog = page.getByRole('dialog', { name: 'Compte' })
     await expect(dialog.getByText('Cloud', { exact: true })).toBeVisible()
-    await expect(dialog.getByText(/inclut Local/)).toBeVisible()
+    await expect(dialog.getByText(/synchronisation et stockage managés/)).toBeVisible()
     await expect(
       dialog.getByText('Synchronisation : projets, images et thème sur chaque machine.'),
     ).toBeVisible()
@@ -1198,8 +1197,6 @@ test.describe('Porte Cloud côté client', () => {
     await expect
       .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
       .toMatchObject({
-        licence: true,
-        licenceGrantedAt: null,
         cloud: true,
         cloudStatus: null,
         cloudPeriodEnd: null,
@@ -1225,22 +1222,21 @@ test.describe('Porte Cloud côté client', () => {
     await waitForApp(page)
     await expect
       .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
-      .toMatchObject({ licence: false, cloud: false })
+      .toMatchObject({ cloud: false })
 
     await page.context().close()
     await dropRemoteProjects(own)
   })
 
-  test('un compte Local ne tente aucune synchronisation', async ({ browser, baseURL }) => {
+  test('un compte sans Cloud ne tente aucune synchronisation', async ({ browser, baseURL }) => {
     const own = await signUpSession(stack!)
-    expect(await grantLicence(admin(), own.userId)).toBe('written')
 
     const page = await openApp(browser, baseURL!, own)
     await requireAccountEntry(page)
 
     const attempts = watchCloudRequests(page)
 
-    await projectName(page).fill(`Projet licence ${String(Date.now())}`)
+    await projectName(page).fill(`Projet local ${String(Date.now())}`)
     await projectName(page).press('Enter')
     await page.getByLabel('Ajouter Texte').click()
     /* Plus long que la temporisation de l'autosave (2 s) : c'est elle qui
@@ -1259,12 +1255,11 @@ test.describe('Porte Cloud côté client', () => {
     await page.context().close()
   })
 
-  test('avertit un compte Local quand le navigateur ne promet rien', async ({
+  test('avertit un compte Local gratuit quand le navigateur ne promet rien', async ({
     browser,
     baseURL,
   }) => {
     const own = await signUpSession(stack!)
-    expect(await grantLicence(admin(), own.userId)).toBe('written')
     const page = await openApp(browser, baseURL!, own)
     await requireAccountEntry(page)
 
@@ -1279,41 +1274,10 @@ test.describe('Porte Cloud côté client', () => {
     await page.getByRole('button', { name: 'Mon compte' }).first().click()
     const dialog = page.getByRole('dialog', { name: 'Compte' })
     await expect(dialog.getByText('Local', { exact: true })).toBeVisible()
-    await expect(dialog.getByText(/Acquis le 12 mars 2026/)).toBeVisible()
+    await expect(dialog.getByText(/Gratuit · exports propres et ZIP illimités/)).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Passer au Cloud' })).toBeVisible()
     await expect(page.getByText(DURABILITY_WARNING)).toBeVisible()
 
-    await page.context().close()
-  })
-
-  test('un achat Local déjà lu reste disponible si sa relecture réseau échoue', async ({
-    browser,
-    baseURL,
-  }) => {
-    const own = await signUpSession(stack!)
-    expect(await grantLicence(admin(), own.userId)).toBe('written')
-    const page = await openApp(browser, baseURL!, own)
-    await requireAccountEntry(page)
-
-    await expect
-      .poll(() =>
-        page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements?.licence),
-      )
-      .toBe(true)
-
-    /* La lecture des droits est devenue une query sur la WebSocket, qu'une route
-       HTTP ne voit pas : c'est le déploiement entier qu'il faut couper, et lui
-       seul — la page doit encore pouvoir se recharger pour relire son cache. */
-    const reconnect = await cutDeployment(page)
-    await waitForApp(page)
-
-    await expect
-      .poll(() =>
-        page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements?.licence),
-      )
-      .toBe(true)
-
-    reconnect()
     await page.context().close()
   })
 

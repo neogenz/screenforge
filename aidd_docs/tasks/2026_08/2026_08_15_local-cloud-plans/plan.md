@@ -1,102 +1,54 @@
 ---
-objective: "Remplacer l’offre Gratuit/Licence/Cloud par deux offres commerciales Local et Cloud, synchroniser dans Convex toutes les données durables prévues, provisionner un compte propriétaire avec tous les droits client et durcir le déploiement Cloud avec des contrôles officiellement documentés."
+objective: "Publier un monorepo canonique où Local est gratuit et complet, où Cloud est le seul service payant et où aucun secret ni contournement client ne permet un write Convex, sans rendre le dépôt public avant le gate explicite GO PUBLIC."
 status: in-progress
 ---
 
-# Plan: offres Local et Cloud avec compte propriétaire
+# Plan: Local gratuit, Cloud payant et monorepo public sûr
 
 ## Overview
 
 | Field | Value |
 | --- | --- |
-| **Goal** | Faire de Local l’achat perpétuel sans serveur et de Cloud l’abonnement autonome qui inclut les droits Local, le compte et la synchronisation Convex des projets, assets et préférences sûres, avec une mise en production mesurée et récupérable. |
-| **Source** | Demandes utilisateur et note de sécurité fournies le 2026-08-15, vérifiées contre le dépôt et les documentations officielles. |
-| **Baseline** | L’application est déjà local-first; Convex porte l’authentification, le miroir Polar, les projets et leurs assets. Le travail complète et simplifie cette fondation sans réécrire la sync. |
+| **Goal** | Corriger le modèle commercial, fermer les findings sécurité, préparer le dépôt public et prouver Local hors ligne ainsi que l’autorisation Cloud côté serveur. |
+| **Source** | Rectification utilisateur du 2026-08-16, audit de branche précédent et documentation officielle vérifiée. |
 
 ## Phases
 
 | # | Phase | File |
 | --- | --- | --- |
-| 1 | Transformer les droits et la facturation en offres Local et Cloud autonomes | [`phase-1.md`](./phase-1.md) |
-| 2 | Garantir la sauvegarde Cloud complète des projets, assets et préférences durables | [`phase-2.md`](./phase-2.md) |
-| 3 | Aligner l’éditeur, le compte et la landing sur les deux offres | [`phase-3.md`](./phase-3.md) |
-| 4 | Ajouter puis provisionner un accès propriétaire complet et révocable | [`phase-4.md`](./phase-4.md) |
-| 5 | Durcir le déploiement et l’exploitation avant production | [`phase-5.md`](./phase-5.md) |
-| 6 | Prouver la migration et boucler jusqu’à une review approuvée | [`phase-6.md`](./phase-6.md) |
+| 1 | Remplacer les droits Local payants par Local gratuit et Cloud seul | [`phase-1.md`](./phase-1.md) |
+| 2 | Borner et durcir toutes les écritures Cloud | [`phase-2.md`](./phase-2.md) |
+| 3 | Réécrire la landing, le pricing et le compte | [`phase-3.md`](./phase-3.md) |
+| 4 | Fermer les findings web et bridge | [`phase-4.md`](./phase-4.md) |
+| 5 | Rendre le dépôt et les documents publiables sans secret | [`phase-5.md`](./phase-5.md) |
+| 6 | Relier CI, releases et publication au gate GO PUBLIC | [`phase-6.md`](./phase-6.md) |
+| 7 | Asserter, tester, reviewer et itérer jusqu’au vert | [`phase-7.md`](./phase-7.md) |
 
-## Execution ownership
+## Resources
 
-Le lancement est conduit de bout en bout par l’agent, avec un arrêt uniquement
-aux frontières où une identité, un engagement financier ou un secret humain est
-requis. Une application connectée ne garantit pas qu’elle soit pilotable dans
-la session courante : l’exécution commence par un contrôle de capacité en
-lecture seule, puis utilise le connecteur, le navigateur authentifié ou la CLI
-la plus étroite disponible. Aucun secret n’est demandé dans le chat ni copié
-dans le dépôt.
-
-| Workstream | Agent executes | User checkpoint |
-| --- | --- | --- |
-| Code, migrations et qualité | Implémenter les six phases, corriger les causes racines, lancer tests ciblés puis `pnpm run test:release`, assert, review et browser QA jusqu’au vert. | Trancher seulement une décision produit nouvelle qui changerait le périmètre ou les prix arrêtés dans ce plan. |
-| Convex | Configurer préproduction puis production, poser les variables directement sur chaque déploiement, déployer, contrôler isolation, limites, sauvegarde et restauration hors production. | Se reconnecter ou valider MFA/OTP si la session Convex l’exige; approuver explicitement le cutover production. |
-| Vercel et domaine web | Créer/importer le projet, régler build/output, variables publiques, alias préprod, domaine production, protection Preview, headers et audits HTTP réels. | Posséder le domaine, autoriser sa liaison et intervenir uniquement pour connexion, MFA/OTP ou validation demandée par le registrar. |
-| Resend et DNS mail | Déclarer le sous-domaine d’envoi, fournir les enregistrements SPF/DKIM/DMARC, créer une clé limitée à l’envoi, la poser dans Convex et tester le lien magique. | Autoriser les changements DNS et accomplir connexion/MFA/OTP; ne jamais transmettre la clé dans le chat. |
-| Polar | Configurer sandbox puis production : produit Local, produit Cloud, bénéfice Local, jeton minimal, endpoint signé, portail et test checkout/webhook. | Confirmer nom légal, devise, prix et politique de remboursement; compléter KYC, banque et compte de versement; confirmer avant activation de paiements réels. |
-| Compte propriétaire | Déployer le grant interne révocable, l’appliquer après contrôle de l’identité et prouver export, ZIP et sync sans privilège administrateur. | Se connecter une fois avec son identité réelle et confirmer le compte cible; aucun mot de passe n’est partagé ni codé en dur. |
-| Mise en ligne | Déployer préprod, fermer chaque preuve, déployer production, refaire les smoke tests et revenir à la version précédente si un gate échoue. | Donner le go/no-go final avant de rendre `VITE_COMMERCIAL_LAUNCH` public et d’accepter les premières ventes. |
-
-### Environment contract
-
-| Runtime | Variables attendues | Rule |
-| --- | --- | --- |
-| Vercel Preview/Production | `VITE_CONVEX_URL`, `VITE_COMMERCIAL_LAUNCH` | Publiques par nature; `VITE_COMMERCIAL_LAUNCH` reste vide jusqu’au go-live commercial. |
-| Convex Auth | `SITE_URL`, `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM`; `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` si les SSO sont activés | Valeurs distinctes par déploiement; secrets saisis directement dans Convex. |
-| Convex / Polar | `POLAR_SERVER`, `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_LICENCE_PRODUCT_ID`, `POLAR_CLOUD_PRODUCT_ID`, `POLAR_LICENCE_BENEFIT_ID`, `CHECKOUT_SUCCESS_URL` | Les noms `POLAR_LICENCE_*` restent une compatibilité interne et désignent publiquement Local; sandbox et production ne partagent aucun identifiant. |
-| Convex security | `CORS_ALLOWED_ORIGINS` après la phase 5 | Origines HTTPS exactes par environnement, sans joker; CORS ne remplace jamais l’autorisation serveur. |
-
-### Mandatory launch checkpoints
-
-1. Préproduction stable et protégée avant toute configuration production.
-2. Checkout Polar sandbox, webhook signé, grant puis révocation prouvés avant le
-   premier checkout réel.
-3. SPF/DKIM vérifiés et lien magique reçu avant d’afficher cette méthode de
-   connexion en production.
-4. Sauvegarde Convex incluant File Storage restaurée hors production avant le
-   cutover.
-5. `pnpm run test:release`, audit des headers, assert, review et browser QA sans
-   finding ouvert avant le go-live.
-6. Activation commerciale en dernier; rollback immédiat par désactivation de
-   `VITE_COMMERCIAL_LAUNCH` si paiement, entitlement ou sync échoue après mise en
-   ligne.
+| Source | Verified |
+| --- | --- |
+| [GitHub — Creating rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository) | Les rulesets de branches et tags sont disponibles sur un dépôt public avec GitHub Free; ils ne le sont pas sur ce dépôt privé sans offre supérieure. |
+| [GitHub — Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility) | Rendre le dépôt public expose aussi l’historique Actions, les logs et les artifacts et autorise les forks; le preflight doit donc les couvrir avant le changement. |
+| [GitHub — Secret scanning scope](https://docs.github.com/en/code-security/reference/secret-security/secret-scanning-scope) et [Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection) | Secret scanning est automatique et gratuit sur les dépôts publics; push protection bloque les secrets supportés mais ne remplace pas Gitleaks ni le contrôle des fichiers. |
+| [Gitleaks — Official repository](https://github.com/gitleaks/gitleaks) | Le CLI officiel couvre l’historique Git, les fichiers et stdin et peut être placé en pre-commit et en CI. |
+| [Vite — Env Variables and Modes](https://vite.dev/guide/env-and-mode.html) | Toute variable `VITE_*` est incluse dans le bundle client; elle ne peut contenir aucun secret. |
+| [Convex — Authentication](https://docs.convex.dev/auth/overview), [File Storage](https://docs.convex.dev/file-storage/overview) et [Environment Variables](https://docs.convex.dev/production/environment-variables) | Authentification et autorisation doivent être refaites dans les fonctions; les fichiers vivent dans le stockage Convex et les secrets restent dans les variables propres au déploiement. |
+| [Polar — Setup Webhooks](https://polar.sh/docs/integrate/webhooks/endpoints) et [Handle deliveries](https://polar.sh/docs/integrate/webhooks/delivery) | Le webhook brut doit être signé et traité comme une frontière publique; la lecture du corps doit aussi être bornée avant parsing. |
+| [Vercel — Response headers](https://vercel.com/docs/headers/response-headers) et [Production checklist](https://vercel.com/docs/production-checklist) | Les headers bloquants et leurs réponses déployées doivent être vérifiés avant production. |
 
 ## Decisions
 
 | Decision | Why |
 | --- | --- |
-| Il n’existe que deux offres vendues : **Local à 49 $ une fois** et **Cloud à 39 $/an**. L’essai gratuit reste un état avant achat, pas une troisième carte tarifaire. | La demande retire le troisième plan sans supprimer l’essai qui permet de juger l’éditeur avant paiement. Les montants existants sont conservés; tout changement de prix ultérieur devra être décidé puis répercuté chez Polar et dans les surfaces publiques. |
-| Cloud est achetable seul et donne, tant qu’il est actif, export propre, ZIP et sync; un achat Local séparé reste perpétuel après la fin de Cloud. | Cloud devient un vrai plan autonome, tout en préservant la valeur et les droits déjà acquis par les clients Local historiques. |
-| Les champs persistés `licenceGrantedAt` restent en place et sont présentés comme **Local**; aucune migration de renommage n’est faite. | Le nom interne historique n’est pas visible par le client. Le conserver évite une migration Convex sans bénéfice fonctionnel et permet de distinguer un achat Local perpétuel d’un droit Local inclus temporairement par Cloud. |
-| « Tout dans Convex » couvre le document projet complet, chaque asset source référencé, le compte et une allowlist de préférences durables; les miniatures dérivées, jetons, clés API, compteurs d’essai, zoom et état des dialogues restent locaux. | Les caches reconstructibles, secrets et états éphémères ne doivent pas devenir des données cloud. Les globals, locales et releases sont déjà contenus dans le document projet. |
-| Les lectures et suppressions cloud restent possibles après expiration; seules les écritures et nouvelles synchronisations exigent Cloud actif. | Un abonnement expiré ne doit jamais prendre les données de l’utilisateur en otage. |
-| Le compte propriétaire reçoit une dérogation interne, idempotente et révocable, fusionnée avec les droits Polar; elle ne donne aucun pouvoir d’administration backend. | Un faux achat Polar, une date en 2099 ou un e-mail codé en dur seraient difficiles à révoquer et pourraient être écrasés. Une mutation interne minimale donne exactement les droits client demandés sans porte publique. |
-| Le déploiement web cible Vercel seulement après confirmation de sa Root Directory et d’un domaine de préproduction stable; aucune règle de sécurité ne dépend d’une URL Preview aléatoire ou d’un joker de sous-domaines. | Le dépôt ne contient aujourd’hui ni configuration Vercel ni site de préproduction déclaré. Une origine stable rend les politiques CSP et CORS exactes, testables et plus petites. |
-| La CSP est d’abord observée sur Preview avec `Content-Security-Policy-Report-Only`, puis bloquante après élimination des violations; `script-src` reste sans `unsafe-inline` ni `unsafe-eval`, tandis que `style-src 'unsafe-inline'` est conservé tant que Fabric/React et le boot CSS l’exigent. | MDN recommande de tester une nouvelle politique en Report-Only. Le dépôt contient du JavaScript HTML inline déplaçable, mais aussi des styles inline nécessaires au positionnement; supprimer les deux en une fois agrandirait le changement sans gain prouvé. |
-| HSTS n’est pas redéclaré dans `vercel.json`; sa présence est assertée sur les réponses déployées. | Vercel envoie déjà HSTS par défaut. Le dupliquer crée deux sources de vérité sans renforcer la protection. |
-| Les HTTP actions Convex conservent l’authentification Bearer et ajoutent une allowlist CORS d’origines exactes avec `Vary: Origin`; CORS reste une défense navigateur, jamais une autorisation métier. | Les endpoints Convex sont publics par conception et l’autorisation serveur reste obligatoire. L’allowlist remplace le joker actuel sans prétendre arrêter un client non navigateur. |
-| Vercel ne reçoit que les variables `VITE_*` publiques; secrets Auth/Resend/Polar restent séparés par déploiement dans Convex et ne sont jamais copiés dans les bundles, logs ou commandes versionnées. | Vite expose toutes les variables `VITE_*` au code client, alors que Convex fournit des variables de déploiement destinées aux secrets. |
-| Les preuves externes sont des relevés manuels datés ou des assertions HTTP réelles, pas des tests simulés dans le dépôt. Les fonctions payantes — sauvegardes périodiques ou streaming de logs Convex, Spend Management Vercel — sont activées seulement si l’offre souscrite les rend disponibles. | La protection Preview, la MFA, DNS, les sauvegardes et les seuils de dépense vivent dans les consoles fournisseurs. Un test local ne peut pas prouver leur état et certaines fonctions dépendent du plan. |
-
-## Resources
-
-| Official source | What it settles for this plan |
-| --- | --- |
-| [Convex — Authentication](https://docs.convex.dev/auth/overview) | Toute fonction publique doit refaire authentification et autorisation; CORS ne remplace pas ce contrôle. |
-| [Convex — File Storage](https://docs.convex.dev/file-storage/overview) et [HTTP Actions](https://docs.convex.dev/functions/http-actions) | Les URLs de stockage sont porteuses d’accès; les téléchargements privés restent derrière une HTTP action authentifiée, avec CORS explicite. |
-| [Convex — Environment Variables](https://docs.convex.dev/production/environment-variables) | Les secrets sont séparés par déploiement et déclarés dans `convex.config.ts`. |
-| [Convex — Backup & Restore](https://docs.convex.dev/database/backup-restore) | Une sauvegarde peut inclure les fichiers; une restauration est destructive et doit être répétée hors production. Le code et les variables d’environnement sont sauvegardés séparément. |
-| [Convex — Logs](https://docs.convex.dev/production/integrations/) et [Usage Limits](https://docs.convex.dev/production/usage-limits) | Les logs Dashboard sont le socle; export/streaming et alertes externes restent conditionnels au plan, tandis que les limites d’usage sont configurées par déploiement. |
-| [Vercel — Production checklist](https://vercel.com/docs/production-checklist) et [Deployment Protection](https://vercel.com/docs/deployment-protection) | Headers, protection des déploiements, accès d’équipe et dépenses font partie du contrôle de lancement; les Previews peuvent être protégées sans fermer le domaine de production. |
-| [Vercel — Response headers](https://vercel.com/docs/headers/response-headers) et [`vercel.json`](https://vercel.com/docs/project-configuration/vercel-json) | HSTS est déjà envoyé par Vercel; les autres headers peuvent être déclarés dans la configuration projet. |
-| [MDN — CSP deployment](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/CSP), [`frame-ancestors`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors) et [`nosniff`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Content-Type-Options) | Déployer la CSP en Report-Only avant blocage; empêcher l’embarquement et le sniffing de type avec des directives dédiées. |
-| [Vite — Env Variables](https://vite.dev/guide/env-and-mode) | Une variable préfixée `VITE_` est publique; aucun secret n’y est admis. |
-| [Resend — Domains](https://resend.com/docs/dashboard/domains/introduction), [API keys](https://resend.com/docs/api-reference/api-keys/create-api-key) et [MFA](https://resend.com/changelog/multi-factor-authentication) | Utiliser un sous-domaine d’envoi avec SPF/DKIM, démarrer DMARC en observation, limiter la clé à l’envoi et protéger l’administration par MFA. |
-| [GitHub — Dependabot](https://docs.github.com/en/code-security/tutorials/secure-your-dependencies/dependabot-quickstart) et [2FA recovery](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/configuring-two-factor-authentication-recovery-methods) | Activer alertes/mises à jour de sécurité et conserver plusieurs méthodes de récupération administrateur. |
+| ScreenForge garde un seul monorepo canonique destiné à devenir public; aucun miroir privé du code n’est créé. | Deux dépôts dérivent, doublent les gates et ne protègent pas le service. La valeur payante repose sur l’exploitation Cloud et les contrôles serveur. |
+| Local est une capacité universelle du binaire : éditeur, exports propres illimités et ZIP ne lisent plus aucun entitlement, compteur ou interrupteur commercial. | Un client public est modifiable; tout contrôle Local serait artificiel et contredirait le produit demandé. |
+| Cloud est le seul entitlement et le seul produit Polar. Toute création, mise à jour, synchronisation ou upload Convex exige une session propriétaire et Cloud actif côté serveur. | Une falsification de React, Zustand ou localStorage ne traverse pas une fonction Convex qui recalcule elle-même le droit. |
+| Une suppression explicite de ses données ou de son compte reste possible après expiration, sans permettre création ni mise à jour. | La sortie et l’effacement des données ne doivent pas devenir un moyen de rétention commerciale; ce chemin destructif reste authentifié et limité. |
+| Les anciens champs Licence/Local sont retirés des capacités immédiatement, puis supprimés du schéma après vérification et migration non destructive des lignes existantes. | Les garder comme droits entretient deux modèles; les supprimer sans regarder les données pourrait casser un déploiement existant. |
+| Le prix Cloud reste le prix existant de 39 USD par an jusqu’à décision commerciale contraire; Local est affiché à 0. | Le changement demandé porte sur les offres, pas sur le montant Cloud. Polar et toutes les surfaces doivent néanmoins être comparés avant vente réelle. |
+| Les quotas Cloud cumulés sont des constantes serveur uniques et les totaux sont recalculés transactionnellement depuis les lignes bornées, sans table de compteurs dérivée. | Le volume maximal reste petit; une somme indexée évite la dérive, la réparation et une seconde source de vérité. |
+| Les documents `aidd_docs/` restent versionnés et sont traités comme du contenu public; les preuves brutes ou sensibles vont dans `.private/`, ignoré. | Un document de travail n’est pas une enclave secrète. Gitleaks et le contrôle de publication doivent scanner les documents comme le code. |
+| Un moteur bridge recevant du texte non fiable n’est annoncé que s’il peut être lancé sans aucun outil local; Codex est désactivé si le protocole installé ne sait pas imposer cette barrière. | Un cwd temporaire, un prompt et un sandbox read-only n’empêchent pas la lecture de fichiers. La sécurité prime sur la parité des moteurs. |
+| Aucun changement de visibilité n’est autorisé avant le texte exact `GO PUBLIC`, même si tous les autres gates sont verts. | Le changement publie immédiatement code, historique, logs et artifacts; son irréversibilité pratique exige un checkpoint humain distinct. |
+| La licence du dépôt et les mentions commerciales/légales doivent être validées avant `GO PUBLIC`; le plan n’invente pas une licence juridique. | Public ne signifie pas automatiquement open source et les droits de réutilisation concurrents sont une décision juridique séparée de l’architecture. |

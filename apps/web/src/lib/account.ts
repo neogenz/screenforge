@@ -1,6 +1,5 @@
 import { connect } from '@/lib/cloud'
-import { commercialLaunch } from '@/lib/commercial-launch'
-import { errorCode } from '@/lib/convex'
+import { cloudConfigured, errorCode } from '@/lib/convex'
 
 /**
  * Les trois gestes qui engagent le compte : acheter, gérer son abonnement,
@@ -20,7 +19,7 @@ import { errorCode } from '@/lib/convex'
  * booléen garde disparaît à l'élagage. Sans elle, l'éditeur afficherait des
  * tarifs qu'aucun checkout ne peut honorer.
  */
-export const billingConfigured = commercialLaunch
+export const billingConfigured = cloudConfigured
 
 export type CheckoutOutcome =
   | { ok: true; url: string }
@@ -41,7 +40,7 @@ const CHECKOUT_REFUSALS: Record<string, CheckoutOutcome> = {
   RATE_LIMITED: { ok: false, reason: 'rate-limited' },
 }
 
-export async function createCheckout(product: 'local' | 'cloud'): Promise<CheckoutOutcome> {
+export async function createCheckout(product: 'cloud'): Promise<CheckoutOutcome> {
   const connected = connect()
   if (!billingConfigured || !connected) return { ok: false, reason: 'failed' }
   try {

@@ -31,8 +31,6 @@ type Env = {
   readonly CORS_ALLOWED_ORIGINS: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;
   readonly POLAR_CLOUD_PRODUCT_ID: string | undefined;
-  readonly POLAR_LICENCE_BENEFIT_ID: string | undefined;
-  readonly POLAR_LICENCE_PRODUCT_ID: string | undefined;
   readonly POLAR_SERVER: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
   readonly SITE_URL: string | undefined;

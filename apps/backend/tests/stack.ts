@@ -120,7 +120,6 @@ const applyEntitlements = internal.mirror.applyEntitlementsIfNewer as unknown as
   {
     userId: string
     polarCustomerId: string
-    licenceGrantedAt: string | null
     cloudStatus: string | null
     cloudPeriodEnd: string | null
     sourceUpdatedAt: number | null
@@ -131,7 +130,7 @@ const applyEntitlements = internal.mirror.applyEntitlementsIfNewer as unknown as
 const complimentaryAccess = internal.mirror.setComplimentaryAccess as unknown as FunctionReference<
   'mutation',
   'public',
-  { userId: string; local: boolean; cloud: boolean; note: string },
+  { userId: string; cloud: boolean; note: string },
   'written' | 'unchanged'
 >
 
@@ -208,33 +207,17 @@ export function inspectDeletedSession(admin: ConvexHttpClient, sessionId: Id<'au
 export function setComplimentaryAccess(admin: ConvexHttpClient, userId: string, enabled: boolean) {
   return admin.mutation(complimentaryAccess, {
     userId,
-    local: enabled,
     cloud: enabled,
     note: enabled ? 'owner complimentary access' : 'owner complimentary access revoked',
   })
 }
 
 const customer = (userId: string) => `cus_${userId.slice(0, 8)}`
-const LICENCE_AT = '2026-03-12T09:00:00.000Z'
-
-/** L'achat de la Licence seule : perpétuelle, sans échéance. */
-export function grantLicence(admin: ConvexHttpClient, userId: string) {
-  return admin.mutation(applyEntitlements, {
-    userId,
-    polarCustomerId: customer(userId),
-    licenceGrantedAt: LICENCE_AT,
-    cloudStatus: null,
-    cloudPeriodEnd: null,
-    sourceUpdatedAt: Date.now(),
-  })
-}
-
 /** Un abonnement Cloud autonome en cours, sans achat Local implicite. */
 export function grantCloud(admin: ConvexHttpClient, userId: string) {
   return admin.mutation(applyEntitlements, {
     userId,
     polarCustomerId: customer(userId),
-    licenceGrantedAt: null,
     cloudStatus: 'active',
     cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
     sourceUpdatedAt: Date.now(),
@@ -249,7 +232,6 @@ export function expireCloud(admin: ConvexHttpClient, userId: string) {
   return admin.mutation(applyEntitlements, {
     userId,
     polarCustomerId: customer(userId),
-    licenceGrantedAt: null,
     cloudStatus: 'active',
     cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
     sourceUpdatedAt: Date.now() + 1,

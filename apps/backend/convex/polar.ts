@@ -46,7 +46,7 @@ function required(name: keyof typeof env): string {
   return value
 }
 
-export type SellableProduct = 'local' | 'cloud'
+export type SellableProduct = 'cloud'
 
 let client: Polar | null = null
 
@@ -61,10 +61,8 @@ function polar(): Polar {
   return client
 }
 
-function productId(product: SellableProduct): string {
-  return product === 'local'
-    ? required('POLAR_LICENCE_PRODUCT_ID')
-    : required('POLAR_CLOUD_PRODUCT_ID')
+function productId(): string {
+  return required('POLAR_CLOUD_PRODUCT_ID')
 }
 
 /** Le SDK Polar conserve le JSON vérifié quand c'est le schéma qui échoue. */
@@ -159,7 +157,6 @@ export const applySignedWebhook = internalAction({
     if (!state.externalId) return 'ignored' as const
 
     const { row } = projectCustomerState(state.externalId, state, {
-      licenceBenefitId: required('POLAR_LICENCE_BENEFIT_ID'),
       cloudProductId: required('POLAR_CLOUD_PRODUCT_ID'),
     })
 
@@ -168,7 +165,6 @@ export const applySignedWebhook = internalAction({
       /* La projection partage sa forme avec une ligne manuelle, où ce champ
          peut être `null`; cet événement Polar porte, lui, toujours son vrai id. */
       polarCustomerId: state.id,
-      licenceGrantedAt: row.licence_granted_at,
       cloudStatus: row.cloud_status,
       cloudPeriodEnd: row.cloud_period_end,
       /* L'horodatage appartient au message signé par Polar, jamais à l'heure de
@@ -189,9 +185,9 @@ export const applySignedWebhook = internalAction({
  * qu'elle diverge. Le webhook s'en sert dans l'autre sens.
  */
 export const createCheckout = action({
-  args: { product: v.union(v.literal('local'), v.literal('cloud')) },
+  args: { product: v.literal('cloud') },
   returns: v.object({ url: v.string() }),
-  handler: async (ctx, { product }): Promise<{ url: string }> => {
+  handler: async (ctx): Promise<{ url: string }> => {
     const userId = await requireUser(ctx)
     /* Avant tout appel au tiers : chaque checkout crée un objet chez Polar, et
        la route était authentifiée mais illimitée. */
@@ -200,7 +196,7 @@ export const createCheckout = action({
     const account = await ctx.runQuery(api.users.me, {})
 
     const checkout = await polar().checkouts.create({
-      products: [productId(product)],
+      products: [productId()],
       externalCustomerId: userId,
       customerEmail: account?.email ?? undefined,
       successUrl: required('CHECKOUT_SUCCESS_URL'),

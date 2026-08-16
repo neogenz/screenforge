@@ -55,9 +55,7 @@ export const webhook = httpAction(async (ctx, request) => {
 const REQUIRED_VARIABLES = [
   'POLAR_ACCESS_TOKEN',
   'POLAR_WEBHOOK_SECRET',
-  'POLAR_LICENCE_PRODUCT_ID',
   'POLAR_CLOUD_PRODUCT_ID',
-  'POLAR_LICENCE_BENEFIT_ID',
   'CHECKOUT_SUCCESS_URL',
 ] as const
 

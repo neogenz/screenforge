@@ -7,7 +7,6 @@
  * et s'ouvrait tel quel dans le client mail d'un visiteur anglophone, au seul
  * moment de la page où il a la plus forte intention.
  */
-import { commercialLaunch } from '@/lib/commercial-launch'
 import type { Lang } from './i18n'
 
 const ADDRESS = 'mailto:hello@screenforge.app'
@@ -26,8 +25,8 @@ export function notify(lang: Lang, plan: 'local' | 'cloud') {
   return `${ADDRESS}?subject=${encodeURIComponent(SUBJECTS[lang][plan])}`
 }
 
-export function offerHref(lang: Lang, plan: 'local' | 'cloud') {
-  return commercialLaunch ? '/?offers=open' : notify(lang, plan)
+export function offerHref(_lang: Lang, plan: 'local' | 'cloud') {
+  return plan === 'local' ? '/' : '/?offers=open'
 }
 
 export const LINKS = {

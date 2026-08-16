@@ -1,5 +1,10 @@
 # Review: offres Local et Cloud avec compte propriétaire
 
+> **Archive de baseline — remplacée le 2026-08-16.** Ce verdict porte sur
+> l’ancien Local payant. Les findings correctifs et leurs contre-tests sont
+> désormais couverts par les sept phases du [`plan.md`](./plan.md); cette review
+> ne peut pas être utilisée pour clôturer le plan révisé.
+
 - **Verdict**: blocked
 - **Diff**: `2771c86...cf9d545`
 - **Axes run**: code, functional, relevancy

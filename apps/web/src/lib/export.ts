@@ -1,4 +1,4 @@
-import { FabricText, Rect, StaticCanvas } from 'fabric'
+import { Rect, StaticCanvas } from 'fabric'
 import { encode as encodePng } from 'fast-png'
 import {
   SCREEN_HEIGHT,
@@ -106,60 +106,12 @@ async function convertCanvasPngToOpaqueRgb(
   }
 }
 
-/**
- * Le filigrane du palier gratuit.
- *
- * Peint dans la scène, à ses coordonnées à elle : c'est le `multiplier` qui
- * l'agrandit avec le reste, donc la cible reste au pixel près et
- * `assertAppStorePng` continue de mordre. Un filigrane composé après coup
- * demanderait un second passage sur l'image finale et pourrait, à une erreur
- * d'arrondi près, changer sa taille — soit exactement ce que la validation
- * App Store Connect refuse.
- *
- * Deux objets et pas un : un texte blanc sur un fond noir translucide se lit
- * sur une capture claire comme sur une sombre, ce qu'aucune couleur unique ne
- * fait. Même raison que la pastille des vignettes.
- */
-function watermarkObjects(): RenderedObject[] {
-  const text = new FabricText('Fait avec ScreenForge', {
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 13,
-    fontWeight: 500,
-    fill: '#ffffff',
-    originX: 'center',
-    originY: 'center',
-    left: SCREEN_WIDTH / 2,
-    top: SCREEN_HEIGHT - 26,
-    selectable: false,
-    evented: false,
-    objectCaching: false,
-  })
-
-  const veil = new Rect({
-    originX: 'center',
-    originY: 'center',
-    left: SCREEN_WIDTH / 2,
-    top: SCREEN_HEIGHT - 26,
-    width: text.width + 20,
-    height: 24,
-    rx: 12,
-    ry: 12,
-    fill: 'rgba(0, 0, 0, 0.55)',
-    selectable: false,
-    evented: false,
-    objectCaching: false,
-  })
-
-  return [veil, text]
-}
-
 export async function exportScreenToBlob(
   screen: Screen,
   layoutLayers: Layer[],
   targetWidth: number,
   targetHeight: number,
   screenIndex = 0,
-  watermark = false,
 ): Promise<Blob> {
   const scaleX = targetWidth / SCREEN_WIDTH
   const scaleY = targetHeight / SCREEN_HEIGHT
@@ -196,9 +148,6 @@ export async function exportScreenToBlob(
     exportCanvas.add(background)
 
     objects = await createRenderedObjects(layers)
-    /* Après les calques, jamais avant : le filigrane est la dernière chose que
-       la scène porte, donc rien de ce que l'utilisateur pose ne le couvre. */
-    if (watermark) objects = [...objects, ...watermarkObjects()]
     exportCanvas.add(...objects)
     exportCanvas.requestRenderAll()
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))

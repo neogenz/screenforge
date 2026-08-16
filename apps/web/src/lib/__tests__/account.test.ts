@@ -25,7 +25,7 @@ vi.mock('@/lib/cloud', () => ({
     }),
 }))
 
-vi.stubEnv('VITE_COMMERCIAL_LAUNCH', '1')
+vi.stubEnv('VITE_CONVEX_URL', 'http://127.0.0.1:3210')
 const { createCheckout, createPortalSession, deleteAccount } = await import('@/lib/account')
 
 beforeEach(() => {
@@ -35,12 +35,10 @@ beforeEach(() => {
 describe('les gestes de vente hors réseau', () => {
   it('n’expose que les deux offres Local et Cloud', () => {
     expect(PLANS.map((plan) => plan.id)).toEqual(['local', 'cloud'])
-    expect(planName(null)).toBe('Essai')
+    expect(planName(null)).toBe('Local')
     expect(
       planName({
         userId: 'u1',
-        licence: true,
-        licenceGrantedAt: '2026-03-12T09:00:00Z',
         cloud: false,
         cloudStatus: null,
         cloudPeriodEnd: null,
@@ -49,8 +47,6 @@ describe('les gestes de vente hors réseau', () => {
     expect(
       planName({
         userId: 'u2',
-        licence: false,
-        licenceGrantedAt: null,
         cloud: true,
         cloudStatus: 'active',
         cloudPeriodEnd: '2027-03-12T09:00:00Z',
@@ -62,30 +58,30 @@ describe('les gestes de vente hors réseau', () => {
     cloud.action.mockRejectedValue(new TypeError('network down'))
     cloud.mutation.mockRejectedValue(new TypeError('network down'))
 
-    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'failed' })
+    await expect(createCheckout('cloud')).resolves.toEqual({ ok: false, reason: 'failed' })
     await expect(createPortalSession()).resolves.toBeNull()
     await expect(deleteAccount()).resolves.toBe('unknown')
   })
 
   it('traduisent chaque refus nommé, et rien d’autre', async () => {
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'UNAUTHENTICATED' }))
-    await expect(createCheckout('local')).resolves.toEqual({
+    await expect(createCheckout('cloud')).resolves.toEqual({
       ok: false,
       reason: 'unauthenticated',
     })
 
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'RATE_LIMITED', retryAfter: 1200 }))
-    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'rate-limited' })
+    await expect(createCheckout('cloud')).resolves.toEqual({ ok: false, reason: 'rate-limited' })
 
     /* Le contre-test : un code que l'éditeur ne connaît pas ne doit pas hériter
        du message du refus précédent. */
     cloud.action.mockRejectedValueOnce(new ConvexError({ code: 'SOMETHING_NEW' }))
-    await expect(createCheckout('local')).resolves.toEqual({ ok: false, reason: 'failed' })
+    await expect(createCheckout('cloud')).resolves.toEqual({ ok: false, reason: 'failed' })
   })
 
   it('rendent l’URL quand le serveur l’ouvre', async () => {
     cloud.action.mockResolvedValueOnce({ url: 'https://sandbox.polar.sh/checkout/abc' })
-    await expect(createCheckout('local')).resolves.toEqual({
+    await expect(createCheckout('cloud')).resolves.toEqual({
       ok: true,
       url: 'https://sandbox.polar.sh/checkout/abc',
     })

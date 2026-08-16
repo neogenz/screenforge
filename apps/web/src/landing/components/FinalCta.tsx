@@ -1,4 +1,3 @@
-import { commercialLaunch } from '@/lib/commercial-launch'
 import { useLang } from '../i18n'
 import { LINKS, offerHref } from '../links'
 import { CtaGhost, CtaPrimary } from './cta'
@@ -65,11 +64,6 @@ export function FinalCta() {
           >
             {t.finalCta.ctaLocal}
           </CtaGhost>
-          {!commercialLaunch && (
-            <p className="mt-2 text-center font-mono text-2xs text-marker-ink">
-              {t.pricing.availabilityShort}
-            </p>
-          )}
         </div>
       </div>
     </section>

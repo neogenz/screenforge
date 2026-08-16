@@ -24,13 +24,6 @@ const WORKSPACE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const LOCAL_FIRST_PORT = 5199
 const CLOUD_PORT = 5198
 const CLOUD_SPEC = '**/sync.spec.ts'
-/* Repris dans le projet : un `testIgnore` de projet remplace celui de la
-   configuration, il ne s'y ajoute pas — les specs d'avant-lancement ont leur
-   propre configuration et leur propre serveur. */
-const PRELAUNCH_SPECS = '**/*.prelaunch.spec.ts'
-
-/* La vente ouverte : la suite principale mesure les paliers payants. */
-const LAUNCH = 'VITE_COMMERCIAL_LAUNCH=1'
 const configuredConvex = localConvex()
 const convex = REQUIRE_CLOUD
   ? {
@@ -52,7 +45,6 @@ async function deploymentReady(url: string): Promise<boolean> {
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: PRELAUNCH_SPECS,
   timeout: 45_000,
   fullyParallel: false,
   workers: 1,
@@ -83,7 +75,7 @@ export default defineConfig({
       : []),
     {
       name: 'local-first',
-      testIgnore: [PRELAUNCH_SPECS, CLOUD_SPEC],
+      testIgnore: CLOUD_SPEC,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
@@ -111,9 +103,8 @@ export default defineConfig({
          mesure que le SDK n'est pas téléchargé par qui n'aura jamais de compte —
          échouait sur toute machine ayant simplement démarré le backend une fois.
          Une variable de processus vide l'emporte sur le fichier, `cloudConfigured`
-         reste faux, et l'élagage a lieu comme sans la variable. Même geste que
-         `VITE_COMMERCIAL_LAUNCH` dans la configuration d'avant-lancement. */
-      command: `${LAUNCH} VITE_CONVEX_URL= pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
+         reste faux, et l'élagage a lieu comme sans la variable. */
+      command: `VITE_CONVEX_URL= pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
       url: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
       reuseExistingServer: true,
       timeout: 30_000,
@@ -121,7 +112,7 @@ export default defineConfig({
     ...(convex
       ? [
           {
-            command: `${LAUNCH} VITE_CONVEX_URL=${convex.url} pnpm run dev --port ${String(CLOUD_PORT)}`,
+            command: `VITE_CONVEX_URL=${convex.url} pnpm run dev --port ${String(CLOUD_PORT)}`,
             url: `http://localhost:${String(CLOUD_PORT)}`,
             reuseExistingServer: true,
             timeout: 30_000,

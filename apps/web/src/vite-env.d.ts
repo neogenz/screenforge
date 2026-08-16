@@ -9,11 +9,6 @@ interface ImportMetaEnv {
    * non un `undefined` au runtime qui bascule silencieusement en mode local.
    */
   readonly VITE_CONVEX_URL?: string
-  /**
-   * L'ouverture commerciale, indépendante du déploiement : un compte peut
-   * exister avant que la vente n'ouvre — voir `lib/commercial-launch.ts`.
-   */
-  readonly VITE_COMMERCIAL_LAUNCH?: string
 }
 
 interface ImportMeta {

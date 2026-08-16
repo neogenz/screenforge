@@ -34,7 +34,6 @@ export async function cloudAccount(t: ReturnType<typeof testConvex>) {
     await ctx.db.insert('entitlements', {
       userId,
       polarCustomerId: `cus_${userId}`,
-      licenceGrantedAt: '2026-03-12T09:00:00.000Z',
       cloudStatus: 'active',
       cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
       sourceUpdatedAt: null,

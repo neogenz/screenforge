@@ -19,8 +19,6 @@ const app = defineApp({
     CORS_ALLOWED_ORIGINS: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
     POLAR_CLOUD_PRODUCT_ID: v.optional(v.string()),
-    POLAR_LICENCE_BENEFIT_ID: v.optional(v.string()),
-    POLAR_LICENCE_PRODUCT_ID: v.optional(v.string()),
     POLAR_SERVER: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
     SITE_URL: v.optional(v.string()),

@@ -9,7 +9,6 @@ async function expiredCloudAccount(t: ReturnType<typeof testConvex>): Promise<Id
     await ctx.db.insert('entitlements', {
       userId,
       polarCustomerId: `cus_${userId}`,
-      licenceGrantedAt: null,
       cloudStatus: 'canceled',
       cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
       sourceUpdatedAt: null,

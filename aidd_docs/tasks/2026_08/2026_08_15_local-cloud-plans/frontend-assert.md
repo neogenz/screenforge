@@ -1,5 +1,10 @@
 # Task Phase 5 — boot CSP et offre Local/Cloud
 
+> **Archive de baseline — remplacée le 2026-08-16.** Cette assertion décrit
+> l’ancien modèle Local payant et ne constitue plus un critère d’acceptation.
+> Les preuves actuelles sont définies dans [`phase-3.md`](./phase-3.md),
+> [`phase-4.md`](./phase-4.md) et [`phase-7.md`](./phase-7.md).
+
 Vérifier dans le frontend lancé que l'externalisation du boot thème/fontes ne
 casse ni l'éditeur ni la landing, et que l'offre reste strictement Local/Cloud
 en anglais et en français.

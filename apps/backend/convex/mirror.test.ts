@@ -9,8 +9,6 @@ import { testConvex } from './test.helpers'
  * client ne puisse les appeler.
  */
 
-const LICENCE = '2026-03-12T09:00:00.000Z'
-
 async function user(t: ReturnType<typeof testConvex>): Promise<Id<'users'>> {
   return await t.run((ctx) => ctx.db.insert('users', {}))
 }
@@ -19,7 +17,6 @@ function delivery(userId: Id<'users'>, sourceUpdatedAt: number | null, cloudStat
   return {
     userId,
     polarCustomerId: 'cus_1',
-    licenceGrantedAt: LICENCE,
     cloudStatus: cloudStatus ?? null,
     cloudPeriodEnd: cloudStatus ? '2027-03-12T09:00:00.000Z' : null,
     sourceUpdatedAt,
@@ -121,14 +118,13 @@ describe('applyEntitlementsIfNewer', () => {
 describe('setComplimentaryAccess', () => {
   const note = 'owner complimentary access'
 
-  it('accorde tous les droits client sans inventer de client Polar', async () => {
+  it('accorde Cloud au client sans inventer de client Polar', async () => {
     const t = testConvex()
     const userId = await user(t)
 
     await expect(
       t.mutation(internal.mirror.setComplimentaryAccess, {
         userId,
-        local: true,
         cloud: true,
         note,
       }),
@@ -138,11 +134,10 @@ describe('setComplimentaryAccess', () => {
       t.withIdentity({ subject: userId }).query(api.mirror.myEntitlements, {
         now: Date.now(),
       }),
-    ).resolves.toMatchObject({ licence: true, licenceGrantedAt: null, cloud: true })
+    ).resolves.toMatchObject({ cloud: true })
     expect(await rows(t)).toMatchObject([
       {
         polarCustomerId: null,
-        complimentaryLocal: true,
         complimentaryCloud: true,
         complimentaryNote: note,
       },
@@ -152,7 +147,7 @@ describe('setComplimentaryAccess', () => {
   it('est idempotent et refuse une note vide ou trop longue', async () => {
     const t = testConvex()
     const userId = await user(t)
-    const grant = { userId, local: true, cloud: true, note }
+    const grant = { userId, cloud: true, note }
 
     await expect(t.mutation(internal.mirror.setComplimentaryAccess, grant)).resolves.toBe('written')
     await expect(t.mutation(internal.mirror.setComplimentaryAccess, grant)).resolves.toBe(
@@ -172,7 +167,6 @@ describe('setComplimentaryAccess', () => {
     const userId = await user(t)
     await t.mutation(internal.mirror.setComplimentaryAccess, {
       userId,
-      local: true,
       cloud: true,
       note,
     })
@@ -180,9 +174,7 @@ describe('setComplimentaryAccess', () => {
     await t.mutation(internal.mirror.applyEntitlementsIfNewer, delivery(userId, 1000))
     expect(await rows(t)).toMatchObject([
       {
-        licenceGrantedAt: LICENCE,
         cloudStatus: null,
-        complimentaryLocal: true,
         complimentaryCloud: true,
       },
     ])
@@ -190,7 +182,6 @@ describe('setComplimentaryAccess', () => {
     await expect(
       t.mutation(internal.mirror.setComplimentaryAccess, {
         userId,
-        local: false,
         cloud: false,
         note: 'owner complimentary access revoked',
       }),
@@ -199,10 +190,9 @@ describe('setComplimentaryAccess', () => {
       t.withIdentity({ subject: userId }).query(api.mirror.myEntitlements, {
         now: Date.now(),
       }),
-    ).resolves.toMatchObject({ licence: true, cloud: false })
+    ).resolves.toMatchObject({ cloud: false })
     const [restored] = await rows(t)
-    expect(restored).toMatchObject({ licenceGrantedAt: LICENCE, cloudStatus: null })
-    expect(restored).not.toHaveProperty('complimentaryLocal')
+    expect(restored).toMatchObject({ cloudStatus: null })
     expect(restored).not.toHaveProperty('complimentaryCloud')
     expect(restored).not.toHaveProperty('complimentaryNote')
   })
@@ -212,14 +202,12 @@ describe('setComplimentaryAccess', () => {
     const userId = await user(t)
     await t.mutation(internal.mirror.setComplimentaryAccess, {
       userId,
-      local: false,
       cloud: true,
       note,
     })
     await expect(
       t.mutation(internal.mirror.setComplimentaryAccess, {
         userId,
-        local: false,
         cloud: false,
         note: 'owner complimentary access revoked',
       }),
@@ -230,7 +218,6 @@ describe('setComplimentaryAccess', () => {
     await expect(
       t.mutation(internal.mirror.setComplimentaryAccess, {
         userId,
-        local: true,
         cloud: true,
         note,
       }),

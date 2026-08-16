@@ -15,19 +15,15 @@ import { testConvex } from './test.helpers'
  */
 
 const SECRET = 'whsec_screenforge_test'
-const LICENCE_BENEFIT = 'ben_licence'
 const CLOUD_PRODUCT = 'prod_cloud'
 
 process.env.POLAR_ACCESS_TOKEN = 'polar_at_test'
 process.env.POLAR_WEBHOOK_SECRET = SECRET
-process.env.POLAR_LICENCE_PRODUCT_ID = 'prod_licence'
 process.env.POLAR_CLOUD_PRODUCT_ID = CLOUD_PRODUCT
-process.env.POLAR_LICENCE_BENEFIT_ID = LICENCE_BENEFIT
 process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'
 
 interface Fixture {
   externalId?: string | null
-  licenceGrantedAt?: string | null
   cloud?: { status: string; currentPeriodEnd: string; endsAt: string | null } | null
   timestamp?: string
 }
@@ -35,7 +31,6 @@ interface Fixture {
 /** Un `customer.state_changed` tel que Polar le sérialise (snake_case). */
 function customerStateChanged({
   externalId = null,
-  licenceGrantedAt = null,
   cloud = null,
   timestamp = '2026-08-08T10:00:00Z',
 }: Fixture): string {
@@ -57,20 +52,7 @@ function customerStateChanged({
       deleted_at: null,
       active_meters: [],
       avatar_url: 'https://example.com/avatar.png',
-      granted_benefits: licenceGrantedAt
-        ? [
-            {
-              id: 'bg_1',
-              created_at: licenceGrantedAt,
-              modified_at: null,
-              granted_at: licenceGrantedAt,
-              benefit_id: LICENCE_BENEFIT,
-              benefit_type: 'custom',
-              benefit_metadata: {},
-              properties: {},
-            },
-          ]
-        : [],
+      granted_benefits: [],
       active_subscriptions: cloud
         ? [
             {
@@ -139,11 +121,10 @@ afterEach(() => {
 })
 
 describe('POST /billing/webhook', () => {
-  it('écrit le miroir sur un octroi de Licence', async () => {
+  it('écrit un miroir Cloud vide pour un compte connu', async () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
 
     const response = await post(t, body, sign(body, 'msg_1'))
@@ -154,7 +135,6 @@ describe('POST /billing/webhook', () => {
       {
         userId,
         polarCustomerId: 'cus_1',
-        licenceGrantedAt: '2026-03-12T09:00:00.000Z',
         cloudStatus: null,
       },
     ])
@@ -167,7 +147,6 @@ describe('POST /billing/webhook', () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
 
     await post(t, body, sign(body, 'msg_1'))
@@ -179,15 +158,11 @@ describe('POST /billing/webhook', () => {
 
   it('réécrit quand l’état a réellement changé', async () => {
     const userId = await account(t)
-    const licence = customerStateChanged({
-      externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
-    })
-    await post(t, licence, sign(licence, 'msg_1'))
+    const empty = customerStateChanged({ externalId: userId })
+    await post(t, empty, sign(empty, 'msg_1'))
 
     const withCloud = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
       cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
       timestamp: '2026-08-08T11:00:00Z',
     })
@@ -208,16 +183,16 @@ describe('POST /billing/webhook', () => {
 
     const staleGrant = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
+      cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
       timestamp: '2026-08-08T11:00:00Z',
     })
     const response = await post(t, staleGrant, sign(staleGrant, 'msg_old'))
 
     await expect(response.json()).resolves.toEqual({ outcome: 'ignored' })
-    expect(await mirror(t)).toMatchObject([{ licenceGrantedAt: null, cloudStatus: null }])
+    expect(await mirror(t)).toMatchObject([{ cloudStatus: null }])
   })
 
-  it('reflète un abonnement Cloud autonome sans achat Local', async () => {
+  it('reflète un abonnement Cloud actif', async () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
@@ -229,7 +204,6 @@ describe('POST /billing/webhook', () => {
     expect(response.status).toBe(200)
     expect(await mirror(t)).toMatchObject([
       {
-        licenceGrantedAt: null,
         cloudStatus: 'active',
         cloudPeriodEnd: '2027-03-12T09:00:00.000Z',
       },
@@ -241,7 +215,6 @@ describe('POST /billing/webhook', () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
 
     const response = await post(t, body, sign(body, 'msg_1', 'whsec_wrong'))
@@ -255,12 +228,11 @@ describe('POST /billing/webhook', () => {
     const userId = await account(t)
     const body = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
     const headers = sign(body, 'msg_1')
     const tampered = customerStateChanged({
       externalId: userId,
-      licenceGrantedAt: '2020-01-01T00:00:00Z',
+      cloud: { status: 'active', currentPeriodEnd: '2027-03-12T09:00:00Z', endsAt: null },
     })
 
     const response = await post(t, tampered, headers)
@@ -311,7 +283,6 @@ describe('POST /billing/webhook', () => {
   it('ignore un client rattaché à aucun compte', async () => {
     const body = customerStateChanged({
       externalId: null,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
 
     const response = await post(t, body, sign(body, 'msg_1'))
@@ -326,7 +297,6 @@ describe('POST /billing/webhook', () => {
     const known = await account(t)
     const body = customerStateChanged({
       externalId: `${known}zz`,
-      licenceGrantedAt: '2026-03-12T09:00:00Z',
     })
 
     const response = await post(t, body, sign(body, 'msg_1'))

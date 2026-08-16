@@ -24,9 +24,8 @@ function PricingDialogContent() {
   /** Quel bouton attend, pas un booléen global : deux achats et le portail partagent la boîte. */
   const [pending, setPending] = useState<SellableProduct | 'portal' | null>(null)
 
-  const local = entitlements?.licence ?? false
   const cloud = entitlements?.cloud ?? false
-  const hasBillingHistory = local || Boolean(entitlements?.cloudStatus)
+  const hasBillingHistory = Boolean(entitlements?.cloudStatus)
 
   async function buy(product: SellableProduct) {
     setPending(product)
@@ -80,11 +79,11 @@ function PricingDialogContent() {
             <PlanCard
               key={plan.id}
               plan={plan}
-              owned={(plan.id === 'local' && local) || (plan.id === 'cloud' && cloud)}
+              owned={plan.id === 'local' || cloud}
               ownedNote={ownedNote(plan.id, entitlements)}
-              pending={pending === plan.id}
+              pending={plan.id === 'cloud' && pending === plan.id}
               disabled={pending !== null || !signedIn}
-              onBuy={() => void buy(plan.id)}
+              onBuy={plan.id === 'cloud' ? () => void buy('cloud') : undefined}
             />
           ))}
         </div>
@@ -114,11 +113,7 @@ const CHECKOUT_ERRORS: Record<'unauthenticated' | 'rate-limited' | 'failed', str
  * vérifier après une résiliation.
  */
 function ownedNote(id: Plan['id'], entitlements: Entitlements | null): string | undefined {
-  if (id === 'local' && entitlements?.licence) {
-    const date = formatGrantDate(entitlements.licenceGrantedAt)
-    if (date) return `Acquis le ${date}`
-    return entitlements.cloud ? 'Inclus avec Cloud' : 'Actif'
-  }
+  if (id === 'local') return 'Inclus gratuitement'
   if (id === 'cloud' && entitlements?.cloud) {
     const date = formatGrantDate(entitlements.cloudPeriodEnd)
     return date ? `Actif jusqu’au ${date}` : 'Actif'
@@ -132,7 +127,7 @@ interface PlanCardProps {
   ownedNote?: string
   pending: boolean
   disabled: boolean
-  onBuy: () => void
+  onBuy?: () => void
 }
 
 /**
@@ -197,7 +192,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
             <Check size={12} strokeWidth={2} aria-hidden className="shrink-0" />
             {ownedNote ?? 'Actif'}
           </p>
-        ) : (
+        ) : onBuy ? (
           <Button
             variant="primary"
             size="sm"
@@ -208,7 +203,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
           >
             Acheter {plan.name}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   )

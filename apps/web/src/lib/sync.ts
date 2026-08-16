@@ -32,7 +32,6 @@ import {
   type RemoteProject,
 } from '@/lib/cloud'
 import { cloudConfigured } from '@/lib/convex'
-import { rightsOf } from '@/lib/entitlements'
 import { projectWithoutThumbnails } from '@/lib/project-file'
 import {
   normalizeProject,
@@ -89,7 +88,7 @@ function syncAllowed(state = useAuthStore.getState()): boolean {
     cloudConfigured &&
     state.status === 'signed-in' &&
     state.entitlementsVerified &&
-    rightsOf(state.entitlements).sync
+    state.entitlements?.cloud === true
   )
 }
 

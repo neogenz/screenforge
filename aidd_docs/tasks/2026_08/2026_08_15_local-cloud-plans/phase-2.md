@@ -1,8 +1,8 @@
 ---
-status: done
+status: pending
 ---
 
-# Instruction: garantir la sauvegarde Cloud complète des projets, assets et préférences durables
+# Instruction: borner et durcir toutes les écritures Cloud
 
 ## Architecture projection
 
@@ -10,38 +10,39 @@ status: done
 
 ```txt
 .
-├── apps/
-│   ├── backend/convex/
-│   │   ├── schema.ts                   ✏️ table `userSettings` indexée par compte
-│   │   ├── settings.ts                 ✅ lecture propriétaire et upsert LWW borné
-│   │   ├── settings.test.ts            ✅ isolation, allowlist, LWW, expiration et suppression
-│   │   ├── accountDeletion.ts          ✏️ purge des préférences avec le compte
-│   │   └── accountDeletion.test.ts     ✏️ inventaire et reprise avec `userSettings`
-│   └── web/
-│       ├── src/
-│       │   ├── lib/cloud.ts            ✏️ transport Convex des préférences
-│       │   ├── lib/sync.ts             ✏️ préférences intégrées au cycle existant
-│       │   ├── lib/user-settings.ts    ✅ valeur locale datée et allowlist sérialisable
-│       │   └── stores/ui.store.ts      ✏️ thème local daté, toujours utilisable hors ligne
-│       └── e2e/sync.spec.ts            ✏️ projet complet, assets et thème entre deux navigateurs
-└── aidd_docs/memory/
-    └── database.md                     ✏️ périmètre exact des données cloud et locales
+└── apps/backend/convex/
+    ├── limits.ts                         ✏️ plafonds cumulés Cloud en source unique
+    ├── limits.test.ts                    ✏️ limites et erreurs stables
+    ├── schema.ts                         ✏️ taille des blobs projet et index nécessaires
+    ├── projects.ts                       ✏️ entitlement, comptage transactionnel et remplacement
+    ├── projects.test.ts                  ✏️ quota, concurrence, expiration et isolation
+    ├── assets.ts                         ✏️ entitlement, total bytes/count et remplacement
+    ├── assets.test.ts                    ✏️ quota cumulatif, type, taille et cross-account
+    ├── settings.ts                       ✏️ réaffirmer `requireCloud` avant chaque write
+    ├── settings.test.ts                  ✏️ refus sans entitlement actif
+    ├── account-deletion.ts               ✏️ effacement authentifié après expiration
+    ├── account-deletion.test.ts          ✏️ sortie permise sans recréer de droit
+    ├── maintenance.ts                    ✅ balayage interne des blobs orphelins
+    ├── maintenance.test.ts               ✅ seuls les blobs non référencés sont supprimés
+    ├── crons.ts                          ✏️ planifier le balayage borné
+    ├── auth.ts                           ✏️ fournisseur test explicitement local/E2E
+    ├── auth.test.ts                      ✏️ configuration production fail-closed
+    ├── billing.ts                        ✏️ lire le webhook signé avec une borne préalable
+    └── billing.test.ts                   ✏️ corps absent, surdimensionné, invalide et signé
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Utilisateur Cloud modifie un projet ou le thème] --> B[Commit local immédiat]
-  B --> C{Cloud actif et réseau disponible}
-  C -->|non| D[Travail conservé localement et reprise ultérieure]
-  C -->|oui| E[Cycle de sync existant]
-  E --> F[Assets sources téléversés]
-  F --> G[Document projet complet téléversé]
-  E --> H[Préférences allowlistées envoyées en LWW]
-  I[Deuxième machine se connecte] --> J[Lecture projets, assets et préférences]
-  J --> K[Installation locale atomique]
-  K --> L[Éditeur restauré avec le même contenu et le même thème]
+  A[Client demande un write Cloud] --> B{Session valide}
+  B -->|non| C[Refus authentification]
+  B -->|oui| D{Cloud actif recalculé au serveur}
+  D -->|non| E[Refus entitlement]
+  D -->|oui| F{Type taille débit et quota cumulatif valides}
+  F -->|non| G[Refus stable sans écriture ni blob orphelin]
+  F -->|oui| H[Mutation transactionnelle du contenu possédé]
+  H --> I[Usage et synchronisation cohérents]
 ```
 
 ## Test Scope
@@ -52,67 +53,65 @@ title: Test scope
 ---
 journey
   section Setup
-    Ouvrir deux contextes navigateur pour le même compte Cloud => bases locales indépendantes: 5: browser
-  section Projet complet
-    Créer globals locales releases calques et captures => document distant contient tous les champs durables: 5: browser
-  section Assets
-    Référencer image et capture appareil puis ouvrir la seconde machine => chaque asset est restitué sans data URL dans le graphe: 5: browser
-  section Préférences
-    Passer le thème en clair sur la première machine => la seconde adopte le thème le plus récent: 5: browser
-  section Hors ligne
-    Modifier projet et thème sans réseau puis revenir en ligne => édition jamais bloquée et reprise convergente: 5: browser
-  section Sécurité
-    Tenter une préférence inconnue ou un accès croisé => valeur refusée et aucune donnée divulguée: 5: api
-  section Expiration
-    Expirer Cloud => lecture et suppression possibles mais nouvelle écriture refusée: 5: api
+    Créer deux comptes dont un Cloud actif avec des données bornées => propriétaires isolés: 5: api
+  section Happy path
+    Pousser projet asset et settings sous les plafonds => données synchronisées au bon compte: 5: api
+  section Edge case - faux client
+    Appeler chaque mutation sans session puis sans Cloud => aucun write ni storage créé: 1: api
+  section Edge case - quota
+    Remplir exactement le quota puis le dépasser en remplacement et concurrence => dernière mutation refusée atomiquement: 1: api
+  section Edge case - webhook
+    Envoyer un corps trop grand ou une mauvaise signature => refus avant traitement métier: 1: api
+  section Teardown
+    Supprimer comptes fichiers jobs et limites => aucune donnée de test résiduelle: 5: api
 ```
 
 ## Tasks to do
 
-### `1)` Définir ce qui est réellement synchronisé
+### `1)` Poser une limite économique cumulative
 
-> Une allowlist courte vaut mieux qu’un sac JSON qui finit par contenir des secrets.
+> Le rate limit protège le rythme; le quota protège le coût durable.
 
-1. Considérer le `Project` sérialisé comme la source de tous ses réglages métier : globals, locales, releases, écrans, layout layers et métadonnées.
-2. Prouver par test que tous les `assetId` référencés par les images, captures d’appareil et autres calques binaires sont envoyés avant le projet puis retéléchargés avant son installation.
-3. Ajouter une forme `UserSettings` bornée à `theme: light | dark` et `updatedAt`; étendre cette allowlist seulement lorsqu’une nouvelle préférence durable existe réellement.
-4. Exclure explicitement clés de fournisseurs IA, JWT/refresh tokens, cache de droits, compteur d’essai, langue marketing, zoom, sélection, panneaux et dialogues.
-5. Continuer à omettre les miniatures dérivées du projet : elles se reconstruisent localement et ne sont pas une source utilisateur.
+1. Centraliser les plafonds initiaux serveur : 100 projets, 128 MiB de blobs projet, 500 assets et 512 MiB d’assets par compte, en conservant 4 MiB par projet et 16 MiB par asset.
+2. Ajouter `byteLength` aux projets avec une migration compatible, puis sommer les lignes du propriétaire dans la même mutation que le write.
+3. Pour un remplacement, soustraire la ligne remplacée avant d’ajouter la nouvelle; une suppression libère naturellement le quota.
+4. Refuser avant `storage.store` lorsque taille, nombre ou total dépasserait; conserver les rate limits existants comme seconde borne.
+5. Retourner des codes stables et non sensibles distinguant taille unitaire, nombre et quota total, puis mapper une phrase actionnable dans le client lors de la phase 3.
 
-### `2)` Stocker les préférences dans Convex
+### `2)` Fermer l’autorisation de chaque surface persistante
 
-> Une seule ligne par utilisateur, avec la même règle LWW que les projets.
+> Le serveur dérive l’identité et Cloud actif à chaque mutation.
 
-1. Ajouter `userSettings` avec `userId`, `theme`, `updatedAt` et un index `by_user` unique par chemin d’écriture.
-2. Créer une query qui dérive le compte depuis la session et reste lisible après expiration Cloud.
-3. Créer une mutation d’upsert qui appelle `requireCloud`, valide l’enum et n’accepte que la version strictement plus récente.
-4. Ne jamais accepter de `userId`, d’objet arbitraire ou de clé libre depuis le navigateur.
-5. Ajouter la table à l’inventaire et au balayage borné de suppression de compte.
+1. Inventorier toutes les mutations publiques de projets, assets et settings et faire passer chaque création, remplacement ou mise à jour par `requireCloud` avant effet durable.
+2. Ne jamais accepter `userId`, `cloudStatus` ou entitlement dans les arguments client; le propriétaire vient uniquement de la session.
+3. Tester sans auth, auth sans achat, Cloud expiré, Cloud actif, dérogation propriétaire, propriété croisée et modification concurrente.
+4. Conserver la lecture de ses données après expiration si le contrat actuel le prévoit, mais interdire toute synchronisation sortante.
+5. Conserver la suppression de ses propres données et du compte comme chemin destructif séparé, authentifié, limité et incapable de créer ou modifier du contenu.
 
-### `3)` Réutiliser le cycle de sync client
+### `3)` Éliminer les blobs orphelins sans compteur dérivé
 
-> Pas de deuxième moteur, de WebSocket ou de file parallèle.
+> Un cleanup interne récupère les restes; il ne devient pas une API publique.
 
-1. Persister localement le thème avec son `updatedAt` et conserver le défaut sombre actuel quand aucune valeur n’existe.
-2. Au premier cycle Cloud vérifié, comparer préférence locale et distante, appliquer la plus récente puis acquitter la version installée.
-3. Au changement de thème, commiter localement d’abord puis programmer le cycle `sync.ts` existant; une erreur réseau ne doit ni annuler le thème ni bloquer l’éditeur.
-4. Réinitialiser l’état de rapprochement au changement de compte afin qu’aucune préférence ne traverse deux identités.
-5. Protéger les écritures tardives : si le compte ou le droit Cloud change pendant l’appel, ne pas appliquer la réponse au compte suivant.
+1. Ajouter une mutation interne bornée qui parcourt un petit lot de métadonnées storage et supprime seulement les blobs absents des index `projects.by_blobId` et `assets.by_storageId`.
+2. La planifier à cadence prudente avec curseur; ne jamais scanner ou supprimer depuis le navigateur.
+3. Tester un blob projet, un asset, un blob réellement orphelin et une exécution répétée idempotente.
+4. Journaliser uniquement les comptes agrégés de blobs visités/supprimés, sans identifiant utilisateur, nom de fichier ni URL storage.
 
-### `4)` Fermer la preuve de contenu cloud
+### `4)` Fermer les deux frontières publiques restantes
 
-> Le mot « tout » se démontre par un round-trip réel, pas par le nombre de tables.
+> Les chemins de test et webhook échouent avant d’engager du coût.
 
-1. Étendre le scénario E2E Convex strict avec un projet qui exerce globals, locales, releases, plusieurs types de calques et plusieurs assets.
-2. Synchroniser depuis un contexte navigateur neuf et comparer le projet normalisé, les dimensions et hashes d’assets, puis le thème.
-3. Supprimer le compte et constater la disparition de `projects`, `assets`, `userSettings`, blobs Storage, droits et identité.
-4. Garder un contre-test Local sans `VITE_CONVEX_URL` qui édite, recharge et exporte sans charger le SDK cloud.
+1. N’enregistrer `test-password` que lorsque le flag serveur dédié E2E vaut explicitement vrai; le healthcheck et le déploiement production échouent si ce flag est actif.
+2. Garder magic link et SSO comme seuls providers de production.
+3. Lire le webhook Polar par chunks avec une limite stricte avant `text`/JSON et avant toute opération métier; vérifier ensuite la signature sur les octets reçus.
+4. Refuser `Content-Length` excessif immédiatement, tout en appliquant la borne de flux lorsque l’en-tête est absent ou faux.
+5. Tester corps vide, limite exacte, dépassement, UTF-8 invalide, JSON invalide, signature invalide et événement Cloud valide.
 
 ## Test acceptance criteria
 
-- Un projet riche et tous ses assets sources survivent à un aller-retour entre deux stockages locaux indépendants.
-- `userSettings` n’accepte que le thème et sa date; aucune donnée sensible ou éphémère n’est envoyée.
-- Le dernier changement de thème gagne et reste utilisable hors ligne.
-- Un autre compte ne peut ni lire ni écrire projets, assets ou préférences.
-- Après expiration Cloud, les données distantes sont lisibles et supprimables mais aucune nouvelle version n’est acceptée.
-- La suppression de compte ne laisse ni ligne `userSettings` ni blob Storage orphelin.
+| Task | Acceptance criteria |
+| --- | --- |
+| 1 | Chaque compte reste sous les limites unitaires et cumulées; remplacement, suppression et écritures concurrentes ne font ni dériver ni dépasser l’usage. |
+| 2 | Aucune mutation de contenu Cloud n’accepte un droit fourni par le client et toutes refusent sans session propriétaire et Cloud actif. |
+| 3 | Le cleanup interne supprime uniquement les blobs non référencés, par lots bornés et sans donnée sensible dans les logs. |
+| 4 | Production ne peut pas démarrer avec `test-password`; un webhook surdimensionné est refusé avant allocation complète et tout événement accepté reste signé. |

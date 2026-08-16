@@ -10,10 +10,11 @@ import type { Entitlements } from '@/lib/entitlements'
  * checkout. Ce qui doit rester identique, c'est le prix et la règle — et le
  * prix est un littéral des deux côtés parce qu'il est fixé chez Polar, pas ici.
  */
-export type SellableProduct = 'local' | 'cloud'
+export type PlanId = 'local' | 'cloud'
+export type SellableProduct = 'cloud'
 
 export interface Plan {
-  id: SellableProduct
+  id: PlanId
   name: string
   price: string
   period: string
@@ -27,18 +28,14 @@ export const PLANS: Plan[] = [
   {
     id: 'local',
     name: 'Local',
-    price: '49 $',
-    period: 'une fois',
-    /* « à vous » disait l'éditeur et s'entendait comme les projets : ce que
-       Local donne est le logiciel, et le travail reste sur la machine, ce que
-       seule la carte Cloud disait — à qui allait la lire. */
-    tagline: 'Tout l’éditeur sur votre machine, mises à jour incluses',
+    price: '0 $',
+    period: 'pour toujours',
+    tagline: 'Tout l’éditeur sur votre machine, sans compte',
     points: [
       'Exports illimités, sans filigrane',
       'ZIP groupé, un fichier par planche',
-      'Mises à jour à vie, rien à renouveler',
+      'Projets et images conservés localement',
     ],
-    badge: 'Recommandé',
   },
   {
     id: 'cloud',
@@ -47,7 +44,7 @@ export const PLANS: Plan[] = [
     period: '/an',
     tagline: 'L’éditeur complet et vos projets sur chaque machine',
     points: [
-      'Exports illimités et ZIP sans filigrane',
+      'Tout Local, sans limite artificielle',
       'Projets, images et thème synchronisés',
       'Reprendre un projet sur une autre machine',
     ],
@@ -63,8 +60,7 @@ export const PLANS: Plan[] = [
  */
 export function planName(entitlements: Entitlements | null): string {
   if (entitlements?.cloud) return 'Cloud'
-  if (entitlements?.licence) return 'Local'
-  return 'Essai'
+  return 'Local'
 }
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })

@@ -162,19 +162,16 @@ export async function addDeviceLayer(page: Page): Promise<void> {
  *
  * L'achat réel traverse Polar, un webhook et le miroir en base : hors de portée
  * d'une suite qui doit rester exécutable sans Docker et sans compte marchand.
- * Ce que les tests vérifient est ce qui vient après — le filigrane, le ZIP, le
- * quota — et cela ne dépend que de l'objet posé ici.
+ * Ce que les tests vérifient est ce qui vient après — uniquement la sync Cloud.
  */
 export async function grantEntitlements(
   page: Page,
-  rights: { licence: boolean; cloud?: boolean },
+  rights: { licence?: boolean; cloud?: boolean },
 ): Promise<void> {
   await page.evaluate((granted) => {
     window.__sfStores?.useAuthStore.setState({
       entitlements: {
         userId: 'e2e',
-        licence: granted.licence,
-        licenceGrantedAt: granted.licence ? '2026-03-12T09:00:00Z' : null,
         cloud: granted.cloud ?? false,
         cloudStatus: granted.cloud ? 'active' : null,
         cloudPeriodEnd: granted.cloud ? '2099-01-01T00:00:00Z' : null,
@@ -197,13 +194,9 @@ export async function readDownload(download: Download): Promise<Uint8Array> {
 }
 
 /**
- * Le chemin du ZIP, donc celui de la Licence : la Licence est posée ici plutôt
- * que dans chaque appelant. Sans elle le palier gratuit descend les PNG un par
- * un, et les quatre suites qui vérifient l'exactitude du rendu passeraient à
- * mesurer la porte commerciale. Celle-ci a son propre fichier.
+ * Le chemin du ZIP est universel en Local : aucun droit n'est posé ici.
  */
 export async function downloadFirstExportedPng(page: Page): Promise<ExportedZipPng> {
-  await grantEntitlements(page, { licence: true })
   await page.getByLabel('Ouvrir l’export').click()
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60_000 }),

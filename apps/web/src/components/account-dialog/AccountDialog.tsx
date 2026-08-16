@@ -61,18 +61,13 @@ function AccountDialogContent() {
     }
   }, [])
 
-  const local = entitlements?.licence ?? false
-  const localPurchased = Boolean(entitlements?.licenceGrantedAt)
   const cloud = entitlements?.cloud ?? false
-  const hasBillingHistory = localPurchased || Boolean(entitlements?.cloudStatus)
+  const hasBillingHistory = Boolean(entitlements?.cloudStatus)
   const currentPlan = planName(entitlements)
   const cloudEnd = dateLabel('Actif jusqu’au', entitlements?.cloudPeriodEnd)
-  const localSince = dateLabel('Acquis le', entitlements?.licenceGrantedAt)
   const planDetail = cloud
-    ? `${cloudEnd ?? 'Actif'} · inclut Local${localPurchased ? ' · Local restera acquis après Cloud' : ''}`
-    : local
-      ? (localSince ?? 'Accès Local actif')
-      : 'Trois exports filigranés par projet avant achat'
+    ? `${cloudEnd ?? 'Actif'} · synchronisation et stockage managés`
+    : 'Gratuit · exports propres et ZIP illimités sans compte'
 
   function openPricing() {
     setShowAccountDialog(false)
@@ -134,9 +129,7 @@ function AccountDialogContent() {
           <p className="field-label">Plan actuel</p>
           <div className="mt-1.5 flex items-center gap-2">
             <h3 className="text-sm font-semibold text-foreground">{currentPlan}</h3>
-            {currentPlan !== 'Essai' && (
-              <Check size={13} strokeWidth={2} aria-label="Actif" className="text-marker" />
-            )}
+            <Check size={13} strokeWidth={2} aria-label="Actif" className="text-marker" />
           </div>
           <p className="mt-1 text-2xs leading-4 text-muted-foreground">{planDetail}</p>
           {cloud && (
@@ -146,7 +139,7 @@ function AccountDialogContent() {
           )}
           {!cloud && (
             <Button variant="default" size="sm" className="mt-3 w-full" onClick={openPricing}>
-              {local ? 'Passer au Cloud' : 'Voir Local et Cloud'}
+              Passer au Cloud
             </Button>
           )}
 
