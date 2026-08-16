@@ -23,9 +23,10 @@ const FONTS = new URL('../apps/web/public/fonts', import.meta.url).href
    ensemble. */
 const SCREENS = Number(
   /MAX_PROJECT_SCREENS = (\d+)/.exec(
-    readFileSync(new URL('../apps/web/src/lib/dimensions.ts', import.meta.url), 'utf8'),
+    readFileSync(new URL('../packages/project-format/src/dimensions.ts', import.meta.url), 'utf8'),
   )?.[1],
 )
+if (!Number.isInteger(SCREENS)) throw new Error('MAX_PROJECT_SCREENS introuvable')
 
 const SHEET =
   'linear-gradient(160deg, oklch(0.72 0.19 25) 0%, oklch(0.62 0.26 320) 55%, oklch(0.55 0.24 285) 100%)'
@@ -67,7 +68,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   <h1>App Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
     <p class="lede">${SCREENS} iPhone screens, one ZIP, exported at native 1320&times;2868.
-      <span class="price">$49 <span class="mark">Local</span> or $39/year Cloud.</span></p>
+      <span class="price"><span class="mark">Free Local</span> or $39/year Cloud.</span></p>
     <div class="strip" style="--sheets:${SCREENS}">${sheets}</div>
   </div>
 </body></html>`
