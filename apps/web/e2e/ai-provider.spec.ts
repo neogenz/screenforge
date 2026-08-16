@@ -205,6 +205,9 @@ test('une clé acceptée est reprise au rechargement, et s’oublie sur demande'
   await expect(disclosure).toContainText('clé Anthropic')
   await disclosure.click()
   await expect(page.getByLabel('Clé d’API Anthropic')).toHaveValue(FAKE_KEY)
+  await expect(
+    page.getByRole('progressbar', { name: /Configuration de .*Anthropic/ }),
+  ).toHaveAttribute('value', '0')
 
   /* Rien ne s'est reconnecté tout seul : ouvrir une fenêtre ne déclenche pas de
      requête sortante, et le modèle attend le clic. */

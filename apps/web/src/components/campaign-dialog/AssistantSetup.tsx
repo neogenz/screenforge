@@ -227,7 +227,8 @@ export function AssistantSetup({
         : 'active'
   const modelStep = connected ? (model ? 'done' : 'active') : 'waiting'
   const stepCount = viaBridge ? 3 : 2
-  const completedSteps = (viaBridge && engineFound ? 1 : 0) + (connected ? 1 : 0) + (model ? 1 : 0)
+  const completedSteps =
+    (viaBridge && engineFound ? 1 : 0) + (connected ? 1 : 0) + (connected && model ? 1 : 0)
 
   return (
     <div className="flex flex-col gap-3">
