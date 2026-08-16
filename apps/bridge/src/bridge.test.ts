@@ -1187,7 +1187,7 @@ describe('publication', () => {
     const asc = fakeAsc({
       upload: async () => ({
         code: 0,
-        stdout: 'issuer_id=69a6de70-dead-beef token: eyJhbGciOi.eyJpc3MiOi.SIGNATURE ok',
+        stdout: 'issuer_id=synthetic-issuer-value ok',
         stderr: '',
         timedOut: false,
       }),
@@ -1200,8 +1200,7 @@ describe('publication', () => {
         capability: 'asc-publish',
       })
     ).json()) as { output: string }
-    expect(result.output).not.toContain('69a6de70')
-    expect(result.output).not.toContain('eyJhbGciOi')
+    expect(result.output).not.toContain('synthetic-issuer-value')
     expect(result.output).toContain('[REDACTED]')
     expect(redactDiagnostic('-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----')).toBe(
       '[REDACTED]',

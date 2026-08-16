@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: rendre le dépôt et les documents publiables sans secret
@@ -114,3 +114,11 @@ journey
 | 2 | Gitleaks bloque un secret de test sur staged, historique CI et release, masque sa valeur et n’utilise aucune allowlist large. |
 | 3 | Tous les documents AIDD restent versionnés et reproductibles sans secret, donnée personnelle, sortie brute ou chemin local sensible. |
 | 4 | Aucun artifact ou log contenant le secret de test n’est uploadé; les diagnostics propres restent disponibles avec une rétention bornée. |
+
+## Implementation evidence
+
+- `pnpm test` passe avec 529 tests applicatifs et 4 tests dédiés à l’audit de publication, puis typecheck et lint verts.
+- Gitleaks `8.29.1`, installé par archive et SHA256 officiels, scanne l’index, les 320 commits et le build avec redaction; l’unique ancienne fixture synthétique est limitée à son fingerprint exact.
+- Le hook Husky bloque les fichiers interdits et secrets staged avant `lint-staged`; Quality reproduit le scan de toutes les refs avant les autres jobs.
+- L’audit refuse les environnements hors racine, credentials, `.private/`, chemins personnels et contenus sensibles AIDD; le build et les diagnostics propres passent.
+- Les artifacts Playwright ne sont uploadés qu’après les deux scans, avec une rétention de trois jours; aucun dump d’environnement ou mode shell verbeux n’est présent.

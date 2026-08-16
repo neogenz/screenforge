@@ -20,8 +20,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install pinned Gitleaks
+        run: sh scripts/setup-gitleaks.sh
+      - name: Prove the detector fails closed
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/gitleaks-self-test"
+          mkdir -p "$fixture"
+          printf 'api_key = "%s%s"\n' '7f9A2bC4dE6fG8hJ' '1kL3mN5pQ7rS9tUv' > "$fixture/credential.txt"
+          set +e
+          node_modules/.bin/gitleaks dir "$fixture" --redact=100 --no-banner >/dev/null 2>&1
+          leak_status=$?
+          set -e
+          if test "$leak_status" -ne 1; then
+            echo 'Gitleaks self-test did not return the expected leak status.' >&2
+            exit 1
+          fi
+      - name: Scan every Git ref
+        run: node_modules/.bin/gitleaks git --redact=100 --no-banner --log-opts=--all
+      - name: Audit tracked publication content
+        run: node scripts/publication-audit.mjs tracked
+
   # Ce que la compilation seule peut dire, et le plus vite possible.
   web:
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -51,6 +83,7 @@ jobs:
   # Le gate release démarre lui-même le déploiement Convex anonyme. Une preuve
   # cloud absente échoue : elle ne peut plus devenir un skip vert.
   e2e:
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,18 +96,24 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install pinned Gitleaks
+        run: sh scripts/setup-gitleaks.sh
       - run: pnpm exec playwright install --with-deps chromium
-      # `billingConfigured` est un booléen de compilation tiré de
-      # `VITE_COMMERCIAL_LAUNCH` (`lib/commercial-launch.ts`). La suite
-      # principale pose la variable et prouve les paliers lancés ; son second
-      # serveur la force vide et prouve séparément le ZIP propre illimité de la
-      # variante pré-lancement.
       - run: pnpm run test:e2e:release
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
+      - name: Scan Playwright diagnostics before upload
+        id: scan-diagnostics
+        if: failure() && hashFiles('apps/web/playwright-report/**', 'apps/web/test-results/**') != ''
+        run: |
+          set -euo pipefail
+          node scripts/publication-audit.mjs paths apps/web/playwright-report apps/web/test-results
+          for path in apps/web/playwright-report apps/web/test-results; do
+            test ! -e "$path" || node_modules/.bin/gitleaks dir "$path" --redact=100 --no-banner --max-archive-depth=2
+          done
       - name: Upload Playwright diagnostics
-        if: failure()
+        if: failure() && steps.scan-diagnostics.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-diagnostics
@@ -82,6 +121,7 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           if-no-files-found: ignore
+          retention-days: 3
 
   # Le déploiement : schéma, autorisation, vente et suppression de compte.
   #
@@ -97,6 +137,7 @@ jobs:
   # l'autorisation, parce qu'il n'existe pas de chemin vers les données à côté
   # des fonctions.
   backend:
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

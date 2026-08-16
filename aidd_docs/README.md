@@ -1,6 +1,8 @@
-# Project AI Docs
+# Documents AIDD publics
 
-Structured context the AI assistant reads to work on this project, so it does not rediscover the codebase each session. AIDD generates this folder and keeps it in sync.
+Ce dossier est versionné dans le monorepo canonique et doit pouvoir être publié
+tel quel. Il aide l’assistant à comprendre le projet sans redécouvrir chaque
+décision, mais ce n’est ni un coffre-fort ni un emplacement de preuves brutes.
 
 ## What lives here
 
@@ -9,8 +11,31 @@ Structured context the AI assistant reads to work on this project, so it does no
 - `CONTRIBUTING.md`: how to add or change project context.
 - `tasks/`: specs, plans, and run summaries, created as work happens.
 
-The `<aidd_project_memory>` block inside each AI context file (`CLAUDE.md`, `AGENTS.md`, and the rest) is generated and kept in sync, never edited by hand. To change what the AI sees, add or remove files under `memory/`. See [`memory/README.md`](memory/README.md) for the load tiers and the current file index.
+Le bloc `<aidd_project_memory>` des fichiers de contexte est généré. Pour
+modifier ce que l’assistant charge, ajouter ou retirer les documents sous
+`memory/`.
+
+## Contrat de publication
+
+Sont autorisés : noms de variables, URLs publiques, SHA et tags, résultats
+`pass`/`fail`, horodatages et identifiants explicitement expurgés nécessaires à
+une preuve reproductible.
+
+Sont interdits dans tout `aidd_docs/` :
+
+- token, clé, valeur réelle d’environnement, fichier PEM/P8 ou certificat ;
+- e-mail privé, identifiant client ou compte personnel ;
+- export de base, corps de webhook, log ou sortie CLI brute ;
+- code MFA, OTP, récupération ou capture de console ;
+- chemin personnel ou URL signée.
+
+Une preuve brute nécessaire reste dans `.private/`, ignoré par Git, ou dans le
+store sécurisé du fournisseur. Le document versionné n’en conserve qu’un
+résultat expurgé. Gitleaks et `pnpm audit:publication` scannent ce dossier sans
+exception de chemin ou de règle.
 
 ## The framework
 
-AIDD ships skills, agents, rules, and generators as a plugin marketplace. For the full catalog, the install guide, and the end-to-end workflow, see the framework docs: <https://github.com/ai-driven-dev/framework>.
+AIDD fournit les skills et générateurs utilisés par le projet. Le catalogue et
+le workflow complet restent dans la documentation du framework :
+<https://github.com/ai-driven-dev/framework>.

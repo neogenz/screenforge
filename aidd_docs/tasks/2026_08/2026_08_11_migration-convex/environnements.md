@@ -14,7 +14,7 @@ valeurs a le droit d'y être (`VITE_CONVEX_URL`, qui est une URL publique).
 ## Les trois environnements
 
 Ils existent, et les étapes 0 et 1 sont faites. Projet Convex `screenforge`,
-équipe `maxime-c8a93`, **données en Europe (Irlande)** — `aws-eu-west-1`, alias
+équipe `<CONVEX_TEAM>`, **données en Europe (Irlande)** — `aws-eu-west-1`, alias
 `eu` — pour les deux déploiements du nuage.
 
 | Environnement | Déploiement Convex             | URL                                              | Pousser le code        |
@@ -55,9 +55,9 @@ Une clé par cible, dans un fichier hors du dépôt, créée une seule fois :
 
 ```bash
 pnpm --filter backend exec convex deployment token create screenforge-preprod \
-  --deployment maxime-c8a93:screenforge:preprod --save-env .env.preprod
+  --deployment <CONVEX_TEAM>:screenforge:preprod --save-env .env.preprod
 pnpm --filter backend exec convex deployment token create screenforge-prod \
-  --deployment maxime-c8a93:screenforge:production --save-env .env.production
+  --deployment <CONVEX_TEAM>:screenforge:production --save-env .env.production
 ```
 
 > Ces deux fichiers portent un **secret** : une clé de déploiement ouvre en
@@ -111,8 +111,8 @@ création et non modifiable ensuite :
 
 ```bash
 pnpm --filter backend exec convex project create screenforge
-pnpm --filter backend exec convex deployment create maxime-c8a93:screenforge:preprod --type dev --region eu --default
-pnpm --filter backend exec convex deployment create maxime-c8a93:screenforge:production --type prod --region eu --default
+pnpm --filter backend exec convex deployment create <CONVEX_TEAM>:screenforge:preprod --type dev --region eu --default
+pnpm --filter backend exec convex deployment create <CONVEX_TEAM>:screenforge:production --type prod --region eu --default
 ```
 
 ## Étape 1 — les clés de signature de session — **faite**

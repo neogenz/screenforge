@@ -74,6 +74,12 @@ pnpm dev
 
 No environment variable or backend is needed for Local. Copy `.env.example` only when working on the operated Cloud service; never commit a real `.env` file.
 
+Before contributing, install the pinned official Gitleaks binary with
+`pnpm run setup:gitleaks`. The pre-commit hook scans forbidden filenames, the
+staged diff and AIDD documents before formatting. Secrets belong only in the
+GitHub, Convex, Vercel, Polar or Resend secret store that consumes them;
+`.private/` is available for sensitive local notes and is ignored by Git.
+
 ## Scripts
 
 | Command                              | Description                                       |
@@ -87,6 +93,7 @@ No environment variable or backend is needed for Local. Copy `.env.example` only
 | `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules  |
 | `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)      |
 | `pnpm audit:scale`                   | Spacing scale audit                               |
+| `pnpm audit:publication`             | Audit tracked files and public AIDD content       |
 | `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)     |
 
 ## Project structure
