@@ -390,10 +390,11 @@ async function main() {
         'screenforge_apply',
         /* `add_image` n'apparaît pas deux fois : la version qui prend un chemin
            local remplace celle du contrat sous le même nom, elle ne s'y ajoute
-           pas. Les trois autres sont des noms de plus. */
+           pas. Les quatre autres sont des noms de plus. */
         'screenforge_get_thumbnail',
         'screenforge_save_template',
         'screenforge_list_templates',
+        'screenforge_refresh_screenshots',
       ].sort(),
       'tools/list ne publie pas exactement le contrat partagé',
     )
