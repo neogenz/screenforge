@@ -1,6 +1,6 @@
 ---
 objective: "Un agent qui pilote ScreenForge par MCP pose une accroche d'un seul calque avec son mot en exergue, et lit après rendu un constat mesuré de la planche — au lieu d'éclater le texte en morceaux repositionnés à la main et de juger le résultat à l'œil."
-status: in-progress
+status: implemented
 ---
 
 # Plan: MCP — la composition tient ce que l'agent croit avoir posé
