@@ -225,8 +225,17 @@ test('une clé acceptée est reprise au rechargement, et s’oublie sur demande'
   expect(inClearStorage).toBe(false)
 
   // Et le retrait est un vrai retrait : il survit lui aussi au rechargement.
+  const flow = page.locator('[data-slot="setup-flow"]')
   await page.getByRole('button', { name: 'Oublier cette clé' }).click()
   await expect(page.getByLabel('Clé d’API Anthropic')).toHaveValue('')
+  await expect(flow.getByRole('progressbar')).toHaveAttribute('value', '0')
+  await expect(flow).toContainText('0 sur 2')
+  await expect(
+    flow.locator('[data-slot="setup-step"]', { hasText: 'Collez votre clé' }),
+  ).toHaveAttribute('data-state', 'active')
+  await expect(
+    flow.locator('[data-slot="setup-step"]', { hasText: 'Choisissez le modèle' }),
+  ).toHaveAttribute('data-state', 'waiting')
 
   await page.reload()
   await waitForApp(page)
