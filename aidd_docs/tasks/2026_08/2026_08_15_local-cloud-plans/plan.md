@@ -12,6 +12,20 @@ status: in-progress
 | **Goal** | Corriger le modèle commercial, fermer les findings sécurité, préparer le dépôt public et prouver Local hors ligne ainsi que l’autorisation Cloud côté serveur. |
 | **Source** | Rectification utilisateur du 2026-08-16, audit de branche précédent et documentation officielle vérifiée. |
 
+## État de reprise
+
+Les phases produit 1 à 5 sont livrées. Le gate `GO PUBLIC` a ensuite été reçu :
+le dépôt canonique est public et ses rulesets `main` et `v*`, secret scanning et
+push protection sont actifs. La publication par tag est en place, sans tag v1
+créé.
+
+Les preuves fournisseur qui restaient ouvertes (Convex préproduction, Resend,
+Polar Sandbox, Preview Vercel, sauvegarde et restauration) sont désormais
+pilotées par le plan
+[`2026_08_16_cloud-prelaunch-validation`](../2026_08_16_cloud-prelaunch-validation/plan.md).
+Le présent plan reste `in-progress` jusqu'à la clôture de cette validation; il
+ne faut pas dupliquer ses preuves externes ici.
+
 ## Phases
 
 | # | Phase | File |

@@ -72,7 +72,7 @@ ne dépend plus de ce que `.env.local` désigne :
 ```bash
 cd apps/backend                                                    # une fois
 pnpm exec convex env  --env-file .env.preprod list
-pnpm exec convex run  --env-file .env.production billing:healthcheck '{}'
+pnpm exec convex run  --env-file .env.production preflight:check '{"target":"production"}'
 pnpm exec convex data --env-file .env.preprod projects
 ```
 
@@ -166,9 +166,9 @@ trois autres portes et la vente, une à une, chacune indépendamment.
 > encore dans l'équipe vérifiée le 2026-08-15. La publication et le `SITE_URL`
 > correspondant restent donc un verrou explicite, pas une origine inventée.
 
-> **Ce qu'aucune de ces valeurs n'est en train de bloquer.** Une variable
-> d'authentification absente ne se signale nulle part : `billing:healthcheck` ne
-> couvre que les six valeurs de Polar. Cliquer « Google » sans `AUTH_GOOGLE_ID`
+> **Ce qu'aucune de ces valeurs n'est en train de bloquer.** Le preflight Cloud
+> couvre l'origine, Resend et Polar; Google et GitHub restent des portes
+> optionnelles. Cliquer « Google » sans `AUTH_GOOGLE_ID`
 > mène à une page d'erreur de Google, et demander un lien magique sans
 > `AUTH_RESEND_KEY` envoie un `Bearer undefined` à Resend, dont le refus
 > s'affiche comme un problème de mot de passe. Aucune des deux n'est un plantage
@@ -240,41 +240,30 @@ pnpm exec convex env --env-file .env.preprod set AUTH_GITHUB_ID Iv1.xxxxxxxx
 pnpm exec convex env --env-file .env.preprod set AUTH_GITHUB_SECRET xxxxxxxx
 ```
 
-### Polar — la vente
+### Polar — la vente Cloud
 
-Six valeurs, toutes sur le même tableau de bord, et deux environnements Polar
+Cinq variables, toutes sur le même tableau de bord, et deux environnements Polar
 qui ne partagent rien : le bac à sable (<https://sandbox.polar.sh>) a sa propre
 base, ses propres produits et ses propres clés. Le même jeton n'ouvre pas les
 deux, et `POLAR_SERVER` absent vaut `sandbox` — pour qu'une variable oubliée ne
 facture personne.
 
-| Variable                   | Où la lire                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `POLAR_ACCESS_TOKEN`       | _Settings → Developers → New Token_, portée `checkouts:write`, `customer_sessions:write` |
-| `POLAR_WEBHOOK_SECRET`     | affiché **une seule fois**, à la création du endpoint webhook (voir plus bas) |
-| `POLAR_LICENCE_PRODUCT_ID` | _Products_ → le produit Local (achat unique à 49 $) → son `id`                |
-| `POLAR_CLOUD_PRODUCT_ID`   | _Products_ → le produit Cloud autonome (abonnement annuel à 39 $) → son `id`  |
-| `POLAR_LICENCE_BENEFIT_ID` | _Benefits_ → le bénéfice **porté par le produit Local** → son `id`            |
-| `CHECKOUT_SUCCESS_URL`     | choisie, pas lue : l'URL de retour de l'acheteur, sur votre site              |
+| Variable                 | Où la lire                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `POLAR_SERVER`           | `sandbox` en préproduction, `production` uniquement après le gate production |
+| `POLAR_ACCESS_TOKEN`     | _Settings → Developers → New Token_, portée `checkouts:write`, `customer_sessions:write` |
+| `POLAR_WEBHOOK_SECRET`   | affiché **une seule fois**, à la création du endpoint webhook (voir plus bas) |
+| `POLAR_CLOUD_PRODUCT_ID` | _Products_ → l'unique produit Cloud annuel → son `id`                         |
+| `CHECKOUT_SUCCESS_URL`   | choisie, pas lue : l'URL de retour de l'acheteur, sur votre site              |
 
-Le bénéfice mérite son mot : un achat unique n'apparaît pas dans
-`activeSubscriptions` — il n'a pas de période. Sa seule trace dans l'état client
-est le bénéfice qu'il octroie. Le produit Local doit donc en porter au moins un,
-sans quoi la projection n'accordera jamais le droit perpétuel interne
-`licence`, quel que soit le nombre d'achats. Le produit Cloud ne dépend pas de
-ce bénéfice : un compte neuf doit pouvoir acheter et recevoir Cloud directement.
-
-Les noms `POLAR_LICENCE_*` restent une compatibilité interne avec les
-déploiements déjà configurés. Ils désignent désormais l'offre publique Local et
-ne doivent pas réapparaître dans l'interface client.
+Local est gratuit, complet et absent de Polar. Le produit Cloud est le seul
+produit commercial ScreenForge; un compte neuf peut l'acheter directement.
 
 ```bash
 pnpm exec convex env --env-file .env.preprod set POLAR_SERVER sandbox
 pnpm exec convex env --env-file .env.preprod set POLAR_ACCESS_TOKEN polar_oat_xxxxxxxx
 pnpm exec convex env --env-file .env.preprod set POLAR_WEBHOOK_SECRET whsec_xxxxxxxx
-pnpm exec convex env --env-file .env.preprod set POLAR_LICENCE_PRODUCT_ID xxxxxxxx
 pnpm exec convex env --env-file .env.preprod set POLAR_CLOUD_PRODUCT_ID xxxxxxxx
-pnpm exec convex env --env-file .env.preprod set POLAR_LICENCE_BENEFIT_ID xxxxxxxx
 pnpm exec convex env --env-file .env.preprod set CHECKOUT_SUCCESS_URL "https://votre-preprod.example/?checkout=success"
 ```
 
@@ -304,10 +293,12 @@ manquante : rien ne s'en apercevrait avant qu'un acheteur ne clique. Ce
 contrôle est donc explicite, et se relance après chaque `convex env set` :
 
 ```bash
-pnpm exec convex run --env-file .env.preprod billing:healthcheck '{}'
+pnpm exec convex run --env-file .env.preprod preflight:check '{"target":"preproduction"}'
 ```
 
-Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
+Il rend `ready: true` quand tout est posé. Sinon, `missing` contient uniquement
+les noms absents et `inconsistent` uniquement les règles dangereuses, jamais les
+valeurs.
 
 ## Étape 3 — le navigateur
 
@@ -394,7 +385,7 @@ Mesuré le 2026-08-12, pas déduit.
 | Code poussé | oui | oui | oui |
 | `JWKS` / `JWT_PRIVATE_KEY` / `SITE_URL` | oui | oui (`http://localhost:5173`) | oui (`https://screenforge.app`) |
 | Resend, Google, GitHub | non | non | non |
-| Les six valeurs Polar | non | non | non |
+| Les variables Polar Cloud | non | non | non |
 | Fixture Password persistante | non | non | non |
 | Cloud de fixture | créé à la demande, jetable | aucun | aucun |
 | `projects` / `assets` | selon la suite e2e | vides | vides |
@@ -421,7 +412,7 @@ dans la commande suivante, sans le conserver dans un fichier versionné :
 
 ```bash
 pnpm exec convex run --env-file .env.preprod mirror:setComplimentaryAccess \
-  '{"userId":"<USER_ID>","local":true,"cloud":true,"note":"owner complimentary access"}'
+  '{"userId":"<USER_ID>","cloud":true,"note":"owner complimentary access"}'
 ```
 
 Contrôler la ligne côté opérateur :
@@ -440,7 +431,7 @@ toute opération en production :
 
 ```bash
 pnpm exec convex run --env-file .env.preprod mirror:setComplimentaryAccess \
-  '{"userId":"<USER_ID>","local":false,"cloud":false,"note":"owner complimentary access revoked"}'
+  '{"userId":"<USER_ID>","cloud":false,"note":"owner complimentary access revoked"}'
 ```
 
 Après ce test, réappliquer le grant de préproduction. Seulement après le
@@ -466,7 +457,7 @@ et écrit les droits via la fonction interne qu'un webhook réel appellerait :
 
 ```bash
 pnpm exec convex run --env-file .env.preprod mirror:applyEntitlementsIfNewer \
-  '{"userId":"<id du compte>","polarCustomerId":"cus_test","licenceGrantedAt":"2026-08-12T00:00:00.000Z","cloudStatus":"active","cloudPeriodEnd":"2027-08-12T00:00:00.000Z","sourceUpdatedAt":1}'
+  '{"userId":"<id du compte>","polarCustomerId":"cus_test","cloudStatus":"active","cloudPeriodEnd":"2027-08-12T00:00:00.000Z","sourceUpdatedAt":1}'
 ```
 
 Le `userId` vient du jeton créé par le scénario. Rien de tout cela n'est fait en
@@ -564,7 +555,7 @@ Vercel](https://vercel.com/docs/environment-variables).
 | JWT Convex Auth | propriétaire ScreenForge | seulement après incident ou compromission, car toutes les sessions expirent | régénérer par déploiement puis vérifier connexion/déconnexion |
 | OAuth Google/GitHub | propriétaire ScreenForge | après incident ou changement d'équipe | révoquer le secret dans le fournisseur puis remplacer la variable Convex |
 | Resend | propriétaire ScreenForge | annuelle et après incident | révoquer la clé `sending_access`, créer la remplaçante puis poser `AUTH_RESEND_KEY` |
-| Polar | propriétaire ScreenForge | annuelle et après incident | révoquer le token/webhook, remplacer les variables puis rejouer `billing:healthcheck` |
+| Polar | propriétaire ScreenForge | annuelle et après incident | révoquer le token/webhook, remplacer les variables puis rejouer `preflight:check` |
 | Convex deploy keys | propriétaire ScreenForge | après incident ou départ d'un opérateur | `convex deployment token delete <nom>`, une cible à la fois |
 
 ### Identité mail dédiée

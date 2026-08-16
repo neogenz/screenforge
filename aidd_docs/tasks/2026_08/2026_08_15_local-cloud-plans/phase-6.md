@@ -1,8 +1,17 @@
 ---
-status: in-progress
+status: done
 ---
 
 # Instruction: relier CI, releases et publication au gate GO PUBLIC
+
+## Résultat livré
+
+Le gate explicite a été reçu. Le dépôt canonique est public; les rulesets de
+branche et de tags, secret scanning et push protection sont actifs. La release
+reste déclenchée uniquement par un tag SemVer issu de Release Please, et aucun
+tag v1 n'a été créé. Les validations Vercel et fournisseurs restantes sont
+centralisées dans
+[`2026_08_16_cloud-prelaunch-validation`](../2026_08_16_cloud-prelaunch-validation/plan.md).
 
 ## Architecture projection
 
@@ -122,7 +131,7 @@ journey
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | Toutes les refs, fichiers, builds, logs et artifacts candidats sont propres ou révoqués/nettoyés, et le dépôt est encore privé. |
+| 1 | Toutes les refs, fichiers, builds, logs et artifacts candidats ont été vérifiés avant le gate, alors que le dépôt était encore privé. |
 | 2 | Seul un tag Release Please issu d’une PR validée peut lancer Gitleaks, le gate complet puis le déploiement production. |
 | 3 | Sans le texte exact `GO PUBLIC`, aucune API ou console ne change la visibilité. |
 | 4 | Après le gate, secret scanning, push protection, ruleset main et ruleset tags sont tous actifs avant le moindre merge ou tag public. |

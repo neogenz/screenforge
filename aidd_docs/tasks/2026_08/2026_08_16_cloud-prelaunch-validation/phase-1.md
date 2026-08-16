@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Aligner le runbook Cloud et ajouter un preflight sans fuite

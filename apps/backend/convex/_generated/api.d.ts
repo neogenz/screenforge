@@ -22,6 +22,7 @@ import type * as maintenance from "../maintenance.js";
 import type * as media from "../media.js";
 import type * as mirror from "../mirror.js";
 import type * as polar from "../polar.js";
+import type * as preflight from "../preflight.js";
 import type * as projects from "../projects.js";
 import type * as settings from "../settings.js";
 import type * as storageReferences from "../storageReferences.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   media: typeof media;
   mirror: typeof mirror;
   polar: typeof polar;
+  preflight: typeof preflight;
   projects: typeof projects;
   settings: typeof settings;
   storageReferences: typeof storageReferences;

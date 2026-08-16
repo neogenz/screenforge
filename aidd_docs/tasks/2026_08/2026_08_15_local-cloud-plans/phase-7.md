@@ -4,6 +4,15 @@ status: pending
 
 # Instruction: asserter, tester, reviewer et itérer jusqu’au vert
 
+## Frontière de cette phase
+
+Les assertions locales et le gate release sont déjà reproductibles. Les preuves
+qui exigent Convex préproduction, Resend, Polar Sandbox, une Preview Vercel ou
+une restauration ne sont plus collectées ici : elles appartiennent à
+[`2026_08_16_cloud-prelaunch-validation`](../2026_08_16_cloud-prelaunch-validation/plan.md),
+dont `verification.md` est l'unique matrice expurgée. Cette phase ne passe à
+`done` qu'après retour vert de ce plan directeur.
+
 ## Architecture projection
 
 > Tree of the final files. ✅ create · ✏️ modify · ❌ delete
@@ -76,7 +85,7 @@ journey
 2. Phase 2 : authz de chaque mutation, quotas exact/dépassé/concurrent, cleanup orphelin, production sans test-password et webhook borné.
 3. Phase 3 : landing FR/EN, deux cartes, prix, CTA, accessibilité, compte Cloud et clone sans backend.
 4. Phase 4 : CSP bloquante, anti-framing, prompt injection sans outil, probe single-flight/timeout et redaction.
-5. Phases 5-6 : noms interdits, Gitleaks staged/historique/release, artifacts, absence de `GO PUBLIC`, rulesets et tag protégé.
+5. Phases 5-6 : noms interdits, Gitleaks staged/historique/release, artifacts, gate `GO PUBLIC` consigné, rulesets et tag protégé.
 6. Corriger à la fonction partagée la plus basse couvrant tous les appelants, puis rejouer le contre-test avant la suite.
 
 ### `2)` Passer le gate complet depuis la racine
@@ -97,7 +106,7 @@ journey
 2. Prouver par appel direct que sans session, sans Cloud et avec un faux entitlement client, projets, assets et settings refusent toute création/mise à jour.
 3. Prouver que Local n’importe pas le backend dans son chemin critique, démarre Convex indisponible et conserve exports/ZIP.
 4. Prouver que les quotas ne dérivent pas après remplacement, suppression, concurrence et cleanup.
-5. Prouver que le dépôt reste privé avant gate; après gate uniquement, vérifier les protections par lecture API et tentative non destructive.
+5. Vérifier par lecture API que le dépôt public conserve les protections activées après le gate.
 
 ### `4)` Reviewer puis boucler sur chaque finding
 
@@ -117,7 +126,7 @@ journey
 2. Documenter Local gratuit sans compte/Convex, Cloud payant avec entitlement serveur, quotas, effacement, secrets et publication par tag.
 3. Vérifier chaque fichier AIDD avec le contrat public de phase 5 avant commit.
 4. Marquer une phase `done` seulement avec ses critères observés; marquer le plan `implemented` seulement quand toutes les phases sont fermées.
-5. Si `GO PUBLIC` n’a pas été donné, conclure « implémentation prête, publication en attente du gate » sans considérer ce checkpoint humain comme un finding code.
+5. Conserver domaine, paiement réel et v1 derrière les gates du plan Cloud directeur.
 
 ## Test acceptance criteria
 

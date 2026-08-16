@@ -1,6 +1,6 @@
 ---
 objective: "Prouver sans domaine ni paiement réel que ScreenForge Cloud fonctionne de bout en bout sur Convex préproduction, Resend de test, Polar Sandbox et des Previews Vercel de PR protégées, tout en gardant la v1 bloquée jusqu’aux gates explicites domaine et production."
-status: pending
+status: in-progress
 ---
 
 # Plan: Valider ScreenForge Cloud avant la v1
