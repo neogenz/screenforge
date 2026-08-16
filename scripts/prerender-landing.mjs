@@ -75,7 +75,7 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
      la langue du document, depuis copy.ts. Les prix restent ici — ce sont des
      données structurées, pas du texte, et ils ne se traduisent pas. */
   const plans = copy[lang].pricing.plans
-  const OFFER_PRICES = { local: '49', cloud: '39' }
+  const OFFER_PRICES = { local: '0', cloud: '39' }
   const software = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',

@@ -35,6 +35,7 @@ beforeEach(() => {
 describe('les gestes de vente hors réseau', () => {
   it('n’expose que les deux offres Local et Cloud', () => {
     expect(PLANS.map((plan) => plan.id)).toEqual(['local', 'cloud'])
+    expect(PLANS.map((plan) => plan.price)).toEqual(['0 $', '39 $'])
     expect(planName(null)).toBe('Local')
     expect(
       planName({

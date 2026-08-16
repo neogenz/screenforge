@@ -74,6 +74,12 @@ function bearer(): string | null {
 
 class CloudError extends Error {}
 
+export class CloudUploadError extends CloudError {
+  constructor(readonly outcome: string) {
+    super(`Cloud upload refused (${outcome}).`)
+  }
+}
+
 async function download(path: string): Promise<Blob | null> {
   const connected = connect()
   if (!connected) throw new CloudError('Cloud is not configured on this instance.')
@@ -107,11 +113,9 @@ async function upload(path: string, blob: Blob): Promise<string> {
     },
     body: blob,
   })
-  const { outcome } = (await response.json()) as { outcome?: string }
+  const { outcome } = (await response.json().catch(() => ({}))) as { outcome?: string }
   if (!response.ok || !outcome) {
-    throw new CloudError(
-      `Cloud upload failed with ${String(response.status)}${outcome ? ` (${outcome})` : ''}.`,
-    )
+    throw new CloudUploadError(outcome ?? 'failed')
   }
   return outcome
 }
@@ -185,7 +189,7 @@ export async function pushRemoteProject(project: Project, payload: unknown): Pro
 export async function uploadRemoteAsset(assetId: string, blob: Blob): Promise<void> {
   const query = new URLSearchParams({ assetId })
   const outcome = await upload(`/upload/asset?${query.toString()}`, blob)
-  if (outcome !== 'accepted') throw new CloudError(`Cloud refused asset ${assetId}.`)
+  if (outcome !== 'accepted') throw new CloudUploadError(outcome)
 }
 
 export async function downloadRemoteAsset(assetId: string): Promise<Blob> {

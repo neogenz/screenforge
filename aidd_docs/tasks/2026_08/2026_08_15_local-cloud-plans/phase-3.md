@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: réécrire la landing, le pricing et le compte
@@ -144,3 +144,11 @@ Landing / section Offres
 | 2 | Export, ZIP et nouvelle release fonctionnent sans surface commerciale; un ancien artifact filigrané ne peut être publié comme propre sans régénération. |
 | 3 | Le compte ne vend que Cloud, se fie à l’état serveur et son absence ne retire aucune capacité Local. |
 | 4 | Un lecteur du README peut lancer Local sans Convex et comprend que le service Cloud opéré reste payant. |
+
+## Evidence
+
+- `pnpm test` : 525 tests unitaires, typecheck et lint passent.
+- Build local sans `VITE_CONVEX_URL` réussi; landing EN/FR pré-rendue avec JSON-LD Local `0` et Cloud `39`.
+- Audit landing réussi et garde-fous ajoutés contre l’ancien prix Local, l’essai limité et le switch commercial.
+- Playwright : landing bilingue, build sans Convex, quatre ZIP Local propres, compte Cloud et compte sans Cloud passent.
+- README et PRD décrivent Local complet sans backend et Cloud opéré avec entitlement serveur.

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { createCheckout, createPortalSession } from '@/lib/account'
+import { billingConfigured, createCheckout, createPortalSession } from '@/lib/account'
 import type { Entitlements } from '@/lib/entitlements'
 import { formatGrantDate, PLANS, type Plan, type SellableProduct } from '@/lib/plans'
 import { cn } from '@/lib/utils'
@@ -21,7 +21,7 @@ function PricingDialogContent() {
   const setShowPricingDialog = useUIStore((s) => s.setShowPricingDialog)
   const entitlements = useAuthStore((s) => s.entitlements)
   const signedIn = useAuthStore((s) => s.status === 'signed-in')
-  /** Quel bouton attend, pas un booléen global : deux achats et le portail partagent la boîte. */
+  /** Quel bouton attend, pas un booléen global : Cloud et le portail partagent la boîte. */
   const [pending, setPending] = useState<SellableProduct | 'portal' | null>(null)
 
   const cloud = entitlements?.cloud ?? false
@@ -82,17 +82,25 @@ function PricingDialogContent() {
               owned={plan.id === 'local' || cloud}
               ownedNote={ownedNote(plan.id, entitlements)}
               pending={plan.id === 'cloud' && pending === plan.id}
-              disabled={pending !== null || !signedIn}
+              disabled={
+                pending !== null || !signedIn || (plan.id === 'cloud' && !billingConfigured)
+              }
               onBuy={plan.id === 'cloud' ? () => void buy('cloud') : undefined}
             />
           ))}
         </div>
 
-        {!signedIn && (
+        {!billingConfigured ? (
           <p className="field-label">
-            Connectez-vous pour acheter : l’offre est rattachée à votre compte, pas à ce navigateur.
+            Cloud n’est pas configuré dans ce build local. Local reste entièrement disponible, sans
+            compte ni backend.
           </p>
-        )}
+        ) : !signedIn ? (
+          <p className="field-label">
+            Connectez-vous pour choisir Cloud : l’abonnement est rattaché à votre compte, pas à ce
+            navigateur.
+          </p>
+        ) : null}
       </div>
     </Dialog>
   )
@@ -107,10 +115,8 @@ const CHECKOUT_ERRORS: Record<'unauthenticated' | 'rate-limited' | 'failed', str
 /**
  * Ce qu'un palier détenu dit de lui-même : une date, pas un simple « oui ».
  *
- * La distinction entre les deux droits est là et nulle part ailleurs : une
- * Un achat Local porte le jour où il a été acquis et rien après, un abonnement
- * porte le jour où il s'arrête. C'est aussi ce qu'un utilisateur vient
- * vérifier après une résiliation.
+ * Cloud porte le jour où il s'arrête. C'est ce qu'un utilisateur vient
+ * vérifier après une résiliation; Local est toujours inclus gratuitement.
  */
 function ownedNote(id: Plan['id'], entitlements: Entitlements | null): string | undefined {
   if (id === 'local') return 'Inclus gratuitement'
@@ -131,7 +137,7 @@ interface PlanCardProps {
 }
 
 /**
- * Une carte par offre vendue. L'essai reste hors catalogue.
+ * Une carte par offre : Local informe, Cloud peut ouvrir le checkout.
  */
 function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCardProps) {
   return (

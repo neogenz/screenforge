@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { addTextLayer, grantEntitlements, waitForApp } from './helpers'
+import { addTextLayer, waitForApp } from './helpers'
 
 /**
  * La publication, et l'ordre qu'elle ne peut pas inverser.
@@ -82,7 +82,6 @@ test('un lot part seulement après avoir été rendu, et jamais en remplaçant',
   const calls = await fakeBridge(page)
   await waitForApp(page)
   await addTextLayer(page)
-  await grantEntitlements(page, { licence: true })
   await freeze(page, '1.4.0')
 
   await page.getByRole('button', { name: 'Publier chez Apple' }).click()

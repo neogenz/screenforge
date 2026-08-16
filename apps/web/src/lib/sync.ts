@@ -29,6 +29,7 @@ import {
   pushRemoteProject,
   pushRemoteUserSettings,
   uploadRemoteAsset,
+  CloudUploadError,
   type RemoteProject,
 } from '@/lib/cloud'
 import { cloudConfigured } from '@/lib/convex'
@@ -73,7 +74,7 @@ function setStatus(status: SyncStatus): void {
  * Le point unique où la vente se branche.
  *
  * Une instance, une session, et le droit `cloud` — dans cet ordre. Un compte
- * Licence est un compte local, pas un compte cloud en erreur : sans le droit,
+ * Local n'est pas un compte cloud en erreur : sans le droit,
  * aucune requête ne part et aucun `syncStatus` ne s'affiche. Le déploiement
  * refuserait l'écriture de toute façon (`requireCloud` est le mur), mais lui
  * laisser dire non produirait une pastille rouge et un toast d'échec pour une
@@ -649,9 +650,35 @@ function fail(error: unknown): void {
   console.error('Cloud sync failed.', error)
   if (offline()) return setStatus('offline')
   setStatus('error')
-  toast('Synchronisation impossible. Vos modifications restent enregistrées ici.', 'error', {
-    action: { label: 'Réessayer', onClick: schedule },
-  })
+  const quota = error instanceof CloudUploadError ? cloudQuotaMessage(error.outcome) : undefined
+  toast(
+    quota ?? 'Synchronisation impossible. Vos modifications restent enregistrées ici.',
+    'error',
+    {
+      action: quota
+        ? {
+            label: 'Gérer les données',
+            onClick: () => useUIStore.getState().setShowAccountDialog(true),
+          }
+        : { label: 'Réessayer', onClick: schedule },
+    },
+  )
+}
+
+const CLOUD_QUOTA_MESSAGES: Readonly<Record<string, string>> = {
+  'project-count-limit':
+    'Limite Cloud atteinte : 100 projets. Supprimez des données Cloud ou votre compte avant de réessayer.',
+  'project-storage-limit':
+    'Limite Cloud atteinte : 128 Mio de projets. Supprimez des données Cloud ou votre compte avant de réessayer.',
+  'asset-count-limit':
+    'Limite Cloud atteinte : 500 images. Supprimez des données Cloud ou votre compte avant de réessayer.',
+  'asset-storage-limit':
+    'Limite Cloud atteinte : 512 Mio d’images. Supprimez des données Cloud ou votre compte avant de réessayer.',
+  'file-too-large': 'Ce fichier dépasse la limite Cloud. Réduisez-le avant de réessayer.',
+}
+
+export function cloudQuotaMessage(outcome: string): string | undefined {
+  return CLOUD_QUOTA_MESSAGES[outcome]
 }
 
 /**

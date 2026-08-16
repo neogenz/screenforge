@@ -3,11 +3,7 @@ import { LINKS, offerHref } from '../links'
 import { CtaGhost, CtaPrimary } from './cta'
 
 /*
- * Deux actions, parce que la page en a deux à conclure. Elle défend un prix
- * sur trois sections puis terminait sur « ouvrir gratuitement » : le dernier
- * temps rétractait l'argument commercial. Le gratuit reste l'action première ;
- * Local ouvre une notification avant lancement, puis les offres de
- * l'éditeur dans le profil lancé.
+ * Deux actions : ouvrir Local immédiatement ou choisir le service Cloud.
  *
  * Le seul aplat citron de la page, et il est ici.
  *
@@ -42,10 +38,6 @@ export function FinalCta() {
       <p className="mx-auto mt-6 max-w-[60ch] text-[15px] leading-6 font-medium">
         {t.finalCta.body}
       </p>
-      {/* « Pas encore ouvert » légendait le seul bouton qui marche : posée
-          sous la rangée, la mention s'alignait à gauche, donc sous le CTA
-          gratuit. Elle appartient au bouton Local, et le suit quand la
-          rangée passe à la ligne. */}
       {/* Les deux boutons s'inversent sur l'aplat : l'encre devient la couleur
           de remplissage, le citron devient le texte. `outline-ring` est du
           citron lui aussi, donc invisible ici — l'anneau de focus repasse sur
@@ -59,10 +51,10 @@ export function FinalCta() {
         </CtaPrimary>
         <div className="flex flex-col">
           <CtaGhost
-            href={offerHref(lang, 'local')}
+            href={offerHref(lang, 'cloud')}
             className="border-marker-ink text-marker-ink hover:bg-marker-ink hover:text-marker focus-visible:outline-marker-ink"
           >
-            {t.finalCta.ctaLocal}
+            {t.finalCta.ctaCloud}
           </CtaGhost>
         </div>
       </div>

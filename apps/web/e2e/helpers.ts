@@ -157,29 +157,6 @@ export async function addDeviceLayer(page: Page): Promise<void> {
     .toBe(true)
 }
 
-/**
- * Pose les droits comme le ferait un achat encaissé.
- *
- * L'achat réel traverse Polar, un webhook et le miroir en base : hors de portée
- * d'une suite qui doit rester exécutable sans Docker et sans compte marchand.
- * Ce que les tests vérifient est ce qui vient après — uniquement la sync Cloud.
- */
-export async function grantEntitlements(
-  page: Page,
-  rights: { licence?: boolean; cloud?: boolean },
-): Promise<void> {
-  await page.evaluate((granted) => {
-    window.__sfStores?.useAuthStore.setState({
-      entitlements: {
-        userId: 'e2e',
-        cloud: granted.cloud ?? false,
-        cloudStatus: granted.cloud ? 'active' : null,
-        cloudPeriodEnd: granted.cloud ? '2099-01-01T00:00:00Z' : null,
-      },
-    })
-  }, rights)
-}
-
 export interface ExportedZipPng {
   names: string[]
   png: Uint8Array

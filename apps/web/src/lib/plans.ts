@@ -54,9 +54,8 @@ export const PLANS: Plan[] = [
 /**
  * Le nom du palier détenu.
  *
- * Le Cloud écrase Local dans le libellé parce qu'il en inclut les capacités : les deux
- * droits sont indépendants en base, mais un compte qui a les deux n'a qu'un
- * palier à lire.
+ * Le Cloud écrase Local dans le libellé parce qu'il en inclut les capacités.
+ * Local n'est pas un droit stocké : il est toujours disponible.
  */
 export function planName(entitlements: Entitlements | null): string {
   if (entitlements?.cloud) return 'Cloud'

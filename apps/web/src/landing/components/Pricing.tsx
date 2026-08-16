@@ -2,7 +2,6 @@ import { cn } from '@/lib/utils'
 import { Check, Cloud, HardDrive } from 'lucide-react'
 import { useLang } from '../i18n'
 import { offerHref } from '../links'
-import { CostCompare } from './CostCompare'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
 
@@ -24,11 +23,7 @@ type Plan = {
 }
 
 /*
- * Deux cartes, deux modèles autonomes. L'essai reste une porte d'entrée sous
- * la grille : il ne devient pas une troisième offre à comparer.
- *
- * Le même build-time switch que l'éditeur choisit entre notification et boîte
- * d'achat. La mention d'indisponibilité vit sous le bouton concerné.
+ * Deux cartes, deux modèles autonomes : Local gratuit et Cloud payant.
  *
  * Le citron va au bouton qui marche, pas à la carte recommandée. La page
  * apprend à l'œil pendant trois mille pixels que citron = « c'est ici qu'on
@@ -157,8 +152,6 @@ export function Pricing() {
         <p className="mx-auto mt-6 max-w-[65ch] text-center text-[15px] leading-6 text-muted-foreground">
           {p.sub}
         </p>
-        <CostCompare />
-
         <div className="mx-auto mt-12 grid max-w-5xl items-stretch gap-4 md:grid-cols-2">
           <div>
             <PlanCard plan={plans[0]} />
@@ -169,7 +162,7 @@ export function Pricing() {
         </div>
 
         <p className="mx-auto mt-4 max-w-5xl text-xs leading-4 text-muted-foreground">
-          {p.trialNote}
+          {p.localNote}
         </p>
         <p className="mx-auto mt-2 max-w-5xl text-xs leading-4 text-muted-foreground">
           {p.currencyNote} {p.availability}

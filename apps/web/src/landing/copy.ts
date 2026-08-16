@@ -3,18 +3,14 @@
  * une clé manquante est une erreur de compilation, pas une chaîne anglaise
  * oubliée dans la page française.
  *
- * L'offre décrite ici suit aidd_docs/tasks/2026_08/2026_08_06_offre-commerciale.
  * Un prix ne se change pas ici seul : il vit aussi dans le JSON-LD de
- * landing.html, dans le calcul de `CostCompare` et dans la carte sociale
- * (`pnpm exec node scripts/og-card.mjs`).
+ * landing.html et dans la carte sociale (`pnpm exec node scripts/og-card.mjs`).
  */
-const commercialLaunch = true
-
 const en = {
   meta: {
     title: 'ScreenForge — App Store screenshots, pixel-exact',
     description:
-      'Editor for iPhone App Store screenshot sets. Choose $49 Local once or $39/year Cloud for projects, images and settings on every machine.',
+      'Free local editor for pixel-exact iPhone App Store screenshots. Cloud is $39/year for account, sync, projects, images, settings and managed backups.',
   },
   nav: {
     features: 'The editor',
@@ -28,7 +24,7 @@ const en = {
   },
   hero: {
     headline: 'App Store screenshots, down to the pixel.',
-    sub: 'Compose up to ten iPhone screens, export pixel-exact PNGs rendered on your own machine, and upload one ZIP that App Store Connect accepts. Start free, then choose Local or Cloud.',
+    sub: 'Compose up to ten iPhone screens and export unlimited clean PNGs or one ZIP on your machine. Local is free; Cloud adds account, sync and managed storage.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
   },
@@ -162,45 +158,30 @@ const en = {
       ],
     },
   },
-  /* Plus de titre ni de chapô : ce bloc n'est plus une section mais une
-     démonstration à l'intérieur des tarifs, dont le titre porte déjà
-     l'argument. */
-  ownership: {
-    tableLabel: 'Total paid',
-    rentLabel: 'AppScreens Pro',
-    ownLabel: 'ScreenForge Local',
-    rows: [
-      { year: 'After 1 year', rent: '$99', own: '$49' },
-      { year: 'After 2 years', rent: '$198', own: '$49' },
-      { year: 'After 3 years', rent: '$297', own: '$49' },
-    ],
-    footnote: 'AppScreens Pro’s list price is $99/year, checked on 6 August 2026.',
-  },
   pricing: {
-    title: 'Two ways to use ScreenForge.',
-    sub: 'Choose Local once for this machine, or Cloud yearly for the complete editor, your projects, images and settings on every machine.',
-    currencyNote: 'Prices in USD, tax included.',
-    availability: commercialLaunch
-      ? 'The paid plans are open. Purchases start in the editor, where they can be attached to your account.'
-      : 'The paid plans open together with accounts. Until then their buttons add you to the list. Nothing is charged.',
-    availabilityShort: commercialLaunch ? 'Open now' : 'Not open yet',
+    title: 'Local or Cloud.',
+    sub: 'Use the complete editor free on this machine, or add Cloud yearly for an account, sync, managed storage and backups.',
+    currencyNote: 'Cloud price in USD, tax included.',
+    availability:
+      'Local works immediately without an account. Cloud starts from the editor and requires an active server-side entitlement.',
+    availabilityShort: 'Available',
     storageLabel: 'Where your projects live',
     storageLocal: 'On your machine',
     storageCloud: 'On your machine, mirrored to the cloud',
     plans: {
       local: {
         name: 'Local',
-        price: '$49',
-        period: 'once',
-        tagline: 'The whole editor on your machine, updates included',
+        price: '$0',
+        period: 'forever',
+        tagline: 'The complete editor on your machine, without an account',
         points: [
           'Unlimited exports, no watermark',
           'Grouped ZIP, one file per set',
-          'Updates forever, nothing to renew',
+          'Projects and images stay local',
         ],
-        badge: 'Recommended',
-        cta: commercialLaunch ? 'Choose Local' : 'Get notified at launch',
-        available: commercialLaunch,
+        badge: 'Free',
+        cta: 'Open the editor',
+        available: true,
       },
       cloud: {
         name: 'Cloud',
@@ -208,20 +189,19 @@ const en = {
         period: '/year',
         tagline: 'The complete editor and your work on every machine',
         points: [
-          'Every Local feature while Cloud is active',
-          'Projects, images and theme synced',
-          'Pick up your work on another machine',
+          'Everything in Local',
+          'Projects, images and settings synced',
+          'Managed storage and backups',
         ],
-        note: 'Standalone plan, no Local purchase required.',
-        cta: commercialLaunch ? 'Choose Cloud' : 'Get notified at launch',
-        available: commercialLaunch,
+        note: 'Account and active Cloud entitlement required.',
+        cta: 'Choose Cloud',
+        available: true,
       },
     },
     compareLabel: 'Detailed comparison',
     compareHint: 'scroll sideways',
-    compareNote: commercialLaunch
-      ? 'These are the plans currently enforced by the editor and checkout.'
-      : 'Until accounts open, the free trial has no cap or watermark and includes the grouped ZIP export.',
+    compareNote:
+      'Client changes cannot grant Cloud access: every cloud write is checked by the server.',
     rows: [
       {
         label: 'Exports',
@@ -237,38 +217,32 @@ const en = {
       },
       { label: 'Pick up on another machine', values: ['No', 'Included'] },
       { label: 'Backup outside the browser', values: ['No', 'Included'] },
-      { label: 'Account', values: ['Required for purchase', 'Required'] },
-      { label: 'Updates', values: ['Included, forever', 'Included while active'] },
+      { label: 'Account', values: ['Not required', 'Required'] },
+      { label: 'Managed backups', values: ['No', 'Included'] },
     ],
-    trialNote: commercialLaunch
-      ? 'Try the complete editor first: three watermarked exports per project, without a paid plan.'
-      : 'Until paid plans open, the trial includes unlimited clean exports and the grouped ZIP.',
+    localNote: 'Local has no export cap, watermark, paywall or entitlement check.',
   },
   marquee: [
     '1320×2868 px',
     'PNG-24 · sRGB',
     '10 screens per set',
     'Grouped ZIP export',
-    '$49 once',
+    'Local · free',
   ],
   faq: {
     title: 'Questions',
     items: [
       {
-        q: 'What does the free trial include?',
-        a: commercialLaunch
-          ? 'The complete editor, every frame, font and background, plus three watermarked exports per project. Local or Cloud removes the cap and watermark and adds the grouped ZIP.'
-          : 'Today, everything: the complete editor, every frame, every font, every background, unlimited clean exports, the grouped ZIP, and no account. Until the paid plans open, the free trial is the whole product.',
+        q: 'Is Local really free?',
+        a: 'Yes. Local includes the complete editor, unlimited clean exports and grouped ZIPs. It works without an account, a connection to Convex or an entitlement.',
       },
       {
         q: 'Is the editor in English?',
-        a: commercialLaunch
-          ? 'Not yet. The marketing pages are bilingual and the editor interface is currently French only. English is planned; exported PNGs do not depend on the interface language.'
-          : 'Not yet. The marketing pages are bilingual, the editor interface is currently French only. English is coming before the paid plans open. Nothing about the exported PNGs depends on it.',
+        a: 'Not yet. The marketing pages are bilingual and the editor interface is currently French only. English is planned; exported PNGs do not depend on the interface language.',
       },
       {
-        q: 'Why one price instead of a subscription?',
-        a: 'Because the editor runs entirely in your browser: rendering a set costs us nothing, whether you export once a year or forty times a week. Charging rent for that would be charging for nothing. Only the cloud consumes a server every month, so only the cloud is billed every year.',
+        q: 'Why is only Cloud billed yearly?',
+        a: 'Local rendering and exports run on your machine. Cloud continuously operates accounts, synchronization, storage and backups, so only that managed service is billed yearly.',
       },
       {
         q: 'Where are my projects stored?',
@@ -276,7 +250,7 @@ const en = {
       },
       {
         q: 'What happens if I stop paying for Cloud?',
-        a: 'Copies already present on your machines stay local and editable. Your cloud data remains readable and deletable, but new sync stops. A separate Local purchase keeps clean exports and ZIP after Cloud ends.',
+        a: 'Copies already present on your machines stay local and editable. Your cloud data remains readable and deletable, but new sync stops. Local clean exports and ZIPs remain free.',
       },
       {
         q: 'Which dimensions does it export?',
@@ -284,9 +258,7 @@ const en = {
       },
       {
         q: 'Can I get a refund?',
-        a: commercialLaunch
-          ? 'Yes. Email us within 14 days of purchase for a full refund, no questions. The free trial exists so you can decide before spending anything.'
-          : 'Yes, once the paid plans open: email us within 14 days of purchase for a full refund, no questions. The free trial exists so you can decide before spending anything.',
+        a: 'Cloud refund conditions are shown before checkout and in the billing portal. Contact us if you need help with a purchase.',
       },
     ],
   },
@@ -294,7 +266,7 @@ const en = {
     headline: 'Your next screenshot set, ten minutes from now.',
     body: 'No account, no upload, no card. The editor opens on an empty artboard.',
     cta: 'Open the editor for free',
-    ctaLocal: commercialLaunch ? 'Choose Local' : 'Tell me when Local opens',
+    ctaCloud: 'Choose Cloud',
   },
   footer: {
     contact: 'Contact',
@@ -309,7 +281,7 @@ const fr: Copy = {
   meta: {
     title: 'ScreenForge — des captures App Store au pixel près',
     description:
-      'Éditeur de captures App Store iPhone. Choisissez Local à 49 $ une fois ou Cloud à 39 $/an pour retrouver projets, images et réglages partout.',
+      'Éditeur local gratuit de captures App Store iPhone. Cloud coûte 39 $/an pour le compte, la synchronisation, les projets, images, réglages et sauvegardes managées.',
   },
   nav: {
     features: 'L’éditeur',
@@ -323,7 +295,7 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures App Store, au pixel près.',
-    sub: 'Composez jusqu’à dix écrans iPhone, exportez des PNG au pixel près rendus sur votre machine, déposez un ZIP qu’App Store Connect accepte. Commencez gratuitement, puis choisissez Local ou Cloud.',
+    sub: 'Composez jusqu’à dix écrans iPhone et exportez des PNG propres illimités ou un ZIP sur votre machine. Local est gratuit ; Cloud ajoute compte, synchronisation et stockage managé.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
   },
@@ -437,42 +409,30 @@ const fr: Copy = {
       ],
     },
   },
-  ownership: {
-    tableLabel: 'Total payé',
-    rentLabel: 'AppScreens Pro',
-    ownLabel: 'ScreenForge Local',
-    rows: [
-      { year: 'Après 1 an', rent: '99 $', own: '49 $' },
-      { year: 'Après 2 ans', rent: '198 $', own: '49 $' },
-      { year: 'Après 3 ans', rent: '297 $', own: '49 $' },
-    ],
-    footnote: 'Le tarif public d’AppScreens Pro est de 99 $/an, relevé le 6 août 2026.',
-  },
   pricing: {
-    title: 'Deux façons d’utiliser ScreenForge.',
-    sub: 'Choisissez Local une fois pour cette machine, ou Cloud chaque année pour retrouver l’éditeur complet, vos projets, images et réglages sur chaque machine.',
-    currencyNote: 'Prix en dollars américains, taxes comprises.',
-    availability: commercialLaunch
-      ? 'Les offres payantes sont ouvertes. L’achat démarre dans l’éditeur, où il peut être rattaché à votre compte.'
-      : 'Les offres payantes ouvriront en même temps que les comptes. D’ici là leurs boutons vous ajoutent à la liste. Rien n’est débité.',
-    availabilityShort: commercialLaunch ? 'Ouvert' : 'Pas encore ouvert',
+    title: 'Local ou Cloud.',
+    sub: 'Utilisez gratuitement l’éditeur complet sur cette machine, ou ajoutez Cloud chaque année pour le compte, la synchronisation, le stockage et les sauvegardes managés.',
+    currencyNote: 'Prix Cloud en dollars américains, taxes comprises.',
+    availability:
+      'Local fonctionne immédiatement sans compte. Cloud démarre dans l’éditeur et exige un droit serveur actif.',
+    availabilityShort: 'Disponible',
     storageLabel: 'Où vivent vos projets',
     storageLocal: 'Sur votre machine',
     storageCloud: 'Sur votre machine, recopiés dans le cloud',
     plans: {
       local: {
         name: 'Local',
-        price: '49 $',
-        period: 'une fois',
-        tagline: 'Tout l’éditeur sur votre machine, mises à jour incluses',
+        price: '0 $',
+        period: 'pour toujours',
+        tagline: 'Tout l’éditeur sur votre machine, sans compte',
         points: [
           'Exports illimités, sans filigrane',
           'ZIP groupé, un fichier par planche',
-          'Mises à jour à vie, rien à renouveler',
+          'Projets et images conservés localement',
         ],
-        badge: 'Recommandé',
-        cta: commercialLaunch ? 'Choisir Local' : 'Être prévenu à l’ouverture',
-        available: commercialLaunch,
+        badge: 'Gratuit',
+        cta: 'Ouvrir l’éditeur',
+        available: true,
       },
       cloud: {
         name: 'Cloud',
@@ -480,20 +440,19 @@ const fr: Copy = {
         period: '/an',
         tagline: 'L’éditeur complet et votre travail sur chaque machine',
         points: [
-          'Toutes les fonctions Local tant que Cloud est actif',
-          'Projets, images et thème synchronisés',
-          'Reprendre votre travail sur une autre machine',
+          'Tout ce qui est inclus dans Local',
+          'Projets, images et réglages synchronisés',
+          'Stockage et sauvegardes managés',
         ],
-        note: 'Offre autonome, aucun achat Local requis.',
-        cta: commercialLaunch ? 'Choisir Cloud' : 'Être prévenu à l’ouverture',
-        available: commercialLaunch,
+        note: 'Compte et droit Cloud actif requis.',
+        cta: 'Choisir Cloud',
+        available: true,
       },
     },
     compareLabel: 'Comparatif détaillé',
     compareHint: 'faites défiler',
-    compareNote: commercialLaunch
-      ? 'Ce sont les paliers actuellement appliqués par l’éditeur et le checkout.'
-      : 'Avant l’ouverture des comptes, l’essai n’a ni plafond ni filigrane et inclut le ZIP groupé.',
+    compareNote:
+      'Une modification du client ne donne aucun accès Cloud : chaque write est vérifié par le serveur.',
     rows: [
       {
         label: 'Exports',
@@ -509,38 +468,32 @@ const fr: Copy = {
       },
       { label: 'Reprise sur une autre machine', values: ['Non', 'Incluse'] },
       { label: 'Sauvegarde hors navigateur', values: ['Non', 'Incluse'] },
-      { label: 'Compte', values: ['Requis pour l’achat', 'Requis'] },
-      { label: 'Mises à jour', values: ['Incluses, à vie', 'Incluses tant que Cloud est actif'] },
+      { label: 'Compte', values: ['Non requis', 'Requis'] },
+      { label: 'Sauvegardes managées', values: ['Non', 'Incluses'] },
     ],
-    trialNote: commercialLaunch
-      ? 'Essayez d’abord l’éditeur complet : trois exports filigranés par projet, sans offre payante.'
-      : 'Avant l’ouverture des offres, l’essai inclut les exports propres illimités et le ZIP groupé.',
+    localNote: 'Local n’a ni plafond d’export, ni filigrane, ni paywall, ni contrôle de droit.',
   },
   marquee: [
     '1320×2868 px',
     'PNG-24 · sRGB',
     '10 écrans par planche',
     'Export ZIP groupé',
-    '49 $ une fois',
+    'Local · gratuit',
   ],
   faq: {
     title: 'Questions',
     items: [
       {
-        q: 'Que comprend l’essai gratuit ?',
-        a: commercialLaunch
-          ? 'L’éditeur complet, tous les cadres, polices et fonds, plus trois exports filigranés par projet. Local ou Cloud retire le plafond et le filigrane et ajoute le ZIP groupé.'
-          : 'Aujourd’hui, tout : l’éditeur complet, tous les cadres, toutes les polices, tous les fonds, les exports propres illimités, le ZIP groupé et aucun compte. Jusqu’à l’ouverture des offres, l’essai gratuit est le produit entier.',
+        q: 'Local est-il vraiment gratuit ?',
+        a: 'Oui. Local inclut l’éditeur complet, les exports propres illimités et les ZIP groupés. Il fonctionne sans compte, connexion Convex ou droit commercial.',
       },
       {
         q: 'L’éditeur est-il en anglais ?',
-        a: commercialLaunch
-          ? 'Pas encore. Les pages de présentation sont bilingues et l’interface de l’éditeur est uniquement en français. L’anglais est prévu ; les PNG exportés ne dépendent pas de la langue de l’interface.'
-          : 'Pas encore. Les pages de présentation sont bilingues, l’interface de l’éditeur est pour l’instant uniquement en français. L’anglais arrivera avant l’ouverture des offres payantes. Les PNG exportés n’en dépendent pas.',
+        a: 'Pas encore. Les pages de présentation sont bilingues et l’interface de l’éditeur est uniquement en français. L’anglais est prévu ; les PNG exportés ne dépendent pas de la langue de l’interface.',
       },
       {
-        q: 'Pourquoi un prix unique plutôt qu’un abonnement ?',
-        a: 'Parce que l’éditeur tourne entièrement dans votre navigateur : rendre une planche ne nous coûte rien, que vous exportiez une fois par an ou quarante fois par semaine. Louer cela reviendrait à louer du vide. Seul le cloud consomme un serveur tous les mois, donc seul le cloud se facture tous les ans.',
+        q: 'Pourquoi seul Cloud est-il facturé chaque année ?',
+        a: 'Le rendu et les exports Local tournent sur votre machine. Cloud exploite en continu les comptes, la synchronisation, le stockage et les sauvegardes ; seul ce service managé est donc facturé chaque année.',
       },
       {
         q: 'Où sont stockés mes projets ?',
@@ -548,7 +501,7 @@ const fr: Copy = {
       },
       {
         q: 'Que se passe-t-il si j’arrête de payer le Cloud ?',
-        a: 'Les copies déjà présentes sur vos machines y restent, modifiables. Vos données cloud restent lisibles et supprimables, mais la nouvelle synchronisation s’arrête. Un achat Local séparé conserve les exports propres et le ZIP après Cloud.',
+        a: 'Les copies déjà présentes sur vos machines y restent, modifiables. Vos données cloud restent lisibles et supprimables, mais la nouvelle synchronisation s’arrête. Les exports propres et ZIP Local restent gratuits.',
       },
       {
         q: 'Quelles dimensions sont exportées ?',
@@ -556,9 +509,7 @@ const fr: Copy = {
       },
       {
         q: 'Puis-je être remboursé ?',
-        a: commercialLaunch
-          ? 'Oui. Écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’essai gratuit existe pour que vous décidiez avant de dépenser.'
-          : 'Oui, dès l’ouverture des offres payantes : écrivez-nous dans les 14 jours suivant l’achat pour un remboursement intégral, sans justification. L’essai gratuit existe pour que vous décidiez avant de dépenser.',
+        a: 'Les conditions de remboursement Cloud sont affichées avant le checkout et dans le portail de facturation. Contactez-nous si vous avez besoin d’aide pour un achat.',
       },
     ],
   },
@@ -566,7 +517,7 @@ const fr: Copy = {
     headline: 'Votre prochaine planche, dans dix minutes.',
     body: 'Sans compte, sans téléversement, sans carte. L’éditeur s’ouvre sur une planche vide.',
     cta: 'Ouvrir l’éditeur gratuitement',
-    ctaLocal: commercialLaunch ? 'Choisir Local' : 'Prévenez-moi à l’ouverture de Local',
+    ctaCloud: 'Choisir Cloud',
   },
   footer: {
     contact: 'Contact',

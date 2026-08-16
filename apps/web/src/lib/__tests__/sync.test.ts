@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
    `@/lib/sync` est importé statiquement plus bas, et un `doMock` après coup
    rendrait le module déjà évalué, lié au vrai transport. */
 vi.mock('@/lib/cloud', () => ({
+  CloudUploadError: class CloudUploadError extends Error {
+    constructor(readonly outcome: string) {
+      super(outcome)
+    }
+  },
   listRemoteProjects: () =>
     Promise.resolve([
       { projectId: 'b', name: 'B', updatedAt: 10 },
@@ -12,7 +17,12 @@ vi.mock('@/lib/cloud', () => ({
     ]),
 }))
 
-import { fetchRemoteProjectRows, mapBounded, mapBoundedSettled } from '@/lib/sync'
+import {
+  cloudQuotaMessage,
+  fetchRemoteProjectRows,
+  mapBounded,
+  mapBoundedSettled,
+} from '@/lib/sync'
 
 describe('mapBounded', () => {
   it('attend tous les workers avant de propager le premier rejet', async () => {
@@ -95,4 +105,10 @@ describe('catalogue cloud', () => {
        est refait ici plutôt que demandé au serveur. */
     expect((await fetchRemoteProjectRows()).map((row) => row.projectId)).toEqual(['a', 'c', 'b'])
   })
+})
+
+it('les refus de quota nomment la limite sans exposer de détail serveur', () => {
+  expect(cloudQuotaMessage('project-count-limit')).toMatch(/100 projets/)
+  expect(cloudQuotaMessage('asset-storage-limit')).toMatch(/512 Mio/)
+  expect(cloudQuotaMessage('unknown')).toBeUndefined()
 })

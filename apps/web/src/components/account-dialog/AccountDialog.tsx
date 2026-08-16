@@ -21,8 +21,8 @@ export function AccountDialog() {
 /**
  * Un seul endroit pour tout ce qui concerne le compte.
  *
- * L'achat n'est pas ici : les deux droits y sont montrés mais s'achètent dans
- * la boîte des offres, qui porte déjà les prix, les arguments et le checkout.
+ * L'achat n'est pas ici : Cloud se choisit dans la boîte des offres, qui porte
+ * déjà le prix, les arguments et le checkout.
  * Dupliquer un bouton d'achat ici ferait deux chemins de paiement à tenir
  * d'accord, et le second aurait forcément moins de contexte que le premier.
  */

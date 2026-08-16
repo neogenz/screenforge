@@ -2,7 +2,7 @@
 
 # ScreenForge
 
-**The App Store screenshot studio for indie developers — pixel-exact, fast, local-first.**
+**The App Store screenshot studio for indie developers — pixel-exact and local-first.**
 
 [![Quality](https://github.com/neogenz/screenforge/actions/workflows/quality.yml/badge.svg)](https://github.com/neogenz/screenforge/actions/workflows/quality.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/neogenz/screenforge)
@@ -20,7 +20,9 @@
 
 ## Overview
 
-ScreenForge is a local-first web app for designing and exporting iPhone App Store screenshots. Everything runs in your browser — projects are stored locally in IndexedDB, nothing ever leaves your machine. Exports are pixel-exact (1320 × 2868 for the 6.9" class) and pass App Store Connect validation out of the box.
+ScreenForge is a local-first web app for designing and exporting iPhone App Store screenshots. Local is free: the complete editor, unlimited clean exports and ZIPs run in the browser with projects in IndexedDB. The optional paid Cloud service adds an account, synchronization, managed storage and backups for projects, source images and settings.
+
+Local never requires Convex, a connection, an account or an entitlement. Cloud writes are authorized by the Convex backend from the authenticated session and an active server-side Cloud entitlement; changing or rebuilding the frontend cannot grant that access.
 
 ## Features
 
@@ -33,6 +35,13 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 - **Command palette** — every action at ⌘K
 - **Autosave** — projects persisted locally via IndexedDB
 - **Dark & light themes** — true-neutral OKLCH design system
+
+## Plans
+
+| Plan      | Price         | Included                                                                  |
+| --------- | ------------- | ------------------------------------------------------------------------- |
+| **Local** | Free          | Complete editor, unlimited clean PNG/ZIP exports, local projects/assets   |
+| **Cloud** | USD 39 / year | Everything in Local plus account, sync, Convex storage and managed backup |
 
 ## Export guarantees
 
@@ -50,17 +59,20 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 | State   | Zustand 5                  |
 | Styling | Tailwind CSS 4 (CSS-first) |
 | Storage | IndexedDB via `idb`        |
+| Cloud   | Convex (optional service)  |
 | Testing | Vitest + Playwright        |
 | Export  | JSZip                      |
 
 ## Getting started
 
-**Prerequisites:** Node.js 22+, pnpm 10+
+**Prerequisites:** Node.js 24, pnpm 10
 
 ```bash
 pnpm install
 pnpm dev
 ```
+
+No environment variable or backend is needed for Local. Copy `.env.example` only when working on the operated Cloud service; never commit a real `.env` file.
 
 ## Scripts
 
@@ -80,18 +92,17 @@ pnpm dev
 ## Project structure
 
 ```
-src/
-  components/    UI primitives, canvas, panels, editors
-  stores/        Zustand stores (canvas, project, history, ui, toast)
-  hooks/         Canvas lifecycle, keyboard, export, fonts
-  assets/        Device frames, templates, gradient presets
-  lib/           Dimensions, storage, export, ZIP, helpers
-  types/         Shared TypeScript types
+apps/
+  web/       React editor and bilingual landing page
+  backend/   Convex auth, entitlements, sync, storage and billing boundary
+  bridge/    Optional loopback-only local publishing bridge
+scripts/     Release, security and export audits
+aidd_docs/   Versioned plans and project memory; secrets are forbidden here
 ```
 
 ## License
 
-Proprietary — all rights reserved. See [LICENSE](LICENSE).
+The repository currently remains under the terms in [LICENSE](LICENSE). Public visibility is gated on selecting terms that explicitly permit the documented Local clone, build and use rights; no ad-hoc licence is inferred from repository visibility.
 
 Third-party works redistributed in this repository keep their own licence and
 notices: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
