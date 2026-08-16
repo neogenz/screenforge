@@ -1,6 +1,6 @@
 # Tools
 
-The 18 tools the ScreenForge MCP server publishes, copied on 2026-08-16 from
+The 19 tools the ScreenForge MCP server publishes, copied on 2026-08-16 from
 `@screenforge/project-format` 0.1.0.
 
 The schemas below are a dated copy. The server is authoritative: it builds every
@@ -89,6 +89,7 @@ tool, useful for a single correction and wasteful for anything else.
 | `delete_layer`           | `layerId`                               | —                                                                                                                  |
 | `assign_screenshot_slot` | `layerId`, `slot`                       | —                                                                                                                  |
 | `place_screenshot_asset` | `layerId`, `assetId`, `width`, `height` | —                                                                                                                  |
+| `refresh_screenshots`    | `directory`                             | `manifest`                                                                                                         |
 | `save_template`          | `name` up to 60 chars                   | `description` up to 200 chars, `screenId`                                                                          |
 
 `screenId` defaults to the last screen `add_screen` created in this batch, and
@@ -101,6 +102,25 @@ turns it into a call the project accepts. `role` is `image` for a logo or
 fill a frame that already exists, keeping the crop the user set on it. Refused
 with its cause named: a relative path, an extension outside PNG, JPEG and SVG, a
 missing file, more than 16 MB, or an SVG offered as a screenshot.
+
+`refresh_screenshots` is the whole "I re-exported my captures" gesture: give it
+the absolute path of a flat directory of PNG or JPEG files, and every device
+frame whose `slot` matches a filename gets its new capture. Nothing else moves —
+not the geometry, not the role, not the crop the user set — and the whole
+delivery is one write and one undo step.
+
+The matching is the app's own: filename without extension becomes the role, a
+leading `01-` rank is stripped as well, and a `manifest` of `{ "role":
+"filename.png" }` overrides it for exports named after timestamps. One file may
+serve several frames; two files claiming one role is an ambiguity, so neither is
+placed and the report says which. The report also names every frame with no
+role, every role with no file, and every file nobody took — a count of successes
+that hides the rest is a lie by omission, and you cannot see the filmstrip.
+
+Refused, each with its cause: a relative path, a path that is a file (use
+`add_image` for one capture), a missing directory, a directory with no PNG or
+JPEG, or more than 40 captures. Frames with no `slot` are never matched; give
+them one with `assign_screenshot_slot` first.
 
 `save_template` freezes a screen's layout in the browser library, images
 included and device screenshot excluded, for reuse in any project from the

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Un répertoire de captures se repose sans toucher à la composition

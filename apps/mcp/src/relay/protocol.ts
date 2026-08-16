@@ -99,6 +99,53 @@ export interface RelayRequest {
    */
   saveTemplate?: RelayTemplateSave
   listTemplates?: true
+  /**
+   * Une livraison de captures à reposer sur les appareils qui les portent.
+   *
+   * Le démon a lu le répertoire et fait entrer chaque fichier dans le coffre ;
+   * il n'apparie pas. La règle — manifeste, rôle, préfixe de rang, ambiguïté
+   * rendue plutôt que tranchée — sert déjà la boîte « Rafraîchir » dans la
+   * page, et une seconde implémentation ici serait d'accord avec elle jusqu'au
+   * premier correctif, puis poserait la mauvaise capture sans que rien ne le
+   * dise.
+   */
+  refreshScreenshots?: RelayRefresh
+}
+
+export interface RelayRefresh {
+  files: RelayRefreshFile[]
+  /** `{ rôle: nomDeFichier }`, pour les exports dont les noms sont des horodatages. */
+  manifest?: Record<string, string>
+}
+
+/** Un fichier déjà offert : la page le récupère par `GET /asset/:id`. */
+export interface RelayRefreshFile {
+  /** Le nom du fichier, sans son chemin — c'est de lui que le rôle se déduit. */
+  name: string
+  assetId: string
+  width: number
+  height: number
+}
+
+/**
+ * Ce que la page rend après avoir apparié et posé.
+ *
+ * Les quatre listes que `RefreshPlan` distingue déjà, en phrases : un « 3
+ * posées » qui tait les quatre appareils restés vides est un mensonge par
+ * omission, et l'agent n'a aucun moyen de le rattraper — il ne voit pas la
+ * pellicule.
+ */
+export interface RelayRefreshed {
+  /** Nombre d'appareils dont la capture a changé, en une seule transaction. */
+  posed: number
+  /** Un appareil par phrase, avec son écran : « Écran 2 · iPhone — rôle « budget ». */
+  unmatched: string[]
+  /** Appareils sans rôle : jamais appariés automatiquement. */
+  slotless: string[]
+  /** Rôles réclamés par deux fichiers : aucun n'est posé. */
+  ambiguous: string[]
+  /** Fichiers qu'aucun appareil ne réclame. */
+  unused: string[]
 }
 
 export interface RelayTemplateSave {

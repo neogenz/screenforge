@@ -3,6 +3,7 @@ import {
   applyRelayBatch,
   listRelayTemplates,
   readProjectState,
+  refreshRelayScreenshots,
   renderRelayScreen,
   saveRelayTemplate,
 } from '@/lib/mcp/session'
@@ -236,9 +237,10 @@ function listen(mine: number): void {
 }
 
 /**
- * Une demande, quatre formes, une seule réponse.
+ * Une demande, cinq formes, une seule réponse.
  *
- * Un lot écrit dans le projet ; un rendu le lit ; un gabarit se range à côté.
+ * Un lot écrit dans le projet ; un rendu le lit ; un gabarit se range à côté ;
+ * une livraison de captures repose sur ce qui existe déjà.
  * Le fil ne les distingue que par le champ présent, et c'est volontaire : la
  * corrélation, le délai et les trois façons dont l'éditeur peut disparaître
  * sont les mêmes pour toutes, et les dédoubler aurait dupliqué tout cela pour
@@ -252,7 +254,9 @@ async function answer(request: RelayRequest): Promise<void> {
       ? await saveRelayTemplate(request.saveTemplate)
       : request.listTemplates
         ? listRelayTemplates()
-        : await applyRelayBatch(request.calls ?? [], fetchAsset)
+        : request.refreshScreenshots
+          ? await refreshRelayScreenshots(request.refreshScreenshots, fetchAsset)
+          : await applyRelayBatch(request.calls ?? [], fetchAsset)
   try {
     await post('/result', {
       id: request.id,

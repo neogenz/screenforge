@@ -37,8 +37,14 @@ const { AI_TOOLS, validateToolCall } = createAiTools({
   fonts: CONTENT_FONTS,
 })
 
-/** Les trois que le démon ajoute par-dessus le contrat partagé. */
-const DAEMON_ONLY = ['apply', 'get_thumbnail', 'save_template', 'list_templates'] as const
+/** Ceux que le démon ajoute par-dessus le contrat partagé. */
+const DAEMON_ONLY = [
+  'apply',
+  'get_thumbnail',
+  'refresh_screenshots',
+  'save_template',
+  'list_templates',
+] as const
 
 describe('documentation du skill agent', () => {
   it('nomme chaque outil publié', async () => {

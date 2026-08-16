@@ -1,6 +1,6 @@
 # Workflows
 
-Four recipes. Each is a call order, not a template to copy verbatim.
+Five recipes. Each is a call order, not a template to copy verbatim.
 
 ## Compositions that hold
 
@@ -68,6 +68,28 @@ Several screens that must read as one set.
    before anything lands on their board.
 5. One `apply` per screen, all of them, then verify the whole set in one pass.
    A set is judged together.
+
+## New captures, same listing
+
+The user re-exported their screenshots and wants them in, without the
+composition moving. This is the one recipe that touches no layout at all.
+
+1. `get_project_state`, to read the `slot` on every device frame. A frame with
+   no role will never be matched.
+2. If roles are missing, `assign_screenshot_slot` on each, one `apply`. Choose
+   names the user's filenames already use, so this stays a one-call gesture next
+   time.
+3. `refresh_screenshots` with the absolute path of the directory. One write, one
+   undo step, every crop preserved.
+4. Read the report before saying it worked. It names the frames that got
+   nothing, the roles two files fought over, and the files nobody took — none of
+   which the count of placed captures would reveal.
+5. `get_thumbnail` on the screens that changed. A new capture of a different
+   aspect ratio can sit differently inside the same crop.
+
+Use `add_image` with a `layerId` instead when there is exactly one capture to
+swap. Below two or three files, naming the frame is faster than naming a
+directory.
 
 ## The template cycle
 

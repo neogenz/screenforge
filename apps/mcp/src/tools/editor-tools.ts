@@ -22,6 +22,7 @@ import { AssetRefusedError } from '../relay/assets.ts'
 import { readProjectState, readScreen } from './get-state.ts'
 import { ADD_IMAGE_SCHEMA, planAddImage, type AddImageArgs } from './add-image.ts'
 import { renderThumbnail, THUMBNAIL_SCHEMA } from './get-thumbnail.ts'
+import { refreshScreenshots, REFRESH_SCHEMA, type RefreshArgs } from './refresh-screenshots.ts'
 import {
   listTemplates,
   LIST_TEMPLATES_SCHEMA,
@@ -260,6 +261,26 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
         )
       }
     },
+  )
+
+  /**
+   * « J'ai refait mes captures », en un geste et une seule annulation.
+   *
+   * Le même remplacement que `add_image` avec un `layerId`, mais sur toute une
+   * livraison : le démon lit le répertoire, la page apparie par `planRefresh` —
+   * la règle exacte de la boîte « Rafraîchir » — et pose le lot par une
+   * transaction. Rien de la composition ne bouge : ni géométrie, ni cadrage, ni
+   * rôle, seulement l'asset et sa mesure.
+   */
+  server.registerTool(
+    `${TOOL_PREFIX}refresh_screenshots`,
+    {
+      description:
+        'Repose toutes les captures d’un répertoire sur les appareils dont le rôle correspond, sans toucher à la mise en page. Donnez un chemin absolu.',
+      inputSchema: fromJsonSchema<RefreshArgs>(REFRESH_SCHEMA, contractValidator),
+      annotations: { readOnlyHint: false },
+    },
+    async (args) => refreshScreenshots(session, state.assets, args),
   )
 
   /**

@@ -1,4 +1,12 @@
-import type { RelayRender, RelayRendered, RelayTemplateSave, RelayTemplateSummary } from 'mcp'
+import type {
+  RelayRefresh,
+  RelayRefreshed,
+  RelayRender,
+  RelayRendered,
+  RelayTemplateSave,
+  RelayTemplateSummary,
+} from 'mcp'
+import { describeFiles, pendingChanges, planRefresh, refreshTargets } from '@/lib/batch-refresh'
 import type { CustomTemplate } from '@/lib/custom-templates'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { commitAiRun } from '@/lib/ai/run'
@@ -53,6 +61,84 @@ export async function applyRelayBatch(
     committed: true,
     result: { results: run.results, screenIds: run.screenIds, layerIds: run.layerIds },
   }
+}
+
+/**
+ * Une livraison de captures reposée sur les appareils qui les portent.
+ *
+ * L'appariement est celui de la boîte « Rafraîchir », pas une seconde règle :
+ * `describeFiles` déduit le rôle du nom de fichier ou du manifeste,
+ * `refreshTargets` liste les appareils dans l'ordre où l'utilisateur les voit,
+ * et `planRefresh` tranche — un fichier peut servir deux planches, mais deux
+ * fichiers pour un rôle est une ambiguïté qu'on rend plutôt que de choisir au
+ * hasard. Une copie de tout ça côté démon aurait été d'accord avec celle-ci
+ * jusqu'au premier correctif.
+ *
+ * La pose passe par `applyRelayBatch` et non par `applyRefresh` : les
+ * identifiants viennent du coffre du démon, donc les images doivent être
+ * récupérées, bornées et enregistrées avant d'écrire — c'est exactement ce que
+ * `resolveRelayAssets` fait déjà, et le dupliquer pour appeler l'autre
+ * transaction aurait ajouté un second endroit où se tromper de limite. Le
+ * résultat est le même contrat : `place_screenshot_asset` ne touche ni la
+ * géométrie, ni le rôle, ni le cadrage, et le lot vaut un seul Ctrl+Z.
+ */
+export async function refreshRelayScreenshots(
+  refresh: RelayRefresh,
+  fetchAsset: AssetFetcher,
+): Promise<RelayOutcome> {
+  const project = useProjectStore.getState().project
+  if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
+
+  const targets = refreshTargets(project)
+  if (targets.length === 0) {
+    return { committed: false, error: 'Aucun appareil dans ce projet : rien à rafraîchir.' }
+  }
+
+  const files = describeFiles(
+    refresh.files.map((file) => file.name),
+    refresh.manifest,
+  )
+  const plan = planRefresh(targets, files, refresh.manifest)
+  const byId = new Map(targets.map((target) => [target.layerId, target]))
+  const where = (layerId: string) => {
+    const target = byId.get(layerId)
+    if (!target) return layerId
+    const role = target.slot ? ` — rôle « ${target.slot} »` : ''
+    return `${target.screenName} · ${target.layerName}${role}`
+  }
+
+  const posed = pendingChanges(plan)
+  const calls: ToolCall[] = posed.map((assignment) => {
+    const file = refresh.files[assignment.fileIndex as number]
+    return {
+      tool: 'place_screenshot_asset',
+      args: {
+        layerId: assignment.layerId,
+        assetId: file.assetId,
+        width: file.width,
+        height: file.height,
+      },
+    }
+  })
+
+  const summary: RelayRefreshed = {
+    posed: calls.length,
+    unmatched: plan.unmatchedLayerIds.map(where),
+    slotless: plan.slotlessLayerIds.map(where),
+    ambiguous: plan.duplicateSlots.map(
+      (duplicate) =>
+        `« ${duplicate.slot} » réclamé par ${duplicate.fileIndexes.map((index) => refresh.files[index].name).join(', ')}`,
+    ),
+    unused: plan.unusedFileIndexes.map((index) => refresh.files[index].name),
+  }
+
+  /* Rien à poser n'est pas une erreur : c'est un rapport qui dit qu'aucun
+     appareil ne porte de rôle appariable, et l'agent a `assign_screenshot_slot`
+     pour y remédier. Une erreur ferait perdre ce rapport. */
+  if (calls.length === 0) return { committed: true, result: summary }
+
+  const applied = await applyRelayBatch(calls, fetchAsset)
+  return applied.committed ? { committed: true, result: summary } : applied
 }
 
 /**
