@@ -171,6 +171,7 @@ export async function startRelay(): Promise<Relay> {
       new Promise<void>((resolve) => {
         stream?.end()
         server.close(() => resolve())
+        server.closeAllConnections()
       }),
   }
 }
