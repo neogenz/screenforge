@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project
 
-**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Replaces paid tools like AppScreens.com. Zero backend, zero recurring cost.
+**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Local is free and complete without a backend; the optional managed Cloud account, sync and storage service is paid.
 
 See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1320x2868 for 6.9", etc.) and pass App Store Connect validation.
 
@@ -60,6 +60,10 @@ pnpm run dev:backend
 # Deploy the backend to preprod, then to production
 pnpm run deploy:preprod
 pnpm run deploy:prod
+
+# Validate or deploy the immutable release selected by a SemVer tag
+pnpm run test:release-tag
+pnpm run verify:release-tag v0.1.0
 
 # Validate an exported ZIP against App Store rules
 pnpm run validate:export -- <file.zip>

@@ -2,11 +2,25 @@
   "name": "screenforge",
   "private": true,
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "engines": {
     "node": "24.x"
   },
   "packageManager": "pnpm@10.26.1",
+  "pnpm": {
+    "overrides": {
+      "@tootallnate/once@>=2.0.0 <2.0.1": "2.0.1",
+      "ajv@>=8.0.0 <8.18.0": "8.20.0",
+      "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
+      "minimatch@>=10.0.0 <10.2.3": "10.2.6",
+      "nanoid@>=3.0.0 <3.3.18": "3.3.18",
+      "path-to-regexp@>=8.0.0 <8.4.0": "8.4.2",
+      "smol-toml@>=1.0.0 <1.6.1": "1.8.0",
+      "tar@>=7.0.0 <7.5.21": "7.5.22",
+      "undici@>=5.0.0 <6.28.0": "6.28.0"
+    }
+  },
   "scripts": {
     "dev": "pnpm --filter web run dev",
     "//dev:preprod": "Le même éditeur, branché sur la préproduction, sans toucher au `.env` : une variable posée en ligne l'emporte sur le fichier. Repointer le fichier casserait le mode local-first et la suite e2e qui le vérifie ; l'URL n'est pas un secret, elle part dans le paquet servi.",
@@ -20,11 +34,14 @@
     "test:publication": "node --test scripts/publication-audit.test.mjs",
     "test:e2e": "pnpm --filter web run test:e2e",
     "test:e2e:release": "SCREENFORGE_REQUIRE_CLOUD=1 pnpm --filter web run test:e2e",
-    "test:release": "pnpm test && pnpm run build && node scripts/security-headers-audit.mjs --build-only && pnpm run test:e2e:release && pnpm run audit:contrast && pnpm run audit:scale && pnpm run audit:landing",
+    "test:release": "pnpm run format:check && pnpm run audit:publication && pnpm run audit:dependencies && pnpm test && pnpm run build && node scripts/security-headers-audit.mjs --build-only && pnpm run test:e2e:release && pnpm run audit:contrast && pnpm run audit:scale && pnpm run audit:landing",
+    "test:release-tag": "node scripts/verify-release-tag.mjs --self-test",
+    "verify:release-tag": "node scripts/verify-release-tag.mjs",
     "validate:export": "node scripts/validate-export.mjs",
     "audit:contrast": "node scripts/contrast-audit.mjs",
     "audit:scale": "node scripts/scale-audit.mjs",
     "audit:landing": "node scripts/landing-audit.mjs",
+    "audit:dependencies": "pnpm audit --audit-level low",
     "audit:security-headers": "node scripts/security-headers-audit.mjs",
     "audit:publication": "node scripts/publication-audit.mjs tracked",
     "setup:gitleaks": "sh scripts/setup-gitleaks.sh",
@@ -33,6 +50,7 @@
     "dev:backend": "pnpm --filter backend run dev",
     "deploy:preprod": "pnpm --filter backend run deploy:preprod",
     "deploy:prod": "pnpm --filter backend run deploy:prod",
+    "deploy:ci": "pnpm --filter backend exec convex deploy --typecheck=enable",
     "//convex-cli": "Pas de script pour `convex env|data|run|logs` visant un déploiement du nuage, et c'est mesuré : `--env-file` n'existe que comme option de sous-commande, donc aucun préfixe ne peut l'injecter ; depuis la racine, `pnpm … exec convex … --env-file` le fait lire par pnpm, qui échoue avant d'appeler Convex ; et sourcer le fichier dans l'environnement vise le déploiement **local** sans rien dire, parce que la CLI lit `.env.local` en plus et que son `CONVEX_DEPLOYMENT` l'emporte. Ces commandes se lancent depuis `apps/backend` — `environnements.md` les donne.",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -65,7 +83,8 @@
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.66.0"
+    "typescript-eslint": "^8.66.0",
+    "vercel": "59.1.3"
   },
   "dependencies": {
     "convex": "^1.43.0"

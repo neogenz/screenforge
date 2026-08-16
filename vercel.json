@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "public": false,
+  "git": {
+    "deploymentEnabled": false
+  },
   "buildCommand": "pnpm run build",
   "outputDirectory": "apps/web/dist",
   "headers": [
@@ -9,7 +13,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-aI9Fn3uD4sZ7a/il04cnrgGvqyWkd5GSeFsZKIk8RN0=' 'sha256-B36Q2aHOHnQrJxlo1zPY+OYm5ureTquicPH5E7JjyCk=' 'sha256-lgdnorkKxPfdXGORCwNYkKj3sOMmEwMbOZc/tQtJT/E=' 'sha256-N365KCHBx14rD9wY3eHAkw1kz95tNzAnDe7tMe+Rcy8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com https://api.anthropic.com https://openrouter.ai https://acrobatic-orca-116.eu-west-1.convex.cloud wss://acrobatic-orca-116.eu-west-1.convex.cloud https://acrobatic-orca-116.eu-west-1.convex.site https://colorful-caterpillar-775.eu-west-1.convex.cloud wss://colorful-caterpillar-775.eu-west-1.convex.cloud https://colorful-caterpillar-775.eu-west-1.convex.site; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self' 'sha256-aI9Fn3uD4sZ7a/il04cnrgGvqyWkd5GSeFsZKIk8RN0=' 'sha256-LyBRsJx1CfCKLMLd7M7n720Nb5IlpLI540DLPb8XIZs=' 'sha256-lgdnorkKxPfdXGORCwNYkKj3sOMmEwMbOZc/tQtJT/E=' 'sha256-eDQ6Abo8F2i2XR3/nl6EHk4HVKhP3c3Q36aDSDkjMUQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com https://api.anthropic.com https://openrouter.ai https://acrobatic-orca-116.eu-west-1.convex.cloud wss://acrobatic-orca-116.eu-west-1.convex.cloud https://acrobatic-orca-116.eu-west-1.convex.site https://colorful-caterpillar-775.eu-west-1.convex.cloud wss://colorful-caterpillar-775.eu-west-1.convex.cloud https://colorful-caterpillar-775.eu-west-1.convex.site; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         },
         {
           "key": "X-Frame-Options",

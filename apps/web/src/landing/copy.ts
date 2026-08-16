@@ -258,7 +258,7 @@ const en = {
       },
       {
         q: 'Can I get a refund?',
-        a: 'Cloud refund conditions are shown before checkout and in the billing portal. Contact us if you need help with a purchase.',
+        a: 'Cloud refund conditions are shown before checkout and in the billing portal.',
       },
     ],
   },
@@ -269,7 +269,7 @@ const en = {
     ctaCloud: 'Choose Cloud',
   },
   footer: {
-    contact: 'Contact',
+    source: 'Source',
     copyright: '© 2026 ScreenForge',
     builtBy: 'A tool built for shipping one app, opened up for everyone shipping theirs.',
   },
@@ -509,7 +509,7 @@ const fr: Copy = {
       },
       {
         q: 'Puis-je être remboursé ?',
-        a: 'Les conditions de remboursement Cloud sont affichées avant le checkout et dans le portail de facturation. Contactez-nous si vous avez besoin d’aide pour un achat.',
+        a: 'Les conditions de remboursement Cloud sont affichées avant le checkout et dans le portail de facturation.',
       },
     ],
   },
@@ -520,7 +520,7 @@ const fr: Copy = {
     ctaCloud: 'Choisir Cloud',
   },
   footer: {
-    contact: 'Contact',
+    source: 'Code source',
     copyright: '© 2026 ScreenForge',
     builtBy: 'Un outil construit pour sortir une app, ouvert à tous ceux qui sortent la leur.',
   },

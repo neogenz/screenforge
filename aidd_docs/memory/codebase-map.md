@@ -22,11 +22,11 @@ Paths below are relative to `apps/web/` unless stated otherwise; the repository 
 - `src/components/`: editor chrome, feature panels, dialogs, UI primitives, and JSX local to each feature. Account, pricing, migrate and export dialogs are lazy chunks.
 - `src/hooks/`: React lifecycle orchestration for canvas, keyboard, export, and layer actions.
 - `src/stores/`: project, canvas, history, UI, toast, and auth state domains.
-- `src/lib/`: persistence, export, fonts, project-file, asset, dimension, shared domain logic, and Fabric helpers under `lib/canvas/`; the `install-*` modules isolate interactions, viewport and thumbnails with explicit cleanup. `lib` never imports components or hooks. The SaaS edge lives here too: `convex.ts` (lazy client, `cloudConfigured`, error codes), `cloud.ts` (transport: functions and authenticated `httpAction`s), `sync.ts` (cloud cycle and queue), `entitlements.ts` (free-tier counter over the rule imported from the deployment), `plans.ts`, `account.ts` (checkout, portal, deletion).
+- `src/lib/`: persistence, export, fonts, project-file, asset, dimension, shared domain logic, and Fabric helpers under `lib/canvas/`; the `install-*` modules isolate interactions, viewport and thumbnails with explicit cleanup. `lib` never imports components or hooks. The SaaS edge lives here too: `convex.ts` (lazy client, `cloudConfigured`, error codes), `cloud.ts` (transport: functions and authenticated `httpAction`s), `sync.ts` (cloud cycle and queue), `entitlements.ts` (Cloud-only commercial rule imported from the deployment), `plans.ts`, `account.ts` (checkout, portal, deletion).
 - `src/landing/`: the marketing page, a second Vite entry (`landing.html`), pre-rendered at build in French and English.
 - `src/assets/`: device-frame definitions, templates, and gradient presets.
 - `src/types/`: shared project and layer model.
-- `e2e/`: browser-level editor, pixel-exact export, tier and sync contracts. The sync files skip themselves when the local Convex deployment is down, so the suite runs without a backend.
+- `e2e/`: browser-level editor, pixel-exact export, tier and sync contracts. `pnpm test:e2e` may skip Cloud cases when local Convex is down; `pnpm test:e2e:release` starts Convex and forbids those skips.
 - `apps/backend/`: the Convex deployment — `convex/` holds the schema and every function a client can reach (auth, authorization, project and asset sync, sale, account deletion) plus the cron; `tests/stack.ts` gives the e2e suite what only the backend can do.
 - `apps/bridge/`: optional local daemon on 127.0.0.1, one token per capability.
 - `scripts/`: export validation, contrast audit, scale audit, and visual probes. Run from the repository root.

@@ -6,7 +6,7 @@
 
 [![Quality](https://github.com/neogenz/screenforge/actions/workflows/quality.yml/badge.svg)](https://github.com/neogenz/screenforge/actions/workflows/quality.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/neogenz/screenforge)
-[![License](https://img.shields.io/badge/license-proprietary-red?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue?style=flat-square)](LICENSE)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
@@ -90,8 +90,11 @@ GitHub, Convex, Vercel, Polar or Resend secret store that consumes them;
 | `pnpm test:e2e`                      | E2E local; omits cloud when Convex is stopped     |
 | `pnpm test:e2e:release`              | E2E strict; starts Convex and forbids cloud skips |
 | `pnpm test:release`                  | Full strict gate (tests, builds, E2E, audits)     |
+| `pnpm test:release-tag`              | Self-test the canonical SemVer tag contract       |
+| `pnpm verify:release-tag vX.Y.Z`     | Match a release tag to the root package version   |
 | `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules  |
 | `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)      |
+| `pnpm audit:dependencies`            | Fail on any known dependency vulnerability        |
 | `pnpm audit:scale`                   | Spacing scale audit                               |
 | `pnpm audit:publication`             | Audit tracked files and public AIDD content       |
 | `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)     |
@@ -107,9 +110,24 @@ scripts/     Release, security and export audits
 aidd_docs/   Versioned plans and project memory; secrets are forbidden here
 ```
 
+## Releases
+
+Production is released only from an immutable `vMAJOR.MINOR.PATCH` tag created
+by the approved Release Please pull request. A tag first runs the complete
+release gate without production secrets, then builds a staged Vercel candidate,
+deploys the compatible Convex backend, smoke-tests the candidate and promotes
+the same build. See [RELEASING.md](RELEASING.md) for the operator runbook.
+
 ## License
 
-The repository currently remains under the terms in [LICENSE](LICENSE). Public visibility is gated on selecting terms that explicitly permit the documented Local clone, build and use rights; no ad-hoc licence is inferred from repository visibility.
+Copyright © 2026 Maxime De Sogus.
+
+ScreenForge is free software licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE). You may run,
+study, modify and redistribute it under that licence. A modified version
+offered over a network must make its corresponding source available to its
+users. The managed ScreenForge Cloud subscription pays for the operated
+account, synchronization, storage and backups; it does not restrict Local.
 
 Third-party works redistributed in this repository keep their own licence and
 notices: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

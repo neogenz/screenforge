@@ -28,8 +28,8 @@
 - `pnpm run test:unit`: unit suite.
 - `pnpm run test:e2e`: local Chromium suite; the cloud project is omitted when Convex is not already running.
 - `pnpm run test:e2e:release`: strict Chromium suite; Playwright starts Convex on 3210/3211 and fails if any cloud prerequisite is absent.
-- `pnpm run test:release`: complete release proof, including both commercial builds, strict cloud E2E, and audits.
+- `pnpm run test:release`: complete release proof with dependency and publication audits, one production build, strict Cloud E2E and visual/security audits.
 - Run all commands from the workspace root; root scripts delegate to the owning package.
 - `pnpm --filter backend run test:unit`: the deployment suite (already included in `pnpm run test:unit`).
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
-- GitHub runs the release gate on every push and pull request and uploads Playwright diagnostics on failure.
+- GitHub runs Quality on `main` and pull requests. Production runs only from a canonical Release Please SemVer tag; diagnostics are scanned before their three-day upload.

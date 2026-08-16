@@ -125,20 +125,45 @@ async function validateDeployment(value) {
   invariant(response.ok, `Deployment returned ${response.status}.`)
   invariant(new URL(response.url).protocol === 'https:', 'Deployment redirected away from HTTPS.')
 
-  const policy = requiredHeader(response.headers, 'content-security-policy')
-  await validateBuiltDocuments(validatePolicy(policy))
-  invariant(
-    /\bmax-age=\d+/i.test(requiredHeader(response.headers, 'strict-transport-security')),
-    'HSTS needs max-age.',
-  )
-  requiredHeader(response.headers, 'x-content-type-options', 'nosniff')
-  requiredHeader(response.headers, 'x-frame-options', 'DENY')
-  requiredHeader(response.headers, 'referrer-policy', 'strict-origin-when-cross-origin')
-  requiredHeader(response.headers, 'permissions-policy', 'camera=(), microphone=(), geolocation=()')
+  await validateResponseHeaders(response.headers)
   const verified = new URL(response.url)
   verified.search = ''
   verified.hash = ''
   console.log(`Security headers verified on ${verified}`)
+}
+
+/** @param {Headers} headers */
+async function validateResponseHeaders(headers) {
+  const policy = requiredHeader(headers, 'content-security-policy')
+  await validateBuiltDocuments(validatePolicy(policy))
+  invariant(
+    /\bmax-age=\d+/i.test(requiredHeader(headers, 'strict-transport-security')),
+    'HSTS needs max-age.',
+  )
+  requiredHeader(headers, 'x-content-type-options', 'nosniff')
+  requiredHeader(headers, 'x-frame-options', 'DENY')
+  requiredHeader(headers, 'referrer-policy', 'strict-origin-when-cross-origin')
+  requiredHeader(headers, 'permissions-policy', 'camera=(), microphone=(), geolocation=()')
+}
+
+/** @param {string} path */
+async function validateHeaderFile(path) {
+  const blocks = (await readFile(resolve(path), 'utf8'))
+    .split(/\r?\n\r?\n/)
+    .map((block) => block.trim())
+    .filter((block) => block.startsWith('HTTP/'))
+  const lines = blocks.at(-1)?.split(/\r?\n/) ?? []
+  invariant(
+    lines[0]?.match(/^HTTP\/\S+ 2\d\d\b/),
+    'Staged deployment did not return a 2xx response.',
+  )
+  const headers = new Headers()
+  for (const line of lines.slice(1)) {
+    const separator = line.indexOf(':')
+    if (separator > 0) headers.append(line.slice(0, separator), line.slice(separator + 1).trim())
+  }
+  await validateResponseHeaders(headers)
+  console.log('Security headers verified on staged deployment.')
 }
 
 const policy = await configuredPolicy()
@@ -146,5 +171,8 @@ const scriptSources = validatePolicy(policy)
 await validateBuiltDocuments(scriptSources)
 
 const target = process.argv[2]
-if (target && target !== '--build-only') await validateDeployment(target)
+if (target === '--headers-file') {
+  invariant(process.argv[3], 'Usage: security-headers-audit.mjs --headers-file <path>')
+  await validateHeaderFile(process.argv[3])
+} else if (target && target !== '--build-only') await validateDeployment(target)
 else console.log('CSP and built inline scripts verified.')

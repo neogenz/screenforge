@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: relier CI, releases et publication au gate GO PUBLIC

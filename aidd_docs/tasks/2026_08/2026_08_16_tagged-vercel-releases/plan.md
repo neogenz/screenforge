@@ -1,6 +1,6 @@
 ---
 objective: "Chaque tag SemVer de release doit être créé depuis une release approuvée, générer automatiquement le changelog puis déployer et vérifier ScreenForge sur Convex et Vercel sans exposer de secret ni publier un candidat défectueux."
-status: blocked
+status: in-progress
 ---
 
 # Plan: releases taguées et déploiement Vercel par CI

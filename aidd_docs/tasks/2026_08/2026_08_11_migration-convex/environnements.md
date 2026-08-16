@@ -311,16 +311,15 @@ Il rend `[]` quand tout est posé, et sinon le nom de chaque variable manquante.
 
 ## Étape 3 — le navigateur
 
-Deux variables, toutes deux publiques et toutes deux facultatives. Elles ne
-disent pas la même chose et c'est pour cela qu'elles sont deux : l'une ouvre le
-compte, l'autre ouvre la vente.
+Une variable publique et facultative relie le navigateur au service Cloud. Son
+absence conserve le produit Local complet; sa présence rend compte et checkout
+Cloud disponibles sans modifier les exports Local.
 
 `.env` à la racine du dépôt (`apps/web/vite.config.ts` lit `envDir` depuis la
 racine) :
 
 ```
 VITE_CONVEX_URL=http://127.0.0.1:3210
-VITE_COMMERCIAL_LAUNCH=1
 ```
 
 C'est l'état actuel du fichier, et il ne bouge pas : l'éditeur lancé par
@@ -363,14 +362,7 @@ VITE_CONVEX_URL=https://acrobatic-orca-116.eu-west-1.convex.cloud pnpm run build
 fait de ScreenForge une application purement locale, et c'est un invariant testé
 (`e2e/boot-shell.spec.ts`).
 
-`VITE_COMMERCIAL_LAUNCH` ouvre les tarifs, le checkout et les paliers payants.
-Vide, l'éditeur reste en avant-lancement : exports propres illimités, aucune
-boîte de prix, aucune promesse d'achat qu'on ne pourrait pas honorer. N'importe
-quelle valeur non vide l'ouvre. Elle est séparée de la précédente parce que le
-même déploiement sert les comptes gratuits : la présence d'un déploiement ne dit
-rien de l'ouverture commerciale.
-
-Pour la préproduction et la production, posez-les dans les variables
+Pour la préproduction et la production, posez-la dans les variables
 d'environnement de la plateforme d'hébergement, jamais dans le dépôt.
 
 ## Vérifier
@@ -404,7 +396,7 @@ Mesuré le 2026-08-12, pas déduit.
 | Resend, Google, GitHub | non | non | non |
 | Les six valeurs Polar | non | non | non |
 | Fixture Password persistante | non | non | non |
-| Licence + Cloud de fixture | créée à la demande, jetable | aucune | aucune |
+| Cloud de fixture | créé à la demande, jetable | aucun | aucun |
 | `projects` / `assets` | selon la suite e2e | vides | vides |
 
 La production est vide et doit le rester tant que la vente n'est pas ouverte.
@@ -553,12 +545,12 @@ Référence : [variables par déploiement Convex](https://docs.convex.dev/produc
 
 ### Variables Vercel et séparation des secrets
 
-Le projet Vercel, une fois créé, ne reçoit que ces deux valeurs publiques :
+Le projet Vercel ne reçoit que cette valeur publique :
 
-| Environnement Vercel | `VITE_CONVEX_URL` | `VITE_COMMERCIAL_LAUNCH` |
-| --- | --- | --- |
-| Preview | `https://acrobatic-orca-116.eu-west-1.convex.cloud` | vide jusqu'au passage commercial complet |
-| Production | `https://colorful-caterpillar-775.eu-west-1.convex.cloud` | `1` uniquement au go final |
+| Environnement Vercel | `VITE_CONVEX_URL` |
+| --- | --- |
+| Preview | `https://acrobatic-orca-116.eu-west-1.convex.cloud` |
+| Production | `https://colorful-caterpillar-775.eu-west-1.convex.cloud` |
 
 JWT, OAuth, Resend, Polar et les clés de déploiement restent exclusivement dans
 Convex ou dans les fichiers locaux ignorés. Après chaque build, rechercher dans

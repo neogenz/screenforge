@@ -26,9 +26,9 @@ flowchart LR
 
 - The app is local-first: the editor, the render and the export never need the network, which is what keeps user projects private and the marginal cost near zero.
 - The browser reaches nothing but functions: there is no table URL, no anonymous key and no direct path to the data. Bytes travel through authenticated `httpAction`s rather than signed file URLs, so a leaked link is not a leaked file.
-- Two independent entitlements, not one plan: `licence` is perpetual, `cloud` is annual and requires the licence. The mirror is rebuilt whole from Polar's `customer.state_changed`, never from a sequence of events.
+- Cloud is the only entitlement. Polar's annual Cloud subscription is mirrored from `customer.state_changed`; Local capabilities never consult an account, entitlement or commercial switch.
 - The commercial rule is written once, in `apps/backend/convex/entitlements.ts`, and both the deployment and the editor import that file. It used to have three projections — SQL, server, client — each naming the other two in a comment; the migration is what removed the need for them to agree.
-- The free-tier watermark and export counter are client-side by design. Server-side validation would send the render or the file upstream and destroy the local-first promise; the model is honest payment, not unbreakable DRM.
+- Local export is universally clean and unlimited. Historical releases may still record `watermarked` only so the app can refuse an old frozen artifact and ask for a clean regeneration; new exports never create one.
 - `project.store` alone owns the project graph, active screen and layers. `canvas.store` owns selection plus interaction/history commands and always reads domain data from the project at call time.
 - `src/hooks/use-canvas.ts` owns the Fabric instance and granular project synchronization. Flat installers under `src/lib/canvas/install-*` own interactions, viewport and cancellable thumbnail work; Fabric objects are never a second domain store.
 - Binary payloads live in `src/lib/assets.ts`, not layers, keeping history snapshots and sync diffs small.

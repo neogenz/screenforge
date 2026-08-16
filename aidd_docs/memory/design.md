@@ -22,7 +22,7 @@
 
 ## Components
 
-- Commercial surfaces present exactly two paid choices: Local and Cloud. The trial appears only as supporting copy, never as a third card; Cloud is standalone and its account state names projects, images, and theme sync explicitly.
+- Commercial surfaces present exactly two offers: free Local and paid Cloud. Cloud is standalone and its account state names projects, images and settings sync explicitly; no trial, export paywall or Local purchase is presented.
 - Controls use the shared `Button`, `IconButton`, `Input`, `NumberField`, `Select`, `Slider`, `Switch`, `Dialog`, `Popover`, and related primitives.
 - Single-line controls carry inline labels; only composite or multiline controls stack labels, sliders included when nothing else names them.
 - Panel sections are hairline-separated bands, so no chrome stacks more than two surfaces; recessed cards remain a modal device.

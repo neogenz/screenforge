@@ -72,7 +72,7 @@ journey
 > Relier la CI à des cibles explicites avant le premier tag.
 
 1. Créer/importer le projet ScreenForge depuis la racine, confirmer build/output et Node 24, puis relever org id et project id.
-2. Ne garder dans Vercel Production que `VITE_CONVEX_URL` et `VITE_COMMERCIAL_LAUNCH`; conserver Auth, Resend et Polar dans Convex.
+2. Ne garder dans Vercel Production que la valeur publique `VITE_CONVEX_URL`; conserver Auth, Resend et Polar dans Convex.
 3. Vérifier que les auto-déploiements Git sont désactivés et que la Deployment Protection laisse `vercel curl` contrôler un staged sans le rendre public.
 4. Créer une deploy key Convex production dédiée CI, la poser dans GitHub puis révoquer tout jeton de bootstrap devenu inutile.
 

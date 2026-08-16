@@ -256,7 +256,7 @@ test.describe('Sync cloud', () => {
     await expect(opener).toBeFocused()
   })
 
-  test('le transport réel accepte 16 MiB et refuse 17 MiB sans ligne distante', async () => {
+  test('le transport réel accepte 16 MiB et refuse l’octet suivant sans ligne distante', async () => {
     const own = await signUpSession(stack!)
     expect(await grantCloud(admin(), own.userId)).toBe('written')
     const acceptedId = `asset-16-${String(Date.now())}`
@@ -279,9 +279,9 @@ test.describe('Sync cloud', () => {
       const rejected = await tryRemoteAssetUpload(
         own,
         rejectedId,
-        new Blob([new Uint8Array(17 * 1024 * 1024)], { type: 'image/png' }),
+        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
       )
-      expect(rejected).toEqual({ status: 413, outcome: 'rejected' })
+      expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })
       expect(await readRemote(stack!, own, `/asset/${rejectedId}`)).toBeNull()
     } finally {
       await deleteRemoteAccount(own)
@@ -1150,7 +1150,7 @@ test.describe('Sync cloud', () => {
  *
  * `requireCloud` refuse déjà l'écriture d'un compte sans abonnement — c'est le
  * verrou, et `apps/backend/convex/authz.test.ts` le tient. Ce qui se mesure ici
- * est l'autre moitié : un compte Licence ne doit rien *tenter*. Lui laisser
+ * est l'autre moitié : un compte sans Cloud ne doit rien *tenter*. Lui laisser
  * découvrir la porte par un refus produirait une pastille rouge et un toast
  * d'échec pour une fonction qu'il n'a simplement pas achetée.
  */

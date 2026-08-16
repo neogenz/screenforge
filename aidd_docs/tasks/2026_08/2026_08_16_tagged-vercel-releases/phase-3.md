@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: déployer Convex et Vercel exclusivement depuis un tag valide
@@ -14,7 +14,7 @@ status: pending
 │   └── workflows/
 │       └── deploy-production.yml ✅ vérifie le tag, stage, smoke, promeut et rollback le web
 ├── .gitignore ✏️ exclut l'état local `.vercel`
-├── package.json ✏️ contrat de tag, commande Convex CI et CLI Vercel verrouillée
+├── package.json ✏️ contrat de tag, commande Convex CI, audit et CLI Vercel verrouillée
 ├── pnpm-lock.yaml ✏️ verrouille la version transitivement exacte de Vercel CLI
 ├── scripts/
 │   └── verify-release-tag.mjs ✅ assertion SemVer/version avec auto-test natif Node
@@ -76,9 +76,10 @@ journey
 > Produire une seule fois les octets qui seront ensuite promus.
 
 1. Installer Vercel CLI comme devDependency verrouillée; ne jamais installer `latest` globalement dans le runner.
-2. Injecter `VERCEL_ORG_ID` et `VERCEL_PROJECT_ID`, puis exécuter `vercel pull --environment=production` et `vercel build --prod` depuis la racine.
-3. Déployer le résultat avec `--prebuilt --prod --skip-domain --archive=tgz` et capturer son URL sans journaliser de secret.
-4. Déclarer `git.deploymentEnabled: false` afin qu'aucun push de branche ne crée une seconde voie de production.
+2. Verrouiller les correctifs transitifs nécessaires et faire échouer la CI dès qu’un advisory connu touche le lockfile.
+3. Injecter `VERCEL_ORG_ID` et `VERCEL_PROJECT_ID`, puis exécuter `vercel pull --environment=production` et `vercel build --prod` depuis la racine.
+4. Déployer le résultat avec `--prebuilt --prod --skip-domain --archive=tgz` et capturer son URL sans journaliser de secret.
+5. Déclarer `git.deploymentEnabled: false` afin qu'aucun push de branche ne crée une seconde voie de production.
 
 ### `3)` Déployer le backend avec une clé bornée
 
@@ -104,6 +105,6 @@ journey
 | Task | Acceptance criteria |
 | --- | --- |
 | 1 | Le self-check accepte les tags SemVer canoniques, rejette préfixes/suffixes/zéros ambigus et refuse toute divergence avec la version racine ou `main`; aucun secret production n'est alors accessible. |
-| 2 | Un tag valide produit une URL staged construite avec les variables production, tandis qu'un push ordinaire sur `main` ne déclenche aucun déploiement Vercel. |
+| 2 | Le lockfile n’a aucun advisory connu; un tag valide produit une URL staged construite avec les variables production, tandis qu'un push ordinaire sur `main` ne déclenche aucun déploiement Vercel. |
 | 3 | Convex reçoit exactement le code du tag via la deploy key production; un échec arrête la chaîne avant promotion et aucune clé n'est écrite sur disque ou dans les logs. |
 | 4 | Le candidat testé est celui promu; le domaine public passe le smoke et l'audit des headers, et une panne post-promotion simulée sur un environnement sûr prouve le rollback web. |
