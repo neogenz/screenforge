@@ -60,6 +60,7 @@ export interface ParamSchema {
   pattern?: string
   minimum?: number
   maximum?: number
+  minLength?: number
   maxLength?: number
   maxItems?: number
   items?: ParamSchema
@@ -133,6 +134,33 @@ const background: ParamSchema = {
   },
   required: ['type'],
   additionalProperties: false,
+}
+
+/**
+ * Le mot mis en avant dans une accroche, désigné par lui-même.
+ *
+ * Un passage se nomme (`text`), il ne se repère pas par un couple d'index :
+ * l'index est une seconde vérité, qui périme dès que la copie bouge d'un
+ * caractère, et un modèle qui écrit « Vois **plus** loin » sait quel mot il
+ * vise, pas à quelle colonne il commence. La conversion en positions — points
+ * de code, lignes non repliées — appartient au dépôt, qui seul sait comment
+ * Fabric compte.
+ *
+ * Sans ce champ, colorer un mot obligeait à couper l'accroche en trois calques
+ * réalignés à la main : mesuré sur une vraie session, 18 calques texte pour 4
+ * accroches, dont deux se chevauchaient de 78 px.
+ */
+const emphasis: ParamSchema = {
+  type: 'array',
+  maxItems: 4,
+  description:
+    'Colore un ou plusieurs passages du contenu sans couper le calque. Chaque passage est cherché tel quel dans le texte, à sa première occurrence.',
+  items: {
+    type: 'object',
+    properties: { text: { type: 'string', minLength: 1, maxLength: 80 }, color },
+    required: ['text', 'color'],
+    additionalProperties: false,
+  },
 }
 
 const geometry: Record<string, ParamSchema> = {
@@ -243,6 +271,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
           fontWeight: { type: 'integer', minimum: 100, maximum: 900 },
           color,
           textAlign: { type: 'string', enum: ['left', 'center', 'right'] },
+          emphasis,
         },
         ['content'],
       ),
@@ -321,6 +350,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
             fontSize: { type: 'number', minimum: 8, maximum: 240 },
             fontWeight: { type: 'integer', minimum: 100, maximum: 900 },
             textAlign: { type: 'string', enum: ['left', 'center', 'right'] },
+            emphasis,
             color,
             fill: color,
             shapeType: { type: 'string', enum: catalogs.shapeIds },
@@ -414,6 +444,9 @@ export function validateAgainst(schema: ParamSchema, value: unknown, path = 'arg
   }
   if (schema.type === 'string') {
     if (typeof value !== 'string') return `${path} : texte attendu`
+    if (schema.minLength !== undefined && value.length < schema.minLength) {
+      return `${path} : ${schema.minLength} caractère au moins`
+    }
     if (schema.maxLength !== undefined && value.length > schema.maxLength) {
       return `${path} : ${schema.maxLength} caractères au plus`
     }
@@ -453,7 +486,20 @@ const COMMON_PATCH = [
 ] as const
 
 export const PATCHABLE_PROPS: Record<LayerType, readonly string[]> = {
-  text: [...COMMON_PATCH, 'content', 'fontFamily', 'fontSize', 'fontWeight', 'color', 'textAlign'],
+  /* `emphasis` n'est pas une propriété du calque : l'exécuteur la consomme pour
+     en dériver `charStyles`, et ne la recopie jamais. Elle est ici parce que
+     l'allowlist filtre les clés du patch avant lui — sans elle, le schéma
+     accepterait un champ que l'exécuteur refuserait deux lignes plus loin. */
+  text: [
+    ...COMMON_PATCH,
+    'content',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'color',
+    'textAlign',
+    'emphasis',
+  ],
   shape: [...COMMON_PATCH, 'shapeType', 'fill'],
   icon: [...COMMON_PATCH, 'iconId', 'color'],
   image: COMMON_PATCH,

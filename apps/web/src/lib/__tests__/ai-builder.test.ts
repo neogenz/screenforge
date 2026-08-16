@@ -270,6 +270,141 @@ describe('le constructeur', () => {
   })
 })
 
+describe('l’exergue', () => {
+  const red = '#ff0044'
+
+  it('colore un mot sans couper le calque', () => {
+    const draft = project()
+    const outcome = applyToolCalls(draft, [
+      {
+        tool: 'add_text',
+        args: {
+          content: 'Vois plus loin',
+          color: '#ffffff',
+          emphasis: [{ text: 'plus', color: red }],
+        },
+      },
+    ])
+
+    expect(outcome.error).toBeUndefined()
+    // Le défaut mesuré était 18 calques pour 4 accroches : un seul, ici.
+    expect(draft.screens[0].layers).toHaveLength(1)
+    const layer = draft.screens[0].layers[0] as TextLayer
+    expect(layer.color).toBe('#ffffff')
+    // « plus » occupe les colonnes 5 à 8, et rien d’autre n’est peint.
+    expect(layer.charStyles).toEqual({
+      0: { 5: { fill: red }, 6: { fill: red }, 7: { fill: red }, 8: { fill: red } },
+    })
+  })
+
+  it('compte en points de code, pas en unités UTF-16', () => {
+    const draft = project()
+    // « 🚀 » vaut deux unités UTF-16 et une seule position pour Fabric : compté
+    // à l’envers, l’exergue partirait une colonne trop loin.
+    applyToolCalls(draft, [
+      {
+        tool: 'add_text',
+        args: { content: '🚀 plus vite', emphasis: [{ text: 'plus', color: red }] },
+      },
+    ])
+    expect(Object.keys((draft.screens[0].layers[0] as TextLayer).charStyles![0])).toEqual([
+      '2',
+      '3',
+      '4',
+      '5',
+    ])
+  })
+
+  it('ne peint que la première occurrence', () => {
+    const draft = project()
+    applyToolCalls(draft, [
+      {
+        tool: 'add_text',
+        args: { content: 'plus et plus', emphasis: [{ text: 'plus', color: red }] },
+      },
+    ])
+    expect(Object.keys((draft.screens[0].layers[0] as TextLayer).charStyles![0])).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+    ])
+  })
+
+  it('refuse le lot entier quand le passage n’est pas dans le texte', () => {
+    const draft = project()
+    const outcome = applyToolCalls(draft, [
+      {
+        tool: 'add_text',
+        args: { content: 'Vois plus loin', emphasis: [{ text: 'loing', color: red }] },
+      },
+      { tool: 'add_text', args: { content: 'Jamais posé' } },
+    ])
+
+    expect(outcome.error).toMatch(/loing/)
+    expect(outcome.error).toMatch(/Vois plus loin/)
+    expect(draft.screens[0].layers).toHaveLength(0)
+  })
+
+  it('remplace les couleurs depuis le contenu final, ou les retire', () => {
+    const draft = project()
+    applyToolCalls(draft, [
+      {
+        tool: 'add_text',
+        args: { content: 'Vois plus loin', emphasis: [{ text: 'plus', color: red }] },
+      },
+    ])
+    const id = draft.screens[0].layers[0].id
+
+    // Un exergue redonné vise le nouveau texte, pas l’ancien.
+    expect(
+      applyToolCalls(draft, [
+        {
+          tool: 'update_layer',
+          args: {
+            layerId: id,
+            patch: { content: 'Va plus vite', emphasis: [{ text: 'vite', color: red }] },
+          },
+        },
+      ]).error,
+    ).toBeUndefined()
+    expect((draft.screens[0].layers[0] as TextLayer).charStyles).toEqual({
+      0: { 8: { fill: red }, 9: { fill: red }, 10: { fill: red }, 11: { fill: red } },
+    })
+
+    // Un contenu changé sans exergue perd ses couleurs au lieu de les décaler.
+    applyToolCalls(draft, [
+      { tool: 'update_layer', args: { layerId: id, patch: { content: 'Autre chose' } } },
+    ])
+    expect((draft.screens[0].layers[0] as TextLayer).charStyles).toBeUndefined()
+  })
+
+  it('est bornée par le schéma avant d’atteindre l’exécuteur', () => {
+    expect(
+      validateToolCall({
+        tool: 'add_text',
+        args: { content: 'x', emphasis: [{ text: 'x', color: 'rouge' }] },
+      }),
+    ).toMatch(/format/)
+    expect(
+      validateToolCall({
+        tool: 'add_text',
+        args: { content: 'x', emphasis: [{ text: '', color: red }] },
+      }),
+    ).toMatch(/au moins/)
+    expect(
+      validateToolCall({
+        tool: 'add_text',
+        args: {
+          content: 'x',
+          emphasis: Array.from({ length: 5 }, () => ({ text: 'x', color: red })),
+        },
+      }),
+    ).toMatch(/4 éléments au plus/)
+    expect(PATCHABLE_PROPS.text).toContain('emphasis')
+  })
+})
+
 describe('le plan', () => {
   it('applique les mêmes critères intrinsèques au préflight et au plan final', () => {
     const tooLong = 'Anticonstitutionnellement Anticonstitutionnellement Anticonstitutionnellement'

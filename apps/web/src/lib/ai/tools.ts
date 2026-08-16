@@ -8,6 +8,7 @@ import {
 } from '@/lib/layer-factories'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
 import { normalizeSlot } from '@/lib/slots'
+import { setRangeFill } from '@/lib/text-styles'
 import {
   AI_LIMITS,
   CONTENT_FONTS,
@@ -27,7 +28,7 @@ import type {
   ToolResult,
   ToolSchema,
 } from '@screenforge/project-format'
-import type { Background, DeviceModel, Layer, Project, Screen } from '@/types'
+import type { Background, DeviceModel, Layer, Project, Screen, TextCharStyles } from '@/types'
 
 /**
  * Ce qu'un modèle peut faire au projet, et rien d'autre.
@@ -78,6 +79,41 @@ function place(layer: Layer, args: Record<string, unknown>): Layer {
     if (typeof args[key] === 'number') layer[key] = args[key]
   }
   return layer
+}
+
+/**
+ * Le modèle nomme le mot, le dépôt calcule les index.
+ *
+ * `emphasis` désigne un passage par son texte ; `setRangeFill` veut des
+ * positions en **points de code**, sur les lignes que sépare un `\n`. La
+ * conversion tient en une ligne (`[...content.slice(0, at)].length`) et doit
+ * vivre ici : `indexOf` compte en unités UTF-16, donc une accroche portant un
+ * emoji avant le passage décalerait la couleur d'un cran par emoji.
+ *
+ * Seule la **première** occurrence est peinte. Colorer toutes les occurrences
+ * ferait d'un « et » emphatique un texte bariolé, et le modèle n'aurait aucun
+ * moyen de dire lequel il visait — la règle est donc énoncée dans le schéma
+ * plutôt que devinée.
+ *
+ * Un passage introuvable refuse le lot entier au lieu d'être ignoré : un
+ * exergue silencieusement perdu rendrait « posé » un calque que l'agent croit
+ * coloré, et il ne le revérifierait jamais.
+ */
+function resolveEmphasis(
+  content: string,
+  passages: readonly unknown[],
+): { charStyles?: TextCharStyles } | { error: string } {
+  let charStyles: TextCharStyles | undefined
+  for (const passage of passages) {
+    const { text, color } = passage as { text: string; color: string }
+    const at = content.indexOf(text)
+    if (at < 0) {
+      return { error: `Passage absent du texte : « ${text} » n’est pas dans « ${content} »` }
+    }
+    const start = [...content.slice(0, at)].length
+    charStyles = setRangeFill(content, charStyles, start, start + [...text].length, color)
+  }
+  return { charStyles }
 }
 
 /**
@@ -163,6 +199,11 @@ export function applyToolCalls(
         if (typeof args.color === 'string') layer.color = args.color
         if (typeof args.textAlign === 'string') {
           layer.textAlign = args.textAlign as typeof layer.textAlign
+        }
+        if (Array.isArray(args.emphasis)) {
+          const resolved = resolveEmphasis(layer.content, args.emphasis)
+          if ('error' in resolved) return { results, error: resolved.error }
+          if (resolved.charStyles) layer.charStyles = resolved.charStyles
         }
         const failure = push(screen, place(layer, args), call.tool)
         if (failure) return { results, error: failure }
@@ -263,7 +304,23 @@ export function applyToolCalls(
               error: `${key} n’est pas modifiable sur un calque ${found.layer.type}`,
             }
           }
+          // `emphasis` n'est pas une propriété : elle se résout après le patch,
+          // sur le contenu **final**, sans quoi elle viserait l'ancien texte.
+          if (key === 'emphasis') continue
           ;(found.layer as unknown as Record<string, unknown>)[key] = value
+        }
+        /* Un contenu remplacé sans exergue perd ses couleurs plutôt que de les
+           garder sur les colonnes d'un texte qui n'existe plus : elles y
+           tomberaient au milieu de mots, ce que personne n'a demandé et que
+           rien n'annoncerait. */
+        if (found.layer.type === 'text' && ('emphasis' in patch || 'content' in patch)) {
+          const resolved = resolveEmphasis(
+            found.layer.content,
+            Array.isArray(patch.emphasis) ? patch.emphasis : [],
+          )
+          if ('error' in resolved) return { results, error: resolved.error }
+          if (resolved.charStyles) found.layer.charStyles = resolved.charStyles
+          else delete found.layer.charStyles
         }
         results.push({ tool: call.tool, screenId: found.screen?.id, layerId: found.layer.id })
         break
