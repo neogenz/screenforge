@@ -35,6 +35,26 @@ export const THUMBNAIL_SCHEMA: ParamSchema = {
   additionalProperties: false,
 }
 
+/**
+ * Le constat, relisible sans réanalyser une phrase — et l'image reste à côté.
+ *
+ * `data` n'y est pas : un PNG en base64 dans un `structuredContent` serait le
+ * même octet transporté deux fois, une fois en bloc image et une fois en champ.
+ * Ce qui gagne à être structuré, c'est la liste : un client qui compte les
+ * défauts ou les affiche n'a plus à découper un texte au tiret.
+ */
+export const THUMBNAIL_OUTPUT: ParamSchema = {
+  type: 'object',
+  properties: {
+    screenId: { type: 'string' },
+    width: { type: 'number' },
+    height: { type: 'number' },
+    findings: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['screenId', 'width', 'height', 'findings'],
+  additionalProperties: false,
+}
+
 function isRendered(value: unknown): value is RelayRendered {
   return (
     typeof value === 'object' &&
@@ -80,11 +100,13 @@ export async function renderThumbnail(
         isError: true,
       }
     }
+    const { screenId, width, height, findings } = rendered
     return {
       content: [
         { type: 'text', text: report(rendered) },
         { type: 'image', data: rendered.data, mimeType: 'image/png' },
       ],
+      structuredContent: { screenId, width, height, findings },
     }
   } catch (error) {
     return {

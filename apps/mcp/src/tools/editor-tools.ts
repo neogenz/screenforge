@@ -21,12 +21,14 @@ import type { RelaySession } from '../relay/session.ts'
 import { AssetRefusedError } from '../relay/assets.ts'
 import { readProjectState, readScreen } from './get-state.ts'
 import { ADD_IMAGE_SCHEMA, planAddImage, type AddImageArgs } from './add-image.ts'
-import { renderThumbnail, THUMBNAIL_SCHEMA } from './get-thumbnail.ts'
+import { renderThumbnail, THUMBNAIL_OUTPUT, THUMBNAIL_SCHEMA } from './get-thumbnail.ts'
 import { refreshScreenshots, REFRESH_SCHEMA, type RefreshArgs } from './refresh-screenshots.ts'
 import {
   listTemplates,
+  LIST_TEMPLATES_OUTPUT,
   LIST_TEMPLATES_SCHEMA,
   saveTemplate,
+  SAVE_TEMPLATE_OUTPUT,
   SAVE_TEMPLATE_SCHEMA,
 } from './templates.ts'
 
@@ -46,6 +48,44 @@ import {
  */
 
 const TOOL_PREFIX = 'screenforge_'
+
+/**
+ * Ce que l'outil fait, dans les mots de l'utilisateur.
+ *
+ * Le nom est une adresse — préfixée, en anglais, avec des tirets bas — et un
+ * client MCP l'affiche tel quel faute de mieux : « screenforge_add_device »
+ * dans une liste de permissions à accorder ne dit pas qu'on va poser un iPhone
+ * sur une planche. La spec 2026-07-28 réserve `title` à cet affichage, le nom
+ * restant l'identifiant.
+ *
+ * La table vit ici et non dans `ToolSchema` : ce schéma-là voyage jusque dans
+ * les requêtes des fournisseurs de modèles, et une étiquette française n'y a
+ * rien à faire. Ce qui empêche la table de dériver, c'est le test qui balaye le
+ * catalogue enregistré — un outil ajouté sans titre y échoue là, et non au
+ * démarrage du démon : une étiquette manquante est un défaut d'affichage, et
+ * refuser de servir un projet pour ça coûterait plus cher que le défaut.
+ */
+const TOOL_TITLES: Record<string, string> = {
+  get_project_state: 'Lire le projet',
+  get_screen: 'Lire un écran',
+  declare_plan: 'Annoncer le plan',
+  add_screen: 'Ajouter une planche',
+  set_background: 'Changer le fond',
+  add_text: 'Poser un texte',
+  add_shape: 'Poser une forme',
+  add_icon: 'Poser une icône',
+  add_device: 'Poser un iPhone',
+  add_image: 'Poser une image locale',
+  update_layer: 'Modifier un calque',
+  delete_layer: 'Retirer un calque',
+  assign_screenshot_slot: 'Donner son rôle à un appareil',
+  place_screenshot_asset: 'Remplir un appareil',
+  apply: 'Appliquer un lot',
+  get_thumbnail: 'Voir un écran',
+  refresh_screenshots: 'Rafraîchir les captures',
+  save_template: 'Enregistrer un gabarit',
+  list_templates: 'Lister les gabarits',
+}
 
 const { AI_TOOLS, toolSchema, validateToolCall } = createAiTools({
   deviceModels: DEVICE_MODEL_IDS,
@@ -179,6 +219,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
     server.registerTool(
       `${TOOL_PREFIX}${tool.name}`,
       {
+        title: TOOL_TITLES[tool.name],
         description: tool.description,
         inputSchema: fromJsonSchema<Record<string, unknown>>(tool.parameters, contractValidator),
         annotations: { readOnlyHint: Boolean(tool.readOnly) },
@@ -204,6 +245,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}apply`,
     {
+      title: TOOL_TITLES.apply,
       description:
         'Applique un lot d’appels en une seule écriture validée, annulable d’un seul Ctrl+Z.',
       inputSchema: fromJsonSchema<{ calls: ToolCall[] }>(BATCH_SCHEMA),
@@ -223,11 +265,13 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}get_thumbnail`,
     {
+      title: TOOL_TITLES.get_thumbnail,
       description: 'Rend un écran du projet ouvert en PNG, pour vérifier ce qui vient d’être posé.',
       inputSchema: fromJsonSchema<{ screenId?: string; maxWidth?: number }>(
         THUMBNAIL_SCHEMA,
         contractValidator,
       ),
+      outputSchema: fromJsonSchema<{ findings: string[] }>(THUMBNAIL_OUTPUT, contractValidator),
       annotations: { readOnlyHint: true },
     },
     async (args) => renderThumbnail(session, args),
@@ -245,6 +289,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}add_image`,
     {
+      title: TOOL_TITLES.add_image,
       description:
         'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre iPhone (role « screenshot »). Donnez un chemin absolu.',
       inputSchema: fromJsonSchema<AddImageArgs>(ADD_IMAGE_SCHEMA, contractValidator),
@@ -275,6 +320,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}refresh_screenshots`,
     {
+      title: TOOL_TITLES.refresh_screenshots,
       description:
         'Repose toutes les captures d’un répertoire sur les appareils dont le rôle correspond, sans toucher à la mise en page. Donnez un chemin absolu.',
       inputSchema: fromJsonSchema<RefreshArgs>(REFRESH_SCHEMA, contractValidator),
@@ -295,12 +341,14 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}save_template`,
     {
+      title: TOOL_TITLES.save_template,
       description:
         'Enregistre la mise en page d’un écran comme gabarit réutilisable, images comprises, capture d’écran exclue.',
       inputSchema: fromJsonSchema<{ name: string; description?: string; screenId?: string }>(
         SAVE_TEMPLATE_SCHEMA,
         contractValidator,
       ),
+      outputSchema: fromJsonSchema<{ id: string }>(SAVE_TEMPLATE_OUTPUT, contractValidator),
       annotations: { readOnlyHint: false },
     },
     async (args) => saveTemplate(session, args),
@@ -309,14 +357,33 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
   server.registerTool(
     `${TOOL_PREFIX}list_templates`,
     {
+      title: TOOL_TITLES.list_templates,
       description: 'Liste les gabarits enregistrés sur ce navigateur, tous projets confondus.',
       inputSchema: fromJsonSchema<Record<string, never>>(LIST_TEMPLATES_SCHEMA, contractValidator),
+      outputSchema: fromJsonSchema<{ templates: unknown[] }>(
+        LIST_TEMPLATES_OUTPUT,
+        contractValidator,
+      ),
       annotations: { readOnlyHint: true },
     },
     async () => listTemplates(session),
   )
 }
 
+/**
+ * Les deux lectures du projet rendent leur bloc texte seul, et c'est délibéré.
+ *
+ * Leur forme est la vue complète du projet — écrans, calques, appareils, rôles,
+ * cadrages —, celle que `readProjectState` compose depuis les types de
+ * `apps/web`. La recopier en JSON Schema ici en ferait une seconde déclaration
+ * de la même chose, tenue à la main, qui serait d'accord avec la première
+ * jusqu'au prochain champ ajouté puis refuserait un état parfaitement valide
+ * — la dérive exacte que `createAiTools` existe pour empêcher, et que le SDK
+ * rendrait fatale : un `outputSchema` déclaré fait échouer l'appel dont la
+ * sortie ne s'y conforme pas. Le `structuredContent` n'est donné qu'aux sorties
+ * qui sont déjà une interface courte et stable du protocole : la miniature et
+ * les gabarits.
+ */
 function read(reader: () => unknown): CallToolResult {
   try {
     return text(reader())

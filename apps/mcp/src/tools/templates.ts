@@ -37,10 +37,49 @@ export const LIST_TEMPLATES_SCHEMA: ParamSchema = {
   additionalProperties: false,
 }
 
-function text(payload: unknown): CallToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(payload) }] }
+/**
+ * La fiche d'un gabarit, déclarée une fois et lue par les deux sorties.
+ *
+ * C'est `RelayTemplateSummary`, écrit en schéma : la spec 2026-07-28 sait lire
+ * un `structuredContent`, mais seulement contre une forme annoncée. Elle est
+ * recopiée ici parce qu'elle tient en six champs stables — au-delà, une forme
+ * déclarée deux fois est une forme qui divergera, ce qui est exactement
+ * pourquoi les lecteurs de projet n'en ont pas.
+ */
+const templateSummary: ParamSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    source: { type: 'string', enum: ['ai', 'user'] },
+    layerCount: { type: 'integer' },
+    createdAt: { type: 'number' },
+  },
+  required: ['id', 'name', 'description', 'source', 'layerCount', 'createdAt'],
+  additionalProperties: false,
 }
 
+export const SAVE_TEMPLATE_OUTPUT = templateSummary
+
+export const LIST_TEMPLATES_OUTPUT: ParamSchema = {
+  type: 'object',
+  properties: { templates: { type: 'array', items: templateSummary } },
+  required: ['templates'],
+  additionalProperties: false,
+}
+
+/**
+ * Le JSON reste dans le bloc texte, et le double en sortie structurée.
+ *
+ * Un client qui ne lit pas `structuredContent` doit continuer à voir ce qu'il
+ * voyait ; un client qui le lit n'a plus à réanalyser une chaîne.
+ */
+function text(payload: unknown): CallToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload }
+}
+
+/** Un refus ne porte jamais de sortie structurée : ce serait inviter à lire le succès. */
 function refuse(detail: string): CallToolResult {
   return { content: [{ type: 'text', text: detail }], isError: true }
 }

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import type { CallToolResult, McpServer } from '@modelcontextprotocol/server'
+import { validateAgainst } from '@screenforge/project-format'
 import { createRelay, createRelayState, type RelayState } from './relay/server.ts'
 import { AppUnavailableError, RelaySession } from './relay/session.ts'
+import { registerEditorTools } from './tools/editor-tools.ts'
 import { renderThumbnail } from './tools/get-thumbnail.ts'
+import { LIST_TEMPLATES_OUTPUT, SAVE_TEMPLATE_OUTPUT } from './tools/templates.ts'
 
 /**
  * Le relais se teste sans navigateur : Hono répond à une `Request` fabriquée,
@@ -174,6 +178,133 @@ describe('la miniature', () => {
     const text = (result.content[0] as { text: string }).text
     expect(text).toMatch(/Aucun défaut mesuré/)
     expect(result.content).toHaveLength(2)
+  })
+
+  it('double son constat en sortie structurée, sans y remettre le PNG', async () => {
+    const { state, app } = relay()
+    const events = await openStream(state, app)
+    const result = await answerRender(state, app, events, ['Un défaut.'])
+
+    expect(result.structuredContent).toEqual({
+      screenId: 's1',
+      width: 640,
+      height: 1391,
+      findings: ['Un défaut.'],
+    })
+    // Le base64 reste dans son bloc image : l'y remettre transporterait deux
+    // fois le même octet.
+    expect(JSON.stringify(result.structuredContent)).not.toContain('UE5H')
+  })
+})
+
+/**
+ * Ce qui est réellement enregistré, relu tel quel.
+ *
+ * La table des titres pourrait être complète et l'appel à `registerTool`
+ * l'ignorer : c'est le catalogue publié qui compte, pas la table qui le nourrit.
+ */
+type ToolRun = (args: Record<string, unknown>) => Promise<CallToolResult> | CallToolResult
+
+function catalogue(state: RelayState = createRelayState()) {
+  const registered = new Map<string, { config: Record<string, unknown>; run: ToolRun }>()
+  const server = {
+    registerTool: (name: string, config: Record<string, unknown>, run: ToolRun) => {
+      registered.set(name, { config, run })
+    },
+  } as unknown as McpServer
+  registerEditorTools(server, state)
+  return registered
+}
+
+describe('le catalogue publié', () => {
+  it('donne à chaque outil un titre lisible, jamais son adresse', () => {
+    const tools = catalogue()
+    expect(tools.size).toBeGreaterThanOrEqual(19)
+    for (const [name, { config }] of tools) {
+      // Un client MCP affiche le nom faute de titre : « screenforge_add_device »
+      // dans une liste de permissions ne dit pas qu'on va poser un iPhone.
+      expect(config.title, name).toBeTruthy()
+      expect(String(config.title), name).not.toMatch(/screenforge_|_/)
+    }
+  })
+
+  it('ne déclare une forme de sortie que là où elle est courte et stable', () => {
+    const declared = [...catalogue()]
+      .filter(([, { config }]) => config.outputSchema !== undefined)
+      .map(([name]) => name)
+      .sort()
+
+    // La vue complète du projet n'en a pas : la recopier en JSON Schema serait
+    // une seconde déclaration tenue à la main, et le SDK fait échouer l'appel
+    // dont la sortie ne s'y conforme pas.
+    expect(declared).toEqual([
+      'screenforge_get_thumbnail',
+      'screenforge_list_templates',
+      'screenforge_save_template',
+    ])
+  })
+
+  it('rend la lecture du projet en bloc texte seul', async () => {
+    const { state, app } = relay()
+    await app.request('/state', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, Authorization: `Bearer ${state.pairing.token}` },
+      body: JSON.stringify({ state: { name: 'Projet', screens: [] } }),
+    })
+
+    const result = await catalogue(state).get('screenforge_get_project_state')!.run({})
+    expect(result.isError).toBeUndefined()
+    expect(result.structuredContent).toBeUndefined()
+    expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({
+      name: 'Projet',
+    })
+  })
+
+  it('rend une sortie structurée conforme à la forme qu’il déclare', async () => {
+    const { state, app } = relay()
+    const events = await openStream(state, app)
+    const tools = catalogue(state)
+    const fiche = {
+      id: 'gab-1',
+      name: 'Plein cadre',
+      description: 'Accroche haute, appareil centré',
+      source: 'user',
+      layerCount: 4,
+      createdAt: 1_755_000_000_000,
+    }
+
+    for (const [name, answer, schema] of [
+      ['screenforge_save_template', fiche, SAVE_TEMPLATE_OUTPUT],
+      ['screenforge_list_templates', { templates: [fiche] }, LIST_TEMPLATES_OUTPUT],
+    ] as const) {
+      const answered = tools.get(name)!.run({ name: 'Plein cadre' })
+      const frame = await events.next()
+      await app.request('/result', {
+        method: 'POST',
+        headers: { Origin: ORIGIN, Authorization: `Bearer ${state.pairing.token}` },
+        body: JSON.stringify({
+          id: (JSON.parse(frame.value!.data) as { id: string }).id,
+          ok: true,
+          result: answer,
+        }),
+      })
+      const result = await answered
+
+      // Le SDK refuse l'appel dont la sortie ne se conforme pas au schéma
+      // déclaré : le vérifier ici est la seule façon de l'apprendre avant
+      // l'agent. Le bloc texte reste, pour les clients qui ne lisent que lui.
+      expect(result.isError, name).toBeUndefined()
+      expect(validateAgainst(schema, result.structuredContent), name).toBeNull()
+      expect(JSON.parse((result.content[0] as { text: string }).text), name).toEqual(answer)
+    }
+  })
+
+  it('ne fait jamais suivre un refus d’une sortie structurée', async () => {
+    // `save_template` déclare une forme et n'a pas d'éditeur branché : c'est le
+    // cas où une sortie valide à côté d'une erreur inviterait à lire la première.
+    const result = await catalogue().get('screenforge_save_template')!.run({ name: 'Gabarit' })
+    expect(result.isError).toBe(true)
+    expect(result.structuredContent).toBeUndefined()
   })
 })
 

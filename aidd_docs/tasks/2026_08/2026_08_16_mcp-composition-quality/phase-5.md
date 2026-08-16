@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Le serveur rend ce que la spec 2026-07-28 sait lire
