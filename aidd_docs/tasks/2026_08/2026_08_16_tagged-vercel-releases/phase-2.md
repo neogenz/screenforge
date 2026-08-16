@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: automatiser SemVer, changelog, GitHub Release et tags
