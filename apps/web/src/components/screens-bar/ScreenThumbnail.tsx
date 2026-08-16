@@ -5,6 +5,7 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   Copy,
+  LayoutTemplate,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -15,6 +16,8 @@ import { Popover } from '@/components/ui/popover'
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { defaultScreenName } from '@/lib/screens'
+import { useTemplatesStore } from '@/stores/templates.store'
+import { toast } from '@/stores/toast.store'
 import {
   THUMBNAIL_BADGE_SIZE,
   THUMBNAIL_HEIGHT,
@@ -27,6 +30,23 @@ import type { Screen } from '@/types'
 
 /** Comment un clic sur une tuile change la sélection de la pellicule. */
 export type PickMode = 'single' | 'toggle' | 'range'
+
+/**
+ * La composition de cet écran, gardée pour les projets suivants.
+ *
+ * Le geste est celui de l'agent — même store, même contrat — et c'est ce qui
+ * fait que le badge « IA » du sélecteur veut dire quelque chose : sans une voie
+ * humaine, tous les gabarits porteraient la même origine.
+ */
+async function saveAsTemplate(screen: Screen): Promise<void> {
+  // `screenId` et non l'écran actif : le menu agit sur la tuile cliquée, qui
+  // n'est pas forcément celle que la planche montre.
+  const outcome = await useTemplatesStore
+    .getState()
+    .save({ name: screen.name, screenId: screen.id, source: 'user' })
+  if (outcome.ok) toast(`Gabarit « ${outcome.template.name} » enregistré.`, 'success')
+  else toast(outcome.error, 'error')
+}
 
 interface ScreenThumbnailProps {
   screen: Screen
@@ -371,6 +391,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
               label: grouped('Dupliquer', groupSize),
               icon: <Copy size={11} strokeWidth={1.5} aria-hidden />,
               onSelect: () => onDuplicate(screen.id),
+            },
+            {
+              /* Sous le nom de l'écran, sans boîte de dialogue : le nom est
+                 déjà celui que l'utilisateur a choisi, et s'il est pris le
+                 refus le dit — un champ de plus pour une valeur qu'on connaît
+                 déjà se remplirait à l'identique neuf fois sur dix. */
+              label: 'Enregistrer comme gabarit',
+              icon: <LayoutTemplate size={11} strokeWidth={1.5} aria-hidden />,
+              onSelect: () => void saveAsTemplate(screen),
             },
             'separator',
             {

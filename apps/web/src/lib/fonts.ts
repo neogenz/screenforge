@@ -1,7 +1,30 @@
 import { cache } from 'fabric'
+import { CONTENT_FONTS } from '@screenforge/project-format/catalog-ids'
 
 const loadedFonts = new Set<string>()
 const fontPromises = new Map<string, Promise<FontLoadResult>>()
+const metricsListeners = new Set<(family: string) => void>()
+
+/**
+ * S'abonner à l'instant où la mesure d'une famille change.
+ *
+ * Ce module purge déjà le cache de largeurs de Fabric pour tout le monde ; il
+ * doit donc annoncer ce qu'il vient d'invalider. Laisser la revalidation chez
+ * l'appelant qui a demandé la police a produit un défaut mesuré : une seule
+ * requête part par couple famille+graisse, donc un seul calque avait un rappel,
+ * et les autres gardaient les retours à la ligne mesurés sur la police de
+ * secours pendant que leurs glyphes se dessinaient dans la vraie — le texte
+ * sortait de sa boîte sur toutes les planches sauf la première.
+ *
+ * La fonction rendue désabonne : un écouteur au module survit au canevas qui
+ * l'a posé, et repeindrait sur une scène détruite.
+ */
+export function onFontMetricsChanged(listener: (family: string) => void): () => void {
+  metricsListeners.add(listener)
+  return () => {
+    metricsListeners.delete(listener)
+  }
+}
 
 export interface FontLoadResult {
   family: string
@@ -9,61 +32,10 @@ export interface FontLoadResult {
   message?: string
 }
 
-// `POPULAR_FONTS[0]` sert de police à tout texte neuf : une grotesque au dessin
-// affirmé plutôt qu'un neutre de gabarit.
-export const POPULAR_FONTS = [
-  'Space Grotesk',
-  'Archivo',
-  'Inter',
-  'Roboto',
-  'Open Sans',
-  'Montserrat',
-  'Poppins',
-  'Lato',
-  'Playfair Display',
-  'Oswald',
-  'Raleway',
-  'Nunito',
-  'Merriweather',
-  'Source Sans 3',
-  'PT Sans',
-  'Ubuntu',
-  'Rubik',
-  'Work Sans',
-  'Quicksand',
-  'Barlow',
-  'DM Sans',
-  'Noto Sans',
-  'Fira Sans',
-  'Mulish',
-  'Josefin Sans',
-  'Inconsolata',
-  'Karla',
-  'Cabin',
-  'Libre Baskerville',
-  'EB Garamond',
-  'Crimson Text',
-  'Cormorant Garamond',
-  'Zilla Slab',
-  'Rokkitt',
-  'Arvo',
-  'Bitter',
-  'Exo 2',
-  'Titillium Web',
-  'Anton',
-  'Bebas Neue',
-  'Righteous',
-  'Pacifico',
-  'Dancing Script',
-  'Lobster',
-  'Caveat',
-  'Sacramento',
-  'Great Vibes',
-  'Satisfy',
-  'Comfortaa',
-  'Fredoka One',
-  'Varela Round',
-]
+// La liste vit dans le contrat partagé : les schémas d'outils IA énumèrent les
+// mêmes familles. `POPULAR_FONTS[0]` sert de police à tout texte neuf : une
+// grotesque au dessin affirmé plutôt qu'un neutre de gabarit.
+export const POPULAR_FONTS: readonly string[] = CONTENT_FONTS
 
 export const FONT_WEIGHT_OPTIONS = [
   { value: 300, label: '300 · Léger' },
@@ -145,6 +117,10 @@ async function loadFont(family: string, weights: string[], key: string): Promise
     // ici plutôt que chez chaque appelant — canvas, export et aperçus partagent
     // le même cache, et c'est ici, et seulement ici, que la mesure change.
     cache.clearFontCache(family)
+    // Et l'annoncer dans le même souffle : ce qui a été invalidé pour tout le
+    // monde doit être revalidé par tout le monde. Rien n'est émis sur le repli,
+    // où la mesure n'a précisément pas changé.
+    for (const listener of metricsListeners) listener(family)
     return { family, status: 'loaded' }
   } catch (error) {
     link?.remove()

@@ -83,11 +83,13 @@ pnpm run validate:export -- <file.zip>
 
 ```
 .                          # pnpm workspace root — tooling only, no product code
-  pnpm-workspace.yaml      # packages: apps/*
+  pnpm-workspace.yaml      # packages: apps/* + packages/*
   package.json             # root scripts delegate to --filter web; eslint/prettier/husky live here
-  eslint.config.js         # one flat config for every package (patterns are apps/*/…)
+  eslint.config.js         # one flat config for every package (patterns are apps/*/… and packages/*/…)
   .env.example             # single env file for the whole stack; apps/web reads it via envDir
   scripts/                 # audits and probes — resolve paths from the root, run from the root
+  packages/
+    project-format/        # the project contract: types, validation, dimensions, AI tool schemas
   apps/
     web/                   # the editor + the landing, the app that used to be the repository
       index.html           # editor entry
@@ -97,15 +99,20 @@ pnpm run validate:export -- <file.zip>
       convex/              # functions — the only surface a client can reach
       tests/stack.ts       # what only the backend can do (internal mutations), for the e2e suite
     bridge/                # optional local daemon: 127.0.0.1 only, spawns `codex app-server`
+    mcp/                   # optional local daemon: MCP on stdio for an agent, SSE relay to the open tab
 ```
 
-`backend` and `bridge` are declared as `devDependencies` of `web` so the editor
-can import their contracts — a renamed function or RPC then breaks at compile
-time rather than at runtime. `backend` is the one whose value crosses at
-runtime too: `api` (the generated function references) and `Entitlements` (the
-commercial rule, written once). Both arrive through a dynamic `import()`, so
-nothing of the deployment sits in the critical bundle — `e2e/boot-shell.spec.ts`
-measures it.
+`backend`, `bridge` and `mcp` are declared as `devDependencies` of `web` so a
+renamed contract breaks at compile time rather than at runtime. The backend's
+`api` and `Entitlements` also arrive through a dynamic `import()`, so no
+deployment code sits in the critical bundle — `e2e/boot-shell.spec.ts` measures
+it. Bridge and MCP contracts remain type-only.
+
+`packages/project-format` is the exception: it is a real dependency, imported at
+runtime by the editor and by `apps/mcp`. It is consumed **as source** — its
+`exports` point at `src/index.ts`, which vite compiles for the browser and Node
+reads by stripping types. The `build` script only proves it compiles alone,
+without Fabric and without the DOM; nothing consumes `dist/`.
 
 `@types/react` and `@types/react-dom` are declared **twice** on purpose: in
 `apps/web` because the app imports them, and at the root because a dependency's

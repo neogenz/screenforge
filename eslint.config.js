@@ -10,6 +10,7 @@ export default tseslint.config(
     ignores: [
       '**/dist',
       '**/dist-ssr',
+      '**/build',
       '**/test-results',
       '**/playwright-report',
       '.claude/worktrees/**',
@@ -19,7 +20,7 @@ export default tseslint.config(
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['apps/*/src/**/*.{ts,tsx}'],
+    files: ['apps/*/src/**/*.{ts,tsx}', 'packages/*/src/**/*.ts'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,

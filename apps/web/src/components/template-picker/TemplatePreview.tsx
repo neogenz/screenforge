@@ -9,9 +9,17 @@ const HEIGHT = SCREEN_HEIGHT
 
 interface TemplatePreviewProps {
   template: TemplateDefinition
+  /**
+   * Les images d'un gabarit enregistré, qui ne sont pas dans le registre.
+   *
+   * Le registre ne garde que ce que le projet ouvert référence — il est balayé
+   * à chaque chargement. Un gabarit porte donc ses propres octets, et l'aperçu
+   * doit les lire là plutôt que de rendre un logo vide.
+   */
+  assets?: Readonly<Record<string, string>>
 }
 
-export function TemplatePreview({ template }: TemplatePreviewProps) {
+export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
   const backgroundId = `${template.id}-background`
   const sortedLayers = [...template.layers].sort((first, second) => first.zIndex - second.zIndex)
 
@@ -44,15 +52,24 @@ export function TemplatePreview({ template }: TemplatePreviewProps) {
           fill={paintForBackground(template.background, backgroundId)}
         />
         {sortedLayers.map((layer) => (
-          <TemplateLayer key={layer.id} templateId={template.id} layer={layer} />
+          <TemplateLayer key={layer.id} templateId={template.id} layer={layer} assets={assets} />
         ))}
       </g>
     </svg>
   )
 }
 
-function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer }) {
+function TemplateLayer({
+  templateId,
+  layer,
+  assets,
+}: {
+  templateId: string
+  layer: Layer
+  assets?: Readonly<Record<string, string>>
+}) {
   if (!layer.visible) return null
+  const image = (id: string | undefined) => (id ? (assets?.[id] ?? resolveAsset(id)) : undefined)
   const centerX = layer.x + layer.width / 2
   const centerY = layer.y + layer.height / 2
   const transform = layer.rotation ? `rotate(${layer.rotation} ${centerX} ${centerY})` : undefined
@@ -157,11 +174,7 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
 
   if (layer.type === 'device-frame') {
     const config = getDeviceFrame(layer.deviceModel)
-    const svg = generateDeviceFrameSVG(
-      config,
-      layer.deviceColor,
-      resolveAsset(layer.screenshotAssetId),
-    )
+    const svg = generateDeviceFrameSVG(config, layer.deviceColor, image(layer.screenshotAssetId))
     return (
       <image
         transform={transform}
@@ -176,7 +189,7 @@ function TemplateLayer({ templateId, layer }: { templateId: string; layer: Layer
     )
   }
 
-  const imageSrc = resolveAsset(layer.assetId)
+  const imageSrc = image(layer.assetId)
   if (!imageSrc) return null
   return (
     <image

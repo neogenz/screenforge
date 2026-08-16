@@ -25,7 +25,9 @@ test.describe('global error recovery', () => {
       const projectId = project.id
       const assetId = crypto.randomUUID()
       const database = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open('screenforge', 2)
+        // Sans numéro : l'app a déjà ouvert la base à sa version courante, et un
+        // numéro figé ici échoue en `VersionError` au premier ajout de magasin.
+        const request = indexedDB.open('screenforge')
         request.onsuccess = () => resolve(request.result)
         request.onerror = () => reject(request.error)
       })
@@ -61,7 +63,9 @@ async function storedRecords(
 ): Promise<{ project: boolean; asset: boolean }> {
   return page.evaluate(async ({ projectId, assetId }) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('screenforge', 2)
+      // Sans numéro : l'app a déjà ouvert la base à sa version courante, et un
+      // numéro figé ici échoue en `VersionError` au premier ajout de magasin.
+      const request = indexedDB.open('screenforge')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })

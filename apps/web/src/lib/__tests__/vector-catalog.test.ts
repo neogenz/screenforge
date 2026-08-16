@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ICON_IDS, SHAPE_IDS } from '@screenforge/project-format/catalog-ids'
 import {
   ICON_CATALOG,
   SHAPE_CATALOG,
@@ -64,6 +65,14 @@ describe('catalogue des vecteurs', () => {
     const groups = groupsOf(SHAPE_CATALOG)
     expect(groups.map(([name]) => name)).toEqual(['Base', 'Géométrie', 'Accent', 'Direction'])
     expect(groups.flatMap(([, items]) => items)).toEqual([...SHAPE_CATALOG])
+  })
+
+  it('couvre exactement les identifiants du contrat partagé', () => {
+    /* Un identifiant déclaré dans `@screenforge/project-format` sans tracé ici
+       serait accepté par la validation du projet puis rendu en forme de
+       secours — la liste et le catalogue ne doivent jamais diverger. */
+    expect(SHAPE_CATALOG.map((entry) => entry.id)).toEqual([...SHAPE_IDS])
+    expect(ICON_CATALOG.map((entry) => entry.id)).toEqual([...ICON_IDS])
   })
 
   it('laisse les primitives Fabric sans tracé', () => {

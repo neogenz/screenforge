@@ -2,10 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { addTextLayer, layerRows, waitForApp } from './helpers'
 
 /**
- * Les cinq boîtes du cycle de vie, au clavier et dans une fenêtre étroite.
+ * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
  *
  * Chaque phase a livré sa boîte et reporté cette vérification ; elle arrive
- * donc ici pour les cinq d'un coup. Deux choses sont mesurées, pas deux
+ * donc ici pour toutes d'un coup, et toute boîte ajoutée depuis rejoint la
+ * liste plutôt que d'ouvrir sa propre vérification. Deux choses sont mesurées,
+ * pas deux
  * opinions : on peut ouvrir, parcourir et refermer chaque boîte sans souris
  * et sans perdre le focus, et à 375px rien n'y déborde de sa case.
  *
@@ -22,6 +24,7 @@ const DIALOGS = [
   ['Générer les visuels App Store', 'Générer les visuels App Store'],
   ['Ouvrir les langues', 'Langues'],
   ['Publier chez Apple', 'Publier chez Apple'],
+  ['Connexion MCP', 'Connexion MCP'],
   ['Ouvrir l’export', 'Export officiel'],
 ] as const
 

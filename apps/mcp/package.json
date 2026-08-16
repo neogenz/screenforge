@@ -1,0 +1,35 @@
+{
+  "name": "mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "screenforge-mcp": "./build/main.js"
+  },
+  "//exports": "Les sources, pas un build : `apps/web` importe la forme du relais en `import type`, donc rien de ce paquet n'atteint le navigateur — mais une route renommée casse le client à la compilation.",
+  "exports": {
+    ".": {
+      "types": "./src/relay/protocol.ts",
+      "default": "./src/relay/protocol.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node src/main.ts",
+    "dev": "node --watch src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:unit": "vitest run src"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@screenforge/project-format": "workspace:*",
+    "hono": "^4.10.6",
+    "zod": "^4.1.14"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

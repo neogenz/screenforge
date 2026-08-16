@@ -16,6 +16,7 @@ import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { DUAL_DRAWER_MIN_WIDTH, FILMSTRIP_CENTERED_MIN_WIDTH } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { initSync } from '@/lib/sync'
+import { resumeMcp } from '@/lib/mcp/client'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
@@ -24,6 +25,7 @@ import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
 
 const ExportDialog = lazy(() =>
@@ -80,6 +82,11 @@ const CloudBridge = lazy(() => import('@/lib/cloud-bridge'))
 const PublishDialog = lazy(() =>
   import('@/components/publish-dialog/PublishDialog').then((module) => ({
     default: module.PublishDialog,
+  })),
+)
+const McpDialog = lazy(() =>
+  import('@/components/mcp/McpDialog').then((module) => ({
+    default: module.McpDialog,
   })),
 )
 const MigrateProjectsDialog = lazy(() =>
@@ -162,6 +169,28 @@ export default function App() {
       stopSync?.()
       stopAutoSave?.()
     }
+  }, [])
+
+  /**
+   * Le mode MCP reprend au démarrage s'il a déjà été demandé, jamais sinon.
+   *
+   * Ici et non dans `main.tsx` pour la même raison que la session et la sync :
+   * c'est un branchement qui doit se défaire, et un module qui s'exécute une
+   * fois n'a nulle part où poser sa fermeture. `resumeMcp` sort immédiatement
+   * sans rien ouvrir quand le drapeau n'est pas posé — l'activation reste un
+   * geste, pas une conséquence d'avoir ouvert l'application.
+   */
+  useEffect(() => resumeMcp(), [])
+
+  /**
+   * La bibliothèque de gabarits est relue une fois, au démarrage.
+   *
+   * Pas à l'ouverture du sélecteur : un agent peut en enregistrer un pendant que
+   * la boîte est fermée, et la liste doit être juste au moment où elle s'ouvre —
+   * pas après un aller-retour sur IndexedDB que l'utilisateur verrait passer.
+   */
+  useEffect(() => {
+    void useTemplatesStore.getState().hydrate()
   }, [])
 
   /**
@@ -297,6 +326,7 @@ function Overlays() {
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
 
   return (
     <>
@@ -322,6 +352,7 @@ function Overlays() {
         {showCampaignDialog && <CampaignDialog />}
         {showLocaleDialog && <LocaleDialog />}
         {showPublishDialog && <PublishDialog />}
+        {showMcpDialog && <McpDialog />}
       </Suspense>
 
       {/* Le pont vers Convex : il ne rend rien, il tient la session. Monté ici
