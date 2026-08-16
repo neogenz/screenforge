@@ -8,6 +8,21 @@ const DIST_DOCUMENTS = [
   'apps/web/dist/landing.html',
   'apps/web/dist/landing-fr.html',
 ]
+const CONNECT_SOURCES = new Set([
+  "'self'",
+  'data:',
+  'blob:',
+  'https://fonts.googleapis.com',
+  'https://fonts.gstatic.com',
+  'https://api.anthropic.com',
+  'https://openrouter.ai',
+  'https://acrobatic-orca-116.eu-west-1.convex.cloud',
+  'wss://acrobatic-orca-116.eu-west-1.convex.cloud',
+  'https://acrobatic-orca-116.eu-west-1.convex.site',
+  'https://colorful-caterpillar-775.eu-west-1.convex.cloud',
+  'wss://colorful-caterpillar-775.eu-west-1.convex.cloud',
+  'https://colorful-caterpillar-775.eu-west-1.convex.site',
+])
 
 /**
  * @param {unknown} condition
@@ -34,10 +49,12 @@ async function configuredPolicy() {
     JSON.parse(await readFile(resolve(ROOT, 'vercel.json'), 'utf8'))
   )
   const headers = config.headers?.flatMap((entry) => entry.headers ?? []) ?? []
-  const entry = headers.find(({ key }) =>
-    ['content-security-policy', 'content-security-policy-report-only'].includes(key.toLowerCase()),
+  const entry = headers.find(({ key }) => key.toLowerCase() === 'content-security-policy')
+  invariant(entry?.value, 'vercel.json must declare an enforcing Content-Security-Policy.')
+  invariant(
+    headers.some(({ key, value }) => key.toLowerCase() === 'x-frame-options' && value === 'DENY'),
+    'vercel.json must declare X-Frame-Options: DENY.',
   )
-  invariant(entry?.value, 'vercel.json must declare a Content-Security-Policy candidate.')
   return entry.value
 }
 
@@ -58,11 +75,17 @@ function validatePolicy(policy) {
   invariant(!policy.includes('*'), 'CSP must not contain a wildcard.')
   invariant(!script.includes("'unsafe-inline'"), 'script-src must not allow unsafe-inline.')
   invariant(!script.includes("'unsafe-eval'"), 'script-src must not allow unsafe-eval.')
+  const connect = parsed.get('connect-src') ?? []
+  invariant(connect.length > 0, 'connect-src must be explicit.')
+  for (const source of connect) {
+    invariant(CONNECT_SOURCES.has(source), `connect-src contains an unexpected source: ${source}`)
+  }
   return script
 }
 
 /** @param {string[]} scriptSources */
 async function validateBuiltDocuments(scriptSources) {
+  const found = new Set()
   for (const relative of DIST_DOCUMENTS) {
     const html = await readFile(resolve(ROOT, relative), 'utf8')
     invariant(!/\son[a-z]+\s*=/i.test(html), `${relative} contains an inline event handler.`)
@@ -70,11 +93,15 @@ async function validateBuiltDocuments(scriptSources) {
     for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
       if (/(?:^|\s)src\s*=/i.test(match[1])) continue
       const hash = `'sha256-${createHash('sha256').update(match[2]).digest('base64')}'`
+      found.add(hash)
       invariant(
         scriptSources.includes(hash),
         `${relative} inline script is missing CSP hash ${hash}.`,
       )
     }
+  }
+  for (const source of scriptSources.filter((entry) => entry.startsWith("'sha256-"))) {
+    invariant(found.has(source), `CSP contains an unused inline script hash ${source}.`)
   }
 }
 
@@ -105,6 +132,7 @@ async function validateDeployment(value) {
     'HSTS needs max-age.',
   )
   requiredHeader(response.headers, 'x-content-type-options', 'nosniff')
+  requiredHeader(response.headers, 'x-frame-options', 'DENY')
   requiredHeader(response.headers, 'referrer-policy', 'strict-origin-when-cross-origin')
   requiredHeader(response.headers, 'permissions-policy', 'camera=(), microphone=(), geolocation=()')
   const verified = new URL(response.url)

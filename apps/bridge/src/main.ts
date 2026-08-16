@@ -1,6 +1,5 @@
 import { serve } from '@hono/node-server'
 import { claudeVersion } from './claude.ts'
-import { codexVersion } from './codex.ts'
 import { createServer, createState } from './server.ts'
 import { BRIDGE_HOST, BRIDGE_PORT, allowedOrigins } from './protocol.ts'
 
@@ -27,15 +26,12 @@ serve(
     console.log(`Pont ScreenForge sur http://${BRIDGE_HOST}:${BRIDGE_PORT}`)
     console.log(`Origines admises : ${origins.join(', ')}\n`)
 
-    const [codex, claude] = await Promise.all([codexVersion(), claudeVersion()])
+    const claude = await claudeVersion()
     console.log('Assistants trouvés sur cette machine :')
-    console.log(codex ? `  ✓ codex — ${codex}` : '  ✗ codex — introuvable')
     console.log(claude ? `  ✓ claude — ${claude}` : '  ✗ claude — introuvable')
-    if (!codex && !claude) {
-      console.log(
-        '\n  Aucun des deux n’est installé : le pont tourne, mais il n’a personne à qui parler.',
-      )
-      console.log('  Installez « codex » ou « claude », puis relancez la connexion depuis la page.')
+    if (!claude) {
+      console.log('\n  Claude Code n’est pas installé : le pont tourne sans moteur de rédaction.')
+      console.log('  Installez « claude », puis relancez la connexion depuis la page.')
     }
 
     /* Deux jetons, affichés séparément : ne recopier que le premier laisse la
@@ -54,7 +50,6 @@ serve(
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    state.codex.dispose()
     process.exit(0)
   })
 }

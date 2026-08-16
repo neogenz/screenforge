@@ -27,7 +27,7 @@ import type { EngineId } from '@/lib/ai/providers'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 4
+const PROTOCOL = 5
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
 export type BridgeCapability = 'assistant' | 'asc-publish'
@@ -52,11 +52,9 @@ const sessionTokens: Record<BridgeCapability, string> = { assistant: '', 'asc-pu
  * Le moteur avec lequel l'appairage a été fait, retenu avec le jeton.
  *
  * La boîte des langues traduit par le même pont sans jamais montrer le choix du
- * moteur : sans cette mémoire elle repartait sur `codex`, et l'utilisateur qui
- * n'a que Claude Code installé voyait la traduction échouer après une campagne
- * réussie, sur une machine où tout était pourtant branché.
+ * moteur : la traduction reprend ainsi le même assistant que la campagne.
  */
-let sessionEngine: EngineId = 'codex'
+let sessionEngine: EngineId = 'claude'
 
 export function setBridgeToken(
   capability: BridgeCapability,
@@ -169,7 +167,7 @@ export async function probeBridge(): Promise<
  * Appaire, pour un moteur donné.
  *
  * Le moteur commande deux choses : le refus quand il n'est pas installé, et la
- * liste de modèles demandée — Codex rend son catalogue, Claude Code ses alias.
+ * liste des alias de modèles demandée à Claude Code.
  * Un pont joignable dont le binaire manque est un état à part entière, et le
  * dire vaut mieux que laisser l'échec arriver au moment de générer.
  */
@@ -292,7 +290,7 @@ export async function translateViaBridge(
   target: { code: string; name: string; script: string },
   texts: readonly string[],
   token: string,
-  engine: EngineId = 'codex',
+  engine: EngineId = 'claude',
 ): Promise<string[]> {
   const answer = await call<{ texts: string[] }>('/translate', token, {
     method: 'POST',

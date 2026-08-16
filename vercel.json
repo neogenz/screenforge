@@ -8,8 +8,12 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; script-src 'self' 'sha256-IPkpUPFQmAjeSUyn5CZ/bPdbfQZS643uZslEmt3+nT4=' 'sha256-wpT91nPWdhhzwB4qU8HmeTX9+eqtST9UQg/oDqBUdJQ=' 'sha256-5G7fVCbhnVd8JKZAtkq943uIcI9Zva1UG1V59B5K4G0=' 'sha256-RnAq2fexbLF7cUw7ZVnvd2b89hx5Im9A4CieuUpDsPw=' 'sha256-PyKHgRZ4T04GGjcFQmEuHdLEZXIhiIL2Mq5yTF9IZTw=' 'sha256-YtipP08HC0l2Z49TZ+ejwM+4AraVjLvIJYmD5VkloFY=' 'sha256-G05NTMnouBQyN4U/wEUsIzxnoMl1L4ZSGm1HPHSSlwU=' 'sha256-YElkxsX0be/I3vIUMhY1yzuXFK7NcPaPqlDRwJ1p8LE='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com https://api.anthropic.com https://openrouter.ai https://acrobatic-orca-116.eu-west-1.convex.cloud wss://acrobatic-orca-116.eu-west-1.convex.cloud https://acrobatic-orca-116.eu-west-1.convex.site https://colorful-caterpillar-775.eu-west-1.convex.cloud wss://colorful-caterpillar-775.eu-west-1.convex.cloud https://colorful-caterpillar-775.eu-west-1.convex.site; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'sha256-aI9Fn3uD4sZ7a/il04cnrgGvqyWkd5GSeFsZKIk8RN0=' 'sha256-B36Q2aHOHnQrJxlo1zPY+OYm5ureTquicPH5E7JjyCk=' 'sha256-lgdnorkKxPfdXGORCwNYkKj3sOMmEwMbOZc/tQtJT/E=' 'sha256-N365KCHBx14rD9wY3eHAkw1kz95tNzAnDe7tMe+Rcy8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com https://api.anthropic.com https://openrouter.ai https://acrobatic-orca-116.eu-west-1.convex.cloud wss://acrobatic-orca-116.eu-west-1.convex.cloud https://acrobatic-orca-116.eu-west-1.convex.site https://colorful-caterpillar-775.eu-west-1.convex.cloud wss://colorful-caterpillar-775.eu-west-1.convex.cloud https://colorful-caterpillar-775.eu-west-1.convex.site; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
         },
         {
           "key": "X-Content-Type-Options",

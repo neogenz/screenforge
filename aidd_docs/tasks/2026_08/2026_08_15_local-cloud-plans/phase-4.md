@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: fermer les findings web et bridge
@@ -107,3 +107,12 @@ journey
 | 2 | Aucun moteur annoncé pour du contenu non fiable ne dispose d’un outil de lecture, shell, web ou MCP; Codex reste désactivé tant que ce contrat n’est pas prouvable. |
 | 3 | Une rafale `/hello` ne crée qu’un probe par binaire, chaque enfant expire et une installation devient visible après le TTL. |
 | 4 | Aucun diagnostic HTTP ou console ne contient secret, clé, JWT, fichier P8, chemin personnel ou sortie brute non bornée. |
+
+## Implementation evidence
+
+- `pnpm test` passe : 529 tests unitaires, typecheck et lint verts.
+- Le build de production et `security-headers-audit.mjs --build-only` prouvent une CSP bloquante, quatre hashes inline exacts et aucun hash inutilisé; `X-Frame-Options: DENY` est exigé par la configuration, l’audit et l’E2E.
+- Playwright passe sur le choix d’assistant, le parcours campagne complet et le contrôle de configuration CSP/anti-framing.
+- Le bridge n’annonce plus Codex. Claude Code est lancé sans outil intégré, avec configuration MCP vide et stricte, sans commandes personnalisées, plugin, Chrome ni session persistante; timeout, taille de sortie, cache et single-flight sont testés.
+- Les diagnostics ASC, Claude et HTTP passent par une redaction commune testée sur PEM, JWT, tokens, P8, chemins personnels et sortie excessive.
+- La vérification des headers sur une URL Vercel réelle reste volontairement dans les phases 6 et 7 : aucun projet Vercel ScreenForge n’existe encore à ce checkpoint.

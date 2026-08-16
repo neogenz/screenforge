@@ -16,18 +16,14 @@ import { z } from 'zod'
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 4
+export const PROTOCOL_VERSION = 5
 
 /**
- * Les moteurs que le pont sait lancer.
- *
- * Deux binaires, un seul contrat : un prompt entre, du JSON sort. Ce ne sont pas
- * deux fournisseurs mais deux façons d'atteindre le même endroit — la machine
- * de l'utilisateur, avec l'abonnement qu'il y a déjà connecté. C'est aussi
- * pourquoi ils partagent une seule capacité et un seul jeton : appairer « ce
- * pont peut parler à un modèle local » est la décision, pas « lequel ».
+ * Codex reste absent tant que son protocole ne permet pas de désactiver tous les
+ * outils intégrés et MCP avec une barrière testable. Le déclarer ici rendrait le
+ * moteur sélectionnable depuis un contenu non fiable avant cette preuve.
  */
-export const ENGINES = ['codex', 'claude'] as const
+export const ENGINES = ['claude'] as const
 
 export type EngineId = (typeof ENGINES)[number]
 
@@ -97,7 +93,7 @@ export const briefSchema = z.object({
    *
    * Le pont ne la charge pas et ne la charge jamais : `fetch` sur une URL venue
    * de la page ferait du pont un relais de requêtes sortantes, sur une machine
-   * qu'il n'est censé exposer qu'à `codex`. Le modèle en fait ce qu'il peut, ou
+   * qu'il n'est censé exposer qu'au moteur. Le modèle en fait ce qu'il peut, ou
    * rien. `http(s)` seulement — un `file:` ou un `data:` n'a rien à dire d'un
    * produit et beaucoup à dire du disque.
    */
@@ -192,7 +188,7 @@ export const translateRequestSchema = z.object({
     script: z.string().max(24),
   }),
   texts: z.array(z.string().max(400)).min(1).max(120),
-  /** Le moteur à lancer. Absent = `codex`, le seul que la version 2 connaissait. */
+  /** Le moteur à lancer. Absent = Claude, seul moteur confiné annoncé. */
   engine: engineSchema.optional(),
 })
 
@@ -213,7 +209,7 @@ export const planRequestSchema = z.object({
   deviceModel: z.string().max(64),
   /** Le modèle demandé, choisi dans la liste que le moteur a rendue. */
   model: z.string().max(64).optional(),
-  /** Le moteur à lancer. Absent = `codex`, le seul que la version 2 connaissait. */
+  /** Le moteur à lancer. Absent = Claude, seul moteur confiné annoncé. */
   engine: engineSchema.optional(),
 })
 
@@ -322,7 +318,7 @@ export type BridgeErrorCode =
   | 'asc-failed'
   /** Le téléversement n'a pas rendu la main : son sort est inconnu. */
   | 'ambiguous-timeout'
-  /** Codex a répondu, mais pas ce qui était demandé. */
+  /** Le moteur a répondu, mais pas ce qui était demandé. */
   | 'invalid-response'
   /** La requête a été annulée. */
   | 'cancelled'

@@ -38,12 +38,9 @@ const BRIEF: CampaignBrief = {
 }
 
 const HELLO = {
-  protocol: 4,
+  protocol: 5,
   bridge: '0.1.0',
-  engines: [
-    { id: 'codex', version: 'codex-cli 0.0.0-test' },
-    { id: 'claude', version: 'claude-cli 0.0.0-test' },
-  ],
+  engines: [{ id: 'claude', version: 'claude-cli 0.0.0-test' }],
   capabilities: { vision: false, structuredOutput: true, reasoning: true },
   ascAvailable: false,
   tokenVersions: { assistant: 1, 'asc-publish': 1 },
@@ -103,26 +100,19 @@ describe('registre des fournisseurs', () => {
 describe('connexion au pont', () => {
   it('dit quoi lancer quand le pont est éteint', async () => {
     respond({})
-    const status = await connectBridge(TOKEN, 'codex')
+    const status = await connectBridge(TOKEN, 'claude')
     expect(status).toMatchObject({ state: 'error', recoverable: true })
     expect(status).toHaveProperty('message', expect.stringContaining('bridge run start'))
   })
 
   it('refuse une version de protocole différente au lieu de deviner', async () => {
     respond({ '/hello': { body: { ...HELLO, protocol: 99 } } })
-    const status = await connectBridge(TOKEN, 'codex')
+    const status = await connectBridge(TOKEN, 'claude')
     expect(status).toMatchObject({ state: 'error', recoverable: false })
   })
 
   it('distingue « pont absent » de « moteur absent »', async () => {
     respond({ '/hello': { body: { ...HELLO, engines: [] } } })
-    const status = await connectBridge(TOKEN, 'codex')
-    expect(status).toMatchObject({ state: 'error', recoverable: false })
-    expect(status).toHaveProperty('message', expect.stringContaining('codex'))
-  })
-
-  it('refuse le moteur que cette machine n’a pas, et nomme lequel', async () => {
-    respond({ '/hello': { body: { ...HELLO, engines: [{ id: 'codex' }] } } })
     const status = await connectBridge(TOKEN, 'claude')
     expect(status).toMatchObject({ state: 'error', recoverable: false })
     expect(status).toHaveProperty('message', expect.stringContaining('claude'))
@@ -145,7 +135,7 @@ describe('connexion au pont', () => {
         body: { error: 'unauthorized', detail: 'Jeton d’appairage invalide.' },
       },
     })
-    const status = await connectBridge(TOKEN, 'codex')
+    const status = await connectBridge(TOKEN, 'claude')
     expect(status).toMatchObject({ state: 'error', message: 'Jeton d’appairage invalide.' })
   })
 
@@ -154,7 +144,7 @@ describe('connexion au pont', () => {
       '/hello': { body: HELLO },
       '/models': { body: { models: [{ id: 'modele-test', displayName: 'Modèle test' }] } },
     })
-    const status = await connectBridge(TOKEN, 'codex')
+    const status = await connectBridge(TOKEN, 'claude')
     expect(status).toMatchObject({ state: 'ready', models: [{ id: 'modele-test' }] })
     const headers = (init?: RequestInit) => init?.headers as Record<string, string>
     expect(headers(calls[0].init)).not.toHaveProperty('Authorization')
@@ -188,7 +178,7 @@ describe('plan via le pont', () => {
 
   it('n’envoie aucune image, ni son identifiant', async () => {
     const calls = respond({ '/plan': { body: { plan: PLAN } } })
-    await planViaBridge(BRIEF, TOKEN, 'codex')
+    await planViaBridge(BRIEF, TOKEN, 'claude')
     const sent = String(calls[0].init?.body)
     expect(sent).not.toContain('asset-1')
     expect(sent).not.toContain('asset-logo')
@@ -206,7 +196,7 @@ describe('plan via le pont', () => {
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
-    const plan = await planViaBridge(BRIEF, TOKEN, 'codex')
+    const plan = await planViaBridge(BRIEF, TOKEN, 'claude')
     expect(plan.appName).toBe('Cadence')
     expect(plan.direction).toBe('sobre')
     expect(plan.deviceModel).toBe('iphone-17-pro')
@@ -214,7 +204,7 @@ describe('plan via le pont', () => {
 
   it('ignore un index de capture qui ne désigne aucune image', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
-    const plan = await planViaBridge(BRIEF, TOKEN, 'codex')
+    const plan = await planViaBridge(BRIEF, TOKEN, 'claude')
     expect(plan.screens[0].screenshotIndex).toBe(0)
     expect(plan.screens[1].screenshotIndex).toBeUndefined()
   })
@@ -230,13 +220,13 @@ describe('plan via le pont', () => {
         },
       },
     })
-    await expect(planViaBridge(BRIEF, TOKEN, 'codex')).rejects.toThrow(/au lieu de 2/)
+    await expect(planViaBridge(BRIEF, TOKEN, 'claude')).rejects.toThrow(/au lieu de 2/)
   })
 
   it('garde la palette du brief, jamais celle que le modèle a rendue', async () => {
     respond({ '/plan': { body: { plan: PLAN } } })
     const custom = { background: '#0a0b0c', ink: '#ffffff', accent: '#ff00aa' }
-    const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN, 'codex')
+    const plan = await planViaBridge({ ...BRIEF, palette: custom }, TOKEN, 'claude')
     expect(plan.palette).toEqual(custom)
   })
 
@@ -252,7 +242,7 @@ describe('plan via le pont', () => {
           screenshots: [],
         },
         TOKEN,
-        'codex',
+        'claude',
       ),
     ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
     expect(calls).toHaveLength(0)
@@ -271,7 +261,7 @@ describe('plan via le pont', () => {
           screenshots: [],
         },
         TOKEN,
-        'codex',
+        'claude',
       ),
     ).rejects.toThrow(/Ajoutez 3 accroches.*réduisez le nombre/i)
     expect(calls).toHaveLength(0)
@@ -295,7 +285,7 @@ describe('plan via le pont', () => {
     for (const entry of cases) {
       const calls = respond({ '/plan': { body: { plan: PLAN } } })
       await expect(
-        planViaBridge({ ...BRIEF, ...entry, screenshots: [] }, TOKEN, 'codex'),
+        planViaBridge({ ...BRIEF, ...entry, screenshots: [] }, TOKEN, 'claude'),
       ).rejects.toThrow(/Ajoutez .*réduisez le nombre/i)
       expect(calls).toHaveLength(0)
     }
@@ -326,7 +316,7 @@ describe('plan via le pont', () => {
         screenshots: [],
       },
       TOKEN,
-      'codex',
+      'claude',
     )
     expect(calls).toHaveLength(1)
     expect(plan.screens).toHaveLength(4)
@@ -356,7 +346,7 @@ describe('choix du fournisseur', () => {
 
   it('compose localement quand le pont est choisi mais pas connecté', async () => {
     const calls = respond({})
-    await planCampaign(BRIEF, { provider: 'codex-bridge' })
+    await planCampaign(BRIEF, { provider: 'claude-bridge' })
     expect(calls).toHaveLength(0)
   })
 
@@ -423,7 +413,7 @@ describe('choix du fournisseur', () => {
       },
     })
     const plan = await planCampaign(BRIEF, {
-      provider: 'codex-bridge',
+      provider: 'claude-bridge',
       token: TOKEN,
       model: 'modele-test',
     })

@@ -1,8 +1,8 @@
 # Pont local ScreenForge
 
 Un petit processus qui tourne sur votre machine, écoute sur `127.0.0.1:4590` et
-lance des binaires que vous avez déjà installés : `codex` ou `claude` pour
-rédiger, `asc` pour publier.
+lance des binaires que vous avez déjà installés : `claude` pour rédiger, `asc`
+pour publier.
 
 Il est **optionnel**, et il l'est pour ses deux capacités. Sans lui, ScreenForge
 compose vos campagnes avec son générateur local, qui ne parle à personne, et
@@ -11,15 +11,13 @@ Le pont ne fait jamais rien que vous ne puissiez faire à la main.
 
 ## Deux capacités, deux jetons
 
-| Capacité      | Ce qu'elle lance                   | Ce qui la traverse                     |
-| ------------- | ---------------------------------- | -------------------------------------- |
-| `assistant`   | `codex app-server` **ou** `claude` | des libellés, jamais une image         |
-| `asc-publish` | `asc screenshots …`                | les planches d'un lot figé, vers Apple |
+| Capacité      | Ce qu'elle lance    | Ce qui la traverse                     |
+| ------------- | ------------------- | -------------------------------------- |
+| `assistant`   | `claude`            | des libellés, jamais une image         |
+| `asc-publish` | `asc screenshots …` | les planches d'un lot figé, vers Apple |
 
-Une capacité est nommée d'après ce qu'elle ouvre, pas d'après qui répond :
-« écrire mes accroches sur cette machine » ne change pas de nature selon le
-binaire derrière, donc les deux moteurs partagent un seul jeton et le moteur
-voulu voyage dans la requête. Chaque capacité a le sien, tiré séparément et
+Une capacité est nommée d'après ce qu'elle ouvre, pas d'après le binaire. Chaque
+capacité a son jeton, tiré séparément et
 révocable séparément. Recopier celui de l'assistance n'autorise pas à publier :
 c'est le seul mécanisme qui rende ce refus effectif, et c'est pourquoi les deux
 ne sont pas un seul secret.
@@ -52,7 +50,6 @@ Variables reconnues :
 | Variable                     | Rôle                                                           |
 | ---------------------------- | -------------------------------------------------------------- |
 | `SCREENFORGE_BRIDGE_ORIGINS` | Origines admises en plus des locales. Le joker est ignoré.     |
-| `SCREENFORGE_CODEX_BIN`      | Chemin du binaire `codex` si `codex` n'est pas dans le PATH.   |
 | `SCREENFORGE_CLAUDE_BIN`     | Chemin du binaire `claude` si `claude` n'est pas dans le PATH. |
 | `SCREENFORGE_ASC_BIN`        | Chemin du binaire `asc` si `asc` n'est pas dans le PATH.       |
 
@@ -127,20 +124,23 @@ donc une page appairée avec un jeton révoqué le voit et le dit.
 **Le pont lui-même comme surface d'exécution.** Il n'expose pas de shell, pas de
 proxy de requêtes arbitraires, pas de lecture de fichiers. Trois RPC typées, et
 le seul texte libre qui atteint le modèle est celui du brief, borné en longueur
-par le schéma. Le tour Codex tourne en `sandbox: read-only` avec
-`approvalPolicy: never` : ni écriture ni commande ne sont possibles, et rien ne
-peut rester suspendu à attendre une approbation que le pont ne saurait donner.
+par le schéma. Claude Code est lancé dans un dossier temporaire, avec zéro outil
+intégré (`--tools ""`), une configuration MCP vide et stricte, les commandes,
+lectures, écritures, recherches et accès web également refusés nommément, aucun
+plugin ni commande personnalisée, aucune persistance de session, un délai et
+une sortie bornés. Codex n'est ni annoncé ni joignable : il ne reviendra que si
+son protocole fournit une barrière no-tools équivalente et testable.
 
 **Vos identifiants Apple.** Le pont ne les lit pas, ne les reçoit pas, ne les
 transporte pas. `asc` les résout dans le trousseau du système, et ScreenForge
 n'a aucun champ pour en saisir. La sortie de `asc` est relue avant de vous être
 rendue : blocs PEM, JWT, chemins `.p8` et paires `clé=valeur` suspectes sont
-remplacés par `[REDACTED]`, et votre dossier personnel apparaît comme `~`.
+remplacés par `[REDACTED]`, et les chemins personnels par `[REDACTED_PATH]`.
 
-**Vos identifiants Codex ou Claude.** Le pont ne les lit pas, ne les copie pas,
+**Vos identifiants Claude.** Le pont ne les lit pas, ne les copie pas,
 ne les stocke pas. Il lance le binaire que vous avez installé et connecté, et
 celui-ci gère son authentification comme il le fait dans votre terminal. Ni
-`~/.codex` ni `~/.claude` ne sont ouverts par ce code. Aucune clé d'API n'est
+`~/.claude` n'est pas ouvert par ce code. Aucune clé d'API n'est
 demandée, ni par le pont ni par ScreenForge — c'est pourquoi il n'y a rien à
 chiffrer, rien à stocker et rien à faire fuiter. Le tour Claude Code tourne dans
 un dossier temporaire, pour qu'aucun `CLAUDE.md` du disque ne soit découvert, et
@@ -152,13 +152,13 @@ ou pas.
 
 **Les journaux.** Le pont écrit les jetons sur sa propre sortie standard au
 démarrage et à chaque révocation — c'est son seul canal pour vous les donner — et
-rien d'autre. Aucun brief, aucun plan, aucune erreur Codex, aucune sortie `asc`
+rien d'autre. Aucun brief, aucun plan, aucune erreur Claude, aucune sortie `asc`
 n'est journalisée.
 
 ### Ce qui n'est pas défendu
 
 **Un autre processus de votre session utilisateur.** Il peut lire la mémoire du
-pont, sa sortie standard, ou parler directement à `codex`. La frontière de
+pont, sa sortie standard, ou parler directement à `claude`. La frontière de
 confiance du pont est votre compte utilisateur : il n'a jamais prétendu la
 franchir.
 

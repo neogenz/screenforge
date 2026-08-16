@@ -12,7 +12,6 @@ import {
   type AscState,
 } from './asc.ts'
 import { CLAUDE_MODELS, ClaudeUnavailableError, claudeVersion, runClaudeTurn } from './claude.ts'
-import { CodexClient, CodexUnavailableError, codexVersion } from './codex.ts'
 import {
   BRIDGE_CAPABILITIES,
   bearer,
@@ -37,11 +36,11 @@ import {
   type BridgeBrief,
   type BridgeError,
   type BridgePlan,
-  type EngineId,
   type EngineStatus,
   type Hello,
   type TranslateRequest,
 } from './protocol.ts'
+import { redactDiagnostic } from './redaction.ts'
 
 /**
  * Le pont, et les deux choses qu'il sait faire.
@@ -59,48 +58,57 @@ import {
  * présence de `asc`, capacités. Pas de modèles, pas de chemins, pas de nom de
  * machine.
  *
- * Deux moteurs, un seul chemin : `runTurn` choisit le binaire et rend du JSON,
- * et les routes qui l'appellent ne savent pas lequel a répondu. C'est ce qui
- * garde le protocole identique quel que soit l'assistant installé — la page
- * demande un plan, pas une commande.
+ * Le moteur annoncé ne dispose d'aucun outil local : la page demande un plan,
+ * jamais une commande.
  */
 
 export interface BridgeState {
   pairing: Pairing
-  codex: CodexClient
   asc: AscState
   /** Injecté par les tests : aucun processus n'y est lancé. */
   ascRun: AscRunner
+  assistantRun: typeof runClaudeTurn
+  assistantProbe: typeof claudeVersion
 }
 
 function fail(code: BridgeError['error'], detail: string): BridgeError {
-  return { error: code, detail }
+  return { error: code, detail: redactDiagnostic(detail) }
 }
 
 function versionMismatch(claimed: number): string {
   return `Le pont parle la version ${PROTOCOL_VERSION}, la page la ${claimed}. Mettez le pont à jour.`
 }
 
-/**
- * Un tour, quel que soit le moteur.
- *
- * Codex reçoit son `outputSchema` par le protocole ; Claude Code le reçoit dans
- * le prompt et rend son JSON extrait. Les deux rendent la même chose au même
- * endroit, ce qui laisse `planSchema` seul juge de ce qui est acceptable — un
- * moteur qui respecte un schéma n'est toujours pas un moteur vérifié.
- */
-async function runTurn(
-  state: BridgeState,
-  engine: EngineId,
-  turn: { prompt: string; outputSchema: unknown; model?: string },
-): Promise<string> {
-  if (engine === 'claude') return runClaudeTurn(turn)
-  await state.codex.initialize()
-  return state.codex.runTurn(turn)
-}
-
 export function createServer(state: BridgeState, origins = allowedOrigins()) {
   const app = new Hono()
+  let helloCache: { value: Omit<Hello, 'tokenVersions'>; expiresAt: number } | undefined
+  let helloInFlight: Promise<Omit<Hello, 'tokenVersions'>> | undefined
+
+  const probe = () => {
+    if (helloCache && Date.now() < helloCache.expiresAt) return Promise.resolve(helloCache.value)
+    if (helloInFlight) return helloInFlight
+    helloInFlight = Promise.all([
+      state.assistantProbe(),
+      ascProbeOrUndefined(state.asc, state.ascRun),
+    ])
+      .then(([claude, asc]) => {
+        const engines: EngineStatus[] = claude ? [{ id: 'claude', version: claude }] : []
+        const value: Omit<Hello, 'tokenVersions'> = {
+          protocol: PROTOCOL_VERSION,
+          bridge: '0.1.0',
+          engines,
+          capabilities: { vision: false, structuredOutput: true, reasoning: true },
+          ascAvailable: Boolean(asc),
+          ...(asc ? { ascVersion: asc.version, ascFlags: asc.flags } : {}),
+        }
+        helloCache = { value, expiresAt: Date.now() + 5_000 }
+        return value
+      })
+      .finally(() => {
+        helloInFlight = undefined
+      })
+    return helloInFlight
+  }
 
   app.use('*', async (context, next) => {
     const origin = context.req.header('Origin')
@@ -122,26 +130,8 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     verifyToken(state.pairing, capability, bearer(header))
 
   app.get('/hello', async (context) => {
-    /* Sondés en parallèle et à chaque appel : l'utilisateur qui installe son
-       assistant pendant que la boîte est ouverte doit pouvoir réessayer sans
-       redémarrer le pont. C'est exactement le geste que l'installation guidée
-       lui propose. */
-    const [codex, claude, asc] = await Promise.all([
-      codexVersion(),
-      claudeVersion(),
-      ascProbeOrUndefined(state.asc, state.ascRun),
-    ])
-    const engines: EngineStatus[] = [
-      ...(codex ? [{ id: 'codex' as const, version: codex }] : []),
-      ...(claude ? [{ id: 'claude' as const, version: claude }] : []),
-    ]
     const hello: Hello = {
-      protocol: PROTOCOL_VERSION,
-      bridge: '0.1.0',
-      engines,
-      capabilities: { vision: false, structuredOutput: true, reasoning: true },
-      ascAvailable: Boolean(asc),
-      ...(asc ? { ascVersion: asc.version, ascFlags: asc.flags } : {}),
+      ...(await probe()),
       tokenVersions: tokenVersions(state.pairing),
     }
     return context.json(hello)
@@ -150,23 +140,20 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
   /**
    * Les modèles du moteur demandé.
    *
-   * Codex en tient un catalogue et le rend ; Claude Code n'en rend aucun et
-   * documente ses alias dans son aide. Les deux répondent donc à la même forme,
-   * mais l'un l'a lue et l'autre la déclare — et la page, qui affiche ce qu'elle
-   * reçoit, n'a pas à connaître la différence.
+   * Claude Code ne rend pas de catalogue et documente ses alias dans son aide.
    */
   app.get('/models', async (context) => {
     if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
-    const engine = context.req.query('engine') === 'claude' ? 'claude' : 'codex'
-    if (engine === 'claude') return context.json({ models: CLAUDE_MODELS })
-    try {
-      await state.codex.initialize()
-      return context.json({ models: await state.codex.listModels() })
-    } catch (error) {
-      return context.json(engineFailure(error), 502)
+    const engine = context.req.query('engine') ?? 'claude'
+    if (engine !== 'claude') {
+      return context.json(
+        fail('engine-unavailable', 'Ce moteur est désactivé par la politique de sécurité.'),
+        400,
+      )
     }
+    return context.json({ models: CLAUDE_MODELS })
   })
 
   app.post('/plan', async (context) => {
@@ -187,7 +174,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
 
     try {
-      const answer = await runTurn(state, parsed.data.engine ?? 'codex', {
+      const answer = await state.assistantRun({
         prompt: planPrompt(parsed.data),
         outputSchema: PLAN_OUTPUT_SCHEMA,
         model: parsed.data.model,
@@ -222,7 +209,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
 
     try {
-      const answer = await runTurn(state, parsed.data.engine ?? 'codex', {
+      const answer = await state.assistantRun({
         prompt: translatePrompt(parsed.data),
         outputSchema: TRANSLATION_OUTPUT_SCHEMA,
       })
@@ -305,16 +292,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
 }
 
 function engineFailure(error: unknown): BridgeError {
-  if (error instanceof CodexUnavailableError) {
-    return fail(
-      'engine-unavailable',
-      'Codex n’a pas démarré. Vérifiez que la commande « codex » est installée et connectée.',
-    )
-  }
   if (error instanceof ClaudeUnavailableError) {
-    /* Le message porte la sortie d'erreur du binaire quand il en a produit une :
-       « session expirée » et « modèle inconnu » appellent deux gestes
-       différents, qu'un texte générique effacerait tous les deux. */
     return fail('engine-unavailable', `Claude Code n’a pas répondu. ${error.message}`.trim())
   }
   return fail(
@@ -559,8 +537,9 @@ function translatePrompt(request: TranslateRequest): string {
 export function createState(): BridgeState {
   return {
     pairing: createPairing(),
-    codex: new CodexClient(),
     asc: createAscState(),
     ascRun: execRunner,
+    assistantRun: runClaudeTurn,
+    assistantProbe: claudeVersion,
   }
 }

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type {
   AscPublishRequest,
@@ -9,6 +9,7 @@ import type {
   AscStepStatus,
   AscTarget,
 } from './protocol.ts'
+import { redactDiagnostic } from './redaction.ts'
 
 /**
  * La publication, et les quatre choses qu'elle refuse de faire.
@@ -117,22 +118,6 @@ export const execRunner: AscRunner = (args, timeoutMs) =>
  * faire, et le jour où une version de `asc` en imprimerait un, le nettoyage est
  * déjà là.
  */
-export function redact(text: string): string {
-  const home = homedir()
-  return text
-    .replace(/-----BEGIN [A-Z ]*-----[\s\S]*?-----END [A-Z ]*-----/g, '[REDACTED]')
-    .replace(/\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]+/g, '[REDACTED]')
-    .replace(
-      /\b([A-Za-z_]*(?:key|token|secret|password|issuer)[A-Za-z_]*)\s*[:=]\s*\S+/gi,
-      '$1=[REDACTED]',
-    )
-    .replace(/\S+\.p8\b/g, '[REDACTED].p8')
-    .split(home)
-    .join('~')
-    .slice(0, 4000)
-    .trim()
-}
-
 /**
  * Les arguments, dans un ordre fixe.
  *
@@ -239,7 +224,7 @@ export async function runPublish(
       steps.push({ name, status: 'ok', detail, ms: Date.now() - started })
       return value
     } catch (error) {
-      const detail = error instanceof Error ? redact(error.message) : 'Échec.'
+      const detail = error instanceof Error ? redactDiagnostic(error) : 'Échec.'
       const status: AscStepStatus = error instanceof AscAmbiguousError ? 'ambiguous' : 'failed'
       steps.push({ name, status, detail, ms: Date.now() - started })
       Object.assign(error as object, { steps })
@@ -275,26 +260,36 @@ export async function runPublish(
       return [created, `${request.files.length} planche(s) écrite(s) dans un dossier privé`]
     })
 
+    const args = uploadArgs(request.target, {
+      path: directory,
+      replaceExisting: request.replaceExisting,
+      dryRun: request.dryRun,
+    })
     command.push(
-      BIN,
+      'asc',
       ...uploadArgs(request.target, {
-        path: directory,
+        path: '[PRIVATE_TEMP_DIR]',
         replaceExisting: request.replaceExisting,
         dryRun: request.dryRun,
       }),
     )
 
     const output = await step('upload', async () => {
-      const result = await run(command.slice(1), ASC_TIMEOUT_MS)
+      const result = await run(args, ASC_TIMEOUT_MS)
       if (result.timedOut) {
         throw new AscAmbiguousError(
           'Le téléversement n’a pas rendu la main dans le délai imparti. Il a peut-être abouti : vérifiez la version ciblée avant de refaire.',
         )
       }
       if (result.code !== 0) {
-        throw new AscFailedError(redact(result.stderr || result.stdout) || 'asc a échoué.')
+        throw new AscFailedError(
+          redactDiagnostic(result.stderr || result.stdout) || 'asc a échoué.',
+        )
       }
-      return [redact(result.stdout), request.dryRun ? 'Essai à blanc terminé' : 'Lot téléversé']
+      return [
+        redactDiagnostic(result.stdout),
+        request.dryRun ? 'Essai à blanc terminé' : 'Lot téléversé',
+      ]
     })
 
     const done: AscPublishResult = {
