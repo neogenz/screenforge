@@ -29,7 +29,7 @@ flowchart TD
   C --> D[Audit sécurité et secrets]
   D --> E[Sauvegarde restaurée dans une cible jetable]
   E --> F[Review indépendante]
-  F --> G{Finding bloquant}
+  F --> G[Finding bloquant ou non]
   G -- Oui --> H[Correction minimale puis cycle complet]
   H --> B
   G -- Non --> I[Gate Cloud validé fermé]

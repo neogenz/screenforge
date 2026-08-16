@@ -29,7 +29,7 @@ status: pending
 ```mermaid
 flowchart TD
   A[Opérateur cible le déploiement préproduction] --> B[Preflight lit seulement la présence et la cohérence]
-  B --> C{Configuration prête}
+  B --> C[Configuration prête ou non]
   C -- Non --> D[Liste de noms manquants ou incohérents]
   C -- Oui --> E[Validation provider autorisée]
   D --> F[Secrets corrigés dans leurs stores]

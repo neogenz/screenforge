@@ -22,12 +22,12 @@ status: pending
 
 ```mermaid
 flowchart TD
-  A[Gate Cloud validé] --> B{GO DOMAIN explicite}
+  A[Gate Cloud validé] --> B[GO DOMAIN explicite ou absent]
   B -- Non --> C[Preview conservée sans achat]
   B -- Oui --> D[Domaine acheté et vérifié]
   D --> E[Resend SPF DKIM DMARC]
   E --> F[Polar production KYC banque produit webhook]
-  F --> G{GO PRODUCTION explicite}
+  F --> G[GO PRODUCTION explicite ou absent]
   G -- Non --> H[Release v1 toujours bloquée]
   G -- Oui --> I[Fusion Release Please et tag v1]
   I --> J[CI déploie puis promeut la production]
