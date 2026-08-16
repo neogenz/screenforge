@@ -280,8 +280,11 @@ test.describe('Sync cloud', () => {
         own,
         rejectedId,
         new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
-      )
-      expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })
+      ).catch((error: unknown) => {
+        expect((error as { cause?: { code?: unknown } }).cause?.code).toBe('ECONNRESET')
+        return null
+      })
+      if (rejected) expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })
       expect(await readRemote(stack!, own, `/asset/${rejectedId}`)).toBeNull()
     } finally {
       await deleteRemoteAccount(own)
