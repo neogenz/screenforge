@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { templateFromScreen, type CustomTemplate } from '@/lib/custom-templates'
 import { listRelayTemplates, saveRelayTemplate } from '@/lib/mcp/session'
@@ -6,7 +7,7 @@ import { useTemplatesStore } from '@/stores/templates.store'
 
 const storage = vi.hoisted(() => ({
   read: vi.fn<() => Promise<CustomTemplate[]>>(),
-  write: vi.fn<() => Promise<void>>(),
+  write: vi.fn<(template: CustomTemplate, signal?: AbortSignal) => Promise<void>>(),
   remove: vi.fn<() => Promise<void>>(),
 }))
 
@@ -40,6 +41,33 @@ beforeEach(() => {
 })
 
 describe('hydratation de la bibliothèque de gabarits', () => {
+  it('abandonne réellement l’écriture IndexedDB avant son commit', async () => {
+    const { readCustomTemplates, writeCustomTemplate } =
+      await vi.importActual<typeof import('@/lib/custom-templates')>('@/lib/custom-templates')
+    const template = existingTemplate('Jamais durable')
+    const controller = new AbortController()
+    const originalPut = IDBObjectStore.prototype.put
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      const request =
+        key === undefined ? originalPut.call(this, value) : originalPut.call(this, value, key)
+      controller.abort()
+      return request
+    })
+
+    try {
+      await expect(writeCustomTemplate(template, controller.signal)).rejects.toMatchObject({
+        name: 'AbortError',
+      })
+    } finally {
+      put.mockRestore()
+    }
+    expect((await readCustomTemplates()).some(({ id }) => id === template.id)).toBe(false)
+  })
+
   it('partage la lecture et rend une sauvegarde visible à la liste immédiate', async () => {
     const reading = deferred<CustomTemplate[]>()
     storage.read.mockReturnValue(reading.promise)
@@ -92,22 +120,35 @@ describe('hydratation de la bibliothèque de gabarits', () => {
     expect(useTemplatesStore.getState().templates).toEqual([template])
   })
 
-  it('retire une sauvegarde terminée après la coupure du cycle MCP', async () => {
+  it('abandonne la transaction et reste vide après une nouvelle hydratation', async () => {
     const writing = deferred<void>()
-    storage.write.mockReturnValue(writing.promise)
+    const disk: CustomTemplate[] = []
+    storage.read.mockImplementation(async () => disk)
+    storage.write.mockImplementation(async (template, signal) => {
+      await Promise.race([
+        writing.promise,
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+        }),
+      ])
+      disk.push(template)
+    })
     useTemplatesStore.setState({ templates: [], hydrated: true })
-    let current = true
+    const controller = new AbortController()
 
-    const saving = saveRelayTemplate({ name: 'Trop tard' }, () => current)
+    const saving = saveRelayTemplate({ name: 'Trop tard' }, controller.signal)
     await vi.waitFor(() => expect(storage.write).toHaveBeenCalledTimes(1))
-    current = false
-    writing.resolve()
+    controller.abort()
 
     await expect(saving).resolves.toEqual({
       committed: false,
       error: 'L’enregistrement a été annulé.',
     })
-    expect(storage.remove).toHaveBeenCalledOnce()
+    expect(storage.remove).not.toHaveBeenCalled()
+    expect(useTemplatesStore.getState().templates).toEqual([])
+
+    useTemplatesStore.setState({ templates: [], hydrated: false })
+    await useTemplatesStore.getState().hydrate()
     expect(useTemplatesStore.getState().templates).toEqual([])
   })
 })

@@ -209,14 +209,14 @@ function base64(bytes: Uint8Array): string {
  *
  * Rien n'est écrit dans le projet : un gabarit vit à côté, dans la bibliothèque
  * du navigateur, et c'est ce qui le rend réutilisable dans le projet suivant.
- * Il n'y a donc ni transaction, ni pas d'annulation — supprimer un gabarit se
- * fait dans le sélecteur, pas au ⌘Z.
+ * Son écriture IndexedDB reçoit le signal du cycle MCP : une coupure avant le
+ * commit abandonne la transaction entière, sans écriture à nettoyer après coup.
  */
 export async function saveRelayTemplate(
   input: RelayTemplateSave,
-  canCommit: () => boolean = () => true,
+  signal?: AbortSignal,
 ): Promise<RelayOutcome> {
-  const saving = useTemplatesStore.getState().save({ ...input, source: 'ai' }, canCommit)
+  const saving = useTemplatesStore.getState().save({ ...input, source: 'ai' }, signal)
   templateSaves.add(saving)
   try {
     const outcome = await saving

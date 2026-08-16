@@ -180,9 +180,26 @@ export async function readCustomTemplates(): Promise<CustomTemplate[]> {
   return records.filter(isCustomTemplate).sort((a, b) => b.createdAt - a.createdAt)
 }
 
-export async function writeCustomTemplate(template: CustomTemplate): Promise<void> {
+export async function writeCustomTemplate(
+  template: CustomTemplate,
+  signal?: AbortSignal,
+): Promise<void> {
   const db = await getDB()
-  await db.put('templates', template)
+  signal?.throwIfAborted()
+  const tx = db.transaction('templates', 'readwrite')
+  const abort = () => {
+    try {
+      tx.abort()
+    } catch {
+      // La transaction a déjà atteint son commit : l'écriture est acquise.
+    }
+  }
+  signal?.addEventListener('abort', abort, { once: true })
+  try {
+    await Promise.all([tx.store.put(template), tx.done])
+  } finally {
+    signal?.removeEventListener('abort', abort)
+  }
 }
 
 export async function deleteCustomTemplate(id: string): Promise<void> {
