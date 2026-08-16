@@ -1,6 +1,6 @@
 # Tools
 
-The 18 tools the ScreenForge MCP server publishes, copied on 2026-08-15 from
+The 18 tools the ScreenForge MCP server publishes, copied on 2026-08-16 from
 `@screenforge/project-format` 0.1.0.
 
 The schemas below are a dated copy. The server is authoritative: it builds every
@@ -35,7 +35,7 @@ tools of all its servers flat.
 | ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `get_project_state` | none                                                     | name, canvas, globals, every screen with its layers, layout layers      |
 | `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                        |
-| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a text line and a PNG image block                                       |
+| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                               |
 | `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template |
 
 A layer read back carries `id`, `type`, `name`, `x`, `y`, `width`, `height`,
@@ -43,27 +43,53 @@ A layer read back carries `id`, `type`, `name`, `x`, `y`, `width`, `height`,
 a device frame. Image bytes never come back this way. `hasScreenshot` is a
 boolean, and `get_thumbnail` is the only tool that returns pixels.
 
+### What `get_thumbnail` measures
+
+The first block is the screen id and size, then either "Aucun défaut mesuré sur
+cette planche." or one line per defect, each naming its layer and its number.
+The image follows. Read the report **before** looking at the image: a PNG shows
+clipped text, which looks like a choice, and it cannot show you that a 215 px
+box is holding five lines.
+
+| Measure        | Threshold                                                   |
+| -------------- | ----------------------------------------------------------- |
+| Text overflow  | measured height above the layer's own `height`              |
+| Off-board text | a text box leaving 440 by 956, on any side                  |
+| Cropped device | under 70 % of the device frame on the board                 |
+| Contrast       | under 4.5:1 against **every** stop of the screen background |
+| Overlap        | two **text** layers whose boxes intersect                   |
+| Empty band     | over a quarter of the board's height with nothing in it     |
+
+These are the rules the repository's own generator holds itself to, minus one
+notch on the device: it composes at 90 %, and 70 % is where a frame stops being
+tightly cropped and starts being truncated.
+
+Two things it deliberately does not flag, because both are legitimate
+composition: a shape sitting under a headline, and a decorative accent bleeding
+off the edge. Nothing here is an error — the tool is read-only and states what
+it measured. A composition that overflows on purpose is yours to keep.
+
 ## Writing
 
 `apply` is the entry point for all of these. Each also exists as a standalone
 tool, useful for a single correction and wasteful for anything else.
 
-| Tool                     | Required                                | Optional                                                                                               |
-| ------------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `apply`                  | `calls`                                 | —                                                                                                      |
-| `declare_plan`           | `screens`                               | `summary` up to 400 chars                                                                              |
-| `add_screen`             | —                                       | `name` up to 60 chars                                                                                  |
-| `set_background`         | `background`                            | `screenId`                                                                                             |
-| `add_text`               | `content` up to 400 chars               | `screenId`, geometry, `fontFamily`, `fontSize` 8 to 240, `fontWeight` 100 to 900, `color`, `textAlign` |
-| `add_shape`              | `shapeType`                             | `screenId`, geometry, `fill`                                                                           |
-| `add_icon`               | `iconId`                                | `screenId`, geometry, `color`, `strokeWidth` 0.5 to 6                                                  |
-| `add_device`             | —                                       | `screenId`, geometry, `deviceModel`, `slot`, `assetId`, `screenshotWidth`, `screenshotHeight`          |
-| `add_image`              | `path`, `role`                          | `screenId`, `layerId`, `name`, `slot`, `deviceModel`, geometry                                         |
-| `update_layer`           | `layerId`, `patch`                      | —                                                                                                      |
-| `delete_layer`           | `layerId`                               | —                                                                                                      |
-| `assign_screenshot_slot` | `layerId`, `slot`                       | —                                                                                                      |
-| `place_screenshot_asset` | `layerId`, `assetId`, `width`, `height` | —                                                                                                      |
-| `save_template`          | `name` up to 60 chars                   | `description` up to 200 chars, `screenId`                                                              |
+| Tool                     | Required                                | Optional                                                                                                           |
+| ------------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `apply`                  | `calls`                                 | —                                                                                                                  |
+| `declare_plan`           | `screens`                               | `summary` up to 400 chars                                                                                          |
+| `add_screen`             | —                                       | `name` up to 60 chars                                                                                              |
+| `set_background`         | `background`                            | `screenId`                                                                                                         |
+| `add_text`               | `content` up to 400 chars               | `screenId`, geometry, `fontFamily`, `fontSize` 8 to 240, `fontWeight` 100 to 900, `color`, `textAlign`, `emphasis` |
+| `add_shape`              | `shapeType`                             | `screenId`, geometry, `fill`                                                                                       |
+| `add_icon`               | `iconId`                                | `screenId`, geometry, `color`, `strokeWidth` 0.5 to 6                                                              |
+| `add_device`             | —                                       | `screenId`, geometry, `deviceModel`, `slot`, `assetId`, `screenshotWidth`, `screenshotHeight`                      |
+| `add_image`              | `path`, `role`                          | `screenId`, `layerId`, `name`, `slot`, `deviceModel`, geometry                                                     |
+| `update_layer`           | `layerId`, `patch`                      | —                                                                                                                  |
+| `delete_layer`           | `layerId`                               | —                                                                                                                  |
+| `assign_screenshot_slot` | `layerId`, `slot`                       | —                                                                                                                  |
+| `place_screenshot_asset` | `layerId`, `assetId`, `width`, `height` | —                                                                                                                  |
+| `save_template`          | `name` up to 60 chars                   | `description` up to 200 chars, `screenId`                                                                          |
 
 `screenId` defaults to the last screen `add_screen` created in this batch, and
 to the active screen when the batch created none.
@@ -87,16 +113,58 @@ holds 30.
 else is refused, because a property the renderer ignores would produce a layer
 that validates and never appears.
 
-| Type           | Accepts, on top of `name` `x` `y` `width` `height` `rotation` `opacity` `visible` |
-| -------------- | --------------------------------------------------------------------------------- |
-| `text`         | `content`, `fontFamily`, `fontSize`, `fontWeight`, `color`, `textAlign`           |
-| `shape`        | `shapeType`, `fill`                                                               |
-| `icon`         | `iconId`, `color`                                                                 |
-| `image`        | nothing more                                                                      |
-| `device-frame` | `deviceModel`                                                                     |
+| Type           | Accepts, on top of `name` `x` `y` `width` `height` `rotation` `opacity` `visible`   |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `text`         | `content`, `fontFamily`, `fontSize`, `fontWeight`, `color`, `textAlign`, `emphasis` |
+| `shape`        | `shapeType`, `fill`                                                                 |
+| `icon`         | `iconId`, `color`                                                                   |
+| `image`        | nothing more                                                                        |
+| `device-frame` | `deviceModel`                                                                       |
 
 Identifiers, `zIndex` and the lock are never patchable. They belong to a
 dedicated tool or to nobody.
+
+## Emphasis
+
+A headline is one layer. To put one word in the accent colour, name the word —
+never cut the text into pieces and align them by hand.
+
+`emphasis` is an array of up to 4 entries, each `{ "text": 1 to 80 chars,
+"color": "#rrggbb" }`. It works on `add_text` and inside an `update_layer`
+patch. Each passage is looked up verbatim in `content`, at its **first**
+occurrence only, and the browser converts it into per-character colours itself.
+
+Three rules that decide what you get back:
+
+- A passage that is not in `content` refuses the **whole batch**, and the
+  message names the passage it looked for and the content it read. Nothing is
+  written, so an emphasis is never silently lost.
+- On `update_layer`, colours are recomputed from the **final** content. Sending
+  a new `content` without `emphasis` drops the colours instead of leaving them
+  on columns of a text that no longer exists.
+- Emphasis is not a layer property. You cannot read it back on `get_screen`; you
+  re-send it with the content it belongs to.
+
+```json
+{
+  "calls": [
+    {
+      "tool": "add_text",
+      "args": {
+        "content": "Chaque euro, à sa place",
+        "x": 32,
+        "y": 105,
+        "width": 376,
+        "height": 158,
+        "fontSize": 44,
+        "fontWeight": 700,
+        "color": "#ffffff",
+        "emphasis": [{ "text": "à sa place", "color": "#3b82f6" }]
+      }
+    }
+  ]
+}
+```
 
 ## Backgrounds
 

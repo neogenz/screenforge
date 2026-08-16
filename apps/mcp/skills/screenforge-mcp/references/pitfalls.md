@@ -17,6 +17,24 @@ Each refusal names its cause. This maps the cause to the fix.
 | Campagne pleine                                              | the project holds 10 screens                                                                 | compose on existing screens                                              |
 | 24 calques au plus                                           | the screen is full                                                                           | merge or drop layers                                                     |
 | Image refusée                                                | a relative path, an unknown extension, a missing file, over 16 MB, or an SVG as a screenshot | the message names which, each is a different correction                  |
+| Passage absent du texte                                      | an `emphasis` passage is not in the `content` it was sent with                               | the message quotes both, copy the passage out of the content itself      |
+
+## A headline is one layer
+
+Cutting a headline into several text layers to colour one word is the most
+expensive mistake in this vocabulary, and it does not look like a mistake while
+you make it. Measured on a real session: 18 text layers for 4 headlines, two of
+them overlapping by 78 px on the same screen.
+
+The symptom is that you cannot see it. Each fragment is placed by hand, so the
+spacing is right only at the size and font you assumed; the first re-word, the
+first font fallback, the first box resize breaks the alignment, and the render
+shows a headline that reads as one broken sentence.
+
+Use `emphasis` instead. One layer, one line of copy, colours that follow the
+text when it changes. If a passage cannot be expressed that way — a different
+size, a line break in the middle — that is a real second layer, not a fragment
+of the first, and it deserves its own box rather than a hand-placed offset.
 
 ## Batch or nothing
 
