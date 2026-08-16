@@ -10,7 +10,7 @@ status: pending
 | Field | Value |
 | --- | --- |
 | **Goal** | Ajouter un environnement de Preview éphémère pour relire les PR ScreenForge dans des conditions Cloud réalistes, tout en conservant le tag SemVer comme unique déclencheur de production. |
-| **Source** | Demande utilisateur du 2026-08-16, après clarification des environnements Local, Preview et Production. |
+| **Source** | Demande utilisateur du 2026-08-16 et plan directeur `2026_08_16_cloud-prelaunch-validation`, après clarification des environnements Local, Preview et Production. |
 
 ## Phases
 
@@ -18,7 +18,7 @@ status: pending
 | --- | --- | --- |
 | 1 | Rendre le contrat Preview/Production exécutable | [`phase-1.md`](./phase-1.md) |
 | 2 | Autoriser strictement les origines Preview dans Convex préproduction | [`phase-2.md`](./phase-2.md) |
-| 3 | Activer et documenter l'intégration Git Vercel après le gate public | [`phase-3.md`](./phase-3.md) |
+| 3 | Activer et documenter l'intégration Git Vercel sur le dépôt public | [`phase-3.md`](./phase-3.md) |
 | 4 | Prouver le parcours complet et itérer jusqu'au vert | [`phase-4.md`](./phase-4.md) |
 
 ## Resources
@@ -42,5 +42,6 @@ status: pending
 | Mutualiser dans un seul helper la validation des origines utilisée par CORS et par les redirections d'authentification. | Les deux chemins protègent la même frontière. Une seule règle stricte évite qu'un correctif de CORS laisse encore fuiter un code de session par redirection. |
 | Préproduction accepte uniquement le namespace HTTPS observé du projet Vercel; production conserve ses origines exactes et ne reçoit aucune configuration Preview. | Un joker `*.vercel.app` autoriserait des projets tiers. L'absence de configuration en production doit fermer cette possibilité par défaut. |
 | Ne jamais autoriser directement le déploiement d'une PR issue d'un fork; après revue, reprendre le commit sur une branche interne si une Preview est nécessaire. | Fork Protection évite l'exécution de code non fiable avec l'environnement Preview. Le contributeur garde la CI sans secret et le mode Local complet. |
-| Préparer le code en privé, puis activer la Preview Git seulement après le gate explicite `GO PUBLIC`, sauf passage volontaire à Vercel Pro. | Vercel Hobby ne prend pas en charge un dépôt privé d'organisation GitHub. Ce plan ne change jamais lui-même la visibilité du dépôt et n'ajoute aucun coût pour contourner temporairement cette limite. |
+| Le gate `GO PUBLIC` est déjà satisfait; l’implémentation vérifie cet état sans modifier la visibilité et peut connecter l’intégration Git Vercel. | Le dépôt public est compatible avec les Previews Hobby; une régression de visibilité doit fermer l’activation plutôt que déclencher un achat implicite. |
 | Garder le check Vercel informatif sur Hobby tant que les PR de bot et les auteurs autorisés n'ont pas été prouvés; les checks Quality restent les seuls checks obligatoires. | Rendre un check non disponible obligatoire bloquerait notamment une PR Release Please. Il ne devient requis qu'après preuve de couverture ou passage à une équipe Vercel compatible. |
+| Écrire toutes les preuves Preview dans `verification.md` du plan Cloud directeur, sans créer une seconde série de rapports. | Les providers, l’entitlement, la Preview et la revue doivent converger vers une seule matrice publique expurgée. |

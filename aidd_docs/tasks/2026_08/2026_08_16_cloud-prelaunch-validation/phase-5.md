@@ -46,7 +46,7 @@ journey
     Figer SHA Preview données et comptes de test => matrice de preuve reproductible: 5: system
   section Happy path
     Exécuter le gate release complet => build typecheck lint tests et audits restent verts: 5: cli
-    Rejouer Local auth sync assets settings checkout => tous les parcours répondent comme documenté: 5: browser
+    Rejouer Local auth sync assets et settings sur Preview => tous les parcours répondent comme documenté: 5: browser
     Restaurer une sauvegarde dans une cible jetable => comptes projets assets et settings correspondent: 5: cli
     Faire reviewer le diff et les frontières => aucun finding P0 ou P1 ouvert: 5: system
   section Edge case - client falsifié
@@ -73,7 +73,7 @@ journey
 
 1. Tester landing Local gratuit et Cloud payant, éditeur Local sans session, navigation clavier, thèmes et absence d’erreur console.
 2. Tester lien magique Resend, compte propriétaire, sync projet, image et settings entre deux profils.
-3. Tester checkout Polar Sandbox, activation et révocation, puis restaurer la dérogation propriétaire.
+3. Vérifier sur la Preview l’entitlement issu du checkout Polar Sandbox canonique de phase 3, sa révocation puis la restauration de la dérogation propriétaire.
 4. Falsifier entitlement et données locales, rejouer les writes directs et confirmer les refus Convex.
 
 ### `3)` Prouver sauvegarde, restauration et exploitation
@@ -98,6 +98,6 @@ journey
 | Task | Acceptance criteria |
 | --- | --- |
 | 1 | Tous les gates automatisés sont verts sur le même SHA et l’export critique respecte exactement les contraintes App Store. |
-| 2 | Les parcours Local, auth, propriétaire, sync et Polar fonctionnent sur la Preview; toute falsification client reste incapable d’écrire dans Cloud. |
+| 2 | Les parcours Local, auth, propriétaire et sync fonctionnent sur la Preview; l’entitlement Polar validé sur l’origine canonique y gouverne les writes et toute falsification client reste sans effet. |
 | 3 | Une sauvegarde se restaure dans une cible séparée avec données cohérentes, puis la cible et les fixtures sont supprimées sans secret dans la preuve. |
 | 4 | Aucun finding P0/P1, secret, contournement Cloud ou perte de données ne reste ouvert; toute correction a son test et le cycle complet est repassé au vert. |

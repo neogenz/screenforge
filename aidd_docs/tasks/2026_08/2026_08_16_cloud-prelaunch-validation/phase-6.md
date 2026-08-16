@@ -61,7 +61,7 @@ journey
 > Ne dépenser ni configurer la production tant que le produit Cloud de test n’est pas validé.
 
 1. Ne rien acheter et laisser cette tâche pending jusqu’au texte explicite `GO DOMAIN`.
-2. Après accord, acheter le domaine retenu, connecter Vercel et configurer les redirections canoniques.
+2. Après accord, acheter le domaine retenu, l’attacher au projet Vercel déjà connecté et configurer les redirections canoniques.
 3. Vérifier le domaine Resend avec SPF et DKIM, publier DMARC, puis tester envoi, alignement et retours.
 4. Remplacer dans Convex production les URLs par l’origine HTTPS finale et exécuter le preflight production.
 
