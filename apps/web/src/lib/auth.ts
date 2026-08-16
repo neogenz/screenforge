@@ -1,15 +1,16 @@
-import { getSupabase } from '@/lib/supabase'
+import { authActions } from '@/lib/auth-actions'
+import { cloudConfigured, errorCode } from '@/lib/convex'
 import { toast } from '@/stores/toast.store'
 
 export type OAuthProvider = 'google' | 'github'
 
 /**
- * Les trois gestes d'authentification.
+ * Les gestes d'authentification.
  *
  * Chacun rend une erreur au lieu d'en lever une : l'appelant est une poignée de
  * bouton, et un `throw` lui coûterait un try/catch pour dire la même chose.
  *
- * Chacun accepte aussi d'être appelé sans client configuré. Le cas ne devrait
+ * Chacun accepte aussi d'être appelé sans instance configurée. Le cas ne devrait
  * pas se produire — l'interface de compte ne se monte pas sans les variables —
  * mais la garde vaut mieux qu'une assertion qui deviendrait fausse le jour où
  * un raccourci, la palette ou un lien profond ouvre la dialog par un autre
@@ -22,42 +23,67 @@ const NOT_CONFIGURED = {
 /**
  * Le retour d'authentification atterrit sur l'éditeur, jamais sur la vitrine :
  * c'est de l'éditeur qu'on part, et `landing.html` n'a ni store ni canvas pour
- * accueillir une session.
+ * accueillir une session. Le serveur refait ce contrôle (`callbacks.redirect`) —
+ * ici c'est une commodité, là-bas c'est la règle.
  */
 function editorUrl() {
   return `${window.location.origin}/`
 }
 
+/**
+ * Le message montré, jamais celui du serveur.
+ *
+ * Un compteur refusé arrive en `ConvexError` porteur d'un code ; le reste arrive
+ * comme il peut. Les deux finissent en une phrase que quelqu'un peut lire, parce
+ * qu'un nom de compteur interne n'apprend rien à qui a cliqué trop vite.
+ */
+export function readable(error: unknown): Error {
+  const message = error instanceof Error ? error.message : ''
+  /* Deux plafonds, un seul message : `RATE_LIMITED` vient de nos compteurs
+     (`limits.ts`), `TooManyFailedAttempts` de ceux de Convex Auth. La
+     distinction est vraie côté serveur et sans intérêt pour qui lit. */
+  if (errorCode(error) === 'RATE_LIMITED' || message.includes('TooManyFailedAttempts')) {
+    return new Error('Trop de tentatives. Réessayez dans un instant.')
+  }
+  if (/invalid|incorrect|password/i.test(message)) {
+    return new Error('Adresse e-mail ou mot de passe incorrect.')
+  }
+  return new Error('La connexion a échoué. Réessayez.')
+}
+
 export async function signInWithProvider(provider: OAuthProvider) {
-  const pending = getSupabase()
-  if (!pending) return NOT_CONFIGURED
-  const supabase = await pending
-  /* Cet appel quitte la page : il n'y a pas de « succès » à observer ici, seul
-     un échec revient, et il revient avant la redirection. */
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: editorUrl() },
-  })
-  return { error }
+  if (!cloudConfigured) return NOT_CONFIGURED
+  try {
+    const { signIn } = await authActions()
+    /* Cet appel quitte la page : il n'y a pas de « succès » à observer ici, seul
+       un échec revient, et il revient avant la redirection. */
+    await signIn(provider, { redirectTo: editorUrl() })
+    return { error: null }
+  } catch (error) {
+    return { error: readable(error) }
+  }
 }
 
 export async function signInWithEmail(email: string) {
-  const pending = getSupabase()
-  if (!pending) return NOT_CONFIGURED
-  const supabase = await pending
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: editorUrl() },
-  })
-  return { error }
+  if (!cloudConfigured) return NOT_CONFIGURED
+  try {
+    const { signIn } = await authActions()
+    await signIn('resend', { email, redirectTo: editorUrl() })
+    return { error: null }
+  } catch (error) {
+    return { error: readable(error) }
+  }
 }
 
 export async function signOut() {
-  const pending = getSupabase()
-  if (!pending) return NOT_CONFIGURED
-  const supabase = await pending
-  const { error } = await supabase.auth.signOut()
-  return { error }
+  if (!cloudConfigured) return NOT_CONFIGURED
+  try {
+    const { signOut: run } = await authActions()
+    await run()
+    return { error: null }
+  } catch (error) {
+    return { error: readable(error) }
+  }
 }
 
 /**

@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev preview build typecheck lint test test-unit test-e2e test-release audit-contrast validate-export db-start db-stop db-migrate
+.PHONY: help dev dev-backend preview build typecheck lint test test-unit test-e2e test-release audit-contrast validate-export
 
 help:
 	@printf '%s\n' \
 		'ScreenForge workflows:' \
 		'  make dev                         Start the development server' \
+		'  make dev-backend                 Start the local Convex deployment' \
 		'  make preview                     Preview the production build' \
 		'  make build                       Build the production application' \
 		'  make typecheck                   Check TypeScript types' \
@@ -15,13 +16,13 @@ help:
 		'  make test-e2e                    Run Playwright end-to-end tests' \
 		'  make test-release                Run the complete release validation' \
 		'  make audit-contrast              Audit UI contrast ratios' \
-		'  make db-start                    Start the local Supabase stack (Docker)' \
-		'  make db-migrate                  Apply migrations to the local database' \
-		'  make db-stop                     Stop the local Supabase stack' \
 		'  make validate-export FILE=<archive.zip>  Validate an exported ZIP archive'
 
 dev:
 	pnpm run dev
+
+dev-backend:
+	pnpm run dev:backend
 
 preview:
 	pnpm run preview
@@ -49,15 +50,6 @@ test-release:
 
 audit-contrast:
 	pnpm run audit:contrast
-
-db-start:
-	pnpm run db:start
-
-db-migrate:
-	pnpm run db:migrate
-
-db-stop:
-	pnpm run db:stop
 
 validate-export:
 	pnpm run validate:export -- "$(FILE)"

@@ -101,6 +101,20 @@ for (const file of sources) {
   }
 }
 
+const commercialCopy = sources.map((file) => readFileSync(file, 'utf8')).join('\n')
+const COMMERCIAL_BANS = [
+  { pattern: /commercialLaunch/, label: 'ancien interrupteur de lancement commercial' },
+  { pattern: /(?:\$49|49\s*\$)/, label: 'ancien prix Local payant' },
+  { pattern: /(?:free trial|essai gratuit)/i, label: 'ancien essai Local' },
+  {
+    pattern: /(?:three watermarked exports|trois exports filigranés)/i,
+    label: 'ancien quota Local',
+  },
+]
+for (const ban of COMMERCIAL_BANS) {
+  if (ban.pattern.test(commercialCopy)) failures.push(`offre : ${ban.label}`)
+}
+
 /* ── Prérendu : la page livrée doit être lisible sans JavaScript ──
    Une régression coûteuse et silencieuse : dix conteneurs d'apparition
    sortaient du prerender en `opacity: 0`, titre principal compris. Le HTML

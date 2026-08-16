@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AscRunner } from './asc.ts'
-import type { CodexClient } from './codex.ts'
 import type { BridgeCapability } from './pairing.ts'
 
 /**
@@ -9,25 +8,11 @@ import type { BridgeCapability } from './pairing.ts'
  * Un pont local est un processus qui écoute sur la machine de l'utilisateur et
  * qui lance un binaire. Les tests qui comptent ne sont donc pas ceux du chemin
  * heureux mais ceux des trois barrières : l'origine, le jeton, le schéma. Une
- * seule qui cède et la page ouverte dans l'onglet d'à côté commande Codex.
+ * seule qui cède et la page ouverte dans l'onglet d'à côté commande le moteur.
  *
  * Aucun identifiant réel ici : le jeton est celui que le pont tire lui-même en
- * mémoire, et Codex est remplacé par un double qui ne lance aucun processus.
+ * mémoire, et Claude est remplacé par un double qui ne lance aucun processus.
  */
-
-vi.mock('./codex.ts', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./codex.ts')>()),
-  codexVersion: async () => 'codex-cli 0.0.0-test',
-}))
-
-/* Claude Code est doublé au même titre que Codex : le sonder pour de vrai
-   ferait dépendre la suite de ce qui est installé sur la machine qui la lance. */
-const claudeTurn = vi.fn(async () => JSON.stringify(PLAN))
-vi.mock('./claude.ts', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./claude.ts')>()),
-  claudeVersion: async () => 'claude-cli 0.0.0-test',
-  runClaudeTurn: (...args: unknown[]) => claudeTurn(...(args as [])),
-}))
 
 const { createServer } = await import('./server.ts')
 const { bearer, createPairing, mintToken, revoke, verifyToken } = await import('./pairing.ts')
@@ -39,8 +24,9 @@ const {
   DEFAULT_ORIGINS,
   PROTOCOL_VERSION,
 } = await import('./protocol.ts')
-const { CodexUnavailableError } = await import('./codex.ts')
-const { createAscState, idempotenceKey, redact, uploadArgs } = await import('./asc.ts')
+const { ClaudeUnavailableError } = await import('./claude.ts')
+const { createAscState, idempotenceKey, uploadArgs } = await import('./asc.ts')
+const { redactDiagnostic } = await import('./redaction.ts')
 
 const ORIGIN = DEFAULT_ORIGINS[0]
 
@@ -70,17 +56,6 @@ const BRIEF = {
       hasAsset: true,
     },
   ],
-}
-
-function fakeCodex(answer: (request?: unknown) => Promise<string>) {
-  return {
-    initialize: async () => undefined,
-    listModels: async () => [
-      { id: 'modele-test', displayName: 'Modèle test', reasoningEfforts: [] },
-    ],
-    runTurn: answer,
-    dispose: () => undefined,
-  } as unknown as CodexClient
 }
 
 /**
@@ -122,12 +97,14 @@ function fakeAsc(
 function harness(
   answer: (request?: unknown) => Promise<string> = async () => JSON.stringify(PLAN),
   asc = fakeAsc(),
+  assistantProbe: () => Promise<string | undefined> = async () => 'claude-cli 0.0.0-test',
 ) {
   const state = {
     pairing: createPairing(),
-    codex: fakeCodex(answer),
     asc: createAscState(),
     ascRun: asc.run,
+    assistantRun: answer,
+    assistantProbe,
   }
   const app = createServer(state, DEFAULT_ORIGINS)
   /** `origin: null` retire l'en-tête : c'est `curl`, pas un navigateur. */
@@ -263,10 +240,7 @@ describe('capacités', () => {
     expect(hello).toEqual({
       protocol: PROTOCOL_VERSION,
       bridge: '0.1.0',
-      engines: [
-        { id: 'codex', version: 'codex-cli 0.0.0-test' },
-        { id: 'claude', version: 'claude-cli 0.0.0-test' },
-      ],
+      engines: [{ id: 'claude', version: 'claude-cli 0.0.0-test' }],
       capabilities: { vision: false, structuredOutput: true, reasoning: true },
       ascAvailable: true,
       ascVersion: '0.45.4',
@@ -281,8 +255,34 @@ describe('capacités', () => {
     const { call } = harness()
     expect((await call('/models', { token: null })).status).toBe(401)
     expect(await (await call('/models')).json()).toMatchObject({
-      models: [{ id: 'modele-test' }],
+      models: expect.arrayContaining([{ id: '', displayName: expect.any(String) }]),
     })
+  })
+
+  it('mutualise une rafale de sondages, met en cache puis redétecte après le TTL', async () => {
+    let now = 0
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const assistantProbe = vi
+      .fn<() => Promise<string | undefined>>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue('claude-cli installé')
+    const { call } = harness(undefined, fakeAsc(), assistantProbe)
+
+    const burst = await Promise.all(
+      Array.from({ length: 8 }, () => call('/hello', { token: null })),
+    )
+    expect(assistantProbe).toHaveBeenCalledOnce()
+    expect(((await burst[0]!.json()) as { engines: unknown[] }).engines).toEqual([])
+
+    await call('/hello', { token: null })
+    expect(assistantProbe).toHaveBeenCalledOnce()
+    now = 5_001
+    const refreshed = await call('/hello', { token: null })
+    expect(assistantProbe).toHaveBeenCalledTimes(2)
+    expect(((await refreshed.json()) as { engines: unknown[] }).engines).toEqual([
+      { id: 'claude', version: 'claude-cli installé' },
+    ])
+    clock.mockRestore()
   })
 })
 
@@ -312,7 +312,7 @@ describe('protocole', () => {
     expect(request.prompt).toContain('réécrire ensuite dans la revue')
   })
 
-  it('refuse une requête hors schéma avant d’allumer Codex', async () => {
+  it('refuse une requête hors schéma avant d’allumer le moteur', async () => {
     const spawned = vi.fn(async () => JSON.stringify(PLAN))
     const { call } = harness(spawned)
     const response = await call('/plan', {
@@ -844,59 +844,45 @@ describe('protocole', () => {
     })
   })
 
-  it('dit que Codex manque plutôt que d’échouer en silence', async () => {
+  it('dit que Claude manque sans exposer son diagnostic brut', async () => {
     const { call } = harness(async () => {
-      throw new CodexUnavailableError('codex introuvable')
+      throw new ClaudeUnavailableError(
+        'token=secret-value dans /Users/alice/projet et AuthKey_PRIVATE.p8',
+      )
     })
     const response = await call('/plan', { method: 'POST', body: planBody() })
     expect(response.status).toBe(502)
     const error = (await response.json()) as { error: string; detail: string }
     expect(error).toMatchObject({ error: 'engine-unavailable' })
-    expect(error.detail).toMatch(/codex/i)
+    expect(error.detail).toMatch(/Claude/i)
+    expect(error.detail).not.toMatch(/secret-value|alice|PRIVATE/)
   })
 
-  /**
-   * Le moteur change, le contrat non.
-   *
-   * Ce qui est vérifié n'est pas que Claude Code marche — il est doublé — mais
-   * que le choix du moteur atteint bien le bon binaire et que Codex n'est pas
-   * allumé pour rien. Un aiguillage qui lancerait les deux, ou le mauvais,
-   * n'échouerait pas : il rendrait un plan valide payé au mauvais abonnement.
-   */
-  it('lance le moteur demandé, et lui seul', async () => {
-    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
-    const { call } = harness(codexTurn)
+  it('lance Claude explicitement ou par défaut', async () => {
+    const turn = vi.fn(async () => JSON.stringify(PLAN))
+    const { call } = harness(turn)
 
-    const response = await call('/plan', {
+    const explicit = await call('/plan', {
       method: 'POST',
       body: planBody({ engine: 'claude' }),
     })
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ plan: PLAN })
-    expect(claudeTurn).toHaveBeenCalledOnce()
-    expect(codexTurn).not.toHaveBeenCalled()
-  })
-
-  it('sans moteur demandé, reste sur Codex', async () => {
-    claudeTurn.mockClear()
-    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
-    const { call } = harness(codexTurn)
-
+    expect(explicit.status).toBe(200)
+    expect(await explicit.json()).toEqual({ plan: PLAN })
     expect((await call('/plan', { method: 'POST', body: planBody() })).status).toBe(200)
-    expect(codexTurn).toHaveBeenCalledOnce()
-    expect(claudeTurn).not.toHaveBeenCalled()
+    expect(turn).toHaveBeenCalledTimes(2)
   })
 
-  it('rend les alias de Claude Code sans allumer Codex', async () => {
-    const codexTurn = vi.fn(async () => JSON.stringify(PLAN))
-    const { call } = harness(codexTurn)
+  it('rend les alias de Claude Code et refuse Codex', async () => {
+    const { call } = harness()
     const response = await call('/models?engine=claude')
     expect(response.status).toBe(200)
     const { models } = (await response.json()) as { models: { id: string }[] }
     // Le premier choix est l'absence de choix : celui que l'utilisateur a réglé.
     expect(models[0]?.id).toBe('')
     expect(models.map((entry) => entry.id)).toContain('sonnet')
-    expect(codexTurn).not.toHaveBeenCalled()
+    const disabled = await call('/models?engine=codex')
+    expect(disabled.status).toBe(400)
+    expect(await disabled.json()).toMatchObject({ error: 'engine-unavailable' })
   })
 
   it('traduit par position, et refuse un lot dont le compte a changé', async () => {
@@ -1201,7 +1187,7 @@ describe('publication', () => {
     const asc = fakeAsc({
       upload: async () => ({
         code: 0,
-        stdout: 'issuer_id=69a6de70-dead-beef token: eyJhbGciOi.eyJpc3MiOi.SIGNATURE ok',
+        stdout: 'issuer_id=synthetic-issuer-value ok',
         stderr: '',
         timedOut: false,
       }),
@@ -1214,10 +1200,9 @@ describe('publication', () => {
         capability: 'asc-publish',
       })
     ).json()) as { output: string }
-    expect(result.output).not.toContain('69a6de70')
-    expect(result.output).not.toContain('eyJhbGciOi')
+    expect(result.output).not.toContain('synthetic-issuer-value')
     expect(result.output).toContain('[REDACTED]')
-    expect(redact('-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----')).toBe(
+    expect(redactDiagnostic('-----BEGIN PRIVATE KEY-----\nMIIE\n-----END PRIVATE KEY-----')).toBe(
       '[REDACTED]',
     )
   })

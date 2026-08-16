@@ -53,7 +53,7 @@ import {
   PROJECT_FILE_MIME,
   projectFileErrorMessage,
 } from '@/lib/project-file'
-import { billingConfigured } from '@/lib/api'
+import { billingConfigured } from '@/lib/account'
 import { planName } from '@/lib/plans'
 import {
   importPortableProject,
@@ -61,7 +61,7 @@ import {
   openStoredProject,
   saveCurrentProject,
 } from '@/lib/storage'
-import { cloudConfigured } from '@/lib/supabase'
+import { cloudConfigured } from '@/lib/convex'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { toast } from '@/stores/toast.store'
 import {
@@ -667,7 +667,7 @@ function useToolActions(): SecondaryAction[] {
 /**
  * L'entrée de compte, ou rien.
  *
- * Rien est le cas normal : sans instance Supabase configurée, ScreenForge est
+ * Rien est le cas normal : sans déploiement configuré, ScreenForge est
  * l'éditeur local-first qu'il a toujours été, et un bouton « Se connecter » qui
  * ouvrirait une boîte incapable de connecter quiconque serait pire qu'absent.
  * `cloudConfigured` étant une constante de compilation, la branche entière
@@ -747,7 +747,7 @@ function usePlanAction(): SecondaryAction | null {
 /**
  * Le palier s'écrit, il ne se pictographie pas.
  *
- * « Licence » et « Cloud » n'ont pas de glyphe que l'œil lise sans légende, et
+ * « Local » et « Cloud » n'ont pas de glyphe que l'œil lise sans légende, et
  * la rangée voisine est entièrement en icônes : un mot y devient le seul repère
  * textuel, ce qui est exactement ce qu'on veut d'un état de compte. Le point
  * citron marque le palier payant — même vocabulaire que « vous êtes ici »
@@ -756,7 +756,7 @@ function usePlanAction(): SecondaryAction | null {
 function BadgeIcon({ children }: { children: string }) {
   return (
     <span className="flex items-center gap-1.5 text-2xs font-medium">
-      {children !== 'Gratuit' && (
+      {children !== 'Essai' && (
         <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
       )}
       {children}

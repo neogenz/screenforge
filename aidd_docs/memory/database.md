@@ -3,8 +3,8 @@
 ## Setup
 
 - Browser IndexedDB database `screenforge`, schema version 2, accessed through `idb` in `apps/web/src/lib/storage.ts`. A second local database, `screenforge-sync`, holds sync acknowledgements only — it is disposable, which is why it is not a store inside the one carrying user projects.
-- The local copy is authoritative: everything works with no account and no network. Postgres is a mirror the Cloud add-on offers, never a prerequisite.
-- Server side: Supabase Postgres, migrations in `supabase/migrations/`, local stack on ports 544xx (`pnpm run db:start` / `db:migrate`).
+- The local copy is authoritative: everything works with no account and no network. The deployment is the mirror offered by the standalone Cloud plan, never a prerequisite.
+- Server side: one Convex deployment, schema in `apps/backend/convex/schema.ts`, local deployment on ports 3210/3211 (`pnpm run dev:backend`). There is no migration step — Convex refuses a push whose existing documents do not satisfy the schema, so the schema file is where the data is looked at.
 
 ## Main entities
 
@@ -16,6 +16,7 @@ erDiagram
     LAYER }o--o| ASSET : references
     USER ||--o{ PROJECT : "owns (cloud mirror)"
     USER ||--o| ENTITLEMENTS : "has bought"
+    USER ||--o| USER_SETTINGS : "syncs durable preferences"
 ```
 
 ## Conventions
@@ -26,11 +27,15 @@ erDiagram
 - `project-validation.ts` defines the strict current project contract shared by ZIP and IndexedDB. `normalizeProject` applies only supported legacy migrations (inline v1 assets and shape gradients), then requires that contract before any activation or rewrite.
 - Invalid local records are left untouched. Latest-project loading skips them and tries the preceding record instead of silently repairing or deleting user data.
 - Autosave is debounced by two seconds and flushes on teardown; delete waits for matching in-flight saves before removing a project and its assets.
+- `ensureDurableStorage()` asks for persistent storage at the first successful commit, not at boot: Firefox prompts the user, and the question only earns itself once there is something to lose. The answer is memoised for the session. Without it the origin stays best-effort, which browsers evict on their own — Safari after seven days without a visit, Chrome under disk pressure. A refusal is reported once, in the account dialog, and only to accounts without the Cloud add-on.
 
 ## Server-side conventions
 
-- `public.projects` stores the whole project document as `jsonb` under `user_id`, last-write-wins on `updated_at`. Binaries never go in the column: they live in the private `assets` Storage bucket under `{user_id}/{asset_id}`, which is what makes ownership a path.
-- `public.entitlements` is keyed by `user_id` — one account, one row, forever. `licence_granted_at` is perpetual; `cloud_status` and `cloud_period_end` carry the subscription. The row is a mirror of Polar, rebuilt whole from `customer.state_changed`.
-- Every table has RLS with one policy per verb, `(select auth.uid()) = user_id`, `with check` on both insert and update, and `revoke all from anon`. The `(select fn())` wrapper is what makes the call run once per query instead of once per row.
-- `service_role` bypasses RLS but not table grants: a migration that creates a table must grant it explicitly, or the webhook fails after a payment is taken.
-- `supabase/tests/*.test.mjs` (`pnpm run test:rls`) are written from the attacker's point of view, and each file carries its counter-test — policies that refuse everything would otherwise pass a suite of refusals while breaking the feature.
+- **There is no direct path to the data, so the function is the wall.** No table URL, no collection endpoint, no anonymous key that opens a read: a client can only call the functions in `apps/backend/convex/`. `authz.ts` is the single place that decides who may write — `requireUser`, `requireCloud`, and nothing else. This replaces a per-verb policy on every table, and it replaces the reasoning that made those policies necessary: sync used to go from the browser straight to the database, so a middleware would have been a door beside the wall.
+- `projects` holds identity and timestamp only; the project document itself is a file (`blobId`). A Convex document caps at 1 MiB and a project with twenty frozen releases exceeds it — and the server has never read inside that JSON, it only compares `updatedAt`.
+- `assets` carries ownership as a column plus the `by_user_asset` index, where the bucket carried it as a `{user_id}/{asset_id}` path. No read takes the user as a parameter; it comes from the token, always.
+- `entitlements` is one Cloud mirror row per account, forever — an invariant the write upholds (`applyEntitlementsIfNewer`) rather than a primary key, since Convex does not let you choose one. Dates are stored as ISO strings because nothing compares them in the database; `sourceUpdatedAt` is a number because it *is* compared, and it is what stops a late webhook overwriting a newer one.
+- `userSettings` est une ligne LWW par compte, limitée à `theme: light | dark` et `updatedAt`. Elle reste lisible après expiration Cloud, tandis que son upsert passe par `requireCloud` et n'accepte qu'une version strictement plus récente. Le client conserve la même forme localement, isolée par compte, et réutilise la file de sync des projets.
+- Le document projet complet porte déjà globals, locales, releases, écrans et layout layers; chaque `assetId` source est envoyé avant ce document. Restent exclusivement locaux les clés IA, jetons, cache de droits, langue marketing, zoom, sélection, panneaux, dialogues et miniatures dérivées.
+- Privileged work lives in `internalMutation`s. They are unreachable from any client — a boundary declared in the code and enforced by the compiler, which is a better lock than a secret key, since there is no secret to avoid disclosing.
+- `apps/backend/convex/*.test.ts` (`pnpm --filter backend test:unit`) are written from the attacker's point of view and each carries its counter-test — a rule that refused everything would otherwise pass a suite of refusals while breaking the feature.

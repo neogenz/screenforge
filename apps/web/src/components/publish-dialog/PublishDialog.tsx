@@ -153,15 +153,9 @@ function PublishDialogContent({ project }: { project: Project }) {
     const collected: { name: string; blob: Blob; sha256: string }[] = []
     const expected = new Map(release.files.map((file) => [bundleFileName(file), file.sha256]))
     try {
-      await renderReleaseFiles(
-        release.snapshot,
-        release.watermarked,
-        setProgress,
-        undefined,
-        (file, blob) => {
-          collected.push({ name: bundleFileName(file), blob, sha256: file.sha256 })
-        },
-      )
+      await renderReleaseFiles(release.snapshot, setProgress, undefined, (file, blob) => {
+        collected.push({ name: bundleFileName(file), blob, sha256: file.sha256 })
+      })
       const drifted = collected
         .filter((file) => expected.get(file.name) !== file.sha256)
         .map((file) => file.name)

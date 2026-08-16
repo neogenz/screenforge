@@ -1,6 +1,8 @@
 **/dist
 **/dist-ssr
-supabase/.temp
+# Écrit par la CLI Convex, jamais à la main : le reformater le ferait diverger
+# de ce que `convex dev` réécrira au prochain lancement.
+apps/backend/convex/_generated
 **/test-results
 **/playwright-report
 pnpm-lock.yaml

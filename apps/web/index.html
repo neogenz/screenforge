@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScreenForge</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--
       La feuille Inter ne bloque plus le rendu. Le navigateur la déclarait
       « blocking » : rien ne pouvait s'afficher avant un aller-retour vers une
-      origine tierce. `media="print"` la sort du chemin critique, `onload` la
-      rend applicable une fois arrivée. L'URL porte déjà `display=swap`, donc
+      origine tierce. `media="print"` la sort du chemin critique, et `boot.js`
+      la rend applicable une fois arrivée. L'URL porte déjà `display=swap`, donc
       le texte s'affiche en repli puis bascule — un caractère de repli pendant
       200ms vaut mieux qu'une page vide pendant le même temps.
     -->
@@ -22,7 +23,7 @@
     <link
       rel="stylesheet"
       media="print"
-      onload="this.media = 'all'"
+      data-screenforge-font
       href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
     />
     <noscript>
@@ -31,13 +32,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
       />
     </noscript>
-    <script>
-      try {
-        if (localStorage.getItem('screenforge-theme') === 'light') {
-          document.documentElement.classList.add('light')
-        }
-      } catch {}
-    </script>
+    <script src="/boot.js"></script>
     <style>
       /* Évite le flash du mauvais thème avant la feuille de styles. Les valeurs
          recopient les tokens de la scène et du texte secondaire : le boot doit

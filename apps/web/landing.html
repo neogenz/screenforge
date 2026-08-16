@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScreenForge — App Store screenshots, pixel-exact</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta
       name="description"
-      content="Editor for iPhone App Store screenshot sets. Pixel-exact exports rendered on your own machine, one ZIP ready for App Store Connect. $49 once, not a subscription."
+      content="Free local editor for pixel-exact iPhone App Store screenshots. Cloud is $39/year for account, sync, projects, images, settings and managed backups."
     />
     <!-- La vitrine est sombre uniquement : sans cette déclaration le navigateur
          rend les barres de défilement et les contrôles natifs en clair. -->
@@ -21,7 +22,7 @@
     <meta property="og:title" content="ScreenForge — App Store screenshots, pixel-exact" />
     <meta
       property="og:description"
-      content="Design iPhone screenshot sets in your browser. Pixel-exact PNG-24 exports, validated for App Store Connect. $49 once, and the editor runs on your machine, so it is not a subscription."
+      content="Design pixel-exact App Store screenshots free with Local, or add $39/year Cloud for sync, managed storage and backups."
     />
     <meta property="og:image" content="/og-landing.png" />
     <meta property="og:image:width" content="1200" />
@@ -38,27 +39,19 @@
         "offers": [
           {
             "@type": "Offer",
-            "name": "Free",
+            "name": "Local",
             "price": "0",
             "priceCurrency": "USD",
             "availability": "https://schema.org/InStock",
-            "description": "The complete editor, projects stored locally, no account. Exports are unrestricted until accounts open, then capped at three watermarked exports per project."
-          },
-          {
-            "@type": "Offer",
-            "name": "Licence",
-            "price": "49",
-            "priceCurrency": "USD",
-            "availability": "https://schema.org/PreOrder",
-            "description": "One-time purchase: unlimited exports without watermark, every future update included."
+            "description": "Free local use: complete editor, unlimited clean exports and grouped ZIP, with projects kept on this machine."
           },
           {
             "@type": "Offer",
             "name": "Cloud",
             "price": "39",
             "priceCurrency": "USD",
-            "availability": "https://schema.org/PreOrder",
-            "description": "Yearly add-on to the Licence: projects mirrored to the cloud and available on every machine."
+            "availability": "https://schema.org/InStock",
+            "description": "Yearly managed service: every Local feature plus account, sync, projects, source images, settings and backups."
           }
         ]
       }
@@ -98,7 +91,7 @@
     <link
       rel="stylesheet"
       media="print"
-      onload="this.media = 'all'"
+      data-screenforge-font
       href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
     />
     <noscript>
@@ -107,6 +100,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap"
       />
     </noscript>
+    <script src="/boot.js"></script>
     <style>
       html {
         background: oklch(0.145 0 0);

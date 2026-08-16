@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTextLayer, grantEntitlements, layerRows, waitForApp } from './helpers'
+import { addTextLayer, layerRows, waitForApp } from './helpers'
 
 /**
  * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
@@ -121,7 +121,6 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
 test('les contrôles composites des dialogues partagent le focus citron', async ({ page }) => {
   await waitForApp(page)
   await addTextLayer(page)
-  await grantEntitlements(page, { licence: true })
 
   await page.getByLabel('Générer les visuels App Store').click()
   let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
@@ -165,7 +164,6 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
   await waitForApp(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await addTextLayer(page)
-  await grantEntitlements(page, { licence: true })
 
   // Un lot figé : sans lui, deux des boîtes n'affichent que leur état vide, et
   // c'est justement leur colonne de contenu qui est à l'étroit.
@@ -221,7 +219,6 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
 test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }) => {
   await waitForApp(page)
   await addTextLayer(page)
-  await grantEntitlements(page, { licence: true })
 
   await page.getByLabel('Générer les visuels App Store').click()
   const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })

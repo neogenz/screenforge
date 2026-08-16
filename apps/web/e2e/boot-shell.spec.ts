@@ -22,16 +22,16 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(html).toMatch(/<div id="root">\s*<div class="boot"/)
 
   // La feuille de polices sort du chemin critique et y revient au chargement.
-  /* Les espaces autour du `=` sont ceux que Prettier met dans l'attribut : le
-     motif serré ne matchait plus depuis qu'il formate le HTML, et l'assertion
-     échouait sur une page pourtant correcte. */
-  expect(html).toMatch(
-    /rel="stylesheet"[\s\S]*?media="print"[\s\S]*?onload="this\.media\s*=\s*'all'"/,
-  )
+  expect(html).toMatch(/rel="stylesheet"[\s\S]*?media="print"[\s\S]*?data-screenforge-font/)
   expect(html).toContain('rel="preload"')
-  expect(html.indexOf("localStorage.getItem('screenforge-theme')")).toBeLessThan(
-    html.indexOf('<style>'),
-  )
+  expect(html).not.toMatch(/\son[a-z]+\s*=/i)
+
+  // Le thème et le retour de la fonte vivent dans le même script same-origin,
+  // avant les styles du boot : aucune permission `unsafe-inline` n'est requise.
+  const boot = await (await request.get('/boot.js')).text()
+  expect(boot).toContain("localStorage.getItem('screenforge-theme')")
+  expect(boot).toContain("querySelectorAll('link[data-screenforge-font]')")
+  expect(html.indexOf('<script src="/boot.js"></script>')).toBeLessThan(html.indexOf('<style>'))
 
   // Une fois monté, React a vidé le conteneur : rien à retirer à la main.
   await waitForApp(page)
@@ -48,6 +48,20 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   )
   expect(blocking.length).toBeGreaterThan(0)
   expect(blocking).not.toContain('blocking')
+})
+
+test('déclare la même icône servie en local sur la landing et l’éditeur', async ({ request }) => {
+  const [app, landing, icon] = await Promise.all([
+    request.get('/'),
+    request.get('/landing.html'),
+    request.get('/favicon.svg'),
+  ])
+
+  for (const html of [await app.text(), await landing.text()]) {
+    expect(html).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml" />')
+  }
+  expect(icon.ok()).toBe(true)
+  expect(icon.headers()['content-type']).toContain('image/svg+xml')
 })
 
 async function expectBootTheme(
@@ -124,4 +138,38 @@ test('garde le boot sombre avant le montage sans préférence ou avec la préfé
 
 test('garde le boot sombre si le stockage est indisponible', async ({ page }) => {
   await expectBootTheme(page, null, true)
+})
+
+/**
+ * L'invariant local-first, mesuré et pas seulement écrit.
+ *
+ * `cloudConfigured` est une constante de compilation : sans `VITE_CONVEX_URL`,
+ * tout ce qu'elle garde doit disparaître à l'élagage. Un `import` statique
+ * ajouté par mégarde dans `lib/convex.ts` ne casserait rien de visible — il
+ * ferait juste télécharger le SDK à quelqu'un qui n'aura jamais de compte, et
+ * personne ne s'en apercevrait avant la prochaine mesure de poids.
+ */
+test('sans instance cloud, rien du SDK n’est demandé au réseau', async ({ page }) => {
+  const requested: string[] = []
+  page.on('request', (request) => requested.push(request.url()))
+
+  await waitForApp(page)
+  /* Une image du chargement paresseux : sans cette attente, l'absence
+     constatée serait celle d'un module qui n'a pas encore eu le temps d'être
+     demandé. */
+  await page.waitForTimeout(500)
+
+  /* Les marqueurs sont des noms de modules et pas le mot « convex » : le
+     chemin du dépôt lui-même peut le contenir, et un filtre trop large a déjà
+     compté `vite/dist/client/env.mjs` comme une fuite. `lib/convex.ts` est
+     demandé et doit l'être — il ne porte que la constante ; ce qui ne doit pas
+     l'être, c'est ce qu'elle garde. */
+  const sdk = [
+    'convex-client', // l'instance `ConvexReactClient`
+    'cloud-bridge', // le fournisseur React et sa sentinelle
+    'node_modules/convex/',
+    'node_modules/@convex-dev/',
+    'deps/convex',
+  ]
+  expect(requested.filter((url) => sdk.some((marker) => url.includes(marker)))).toEqual([])
 })

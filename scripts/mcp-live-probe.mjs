@@ -172,6 +172,7 @@ class StdioClient {
  * @typedef {{ tool: string; args: Record<string, unknown> }} ProbeCall
  * @typedef {{ screenId?: string; maxWidth?: number }} RelayRender
  * @typedef {{ name: string; description?: string; screenId?: string }} RelayTemplateSave
+ * @typedef {{ id: string; name: string; description: string; source: 'ai'; layerCount: number; createdAt: number }} RelayTemplateSummary
  * @typedef {{ id: string; calls?: ProbeCall[]; render?: RelayRender; saveTemplate?: RelayTemplateSave; listTemplates?: true }} RelayRequest
  * @typedef {{ id: string; mediaType: string; bytes: number }} ProbeClaim
  * @typedef {(request: RelayRequest) => unknown} Answer
@@ -193,6 +194,8 @@ class FakeEditor {
   /** @type {RelayRender[]} */ #rendered = []
   /** @type {ProbeClaim[]} */ #claimed = []
   /** @type {RelayTemplateSave[]} */ #templates = []
+  /** @type {RelayTemplateSummary[]} */
+  #templateSummaries = []
   #listed = 0
 
   /** @param {string} base */
@@ -278,10 +281,20 @@ class FakeEditor {
             const request = JSON.parse(/^data:\s*(.*)$/m.exec(frame)?.[1] ?? 'null')
             if (request.saveTemplate) {
               this.#templates.push(request.saveTemplate)
-              await this.#respond(request, { id: 'gabarit-1', name: request.saveTemplate.name })
+              /** @type {RelayTemplateSummary} */
+              const summary = {
+                id: `gabarit-${this.#templates.length}`,
+                name: request.saveTemplate.name,
+                description: request.saveTemplate.description ?? '',
+                source: 'ai',
+                layerCount: 0,
+                createdAt: this.#templates.length,
+              }
+              this.#templateSummaries.push(summary)
+              await this.#respond(request, summary)
             } else if (request.listTemplates) {
               this.#listed += 1
-              await this.#respond(request, { templates: this.#templates })
+              await this.#respond(request, { templates: this.#templateSummaries })
             } else if (request.render) {
               this.#rendered.push(request.render)
               // Un PNG d'un pixel : ce qui se vérifie ici est le transport, pas
@@ -291,6 +304,7 @@ class FakeEditor {
                 width: request.render.maxWidth ?? 640,
                 height: 1,
                 data: ONE_PIXEL_PNG,
+                findings: [],
               })
             } else {
               this.#applied.push(...(request.calls ?? []))

@@ -13,8 +13,8 @@ import * as assets from '@/lib/assets'
 if (import.meta.env.DEV) {
   // Dev-only debug handle for e2e state assertions (coalescing, history…).
   // `useAuthStore` y est aussi en écriture : les droits arrivent normalement
-  // d'un achat Polar, et une suite e2e ne peut pas en passer un. Poser les
-  // droits ici est le seul moyen de tester ce que la Licence débloque sans
+  // d'un achat Polar, et une suite e2e ne peut pas en passer un. Poser le droit
+  // Cloud ici est le seul moyen de tester la sync sans
   // faire dépendre la suite d'un compte, d'un backend et d'un tiers payant.
   ;(window as unknown as { __sfStores?: unknown }).__sfStores = {
     useAuthStore,

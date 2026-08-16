@@ -348,7 +348,7 @@ export function preflight(
 
   if (release.watermarked) {
     error(
-      'Ce lot a été figé avec le filigrane de l’offre gratuite : il ne peut pas être publié. Passez à la Licence, puis figez une nouvelle release.',
+      'Ce lot historique a été figé avec un filigrane : il ne peut pas être publié. Régénérez une nouvelle release propre.',
     )
   }
 

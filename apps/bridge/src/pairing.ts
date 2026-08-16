@@ -21,10 +21,8 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
  * Un jeton unique aurait fait de l'appairage à un assistant une autorisation de
  * publier. Ici, refuser une capacité est un geste : on ne recopie pas son jeton.
  *
- * La capacité s'appelle `assistant` et non `codex` parce que c'est ce qu'elle
- * ouvre : le droit de faire écrire un texte par le modèle installé sur cette
- * machine, quel qu'il soit. Nommée d'après un binaire, elle obligeait
- * l'installation guidée à parler de « jeton codex » pour brancher Claude Code.
+ * La capacité s'appelle `assistant` plutôt que d'après un binaire : elle ouvre
+ * le droit de faire écrire un texte par le moteur confiné installé.
  */
 
 export const BRIDGE_CAPABILITIES = ['assistant', 'asc-publish'] as const

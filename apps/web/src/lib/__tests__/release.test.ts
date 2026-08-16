@@ -112,7 +112,7 @@ describe('l’instantané', () => {
 describe('le figement', () => {
   it('clone une seconde fois : rien ne traverse après coup', () => {
     const snapshot = snapshotOf(project([screen('a', [textLayer('l1', 'Avant')])]))
-    const release = freezeRelease('r1', ' 1.4.0 ', snapshot, [file('6.9/01.png', 'a')], false, 10)
+    const release = freezeRelease('r1', ' 1.4.0 ', snapshot, [file('6.9/01.png', 'a')], 10)
     ;(snapshot.screens[0].layers[0] as TextLayer).content = 'Après'
     expect((release.snapshot.screens[0].layers[0] as TextLayer).content).toBe('Avant')
     expect(release.name).toBe('1.4.0')
@@ -121,7 +121,7 @@ describe('le figement', () => {
   it('entre dans le projet en un pas d’annulation, et en ressort de même', () => {
     const before = project()
     useProjectStore.setState({ project: before })
-    const release = freezeRelease('r1', '1.4.0', snapshotOf(before), [], false, 10)
+    const release = freezeRelease('r1', '1.4.0', snapshotOf(before), [], 10)
 
     expect(addRelease(release)).toMatchObject({ committed: true, value: 1 })
     const after = useProjectStore.getState().project as Project
@@ -137,10 +137,10 @@ describe('le figement', () => {
   it('refuse au-delà du plafond, sans rien écrire', () => {
     const full = project()
     full.releases = Array.from({ length: MAX_PROJECT_RELEASES }, (_, index) =>
-      freezeRelease(`r${index}`, `${index}`, snapshotOf(full), [], false, index),
+      freezeRelease(`r${index}`, `${index}`, snapshotOf(full), [], index),
     )
     useProjectStore.setState({ project: full })
-    expect(addRelease(freezeRelease('rx', 'x', snapshotOf(full), [], false, 99))).toMatchObject({
+    expect(addRelease(freezeRelease('rx', 'x', snapshotOf(full), [], 99))).toMatchObject({
       committed: false,
       reason: 'aborted',
     })
@@ -149,7 +149,7 @@ describe('le figement', () => {
 
   it('retient les assets que seul son instantané référence encore', () => {
     const withImage = project([screen('a', [imageLayer('l1', 'asset-1')])])
-    const release = freezeRelease('r1', '1.0', snapshotOf(withImage), [], false, 10)
+    const release = freezeRelease('r1', '1.0', snapshotOf(withImage), [], 10)
     // La capture a été remplacée depuis : le projet vivant ne la cite plus.
     const later: Project = {
       ...project([screen('a', [imageLayer('l1', 'asset-2')])]),
@@ -160,7 +160,7 @@ describe('le figement', () => {
 
   it('est rejetée par la validation si son empreinte n’en est pas une', () => {
     const base = project()
-    const release = freezeRelease('r1', '1.0', snapshotOf(base), [], false, 10)
+    const release = freezeRelease('r1', '1.0', snapshotOf(base), [], 10)
     const broken = {
       ...base,
       releases: [{ ...release, files: [{ ...file('6.9/01.png', 'a'), sha256: 'court' }] }],

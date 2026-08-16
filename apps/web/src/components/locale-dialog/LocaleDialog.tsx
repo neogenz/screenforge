@@ -153,9 +153,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
         { code: target.code, name: target.name, script: target.script },
         sources,
         token,
-        // Le moteur retenu à l'appairage : sur une machine qui n'a que Claude
-        // Code, repartir sur Codex ferait échouer la traduction après une
-        // campagne réussie, avec tout de branché.
+        // Le moteur retenu à l'appairage, partagé avec la campagne.
         bridgeEngine(),
       )
       const proposals = Object.fromEntries(

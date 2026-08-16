@@ -78,7 +78,6 @@ export interface RenderProgress {
  */
 export async function renderReleaseFiles(
   snapshot: ProjectSnapshot,
-  watermarked: boolean,
   onProgress?: (progress: RenderProgress) => void,
   dimensions: DisplayClass[] = EXPORT_DIMENSIONS,
   /**
@@ -104,7 +103,6 @@ export async function renderReleaseFiles(
       dimension.portrait.width,
       dimension.portrait.height,
       index,
-      watermarked,
     )
     const metadata = await inspectPng(blob)
     const file: ReleaseFile = {
@@ -128,7 +126,6 @@ export function freezeRelease(
   name: string,
   snapshot: ProjectSnapshot,
   files: ReleaseFile[],
-  watermarked: boolean,
   createdAt: number,
   /** La langue rendue, quand ce n'est pas celle d'origine. */
   locale?: string,
@@ -137,7 +134,7 @@ export function freezeRelease(
     id,
     name: name.trim().slice(0, MAX_RELEASE_NAME_LENGTH),
     createdAt,
-    watermarked,
+    watermarked: false,
     ...(locale ? { locale } : {}),
     files,
     // Cloné une seconde fois : l'appelant garde le sien, la release garde le
@@ -237,14 +234,16 @@ export async function verifyRelease(
   onProgress?: (progress: RenderProgress) => void,
   dimensions: DisplayClass[] = EXPORT_DIMENSIONS,
 ): Promise<ReleaseCheck[]> {
+  if (release.watermarked) {
+    return release.files.map((file) => ({
+      path: file.path,
+      status: 'failed',
+      detail: 'Lot historique filigrané : régénérez une release propre.',
+    }))
+  }
   let rendered: ReleaseFile[]
   try {
-    rendered = await renderReleaseFiles(
-      release.snapshot,
-      release.watermarked,
-      onProgress,
-      dimensions,
-    )
+    rendered = await renderReleaseFiles(release.snapshot, onProgress, dimensions)
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Rendu impossible.'
     return release.files.map((file) => ({ path: file.path, status: 'failed', detail }))

@@ -8,7 +8,7 @@
     "checkJs": true,
     /* Les specs atteignent `src/` (types de calques, droits d'export), donc ce
        projet doit lire le code applicatif dans ses conditions : les `.ts`
-       explicites d'`apps/api` et `import.meta.env` de Vite. */
+       explicites du déploiement et `import.meta.env` de Vite. */
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,

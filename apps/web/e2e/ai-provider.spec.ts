@@ -41,22 +41,22 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
   await expect(page.getByRole('button', { name: 'Retour au brief' })).toBeVisible()
 
   const local = page.getByRole('radio', { name: /ScreenForge seul/ })
-  const codex = page.getByRole('radio', { name: /Avec Codex/ })
+  const claude = page.getByRole('radio', { name: /Avec Claude Code/ })
   const openRouter = page.getByRole('radio', { name: /clé OpenRouter/ })
 
   // Les choix se parcourent d'un coup d'œil. Seul le fournisseur retenu
   // explique son fonctionnement, et le trajet exact des données reste à un
   // geste : l'information sensible est conservée sans être répétée cinq fois.
   await expect(local.locator('..')).toContainText('Local · sans compte')
-  await expect(codex.locator('..')).toContainText('Sur cet ordinateur · sans clé')
+  await expect(claude.locator('..')).toContainText('Sur cet ordinateur · sans clé')
   await expect(openRouter.locator('..')).toContainText('En ligne · votre clé')
   const privacy = page.getByText('Données et confidentialité')
   await expect(page.getByText(/Rien ne quitte cet onglet/)).toBeHidden()
   await privacy.click()
   await expect(page.getByText(/Rien ne quitte cet onglet/)).toBeVisible()
 
-  await codex.click()
-  await expect(page.getByText(/via le Codex déjà installé/)).toBeVisible()
+  await claude.click()
+  await expect(page.getByText(/via le Claude Code déjà installé/)).toBeVisible()
   await expect(page.getByText(/aucune image ne traverse le pont/)).toBeHidden()
   await privacy.click()
   await expect(page.getByText(/aucune image ne traverse le pont/)).toBeVisible()

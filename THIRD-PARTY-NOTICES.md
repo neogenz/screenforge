@@ -101,13 +101,13 @@ Relevé au 2026-08-11 par `pnpm licenses list` sur l'arbre complet : 339 MIT,
 27 ISC, 22 Apache-2.0, 13 BSD, et quelques cas qui méritent d'être nommés
 plutôt que noyés dans un total.
 
-| Paquet                     | Licence                    | Ce qu'elle implique ici                                                                                                                                                          |
-| -------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lightningcss` (+ binaire) | MPL-2.0                    | Outil de compilation CSS, jamais redistribué. Le copyleft porte sur ses propres fichiers, qui ne sont pas modifiés.                                                              |
-| `caniuse-lite`             | CC-BY-4.0                  | Données de compatibilité, consommées à la compilation. Attribution : Alexis Deveria et contributeurs.                                                                            |
-| `jszip`                    | MIT ou GPL-3.0-or-later    | Double licence : ScreenForge retient MIT.                                                                                                                                        |
-| `argparse`                 | Python-2.0                 | Permissive, transitive, hors du paquet livré au navigateur.                                                                                                                      |
-| `@polar-sh/sdk`            | MIT annoncée, champ absent | Le paquet publié ne déclare pas `license` et ne joint pas de fichier ; le dépôt amont et son README annoncent MIT. Utilisé côté serveur (`apps/api`), jamais dans le navigateur. |
+| Paquet                     | Licence                    | Ce qu'elle implique ici                                                                                                                                                              |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lightningcss` (+ binaire) | MPL-2.0                    | Outil de compilation CSS, jamais redistribué. Le copyleft porte sur ses propres fichiers, qui ne sont pas modifiés.                                                                  |
+| `caniuse-lite`             | CC-BY-4.0                  | Données de compatibilité, consommées à la compilation. Attribution : Alexis Deveria et contributeurs.                                                                                |
+| `jszip`                    | MIT ou GPL-3.0-or-later    | Double licence : ScreenForge retient MIT.                                                                                                                                            |
+| `argparse`                 | Python-2.0                 | Permissive, transitive, hors du paquet livré au navigateur.                                                                                                                          |
+| `@polar-sh/sdk`            | MIT annoncée, champ absent | Le paquet publié ne déclare pas `license` et ne joint pas de fichier ; le dépôt amont et son README annoncent MIT. Utilisé côté serveur (`apps/backend`), jamais dans le navigateur. |
 
 Aucune dépendance sous licence à réciprocité forte (GPL, AGPL) n'entre dans un
 artefact livré.

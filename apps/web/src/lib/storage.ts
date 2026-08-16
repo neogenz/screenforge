@@ -196,6 +196,10 @@ async function commitProject(
     throw error
   }
   markAssetsClean(dirty.map((asset) => asset.id))
+  /* Il y a désormais quelque chose à perdre : c'est le moment de demander au
+     navigateur de le garder. Sans attendre — la réponse ne conditionne rien de
+     ce qui vient d'être écrit. */
+  void ensureDurableStorage()
   // Après le commit, jamais avant : un abonné qui échoue ne doit pas pouvoir
   // annuler une sauvegarde locale déjà acquise.
   if (notifyListeners) {
@@ -213,6 +217,42 @@ async function commitProject(
 export async function saveProject(project: Project): Promise<void> {
   const db = await getDB()
   await commitProject(db, project)
+}
+
+/**
+ * Demander au navigateur de ne pas effacer ce qu'on vient d'écrire.
+ *
+ * Sans cela, une base IndexedDB est en « meilleur effort », le seul mode que
+ * les navigateurs s'autorisent à évincer tout seuls : Safari efface le stockage
+ * écrit par script après sept jours sans visite, Chrome évince sous pression
+ * disque. Pour un produit local-first, où le travail de l'utilisateur n'a
+ * souvent aucune autre copie, c'est la perte qui n'a demandé aucun geste — ni le
+ * sien, ni le nôtre. `persist()` fait passer l'origine en durable, que le
+ * navigateur ne reprend plus de sa propre initiative.
+ *
+ * Demandé à la première écriture et pas au démarrage : Firefox pose la question
+ * à l'utilisateur, et elle ne se justifie qu'une fois qu'il y a quelque chose à
+ * perdre. Chrome et Safari décident seuls, sur leurs propres heuristiques, donc
+ * un refus est banal et ne veut pas dire que la demande était mal placée.
+ *
+ * La promesse est mémorisée : la réponse ne change pas dans une session, et
+ * redemander ferait reposer la question de Firefox à chaque sauvegarde. Un
+ * rechargement redemande.
+ */
+let durability: Promise<boolean> | null = null
+
+export function ensureDurableStorage(): Promise<boolean> {
+  durability ??= (async () => {
+    const manager = navigator.storage
+    if (!manager?.persist) return false
+    try {
+      return (await manager.persisted()) || (await manager.persist())
+    } catch (error) {
+      console.warn('Could not request durable storage.', error)
+      return false
+    }
+  })()
+  return durability
 }
 
 /** Loads a project and its binary assets; migrates v1 inline payloads. */

@@ -2,11 +2,11 @@
 
 # ScreenForge
 
-**The App Store screenshot studio for indie developers — pixel-exact, fast, local-first.**
+**The App Store screenshot studio for indie developers — pixel-exact and local-first.**
 
 [![Quality](https://github.com/neogenz/screenforge/actions/workflows/quality.yml/badge.svg)](https://github.com/neogenz/screenforge/actions/workflows/quality.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/neogenz/screenforge)
-[![License](https://img.shields.io/badge/license-proprietary-red?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue?style=flat-square)](LICENSE)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
@@ -20,7 +20,9 @@
 
 ## Overview
 
-ScreenForge is a local-first web app for designing and exporting iPhone App Store screenshots. Everything runs in your browser — projects are stored locally in IndexedDB, nothing ever leaves your machine. Exports are pixel-exact (1320 × 2868 for the 6.9" class) and pass App Store Connect validation out of the box.
+ScreenForge is a local-first web app for designing and exporting iPhone App Store screenshots. Local is free: the complete editor, unlimited clean exports and ZIPs run in the browser with projects in IndexedDB. The optional paid Cloud service adds an account, synchronization, managed storage and backups for projects, source images and settings.
+
+Local never requires Convex, a connection, an account or an entitlement. Cloud writes are authorized by the Convex backend from the authenticated session and an active server-side Cloud entitlement; changing or rebuilding the frontend cannot grant that access.
 
 ## Features
 
@@ -33,6 +35,13 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 - **Command palette** — every action at ⌘K
 - **Autosave** — projects persisted locally via IndexedDB
 - **Dark & light themes** — true-neutral OKLCH design system
+
+## Plans
+
+| Plan      | Price         | Included                                                                  |
+| --------- | ------------- | ------------------------------------------------------------------------- |
+| **Local** | Free          | Complete editor, unlimited clean PNG/ZIP exports, local projects/assets   |
+| **Cloud** | USD 39 / year | Everything in Local plus account, sync, Convex storage and managed backup |
 
 ## Export guarantees
 
@@ -50,47 +59,75 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 | State   | Zustand 5                  |
 | Styling | Tailwind CSS 4 (CSS-first) |
 | Storage | IndexedDB via `idb`        |
+| Cloud   | Convex (optional service)  |
 | Testing | Vitest + Playwright        |
 | Export  | JSZip                      |
 
 ## Getting started
 
-**Prerequisites:** Node.js 22+, pnpm 10+
+**Prerequisites:** Node.js 24, pnpm 10
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
+No environment variable or backend is needed for Local. Copy `.env.example` only when working on the operated Cloud service; never commit a real `.env` file.
+
+Before contributing, install the pinned official Gitleaks binary with
+`pnpm run setup:gitleaks`. The pre-commit hook scans forbidden filenames, the
+staged diff and AIDD documents before formatting. Secrets belong only in the
+GitHub, Convex, Vercel, Polar or Resend secret store that consumes them;
+`.private/` is available for sensitive local notes and is ignored by Git.
+
 ## Scripts
 
-| Command                              | Description                                      |
-| ------------------------------------ | ------------------------------------------------ |
-| `pnpm dev`                           | Start the dev server                             |
-| `pnpm build`                         | Type-check + production build                    |
-| `pnpm test`                          | Unit tests + typecheck + lint                    |
-| `pnpm test:e2e`                      | Playwright E2E tests                             |
-| `pnpm test:release`                  | Full release gate (tests, build, E2E, audits)    |
-| `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules |
-| `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)     |
-| `pnpm audit:scale`                   | Spacing scale audit                              |
-| `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)    |
+| Command                              | Description                                       |
+| ------------------------------------ | ------------------------------------------------- |
+| `pnpm dev`                           | Start the dev server                              |
+| `pnpm build`                         | Type-check + production build                     |
+| `pnpm test`                          | Unit tests + typecheck + lint                     |
+| `pnpm test:e2e`                      | E2E local; omits cloud when Convex is stopped     |
+| `pnpm test:e2e:release`              | E2E strict; starts Convex and forbids cloud skips |
+| `pnpm test:release`                  | Full strict gate (tests, builds, E2E, audits)     |
+| `pnpm test:release-tag`              | Self-test the canonical SemVer tag contract       |
+| `pnpm verify:release-tag vX.Y.Z`     | Match a release tag to the root package version   |
+| `pnpm validate:export -- <file.zip>` | Validate an exported ZIP against App Store rules  |
+| `pnpm audit:contrast`                | Design-system contrast audit (4.5:1 minimum)      |
+| `pnpm audit:dependencies`            | Fail on any known dependency vulnerability        |
+| `pnpm audit:scale`                   | Spacing scale audit                               |
+| `pnpm audit:publication`             | Audit tracked files and public AIDD content       |
+| `pnpm probe:visual`                  | Capture visual probes (dark/light, density 2)     |
 
 ## Project structure
 
 ```
-src/
-  components/    UI primitives, canvas, panels, editors
-  stores/        Zustand stores (canvas, project, history, ui, toast)
-  hooks/         Canvas lifecycle, keyboard, export, fonts
-  assets/        Device frames, templates, gradient presets
-  lib/           Dimensions, storage, export, ZIP, helpers
-  types/         Shared TypeScript types
+apps/
+  web/       React editor and bilingual landing page
+  backend/   Convex auth, entitlements, sync, storage and billing boundary
+  bridge/    Optional loopback-only local publishing bridge
+scripts/     Release, security and export audits
+aidd_docs/   Versioned plans and project memory; secrets are forbidden here
 ```
+
+## Releases
+
+Production is released only from an immutable `vMAJOR.MINOR.PATCH` tag created
+by the approved Release Please pull request. A tag first runs the complete
+release gate without production secrets, then builds a staged Vercel candidate,
+deploys the compatible Convex backend, smoke-tests the candidate and promotes
+the same build. See [RELEASING.md](RELEASING.md) for the operator runbook.
 
 ## License
 
-Proprietary — all rights reserved. See [LICENSE](LICENSE).
+Copyright © 2026 Maxime De Sogus.
+
+ScreenForge is free software licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE). You may run,
+study, modify and redistribute it under that licence. A modified version
+offered over a network must make its corresponding source available to its
+users. The managed ScreenForge Cloud subscription pays for the operated
+account, synchronization, storage and backups; it does not restrict Local.
 
 Third-party works redistributed in this repository keep their own licence and
 notices: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

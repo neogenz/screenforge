@@ -14,6 +14,8 @@ export default tseslint.config(
       '**/test-results',
       '**/playwright-report',
       '.claude/worktrees/**',
+      // Écrit par `convex dev`, réécrit à chaque poussée : le corriger ne tient pas.
+      '**/convex/_generated',
     ],
   },
   {
@@ -38,6 +40,16 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },
+    },
+  },
+  {
+    // Les fonctions Convex ne vivent pas dans `src/` : sans ce bloc, tout le
+    // backend serait le seul code du dépôt que rien ne relit.
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['apps/backend/**/*.ts'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
     },
   },
   {

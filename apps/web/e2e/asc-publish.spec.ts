@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { addTextLayer, grantEntitlements, waitForApp } from './helpers'
+import { addTextLayer, waitForApp } from './helpers'
 
 /**
  * La publication, et l'ordre qu'elle ne peut pas inverser.
@@ -82,7 +82,6 @@ test('un lot part seulement après avoir été rendu, et jamais en remplaçant',
   const calls = await fakeBridge(page)
   await waitForApp(page)
   await addTextLayer(page)
-  await grantEntitlements(page, { licence: true })
   await freeze(page, '1.4.0')
 
   await page.getByRole('button', { name: 'Publier chez Apple' }).click()
@@ -137,8 +136,22 @@ test('un lot filigrané ne se publie pas', async ({ page }) => {
   await fakeBridge(page)
   await waitForApp(page)
   await addTextLayer(page)
-  // Sans Licence, le rendu porte le filigrane de l'offre gratuite.
   await freeze(page, '0.9.0')
+  // Compatibilité défensive : les nouveaux lots sont toujours propres, mais un
+  // lot historique déjà figé avec l'ancien modèle reste refusé.
+  await page.evaluate(() => {
+    const store = window.__sfStores?.useProjectStore.getState()
+    const project = store?.project
+    if (!store || !project?.releases?.length) throw new Error('Release historique absente')
+    window.__sfStores?.useProjectStore.setState({
+      project: {
+        ...project,
+        releases: project.releases.map((release, index) =>
+          index === project.releases!.length - 1 ? { ...release, watermarked: true } : release,
+        ),
+      },
+    })
+  })
 
   await page.getByRole('button', { name: 'Publier chez Apple' }).click()
   const dialog = publishDialog(page)

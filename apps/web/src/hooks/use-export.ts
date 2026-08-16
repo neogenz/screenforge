@@ -1,14 +1,6 @@
 import { useCallback, useState } from 'react'
-import {
-  exportsLeft,
-  recordExport,
-  rightsOf,
-  FREE_EXPORTS_PER_PROJECT,
-  type Rights,
-} from '@/lib/entitlements'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
-import { useAuthStore } from '@/stores/auth.store'
 import type { DisplayClass, Layer, Screen } from '@/types'
 
 interface ExportProgress {
@@ -29,22 +21,6 @@ export interface ExportScreen {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Échec inattendu de l’export.'
-}
-
-/**
- * Le refus de quota se distingue d'une panne.
- *
- * La boîte d'export affiche un échec en rouge et propose de réessayer ; une
- * limite atteinte demande l'inverse — la Licence, et rien à réessayer. Sans ce
- * type, l'appelant devrait reconnaître la limite à son message.
- */
-export class ExportQuotaError extends Error {
-  constructor() {
-    super(
-      `Limite du palier gratuit atteinte : ${FREE_EXPORTS_PER_PROJECT} exports par projet. La Licence les rend illimités et sans filigrane.`,
-    )
-    this.name = 'ExportQuotaError'
-  }
 }
 
 /**
@@ -77,21 +53,11 @@ export function useExport() {
 
   const exportBatch = useCallback(
     async (
-      projectId: string,
       projectName: string,
       screens: ExportScreen[],
       layoutLayers: Layer[],
       dimensions: DisplayClass[],
     ) => {
-      const rights: Rights = rightsOf(useAuthStore.getState().entitlements)
-      /* Avant le lot, pas pendant : rendre dix planches pour refuser le
-         téléchargement à la fin ferait payer l'attente pour rien. */
-      if (exportsLeft(projectId, rights) <= 0) {
-        const quota = new ExportQuotaError()
-        setError(quota.message)
-        throw quota
-      }
-
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
@@ -127,7 +93,6 @@ export function useExport() {
               job.dimension.portrait.width,
               job.dimension.portrait.height,
               job.screenIndex,
-              !rights.cleanExport,
             )
           } catch (cause) {
             throw new Error(`${job.screen.name} : ${errorMessage(cause)}`)
@@ -152,29 +117,14 @@ export function useExport() {
         setProgress({
           current: total,
           total,
-          label: rights.zip ? 'Validation et création du ZIP' : 'Validation et téléchargement',
+          label: 'Validation et création du ZIP',
         })
         // Parallel workers finish out of order — restore a deterministic order.
         entries.sort((a, b) => a.dimension.localeCompare(b.dimension) || a.index - b.index)
         summaries.sort((a, b) => a.path.localeCompare(b.path))
 
-        if (rights.zip) {
-          const zipBlob = await createExportZip(entries)
-          downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
-        } else {
-          /* Sans Licence, les PNG descendent un par un : le ZIP groupé est ce
-             que la Licence achète. Les fichiers sont les mêmes, à la
-             hiérarchie de dossiers près — le palier gratuit sert à juger
-             l'éditeur, pas à repartir avec un lot prêt pour App Store Connect. */
-          for (const entry of entries) {
-            downloadBlob(entry.blob, `${String(entry.index).padStart(2, '0')}_${entry.name}.png`)
-          }
-        }
-
-        /* Après le succès seulement, et une fois par lot : un rendu qui échoue
-           ne consomme rien, et sélectionner dix planches ne coûte pas dix
-           crédits. */
-        if (!rights.cleanExport) recordExport(projectId)
+        const zipBlob = await createExportZip(entries)
+        downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
         setCompletedFiles(summaries)
       } catch (cause) {
         setError(errorMessage(cause))

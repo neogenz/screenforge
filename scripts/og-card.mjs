@@ -67,7 +67,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   <h1>App Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
     <p class="lede">${SCREENS} iPhone screens, one ZIP, exported at native 1320&times;2868.
-      <span class="price">$49 <span class="mark">once</span>.</span></p>
+      <span class="price">$49 <span class="mark">Local</span> or $39/year Cloud.</span></p>
     <div class="strip" style="--sheets:${SCREENS}">${sheets}</div>
   </div>
 </body></html>`

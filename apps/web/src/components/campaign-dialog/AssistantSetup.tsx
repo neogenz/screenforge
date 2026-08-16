@@ -53,7 +53,6 @@ const BROWSABLE_MODELS = 40
 const PROVIDER_NAMES: Record<ProviderId, string> = {
   local: 'Sans IA',
   'claude-bridge': 'Claude Code',
-  'codex-bridge': 'Codex',
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
 }
@@ -278,7 +277,7 @@ export function AssistantSetup({
    * résultat qui ne porte pas le fournisseur affiché n'est plus une réponse.
    * L'alternative, écrire `checking` dans l'effet, fait un rendu en cascade que
    * React signale à juste titre, et laisse une fenêtre pendant laquelle la page
-   * affirme avoir trouvé Codex alors qu'on vient de demander Claude Code.
+   * affirme avoir trouvé un autre état alors qu'on vient de demander Claude Code.
    */
   const [probe, setProbe] = useState<{ for: ProviderId; result: BridgeProbe } | null>(null)
   const found = probe?.for === providerId ? probe.result : null
@@ -306,7 +305,7 @@ export function AssistantSetup({
     void probeBridge().then((answer) => setProbe({ for: providerId, result: readProbe(answer) }))
   }
 
-  const engineFound = found?.state === 'up' && found.engines.includes(active.engine ?? 'codex')
+  const engineFound = found?.state === 'up' && found.engines.includes(active.engine ?? 'claude')
   /* La première marche est franchie quand ce qu'elle installe répond : le pont
      ET le moteur pour lui, une clé simplement créée pour les services — que la
      clé soit bonne, seule la deuxième marche peut le dire. */

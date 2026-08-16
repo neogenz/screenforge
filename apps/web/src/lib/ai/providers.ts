@@ -86,11 +86,11 @@ export interface AiProvider {
   recommended: boolean
 }
 
-export type EngineId = 'codex' | 'claude'
+export type EngineId = 'claude'
 
-export type ProviderId = 'local' | 'codex-bridge' | 'claude-bridge' | 'anthropic' | 'openrouter'
+export type ProviderId = 'local' | 'claude-bridge' | 'anthropic' | 'openrouter'
 
-/** La commande qui lance le pont. Une seule, pour les deux moteurs. */
+/** La commande qui lance le pont. */
 export const BRIDGE_COMMAND = 'pnpm --filter bridge run start'
 
 export const AI_PROVIDERS: readonly AiProvider[] = [
@@ -121,28 +121,6 @@ export const AI_PROVIDERS: readonly AiProvider[] = [
     setup: {
       requirement: 'La commande « claude » installée et connectée à votre compte.',
       requirementHref: 'https://claude.com/product/claude-code',
-      secretLabel: 'Jeton d’appairage',
-      secretPlaceholder: 'Affiché par le pont à son démarrage',
-      secretHelp:
-        'Le pont affiche un jeton « assistant » à son démarrage. Recopiez-le : il n’est enregistré nulle part, et il faudra le ressaisir au prochain démarrage.',
-    },
-    recommended: false,
-  },
-  {
-    id: 'codex-bridge',
-    label: 'Avec Codex, sur votre ordinateur',
-    summary:
-      'Les accroches sont écrites par le modèle, via le Codex déjà installé et connecté sur votre machine. Aucune clé à coller.',
-    dataPath:
-      'Partent vers Codex : le nom, la phrase, la page du produit et les noms de vos fichiers. Restent ici : vos captures et votre logo — aucune image ne traverse le pont.',
-    transport: 'local-bridge',
-    auth: 'pairing-token',
-    engine: 'codex',
-    models: [],
-    capabilities: { vision: false, structuredOutput: true, reasoning: true, tools: false },
-    setup: {
-      requirement: 'La commande « codex » installée et connectée à votre compte.',
-      requirementHref: 'https://developers.openai.com/codex/cli',
       secretLabel: 'Jeton d’appairage',
       secretPlaceholder: 'Affiché par le pont à son démarrage',
       secretHelp:

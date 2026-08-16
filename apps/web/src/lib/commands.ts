@@ -4,7 +4,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
 import { signOutAndReport } from '@/lib/auth'
-import { cloudConfigured } from '@/lib/supabase'
+import { cloudConfigured } from '@/lib/convex'
 import {
   createDeviceLayer,
   createIconLayer,

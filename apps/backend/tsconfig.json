@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
+    /* `bundler` et non `NodeNext` : les fonctions Convex sont empaquetées par le
+       déploiement, pas exécutées par Node, et leurs imports relatifs s'écrivent
+       sans extension comme dans le code généré de `convex/_generated`. */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["convex/**/*.ts"],
+  "exclude": ["convex/_generated/**"]
+}

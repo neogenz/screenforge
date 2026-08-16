@@ -133,14 +133,12 @@ export function collectProjectAssetIds(project: Project): string[] {
  * et chaque sauvegarde renverrait dix vignettes que personne n'a demandées.
  */
 export function projectWithoutThumbnails(project: Project): Project {
-  return {
-    ...structuredClone(project),
-    screens: project.screens.map((screen) => {
-      const copy = structuredClone(screen)
-      delete copy.thumbnail
-      return copy
-    }),
+  const copy = structuredClone(project)
+  for (const screen of copy.screens) delete screen.thumbnail
+  for (const release of copy.releases ?? []) {
+    for (const screen of release.snapshot.screens) delete screen.thumbnail
   }
+  return copy
 }
 
 async function dataUrlBytes(

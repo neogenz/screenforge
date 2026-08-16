@@ -1,8 +1,7 @@
 import { cn } from '@/lib/utils'
 import { Check, Cloud, HardDrive } from 'lucide-react'
 import { useLang } from '../i18n'
-import { LINKS, offerHref } from '../links'
-import { CostCompare } from './CostCompare'
+import { offerHref } from '../links'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
 
@@ -24,17 +23,7 @@ type Plan = {
 }
 
 /*
- * Trois cartes, une seule décision : la Licence. Le Gratuit sert à juger,
- * le Cloud est un complément, pas un concurrent — sans la règle « le Cloud
- * exige la Licence », un mois d'abonnement achèterait ce que la Licence
- * achète, et personne ne paierait 49 $.
- *
- * Chaque carte dit où vivent les projets : c'est la ligne de partage réelle
- * entre les offres, et la seule fonction du produit qui coûte un serveur tous
- * les mois — donc la seule qui se facture tous les ans.
- *
- * Le même build-time switch que l'éditeur choisit entre notification et boîte
- * d'achat. La mention d'indisponibilité vit sous le bouton concerné.
+ * Deux cartes, deux modèles autonomes : Local gratuit et Cloud payant.
  *
  * Le citron va au bouton qui marche, pas à la carte recommandée. La page
  * apprend à l'œil pendant trois mille pixels que citron = « c'est ici qu'on
@@ -54,9 +43,7 @@ function PlanCard({ plan }: { plan: Plan }) {
           : 'bg-card ring-border hover:ring-foreground/35',
       )}
     >
-      {/* Hauteur réservée pour le badge : sans elle, la carte qui le porte
-          descend son prix de quatre pixels et les trois chiffres les plus
-          comparés de la page ne partagent plus de ligne de base. */}
+      {/* Hauteur réservée pour le badge afin que les prix partagent leur ligne. */}
       <div className="flex min-h-5 items-center justify-between gap-3">
         <SpecLabel>{plan.name}</SpecLabel>
         {plan.badge ? (
@@ -72,10 +59,8 @@ function PlanCard({ plan }: { plan: Plan }) {
         {plan.period ? <span className="text-sm text-muted-foreground">{plan.period}</span> : null}
       </p>
       <p className="mt-2 min-h-8 text-xs leading-4 text-muted-foreground">{plan.tagline}</p>
-      {/* Ligne réservée sur les trois cartes : seul le Cloud porte une note,
-          et sans réserve son séparateur et sa ligne « où vivent vos projets »
-          descendaient de 40 px — la seule ligne comparable des trois cartes ne
-          partageait plus de ligne de base. */}
+      {/* Ligne réservée : seul le Cloud porte une note, mais les séparateurs
+          des deux cartes doivent rester alignés. */}
       <p className="mt-2 min-h-4 text-xs leading-4 font-medium">{plan.note ?? ' '}</p>
 
       <p className="mt-5 flex min-h-12 items-start gap-2 border-t border-border/60 pt-4 text-xs leading-4">
@@ -89,11 +74,7 @@ function PlanCard({ plan }: { plan: Plan }) {
         {plan.storage}
       </p>
 
-      {/* Ce que la carte achète. La Licence — la seule décision de la page —
-          n'énonçait aucun bénéfice : pour savoir ce que 49 $ donnent il fallait
-          descendre sous un tableau sur trois ans et un bloc de notes jusqu'à un
-          comparatif six cents pixels plus bas. Le vide que ça creusait au-dessus
-          du bouton se mesurait à 88 px sur la carte Gratuit. */}
+      {/* Chaque carte dit directement ce qu'elle achète. */}
       <ul className="mt-4 flex flex-col gap-2">
         {plan.points.map((point) => (
           <li key={point} className="flex items-start gap-2 text-xs leading-4">
@@ -138,17 +119,9 @@ export function Pricing() {
   const p = t.pricing
   const plans: Plan[] = [
     {
-      ...p.plans.free,
+      ...p.plans.local,
       availabilityNote: p.availabilityShort,
-      href: LINKS.app,
-      storage: p.storageLocal,
-      cloud: false,
-      highlighted: false,
-    },
-    {
-      ...p.plans.licence,
-      availabilityNote: p.availabilityShort,
-      href: offerHref(lang, 'licence'),
+      href: offerHref(lang, 'local'),
       storage: p.storageLocal,
       cloud: false,
       highlighted: true,
@@ -179,27 +152,24 @@ export function Pricing() {
         <p className="mx-auto mt-6 max-w-[65ch] text-center text-[15px] leading-6 text-muted-foreground">
           {p.sub}
         </p>
-        <CostCompare />
-
-        <div className="mt-12 grid items-stretch gap-4 md:grid-cols-3">
-          <div className="max-md:order-2">
+        <div className="mx-auto mt-12 grid max-w-5xl items-stretch gap-4 md:grid-cols-2">
+          <div>
             <PlanCard plan={plans[0]} />
           </div>
-          <div className="max-md:order-1">
+          <div>
             <PlanCard plan={plans[1]} />
-          </div>
-          <div className="max-md:order-3">
-            <PlanCard plan={plans[2]} />
           </div>
         </div>
 
-        <p className="mt-4 text-xs leading-4 text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-5xl text-xs leading-4 text-muted-foreground">
+          {p.localNote}
+        </p>
+        <p className="mx-auto mt-2 max-w-5xl text-xs leading-4 text-muted-foreground">
           {p.currencyNote} {p.availability}
         </p>
 
         <div className="mt-14">
-          {/* Sous 600px le tableau déborde et la colonne Licence — la seule qui
-              compte — sort de l'écran sans rien qui le dise. */}
+          {/* Sous 600px le tableau défile et l'annonce avant le geste. */}
           <div className="flex items-baseline justify-between gap-4">
             <SpecLabel id="compare-label">{p.compareLabel}</SpecLabel>
             <span aria-hidden className="text-2xs text-muted-foreground md:hidden">
@@ -219,7 +189,7 @@ export function Pricing() {
                 la décision, ce tableau en est le détail, et une pleine largeur
                 lui donnait le même poids qu'elles. Il ne peut de toute façon
                 pas s'aligner sur elles — sa colonne d'intitulés décale ses
-                trois colonnes d'une carte entière.
+                deux colonnes d'une carte entière.
 
                 L'intitulé pèse plus qu'une valeur : « Reprendre sur une autre
                 machine » fait quatre mots, « Inclus » en fait un. Quatre quarts
@@ -227,12 +197,11 @@ export function Pricing() {
                 plus de quatre cents pixels de sa question — c'est cette
                 distance, pas la hauteur des lignes, qui faisait perdre la
                 ligne à l'œil. */}
-            <table className="w-full min-w-[600px] table-fixed border-collapse">
+            <table className="w-full min-w-[560px] table-fixed border-collapse">
               <colgroup>
-                <col className="w-[31%]" />
-                <col className="w-[23%]" />
-                <col className="w-[23%]" />
-                <col className="w-[23%]" />
+                <col className="w-[40%]" />
+                <col className="w-[30%]" />
+                <col className="w-[30%]" />
               </colgroup>
               <thead>
                 <tr className="border-b border-border/60">
@@ -246,7 +215,7 @@ export function Pricing() {
                          bande se lisait détachée du nom qu'elle désigne.
 
                          Le retrait haut est celui d'une bande, pas celui d'une
-                         ligne d'en-tête : à `pt-1` le mot « Licence » démarrait
+                         ligne d'en-tête : à `pt-1` le nom démarrait
                          à 4 px du bord teinté quand il en avait 13 dessous et 12
                          dans chaque cellule du corps. Une épaule plus courte que
                          tous les autres retraits se lit comme un débordement, et
@@ -258,7 +227,7 @@ export function Pricing() {
                       )}
                     >
                       {/* Le même traitement que sur la carte : ce sont les
-                          trois mêmes offres, et deux typographies pour un seul
+                          deux mêmes offres, et deux typographies pour un seul
                           nom en faisaient deux listes à rapprocher de tête. */}
                       <SpecLabel className={cn(plan.highlighted && 'text-foreground')}>
                         {plan.name}
@@ -278,7 +247,7 @@ export function Pricing() {
                         key={column}
                         className={cn(
                           'px-4 py-3.5 text-sm text-muted-foreground',
-                          column === 1 && 'bg-marker-soft/50 text-foreground',
+                          column === 0 && 'bg-marker-soft/50 text-foreground',
                         )}
                       >
                         {value}
@@ -289,8 +258,6 @@ export function Pricing() {
               </tbody>
             </table>
           </div>
-          {/* La note tranche le seul écart de profil du tableau : Gratuit est
-              illimité avant lancement, puis applique quota et filigrane. */}
           <p className="mt-3 text-xs leading-4 text-muted-foreground">{p.compareNote}</p>
         </div>
       </div>

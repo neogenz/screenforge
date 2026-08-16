@@ -1,9 +1,22 @@
 node_modules/
 dist/
+.vercel/
 build/
 .env
 .env.*
-!.env.example
+!/.env.example
+.private/
+
+# Credential material is never source, including public-looking certificates.
+*.pem
+*.p8
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # Claude Code
 .claude/
@@ -20,6 +33,9 @@ Thumbs.db
 *.swp
 *.swo
 *.tsbuildinfo
+
+# Convex : l'état du backend anonyme local, propre à la machine.
+.convex/
 
 # Playwright
 test-results/

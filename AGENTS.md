@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project
 
-**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Replaces paid tools like AppScreens.com. Zero backend, zero recurring cost.
+**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Local is free and complete without a backend; the optional managed Cloud account, sync and storage service is paid.
 
 See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1320x2868 for 6.9", etc.) and pass App Store Connect validation.
 
@@ -45,13 +45,25 @@ pnpm run lint
 # Type check
 pnpm run typecheck
 
-# E2E tests (Playwright, requires chromium — `pnpm exec playwright install chromium` once)
+# E2E local (omet le projet cloud si Convex est arrêté)
 pnpm run test:e2e
 
-# Local Supabase stack (Docker) — ports 544xx, not the CLI defaults
-pnpm run db:start
-pnpm run db:migrate
-pnpm run db:stop
+# E2E de release (démarre Convex et interdit les skips cloud)
+pnpm run test:e2e:release
+
+# Gate complet de release
+pnpm run test:release
+
+# Local Convex deployment (anonymous) — ports 3210/3211
+pnpm run dev:backend
+
+# Deploy the backend to preprod, then to production
+pnpm run deploy:preprod
+pnpm run deploy:prod
+
+# Validate or deploy the immutable release selected by a SemVer tag
+pnpm run test:release-tag
+pnpm run verify:release-tag v0.1.0
 
 # Validate an exported ZIP against App Store rules
 pnpm run validate:export -- <file.zip>
@@ -76,7 +88,6 @@ pnpm run validate:export -- <file.zip>
   eslint.config.js         # one flat config for every package (patterns are apps/*/… and packages/*/…)
   .env.example             # single env file for the whole stack; apps/web reads it via envDir
   scripts/                 # audits and probes — resolve paths from the root, run from the root
-  supabase/                # config.toml + migrations (local stack on ports 544xx)
   packages/
     project-format/        # the project contract: types, validation, dimensions, AI tool schemas
   apps/
@@ -84,15 +95,18 @@ pnpm run validate:export -- <file.zip>
       index.html           # editor entry
       landing.html         # marketing entry (prerendered per language at build)
       e2e/ src/ public/
-    api/                   # billing + account backend (hono on node); web imports its AppType only
+    backend/               # the Convex deployment: schema, auth, authorization, sale, deletion
+      convex/              # functions — the only surface a client can reach
+      tests/stack.ts       # what only the backend can do (internal mutations), for the e2e suite
     bridge/                # optional local daemon: 127.0.0.1 only, spawns `codex app-server`
     mcp/                   # optional local daemon: MCP on stdio for an agent, SSE relay to the open tab
 ```
 
-`api`, `bridge` and `mcp` are declared as `devDependencies` of `web` so the
-editor can `import type` their contracts — a renamed route or RPC then breaks at
-compile time rather than at runtime. Nothing of any of them reaches the browser
-bundle: the imports are type-only by construction.
+`backend`, `bridge` and `mcp` are declared as `devDependencies` of `web` so a
+renamed contract breaks at compile time rather than at runtime. The backend's
+`api` and `Entitlements` also arrive through a dynamic `import()`, so no
+deployment code sits in the critical bundle — `e2e/boot-shell.spec.ts` measures
+it. Bridge and MCP contracts remain type-only.
 
 `packages/project-format` is the exception: it is a real dependency, imported at
 runtime by the editor and by `apps/mcp`. It is consumed **as source** — its

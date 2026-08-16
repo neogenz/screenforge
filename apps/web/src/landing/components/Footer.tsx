@@ -5,8 +5,8 @@ import { LangLink } from './LangLink'
 /*
  * Ni « Confidentialité » ni « Conditions » ici : ces deux entrées étaient des
  * `<span>` inertes, c'est-à-dire des liens morts déguisés. Elles reviendront en
- * même temps que le paiement, avec de vraies pages derrière — un document légal
- * à moitié rempli vaut moins qu'un lien absent.
+ * même temps que le paiement, avec de vraies pages derrière. Le contact revient
+ * avec le domaine vérifié : annoncer une adresse non possédée serait trompeur.
  */
 export function Footer() {
   const { t, lang } = useLang()
@@ -18,9 +18,9 @@ export function Footer() {
         </span>
         <a
           className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          href={LINKS.contact}
+          href={LINKS.source}
         >
-          {t.footer.contact}
+          {t.footer.source}
         </a>
         <LangLink code={lang === 'en' ? 'fr' : 'en'} />
         <span className="ml-auto text-xs">{t.footer.copyright}</span>

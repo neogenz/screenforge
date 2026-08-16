@@ -2,7 +2,14 @@ name: Quality
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
 
 # Un push qui en remplace un autre sur la même branche annule le run devenu
 # obsolète : sans cela la file se remplit de vérifications d'un état que
@@ -12,20 +19,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Ce que la compilation seule peut dire, et le plus vite possible.
-  web:
+  security:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install pinned Gitleaks
+        run: sh scripts/setup-gitleaks.sh
+      - name: Prove the detector fails closed
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/gitleaks-self-test"
+          mkdir -p "$fixture"
+          printf 'api_key = "%s%s"\n' '7f9A2bC4dE6fG8hJ' '1kL3mN5pQ7rS9tUv' > "$fixture/credential.txt"
+          set +e
+          node_modules/.bin/gitleaks dir "$fixture" --redact=100 --no-banner >/dev/null 2>&1
+          leak_status=$?
+          set -e
+          if test "$leak_status" -ne 1; then
+            echo 'Gitleaks self-test did not return the expected leak status.' >&2
+            exit 1
+          fi
+      - name: Scan every Git ref
+        run: node_modules/.bin/gitleaks git --redact=100 --no-banner --log-opts=--all
+      - name: Audit tracked publication content
+        run: node scripts/publication-audit.mjs tracked
+
+  # Ce que la compilation seule peut dire, et le plus vite possible.
+  web:
+    needs: security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.26.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run audit:dependencies
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint
+      - run: pnpm run format:check
       - run: pnpm run test:unit
       - run: pnpm run typecheck
       - run: pnpm run lint
@@ -33,120 +79,98 @@ jobs:
 
   # Ce qu'il faut un vrai navigateur pour établir : le comportement e2e et les
   # deux audits qui mesurent des pixels rendus.
+  #
+  # Le gate release démarre lui-même le déploiement Convex anonyme. Une preuve
+  # cloud absente échoue : elle ne peut plus devenir un skip vert.
   e2e:
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.26.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
       - run: pnpm install --frozen-lockfile
+      - name: Install pinned Gitleaks
+        run: sh scripts/setup-gitleaks.sh
       - run: pnpm exec playwright install --with-deps chromium
-      - run: supabase start
-      - run: supabase migration up
-      - name: Exposer le stack local à Vite et Playwright
-        run: |
-          status="$(supabase status -o json)"
-          echo "SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
-          echo "SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -r .SERVICE_ROLE_KEY <<<"$status")" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_URL=$(jq -r .API_URL <<<"$status")" >> "$GITHUB_ENV"
-          echo "VITE_SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")" >> "$GITHUB_ENV"
-      # `billingConfigured` est un booléen de compilation tiré de `VITE_API_URL`
-      # (`lib/api.ts`). La suite principale prouve les paliers lancés avec cette
-      # URL ; son second serveur force une URL vide et prouve séparément le ZIP
-      # propre illimité de la variante pré-lancement.
-      - run: pnpm run test:e2e
-        env:
-          VITE_API_URL: http://127.0.0.1:8787
+      - run: pnpm run test:e2e:release
       - run: pnpm run audit:contrast
       - run: pnpm run audit:scale
       - run: pnpm run audit:landing
-      - if: always()
-        run: supabase stop --no-backup
+      - name: Scan Playwright diagnostics before upload
+        id: scan-diagnostics
+        if: failure() && hashFiles('apps/web/playwright-report/**', 'apps/web/test-results/**') != ''
+        run: |
+          set -euo pipefail
+          node scripts/publication-audit.mjs paths apps/web/playwright-report apps/web/test-results
+          for path in apps/web/playwright-report apps/web/test-results; do
+            test ! -e "$path" || node_modules/.bin/gitleaks dir "$path" --redact=100 --no-banner --max-archive-depth=2
+          done
       - name: Upload Playwright diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: failure() && steps.scan-diagnostics.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-diagnostics
           path: |
             apps/web/playwright-report
             apps/web/test-results
           if-no-files-found: ignore
+          retention-days: 3
 
-  # Les migrations s'appliquent sur une base vierge, à chaque commit, et les
-  # policies RLS sont attaquées depuis un second compte. C'est le seul endroit
-  # où un trou d'autorisation se voit : une policy manquante ne casse rien, elle
-  # rend l'application plus permissive, en silence.
-  db:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.26.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: pnpm install --frozen-lockfile
-      - run: supabase start
-      - run: supabase migration up
-      - run: pnpm run test:rls
-      # Le typage DB → client est régénéré depuis le schéma qui vient d'être
-      # appliqué : s'il diffère de celui qui est committé, la compilation du web
-      # tourne sur une forme de table qui n'existe plus.
-      - run: pnpm run gen:types
-      - run: git diff --exit-code -- apps/web/src/types/database.types.ts
-      - if: always()
-        run: supabase stop --no-backup
-
-  # Le backend de vente. Aucun secret n'est nécessaire ici : `env()` est paresseux
-  # et les tests posent leurs propres variables, ce qui est délibéré — un job qui
-  # aurait besoin d'un jeton Polar pour compiler ne pourrait pas tourner sur une
-  # pull request venue d'un fork.
+  # Le déploiement : schéma, autorisation, vente et suppression de compte.
   #
-  # Les secrets réels (SUPABASE_SERVICE_ROLE_KEY, POLAR_ACCESS_TOKEN,
-  # POLAR_WEBHOOK_SECRET) vivent dans les variables de l'hébergeur et nulle part
-  # ailleurs : ni dans le dépôt, ni dans un `.env` committé, ni dans le contexte
-  # d'un agent.
-  api:
+  # Aucun secret n'est nécessaire — les tests posent leurs propres variables, ce
+  # qui est délibéré : un job qui aurait besoin d'un jeton Polar pour compiler ne
+  # pourrait pas tourner sur une pull request venue d'un fork. Les jetons réels
+  # (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `AUTH_*`) vivent dans les
+  # variables du déploiement Convex et nulle part ailleurs : ni dans le dépôt, ni
+  # dans un `.env` committé, ni dans le contexte d'un agent.
+  #
+  # Aucun grep ne garde `apps/web` contre une clé privilégiée qui y aurait
+  # fuité, et c'est délibéré : il n'existe pas de clé qui contourne
+  # l'autorisation, parce qu'il n'existe pas de chemin vers les données à côté
+  # des fonctions.
+  backend:
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.26.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter api run typecheck
-      - run: pnpm --filter api run test:unit
+      - run: pnpm --filter backend run typecheck
+      - run: pnpm --filter backend run test:unit
 
-      # La clé `service_role` court-circuite la RLS : dans un paquet compilé pour
-      # le navigateur, elle donnerait à n'importe quel visiteur les droits que ce
-      # backend existe pour garder. Le grep échoue sur la simple mention du mot,
-      # y compris dans un commentaire — la seule forme qu'une revue ne peut pas
-      # oublier de faire.
-      - name: Refuser service_role dans apps/web
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate workflows
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+          ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+          SHELLCHECK_OPTS: -S warning
         run: |
-          if grep -rn --exclude-dir=node_modules --exclude-dir=dist \
-              -e 'service_role' -e 'SERVICE_ROLE' apps/web; then
-            echo "::error::La clé service_role ne doit jamais atteindre apps/web."
-            exit 1
-          fi
+          set -euo pipefail
+          test "$(uname -m)" = "x86_64"
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 \
+            -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+          # actionlint 1.7.12 predates GitHub's documented concurrency.queue key.
+          "$RUNNER_TEMP/actionlint" -color -ignore 'unexpected key "queue" for "concurrency" section'

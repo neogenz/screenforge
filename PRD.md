@@ -1,7 +1,7 @@
 # PRD — ScreenForge
 
 > Local-first web app for designing and exporting iPhone App Store screenshots.
-> Replaces paid tools like AppScreens.com. Zero recurring cost.
+> Local is free; the operated Cloud sync and storage service is paid.
 
 ---
 
@@ -17,7 +17,13 @@ None respect indie devs' time or budget.
 
 ## Solution
 
-A **local web app** (Vite + React + Fabric.js) running in the browser. Projects are stored locally. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
+A **local-first web app** (Vite + React + Fabric.js) running in the browser. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
+
+## Product model
+
+- **Local — free:** complete editor, unlimited clean PNG and ZIP exports, projects and assets stored in IndexedDB, no account, connection, Convex deployment or entitlement required.
+- **Cloud — USD 39/year:** everything in Local plus customer account, synchronization, projects, source images and settings stored in Convex, and managed backups.
+- Local contains no artificial paywall. Every Cloud write derives the user from the authenticated server session and requires an active server-side Cloud entitlement.
 
 ---
 
@@ -220,7 +226,8 @@ iphone-6.9-portrait/
 | **Canvas**  | Fabric.js v7                                       | IText, drag/resize/rotate, groups, high-DPI export, `toBlob()` for large exports |
 | **State**   | Zustand                                            | Lightweight, undo/redo via history middleware                                    |
 | **Styling** | Tailwind CSS v4                                    | Rapid UI for editor panels                                                       |
-| **Storage** | IndexedDB (via idb)                                | Local-first, no backend                                                          |
+| **Storage** | IndexedDB (via idb)                                | Local is complete without a backend                                              |
+| **Cloud**   | Convex                                             | Authenticated sync, managed storage, entitlements and billing boundary           |
 | **Fonts**   | Google Fonts API                                   | On-demand font loading                                                           |
 | **Icons**   | Lucide React                                       | Clean icon set                                                                   |
 | **Export**  | Fabric.js `toDataURL({ multiplier })` / `toBlob()` | Pixel-perfect at any resolution, `toBlob()` preferred for large exports          |
@@ -321,7 +328,7 @@ src/
 - Localization / multi-language batch export
 - Older iPhone frames (15, 14, SE)
 - Image backgrounds with blur
-- Cloud sync / collaboration
+- Real-time multi-user collaboration
 - JPEG export
 - App Preview video poster frames
 
@@ -333,8 +340,9 @@ src/
 2. Exported PNGs pass App Store Connect upload without rejection
 3. Dimensions are pixel-exact (1320 x 2868 for 6.9", etc.)
 4. Text rendering matches AppScreens.com quality
-5. Zero API calls — fully local
+5. Local works with zero Convex calls and retains every editor/export capability
 6. Projects persist across browser sessions and reopen from a portable local backup
+7. No client-side falsification can authorize a Cloud write
 
 ---
 

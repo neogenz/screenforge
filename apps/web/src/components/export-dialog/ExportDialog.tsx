@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Download, FileCheck2, Loader, Lock } from 'lucide-react'
+import { AlertCircle, Check, Download, FileCheck2, Loader } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth.store'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
-import { ExportQuotaError, useExport } from '@/hooks/use-export'
+import { useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
-import { billingConfigured } from '@/lib/api'
-import { exportsLeft, rightsOf, FREE_EXPORTS_PER_PROJECT } from '@/lib/entitlements'
 import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -31,7 +28,6 @@ function ExportDialogGate() {
 function ExportDialogContent({ project }: { project: Project }) {
   const showExportDialog = useUIStore((state) => state.showExportDialog)
   const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
-  const setShowPricingDialog = useUIStore((state) => state.setShowPricingDialog)
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
     project.screens.map((screen) => screen.id),
   )
@@ -39,12 +35,6 @@ function ExportDialogContent({ project }: { project: Project }) {
      elle s'exporte à côté, sous son propre code. */
   const [localeCode, setLocaleCode] = useState('')
   const { exportBatch, isExporting, progress, error, completedFiles, clearError } = useExport()
-
-  const entitlements = useAuthStore((state) => state.entitlements)
-  const rights = rightsOf(entitlements)
-  /* Recalculé à chaque rendu plutôt que gardé en état : le compteur bouge à la
-     fin d'un lot, et un état dérivé aurait besoin d'un effet pour le suivre. */
-  const remaining = exportsLeft(project.id, rights)
 
   const locale = (project.locales ?? []).find((entry) => entry.code === localeCode)
   /* La revue tourne ici, pas seulement dans la boîte des langues : c'est le
@@ -104,7 +94,6 @@ function ExportDialogContent({ project }: { project: Project }) {
     if (selectedScreens.length === 0 || localeRefused) return
     try {
       await exportBatch(
-        project.id,
         localeCode ? `${project.name}-${localeCode}` : project.name,
         selectedScreens,
         exportedLayoutLayers,
@@ -113,22 +102,10 @@ function ExportDialogContent({ project }: { project: Project }) {
       /* Le téléchargement part en silence : le bouton qui vient de produire le
          lot le confirme une seconde, puis redevient une proposition. */
       setJustExported(true)
-    } catch (cause) {
-      /* La limite n'est pas une panne : elle a une réponse, et elle est dans
-         la boîte des offres. Les autres échecs restent affichés ici, là où on
-         peut relancer. */
-      if (cause instanceof ExportQuotaError && billingConfigured) setShowPricingDialog(true)
+    } catch {
+      // `useExport` exposes the actionable rendering error in this dialog.
     }
-  }, [
-    exportBatch,
-    exportedLayoutLayers,
-    localeCode,
-    localeRefused,
-    project.id,
-    project.name,
-    selectedScreens,
-    setShowPricingDialog,
-  ])
+  }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
 
   return (
     <Dialog
@@ -144,36 +121,19 @@ function ExportDialogContent({ project }: { project: Project }) {
           <Button variant="default" onClick={handleClose} disabled={isExporting}>
             Annuler
           </Button>
-          {/* Épuisé, le bouton ne se grise pas : il change de proposition.
-              Un bouton mort laisserait la boîte sans issue, et la limite
-              d'un palier gratuit a par définition une réponse à vendre.
-              Sans API de vente, il n'y a rien à proposer et il se grise. */}
-          {remaining <= 0 && billingConfigured ? (
-            <Button variant="primary" onClick={() => setShowPricingDialog(true)}>
-              <Lock size={12} aria-hidden />
-              Débloquer avec la Licence
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              onClick={() => void handleExport()}
-              loading={isExporting}
-              disabled={selectedScreens.length === 0 || remaining <= 0 || localeRefused}
-            >
-              {justExported ? (
-                <Check size={12} aria-hidden className="animate-check-in" />
-              ) : (
-                !isExporting && <Download size={12} aria-hidden />
-              )}
-              {justExported
-                ? 'Exporté'
-                : isExporting
-                  ? 'Export en cours…'
-                  : rights.zip
-                    ? 'Exporter le ZIP'
-                    : 'Exporter les PNG'}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            onClick={() => void handleExport()}
+            loading={isExporting}
+            disabled={selectedScreens.length === 0 || localeRefused}
+          >
+            {justExported ? (
+              <Check size={12} aria-hidden className="animate-check-in" />
+            ) : (
+              !isExporting && <Download size={12} aria-hidden />
+            )}
+            {justExported ? 'Exporté' : isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
+          </Button>
         </>
       }
     >
@@ -217,14 +177,8 @@ function ExportDialogContent({ project }: { project: Project }) {
                 </p>
                 <p className="text-2xs text-muted-foreground">
                   fichier{selectedScreens.length > 1 ? 's' : ''}
-                  {rights.zip ? (
-                    <>
-                      {' '}
-                      sous <span className="font-mono">6.9/</span>
-                    </>
-                  ) : (
-                    ', téléchargés un par un'
-                  )}
+                  {' sous '}
+                  <span className="font-mono">6.9/</span>
                 </p>
               </div>
 
@@ -256,8 +210,6 @@ function ExportDialogContent({ project }: { project: Project }) {
                   </p>
                 )}
               </div>
-
-              {!rights.cleanExport && <FreeTierNotice remaining={remaining} />}
             </>
           }
         >
@@ -265,7 +217,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             <div className="min-w-0">
               <h3 className="section-title">Captures</h3>
               <p className="mt-1 text-2xs text-muted-foreground">
-                L’ordre du projet sera conservé{rights.zip ? ' dans le ZIP' : ''}.
+                L’ordre du projet sera conservé dans le ZIP.
               </p>
             </div>
             <button
@@ -321,8 +273,7 @@ function ExportDialogContent({ project }: { project: Project }) {
               <div>
                 <div className="flex items-center gap-2 text-2xs text-foreground">
                   <FileCheck2 size={13} aria-hidden />
-                  {rights.zip ? 'ZIP validé et téléchargé' : 'PNG validés et téléchargés'} ·{' '}
-                  {completedFiles.length} fichier
+                  ZIP validé et téléchargé · {completedFiles.length} fichier
                   {completedFiles.length > 1 ? 's' : ''}
                 </div>
                 <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
@@ -348,55 +299,6 @@ function ExportDialogContent({ project }: { project: Project }) {
 
 function formatMegabytes(bytes: number): string {
   return `${(bytes / 1_000_000).toFixed(2)} MB`
-}
-
-/**
- * Ce que le palier gratuit change, dit avant l'export et pas après.
- *
- * Le filigrane et le téléchargement un par un se découvriraient sinon dans le
- * dossier de téléchargements, une fois les dix planches rendues — et le
- * décompte n'apparaîtrait qu'au refus du quatrième lot.
- */
-function FreeTierNotice({ remaining }: { remaining: number }) {
-  const setShowPricingDialog = useUIStore((state) => state.setShowPricingDialog)
-  const exhausted = remaining <= 0
-
-  return (
-    <div className="surface-inner p-4">
-      <span className="field-label">Palier gratuit</span>
-      <p
-        className={cn(
-          'mt-1.5 text-sm font-medium tabular-nums',
-          exhausted ? 'text-destructive' : 'text-foreground',
-        )}
-      >
-        {remaining} sur {FREE_EXPORTS_PER_PROJECT}
-      </p>
-      <p className="text-2xs text-muted-foreground">
-        export{remaining > 1 ? 's' : ''} restant{remaining > 1 ? 's' : ''} pour ce projet
-      </p>
-      <div className="hairline my-3" />
-      <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
-        <li className="flex items-start gap-2">
-          <Lock size={12} className="mt-px shrink-0" aria-hidden />
-          Filigrane « Fait avec ScreenForge »
-        </li>
-        <li className="flex items-start gap-2">
-          <Lock size={12} className="mt-px shrink-0" aria-hidden />
-          ZIP groupé réservé à la Licence
-        </li>
-      </ul>
-      {billingConfigured && (
-        <Button
-          variant="default"
-          className="mt-3 w-full"
-          onClick={() => setShowPricingDialog(true)}
-        >
-          Voir les offres
-        </Button>
-      )}
-    </div>
-  )
 }
 
 function ScreenChoice({

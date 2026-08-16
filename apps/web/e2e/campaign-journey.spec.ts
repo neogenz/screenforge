@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { addScreen, grantEntitlements, readDownload, waitForApp } from './helpers'
+import { addScreen, readDownload, waitForApp } from './helpers'
 import { makeSolidPng } from './device-bezel-fixture'
 import { validateExportZip } from '../../../scripts/validate-export.mjs'
 
@@ -67,7 +67,7 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        protocol: 4,
+        protocol: 5,
         bridge: '0.1.0',
         engines: [],
         capabilities: { vision: false, structuredOutput: true, reasoning: true },
@@ -103,7 +103,6 @@ test.setTimeout(240_000)
 test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) => {
   const published = await fakeBridge(page)
   await waitForApp(page)
-  await grantEntitlements(page, { licence: true })
 
   // 1) Créer la campagne : deux visuels générés, en calques réels.
   await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()

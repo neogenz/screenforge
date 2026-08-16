@@ -1,4 +1,3 @@
-import type { Session, User } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import {
   cacheEntitlements,
@@ -7,7 +6,8 @@ import {
   type Entitlements,
 } from '@/lib/entitlements'
 import { planName } from '@/lib/plans'
-import { getSupabase } from '@/lib/supabase'
+import { cloudConfigured } from '@/lib/convex'
+import { JWT_STORAGE_KEY } from '@/lib/session-keys'
 import { toast } from '@/stores/toast.store'
 
 /**
@@ -18,41 +18,50 @@ import { toast } from '@/stores/toast.store'
  */
 export type AuthStatus = 'unknown' | 'signed-out' | 'signed-in'
 
+/** Ce que la chrome affiche d'un compte, et rien de plus. */
+export interface CloudUser {
+  id: string
+  email: string | null
+}
+
 interface AuthState {
   status: AuthStatus
-  session: Session | null
-  user: User | null
+  user: CloudUser | null
   /**
    * Ce que le compte a acheté, ou `null` tant qu'on ne le sait pas — y compris
-   * quand il n'y a pas d'API de vente configurée. Les droits vivent avec la
+   * quand il n'y a pas d'instance configurée. Les droits vivent avec la
    * session parce qu'ils s'éteignent avec elle : garder ceux du compte
-   * précédent après une déconnexion lèverait le filigrane chez le suivant.
+   * précédent après une déconnexion afficherait un abonnement erroné au suivant.
    */
   entitlements: Entitlements | null
-  setSession: (session: Session | null) => void
+  /** Le cache informe hors ligne, mais ne suffit jamais pour démarrer une sync. */
+  entitlementsVerified: boolean
+  setUser: (user: CloudUser | null) => void
   setEntitlements: (entitlements: Entitlements | null) => void
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
   status: 'unknown',
-  session: null,
   user: null,
   entitlements: null,
+  entitlementsVerified: false,
 
-  setSession: (session) =>
+  setUser: (user) =>
     set((state) => {
-      const user = session?.user ?? null
       const userId = user?.id ?? null
       return {
-        session,
         user,
-        status: session ? 'signed-in' : 'signed-out',
+        status: user ? 'signed-in' : 'signed-out',
         entitlements:
           userId === (state.user?.id ?? null)
             ? state.entitlements
             : userId
               ? readCachedEntitlements(userId)
               : null,
+        entitlementsVerified:
+          userId !== null && userId === (state.user?.id ?? null)
+            ? state.entitlementsVerified
+            : false,
       }
     }),
 
@@ -60,21 +69,21 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set((state) => {
       if (entitlements && entitlements.userId !== state.user?.id) return state
       if (entitlements) cacheEntitlements(entitlements)
-      return { entitlements }
+      return { entitlements, entitlementsVerified: state.status === 'signed-in' }
     }),
 }))
 
 /**
- * Relit les droits depuis l'API, et les efface quand il n'y a plus de session.
+ * Relit les droits, et les efface quand il n'y a plus de session.
  *
  * Appelé à chaque changement de session, et au retour d'un checkout : le
  * webhook peut arriver après la redirection de Polar, donc l'appelant relance.
- * L'échec n'écrase rien — un réseau coupé ne doit pas retirer une licence.
+ * L'échec n'écrase rien — un réseau coupé ne doit pas masquer l'état connu.
  */
 export async function refreshEntitlements(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (useAuthStore.getState().status !== 'signed-in' || !userId) {
-    useAuthStore.getState().setEntitlements(null)
+    useAuthStore.setState({ entitlements: null, entitlementsVerified: false })
     return
   }
   try {
@@ -88,32 +97,75 @@ export async function refreshEntitlements(): Promise<void> {
 }
 
 /**
- * Branche le store sur le client, et rend son démonteur.
+ * Le compte de la dernière session, lu dans le jeton posé par Convex Auth.
  *
- * Une seule souscription suffit : `onAuthStateChange` émet `INITIAL_SESSION`
- * dès l'abonnement, avec la session restaurée ou `null`. Un `getSession()`
- * préalable ferait le même travail une seconde fois et ouvrirait une fenêtre
- * où les deux réponses peuvent arriver dans le désordre.
+ * Ce n'est pas une authentification, et le serveur n'en croit rien : chaque
+ * appel repart avec le jeton, qu'il vérifie lui-même. C'est l'identité sous
+ * laquelle relire le cache de droits en attendant sa réponse.
  *
- * Sans instance configurée, l'état tombe directement sur `signed-out` : rien
- * n'attend une réponse qui ne viendra pas, et rien du client n'est chargé.
+ * L'expiration n'est pas regardée. La question posée n'est pas « cette session
+ * est-elle valide » — le déploiement y répond — mais « ce navigateur a-t-il
+ * ouvert une session, et pour qui ». Un jeton périmé accompagné de son jeton de
+ * renouvellement décrit toujours le bon compte.
  */
-export async function initAuth(): Promise<() => void> {
-  const pending = getSupabase()
-  if (!pending) {
-    useAuthStore.setState({ status: 'signed-out' })
+function rememberedUserId(): string | null {
+  try {
+    const token = localStorage.getItem(JWT_STORAGE_KEY)
+    const body = token?.split('.')[1]
+    if (!body) return null
+    const claims = JSON.parse(atob(body.replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string }
+    /* `subject` vaut `${userId}|${sessionId}` : c'est le compte qu'on veut. */
+    return claims.sub?.split('|')[0] ?? null
+  } catch (error) {
+    console.warn('Could not read the stored session.', error)
+    return null
+  }
+}
+
+/**
+ * Branche le store sur la session, et rend son démonteur.
+ *
+ * L'abonnement lui-même vit dans `lib/cloud-bridge.tsx`, parce que Convex Auth
+ * n'expose son état que par des hooks : ce qui reste ici est la décision de
+ * l'attendre ou non. Sans instance configurée, l'état tombe directement sur
+ * `signed-out` — rien n'attend une réponse qui ne viendra pas, et rien du client
+ * n'est chargé.
+ *
+ * La session mémorisée est posée avant de s'abonner pour afficher le dernier
+ * état Cloud connu. Elle ne permet jamais une écriture sans confirmation du
+ * déploiement : Convex Auth ne dit « connecté » qu'une fois sa WebSocket
+ * authentifiée.
+ *
+ * Le rafraîchissement des droits suit le changement d'utilisateur plutôt que
+ * d'être appelé par le pont : c'est la même règle qu'avant la migration, et elle
+ * garde le pont ignorant de la vente. `current` part de `null` même quand une
+ * session est mémorisée — la confirmation du déploiement doit valoir changement,
+ * sinon des droits mis en cache avant une fin de période ne seraient jamais
+ * relus.
+ */
+export function initAuth(): () => void {
+  if (!cloudConfigured) {
+    useAuthStore.setState({ status: 'signed-out', entitlementsVerified: false })
     return () => {}
   }
 
-  const supabase = await pending
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    useAuthStore.getState().setSession(session)
+  const remembered = rememberedUserId()
+  if (remembered) {
+    useAuthStore.setState({
+      status: 'signed-in',
+      user: { id: remembered, email: null },
+      entitlements: readCachedEntitlements(remembered),
+      entitlementsVerified: false,
+    })
+  }
+
+  let current: string | null = null
+  return useAuthStore.subscribe((state) => {
+    const next = state.user?.id ?? null
+    if (next === current) return
+    current = next
     void refreshEntitlements()
   })
-
-  return () => subscription.unsubscribe()
 }
 
 const CHECKOUT_POLL_INTERVAL_MS = 2000
@@ -158,5 +210,5 @@ async function pollForPurchase(): Promise<void> {
 }
 
 function summarize(entitlements: Entitlements | null): string {
-  return `${entitlements?.licence ?? false}:${entitlements?.cloud ?? false}`
+  return String(entitlements?.cloud ?? false)
 }
