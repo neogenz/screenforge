@@ -33,19 +33,20 @@ Un agent qui déraille peut au pire poser un texte au mauvais endroit. Il ne peu
 pas injecter du JSON Fabric, lire une image, ni écrire ailleurs que dans le
 projet ouvert.
 
-| Outil                           | Effet                                                |
-| ------------------------------- | ---------------------------------------------------- |
-| `screenforge_get_project_state` | Lit le projet, ses écrans, ses calques               |
-| `screenforge_get_screen`        | Lit un écran                                         |
-| `screenforge_get_thumbnail`     | **Voit** un écran rendu, en PNG                      |
-| `screenforge_add_screen`        | Ajoute une planche                                   |
-| `screenforge_set_background`    | Remplace un fond                                     |
-| `screenforge_add_text` …        | Pose un calque (texte, forme, icône, appareil)       |
-| `screenforge_add_image`         | Pose une image **de votre disque** (logo ou capture) |
-| `screenforge_update_layer`      | Modifie un calque existant                           |
-| `screenforge_apply`             | Applique un lot **en une seule écriture**            |
-| `screenforge_save_template`     | Garde une mise en page réussie comme gabarit         |
-| `screenforge_list_templates`    | Relit les gabarits gardés, tous projets confondus    |
+| Outil                             | Effet                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `screenforge_get_project_state`   | Lit le projet, ses écrans, ses calques                                    |
+| `screenforge_get_screen`          | Lit un écran                                                              |
+| `screenforge_get_thumbnail`       | **Voit** un écran rendu, en PNG                                           |
+| `screenforge_add_screen`          | Ajoute une planche                                                        |
+| `screenforge_set_background`      | Remplace un fond                                                          |
+| `screenforge_add_text` …          | Pose un calque (texte, forme, icône, appareil)                            |
+| `screenforge_add_image`           | Pose une image **de votre disque** (logo ou capture)                      |
+| `screenforge_refresh_screenshots` | Repose **tout un répertoire** de captures, sans toucher à la mise en page |
+| `screenforge_update_layer`        | Modifie un calque existant                                                |
+| `screenforge_apply`               | Applique un lot **en une seule écriture**                                 |
+| `screenforge_save_template`       | Garde une mise en page réussie comme gabarit                              |
+| `screenforge_list_templates`      | Relit les gabarits gardés, tous projets confondus                         |
 
 `screenforge_apply` n'est pas une commodité : la page applique un lot par
 `commitAiRun`, donc en une transaction validée et une seule annulation. Dix
@@ -99,7 +100,15 @@ pnpm --filter mcp run build
 
 Puis configurez votre agent avec le chemin **absolu** du fichier construit.
 
-### Claude Desktop / Claude Code
+### Claude Code
+
+Rien à écrire : le `.mcp.json` de la racine déclare déjà le serveur, en chemin
+relatif et sur les sources — donc sans construction préalable. Claude Code
+ouvert à la racine du dépôt vous demande d'approuver « screenforge » au premier
+lancement, et c'est tout. Un serveur de portée projet n'est jamais lancé sans
+cet accord, ce qui est pourquoi ce fichier peut être versionné.
+
+### Claude Desktop
 
 `~/Library/Application Support/Claude/claude_desktop_config.json` :
 
@@ -185,9 +194,9 @@ donneraient à l'agent un projet qui se contredit d'un appel à l'autre.
 
 `skills/screenforge-mcp/` est la documentation côté agent : le vocabulaire
 complet ([references/tools.md](skills/screenforge-mcp/references/tools.md)),
-quatre recettes ([references/workflows.md](skills/screenforge-mcp/references/workflows.md))
+cinq recettes ([references/workflows.md](skills/screenforge-mcp/references/workflows.md))
 et la carte des refus ([references/pitfalls.md](skills/screenforge-mcp/references/pitfalls.md)).
-Sans elle, un agent découvre dix-huit outils à plat et compose à l'aveugle sur
+Sans elle, un agent découvre dix-neuf outils à plat et compose à l'aveugle sur
 une planche dont il ignore les unités.
 
 Elle se lit telle quelle, et s'installe en pointant dessus depuis le dossier de
