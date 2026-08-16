@@ -20,7 +20,7 @@ status: done
 
 ```mermaid
 flowchart TD
-  A["Utilisateur choisit Codex ou Claude Code"] --> B["Le parcours affiche toutes les étapes dans un seul cadre"]
+  A["Utilisateur choisit Claude Code"] --> B["Le parcours affiche toutes les étapes dans un seul cadre"]
   B --> C["Une étape active porte son contenu et son action"]
   C --> D["Une étape vérifiée devient une coche neutre"]
   D --> E["L’étape suivante devient le seul point marqué"]
@@ -101,7 +101,7 @@ journey
 | ---- | ------------------- |
 | 1    | Le composant rend une seule étape active, une progression native lisible par technologie d’assistance et aucun contrôle sur une étape en attente. |
 | 1    | Le citron n’apparaît que sur l’étape active ou le focus ; une étape terminée reste neutre. |
-| 2    | Les scénarios existants de choix Codex, Claude Code, pont absent, secret refusé et confidentialité passent sans modification de comportement. |
+| 2    | Les scénarios existants de choix Claude Code, pont absent, secret refusé et confidentialité passent sans modification de comportement. |
 | 2    | Le parcours conserve commande copiable, relance de détection et oubli du secret. |
 | 3    | À largeur étroite, aucune ligne, action ou progression ne sort de la boîte. |
 | 3    | En mouvement réduit, chaque changement d’état reste perceptible sans animation spatiale. |

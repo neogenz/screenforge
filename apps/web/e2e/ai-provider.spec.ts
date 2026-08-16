@@ -154,7 +154,7 @@ test('le parcours reste contenu à largeur étroite et en mouvement réduit', as
   await openCampaignDialog(page)
   await page.setViewportSize({ width: 420, height: 820 })
   await page.getByRole('button', { name: /Qui écrit les accroches/ }).click()
-  await page.getByRole('radio', { name: /Avec Codex/ }).click()
+  await page.getByRole('radio', { name: /Avec Claude Code/ }).click()
 
   const flow = page.locator('[data-slot="setup-flow"]')
   await expect(flow).toBeVisible()

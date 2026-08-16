@@ -21,7 +21,7 @@
 
 - [x] La primitive expose un jalon courant, un `<progress>` natif et masque les contrôles en attente — `apps/web/src/components/ui/setup-flow.tsx:41`
 - [x] Le marqueur citron est réservé à l’étape active ; l’étape terminée reste neutre — `apps/web/src/components/ui/setup-flow.tsx:64`
-- [x] Les parcours Codex, Claude Code, pont absent, secret refusé et confidentialité restent couverts — `apps/web/e2e/ai-provider.spec.ts:30`
+- [x] Les parcours Claude Code, pont absent, secret refusé et confidentialité restent couverts — `apps/web/e2e/ai-provider.spec.ts:30`
 - [x] Commande copiable, nouvelle détection et oubli du secret restent disponibles — `apps/web/src/components/campaign-dialog/AssistantSetup.tsx:265`
 - [x] Le parcours étroit reste contenu dans sa surface — `apps/web/e2e/ai-provider.spec.ts:149`
 - [x] Le mouvement réduit conserve les changements d’état sans déplacement — `apps/web/e2e/ai-provider.spec.ts:161`
