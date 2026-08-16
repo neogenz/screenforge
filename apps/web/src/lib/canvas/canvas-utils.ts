@@ -125,7 +125,37 @@ export type RenderedObject = FabricObject & {
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
     objectUrl?: string
+    /** La largeur que le calque déclare, opposable à celle que Fabric mesure. */
+    declaredWidth?: number
   }
+}
+
+/**
+ * Réenrouler un texte sans lui laisser choisir sa largeur.
+ *
+ * `Textbox.initDimensions` remonte `width` à `dynamicMinWidth` — la largeur du
+ * plus long mot — dès qu'un mot dépasse la boîte. Cette largeur-là n'est pas une
+ * donnée du projet : elle sort d'une mesure, donc de la police effectivement
+ * chargée à cet instant. Et elle ne reste pas sur l'objet : `object:modified`
+ * relit la géométrie par `fabricObjectToLayerUpdate`, si bien qu'un simple
+ * déplacement gravait dans le projet une largeur née d'une police de secours,
+ * différente d'un navigateur à l'autre et exportée telle quelle.
+ *
+ * La restaurer ne change pas la coupe : `_wrapLine` enroule déjà au
+ * `Math.max(desiredWidth, largestWordWidth)`, donc le mot trop long occupait
+ * déjà sa ligne à lui. Ce qui change, c'est la boîte annoncée — celle que le
+ * panneau Transformation affiche — et donc l'origine du rendu. Un mot plus large
+ * que sa boîte déborde désormais à droite plutôt que de l'élargir en silence :
+ * c'est le débordement que la revue de locales existe à signaler.
+ */
+export function rewrapTextbox(object: Textbox & RenderedObject): void {
+  object.initDimensions()
+  const declared = object.data?.declaredWidth
+  // `set` et non `initDimensions` une seconde fois : poser `width` ne réenroule
+  // pas — c'est précisément pourquoi `applyLayerToFabricObject` doit appeler les
+  // deux, dans cet ordre.
+  if (declared !== undefined && object.width !== declared) object.set({ width: declared })
+  object.setCoords()
 }
 
 export function getScreenOffset(index: number): number {
@@ -694,9 +724,16 @@ export function applyLayerToFabricObject(
   })
 
   if (layer.type === 'text' && object instanceof Textbox) {
+    // `instanceof` réduit au type de Fabric et perd `data` au passage.
+    const textbox = object as Textbox & RenderedObject
+    const declaredWidth = Math.max(1, layer.width)
+    // La largeur déclarée voyage avec l'objet : la remesure déclenchée par
+    // l'arrivée d'une police n'a pas le calque sous la main, et ne doit pas
+    // avoir à consulter le projet pour savoir ce que l'utilisateur a posé.
+    textbox.set('data', { ...textbox.data, declaredWidth })
     object.set({
       text: transformText(layer),
-      width: Math.max(1, layer.width),
+      width: declaredWidth,
       scaleX: 1,
       scaleY: 1,
       lockScalingY: true,
@@ -717,7 +754,7 @@ export function applyLayerToFabricObject(
       // la longueur, donc les index restent ceux du contenu.
       styles: structuredClone(layer.charStyles ?? {}),
     })
-    object.initDimensions()
+    rewrapTextbox(textbox)
   } else if (layer.type === 'shape') {
     const fill = typeof layer.fill === 'string' ? layer.fill : createGradient(layer.fill)
     object.set({

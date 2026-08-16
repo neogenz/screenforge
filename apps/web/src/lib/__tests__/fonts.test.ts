@@ -66,6 +66,29 @@ describe('loadGoogleFont', () => {
     expect(loadedLink.href).not.toContain('wght')
   })
 
+  it('announces the metric change once per loaded family', async () => {
+    stubFonts(vi.fn().mockResolvedValue([{} as FontFace]))
+    const { loadGoogleFont, onFontMetricsChanged } = await import('@/lib/fonts')
+    const changed: string[] = []
+    onFontMetricsChanged((family) => changed.push(family))
+
+    await loadGoogleFont('Announced Sans', ['400'])
+
+    expect(changed).toEqual(['Announced Sans'])
+  })
+
+  it('announces nothing when the face falls back, since the metric did not change', async () => {
+    stubFonts(vi.fn().mockResolvedValue([]))
+    const { loadGoogleFont, onFontMetricsChanged } = await import('@/lib/fonts')
+    const changed: string[] = []
+    const stop = onFontMetricsChanged((family) => changed.push(family))
+
+    await loadGoogleFont('Silent Sans', ['400'])
+    stop()
+
+    expect(changed).toEqual([])
+  })
+
   it('deduplicates concurrent requests for the same face', async () => {
     let resolveFace!: (faces: FontFace[]) => void
     const load = vi.fn(

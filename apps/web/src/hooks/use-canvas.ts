@@ -17,6 +17,7 @@ import {
 } from '@/lib/canvas/canvas-interactions'
 import { patchCanvas, syncCanvas, type CanvasSyncRuntime } from '@/lib/canvas/canvas-sync'
 import { installControlsPatch } from '@/lib/canvas/controls-patch'
+import { installFonts } from '@/lib/canvas/install-fonts'
 import { installInteractions } from '@/lib/canvas/install-interactions'
 import { installThumbnails, type ThumbnailScheduler } from '@/lib/canvas/install-thumbnails'
 import { installViewport, type ViewportController } from '@/lib/canvas/install-viewport'
@@ -69,7 +70,6 @@ export function useCanvas() {
       if (!canvas) return
       await syncCanvas(project, {
         canvas,
-        currentCanvas: () => fabricRef.current,
         syncVersion,
         syncing,
         fontLoadRequests: fontLoadRequests.current,
@@ -89,7 +89,6 @@ export function useCanvas() {
       if (!canvas) return false
       const runtime: CanvasSyncRuntime = {
         canvas,
-        currentCanvas: () => fabricRef.current,
         syncVersion,
         syncing,
         fontLoadRequests: fontLoadRequests.current,
@@ -186,6 +185,12 @@ export function useCanvas() {
     })
     thumbnails.current = thumbnailController
 
+    const fontsController = installFonts({
+      currentCanvas: () => fabricRef.current,
+      getProject: () => useProjectStore.getState().project,
+      generateThumbnails,
+    })
+
     const cleanupInteractions = installInteractions({
       canvas,
       syncing,
@@ -231,6 +236,7 @@ export function useCanvas() {
       cleanupInteractions()
       viewportController.cleanup()
       thumbnailController.cleanup()
+      fontsController.cleanup()
       viewport.current = null
       thumbnails.current = null
       for (const object of canvas.getObjects() as RenderedObject[]) {
@@ -239,7 +245,7 @@ export function useCanvas() {
       canvas.dispose()
       fabricRef.current = null
     }
-  }, [sync])
+  }, [sync, generateThumbnails])
 
   useEffect(
     () =>

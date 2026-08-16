@@ -22,7 +22,6 @@ import {
 } from '@/lib/canvas/canvas-interactions'
 import type { ProjectChange } from '@/lib/canvas/project-diff'
 import { useCanvasStore } from '@/stores/canvas.store'
-import { useProjectStore } from '@/stores/project.store'
 import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Project, Screen } from '@/types'
 
@@ -30,7 +29,6 @@ type MutableValue<T> = { current: T }
 
 export type CanvasSyncRuntime = {
   canvas: Canvas
-  currentCanvas: () => Canvas | null
   syncVersion: MutableValue<number>
   syncing: MutableValue<boolean>
   fontLoadRequests: Set<string>
@@ -101,6 +99,15 @@ function applyLayoutInstance(
   applyScreenPresence(object, layer, screenIndex, screenCount)
 }
 
+/**
+ * Demander la police d'un calque, et rien de plus.
+ *
+ * Ce qu'une police qui arrive fait à la scène ne se décide pas ici : une seule
+ * requête part par couple famille+graisse, donc un rappel posé sur cette
+ * promesse ne connaîtrait que le premier calque qui l'a demandée. La
+ * revalidation est un événement de scène, publié par `fonts.ts` — le seul module
+ * qui sait que la mesure a changé — et consommé par `install-fonts`.
+ */
 function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
   if (layer.type !== 'text') return
   const fontKey = `${layer.fontFamily}:${layer.fontWeight}`
@@ -108,26 +115,12 @@ function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
   if (runtime.fontLoadRequests.has(fontKey)) return
   runtime.fontLoadRequests.add(fontKey)
   void loadGoogleFont(layer.fontFamily, [String(layer.fontWeight)]).then((result) => {
-    if (result.status !== 'loaded') {
-      /* La clé restait posée pour toujours : une coupure réseau transitoire
-         condamnait le calque au repli système, et le chemin patch refusait la
-         frappe suivante (police non chargée) — une full sync par caractère.
-         On retire la clé : la prochaine édition retentera. */
-      runtime.fontLoadRequests.delete(fontKey)
-      return
-    }
-    const canvas = runtime.currentCanvas()
-    if (!canvas) return
-    for (const object of canvas.getObjects() as RenderedObject[]) {
-      if (object.data?.layerId !== layer.id) continue
-      if (object instanceof Textbox) object.initDimensions()
-      object.setCoords()
-    }
-    canvas.requestRenderAll()
-    /* La vraie graisse arrive après les vignettes : sans ce second passage la
-       pellicule garderait le repli système jusqu'à la prochaine édition. */
-    const project = useProjectStore.getState().project
-    if (project) runtime.generateThumbnails(project.screens)
+    if (result.status === 'loaded') return
+    /* La clé restait posée pour toujours : une coupure réseau transitoire
+       condamnait le calque au repli système, et le chemin patch refusait la
+       frappe suivante (police non chargée) — une full sync par caractère.
+       On retire la clé : la prochaine édition retentera. */
+    runtime.fontLoadRequests.delete(fontKey)
   })
 }
 
