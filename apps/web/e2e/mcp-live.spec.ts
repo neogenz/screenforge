@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import { waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
 
+const PNG_8x4 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAYAAACzzX7wAAAAEklEQVR4nGPQqzX6jw8z0F4BADXlO4E81RYZAAAAAElFTkSuQmCC'
+
 /**
  * L'agent conduit l'éditeur ouvert, et ce qu'il pose s'annule d'un geste.
  *
@@ -135,6 +138,62 @@ test.describe('connexion MCP', () => {
       expect(relay.live()).toBe(0)
       await expect(dialog.getByRole('button', { name: 'Activer' })).toBeVisible()
     } finally {
+      await relay.stop()
+    }
+  })
+
+  test('désactiver pendant un asset retardé interdit toute mutation tardive', async ({ page }) => {
+    const relay = await startRelay()
+    let releaseAsset = () => {}
+    let markRequested = () => {}
+    const held = new Promise<void>((resolve) => {
+      releaseAsset = resolve
+    })
+    const requested = new Promise<void>((resolve) => {
+      markRequested = resolve
+    })
+    try {
+      relay.serve('coffre-retarde', Buffer.from(PNG_8x4, 'base64'))
+      await page.route('**/asset/coffre-retarde', async (route) => {
+        markRequested()
+        await held
+        try {
+          await route.continue()
+        } catch {
+          // La désactivation annule précisément cette requête.
+        }
+      })
+      await connect(page, relay)
+
+      const before = await layerTypes(page)
+      const depth = await historyDepth(page)
+      relay.push('lot-retarde', [
+        {
+          tool: 'add_image',
+          args: {
+            assetId: 'coffre-retarde',
+            originalWidth: 8,
+            originalHeight: 4,
+            width: 80,
+            height: 40,
+          },
+        },
+      ])
+      await requested
+
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await dialog.getByRole('button', { name: 'Désactiver' }).click()
+      releaseAsset()
+
+      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect.poll(() => relay.live(), { timeout: 10_000 }).toBe(0)
+      await page.waitForTimeout(500)
+      expect(await layerTypes(page)).toEqual(before)
+      expect(await historyDepth(page)).toBe(depth)
+      expect(relay.answers).toHaveLength(0)
+      expect(relay.opened()).toBe(1)
+    } finally {
+      releaseAsset()
       await relay.stop()
     }
   })

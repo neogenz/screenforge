@@ -74,6 +74,7 @@ let attempt = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 let stateTimer: ReturnType<typeof setTimeout> | undefined
 let unwatch: (() => void) | undefined
+const answerControllers = new Set<AbortController>()
 /**
  * Le cycle de connexion courant.
  *
@@ -122,11 +123,12 @@ function persistEnabled(enabled: boolean): void {
 const UNREACHABLE =
   'Le démon MCP ne répond pas. Lancez « pnpm --filter mcp run start », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.'
 
-async function post(path: string, body: unknown): Promise<void> {
+async function post(path: string, body: unknown, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${relayUrl()}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
+    signal,
   })
   if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
 }
@@ -137,9 +139,10 @@ async function post(path: string, body: unknown): Promise<void> {
  * Une URL et non un chemin : la page n'a jamais su où le fichier était, et le
  * démon ne sert que ce qu'un appel d'outil a fait entrer dans son coffre.
  */
-async function fetchAsset(id: string): Promise<Blob> {
+async function fetchAsset(id: string, signal?: AbortSignal): Promise<Blob> {
   const response = await fetch(`${relayUrl()}/asset/${encodeURIComponent(id)}`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal,
   })
   if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
   return response.blob()
@@ -171,12 +174,15 @@ function teardown(): void {
   unwatch = undefined
   source?.close()
   source = null
+  for (const controller of answerControllers) controller.abort()
+  answerControllers.clear()
   token = ''
 }
 
 async function open(): Promise<void> {
   teardown()
   const mine = cycle
+  useMcpStore.getState().setConnectionStep('daemon')
   useMcpStore.getState().setStatus('connecting')
 
   let hello: RelayHello
@@ -203,6 +209,7 @@ async function open(): Promise<void> {
   }
 
   token = hello.token
+  useMcpStore.getState().setConnectionStep('editor')
   listen(mine)
 }
 
@@ -213,9 +220,7 @@ function listen(mine: number): void {
   stream.onopen = () => {
     if (mine !== cycle) return
     attempt = 0
-    useMcpStore.getState().setStatus('live')
-    void pushState()
-    unwatch = useProjectStore.subscribe(scheduleStatePush)
+    void finishOpening(stream, mine)
   }
 
   stream.addEventListener('calls', (event) => {
@@ -227,13 +232,30 @@ function listen(mine: number): void {
   // pas non plus. On referme et on réappaire, ce qui répond aux trois.
   stream.onerror = () => {
     if (mine !== cycle) return
-    stream.close()
-    source = null
-    unwatch?.()
-    unwatch = undefined
-    useMcpStore.getState().setStatus('connecting')
-    arm()
+    retry(stream, mine)
   }
+}
+
+async function finishOpening(stream: EventSource, mine: number): Promise<void> {
+  try {
+    if (!(await pushState(mine)) || source !== stream) return
+    useMcpStore.getState().setConnectionStep('ready')
+    useMcpStore.getState().setStatus('live')
+    unwatch = useProjectStore.subscribe(scheduleStatePush)
+  } catch {
+    retry(stream, mine)
+  }
+}
+
+function retry(stream: EventSource, mine: number): void {
+  if (mine !== cycle || source !== stream) return
+  stream.close()
+  source = null
+  unwatch?.()
+  unwatch = undefined
+  useMcpStore.getState().setConnectionStep('daemon')
+  useMcpStore.getState().setStatus('connecting')
+  arm()
 }
 
 /**
@@ -247,38 +269,53 @@ function listen(mine: number): void {
  * une différence de quelques `if`.
  */
 async function answer(request: RelayRequest): Promise<void> {
+  const mine = cycle
+  const controller = new AbortController()
+  answerControllers.add(controller)
+  const isCurrent = () => mine === cycle && !controller.signal.aborted
+  const loadAsset = (id: string) => fetchAsset(id, controller.signal)
   const writesProject = !request.render && !request.saveTemplate && !request.listTemplates
-  const outcome = request.render
-    ? await renderRelayScreen(request.render)
-    : request.saveTemplate
-      ? await saveRelayTemplate(request.saveTemplate)
-      : request.listTemplates
-        ? listRelayTemplates()
-        : request.refreshScreenshots
-          ? await refreshRelayScreenshots(request.refreshScreenshots, fetchAsset)
-          : await applyRelayBatch(request.calls ?? [], fetchAsset)
   try {
-    await post('/result', {
-      id: request.id,
-      ok: outcome.committed,
-      ...(outcome.committed ? { result: outcome.result } : { error: outcome.error }),
-    })
+    const outcome = request.render
+      ? await renderRelayScreen(request.render)
+      : request.saveTemplate
+        ? await saveRelayTemplate(request.saveTemplate)
+        : request.listTemplates
+          ? listRelayTemplates()
+          : request.refreshScreenshots
+            ? await refreshRelayScreenshots(request.refreshScreenshots, loadAsset, isCurrent)
+            : await applyRelayBatch(request.calls ?? [], loadAsset, isCurrent)
+    if (!isCurrent()) return
+    await post(
+      '/result',
+      {
+        id: request.id,
+        ok: outcome.committed,
+        ...(outcome.committed ? { result: outcome.result } : { error: outcome.error }),
+      },
+      controller.signal,
+    )
+    if (!isCurrent()) return
     // Seule une écriture dans le projet change l'état : le repousser après une
     // lecture ou un gabarit rangé ne dirait rien de neuf.
-    if (outcome.committed && writesProject) await pushState()
+    if (outcome.committed && writesProject) await pushState(mine, controller.signal)
   } catch (error) {
+    if (!isCurrent()) return
     // Le lot est appliqué ; c'est le retour qui s'est perdu. L'agent verra son
     // appel expirer, et le flux se rétablira tout seul — rien à défaire ici.
     console.warn('Could not answer the MCP daemon.', error)
+  } finally {
+    answerControllers.delete(controller)
   }
 }
 
-async function pushState(): Promise<void> {
-  if (!token) return
+async function pushState(mine = cycle, signal?: AbortSignal): Promise<boolean> {
+  if (!token || mine !== cycle) return false
   // Le groupement en attente n'a plus rien à dire : on part avec l'état d'après.
   if (stateTimer !== undefined) clearTimeout(stateTimer)
   stateTimer = undefined
-  await post('/state', { state: readProjectState() })
+  await post('/state', { state: readProjectState() }, signal)
+  return mine === cycle
 }
 
 function scheduleStatePush(): void {
@@ -303,6 +340,7 @@ export function disableMcp(): void {
   persistEnabled(false)
   teardown()
   useMcpStore.getState().setEnabled(false)
+  useMcpStore.getState().setConnectionStep('daemon')
   useMcpStore.getState().setStatus('off')
 }
 

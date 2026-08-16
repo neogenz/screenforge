@@ -18,6 +18,8 @@ import { create } from 'zustand'
 
 /** `off` est le mode par défaut du produit, pas une panne : rien n'est branché. */
 export type McpStatus = 'off' | 'connecting' | 'live' | 'error'
+export type McpConnectionStep = 'daemon' | 'editor' | 'ready'
+export type McpStepStatus = 'waiting' | 'active' | 'done' | 'error'
 
 /** Le même fait en toutes lettres : infobulle, ligne de statut, nom accessible. */
 export const MCP_LABELS: Record<McpStatus, string> = {
@@ -27,8 +29,9 @@ export const MCP_LABELS: Record<McpStatus, string> = {
   error: 'Injoignable',
 }
 
-interface McpState {
+export interface McpState {
   status: McpStatus
+  connectionStep: McpConnectionStep
   /**
    * Une phrase que l'utilisateur peut suivre, jamais une trace. Vide hors
    * erreur : elle survivrait autrement à la reconnexion qui l'a réparée.
@@ -48,18 +51,22 @@ interface McpState {
   appliedCalls: number
 
   setStatus: (status: McpStatus, message?: string) => void
+  setConnectionStep: (step: McpConnectionStep) => void
   setEnabled: (enabled: boolean) => void
   noteBatch: (calls: number) => void
 }
 
 export const useMcpStore = create<McpState>()((set) => ({
   status: 'off',
+  connectionStep: 'daemon',
   message: '',
   enabled: false,
   appliedBatches: 0,
   appliedCalls: 0,
 
   setStatus: (status, message = '') => set({ status, message }),
+
+  setConnectionStep: (connectionStep) => set({ connectionStep }),
 
   setEnabled: (enabled) => set({ enabled }),
 
@@ -69,3 +76,24 @@ export const useMcpStore = create<McpState>()((set) => ({
       appliedCalls: state.appliedCalls + calls,
     })),
 }))
+
+/** Projette le cycle observable sur les quatre états visuels du parcours. */
+export function projectMcpSteps(
+  status: McpStatus,
+  current: McpConnectionStep,
+): Record<McpConnectionStep, McpStepStatus> {
+  const steps: McpConnectionStep[] = ['daemon', 'editor', 'ready']
+  const currentIndex = steps.indexOf(current)
+  return Object.fromEntries(
+    steps.map((step, index) => [
+      step,
+      index < currentIndex
+        ? 'done'
+        : index > currentIndex
+          ? 'waiting'
+          : status === 'error'
+            ? 'error'
+            : 'active',
+    ]),
+  ) as Record<McpConnectionStep, McpStepStatus>
+}

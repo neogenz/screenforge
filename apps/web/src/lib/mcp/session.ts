@@ -46,12 +46,14 @@ export interface RelayOutcome {
 export async function applyRelayBatch(
   calls: readonly ToolCall[],
   fetchAsset: AssetFetcher,
+  canCommit: () => boolean = () => true,
 ): Promise<RelayOutcome> {
   /* Les images d'abord, hors transaction : télécharger est asynchrone et
      `runEditorTransaction` ne l'est pas. Une image manquante doit refuser le
      lot avant qu'il ne commence, pas le laisser à moitié posé. */
   const resolved = await resolveRelayAssets(calls, fetchAsset)
   if (resolved.error) return { committed: false, error: resolved.error }
+  if (!canCommit()) return { committed: false, error: 'La connexion MCP a été coupée.' }
 
   const run = commitAiRun(resolved.calls, { assetIds: resolved.assetIds })
   if (!run.committed) return { committed: false, error: run.error ?? 'Le lot a été refusé.' }
@@ -85,6 +87,7 @@ export async function applyRelayBatch(
 export async function refreshRelayScreenshots(
   refresh: RelayRefresh,
   fetchAsset: AssetFetcher,
+  canCommit: () => boolean = () => true,
 ): Promise<RelayOutcome> {
   const project = useProjectStore.getState().project
   if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
@@ -137,7 +140,7 @@ export async function refreshRelayScreenshots(
      pour y remédier. Une erreur ferait perdre ce rapport. */
   if (calls.length === 0) return { committed: true, result: summary }
 
-  const applied = await applyRelayBatch(calls, fetchAsset)
+  const applied = await applyRelayBatch(calls, fetchAsset, canCommit)
   return applied.committed ? { committed: true, result: summary } : applied
 }
 
