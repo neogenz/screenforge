@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "screenforge": {
+      "command": "node",
+      "args": ["apps/mcp/src/main.ts"]
+    }
+  }
+}

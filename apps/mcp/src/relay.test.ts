@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createRelay, createRelayState, type RelayState } from './relay/server.ts'
 import { AppUnavailableError, RelaySession } from './relay/session.ts'
+import { renderThumbnail } from './tools/get-thumbnail.ts'
 
 /**
  * Le relais se teste sans navigateur : Hono répond à une `Request` fabriquée,
@@ -121,6 +122,58 @@ describe('aller-retour', () => {
       body: JSON.stringify({ id: 'oublié', ok: true }),
     })
     expect(await late.json()).toEqual({ settled: false })
+  })
+})
+
+describe('la miniature', () => {
+  /** Répond à la demande que le démon vient de pousser, comme le ferait l'onglet. */
+  async function answerRender(
+    state: RelayState,
+    app: ReturnType<typeof createRelay>,
+    events: AsyncGenerator<{ event: string; data: string }>,
+    findings: string[],
+  ) {
+    const answered = renderThumbnail(state.session, {})
+    const frame = await events.next()
+    expect(frame.value?.event).toBe('calls')
+    const request = JSON.parse(frame.value!.data) as { id: string }
+    await app.request('/result', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, Authorization: `Bearer ${state.pairing.token}` },
+      body: JSON.stringify({
+        id: request.id,
+        ok: true,
+        result: { screenId: 's1', width: 640, height: 1391, data: 'UE5H', findings },
+      }),
+    })
+    return answered
+  }
+
+  it('met le constat avant l’image, et ne le rend jamais en erreur', async () => {
+    const { state, app } = relay()
+    const events = await openStream(state, app)
+    const result = await answerRender(state, app, events, [
+      '« Accroche » : 154 px de texte dans une boîte de 40 px.',
+    ])
+
+    // Un constat n'est pas un refus : une composition qui déborde exprès est
+    // légitime, et l'agent décide de ce qu'il corrige.
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0]).toMatchObject({ type: 'text' })
+    expect((result.content[0] as { text: string }).text).toMatch(/boîte de 40 px/)
+    expect(result.content[1]).toMatchObject({ type: 'image', mimeType: 'image/png' })
+  })
+
+  it('dit qu’il n’y a rien plutôt que de ne rien dire', async () => {
+    const { state, app } = relay()
+    const events = await openStream(state, app)
+    const result = await answerRender(state, app, events, [])
+
+    // Un bloc vide se lit comme une mesure qui n'a pas eu lieu, et l'agent
+    // repart alors juger à l'œil — ce que la boucle existe pour éviter.
+    const text = (result.content[0] as { text: string }).text
+    expect(text).toMatch(/Aucun défaut mesuré/)
+    expect(result.content).toHaveLength(2)
   })
 })
 

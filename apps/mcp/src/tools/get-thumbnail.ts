@@ -40,8 +40,30 @@ function isRendered(value: unknown): value is RelayRendered {
     typeof value === 'object' &&
     value !== null &&
     typeof (value as RelayRendered).data === 'string' &&
-    (value as RelayRendered).data.length > 0
+    (value as RelayRendered).data.length > 0 &&
+    Array.isArray((value as RelayRendered).findings)
   )
+}
+
+/**
+ * Le constat avant l'image, et jamais à sa place.
+ *
+ * Un agent lit le premier bloc et regarde le second : l'ordre décide de ce
+ * qu'il corrige. Une planche sans défaut le dit en une ligne plutôt que de ne
+ * rien dire — un bloc vide se lit comme une mesure qui n'a pas eu lieu, et
+ * l'agent repart alors juger à l'œil, ce que la boucle existe pour éviter.
+ *
+ * Rien de tout cela ne met le résultat en erreur : une composition qui déborde
+ * exprès du cadre est légitime, et `get_thumbnail` reste `readOnlyHint` — il
+ * énonce ce qu'il a mesuré, l'agent et l'utilisateur décident.
+ */
+function report(rendered: RelayRendered): string {
+  const header = `Écran ${rendered.screenId} — ${rendered.width}×${rendered.height}`
+  if (rendered.findings.length === 0) {
+    return `${header}\nAucun défaut mesuré sur cette planche.`
+  }
+  const lines = rendered.findings.map((finding) => `- ${finding}`).join('\n')
+  return `${header}\n${rendered.findings.length} défaut(s) mesuré(s) :\n${lines}`
 }
 
 export async function renderThumbnail(
@@ -60,10 +82,7 @@ export async function renderThumbnail(
     }
     return {
       content: [
-        {
-          type: 'text',
-          text: `Écran ${rendered.screenId} — ${rendered.width}×${rendered.height}`,
-        },
+        { type: 'text', text: report(rendered) },
         { type: 'image', data: rendered.data, mimeType: 'image/png' },
       ],
     }

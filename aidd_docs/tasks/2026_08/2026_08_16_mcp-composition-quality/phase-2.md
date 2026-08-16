@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: La miniature rend un constat mesuré à côté de l'image

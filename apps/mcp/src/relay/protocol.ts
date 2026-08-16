@@ -132,6 +132,20 @@ export interface RelayRendered {
   height: number
   /** PNG en base64, sans le préfixe `data:` — c'est ce que MCP transporte. */
   data: string
+  /**
+   * Ce que la planche a de mesurablement faux, une phrase par défaut.
+   *
+   * Une image ne dit pas qu'une boîte de 215 px contient cinq lignes : elle
+   * montre du texte coupé, ce qui ressemble à un choix. Les constats voyagent
+   * donc avec elle, calculés dans l'onglet — il faut la police chargée, le
+   * gabarit d'appareil et le fond pour mesurer, et côté Node ce serait une
+   * approximation qui mentirait là où l'agent a besoin de vérité.
+   *
+   * Des phrases et non des codes : c'est l'agent qui les relit, et un
+   * `{ kind: 'overflow' }` l'obligerait à connaître un second vocabulaire pour
+   * apprendre ce que la phrase dit déjà.
+   */
+  findings: string[]
 }
 
 export const relayResultSchema = z.object({

@@ -533,12 +533,24 @@ export function onBoardRatio(device: PlanBox): number {
  * les boîtes, ce qui la rend opposable au test plutôt qu'à l'œil.
  */
 export function tallestEmptyBand(layout: ArchetypeLayout): number {
-  const boxes: PlanBox[] = [
+  return tallestEmptyBandOf([
     layout.headline,
     ...(layout.device ? [layout.device] : []),
     ...layout.accentsBehind,
     ...layout.accentsFront,
-  ]
+  ])
+}
+
+/**
+ * La même règle, sur des boîtes quelconques.
+ *
+ * Le générateur connaît la forme de ses propres plans ; une planche que
+ * quelqu'un d'autre a composée n'a ni « accents derrière » ni « accents
+ * devant », seulement des calques. La règle, elle, est la même des deux côtés —
+ * c'est ce qui permet à `board-review` d'exiger d'un agent ce que le dépôt
+ * s'impose à lui-même, sans en réécrire une seconde version qui divergerait.
+ */
+export function tallestEmptyBandOf(boxes: readonly PlanBox[]): number {
   const covered = boxes
     .map((box) => [Math.max(0, box.y), Math.min(BOARD.height, box.y + box.height)] as const)
     .filter(([top, bottom]) => bottom > top)

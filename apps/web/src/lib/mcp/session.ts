@@ -2,6 +2,7 @@ import type { RelayRender, RelayRendered, RelayTemplateSave, RelayTemplateSummar
 import type { CustomTemplate } from '@/lib/custom-templates'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { commitAiRun } from '@/lib/ai/run'
+import { reviewBoard } from '@/lib/ai/board-review'
 import { describeProject, type ProjectView } from '@/lib/ai/state'
 import type { ToolCall } from '@/lib/ai/tools'
 import { resolveRelayAssets, type AssetFetcher } from '@/lib/mcp/assets'
@@ -89,6 +90,11 @@ export async function renderRelayScreen(render: RelayRender): Promise<RelayOutco
         width: size.getUint32(16),
         height: size.getUint32(20),
         data: base64(bytes),
+        /* Mesuré après le rendu, sur les mêmes calques : la revue ne juge pas
+           l'image, elle mesure la planche que l'image montre. Elle n'écrit
+           rien — ni projet, ni historique, ni sélection — donc `get_thumbnail`
+           reste la lecture qu'il annonce être. */
+        findings: reviewBoard(screen, project.layoutLayers).map((finding) => finding.detail),
       } satisfies RelayRendered,
     }
   } catch (error) {
