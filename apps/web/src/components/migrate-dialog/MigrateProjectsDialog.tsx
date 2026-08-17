@@ -15,11 +15,10 @@ export function MigrateProjectsDialog() {
 /**
  * Le premier login ne doit jamais faire perdre un projet local.
  *
- * Le cycle de synchronisation ne pousse que le projet ouvert : sans cette
- * boîte, quelqu'un qui a construit cinq projets avant d'acheter le Cloud en
- * verrait remonter un seul, et rien ne le lui dirait. Le geste est proposé, pas
- * exécuté d'office — envoyer sans demander déciderait à la place de
- * l'utilisateur ce qui quitte sa machine.
+ * Le cycle de synchronisation ne pousse aucun projet antérieur au login, même
+ * celui qui est ouvert. Cette boîte propose le geste explicite qui les ajoute
+ * au Cloud; l'exécuter d'office déciderait à la place de l'utilisateur ce qui
+ * quitte sa machine.
  *
  * « Plus tard » n'enregistre rien : la boîte reparaît au login suivant tant
  * qu'il reste des projets non rattachés. Une préférence « ne plus demander »

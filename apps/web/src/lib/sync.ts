@@ -9,9 +9,10 @@
  *
  * Trois règles tiennent le reste :
  *
- * 1. **Rien ne part qui ne soit déjà sur le disque local.** Le déclencheur est
- *    `onProjectCommitted`, à la sortie de la transaction IndexedDB, pas un
- *    abonnement au store.
+ * 1. **Rien ne part qui ne soit déjà sur le disque local et consenti.** Les
+ *    projets antérieurs au login attendent le geste explicite de rattachement;
+ *    après le login, `onProjectCommitted` déclenche la sync à la sortie de la
+ *    transaction IndexedDB, pas depuis un abonnement au store.
  * 2. **Rien n'est jamais bloquant.** Une panne de réseau, une session expirée
  *    ou un déploiement injoignable changent une pastille et rien d'autre :
  *    l'édition continue, l'autosave local aussi.
@@ -442,10 +443,10 @@ export interface LocalProject {
 /**
  * Les projets de ce navigateur que le compte courant n'a jamais envoyés.
  *
- * Le cycle ordinaire ne pousse que le projet ouvert : c'est ce qu'il faut pour
- * une session de travail, et c'est insuffisant au premier login. Quelqu'un qui
- * a construit cinq projets avant d'acheter le Cloud n'en verrait remonter qu'un,
- * et rien ne le lui dirait.
+ * Aucun projet antérieur au login, y compris celui qui est ouvert, ne doit
+ * quitter le navigateur sans consentement. Une fois rattaché, son accusé local
+ * permet au cycle ordinaire de reprendre les envois interrompus. Les commits
+ * effectués après le login créent eux-mêmes cet accusé via `onProjectCommitted`.
  *
  * « Jamais envoyé » se lit dans la file de synchronisation, pas dans la base
  * distante : `pushedUpdatedAt` à zéro pour cette paire compte/projet. Interroger
@@ -625,8 +626,10 @@ async function cycle(): Promise<void> {
   if (settingsResult.status === 'rejected') throw settingsResult.reason
 
   if (!stillSyncing(userId)) return setStatus('off')
-  const activeProject = useProjectStore.getState().project
-  if (activeProject) await ensureSyncRecord(syncKey(userId, activeProject.id))
+  /* Ne jamais enrôler implicitement le projet ouvert ici. Au premier login il
+     peut avoir été créé bien avant la session Cloud et doit rester local tant
+     que « Tout rattacher » n'a pas été choisi. Les projets déjà rattachés ont
+     un record durable; les commits post-login entrent dans `queued`. */
   await Promise.all(
     [...queued.values()].map((project) => ensureSyncRecord(syncKey(userId, project.id))),
   )

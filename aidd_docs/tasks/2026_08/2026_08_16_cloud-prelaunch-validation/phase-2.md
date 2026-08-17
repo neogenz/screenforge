@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Valider Convex, Resend et le compte propriétaire en préproduction
@@ -10,7 +10,16 @@ status: pending
 
 ```txt
 .
+├── apps/web/
+│   ├── e2e/
+│   │   └── ✏️ sync.spec.ts
+│   └── src/
+│       ├── components/migrate-dialog/
+│       │   └── ✏️ MigrateProjectsDialog.tsx
+│       └── lib/
+│           └── ✏️ sync.ts
 └── aidd_docs/tasks/2026_08/2026_08_16_cloud-prelaunch-validation/
+    ├── ✏️ phase-2.md
     └── ✏️ verification.md
 ```
 
@@ -44,8 +53,11 @@ journey
     Effacer la session => tenter un write Cloud => requête refusée et données inchangées: 1: browser
   section Edge case - droit révoqué
     Retirer la dérogation complémentaire => tenter un nouveau write => requête refusée côté serveur: 1: browser
+  section Edge case - consentement local
+    Différer le rattachement de deux projets antérieurs au login => aucun projet envoyé après sync et rechargement: 1: browser
+    Rattacher explicitement les deux projets => exactement deux projets envoyés: 1: browser
   section Teardown
-    Restaurer la dérogation propriétaire et supprimer les fixtures => compte Cloud prêt et préproduction propre: 5: cli
+    Restaurer la dérogation propriétaire sans modifier les données réelles => compte Cloud prêt et données utilisateur intactes: 5: cli
 ```
 
 ## Tasks to do
@@ -76,7 +88,23 @@ journey
 2. Avec préproduction active, créer un projet, importer une image et modifier des settings dans un premier profil connecté.
 3. Ouvrir le compte dans un second profil et comparer projet, asset et settings, puis modifier un champ et vérifier le retour dans le premier.
 4. Révoquer temporairement Cloud, falsifier l’état client et tenter chaque write; constater le refus serveur et l’absence de mutation.
-5. Réaccorder la dérogation et supprimer les fixtures de validation.
+5. Réaccorder la dérogation et conserver intactes les données réelles de
+   préproduction; les tests automatisés utilisent uniquement des comptes et
+   projets synthétiques isolés.
+
+### `4)` Corriger le consentement des projets antérieurs au login
+
+> Aucun projet local préexistant, actif inclus, ne doit être enrôlé dans Cloud
+> avant le choix explicite de rattachement.
+
+1. Retirer du cycle initial la création implicite d'un accusé pour le projet
+   actif, sans changer les retries des accusés existants, les pulls ni les
+   commits produits après connexion.
+2. Tester deux projets touchés avant le login, dont le projet actif : tous deux
+   restent proposés et aucun write distant ne survient avec « Plus tard », y
+   compris après rechargement.
+3. Vérifier que « Tout rattacher » crée exactement les deux lignes attendues,
+   puis qu'un projet créé et modifié après le login repart automatiquement.
 
 ## Test acceptance criteria
 
@@ -85,3 +113,4 @@ journey
 | 1 | Un lien magique réel atteint uniquement l’adresse propriétaire autorisée, ouvre la bonne origine et aucun secret ou lien d’authentification n’est publié dans un log ou artifact. |
 | 2 | Le compte propriétaire possède Cloud actif comme client complémentaire, sans rôle admin, et le droit ne peut être accordé ou retiré depuis le navigateur. |
 | 3 | Local reste complet sans Convex; deux profils synchronisent projet, image et settings; anonyme, droit révoqué et état client falsifié ne produisent aucun write Cloud. |
+| 4 | Différer laisse zéro projet distant; rattacher envoie exactement les projets listés; les commits post-login restent automatiques et les données réelles de préproduction ne sont jamais mutées par le test. |

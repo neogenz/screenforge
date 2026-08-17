@@ -1371,10 +1371,10 @@ test.describe('Porte Cloud côté client', () => {
 /**
  * Le premier login ne fait perdre aucun projet local.
  *
- * Le cycle ordinaire ne pousse que le projet ouvert. Quelqu'un qui a construit
- * plusieurs projets avant d'acheter le Cloud n'en verrait donc remonter qu'un,
- * et la perte serait silencieuse : rien à l'écran ne distingue « pas encore
- * synchronisé » de « jamais synchronisé ».
+ * Aucun projet antérieur au login ne quitte le navigateur sans consentement,
+ * y compris celui qui est ouvert. Une fois connecté, les nouveaux commits sont
+ * synchronisés automatiquement et les projets explicitement rattachés restent
+ * dans la file durable.
  */
 test.describe('Rattachement des projets locaux', () => {
   test.skip(!stack, 'déploiement Convex local arrêté')
@@ -1433,29 +1433,26 @@ test.describe('Rattachement des projets locaux', () => {
     await seedSession(page, own)
     await waitForApp(page)
 
-    /* « Plus tard » n'efface rien et n'enregistre rien — la boîte revient au
-       login suivant. */
+    /* Les deux projets antérieurs à la session, actif inclus, attendent un
+       consentement explicite. « Plus tard » n'envoie et n'enregistre rien. */
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
-    /* Seul le premier y figure, et c'est le résultat attendu : le second est le
-       projet ouvert, que le cycle ordinaire envoie de lui-même dès la session
-       établie. La boîte ne propose que ce qu'elle seule peut faire remonter. */
-    await expect(migrateDialog(page).getByText(noms[0])).toBeVisible()
-    await expect(migrateDialog(page).getByText(noms[1])).toHaveCount(0)
+    for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
+    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
     await page.getByRole('button', { name: 'Plus tard' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
 
     await waitForApp(page)
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
+    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
 
-    /* Après « Tout rattacher », les deux projets existent côté serveur — donc
-       sur n'importe quelle autre machine du même compte. */
+    /* « Tout rattacher » est le premier geste qui envoie ces projets. */
     await page.getByRole('button', { name: 'Tout rattacher' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
-    for (const nom of noms) {
-      await expect
-        .poll(async () => Boolean(await remoteRow(own, nom)), { timeout: 30_000 })
-        .toBe(true)
-    }
+    await expect.poll(async () => (await listRemote(own)).length, { timeout: 30_000 }).toBe(2)
+    for (const nom of noms) expect(await remoteRow(own, nom)).toBeTruthy()
     expect(activeAssetId).not.toBeNull()
     expect(
       await page.evaluate(
@@ -1463,6 +1460,17 @@ test.describe('Rattachement des projets locaux', () => {
         activeAssetId,
       ),
     ).toBe(true)
+
+    /* Une création puis un changement après le login restent automatiques :
+       ce consentement découle de la session Cloud déjà active, pas du cycle
+       initial qui vient d'être corrigé. Cette preuve précède le profil neuf,
+       dont le projet initial est lui aussi créé après restauration de session. */
+    const postLoginName = `Après connexion ${String(marque)}`
+    await makeLocalProject(page, postLoginName)
+    await expect
+      .poll(async () => Boolean(await remoteRow(own, postLoginName)), { timeout: 30_000 })
+      .toBe(true)
+    await expect.poll(async () => (await listRemote(own)).length).toBe(3)
 
     const fresh = await openApp(browser, baseURL!, own)
     await expect(syncBadge(fresh, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
