@@ -55,10 +55,10 @@ test('expose une hiérarchie de titres et des repères nommés', async ({ page }
  */
 test('ne laisse aucun élément cliquable rendre le curseur de texte', async ({ page }) => {
   await waitForApp(page)
-  // Le menu Projet et non le menu de débordement : celui-ci n'existe qu'en
-  // fenêtre étroite, et le test tournerait alors sans jamais ouvrir de menu.
-  await page.locator('button[aria-label="Ouvrir le menu Projet"]').click()
-  await expect(page.getByRole('menu')).toBeVisible()
+  // Le sélecteur Projet et non le menu de débordement : celui-ci n'existe qu'en
+  // fenêtre étroite, et le test tournerait alors sans jamais ouvrir de panneau.
+  await page.locator('button[aria-label="Ouvrir le sélecteur de projets"]').click()
+  await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toBeVisible()
 
   const wrong = await page.evaluate(() => {
     const selector = [

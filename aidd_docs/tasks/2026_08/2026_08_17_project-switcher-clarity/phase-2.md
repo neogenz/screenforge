@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Construire un sélecteur de projets structuré
@@ -18,7 +18,8 @@ status: pending
     │       └── ✏️ TopBar.tsx
     └── e2e
         ├── ✏️ project-file.spec.ts
-        └── ✏️ semantics.spec.ts
+        ├── ✏️ semantics.spec.ts
+        └── ✏️ sync.spec.ts
 ```
 
 ## User Journey

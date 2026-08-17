@@ -159,6 +159,22 @@ test.beforeEach(async ({ page }) => {
   await waitForApp(page)
 })
 
+async function makeNamedProject(page: Page, name: string) {
+  await page.evaluate(
+    (projectName) => window.__sfStores?.useProjectStore.getState().createProject(projectName),
+    name,
+  )
+  await page.getByLabel('Ajouter Texte').click()
+  await page.evaluate(async () => {
+    const storagePath = '/src/lib/storage.ts'
+    const { saveCurrentProject } = (await import(
+      storagePath
+    )) as typeof import('../src/lib/storage')
+    await saveCurrentProject()
+  })
+  await expect(page.getByRole('status').filter({ hasText: 'Enregistré' })).toBeVisible()
+}
+
 test('round-trips a versioned archive with each referenced asset once', async ({ page }) => {
   const fixture = await portableFixture(page)
   const zip = await JSZip.loadAsync(Uint8Array.from(fixture.archive))
@@ -358,11 +374,13 @@ test('rejects an invalid archive without mutating the open project or assets', a
 })
 
 async function downloadPortableProject(page: Page): Promise<Uint8Array> {
-  await page.getByRole('button', { name: 'Ouvrir le menu Projet' }).click()
+  const trigger = page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' })
+  await trigger.click()
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('menuitem', { name: 'Télécharger une copie' }).click(),
+    page.getByRole('button', { name: 'Télécharger une copie' }).click(),
   ])
+  await expect(trigger).toBeFocused()
   expect(download.suggestedFilename()).toBe('backup_demo.screenforge.zip')
   return readDownload(download)
 }
@@ -531,12 +549,106 @@ test('keeps the current session intact when UI import rejects a corrupt file', a
   })
 })
 
-test('project menu is keyboard navigable and restores focus', async ({ page }) => {
-  const trigger = page.getByRole('button', { name: 'Ouvrir le menu Projet' })
+test('project switcher is keyboard navigable and restores focus', async ({ page }) => {
+  const trigger = page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' })
   await trigger.focus()
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('menu', { name: 'Fichier du projet' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toBeVisible()
+  const filter = page.getByRole('textbox', { name: 'Filtrer les projets' })
+  await expect(filter).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByRole('button', { name: 'Télécharger une copie' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(filter).toBeFocused()
+  await expect(page.getByText('Aucun autre projet sur cet appareil.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Importer un fichier…' })).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('menu', { name: 'Fichier du projet' })).toHaveCount(0)
+  await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toHaveCount(0)
   await expect(trigger).toBeFocused()
+})
+
+test('structures, filters and opens local projects without duplicating the current one', async ({
+  page,
+}) => {
+  const longName = `Projet Alpha ${'très long '.repeat(8)}`.trim()
+  await makeNamedProject(page, longName)
+  await makeNamedProject(page, 'Projet Bêta')
+  await makeNamedProject(page, 'Projet actif')
+  await page.setViewportSize({ width: 600, height: 800 })
+
+  const trigger = page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' })
+  await trigger.click()
+  const dialog = page.getByRole('dialog', { name: 'Sélecteur de projets' })
+  await expect(dialog).toBeVisible()
+  const currentSection = dialog
+    .getByRole('heading', { name: 'Projet courant', level: 2 })
+    .locator('..')
+  await expect(currentSection.getByText('Projet actif', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Ouvrir « Projet actif »' })).toHaveCount(0)
+
+  const longProject = dialog.getByRole('button', { name: `Ouvrir « ${longName} »` })
+  const betaProject = dialog.getByRole('button', { name: 'Ouvrir « Projet Bêta »' })
+  await expect(longProject).toBeVisible()
+  await expect(longProject).toHaveAccessibleDescription(/Cet appareil.*modifié le/i)
+  await expect(betaProject).toHaveAccessibleDescription(/Cet appareil.*modifié le/i)
+  const box = await dialog.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(600)
+
+  const filter = dialog.getByRole('textbox', { name: 'Filtrer les projets' })
+  await filter.fill('Bêta')
+  await expect(betaProject).toBeVisible()
+  await expect(longProject).toHaveCount(0)
+  await betaProject.focus()
+  await expect(betaProject).toBeFocused()
+  await betaProject.press('Enter')
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.name))
+    .toBe('Projet Bêta')
+  await expect(page.getByLabel('Nom du projet')).toHaveValue('Projet Bêta')
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  await dialog.getByRole('button', { name: 'Renommer' }).click()
+  const nameInput = page.getByLabel('Nom du projet')
+  await expect(nameInput).toBeFocused()
+  expect(await nameInput.evaluate((input) => (input as HTMLInputElement).selectionStart)).toBe(0)
+  expect(await nameInput.evaluate((input) => (input as HTMLInputElement).selectionEnd)).toBe(
+    'Projet Bêta'.length,
+  )
+})
+
+test('recovers a failed catalogue read without closing the current project', async ({ page }) => {
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.getAll
+    Object.defineProperty(IDBObjectStore.prototype, 'getAll', {
+      configurable: true,
+      value(this: IDBObjectStore, ...args: Parameters<IDBObjectStore['getAll']>) {
+        if (this.name === 'projects') {
+          Object.defineProperty(IDBObjectStore.prototype, 'getAll', {
+            configurable: true,
+            value: original,
+          })
+          throw new DOMException('Catalogue unavailable once', 'InvalidStateError')
+        }
+        return Reflect.apply(original, this, args)
+      },
+    })
+  })
+
+  await page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' }).click()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Catalogue local indisponible' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Réessayer' }).click()
+  await expect(page.getByText('Aucun autre projet sur cet appareil.')).toBeVisible()
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Catalogue local indisponible' }),
+  ).toHaveCount(0)
+
+  await page.keyboard.press('Escape')
+  const nameInput = page.getByLabel('Nom du projet')
+  await nameInput.fill('Projet mémoire modifié')
+  await expect(nameInput).toHaveValue('Projet mémoire modifié')
 })

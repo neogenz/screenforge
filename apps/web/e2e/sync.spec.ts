@@ -633,8 +633,8 @@ test.describe('Sync cloud', () => {
 
     /* Make the target the last durable local project so the reload selects it,
        while the second project remains available in the catalogue. */
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localTargetName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localTargetName} »` }).click()
     await page.getByLabel('Ajouter Texte').click()
     await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
@@ -699,8 +699,8 @@ test.describe('Sync cloud', () => {
     await expect(projectName(page)).toHaveValue(localTargetName)
     await downloadStarted
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${keptName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${keptName} »` }).click()
     await expect(projectName(page)).toHaveValue(keptName)
     expect(
       await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
@@ -712,8 +712,8 @@ test.describe('Sync cloud', () => {
     expect(
       await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
     ).toBe(true)
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${remoteTargetName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${remoteTargetName} »` }).click()
     await expect(projectName(page)).toHaveValue(remoteTargetName)
     expect(
       await page.evaluate(
@@ -816,16 +816,16 @@ test.describe('Sync cloud', () => {
     await expect(projectName(page)).toHaveValue(localBName)
     await downloadStarted
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localAName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localAName} »` }).click()
     const editedAName = `${localAName} édité`
     await projectName(page).fill(editedAName)
     await projectName(page).press('Enter')
     await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localBName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localBName} »` }).click()
     await expect(projectName(page)).toHaveValue(localBName)
     releaseDownload()
 
@@ -833,8 +833,8 @@ test.describe('Sync cloud', () => {
       .poll(async () => Boolean(await remoteRow(own, editedAName)), { timeout: 30_000 })
       .toBe(true)
     await expect(projectName(page)).toHaveValue(localBName)
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${editedAName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${editedAName} »` }).click()
     await expect(projectName(page)).toHaveValue(editedAName)
 
     await context.close()
@@ -982,10 +982,10 @@ test.describe('Sync cloud', () => {
 
     const page = await openApp(browser, baseURL!, own)
     await expect(syncBadge(page, 'Échec de la synchronisation')).toBeAttached({ timeout: 30_000 })
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${brokenName} »` })).toHaveCount(0)
-    await page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await expect(page.getByRole('button', { name: `Ouvrir « ${healthyName} »` })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Ouvrir « ${brokenName} »` })).toHaveCount(0)
+    await page.getByRole('button', { name: `Ouvrir « ${healthyName} »` }).click()
     await expect(projectName(page)).toHaveValue(healthyName)
 
     await page.context().close()
@@ -1066,8 +1066,8 @@ test.describe('Sync cloud', () => {
         .toBe(true)
     }
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[0]} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${onlineNames[0]} »` }).click()
     await expect(projectName(page)).toHaveValue(onlineNames[0])
     await page.context().setOffline(true)
 
@@ -1090,8 +1090,8 @@ test.describe('Sync cloud', () => {
       return layer?.type === 'image' ? layer.assetId : null
     })
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[1]} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${onlineNames[1]} »` }).click()
     await expect(projectName(page)).toHaveValue(onlineNames[1])
     await projectName(page).fill(offlineNames[1])
     await projectName(page).press('Enter')
@@ -1474,11 +1474,11 @@ test.describe('Rattachement des projets locaux', () => {
 
     const fresh = await openApp(browser, baseURL!, own)
     await expect(syncBadge(fresh, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
-    await fresh.getByLabel('Ouvrir le menu Projet').click()
-    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[0]} »` }).click()
+    await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
+    await fresh.getByRole('button', { name: `Ouvrir « ${noms[0]} »` }).click()
     await expect(projectName(fresh)).toHaveValue(noms[0])
-    await fresh.getByLabel('Ouvrir le menu Projet').click()
-    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[1]} »` }).click()
+    await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
+    await fresh.getByRole('button', { name: `Ouvrir « ${noms[1]} »` }).click()
     await expect(projectName(fresh)).toHaveValue(noms[1])
 
     await fresh.context().close()
