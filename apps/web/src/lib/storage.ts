@@ -303,8 +303,24 @@ export async function listProjects(): Promise<
   Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]
 > {
   const db = await getDB()
-  const all = await db.getAll('projects')
-  return all.map(({ id, name, createdAt, updatedAt }) => ({ id, name, createdAt, updatedAt }))
+  const all: unknown[] = await db.getAll('projects')
+  return all.flatMap((record) => {
+    if (
+      !isRecord(record) ||
+      typeof record.id !== 'string' ||
+      !record.id ||
+      typeof record.name !== 'string' ||
+      typeof record.createdAt !== 'number' ||
+      !Number.isFinite(record.createdAt) ||
+      typeof record.updatedAt !== 'number' ||
+      !Number.isFinite(record.updatedAt)
+    ) {
+      console.error('Ignored invalid local project metadata.', new InvalidProjectRecordError())
+      return []
+    }
+    const { id, name, createdAt, updatedAt } = record
+    return [{ id, name, createdAt, updatedAt }]
+  })
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null

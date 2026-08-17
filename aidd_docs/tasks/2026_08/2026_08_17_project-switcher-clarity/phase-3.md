@@ -17,9 +17,12 @@ status: done
 │   │   └── ✏️ dialog.tsx
 │   └── e2e
 │       └── ✏️ sync.spec.ts
-└── aidd_docs/memory
-    ├── ✏️ design.md
-    └── ✏️ navigation.md
+└── aidd_docs
+    ├── memory
+    │   ├── ✏️ design.md
+    │   └── ✏️ navigation.md
+    └── tasks/2026_08/2026_08_17_project-switcher-clarity
+        └── ✅ verification.md
 ```
 
 ## User Journey

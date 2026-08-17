@@ -11,11 +11,16 @@ status: done
 ```txt
 .
 └── apps/web
-    ├── src/components
-    │   ├── project-switcher
-    │   │   └── ✅ ProjectSwitcher.tsx
-    │   └── toolbar
-    │       └── ✏️ TopBar.tsx
+    ├── src
+    │   ├── components
+    │   │   ├── project-switcher
+    │   │   │   └── ✅ ProjectSwitcher.tsx
+    │   │   └── toolbar
+    │   │       └── ✏️ TopBar.tsx
+    │   └── lib
+    │       ├── __tests__
+    │       │   └── ✏️ storage.test.ts
+    │       └── ✏️ storage.ts
     └── e2e
         ├── ✏️ project-file.spec.ts
         ├── ✏️ semantics.spec.ts

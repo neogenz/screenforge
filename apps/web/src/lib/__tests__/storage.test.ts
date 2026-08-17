@@ -421,6 +421,22 @@ describe('storage', () => {
     expect(await stored.get('projects', 'invalid')).toEqual(invalid)
     stored.close()
   })
+
+  it('écarte du catalogue une métadonnée invalide sans toucher au record', async () => {
+    await saveProject(project('Valid'))
+    const invalid = { id: 'invalid', name: 42, createdAt: 1, updatedAt: 2 }
+    const db = await database()
+    await db.put('projects', invalid)
+    db.close()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await listProjects()).toEqual([
+      { id: 'project', name: 'Valid', createdAt: 1, updatedAt: 1 },
+    ])
+    const stored = await database()
+    expect(await stored.get('projects', 'invalid')).toEqual(invalid)
+    stored.close()
+  })
 })
 
 /**
