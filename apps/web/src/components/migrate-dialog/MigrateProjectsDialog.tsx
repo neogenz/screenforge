@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { attachProjects, unattachedProjects, type LocalProject } from '@/lib/sync'
@@ -20,7 +21,7 @@ export function MigrateProjectsDialog() {
  * au Cloud; l'exécuter d'office déciderait à la place de l'utilisateur ce qui
  * quitte sa machine.
  *
- * « Plus tard » n'enregistre rien : la boîte reparaît au login suivant tant
+ * « Pas maintenant » n'enregistre rien : la boîte reparaît au login suivant tant
  * qu'il reste des projets non rattachés. Une préférence « ne plus demander »
  * ferait taire, sans les rattacher, exactement les projets qu'elle protège.
  */
@@ -70,7 +71,7 @@ function MigrateProjectsDialogContent() {
     } catch (error) {
       console.error('Could not attach local projects.', error)
       toast(
-        'Rattachement impossible. La copie locale est intacte ; vous pouvez réessayer.',
+        'Ajout au Cloud impossible. Leur copie locale reste disponible ; vous pouvez réessayer.',
         'error',
       )
       return
@@ -80,30 +81,42 @@ function MigrateProjectsDialogContent() {
     setShowMigrateDialog(false)
 
     if (failed.length === 0) {
-      const s = plural(projects.length)
-      toast(`${projects.length} projet${s} rattaché${s} à votre compte.`, 'success')
+      toast(
+        `${projects.length} projet${plural(projects.length)} ajouté${plural(projects.length)} au Cloud. Leur copie locale reste disponible.`,
+        'success',
+      )
       return
     }
     /* Rien n'est perdu même en échec : les projets sont toujours sur le disque
        et la boîte reviendra. Le message le dit, sinon un échec de réseau
        ressemble à une perte. */
-    const s = plural(failed.length)
+    const failedNames = projects
+      .filter((project) => failed.includes(project.id))
+      .map((project) => `« ${project.name} »`)
     toast(
-      `${failed.length} projet${s} n’${s ? 'ont' : 'a'} pas pu être envoyé${s}. La copie locale est intacte.`,
+      `Échec de l’ajout au Cloud pour ${failedNames.join(', ')}. Leur copie locale reste disponible.`,
       'error',
     )
   }
+
+  const projectCount = projects?.length ?? 0
+  const attachLabel =
+    projectCount === 1
+      ? 'Ajouter ce projet au Cloud'
+      : projectCount > 1
+        ? `Ajouter les ${projectCount} projets au Cloud`
+        : 'Ajouter les projets au Cloud'
 
   return (
     <Dialog
       open
       onClose={() => setShowMigrateDialog(false)}
-      title="Rattacher vos projets"
+      title="Ajouter ces projets au Cloud ?"
       size="sm"
       footer={
-        <div className="flex w-full items-center justify-end gap-2">
+        <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
           <Button variant="default" disabled={pending} onClick={() => setShowMigrateDialog(false)}>
-            Plus tard
+            Pas maintenant
           </Button>
           {loadError ? (
             <Button variant="primary" loading={loading} disabled={loading} onClick={retryLoad}>
@@ -112,11 +125,12 @@ function MigrateProjectsDialogContent() {
           ) : (
             <Button
               variant="primary"
+              className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
               loading={pending || loading}
               disabled={pending || loading || !projects?.length}
               onClick={() => void attachAll()}
             >
-              Tout rattacher
+              {attachLabel}
             </Button>
           )}
         </div>
@@ -124,33 +138,58 @@ function MigrateProjectsDialogContent() {
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm leading-5 text-foreground">
-          Ces projets n’existent que dans ce navigateur. Rattachez-les à votre compte pour les
-          retrouver sur vos autres machines.
+          Ces projets sont enregistrés uniquement sur cet appareil. Ajoutez-les au Cloud pour les
+          retrouver sur vos autres appareils.
         </p>
 
-        {loadError && (
-          <p role="alert" className="text-xs leading-4 text-destructive">
-            Impossible de lire les projets locaux. Rien n’a été modifié.
+        <section aria-labelledby="projects-to-attach-title">
+          <h3 id="projects-to-attach-title" className="section-title mb-1">
+            Projets à ajouter
+          </h3>
+          {loading ? (
+            <p role="status" className="py-3 text-xs text-muted-foreground">
+              Chargement des projets à ajouter…
+            </p>
+          ) : loadError ? (
+            <p role="alert" className="py-2 text-xs leading-4 text-destructive">
+              Impossible de lire les projets locaux. Rien n’a été modifié ; vous pouvez réessayer.
+            </p>
+          ) : (
+            <ul
+              aria-labelledby="projects-to-attach-title"
+              className="flex max-h-56 flex-col overflow-y-auto"
+            >
+              {projects?.map((project) => (
+                <li
+                  key={project.id}
+                  className="flex min-h-10 items-center gap-2 border-b border-border py-2 last:border-b-0"
+                >
+                  <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                  <span
+                    className="min-w-0 flex-1 truncate text-sm text-foreground"
+                    title={project.name}
+                  >
+                    {project.name}
+                  </span>
+                  <time
+                    dateTime={new Date(project.updatedAt).toISOString()}
+                    className="shrink-0 text-2xs text-muted-foreground tabular-nums"
+                  >
+                    <span className="sr-only">Modifié le </span>
+                    {DATE.format(project.updatedAt)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <p className="text-xs text-muted-foreground">Leur copie locale reste disponible.</p>
+        {pending && (
+          <p role="status" className="sr-only">
+            Ajout des projets au Cloud en cours.
           </p>
         )}
-
-        <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto">
-          {projects?.map((project) => (
-            <li
-              key={project.id}
-              className="flex min-h-9 items-center justify-between gap-3 rounded-md border border-border px-3 py-1.5"
-            >
-              <span className="min-w-0 truncate text-sm text-foreground">{project.name}</span>
-              <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
-                {DATE.format(project.updatedAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="field-label">
-          Rien n’est supprimé : la copie locale reste, rattachée ou non.
-        </p>
       </div>
     </Dialog>
   )

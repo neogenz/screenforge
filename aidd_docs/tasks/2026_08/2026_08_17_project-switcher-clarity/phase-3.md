@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Clarifier le rattachement et valider le parcours complet
@@ -13,6 +13,8 @@ status: pending
 ├── apps/web
 │   ├── src/components/migrate-dialog
 │   │   └── ✏️ MigrateProjectsDialog.tsx
+│   ├── src/components/ui
+│   │   └── ✏️ dialog.tsx
 │   └── e2e
 │       └── ✏️ sync.spec.ts
 └── aidd_docs/memory

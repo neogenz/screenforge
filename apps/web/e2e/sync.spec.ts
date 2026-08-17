@@ -1380,7 +1380,8 @@ test.describe('Rattachement des projets locaux', () => {
   test.skip(!stack, 'déploiement Convex local arrêté')
   test.setTimeout(120_000)
 
-  const migrateDialog = (page: Page) => page.getByRole('dialog', { name: 'Rattacher vos projets' })
+  const migrateDialog = (page: Page) =>
+    page.getByRole('dialog', { name: 'Ajouter ces projets au Cloud ?' })
 
   /** Un projet nommé, modifié, et écrit sur le disque local. */
   async function makeLocalProject(page: Page, name: string) {
@@ -1412,7 +1413,10 @@ test.describe('Rattachement des projets locaux', () => {
     await requireAccountEntry(page)
 
     const marque = Date.now()
-    const noms = [`Local A ${String(marque)}`, `Local B ${String(marque)}`]
+    const noms = [
+      `Local A ${'nom étendu '.repeat(4)}${String(marque)}`,
+      `Local B ${String(marque)}`,
+    ]
     for (const nom of noms) await makeLocalProject(page, nom)
     await page.getByLabel('Importer une image').setInputFiles({
       name: 'active.png',
@@ -1434,11 +1438,46 @@ test.describe('Rattachement des projets locaux', () => {
     await waitForApp(page)
 
     /* Les deux projets antérieurs à la session, actif inclus, attendent un
-       consentement explicite. « Plus tard » n'envoie et n'enregistre rien. */
+       consentement explicite. « Pas maintenant » n'envoie et n'enregistre rien. */
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
-    for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
+    await expect(
+      migrateDialog(page).getByText(
+        'Ces projets sont enregistrés uniquement sur cet appareil. Ajoutez-les au Cloud pour les retrouver sur vos autres appareils.',
+      ),
+    ).toBeVisible()
+    const projectList = migrateDialog(page).getByRole('list', { name: 'Projets à ajouter' })
+    await expect(projectList.getByRole('listitem')).toHaveCount(2)
+    for (const nom of noms) await expect(projectList.getByText(nom)).toBeVisible()
+    await expect(projectList.locator('button, input')).toHaveCount(0)
+    const localCopyGuarantee = migrateDialog(page).getByText('Leur copie locale reste disponible.')
+    await expect(localCopyGuarantee).toBeVisible()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }),
+    ).toBeVisible()
+    /* Un zoom navigateur à 200 % divise par deux le viewport CSS disponible.
+       Cette largeur/hauteur effective force le même reflow sans dépendre du
+       chrome du navigateur, absent en headless. */
+    await page.setViewportSize({ width: 260, height: 380 })
+    await expect(migrateDialog(page).getByRole('button', { name: 'Fermer' })).toBeInViewport()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Pas maintenant' }),
+    ).toBeInViewport()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }),
+    ).toBeInViewport()
+    await projectList.scrollIntoViewIfNeeded()
+    await expect(projectList).toBeInViewport()
+    await localCopyGuarantee.scrollIntoViewIfNeeded()
+    const [guaranteeBox, actionBox] = await Promise.all([
+      localCopyGuarantee.boundingBox(),
+      migrateDialog(page).getByRole('button', { name: 'Pas maintenant' }).boundingBox(),
+    ])
+    expect(guaranteeBox).not.toBeNull()
+    expect(actionBox).not.toBeNull()
+    expect(guaranteeBox!.y + guaranteeBox!.height).toBeLessThanOrEqual(actionBox!.y)
+    await page.setViewportSize({ width: 1600, height: 1000 })
     await expect.poll(async () => (await listRemote(own)).length).toBe(0)
-    await page.getByRole('button', { name: 'Plus tard' }).click()
+    await page.getByRole('button', { name: 'Pas maintenant' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
     await expect.poll(async () => (await listRemote(own)).length).toBe(0)
@@ -1448,8 +1487,8 @@ test.describe('Rattachement des projets locaux', () => {
     for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
     await expect.poll(async () => (await listRemote(own)).length).toBe(0)
 
-    /* « Tout rattacher » est le premier geste qui envoie ces projets. */
-    await page.getByRole('button', { name: 'Tout rattacher' }).click()
+    /* L'action Cloud explicite est le premier geste qui envoie ces projets. */
+    await page.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
     await expect.poll(async () => (await listRemote(own)).length, { timeout: 30_000 }).toBe(2)
     for (const nom of noms) expect(await remoteRow(own, nom)).toBeTruthy()
@@ -1475,13 +1514,87 @@ test.describe('Rattachement des projets locaux', () => {
     const fresh = await openApp(browser, baseURL!, own)
     await expect(syncBadge(fresh, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
     await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
-    await fresh.getByRole('button', { name: `Ouvrir « ${noms[0]} »` }).click()
+    const firstProject = fresh.getByRole('button', { name: `Ouvrir « ${noms[0]} »` })
+    await expect(firstProject).toHaveAccessibleDescription(/Cloud/)
+    await firstProject.click()
     await expect(projectName(fresh)).toHaveValue(noms[0])
     await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
     await fresh.getByRole('button', { name: `Ouvrir « ${noms[1]} »` }).click()
     await expect(projectName(fresh)).toHaveValue(noms[1])
 
     await fresh.context().close()
+    await context.close()
+    await dropRemoteProjects(own)
+  })
+
+  test('nomme explicitement l’ajout d’un seul projet', async ({ browser, baseURL }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const context = await browser.newContext({ baseURL: baseURL! })
+    const page = await context.newPage()
+    await waitForApp(page)
+    await requireAccountEntry(page)
+
+    await makeLocalProject(page, `Projet unique ${String(Date.now())}`)
+    await seedSession(page, own)
+    await waitForApp(page)
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter ce projet au Cloud' }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Pas maintenant' }).click()
+    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+
+    await context.close()
+    await dropRemoteProjects(own)
+  })
+
+  test('nomme le projet qui échoue sans retenir les autres', async ({ browser, baseURL }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const context = await browser.newContext({ baseURL: baseURL! })
+    const page = await context.newPage()
+    await waitForApp(page)
+    await requireAccountEntry(page)
+
+    const marker = Date.now()
+    const healthyName = `Projet sain ${String(marker)}`
+    const brokenName = `Projet incomplet ${String(marker)}`
+    await makeLocalProject(page, healthyName)
+    await makeLocalProject(page, brokenName)
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'missing.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [59, 130, 246, 255]),
+    })
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({ timeout: 15_000 })
+    const brokenAssetId = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
+    expect(brokenAssetId).not.toBeNull()
+    await page.evaluate(async (assetId) => {
+      const storagePath = '/src/lib/storage.ts'
+      const { getDB } = (await import(storagePath)) as typeof import('../src/lib/storage')
+      const db = await getDB()
+      if (assetId) await db.delete('assets', assetId)
+    }, brokenAssetId)
+
+    await seedSession(page, own)
+    await waitForApp(page)
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
+    await expect(migrateDialog(page)).toHaveCount(0)
+    await expect.poll(async () => (await listRemote(own)).length, { timeout: 30_000 }).toBe(1)
+    expect(await remoteRow(own, healthyName)).toBeTruthy()
+    expect(await remoteRow(own, brokenName)).toBeFalsy()
+    const result = page.getByRole('alert').filter({ hasText: 'Échec de l’ajout au Cloud' })
+    await expect(result).toContainText(brokenName)
+    await expect(result).toContainText('Leur copie locale reste disponible.')
+
     await context.close()
     await dropRemoteProjects(own)
   })

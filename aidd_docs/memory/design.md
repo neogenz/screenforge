@@ -24,6 +24,8 @@
 
 - Commercial surfaces present exactly two offers: free Local and paid Cloud. Cloud is standalone and its account state names projects, images and settings sync explicitly; no trial, export paywall or Local purchase is presented.
 - Controls use the shared `Button`, `IconButton`, `Input`, `NumberField`, `Select`, `Slider`, `Switch`, `Dialog`, `Popover`, and related primitives.
+- Project navigation uses a dedicated `ProjectSwitcher`: the current project and its actions form the first section, while a read-only, filterable catalogue lists every other local project by freshness. Availability describes the copy, not the commercial offer: `Cet appareil` means no Cloud acknowledgement for the active account, `Cloud` means its current version is acknowledged, and `À synchroniser` means the local version is newer. Without an active Cloud entitlement, every project is described as `Cet appareil`.
+- The first-Cloud-login dialog is a consent boundary, not an editor: its semantic `Projets à ajouter` list is visually flat and never changes names. `Pas maintenant` uploads nothing; the quantity-aware primary action explicitly adds exactly the listed projects to Cloud, and every outcome preserves the local copies.
 - Single-line controls carry inline labels; only composite or multiline controls stack labels, sliders included when nothing else names them.
 - Panel sections are hairline-separated bands, so no chrome stacks more than two surfaces; recessed cards remain a modal device.
 - Layer rows show a text layer's own content until it is renamed, and the filter searches what the rows display.

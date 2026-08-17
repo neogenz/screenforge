@@ -682,7 +682,7 @@ async function cycle(): Promise<void> {
   if (!stillSyncing(userId)) return setStatus('off')
   /* Ne jamais enrôler implicitement le projet ouvert ici. Au premier login il
      peut avoir été créé bien avant la session Cloud et doit rester local tant
-     que « Tout rattacher » n'a pas été choisi. Les projets déjà rattachés ont
+     que « Ajouter les N projets au Cloud » n'a pas été choisi. Les projets déjà rattachés ont
      un record durable; les commits post-login entrent dans `queued`. */
   await Promise.all(
     [...queued.values()].map((project) => ensureSyncRecord(syncKey(userId, project.id))),
