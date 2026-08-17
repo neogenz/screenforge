@@ -1,6 +1,6 @@
 ---
 objective: "Le sélecteur de projets et la fenêtre de rattachement rendent immédiatement identifiables le projet courant, la disponibilité de chaque projet et la conséquence de chaque action, sans modifier les règles de synchronisation."
-status: pending
+status: in-progress
 ---
 
 # Plan: Clarifier la navigation et la disponibilité des projets

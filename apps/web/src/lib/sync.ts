@@ -49,6 +49,7 @@ import {
   readSyncRecord,
   syncKey,
   writeSyncRecord,
+  type SyncRecord,
 } from '@/lib/sync-queue'
 import { useAuthStore } from '@/stores/auth.store'
 import { useProjectStore } from '@/stores/project.store'
@@ -430,6 +431,59 @@ function reportPullFailures(projectIds: readonly string[]): void {
     'error',
     { action: { label: 'Réessayer', onClick: schedule } },
   )
+}
+
+// ─── Disponibilité des projets locaux ────────────────────────────────────────
+
+export const PROJECT_AVAILABILITY_LABELS = {
+  'device-only': 'Cet appareil',
+  cloud: 'Cloud',
+  pending: 'À synchroniser',
+} as const
+
+export type ProjectAvailability = keyof typeof PROJECT_AVAILABILITY_LABELS
+
+export interface ProjectCatalogueEntry {
+  id: string
+  name: string
+  updatedAt: number
+  availability: ProjectAvailability
+}
+
+type ProjectMetadata = Pick<Project, 'id' | 'name' | 'updatedAt'>
+
+/**
+ * Vue pure du catalogue : elle décrit où une copie est disponible, jamais ce
+ * que le compte a le droit d'écrire. Tout projet reste local; un record absent
+ * signifie donc « cet appareil », pas « Cloud refusé ».
+ */
+export function projectAvailabilityCatalogue(
+  projects: readonly ProjectMetadata[],
+  userId: string | null,
+  records: readonly Pick<SyncRecord, 'key' | 'pushedUpdatedAt'>[],
+): ProjectCatalogueEntry[] {
+  const recordsByKey = new Map(records.map((record) => [record.key, record]))
+  return projects
+    .map((project) => {
+      const record = userId ? recordsByKey.get(syncKey(userId, project.id)) : undefined
+      const availability: ProjectAvailability = !record
+        ? 'device-only'
+        : project.updatedAt > record.pushedUpdatedAt
+          ? 'pending'
+          : 'cloud'
+      return { ...project, availability }
+    })
+    .sort((left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id))
+}
+
+/** Catalogue local et accusés durables uniquement — aucun appel réseau, aucun write. */
+export async function listProjectCatalogue(): Promise<ProjectCatalogueEntry[]> {
+  const auth = useAuthStore.getState()
+  const userId = syncAllowed(auth) ? (auth.user?.id ?? null) : null
+  if (!userId) return projectAvailabilityCatalogue(await listProjects(), null, [])
+
+  const [projects, records] = await Promise.all([listProjects(), listSyncRecords(userId)])
+  return projectAvailabilityCatalogue(projects, userId, records)
 }
 
 // ─── Rattachement des projets locaux ─────────────────────────────────────────
