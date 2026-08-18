@@ -19,6 +19,7 @@ const SECRET = 'whsec_screenforge_test'
 const CLOUD_PRODUCT = 'prod_cloud'
 
 process.env.POLAR_ACCESS_TOKEN = 'polar_at_test'
+process.env.ABUSE_KEY_SECRET = 'test-abuse-key'
 process.env.POLAR_WEBHOOK_SECRET = SECRET
 process.env.POLAR_CLOUD_PRODUCT_ID = CLOUD_PRODUCT
 process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'
@@ -116,6 +117,7 @@ async function mirror(t: Stack) {
 let t: Stack
 
 beforeEach(() => {
+  process.env.ABUSE_KEY_SECRET = 'test-abuse-key'
   t = testConvex()
 })
 
@@ -325,6 +327,51 @@ describe('POST /billing/webhook', () => {
     expect(invalid.status).toBe(400)
     await expect(invalid.json()).resolves.toEqual({ error: 'INVALID_BODY' })
     expect(await mirror(t)).toHaveLength(0)
+  })
+
+  it('refuse les en-têtes absents ou surdimensionnés avant le SDK', async () => {
+    const missing = await post(t, '{}', {})
+    expect(missing.status).toBe(400)
+    await expect(missing.json()).resolves.toEqual({ error: 'INVALID_HEADERS' })
+
+    const oversized = await post(t, '{}', {
+      'webhook-id': 'msg',
+      'webhook-timestamp': '0',
+      'webhook-signature': 'x'.repeat(2049),
+    })
+    expect(oversized.status).toBe(400)
+    expect(await mirror(t)).toHaveLength(0)
+  })
+
+  it('borne une source avant les en-têtes et laisse une autre source intacte', async () => {
+    let source = '203.0.113.30'
+    const limited = testConvex(() => source)
+    for (let index = 0; index < 30; index += 1) {
+      expect((await post(limited, '{}', {})).status).toBe(400)
+    }
+
+    const refused = await post(limited, '{}', {
+      ...sign('{}', 'msg_limited'),
+      'content-length': String(MAX_WEBHOOK_BYTES + 1),
+    })
+    expect(refused.status).toBe(429)
+    expect(refused.headers.get('retry-after')).toMatch(/^\d+$/)
+
+    source = '203.0.113.31'
+    const userId = await account(limited)
+    const body = customerStateChanged({ externalId: userId })
+    expect((await post(limited, body, sign(body, 'msg_other_source'))).status).toBe(200)
+  })
+
+  it('échoue fermé sans IP ou secret sans divulguer la cause privée', async () => {
+    const withoutIp = await post(testConvex(null), '{}', sign('{}', 'msg_no_ip'))
+    expect(withoutIp.status).toBe(503)
+    expect(JSON.stringify(await withoutIp.json())).not.toMatch(/203\.0\.113|test-abuse-key/)
+
+    process.env.ABUSE_KEY_SECRET = ''
+    const withoutSecret = await post(testConvex(), '{}', sign('{}', 'msg_no_secret'))
+    expect(withoutSecret.status).toBe(503)
+    expect(JSON.stringify(await withoutSecret.json())).not.toContain('test-abuse-key')
   })
 
   it.each(['', '{'])('demande de rejouer un JSON signé vide ou invalide', async (body) => {

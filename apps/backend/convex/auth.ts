@@ -5,7 +5,14 @@ import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
 import { env } from './_generated/server'
-import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
+import {
+  clear,
+  consume,
+  normalizeEmail,
+  PASSWORD_ATTEMPTS_PER_HOUR,
+  sourceRateLimitKey,
+  type RequestMetadataCtx,
+} from './limits'
 
 /**
  * Qui a le droit d'entrer, et par quelles portes.
@@ -76,19 +83,15 @@ export function safeRedirect(redirectTo: string, site: string): string {
  * transaction de l'appelant, donc un envoi qui échoue rend son jeton.
  *
  * **Par adresse** protège le titulaire d'une boîte contre l'inondation.
- * **Globalement** protège la réputation du domaine expéditeur contre un balayage
- * d'adresses — la clé qu'on voudrait là est l'IP, et une fonction Convex ne la
- * connaît pas : seule une `httpAction` reçoit des en-têtes, or `signIn` est une
- * action ordinaire. Le plafond global est donc la mesure réellement disponible,
- * et il est posé assez haut pour qu'un usage normal ne le touche jamais. Le prix
- * assumé : un balayage peut fermer le lien magique pour une heure, pendant
- * laquelle les deux SSO restent ouverts.
+ * **Par source réseau pseudonymisée** protège la réputation du domaine
+ * expéditeur contre un balayage d'adresses sans fermer le service aux autres
+ * sources. La métadonnée vient de Convex, jamais d'un en-tête client.
  */
 async function sendMagicLink(
   { identifier: email, url, provider }: SendParams,
-  ctx: RunMutationCtx,
+  ctx: RunMutationCtx & RequestMetadataCtx,
 ): Promise<void> {
-  await consume(ctx, 'magicLinkSendGlobal')
+  await consume(ctx, 'magicLinkSendBySource', await sourceRateLimitKey(ctx, 'auth'))
   await consume(ctx, 'magicLinkSend', email.toLowerCase())
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -101,7 +104,7 @@ async function sendMagicLink(
       from: provider.from,
       to: [email],
       subject: 'Votre lien de connexion ScreenForge',
-      text: `Ouvrez ce lien depuis ce navigateur pour vous connecter :\n\n${url}\n\nIl expire dans une heure. Si vous n’avez rien demandé, ignorez ce message.`,
+      text: `Ouvrez ce lien pour vous connecter :\n\n${url}\n\nIl expire dans une heure. Si vous n’avez rien demandé, ignorez ce message.`,
     }),
   })
   if (!response.ok) {
@@ -119,6 +122,7 @@ const magicLink = Resend({
   id: 'resend',
   apiKey: env.AUTH_RESEND_KEY,
   from: env.AUTH_EMAIL_FROM ?? 'ScreenForge <onboarding@resend.dev>',
+  maxAge: 60 * 60,
   /*
    * La conversion est celle que la bibliothèque fait elle-même.
    *

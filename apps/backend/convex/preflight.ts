@@ -6,6 +6,7 @@ export type PreflightTarget = 'preproduction' | 'production'
 type Configuration = Readonly<Record<string, string | undefined>>
 
 const REQUIRED_VARIABLES = [
+  'ABUSE_KEY_SECRET',
   'AUTH_EMAIL_FROM',
   'AUTH_RESEND_KEY',
   'CHECKOUT_SUCCESS_URL',

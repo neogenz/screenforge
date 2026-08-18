@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { evaluatePreflight } from './preflight'
 
 const complete = {
+  ABUSE_KEY_SECRET: 'anti-abuse-test-value',
   AUTH_EMAIL_FROM: 'ScreenForge <onboarding@resend.dev>',
   AUTH_RESEND_KEY: 'resend-test-value',
   CHECKOUT_SUCCESS_URL: 'http://localhost:5173/?checkout=success',
@@ -24,6 +25,13 @@ describe('preflight Cloud expurgé', () => {
     const result = evaluatePreflight('preproduction', { ...complete, AUTH_RESEND_KEY: undefined })
 
     expect(result).toEqual({ ready: false, missing: ['AUTH_RESEND_KEY'], inconsistent: [] })
+  })
+
+  test('exige la pseudonymisation anti-abus sans retourner sa valeur', () => {
+    const result = evaluatePreflight('preproduction', { ...complete, ABUSE_KEY_SECRET: undefined })
+
+    expect(result).toEqual({ ready: false, missing: ['ABUSE_KEY_SECRET'], inconsistent: [] })
+    expect(JSON.stringify(result)).not.toContain(complete.ABUSE_KEY_SECRET)
   })
 
   test('refuse le mot de passe de test hors loopback', () => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { api } from './_generated/api'
 import { testPasswordEnabled } from './auth'
+import { deriveSourceKey } from './limits'
 import { rateLimited, testConvex } from './test.helpers'
 
 /**
@@ -19,6 +20,7 @@ let sent: { to: string[]; subject: string }[] = []
 beforeEach(() => {
   sent = []
   process.env.SITE_URL = 'http://localhost:5173'
+  process.env.ABUSE_KEY_SECRET = 'test-abuse-key'
   process.env.AUTH_RESEND_KEY = 'test-key'
   process.env.AUTH_EMAIL_FROM = 'ScreenForge <test@screenforge.test>'
   /* Aucun courriel ne part d'une suite de tests. Le double emploi est voulu :
@@ -30,6 +32,17 @@ beforeEach(() => {
     sent.push(JSON.parse(String(init.body)) as { to: string[]; subject: string })
     return Promise.resolve(new Response('{"id":"test"}', { status: 200 }))
   })
+})
+
+test('les clés réseau sont stables, cloisonnées et non réversibles', async () => {
+  const auth = await deriveSourceKey('203.0.113.10', 'auth', 'test-abuse-key')
+  expect(await deriveSourceKey('203.0.113.10', 'auth', 'test-abuse-key')).toBe(auth)
+  expect(await deriveSourceKey('203.0.113.10', 'polar', 'test-abuse-key')).not.toBe(auth)
+  expect(await deriveSourceKey('203.0.113.11', 'auth', 'test-abuse-key')).not.toBe(auth)
+  expect(auth).not.toContain('203.0.113.10')
+  await expect(deriveSourceKey('', 'auth', 'test-abuse-key')).rejects.toThrow(
+    'ABUSE_PROTECTION_UNAVAILABLE',
+  )
 })
 
 afterEach(() => {
@@ -276,14 +289,49 @@ test('le plafond porte sur une adresse, pas sur le service', async () => {
   expect(sent).toHaveLength(4)
 })
 
+test('une source ne contourne pas son plafond en changeant d’adresse', async () => {
+  let source = '203.0.113.20'
+  const t = testConvex(() => source)
+  const send = (index: number) =>
+    t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: `balayage-${index}@screenforge.test` },
+    })
+
+  for (let index = 0; index < 20; index += 1) await send(index)
+  await expect(send(20)).rejects.toSatisfy(rateLimited)
+
+  source = '203.0.113.21'
+  await expect(send(21)).resolves.toBeDefined()
+  expect(sent).toHaveLength(21)
+})
+
+test('une source ou un secret absent ferme le lien sans envoi', async () => {
+  const send = (t: ReturnType<typeof testConvex>) =>
+    t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: 'indisponible@screenforge.test' },
+    })
+
+  await expect(send(testConvex(null))).rejects.toThrow('ABUSE_PROTECTION_UNAVAILABLE')
+  process.env.ABUSE_KEY_SECRET = ''
+  await expect(send(testConvex())).rejects.toThrow('ABUSE_PROTECTION_UNAVAILABLE')
+  expect(sent).toHaveLength(0)
+})
+
 test('un lien magique envoyé porte l’URL du site, pas celle du déploiement', async () => {
   const t = testConvex()
+  const before = Date.now()
   await t.action(api.auth.signIn, {
     provider: 'resend',
     params: { email: 'lien@screenforge.test' },
   })
   const body = sent[0] as unknown as { text: string }
   expect(body.text).toContain('http://localhost:5173')
+  expect(body.text).not.toContain('depuis ce navigateur')
+  const [code] = await t.run((ctx) => ctx.db.query('authVerificationCodes').collect())
+  expect(code?.expirationTime).toBeGreaterThanOrEqual(before + 3_599_000)
+  expect(code?.expirationTime).toBeLessThanOrEqual(Date.now() + 3_601_000)
 })
 
 test('la redirection reste sur le site, même demandée ailleurs', async () => {

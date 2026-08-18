@@ -13,6 +13,7 @@ import rateLimiter from '@convex-dev/rate-limiter/convex.config.js'
  */
 const app = defineApp({
   env: {
+    ABUSE_KEY_SECRET: v.optional(v.string()),
     AUTH_EMAIL_FROM: v.optional(v.string()),
     AUTH_RESEND_KEY: v.optional(v.string()),
     AUTH_TEST_PASSWORD: v.optional(v.string()),
