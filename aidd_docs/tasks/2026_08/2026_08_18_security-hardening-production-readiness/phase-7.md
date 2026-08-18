@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: Asserter, reviewer, rescanner et itérer jusqu’au vert
