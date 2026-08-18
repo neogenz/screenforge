@@ -19,7 +19,7 @@ import { useLang } from '../i18n'
  * boîte, que beaucoup rendent trop courts pour se toucher. Les noms de
  * fichiers et les dimensions, eux, sont bien en mono : c'est un listing.
  */
-function TreeRow({
+export function TreeRow({
   label,
   meta,
   last = false,

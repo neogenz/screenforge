@@ -14,6 +14,13 @@ import { CtaGhost, CtaPrimary } from './cta'
  *
  * Aucun objet décoratif posé sur la rangée de boutons : le disque texturé qui
  * s'y trouvait recouvrait la fin du libellé de l'action principale.
+ *
+ * Le hero est le texte, et rien que lui : citron, titre, sous-titre, deux
+ * boutons. La démo vient juste après, dans le bloc sombre, et remonte de
+ * `SHOWCASE_OVERLAP` sur le citron (`ProductShowcase`) : le produit est
+ * au-dessus du pli, ce qui est la seule règle qui compte ici, et le hero
+ * garde ses deux aplats — le citron pour la promesse, le noir pour la chose.
+ * Le bas du hero réserve la place que la démo vient prendre.
  */
 export function Hero() {
   const { t } = useLang()
@@ -22,7 +29,7 @@ export function Hero() {
     <section
       id="hero"
       aria-labelledby="hero-title"
-      className="relative flex min-h-[700px] items-center overflow-hidden bg-marker px-5 pt-32 pb-24 text-marker-ink md:min-h-[760px] md:px-14 md:pt-36 md:pb-28"
+      className="relative overflow-hidden bg-marker px-5 pt-28 pb-40 text-marker-ink md:px-14 md:pt-32 md:pb-48"
     >
       <div aria-hidden className="paint-hero absolute inset-0" />
       <div aria-hidden className="arcade-rays absolute inset-0" />
@@ -33,7 +40,14 @@ export function Hero() {
         >
           {t.hero.headline}
         </h1>
-        <p className="mt-8 max-w-[62ch] text-base leading-7 font-medium md:text-lg md:leading-8">
+        {/* Le sous-titre a sa propre clairière : un fond citron dont l'ombre, à
+            large flou, éteint l'éventail sur une trentaine de pixels autour du
+            bloc. Mesuré à 980px de large : les rayons à 0,28 d'alpha traversaient
+            trois lignes de 18px, et un texte de labeur ne survit pas à des
+            traits d'encre qui le hachent, là où le titre à 100px les ignore.
+            Pas de plaque nette : `bg-marker` sur `bg-marker` ne dessine aucun
+            bord, seule l'ombre floue fait le travail. */}
+        <p className="mt-8 max-w-[62ch] rounded-lg bg-marker text-base leading-7 font-medium text-pretty shadow-[0_0_28px_24px_var(--color-marker)] md:text-lg md:leading-8">
           {t.hero.sub}
         </p>
         <div className="mt-9 flex flex-wrap justify-center gap-3">
