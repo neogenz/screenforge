@@ -46,7 +46,9 @@ function customerStateChanged({
       external_id: externalId,
       email: 'acheteur@example.com',
       email_verified: true,
+      type: 'individual',
       name: null,
+      billing_name: null,
       billing_address: null,
       tax_id: null,
       organization_id: 'org_1',
@@ -248,7 +250,7 @@ describe('POST /billing/webhook', () => {
     const body = JSON.stringify({
       type: 'customer.state_changed',
       timestamp: '2026-08-08T10:00:00Z',
-      data: {},
+      data: { email: 'donnee-client-sensible@example.com' },
     })
 
     const response = await post(t, body, sign(body, 'msg_invalid_state'))
@@ -258,8 +260,9 @@ describe('POST /billing/webhook', () => {
     expect(await mirror(t)).toHaveLength(0)
     expect(report).toHaveBeenCalledWith(
       'Invalid Polar customer state; delivery must be retried.',
-      expect.anything(),
+      expect.stringMatching(/:/),
     )
+    expect(JSON.stringify(report.mock.calls)).not.toContain('donnee-client-sensible@example.com')
   })
 
   /* Critère 2, deuxième volet. */

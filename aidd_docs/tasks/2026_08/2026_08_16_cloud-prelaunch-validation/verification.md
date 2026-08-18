@@ -13,7 +13,7 @@ compte, URL temporaire ni capture de console sensible.
 | Convex préproduction | Auth, projets, images et settings sur deux sessions | vert | 2026-08-17 | commit de phase 2 |
 | Resend test | Lien livré uniquement au destinataire autorisé | vert | 2026-08-17 | `ac7d120` |
 | Compte propriétaire | Cloud complémentaire actif, aucun rôle admin | vert | 2026-08-17 | `ac7d120` |
-| Polar Sandbox | Achat, relivraison, révocation et signature | à valider | — | — |
+| Polar Sandbox | Achat, relivraison, révocation et signature | achat, signature et relivraison verts; révocation à valider | 2026-08-18 | commit de phase 3 |
 | Preview Vercel | Local puis Cloud sur Convex préproduction uniquement | à valider | — | — |
 | Sauvegarde | Restauration cohérente dans une cible jetable | à valider | — | — |
 | Production | Aucun tag, domaine ou paiement réel avant les gates | protégé | 2026-08-16 | workflow tagué |
@@ -47,6 +47,22 @@ compte, URL temporaire ni capture de console sensible.
   132 backend et 392 web), ainsi que la sonde MCP, typecheck, lint et le contrôle
   Prettier. Le test E2E Cloud ciblé passe avec un compte et des projets
   synthétiques sur le déploiement Convex local.
+- Phase 3, achat réel Sandbox : le checkout a créé un abonnement de test et le
+  fournisseur a émis ses notifications Sandbox. Le retour a rejoint l'origine
+  configurée sans paiement réel; le jeton de session client présent dans l'URL
+  est maintenant supprimé immédiatement et couvert par un test unitaire.
+- Phase 3, webhook et miroir : après remise du secret uniquement dans le store
+  Convex, le healthcheck ne remonte aucune variable manquante. L'événement
+  signé `customer.state_changed` puis sa relivraison rendent HTTP 200. Une
+  lecture expurgée confirme une unique ligne reliée à Polar, active et datée;
+  la règle serveur confirme que Polar seul suffit à accorder Cloud, même sans
+  tenir compte de la dérogation propriétaire.
+- Phase 3, compatibilité et confidentialité : le SDK Polar est épinglé à la
+  version validée par le payload courant. Les erreurs de validation ne mettent
+  plus leur objet brut dans les logs; les diagnostics ne contiennent que noms
+  de champs, codes ou fonctions. Les 132 tests backend couvrent signature
+  invalide, corps altéré, taille maximale, replay et absence de donnée client
+  dans les logs.
 - GitHub : dépôt public, secret scanning et push protection actifs, rulesets
   branche et tags actifs; aucun tag v1 créé.
 
@@ -70,6 +86,8 @@ compte, URL temporaire ni capture de console sensible.
 - Second profil réel : session distincte, état synchronisé et modification
   retrouvée une seule fois côté serveur.
 - Refus serveur : anonyme puis entitlement révoqué, données inchangées.
+- Polar Sandbox : checkout accepté, retour nettoyé, webhook et replay HTTP 200;
+  le compte authentifié affiche Cloud actif et l'accès aux factures.
 - Corrective iteration : parcours E2E synthétique isolé, aucun accès aux lignes
   réelles de préproduction.
 - Aucune capture, adresse, URL éphémère, identifiant ou sortie sensible n'est

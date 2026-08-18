@@ -24,6 +24,9 @@ ScreenForge is a local-first web app for designing and exporting iPhone App Stor
 
 Local never requires Convex, a connection, an account or an entitlement. Cloud writes are authorized by the Convex backend from the authenticated session and an active server-side Cloud entitlement; changing or rebuilding the frontend cannot grant that access.
 
+See [CLOUD.md](CLOUD.md) for the current test-account inventory and a concrete
+walkthrough of the Resend, Polar, Convex and synchronization flows.
+
 ## Features
 
 - **Real-time canvas editor** — Fabric.js-powered, with snapping guides, precise transforms and a floating selection toolbar

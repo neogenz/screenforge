@@ -75,6 +75,38 @@ function invalidEventType(error: unknown): string | null {
   return raw.type
 }
 
+/** Champs invalides seulement : jamais les valeurs client conservées par le SDK. */
+function invalidEventIssues(error: unknown): string {
+  if (!(error instanceof Error) || !('cause' in error)) {
+    const name = error instanceof Error ? error.name : typeof error
+    const frames =
+      error instanceof Error
+        ? (error.stack ?? '')
+            .split('\n')
+            .slice(1)
+            .flatMap((line) => line.match(/^\s*at ([A-Za-z0-9_.$<>-]+)/)?.[1] ?? [])
+            .slice(0, 3)
+            .join(',')
+        : ''
+    return `details-unavailable:${/^[A-Za-z]+$/.test(name) ? name : 'unknown'}${frames ? `:${frames}` : ''}`
+  }
+  const cause = error.cause
+  if (!cause || typeof cause !== 'object' || !('issues' in cause) || !Array.isArray(cause.issues)) {
+    return `details-unavailable:${/^[A-Za-z]+$/.test(error.name) ? error.name : 'unknown'}`
+  }
+  return cause.issues
+    .flatMap((issue) => {
+      if (!issue || typeof issue !== 'object' || !('code' in issue) || !('path' in issue)) return []
+      if (typeof issue.code !== 'string' || !Array.isArray(issue.path)) return []
+      const path = issue.path.filter(
+        (part: unknown): part is string | number =>
+          typeof part === 'string' || typeof part === 'number',
+      )
+      return `${path.join('.') || '<root>'}:${issue.code}`
+    })
+    .join(',')
+}
+
 /**
  * Ce que le webhook rend à son enveloppe HTTP : les trois issues du miroir, et
  * les trois refus.
@@ -144,7 +176,12 @@ export const applySignedWebhook = internalAction({
         console.warn(`Ignored unsupported Polar webhook type: ${type}.`)
         return 'unsupported' as const
       }
-      console.error('Invalid Polar customer state; delivery must be retried.', error)
+      /* Le SDK conserve le payload client brut dans son erreur de validation.
+         Ne jamais transmettre cet objet aux logs Convex. */
+      console.error(
+        'Invalid Polar customer state; delivery must be retried.',
+        invalidEventIssues(error),
+      )
       return 'invalid-state' as const
     }
 
@@ -156,9 +193,11 @@ export const applySignedWebhook = internalAction({
        écrire et rien à deviner. */
     if (!state.externalId) return 'ignored' as const
 
-    const { row } = projectCustomerState(state.externalId, state, {
-      cloudProductId: required('POLAR_CLOUD_PRODUCT_ID'),
-    })
+    const { row } = projectCustomerState(
+      state.externalId,
+      { id: state.id, activeSubscriptions: state.activeSubscriptions },
+      { cloudProductId: required('POLAR_CLOUD_PRODUCT_ID') },
+    )
 
     const written: Applied = await ctx.runMutation(internal.mirror.applyEntitlementsIfNewer, {
       userId: row.user_id,

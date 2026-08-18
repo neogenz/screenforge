@@ -19,7 +19,6 @@
 /** Ce que la projection lit de l'état client Polar — le reste ne la concerne pas. */
 export interface CustomerStateInput {
   id: string
-  externalId: string | null
   activeSubscriptions: readonly {
     productId: string
     status: string

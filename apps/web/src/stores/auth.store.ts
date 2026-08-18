@@ -187,6 +187,7 @@ export function consumeCheckoutReturn(): void {
   if (url.searchParams.get('checkout') !== 'success') return
 
   url.searchParams.delete('checkout')
+  url.searchParams.delete('customer_session_token')
   window.history.replaceState(null, '', url.toString())
   void pollForPurchase()
 }

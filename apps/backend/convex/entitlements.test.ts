@@ -11,7 +11,7 @@ const CONFIG: ProjectionConfig = { cloudProductId: 'prod_cloud' }
 const USER = '11111111-1111-4111-8111-111111111111'
 
 function state(overrides: Partial<CustomerStateInput> = {}): CustomerStateInput {
-  return { id: 'cus_1', externalId: USER, activeSubscriptions: [], ...overrides }
+  return { id: 'cus_1', activeSubscriptions: [], ...overrides }
 }
 
 function cloudSubscription(
