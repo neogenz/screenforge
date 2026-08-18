@@ -58,6 +58,17 @@ export function FinalCta() {
           </CtaGhost>
         </div>
       </div>
+      {/* La preuve qu'une page sans témoignage peut donner : d'où l'outil vient,
+          et le code à lire. Une seule encre, comme le reste de l'aplat. */}
+      <p className="mx-auto mt-10 max-w-[60ch] text-sm leading-5">
+        {t.finalCta.founder}{' '}
+        <a
+          href={LINKS.source}
+          className="underline underline-offset-4 transition-colors duration-150 hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marker-ink"
+        >
+          {t.finalCta.source}
+        </a>
+      </p>
     </section>
   )
 }

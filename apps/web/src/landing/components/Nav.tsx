@@ -55,6 +55,9 @@ export function Nav() {
       <a className={anchorClass} href="#features" onClick={onNavigate}>
         {t.nav.features}
       </a>
+      <a className={anchorClass} href="#agent" onClick={onNavigate}>
+        {t.nav.agent}
+      </a>
       <a className={anchorClass} href="#pricing" onClick={onNavigate}>
         {t.nav.pricing}
       </a>
