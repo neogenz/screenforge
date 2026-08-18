@@ -32,8 +32,10 @@ real `vercel build --prod` pass without it.
 4. Follow `Deploy Production`: tag provenance and the complete release gate run
    without production secrets; only the second job may enter the production
    Environment.
-5. The workflow builds one staged Vercel deployment, deploys Convex, smoke-tests
-   the staged URL, promotes that exact build and audits the public headers.
+5. The workflow checks the currently deployed Convex configuration, builds one
+   staged Vercel deployment, deploys Convex, checks the candidate backend,
+   smoke-tests the staged URL, promotes that exact build and audits the public
+   headers. Each provider credential exists only in the steps that call it.
 
 The workflow is serialized. Rerunning a failed job is safe before promotion. Do
 not create a replacement tag for the same version; fix the cause and release a
@@ -47,5 +49,8 @@ new patch.
 - Convex changes follow expand/contract compatibility and are never rolled back
   automatically. Prefer a forward fix; restore data only through the separately
   tested backup procedure.
+- If the Convex candidate fails after deployment, do not promote Vercel. Apply a
+  compatible forward fix; use the tested backup/restore runbook only for data
+  recovery. A Vercel rollback never restores the backend.
 - Never paste provider output, environment values or customer data into issues,
   release notes, Actions logs or AIDD documents.

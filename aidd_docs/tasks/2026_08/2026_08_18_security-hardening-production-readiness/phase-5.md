@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Réduire la portée des secrets CI et fermer le preflight production

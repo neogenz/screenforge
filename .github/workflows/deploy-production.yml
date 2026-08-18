@@ -75,12 +75,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    env:
-      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
-      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,27 +87,43 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Check production configuration
-        run: |
-          test -n "$CONVEX_DEPLOY_KEY"
-          test -n "$PRODUCTION_URL"
-          test -n "$VERCEL_ORG_ID"
-          test -n "$VERCEL_PROJECT_ID"
-          test -n "$VERCEL_TOKEN"
+      - name: Check current Convex production configuration
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}'
       - name: Pull production settings
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm exec vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
       - name: Build immutable production candidate
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm exec vercel build --prod --token "$VERCEL_TOKEN"
       - name: Deploy staged production candidate
         id: staged
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           deployment_url=$(pnpm exec vercel deploy --prebuilt --prod --skip-domain --archive=tgz --token "$VERCEL_TOKEN")
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
       - name: Deploy Convex production backend
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: pnpm run deploy:ci --message "$GITHUB_SHA"
+      - name: Check candidate Convex production configuration
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}'
       - name: Smoke test staged candidate
         env:
           DEPLOYMENT_URL: ${{ steps.staged.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           for path in / /landing.html /landing-fr.html; do
             pnpm exec vercel curl "$path" --deployment "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN" -- --fail --silent --show-error --output /dev/null
@@ -123,16 +133,21 @@ jobs:
       - name: Promote tested candidate
         env:
           DEPLOYMENT_URL: ${{ steps.staged.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm exec vercel promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN"
       - name: Verify production
         id: verify-production
         continue-on-error: true
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
         run: |
           pnpm run audit:security-headers "$PRODUCTION_URL"
           curl --fail --silent --show-error --output /dev/null "$PRODUCTION_URL/landing.html"
           curl --fail --silent --show-error --output /dev/null "$PRODUCTION_URL/landing-fr.html"
       - name: Roll back failed web promotion
         if: steps.verify-production.outcome == 'failure'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm exec vercel rollback --yes --token "$VERCEL_TOKEN"
       - name: Fail after rollback
         if: steps.verify-production.outcome == 'failure'

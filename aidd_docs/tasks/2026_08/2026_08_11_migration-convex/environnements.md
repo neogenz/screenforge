@@ -66,6 +66,14 @@ pnpm --filter backend exec convex deployment token create screenforge-prod \
 > `convex deployment token delete <nom>`. Ne jamais passer `--save-env` sans
 > chemin : il écrirait dans `.env.local`, qui sert au déploiement local.
 
+En CI, la clé production vit uniquement dans le GitHub Environment
+`production`, limité aux tags `v*`, et n'est injectée que dans les étapes de
+preflight et de déploiement Convex. Elle n'est jamais disponible pendant
+l'installation, les tests, le build Vercel ou l'upload d'artifacts. La rotation
+consiste à créer une nouvelle clé bornée au même déploiement, remplacer le
+secret GitHub, vérifier un preflight, puis révoquer l'ancienne clé sans en
+copier la valeur dans les logs ou documents.
+
 À partir de là, **toute** commande se borne à sa cible par `--env-file`, et rien
 ne dépend plus de ce que `.env.local` désigne :
 
