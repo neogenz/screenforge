@@ -1,7 +1,8 @@
 import { FileCheck2, Images, ScanLine } from 'lucide-react'
 import { useLang } from '../i18n'
 
-const ICONS = [ScanLine, FileCheck2, Images]
+/* Dans l’ordre des items : le jeu (dix images), la taille (le scan), le fichier. */
+const ICONS = [Images, ScanLine, FileCheck2]
 
 export function ProofStrip() {
   const { t } = useLang()

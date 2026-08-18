@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { useLang } from '../i18n'
@@ -31,12 +32,15 @@ import {
   EMPTY_SCENE,
   FINAL_SCENE,
   FRAME_COLORS,
+  LEGIBLE_TEXT_COLOR,
   TEXT_COLORS,
   TEXT_SIZES,
+  TITLE_Y,
   type CursorTarget,
   type DemoLayerId,
   type DemoSceneState,
 } from './demo-script'
+import { DimensionNote } from '../components/DimensionNote'
 
 /*
  * Sous `sm`, les quatre libellés demandaient 250 px dans une barre de 348 :
@@ -71,7 +75,7 @@ function ToolButton({
          endroit de la page où l'on clique pour de vrai sans que rien ne
          navigue, donc le seul retour possible est tactile. */
       className={cn(
-        'flex h-6 items-center gap-1 rounded-xs px-1.5 text-[10px] font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] sm:pr-2',
+        'flex h-6 items-center gap-1 rounded-sm px-1.5 text-[10px] font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] sm:pr-2',
         /* Remplissage clair, pas le citron : `Button` variant `primary` de
            l'app est `bg-foreground text-stage`, et la règle qui l'impose est
            écrite deux fois dans le langage — le marqueur dit « vous êtes
@@ -93,6 +97,10 @@ function ToolButton({
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+/* Hauteur sur largeur d'une planche, lue par `.demo-board` (landing.css) pour
+   borner les trois planches à la largeur de la rangée. */
+const BOARD_RATIO = APP_STORE_TARGET.portrait.height / APP_STORE_TARGET.portrait.width
 
 /*
  * Une pastille de couleur : dégradé de fond, couleur de titre, couleur de
@@ -359,7 +367,7 @@ export function DemoEditor() {
       await sleep(500)
       if (cancelled) return
 
-      await dragTextTo(14)
+      await dragTextTo(TITLE_Y)
       if (cancelled) return
 
       await moveTo('apply-btn')
@@ -396,6 +404,18 @@ export function DemoEditor() {
       await sleep(700)
       if (cancelled) return
 
+      /* Le fond d'abord, l'encre ensuite : c'est l'ordre dans lequel on
+         travaille, et c'est ce qui garantit que l'encre choisie est lisible
+         sur le fond qu'elle rejoint (`LEGIBLE_TEXT_COLOR`). Le curseur vise
+         la pastille qu'il allume, pas la rangée : posé une fois au centre du
+         groupe, il restait immobile pendant que trois dégradés différents
+         s'activaient sous lui. */
+      const bg = next(DEMO_GRADIENTS.length)
+      if (await moveTo(`bg-swatch-${bg}`)) await click()
+      setScene((s) => ({ ...s, bgIndex: bg, exportState: 'idle' }))
+      await sleep(900)
+      if (cancelled) return
+
       if (await moveTo('layer-row-text')) await click()
       setScene((s) => ({ ...s, selected: 'text' }))
       await sleep(450)
@@ -407,19 +427,10 @@ export function DemoEditor() {
       await sleep(600)
       if (cancelled) return
 
-      const tone = next(TEXT_COLORS.length)
+      const tone = LEGIBLE_TEXT_COLOR[bg]
       if (await moveTo(`text-color-${tone}`)) await click()
       setScene((s) => ({ ...s, textColor: tone }))
       await sleep(700)
-      if (cancelled) return
-
-      /* Le curseur vise la pastille qu'il allume, pas la rangée : posé une fois
-         au centre du groupe, il restait immobile pendant que trois dégradés
-         différents s'activaient sous lui. */
-      const bg = next(DEMO_GRADIENTS.length)
-      if (await moveTo(`bg-swatch-${bg}`)) await click()
-      setScene((s) => ({ ...s, bgIndex: bg, exportState: 'idle' }))
-      await sleep(900)
       if (cancelled) return
 
       await exportRun()
@@ -527,18 +538,31 @@ export function DemoEditor() {
   return (
     <div
       ref={containerRef}
+      onPointerDown={takeOver}
       /* Portrait sous `sm`. En 16/10 sur un écran de 390, la maquette mesurait
          348 × 218 : barre d'outils et filmstrip prenaient 92 des 218 pixels et
          il restait une planche de 50 × 108 pour montrer un écran d'iPhone. Les
          panneaux latéraux étant déjà repliés à cette largeur, la hauteur peut
-         aller à la scène. */
-      className="relative flex aspect-[4/5] w-full flex-col overflow-hidden rounded-lg bg-stage shadow-lg outline -outline-offset-1 outline-white/10 select-none sm:aspect-[16/10]"
+         aller à la scène.
+
+         Le chrome flotte sur la scène, comme dans le produit : barre, tiroirs
+         et filmstrip sont des îlots posés sur la trame, et la scène est
+         pleine largeur. La maquette portait deux colonnes pleine hauteur et
+         une barre soudée au bord — trois calques et 600 px de vide en dessous,
+         le plan d'un éditeur de 2010, pas de celui-ci. Un îlot fait la hauteur
+         de ce qu'il contient, donc plus de vide à justifier, et le visiteur
+         qui ouvre l'éditeur retrouve exactement ce qu'il a vu. */
+      className="demo-stage relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-stage shadow-lg outline -outline-offset-1 outline-white/10 select-none sm:aspect-[16/10]"
     >
-      <div
-        onPointerDown={takeOver}
-        className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border/60 bg-background px-2.5"
-      >
-        <span aria-hidden className="mr-1 size-2 rounded-full bg-marker" />
+      {/* La barre : le nom du projet à gauche, les outils, l'export à droite.
+          Le point citron qui ouvrait la barre ne disait rien — le produit y
+          écrit le nom du projet, et c'est ce qui fait lire la maquette comme
+          un fichier ouvert plutôt qu'un gabarit. */}
+      <div className="demo-island absolute inset-x-3 top-3 flex h-9 items-center gap-1.5 p-1.5">
+        <span className="hidden max-w-32 truncate px-1.5 text-[10px] font-medium sm:inline">
+          {t.demo.projectName}
+        </span>
+        <span aria-hidden className="mx-0.5 hidden h-4 w-px bg-border sm:block" />
         <ToolButton
           target="device-btn"
           icon={Smartphone}
@@ -577,298 +601,306 @@ export function DemoEditor() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        {/* Calques — le panneau gauche de l'app, réduit à sa liste. */}
-        <aside
-          onPointerDown={takeOver}
-          className="hidden w-40 shrink-0 flex-col border-r border-border/60 bg-background md:flex"
-        >
-          <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-            {t.demo.layers}
-          </p>
-          {/* 160 px et pas 128 : le nom d'un calque de texte est son contenu, et
-              à 128 la seule ligne que ce panneau existe pour montrer se coupait
-              en « Track your sl… ». Les lignes ne se touchent plus non plus —
-              `gap-px` les soudait en un bloc gris. */}
-          <div className="flex flex-col gap-0.5 p-1.5">
-            {layers.map((layer) => {
-              const hidden = layer.id !== 'background' && scene.hidden.includes(layer.id)
-              return (
-                <div
-                  key={layer.id}
-                  className={cn(
-                    'flex items-center rounded-xs transition-colors duration-150',
-                    layer.id !== 'background' && scene.selected === layer.id
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-secondary',
-                  )}
+      {/* Le plan de travail, pas une planche. Voir DemoBoard.tsx : une seule
+          planche laissait 88 % de la scène en trame et ne montrait nulle part
+          à quoi ressemble un projet de dix écrans. La rangée est bornée par
+          les deux tiroirs et par le filmstrip, et chaque planche prend la
+          plus petite des deux mesures (`.demo-board`, landing.css) : en
+          hauteur ce que la rangée lui laisse, en largeur le tiers de la
+          rangée — sous `sm` seule la hauteur compte et les voisines débordent,
+          ce qui est ce qu'un plan de travail fait sur un écran étroit. Sous
+          `md`, sans tiroirs, la pastille et le toast montent sous la barre :
+          la rangée leur laisse cette ligne plutôt que de les recevoir sur les
+          titres des voisines. */}
+      <div
+        className="absolute inset-x-3 top-20 bottom-18 flex items-start justify-center gap-4 pb-7 md:inset-x-49 md:top-14 md:bottom-21"
+        style={{ containerType: 'size', '--demo-board-ratio': BOARD_RATIO } as CSSProperties}
+      >
+        <div className="demo-board relative shrink-0">
+          <DemoBoard
+            scene={scene}
+            title={t.demo.neighbours[0].title}
+            sub={t.demo.neighbours[0].sub}
+            variant={1}
+            appLabel={t.demo.appLabel}
+            filled={spread}
+            current={false}
+          />
+        </div>
+        <div className="demo-board relative shrink-0">
+          <DemoBoard
+            boardRef={artboardRef}
+            scene={scene}
+            title={typed.slice(0, Math.min(scene.textChars, typed.length))}
+            sub={t.demo.typedSub}
+            variant={0}
+            appLabel={t.demo.appLabel}
+            filled={scene.textChars > 0 || scene.device}
+            current
+            edit={boardEdit}
+          />
+          {/* La cote mesure la planche, et seulement elle. Elle courait sous
+              la maquette entière — « 1320 px » sous une fenêtre d'éditeur de
+              1150, sur une page qui promet le pixel près. Elle vient de
+              `dimensions.ts` : c'est une mesure, pas du texte. */}
+          <DimensionNote
+            value={`${APP_STORE_TARGET.portrait.width} × ${APP_STORE_TARGET.portrait.height} px`}
+            className="absolute inset-x-0 -bottom-4.5"
+          />
+        </div>
+        <div className="demo-board relative shrink-0">
+          <DemoBoard
+            scene={scene}
+            title={t.demo.neighbours[1].title}
+            sub={t.demo.neighbours[1].sub}
+            variant={2}
+            appLabel={t.demo.appLabel}
+            filled={spread}
+            current={false}
+          />
+        </div>
+      </div>
+
+      {/* Calques — le tiroir gauche de l'app, réduit à sa liste. */}
+      <aside className="demo-island absolute top-14 left-3 hidden w-40 flex-col md:flex">
+        <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+          {t.demo.layers}
+        </p>
+        {/* 160 px et pas 128 : le nom d'un calque de texte est son contenu, et
+            à 128 la seule ligne que ce panneau existe pour montrer se coupait
+            en « Track your sl… ». Les lignes ne se touchent plus non plus —
+            `gap-px` les soudait en un bloc gris. */}
+        <div className="flex flex-col gap-0.5 p-1.5">
+          {layers.map((layer) => {
+            const hidden = layer.id !== 'background' && scene.hidden.includes(layer.id)
+            return (
+              <div
+                key={layer.id}
+                className={cn(
+                  'flex items-center rounded-sm transition-colors duration-150',
+                  layer.id !== 'background' && scene.selected === layer.id
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-secondary',
+                )}
+              >
+                <button
+                  type="button"
+                  data-cursor-target={
+                    layer.id === 'background' ? undefined : (`layer-row-${layer.id}` as const)
+                  }
+                  onClick={() => manual({ selected: layer.id === 'background' ? null : layer.id })}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pl-2 text-left text-[10px]"
                 >
+                  <layer.icon aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
+                  <span className={cn('truncate', hidden && 'line-through opacity-50')}>
+                    {layer.label}
+                  </span>
+                </button>
+                {layer.id === 'background' ? (
+                  /* Le fond ne se masque pas : une planche sans fond n'est
+                     pas une planche, c'est un PNG transparent qu'App Store
+                     Connect refuse. */
+                  <span className="w-6 shrink-0" />
+                ) : (
+                  /* 24 px et pas 20 : c'est le plancher de cible WCAG 2.2
+                     SC 2.5.8, et l'œil était le seul contrôle du mock en
+                     dessous. */
                   <button
                     type="button"
-                    data-cursor-target={
-                      layer.id === 'background' ? undefined : (`layer-row-${layer.id}` as const)
-                    }
-                    onClick={() =>
-                      manual({ selected: layer.id === 'background' ? null : layer.id })
-                    }
-                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pl-2 text-left text-[10px]"
+                    aria-label={`${layer.label} : ${hidden ? t.demo.showLayer : t.demo.hideLayer}`}
+                    title={hidden ? t.demo.showLayer : t.demo.hideLayer}
+                    onClick={() => toggleHidden(layer.id as DemoLayerId)}
+                    className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ring"
                   >
-                    <layer.icon aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
-                    <span className={cn('truncate', hidden && 'line-through opacity-50')}>
-                      {layer.label}
-                    </span>
+                    {hidden ? (
+                      <EyeOff aria-hidden className="size-3" strokeWidth={1.75} />
+                    ) : (
+                      <Eye aria-hidden className="size-3" strokeWidth={1.75} />
+                    )}
                   </button>
-                  {layer.id === 'background' ? (
-                    /* Le fond ne se masque pas : une planche sans fond n'est
-                       pas une planche, c'est un PNG transparent qu'App Store
-                       Connect refuse. */
-                    <span className="w-6 shrink-0" />
-                  ) : (
-                    /* 24 px et pas 20 : c'est le plancher de cible WCAG 2.2
-                       SC 2.5.8, et l'œil était le seul contrôle du mock en
-                       dessous. */
-                    <button
-                      type="button"
-                      aria-label={`${layer.label} : ${hidden ? t.demo.showLayer : t.demo.hideLayer}`}
-                      title={hidden ? t.demo.showLayer : t.demo.hideLayer}
-                      onClick={() => toggleHidden(layer.id as DemoLayerId)}
-                      className="grid size-6 shrink-0 place-items-center rounded-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ring"
-                    >
-                      {hidden ? (
-                        <EyeOff aria-hidden className="size-3" strokeWidth={1.75} />
-                      ) : (
-                        <Eye aria-hidden className="size-3" strokeWidth={1.75} />
-                      )}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </aside>
-
-        <div
-          onPointerDown={takeOver}
-          className="relative flex flex-1 items-center justify-center overflow-hidden [background-image:radial-gradient(var(--color-stage-dot)_1px,transparent_1px)] [background-size:12px_12px]"
-        >
-          {/* Le plan de travail, pas une planche. Voir DemoBoard.tsx : une
-              seule planche laissait 88 % de la scène en trame et ne montrait
-              nulle part à quoi ressemble un projet de dix écrans. */}
-          <div className="flex h-[86%] items-center gap-4">
-            <DemoBoard
-              scene={scene}
-              title={t.demo.neighbours[0].title}
-              sub={t.demo.neighbours[0].sub}
-              variant={1}
-              appLabel={t.demo.appLabel}
-              filled={spread}
-              current={false}
-            />
-            <DemoBoard
-              boardRef={artboardRef}
-              scene={scene}
-              title={typed.slice(0, Math.min(scene.textChars, typed.length))}
-              sub={t.demo.typedSub}
-              variant={0}
-              appLabel={t.demo.appLabel}
-              filled={scene.textChars > 0 || scene.device}
-              current
-              edit={boardEdit}
-            />
-            <DemoBoard
-              scene={scene}
-              title={t.demo.neighbours[1].title}
-              sub={t.demo.neighbours[1].sub}
-              variant={2}
-              appLabel={t.demo.appLabel}
-              filled={spread}
-              current={false}
-            />
-          </div>
-
-          {scene.exportState !== 'idle' ? (
-            <div className="absolute right-2 bottom-2 flex h-6 items-center gap-1.5 rounded-sm bg-card px-2 text-[10px] font-medium shadow-md">
-              {scene.exportState === 'running' ? (
-                <>
-                  <Loader2 aria-hidden className="size-3 animate-spin text-muted-foreground" />
-                  <span>{t.demo.exporting}</span>
-                </>
-              ) : (
-                <>
-                  <Check aria-hidden className="size-3 text-marker" />
-                  {/* La dimension se replie sous `sm` : sur une maquette de
-                      348 px le toast complet faisait la moitié de la largeur et
-                      couvrait le téléphone qu'il vient de rendre. Elle vient de
-                      `dimensions.ts` plutôt que d'une chaîne traduite — c'est
-                      une mesure, pas du texte. */}
-                  <span className="tabular-nums">
-                    {t.demo.toastFile}
-                    <span className="hidden sm:inline">
-                      {' · '}
-                      {APP_STORE_TARGET.portrait.width}×{APP_STORE_TARGET.portrait.height}
-                    </span>
-                  </span>
-                </>
-              )}
-            </div>
-          ) : null}
-
-          {/* Une seule pastille, qui dit et qui fait. Il y avait une puce
-              « Cliquez pour prendre la main » en bas à gauche et, en haut à
-              droite, un bouton portant une flèche de curseur : sur une capture
-              il se lisait comme un second pointeur posé dans le panneau. La
-              pastille est aussi le mécanisme de pause exigé par WCAG 2.2.2 —
-              donc elle doit rester un bouton, atteignable au clavier.
-
-              En reduced-motion et avant toute action, il n'y a ni animation à
-              couper ni rien à rejouer : la composition finale est déjà là. La
-              pastille disait « Rejouer la démo » et ne changeait visiblement
-              rien — un contrôle mort. */}
-          <div className={cn('absolute bottom-2 left-2 z-20', !playing && !touched && 'hidden')}>
-            <button
-              type="button"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => {
-                if (playing) {
-                  takeOver()
-                  return
-                }
-                if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
-                setTouched(false)
-                setScene(EMPTY_SCENE)
-                setAutoplay(true)
-              }}
-              className="flex h-6 items-center gap-1 rounded-sm bg-card px-2 text-[10px] text-muted-foreground shadow-md transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {playing ? null : (
-                <RotateCcw aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
-              )}
-              {playing ? t.demo.hint : t.demo.replay}
-            </button>
-          </div>
+                )}
+              </div>
+            )
+          })}
         </div>
+      </aside>
 
-        {/* Propriétés — le panneau droit : fonds, réglages du calque, cible. */}
-        <aside
-          onPointerDown={takeOver}
-          className="hidden w-40 shrink-0 flex-col border-l border-border/60 bg-background md:flex"
-        >
-          <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-            {t.demo.properties}
-          </p>
-          <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-            <PanelSection title={t.demo.background}>
-              <div className="flex gap-1.5">
-                {DEMO_GRADIENTS.map((gradient, index) => (
+      {/* Propriétés — le tiroir droit : fond, réglages du calque, position.
+          La taille d'export n'y est plus épinglée : elle est écrite sous la
+          planche, en cote, là où elle mesure quelque chose. */}
+      <aside className="demo-island absolute top-14 right-3 hidden w-40 flex-col md:flex">
+        <p className="border-b border-border/60 px-3 py-2 text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+          {t.demo.properties}
+        </p>
+        <div className="flex flex-col gap-3 p-3">
+          <PanelSection title={t.demo.background}>
+            <div className="flex gap-1.5">
+              {DEMO_GRADIENTS.map((gradient, index) => (
+                <Swatch
+                  key={gradient.name}
+                  target={`bg-swatch-${index}`}
+                  label={gradient.name}
+                  background={gradient.css}
+                  selected={scene.bgIndex === index}
+                  onClick={() => manual({ bgIndex: index })}
+                />
+              ))}
+            </div>
+            {/* Le nom du preset sélectionné : c'est ce que l'éditeur affiche,
+                et c'est ce qui prouve que ces trois pastilles sont les
+                siennes et pas trois dégradés dessinés pour la vitrine. */}
+            <p className="mt-1.5 truncate text-[10px]">{DEMO_GRADIENTS[scene.bgIndex].name}</p>
+          </PanelSection>
+
+          {/* Les réglages du calque sélectionné. Ils n'existaient pas : le
+              panneau montrait trois pastilles et deux nombres en lecture
+              seule, ce qui décrit une légende, pas un éditeur. */}
+          {scene.selected === 'text' ? (
+            <PanelSection title={t.demo.typography}>
+              <div className="flex gap-1">
+                {TEXT_SIZES.map((step, index) => (
+                  <button
+                    key={step.label}
+                    type="button"
+                    data-cursor-target={`text-size-${index}`}
+                    aria-label={t.demo.textSizes[index]}
+                    title={t.demo.textSizes[index]}
+                    aria-pressed={scene.textSize === index}
+                    onClick={() => manual({ textSize: index })}
+                    className={cn(
+                      'h-6 flex-1 rounded-sm text-[10px] font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ring',
+                      scene.textSize === index
+                        ? 'bg-accent text-foreground'
+                        : 'bg-secondary text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {step.label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1.5 flex gap-1.5">
+                {TEXT_COLORS.map((color, index) => (
                   <Swatch
-                    key={gradient.name}
-                    target={`bg-swatch-${index}`}
-                    label={gradient.name}
-                    background={gradient.css}
-                    selected={scene.bgIndex === index}
-                    onClick={() => manual({ bgIndex: index })}
+                    key={color}
+                    target={`text-color-${index}`}
+                    label={t.demo.textColors[index]}
+                    background={color}
+                    selected={scene.textColor === index}
+                    onClick={() => manual({ textColor: index })}
                   />
                 ))}
               </div>
-              {/* Le nom du preset sélectionné : c'est ce que l'éditeur affiche,
-                  et c'est ce qui prouve que ces trois pastilles sont les
-                  siennes et pas trois dégradés dessinés pour la vitrine. */}
-              <p className="mt-1.5 truncate text-[10px]">{DEMO_GRADIENTS[scene.bgIndex].name}</p>
             </PanelSection>
+          ) : null}
 
-            {/* Les réglages du calque sélectionné. Ils n'existaient pas : le
-                panneau montrait trois pastilles et deux nombres en lecture
-                seule, ce qui décrit une légende, pas un éditeur. */}
-            {scene.selected === 'text' ? (
-              <PanelSection title={t.demo.typography}>
-                <div className="flex gap-1">
-                  {TEXT_SIZES.map((step, index) => (
-                    <button
-                      key={step.label}
-                      type="button"
-                      data-cursor-target={`text-size-${index}`}
-                      aria-label={t.demo.textSizes[index]}
-                      title={t.demo.textSizes[index]}
-                      aria-pressed={scene.textSize === index}
-                      onClick={() => manual({ textSize: index })}
-                      className={cn(
-                        'h-6 flex-1 rounded-xs text-[10px] font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-ring',
-                        scene.textSize === index
-                          ? 'bg-accent text-foreground'
-                          : 'bg-secondary text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {step.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-1.5 flex gap-1.5">
-                  {TEXT_COLORS.map((color, index) => (
-                    <Swatch
-                      key={color}
-                      target={`text-color-${index}`}
-                      label={t.demo.textColors[index]}
-                      background={color}
-                      selected={scene.textColor === index}
-                      onClick={() => manual({ textColor: index })}
-                    />
-                  ))}
-                </div>
-              </PanelSection>
-            ) : null}
+          {scene.selected === 'device' ? (
+            <PanelSection title={t.demo.frameColor}>
+              <div className="flex gap-1.5">
+                {FRAME_COLORS.map((color, index) => (
+                  <Swatch
+                    key={color}
+                    target={`frame-color-${index}`}
+                    label={t.demo.frameColors[index]}
+                    background={color}
+                    selected={scene.frameColor === index}
+                    onClick={() => manual({ frameColor: index })}
+                  />
+                ))}
+              </div>
+              <p className="mt-1.5 truncate text-[10px]">{t.demo.frameColors[scene.frameColor]}</p>
+            </PanelSection>
+          ) : null}
 
-            {scene.selected === 'device' ? (
-              <PanelSection title={t.demo.frameColor}>
-                <div className="flex gap-1.5">
-                  {FRAME_COLORS.map((color, index) => (
-                    <Swatch
-                      key={color}
-                      target={`frame-color-${index}`}
-                      label={t.demo.frameColors[index]}
-                      background={color}
-                      selected={scene.frameColor === index}
-                      onClick={() => manual({ frameColor: index })}
-                    />
-                  ))}
-                </div>
-                <p className="mt-1.5 truncate text-[10px]">
-                  {t.demo.frameColors[scene.frameColor]}
-                </p>
-              </PanelSection>
-            ) : null}
+          {scene.selected ? (
+            <PanelSection title={t.demo.position}>
+              <SelectedPosition selected={scene.selected} layerPos={layerPos} />
+            </PanelSection>
+          ) : null}
+        </div>
+      </aside>
 
-            {scene.selected ? (
-              <PanelSection title={t.demo.position}>
-                <SelectedPosition selected={scene.selected} layerPos={layerPos} />
-              </PanelSection>
-            ) : null}
-
-            {/* La dimension de sortie, épinglée en bas comme dans l'app. Le
-                panneau tenait sur trois pastilles et deux champs, et la seule
-                mesure que la page répète cinq fois n'y figurait pas. */}
-            <div className="mt-auto border-t border-border/60 pt-3">
-              <p className="text-[9px] text-muted-foreground uppercase">{t.demo.exportSize}</p>
-              <p className="mt-1.5 text-[10px] tabular-nums">
-                {APP_STORE_TARGET.portrait.width} × {APP_STORE_TARGET.portrait.height}
-              </p>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <div
-        onPointerDown={takeOver}
-        className="flex h-14 shrink-0 items-center justify-center gap-1.5 border-t border-border/60 px-2.5"
-      >
+      {/* Le filmstrip n'a pas de surface, comme dans le produit : il porte
+          des vignettes, et une vignette est déjà une surface. */}
+      <div className="absolute inset-x-0 bottom-0 flex h-18 items-end justify-center gap-1.5 pb-3 md:h-21">
         {Array.from({ length: DEMO_TILES }, (_, tile) => (
           <DemoTile
             key={tile}
             scene={scene}
             filled={tile < scene.tiles}
             current={tile === 0}
+            rank={tile + 1}
             titleWidth={tileTitleWidth(tile)}
           />
         ))}
+      </div>
+
+      {scene.exportState !== 'idle' ? (
+        <div className="absolute top-14 right-3 flex h-6 items-center gap-1.5 rounded-sm bg-card px-2 text-[10px] font-medium shadow-md md:top-auto md:bottom-3">
+          {scene.exportState === 'running' ? (
+            <>
+              <Loader2 aria-hidden className="size-3 animate-spin text-muted-foreground" />
+              <span>{t.demo.exporting}</span>
+            </>
+          ) : (
+            <>
+              <Check aria-hidden className="size-3 text-marker" />
+              {/* La dimension se replie sous `sm` : sur une maquette de
+                  348 px le toast complet faisait la moitié de la largeur et
+                  couvrait le téléphone qu'il vient de rendre. Elle vient de
+                  `dimensions.ts` plutôt que d'une chaîne traduite — c'est
+                  une mesure, pas du texte. */}
+              <span className="tabular-nums">
+                {t.demo.toastFile}
+                <span className="hidden sm:inline">
+                  {' · '}
+                  {APP_STORE_TARGET.portrait.width}×{APP_STORE_TARGET.portrait.height}
+                </span>
+              </span>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {/* Une seule pastille, qui dit et qui fait. Il y avait une puce
+          « Cliquez pour prendre la main » en bas à gauche et, en haut à
+          droite, un bouton portant une flèche de curseur : sur une capture
+          il se lisait comme un second pointeur posé dans le panneau. La
+          pastille est aussi le mécanisme de pause exigé par WCAG 2.2.2 —
+          donc elle doit rester un bouton, atteignable au clavier.
+
+          En reduced-motion et avant toute action, il n'y a ni animation à
+          couper ni rien à rejouer : la composition finale est déjà là. La
+          pastille disait « Rejouer la démo » et ne changeait visiblement
+          rien — un contrôle mort.
+
+          Sous `md` elle monte sous la barre, où les tiroirs ne sont pas :
+          en bas, elle tombait sur les vignettes du filmstrip. */}
+      <div
+        className={cn(
+          'absolute top-14 left-3 z-20 md:top-auto md:bottom-3',
+          !playing && !touched && 'hidden',
+        )}
+      >
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => {
+            if (playing) {
+              takeOver()
+              return
+            }
+            if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
+            setTouched(false)
+            setScene(EMPTY_SCENE)
+            setAutoplay(true)
+          }}
+          className="flex h-6 items-center gap-1 rounded-sm bg-card px-2 text-[10px] text-muted-foreground shadow-md transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {playing ? null : (
+            <RotateCcw aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
+          )}
+          {playing ? t.demo.hint : t.demo.replay}
+        </button>
       </div>
 
       <DemoCursor pose={cursor} visible={cursorOn && playing} />

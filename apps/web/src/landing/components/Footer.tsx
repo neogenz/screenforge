@@ -25,9 +25,6 @@ export function Footer() {
         <LangLink code={lang === 'en' ? 'fr' : 'en'} />
         <span className="ml-auto text-xs">{t.footer.copyright}</span>
       </div>
-      <p className="mt-6 max-w-[55ch] text-xs leading-4 text-muted-foreground">
-        {t.footer.builtBy}
-      </p>
     </footer>
   )
 }

@@ -1,18 +1,28 @@
 import { Check } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useLang } from '../i18n'
-import { ArtVisual } from './ArtVisual'
+import { ExportSpec } from './ExportSpec'
+import { RefreshTree } from './RefreshTree'
 import { SectionHeading } from './SectionHeading'
+import { SpreadDiagram } from './SpreadDiagram'
 
-const FEATURE_IMAGES = {
-  editor: '/landing/art-ten-screen-set.webp',
-  precision: '/landing/art-forge-core.webp',
-  export: '/landing/art-exact-export.webp',
-} as const
+const KEYS = ['editor', 'refresh', 'export'] as const
 
-type FeatureKey = keyof typeof FEATURE_IMAGES
+type FeatureKey = (typeof KEYS)[number]
 
-const KEYS = Object.keys(FEATURE_IMAGES) as FeatureKey[]
+/* Trois schémas dessinés, zéro illustration d'ambiance. Les onglets Compose et
+   Export portaient des images générées (« dix écrans gravitent autour d'une
+   forge de pixels citron ») qui ne montraient rien du produit, à côté d'un
+   schéma qui montre ce que le produit manipule — un dossier. Le schéma « un
+   écran appliqué aux dix » et la fiche du ZIP existaient déjà et disaient la
+   même chose que les images en vrai : ils reprennent leur place, et la section
+   parle d'une seule voix. L'agent a sa propre section (`AgentSection`) : en
+   quatrième onglet, la moitié IA du produit se lisait comme un détail. */
+const VISUALS: Record<FeatureKey, () => ReactElement> = {
+  editor: SpreadDiagram,
+  refresh: RefreshTree,
+  export: ExportSpec,
+}
 
 const PANEL_ID = 'features-panel'
 
@@ -34,6 +44,7 @@ export function Features() {
   const [active, setActive] = useState<FeatureKey>('editor')
   const tablist = useRef<HTMLDivElement>(null)
   const feature = t.features[active]
+  const Visual = VISUALS[active]
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
@@ -106,12 +117,7 @@ export function Features() {
               ))}
             </ul>
           </div>
-          <ArtVisual
-            key={active}
-            src={FEATURE_IMAGES[active]}
-            alt={feature.artAlt}
-            className="border-border bg-black"
-          />
+          <Visual key={active} />
         </div>
       </div>
     </section>
