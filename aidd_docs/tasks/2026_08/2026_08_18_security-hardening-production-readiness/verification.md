@@ -8,14 +8,14 @@ ou identifiant fournisseur.
 
 - Branche : `codex/cloud-prelaunch-plan`.
 - Base : `8c6c532`.
-- Correctif sécurité local et gate release : `5689b62`.
+- Correctif sécurité rebasé : `9459de2`; tête documentaire candidate : `c6743ea`.
 - Preview technique et backend préproduction : candidat antérieur issu de `71c8cca`;
   une nouvelle preuve Preview reste requise sur le SHA final.
 - Aucun tag, domaine, paiement réel ou déploiement production exécuté.
 
 ## Assertions
 
-- Gitleaks : 195 commits et le répertoire courant, aucun secret détecté. Le
+- Gitleaks : tous les refs Git et le répertoire courant, aucun secret détecté. Le
   fichier de configuration runtime Convex ignoré, généré par les E2E, a été
   supprimé avant la preuve finale.
 - Dépendances : `pnpm audit --audit-level low`, aucune vulnérabilité connue.
@@ -31,8 +31,8 @@ ou identifiant fournisseur.
   avant navigation et SHA de tag égal au HEAD de `main`. Les ciblés repassent
   respectivement à 13/13 backend, 38/38 MCP, 25/25 web, 8/8 archive et 1/1
   transport Cloud avant le gate complet.
-- Codex Security : diff scan complet 60/60 sans finding; scan standard
-  `782d47fc-ea27-4189-b2f5-6af174cd29e3` scellé sur `5689b62`, six surfaces et
+- Codex Security : diff scan complet 60/60 sans finding; scan standard final
+  `a91ab23a-7fc2-4f09-90b1-aab961f84f9a` scellé sur `c6743ea`, six surfaces et
   zéro finding résiduel.
 
 ## Préproduction

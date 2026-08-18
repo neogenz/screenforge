@@ -1,14 +1,14 @@
 # Assertion : durcissement sécurité et préparation production
 
 - **Verdict** : pass
-- **Candidat** : `5689b62`
+- **Candidat** : `c6743ea` (`9459de2` pour le correctif sécurité)
 - **Date** : 2026-08-18
 
 ## Assertions applicables
 
 | Assertion | Résultat | Preuve |
 | --- | --- | --- |
-| Aucun secret public | Pass | Gitleaks sur 195 commits et le répertoire courant; audit publication vert. |
+| Aucun secret public | Pass | Gitleaks sur tous les refs et le répertoire courant; audit publication vert. |
 | Qualité et contrats | Pass | 59 Bridge, 176 backend, 38 MCP, 399 web et 4 tests publication; types et lint verts. |
 | Build et sécurité navigateur | Pass | Build Vite, pré-rendu et audit CSP verts. |
 | Local gratuit complet | Pass | Export illimité sans compte et ZIP PNG opaque exact 1320×2868 dans la gate E2E. |
