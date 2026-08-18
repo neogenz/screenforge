@@ -8,69 +8,189 @@
         "role": "neutral",
         "displayName": "Scène graphite",
         "canonical": "oklch(0.145 0 0)",
-        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.82 0 0)",
+          "oklch(0.95 0 0)"
+        ]
       },
       "card": {
         "role": "neutral",
         "displayName": "Panneau graphite",
         "canonical": "oklch(0.215 0 0)",
-        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.82 0 0)",
+          "oklch(0.95 0 0)"
+        ]
       },
       "muted": {
         "role": "neutral",
         "displayName": "Creux graphite",
         "canonical": "oklch(0.165 0 0)",
-        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.82 0 0)",
+          "oklch(0.95 0 0)"
+        ]
       },
       "foreground": {
         "role": "neutral",
         "displayName": "Encre claire",
         "canonical": "oklch(0.97 0 0)",
-        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.82 0 0)",
+          "oklch(0.95 0 0)"
+        ]
       },
       "marker": {
         "role": "primary",
         "displayName": "Citron de repérage",
         "canonical": "oklch(0.87 0.2 124)",
-        "tonalRamp": ["oklch(0.15 0.08 124)", "oklch(0.25 0.12 124)", "oklch(0.35 0.16 124)", "oklch(0.47 0.19 124)", "oklch(0.59 0.2 124)", "oklch(0.71 0.2 124)", "oklch(0.83 0.18 124)", "oklch(0.95 0.08 124)"]
+        "tonalRamp": [
+          "oklch(0.15 0.08 124)",
+          "oklch(0.25 0.12 124)",
+          "oklch(0.35 0.16 124)",
+          "oklch(0.47 0.19 124)",
+          "oklch(0.59 0.2 124)",
+          "oklch(0.71 0.2 124)",
+          "oklch(0.83 0.18 124)",
+          "oklch(0.95 0.08 124)"
+        ]
       },
       "destructive": {
         "role": "tertiary",
         "displayName": "Rouge destructif",
         "canonical": "oklch(0.64 0.18 25)",
-        "tonalRamp": ["oklch(0.15 0.08 25)", "oklch(0.25 0.12 25)", "oklch(0.35 0.16 25)", "oklch(0.47 0.18 25)", "oklch(0.59 0.18 25)", "oklch(0.71 0.16 25)", "oklch(0.83 0.12 25)", "oklch(0.95 0.04 25)"]
+        "tonalRamp": [
+          "oklch(0.15 0.08 25)",
+          "oklch(0.25 0.12 25)",
+          "oklch(0.35 0.16 25)",
+          "oklch(0.47 0.18 25)",
+          "oklch(0.59 0.18 25)",
+          "oklch(0.71 0.16 25)",
+          "oklch(0.83 0.12 25)",
+          "oklch(0.95 0.04 25)"
+        ]
       },
       "success": {
         "role": "tertiary",
         "displayName": "Vert de résultat",
         "canonical": "oklch(0.65 0.12 155)",
-        "tonalRamp": ["oklch(0.15 0.05 155)", "oklch(0.25 0.08 155)", "oklch(0.35 0.1 155)", "oklch(0.47 0.12 155)", "oklch(0.59 0.12 155)", "oklch(0.71 0.11 155)", "oklch(0.83 0.08 155)", "oklch(0.95 0.03 155)"]
+        "tonalRamp": [
+          "oklch(0.15 0.05 155)",
+          "oklch(0.25 0.08 155)",
+          "oklch(0.35 0.1 155)",
+          "oklch(0.47 0.12 155)",
+          "oklch(0.59 0.12 155)",
+          "oklch(0.71 0.11 155)",
+          "oklch(0.83 0.08 155)",
+          "oklch(0.95 0.03 155)"
+        ]
       },
       "warning": {
         "role": "tertiary",
         "displayName": "Ambre d’attention",
         "canonical": "oklch(0.72 0.11 75)",
-        "tonalRamp": ["oklch(0.15 0.05 75)", "oklch(0.25 0.07 75)", "oklch(0.35 0.09 75)", "oklch(0.47 0.11 75)", "oklch(0.59 0.11 75)", "oklch(0.71 0.1 75)", "oklch(0.83 0.07 75)", "oklch(0.95 0.03 75)"]
+        "tonalRamp": [
+          "oklch(0.15 0.05 75)",
+          "oklch(0.25 0.07 75)",
+          "oklch(0.35 0.09 75)",
+          "oklch(0.47 0.11 75)",
+          "oklch(0.59 0.11 75)",
+          "oklch(0.71 0.1 75)",
+          "oklch(0.83 0.07 75)",
+          "oklch(0.95 0.03 75)"
+        ]
       }
     },
     "typographyMeta": {
-      "panel-title": { "displayName": "Titre de panneau", "purpose": "Titre principal d’un drawer ou d’une boîte." },
-      "section-title": { "displayName": "Titre de section", "purpose": "Découpe les groupes de propriétés." },
-      "body": { "displayName": "Corps opératoire", "purpose": "Actions, valeurs et texte fonctionnel." },
-      "label": { "displayName": "Micro-libellé", "purpose": "Champs et métadonnées en casse normale." }
+      "panel-title": {
+        "displayName": "Titre de panneau",
+        "purpose": "Titre principal d’un drawer ou d’une boîte."
+      },
+      "section-title": {
+        "displayName": "Titre de section",
+        "purpose": "Découpe les groupes de propriétés."
+      },
+      "body": {
+        "displayName": "Corps opératoire",
+        "purpose": "Actions, valeurs et texte fonctionnel."
+      },
+      "label": {
+        "displayName": "Micro-libellé",
+        "purpose": "Champs et métadonnées en casse normale."
+      }
     },
     "shadows": [
-      { "name": "island", "value": "0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4), 0 24px 48px -24px oklch(0 0 0 / 0.55)", "purpose": "Barre, drawer et îlot persistant." },
-      { "name": "menu", "value": "0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45), 0 32px 64px -32px oklch(0 0 0 / 0.6)", "purpose": "Menu, popover et palette." },
-      { "name": "modal", "value": "0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65)", "purpose": "Boîte bloquante au-dessus du voile." },
-      { "name": "contact", "value": "0 1px 3px oklch(0 0 0 / 0.4)", "purpose": "Poignée ou vignette courante." },
-      { "name": "inset", "value": "inset 0 1px 0 oklch(0 0 0 / 0.35)", "purpose": "Creux d’un champ." },
-      { "name": "hairline-top", "value": "inset 0 1px 0 oklch(1 0 0 / 0.05)", "purpose": "Lumière rasante sur l’arête d’une surface flottante." }
+      {
+        "name": "island",
+        "value": "0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4), 0 24px 48px -24px oklch(0 0 0 / 0.55)",
+        "purpose": "Barre, drawer et îlot persistant."
+      },
+      {
+        "name": "menu",
+        "value": "0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45), 0 32px 64px -32px oklch(0 0 0 / 0.6)",
+        "purpose": "Menu, popover et palette."
+      },
+      {
+        "name": "modal",
+        "value": "0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65)",
+        "purpose": "Boîte bloquante au-dessus du voile."
+      },
+      {
+        "name": "contact",
+        "value": "0 1px 3px oklch(0 0 0 / 0.4)",
+        "purpose": "Poignée ou vignette courante."
+      },
+      {
+        "name": "inset",
+        "value": "inset 0 1px 0 oklch(0 0 0 / 0.35)",
+        "purpose": "Creux d’un champ."
+      },
+      {
+        "name": "hairline-top",
+        "value": "inset 0 1px 0 oklch(1 0 0 / 0.05)",
+        "purpose": "Lumière rasante sur l’arête d’une surface flottante."
+      }
     ],
     "motion": [
-      { "name": "ease-out", "value": "cubic-bezier(0.22, 0.61, 0.36, 1)", "purpose": "Transition de couleur, bordure et état en 150ms." },
-      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Entrée d’une surface en 160–240ms." },
-      { "name": "ease-settle", "value": "linear(0, 0.394 7.6%, 0.677 16.6%, 0.865 26.4%, 0.971 36.6%, 1.024 47%, 1.042 57.7%, 1.036 68.5%, 1.016 79.4%, 1)", "purpose": "Pose d’une ligne ou vignette en 220ms." }
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.22, 0.61, 0.36, 1)",
+        "purpose": "Transition de couleur, bordure et état en 150ms."
+      },
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Entrée d’une surface en 160–240ms."
+      },
+      {
+        "name": "ease-settle",
+        "value": "linear(0, 0.394 7.6%, 0.677 16.6%, 0.865 26.4%, 0.971 36.6%, 1.024 47%, 1.042 57.7%, 1.036 68.5%, 1.016 79.4%, 1)",
+        "purpose": "Pose d’une ligne ou vignette en 220ms."
+      }
     ],
     "breakpoints": [
       { "name": "filmstrip-left-anchor", "value": "361px" },
@@ -165,13 +285,41 @@
       "Interface française, concise et opératoire."
     ],
     "rules": [
-      { "name": "The One Marker Rule", "body": "Le citron dit uniquement « ici ». Il ne colore jamais une action, un décor ou le bord d’un artboard.", "section": "colors" },
-      { "name": "The True Neutral Rule", "body": "Toute surface voisine du contenu reste à chroma zéro, dans les deux thèmes.", "section": "colors" },
-      { "name": "The Three-Level Rule", "body": "Un panneau utilise panneau, section et libellé ; aucun échelon intermédiaire ne doit aplatir la hiérarchie.", "section": "typography" },
-      { "name": "The Tabular Rule", "body": "Toute valeur numérique qui peut changer de largeur active les chiffres tabulaires.", "section": "typography" },
-      { "name": "The Ten-Screen Rule", "body": "L’unité de travail est la planche de dix écrans. Tout geste répétitif dix fois doit avoir un équivalent « pour tous les écrans ».", "section": "layout" },
-      { "name": "The Earned Depth Rule", "body": "Une ombre n’existe que si une surface flotte ou se détache physiquement ; un panneau statique se sépare d’abord par sa matière.", "section": "elevation" },
-      { "name": "The Nested Radius Rule", "body": "Rayon intérieur = rayon extérieur − retrait. Ne choisissez jamais les trois valeurs indépendamment.", "section": "shapes" }
+      {
+        "name": "The One Marker Rule",
+        "body": "Le citron dit uniquement « ici ». Il ne colore jamais une action, un décor ou le bord d’un artboard.",
+        "section": "colors"
+      },
+      {
+        "name": "The True Neutral Rule",
+        "body": "Toute surface voisine du contenu reste à chroma zéro, dans les deux thèmes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three-Level Rule",
+        "body": "Un panneau utilise panneau, section et libellé ; aucun échelon intermédiaire ne doit aplatir la hiérarchie.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Toute valeur numérique qui peut changer de largeur active les chiffres tabulaires.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ten-Screen Rule",
+        "body": "L’unité de travail est la planche de dix écrans. Tout geste répétitif dix fois doit avoir un équivalent « pour tous les écrans ».",
+        "section": "layout"
+      },
+      {
+        "name": "The Earned Depth Rule",
+        "body": "Une ombre n’existe que si une surface flotte ou se détache physiquement ; un panneau statique se sépare d’abord par sa matière.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Nested Radius Rule",
+        "body": "Rayon intérieur = rayon extérieur − retrait. Ne choisissez jamais les trois valeurs indépendamment.",
+        "section": "shapes"
+      }
     ],
     "dos": [
       "Do garder toutes les surfaces de chrome à chroma zéro.",

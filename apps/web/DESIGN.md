@@ -2,127 +2,127 @@
 name: ScreenForge
 description: Éditeur local-first de captures App Store, précis, dense et discret.
 colors:
-  stage: "oklch(0.145 0 0)"
-  background: "oklch(0.175 0 0)"
-  card: "oklch(0.215 0 0)"
-  popover: "oklch(0.215 0 0)"
-  muted: "oklch(0.165 0 0)"
-  secondary: "oklch(0.26 0 0)"
-  accent: "oklch(0.3 0 0)"
-  foreground: "oklch(0.97 0 0)"
-  muted-foreground: "oklch(0.78 0 0)"
-  primary: "oklch(0.97 0 0)"
-  primary-foreground: "oklch(0.145 0 0)"
-  border: "oklch(0.26 0 0)"
-  input: "oklch(0.36 0 0)"
-  marker: "oklch(0.87 0.2 124)"
-  marker-hover: "oklch(0.92 0.2 124)"
-  marker-ink: "oklch(0.24 0.05 124)"
-  marker-soft: "oklch(0.87 0.2 124 / 0.11)"
-  marker-line: "oklch(0.87 0.2 124 / 0.55)"
-  destructive: "oklch(0.64 0.18 25)"
-  success: "oklch(0.65 0.12 155)"
-  warning: "oklch(0.72 0.11 75)"
-  artboard-ring: "oklch(1 0 0 / 0.1)"
-  artboard-shadow: "oklch(0 0 0 / 0.5)"
-  selection-soft: "oklch(0.97 0 0 / 0.14)"
-  guide: "oklch(0.97 0 0 / 0.85)"
-  guide-halo: "oklch(0 0 0 / 0.4)"
+  stage: 'oklch(0.145 0 0)'
+  background: 'oklch(0.175 0 0)'
+  card: 'oklch(0.215 0 0)'
+  popover: 'oklch(0.215 0 0)'
+  muted: 'oklch(0.165 0 0)'
+  secondary: 'oklch(0.26 0 0)'
+  accent: 'oklch(0.3 0 0)'
+  foreground: 'oklch(0.97 0 0)'
+  muted-foreground: 'oklch(0.78 0 0)'
+  primary: 'oklch(0.97 0 0)'
+  primary-foreground: 'oklch(0.145 0 0)'
+  border: 'oklch(0.26 0 0)'
+  input: 'oklch(0.36 0 0)'
+  marker: 'oklch(0.87 0.2 124)'
+  marker-hover: 'oklch(0.92 0.2 124)'
+  marker-ink: 'oklch(0.24 0.05 124)'
+  marker-soft: 'oklch(0.87 0.2 124 / 0.11)'
+  marker-line: 'oklch(0.87 0.2 124 / 0.55)'
+  destructive: 'oklch(0.64 0.18 25)'
+  success: 'oklch(0.65 0.12 155)'
+  warning: 'oklch(0.72 0.11 75)'
+  artboard-ring: 'oklch(1 0 0 / 0.1)'
+  artboard-shadow: 'oklch(0 0 0 / 0.5)'
+  selection-soft: 'oklch(0.97 0 0 / 0.14)'
+  guide: 'oklch(0.97 0 0 / 0.85)'
+  guide-halo: 'oklch(0 0 0 / 0.4)'
 typography:
   panel-title:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "16px"
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '16px'
     fontWeight: 600
-    lineHeight: "20px"
-    letterSpacing: "-0.014em"
+    lineHeight: '20px'
+    letterSpacing: '-0.014em'
     fontFeature: "'cv05' 1, 'cv08' 1, 'ss03' 1"
   section-title:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "14px"
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '14px'
     fontWeight: 600
-    lineHeight: "20px"
-    letterSpacing: "-0.006em"
+    lineHeight: '20px'
+    letterSpacing: '-0.006em'
     fontFeature: "'cv05' 1, 'cv08' 1, 'ss03' 1"
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "14px"
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '14px'
     fontWeight: 400
-    lineHeight: "20px"
-    letterSpacing: "0"
+    lineHeight: '20px'
+    letterSpacing: '0'
     fontFeature: "'cv05' 1, 'cv08' 1, 'ss03' 1"
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "11px"
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '11px'
     fontWeight: 500
-    lineHeight: "16px"
-    letterSpacing: "0"
+    lineHeight: '16px'
+    letterSpacing: '0'
     fontFeature: "'cv05' 1, 'cv08' 1, 'ss03' 1"
 rounded:
-  xs: "6px"
-  sm: "9px"
-  md: "12px"
-  lg: "15px"
-  xl: "21px"
-  full: "9999px"
+  xs: '6px'
+  sm: '9px'
+  md: '12px'
+  lg: '15px'
+  xl: '21px'
+  full: '9999px'
 spacing:
-  "1": "4px"
-  "1.5": "6px"
-  "2": "8px"
-  "3": "12px"
-  "4": "16px"
-  "6": "24px"
-  "8": "32px"
+  '1': '4px'
+  '1.5': '6px'
+  '2': '8px'
+  '3': '12px'
+  '4': '16px'
+  '6': '24px'
+  '8': '32px'
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 16px"
-    height: "36px"
+    backgroundColor: '{colors.primary}'
+    textColor: '{colors.primary-foreground}'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '0 16px'
+    height: '36px'
   button-default:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 16px"
-    height: "36px"
+    backgroundColor: '{colors.secondary}'
+    textColor: '{colors.foreground}'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '0 16px'
+    height: '36px'
   button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted-foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 12px"
-    height: "36px"
+    backgroundColor: 'transparent'
+    textColor: '{colors.muted-foreground}'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '0 12px'
+    height: '36px'
   field:
-    backgroundColor: "{colors.muted}"
-    textColor: "{colors.foreground}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 10px"
-    height: "32px"
+    backgroundColor: '{colors.muted}'
+    textColor: '{colors.foreground}'
+    typography: '{typography.body}'
+    rounded: '{rounded.md}'
+    padding: '0 10px'
+    height: '32px'
   island:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.xl}"
-    padding: "9px"
+    backgroundColor: '{colors.card}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.xl}'
+    padding: '9px'
   dialog:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.xl}"
-    padding: "24px"
+    backgroundColor: '{colors.card}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.xl}'
+    padding: '24px'
   marker-badge:
-    backgroundColor: "{colors.marker}"
-    textColor: "{colors.marker-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "0 4px"
-    height: "16px"
+    backgroundColor: '{colors.marker}'
+    textColor: '{colors.marker-ink}'
+    typography: '{typography.label}'
+    rounded: '{rounded.sm}'
+    padding: '0 4px'
+    height: '16px'
   screen-thumbnail:
-    backgroundColor: "{colors.muted}"
-    rounded: "{rounded.md}"
-    height: "116px"
-    width: "53px"
+    backgroundColor: '{colors.muted}'
+    rounded: '{rounded.md}'
+    height: '116px'
+    width: '53px'
 ---
 
 # Design System: ScreenForge
