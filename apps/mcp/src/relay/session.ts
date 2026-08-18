@@ -99,6 +99,15 @@ export class RelaySession {
     this.#failAll('L’éditeur ScreenForge s’est déconnecté avant de répondre.')
   }
 
+  /** Coupe la capacité côté démon, y compris les appels déjà partis. */
+  revoke(): void {
+    const connection = this.#connection
+    this.#connection = null
+    this.#state = null
+    this.#failAll('La connexion MCP a été révoquée.')
+    connection?.close()
+  }
+
   pushState(state: unknown): void {
     this.#state = state
   }

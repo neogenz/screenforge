@@ -18,7 +18,7 @@ import { create } from 'zustand'
 
 /** `off` est le mode par défaut du produit, pas une panne : rien n'est branché. */
 export type McpStatus = 'off' | 'connecting' | 'live' | 'error'
-export type McpConnectionStep = 'daemon' | 'editor' | 'ready'
+export type McpConnectionStep = 'daemon' | 'pairing' | 'editor' | 'ready'
 export type McpStepStatus = 'waiting' | 'active' | 'done' | 'error'
 
 /** Le même fait en toutes lettres : infobulle, ligne de statut, nom accessible. */
@@ -87,7 +87,7 @@ export function projectMcpSteps(
   status: McpStatus,
   current: McpConnectionStep,
 ): Record<McpConnectionStep, McpStepStatus> {
-  const steps: McpConnectionStep[] = ['daemon', 'editor', 'ready']
+  const steps: McpConnectionStep[] = ['daemon', 'pairing', 'editor', 'ready']
   const currentIndex = steps.indexOf(current)
   return Object.fromEntries(
     steps.map((step, index) => [

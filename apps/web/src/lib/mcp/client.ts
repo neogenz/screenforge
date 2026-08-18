@@ -123,6 +123,12 @@ function persistEnabled(enabled: boolean): void {
  */
 const UNREACHABLE = `Le démon MCP ne répond pas. Lancez « ${MCP_COMMAND} », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.`
 
+class RelayResponseError extends Error {
+  constructor(readonly status: number) {
+    super(`Le démon a répondu ${status}.`)
+  }
+}
+
 async function post(path: string, body: unknown, signal?: AbortSignal): Promise<void> {
   const response = await fetch(`${relayUrl()}${path}`, {
     method: 'POST',
@@ -130,7 +136,7 @@ async function post(path: string, body: unknown, signal?: AbortSignal): Promise<
     body: JSON.stringify(body),
     signal,
   })
-  if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
+  if (!response.ok) throw new RelayResponseError(response.status)
 }
 
 /**
@@ -148,18 +154,22 @@ async function fetchAsset(id: string, signal?: AbortSignal): Promise<Blob> {
   return response.blob()
 }
 
-async function pair(): Promise<RelayHello> {
-  const response = await fetch(`${relayUrl()}/pair`, { method: 'POST' })
-  if (!response.ok) throw new Error(`Le démon refuse l’appairage (${response.status}).`)
+async function pair(code: string): Promise<RelayHello> {
+  const response = await fetch(`${relayUrl()}/pair`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  if (!response.ok) throw new RelayResponseError(response.status)
   return (await response.json()) as RelayHello
 }
 
-function arm(): void {
+function armReconnect(mine: number): void {
   const wait = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)]
   attempt += 1
   timer = setTimeout(() => {
     timer = undefined
-    void open()
+    void reconnect(mine)
   }, wait)
 }
 
@@ -179,7 +189,7 @@ function teardown(): void {
   token = ''
 }
 
-async function open(): Promise<void> {
+async function open(code: string): Promise<void> {
   teardown()
   const mine = cycle
   useMcpStore.getState().setConnectionStep('daemon')
@@ -188,11 +198,14 @@ async function open(): Promise<void> {
 
   let hello: RelayHello
   try {
-    hello = await pair()
-  } catch {
+    hello = await pair(code)
+  } catch (error) {
     if (mine !== cycle) return
-    useMcpStore.getState().setStatus('error', UNREACHABLE)
-    arm()
+    const refused = error instanceof RelayResponseError && error.status === 401
+    useMcpStore.getState().setConnectionStep(refused ? 'pairing' : 'daemon')
+    useMcpStore
+      .getState()
+      .setStatus('error', refused ? 'Code invalide, expiré ou temporairement bloqué.' : UNREACHABLE)
     return
   }
   if (mine !== cycle) return
@@ -230,8 +243,8 @@ function listen(mine: number): void {
     void answer(JSON.parse((event as MessageEvent<string>).data) as RelayRequest)
   })
 
-  // Jeton périmé, démon relancé, réseau coupé : `EventSource` ne les distingue
-  // pas non plus. On referme et on réappaire, ce qui répond aux trois.
+  // Le flux ne distingue pas panne et bearer périmé. Le probe authentifié de
+  // reconnexion le fait sans remint implicite.
   stream.onerror = () => {
     if (mine !== cycle) return
     retry(stream, mine)
@@ -255,9 +268,26 @@ function retry(stream: EventSource, mine: number): void {
   source = null
   unwatch?.()
   unwatch = undefined
-  useMcpStore.getState().setConnectionStep('daemon')
+  useMcpStore.getState().setConnectionStep('editor')
   useMcpStore.getState().setStatus('connecting')
-  arm()
+  armReconnect(mine)
+}
+
+async function reconnect(mine: number): Promise<void> {
+  if (mine !== cycle || !token) return
+  try {
+    await post('/state', { state: readProjectState() })
+    if (mine === cycle) listen(mine)
+  } catch (error) {
+    if (mine !== cycle) return
+    if (error instanceof RelayResponseError && error.status === 401) {
+      teardown()
+      useMcpStore.getState().setConnectionStep('pairing')
+      useMcpStore.getState().setStatus('error', 'La session a expiré. Saisissez le nouveau code.')
+      return
+    }
+    armReconnect(mine)
+  }
 }
 
 /**
@@ -331,20 +361,26 @@ function scheduleStatePush(): void {
 }
 
 /** Le geste : on appaire, on ouvre, on se souvient du choix. */
-export async function enableMcp(): Promise<void> {
+export async function enableMcp(code: string): Promise<void> {
   persistEnabled(true)
   useMcpStore.getState().setEnabled(true)
-  await open()
+  await open(code)
 }
 
-/** Le geste inverse : le flux tombe, le jeton est oublié, l'agent est coupé. */
-export function disableMcp(): void {
+/** Le geste inverse révoque le démon puis oublie la capacité locale. */
+export async function disableMcp(): Promise<void> {
   persistEnabled(false)
+  const presented = token
   teardown()
   useMcpStore.getState().setEnabled(false)
   useMcpStore.getState().setConnectionStep('daemon')
   useMcpStore.getState().setDaemonVersion('')
   useMcpStore.getState().setStatus('off')
+  if (!presented) return
+  await fetch(`${relayUrl()}/revoke`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${presented}` },
+  }).catch(() => undefined)
 }
 
 /** Adresse locale visible dans les détails, sans le jeton de session. */
@@ -362,7 +398,8 @@ export function mcpRelayAddress(): string {
 export function resumeMcp(): () => void {
   if (readEnabled()) {
     useMcpStore.getState().setEnabled(true)
-    void open()
+    useMcpStore.getState().setConnectionStep('pairing')
+    useMcpStore.getState().setStatus('error', 'Saisissez le code affiché par le démon MCP.')
   }
   return () => teardown()
 }

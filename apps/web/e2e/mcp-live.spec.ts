@@ -25,18 +25,69 @@ async function historyDepth(page: Page): Promise<number> {
 
 async function expectConnectionFlow(dialog: Locator, completed: number) {
   const flow = dialog.locator('[data-slot="setup-flow"]')
-  await expect(flow.locator('[data-slot="setup-step"]')).toHaveCount(3)
+  await expect(flow.locator('[data-slot="setup-step"]')).toHaveCount(4)
   await expect(flow.getByRole('progressbar')).toHaveAttribute('value', String(completed))
   await expect(flow.locator('[data-state="active"], [data-state="error"]')).toHaveCount(1)
 }
 
 test.describe('connexion MCP', () => {
+  test('le code faux reste générique et le parcours complet fonctionne au clavier', async ({
+    page,
+  }) => {
+    const relay = await startRelay()
+    try {
+      await page.addInitScript((port: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(port))
+      }, relay.port)
+      await waitForApp(page)
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      const code = dialog.getByLabel('Code à 6 chiffres affiché par le démon')
+      const pair = dialog.getByRole('button', { name: 'Appairer' })
+      await code.fill('000000')
+      await pair.focus()
+      await page.keyboard.press('Enter')
+      await expect(dialog.getByRole('alert')).toHaveText(
+        'Code invalide, expiré ou temporairement bloqué.',
+      )
+      await expect(code).toBeFocused()
+
+      await code.fill(relay.code())
+      await pair.focus()
+      await page.keyboard.press('Enter')
+      const disable = dialog.getByRole('button', { name: 'Désactiver' })
+      await expect(disable).toBeFocused()
+      await page.keyboard.press('Enter')
+      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect(code).toBeFocused()
+    } finally {
+      await relay.stop()
+    }
+  })
+
+  test('une coupure transitoire reprend le bearer du même onglet sans nouveau code', async ({
+    page,
+  }) => {
+    const relay = await startRelay()
+    try {
+      await connect(page, relay)
+      expect(relay.opened()).toBe(1)
+      relay.dropStream()
+      await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(2)
+      await expect(
+        page.getByRole('dialog', { name: 'Connexion MCP' }).getByRole('status'),
+      ).toHaveText('Connectée')
+    } finally {
+      await relay.stop()
+    }
+  })
+
   test('un lot de l’agent vaut une écriture et une seule annulation', async ({ page }) => {
     const relay = await startRelay()
     try {
       await connect(page, relay)
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await expectConnectionFlow(dialog, 3)
+      await expectConnectionFlow(dialog, 4)
       await dialog.getByText('Détails de connexion').click()
       await expect(dialog.getByText('MCP 0.1.0-test')).toBeVisible()
       await expect(dialog.getByText(/127\.0\.0\.1:\d+ · loopback/)).toBeVisible()
@@ -160,7 +211,7 @@ test.describe('connexion MCP', () => {
       await expect.poll(() => relay.live(), { timeout: 10_000 }).toBe(0)
       await page.waitForTimeout(2500)
       expect(relay.live()).toBe(0)
-      await expect(dialog.getByRole('button', { name: 'Activer' })).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Appairer' })).toBeVisible()
     } finally {
       await relay.stop()
     }
@@ -238,12 +289,20 @@ test.describe('connexion MCP', () => {
 
       await page.getByRole('button', { name: 'Connexion MCP' }).click()
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByRole('button', { name: 'Activer' }).click()
+      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status')).toHaveText('Connectée')
       expect(relay.opened()).toBe(1)
 
-      // Le choix est mémorisé, le jeton non : la reprise repasse par /pair.
+      // Le choix est mémorisé, le jeton non : la reprise exige le nouveau code.
       await page.reload({ waitUntil: 'networkidle' })
+      await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(1)
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      const resumed = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await expect(resumed.getByRole('alert')).toContainText(/code affiché/i)
+      await resumed.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await resumed.getByRole('button', { name: 'Appairer' }).click()
+      await expect(resumed.getByRole('status')).toHaveText('Connectée')
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(2)
       await expect
         .poll(() => page.evaluate(() => localStorage.getItem('screenforge-mcp')))
@@ -276,7 +335,8 @@ test.describe('connexion MCP', () => {
 
       await page.getByRole('button', { name: 'Connexion MCP' }).click()
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByRole('button', { name: 'Activer' }).click()
+      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill('123456')
+      await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status')).toHaveText('Injoignable')
       await expectConnectionFlow(dialog, 0)
       await expect(dialog.getByRole('alert')).toContainText(/pnpm --filter mcp run start/)
@@ -295,7 +355,7 @@ test.describe('connexion MCP', () => {
       recovered = await startRelay(port)
       await dialog.getByRole('button', { name: 'Réessayer' }).click()
       await expect(dialog.getByRole('status')).toHaveText('Connectée')
-      await expectConnectionFlow(dialog, 3)
+      await expectConnectionFlow(dialog, 4)
     } finally {
       await recovered?.stop()
     }

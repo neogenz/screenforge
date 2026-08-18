@@ -1,9 +1,15 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
-import { AssetRefusedError, AssetVault } from './relay/assets.ts'
+import {
+  AssetRefusedError,
+  AssetVault,
+  MAX_ASSET_BYTES,
+  MAX_VAULT_ASSETS,
+  MAX_VAULT_BYTES,
+} from './relay/assets.ts'
 import { planAddImage } from './tools/add-image.ts'
 
 /**
@@ -16,7 +22,7 @@ import { planAddImage } from './tools/add-image.ts'
  * la main pour leur faire plaisir.
  */
 
-function pngBytes(width: number, height: number): Buffer {
+function pngBytes(width: number, height: number, totalBytes?: number): Buffer {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(width, 0)
   ihdr.writeUInt32BE(height, 4)
@@ -31,10 +37,11 @@ function pngBytes(width: number, height: number): Buffer {
     return Buffer.concat([head, data, Buffer.alloc(4)])
   }
   const raw = Buffer.alloc(height * (width * 4 + 1))
+  const imageData = totalBytes ? Buffer.alloc(totalBytes - 57) : deflateSync(raw)
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw)),
+    chunk('IDAT', imageData),
     chunk('IEND', Buffer.alloc(0)),
   ])
 }
@@ -94,6 +101,45 @@ describe('coffre d’assets', () => {
     expect(await vault.read('jamais-offert')).toBeNull()
   })
 
+  it('sert les octets inspectés même si le chemin est remplacé puis supprimé', async () => {
+    const dir = await sandbox()
+    const vault = new AssetVault()
+    const path = join(dir, 'capture.png')
+    const original = pngBytes(10, 20)
+    await writeFile(path, original)
+
+    const offered = await vault.offer(path)
+    await writeFile(path, pngBytes(30, 40))
+    await unlink(path)
+    const first = vault.read(offered.id)!
+    expect(first.bytes).toEqual(original)
+    first.bytes.fill(0)
+    expect(vault.read(offered.id)!.bytes).toEqual(original)
+  })
+
+  it('borne taille unitaire, nombre, total puis purge tout', async () => {
+    const dir = await sandbox()
+    const tooLarge = join(dir, 'trop.png')
+    await writeFile(tooLarge, Buffer.alloc(MAX_ASSET_BYTES + 1))
+    await expect(new AssetVault().offer(tooLarge)).rejects.toThrow(/trop lourd/)
+
+    const small = join(dir, 'petit.png')
+    await writeFile(small, pngBytes(1, 1))
+    const countVault = new AssetVault()
+    for (let index = 0; index < MAX_VAULT_ASSETS; index += 1) await countVault.offer(small)
+    await expect(countVault.offer(small)).rejects.toThrow(/fichiers au plus/)
+
+    const large = join(dir, 'large.png')
+    await writeFile(large, pngBytes(1, 1, MAX_VAULT_BYTES / 8))
+    const byteVault = new AssetVault()
+    const offered = []
+    for (let index = 0; index < 8; index += 1) offered.push(await byteVault.offer(large))
+    await expect(byteVault.offer(large)).rejects.toThrow(/64 Mo au total/)
+    byteVault.clear()
+    expect(byteVault.read(offered[0]!.id)).toBeNull()
+    await expect(byteVault.offer(small)).resolves.toMatchObject({ width: 1, height: 1 })
+  })
+
   it('nomme la cause de chaque refus', async () => {
     const dir = await sandbox()
     const vault = new AssetVault()
@@ -103,7 +149,13 @@ describe('coffre d’assets', () => {
     await expect(vault.offer(join(dir, 'absent.png'))).rejects.toThrow(/introuvable/)
 
     await writeFile(join(dir, 'vide.png'), Buffer.from([137, 80, 78, 71]))
-    await expect(vault.offer(join(dir, 'vide.png'))).rejects.toThrow(/Dimensions illisibles/)
+    await expect(vault.offer(join(dir, 'vide.png'))).rejects.toThrow(/Média invalide/)
+
+    await writeFile(
+      join(dir, 'actif.svg'),
+      '<svg width="1" height="1"><script>alert(1)</script></svg>',
+    )
+    await expect(vault.offer(join(dir, 'actif.svg'))).rejects.toThrow(/invalide ou actif/)
   })
 })
 

@@ -14,15 +14,24 @@ import { planRefreshRequest } from './tools/refresh-screenshots.ts'
  * et à quel moment le plafond mord.
  */
 
-/** Le plus petit PNG que `AssetVault` sait mesurer : un IHDR complet suffit. */
+/** PNG structurel minimal : IHDR, IDAT non vide puis IEND. */
 function png(width: number, height: number): Buffer {
-  const head = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0)
-  head.writeUInt32BE(13, 8)
-  head.write('IHDR', 12, 'ascii')
-  head.writeUInt32BE(width, 16)
-  head.writeUInt32BE(height, 20)
-  return head
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8)
+    head.writeUInt32BE(data.length)
+    head.write(type, 4, 'ascii')
+    return Buffer.concat([head, data, Buffer.alloc(4)])
+  }
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width)
+  header.writeUInt32BE(height, 4)
+  header.set([8, 6, 0, 0, 0], 8)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', Buffer.from([1])),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
 }
 
 async function directory(files: Record<string, Buffer | string>): Promise<string> {

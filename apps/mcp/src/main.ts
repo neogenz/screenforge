@@ -22,7 +22,12 @@ import { registerEditorTools } from './tools/editor-tools.ts'
  * les interfaces est un service exposé au réseau local, jeton ou pas.
  */
 
-const state = createRelayState()
+const state = createRelayState({
+  announce: (code, expiresAt) => {
+    const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
+    console.error(`Code d’appairage ScreenForge : ${code} (valable ${seconds} s)`)
+  },
+})
 const origins = allowedOrigins()
 const port = relayPort()
 const server = new McpServer({ name: 'screenforge', version: MCP_VERSION })

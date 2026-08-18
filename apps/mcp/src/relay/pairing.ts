@@ -1,41 +1,96 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 
-/**
- * Un jeton, tiré au démarrage, en mémoire, mort avec le processus.
- *
- * Le pont (`apps/bridge`) fait recopier son jeton à la main parce qu'il ouvre
- * deux capacités de confiance différentes et qu'en refuser une est un geste :
- * on ne recopie pas. Ici il n'y en a qu'une — « écrire dans le projet ouvert »
- * — et le geste qui l'accorde est ailleurs : c'est l'utilisateur qui active le
- * mode MCP dans l'éditeur. La page appelle alors `POST /pair` et reçoit le
- * jeton, sans que personne recopie rien.
- *
- * Ce qui garde cet échange fermé n'est donc pas le secret, c'est l'origine :
- * seule une page servie depuis une origine admise obtient le jeton, et une
- * page hostile ne peut pas mentir sur la sienne. Le jeton sert après, pour que
- * le flux et les réponses ne dépendent pas d'un en-tête que `EventSource` ne
- * sait pas poser.
- */
+export const PAIRING_CODE_TTL_MS = 5 * 60_000
+export const PAIRING_ATTEMPT_WINDOW_MS = 10 * 60_000
+export const MAX_PAIRING_ATTEMPTS = 5
 
-export interface Pairing {
-  token: string
-  version: number
+export interface PairingOptions {
+  now?: () => number
+  mintToken?: () => string
+  mintCode?: () => string
+  announce?: (code: string, expiresAt: number) => void
 }
 
 export function mintToken(): string {
   return randomBytes(32).toString('base64url')
 }
 
-export function createPairing(): Pairing {
-  return { token: mintToken(), version: 1 }
+const mintCode = () => randomInt(0, 1_000_000).toString().padStart(6, '0')
+
+/** Autorité éphémère du relais : code usage unique puis bearer en mémoire. */
+export class Pairing {
+  token: string
+  version = 1
+  readonly #now: () => number
+  readonly #mintToken: () => string
+  readonly #mintCode: () => string
+  readonly #announce: (code: string, expiresAt: number) => void
+  #code = ''
+  #expiresAt = 0
+  #attempts = 0
+  #windowStartedAt = 0
+
+  constructor(options: PairingOptions = {}) {
+    this.#now = options.now ?? Date.now
+    this.#mintToken = options.mintToken ?? mintToken
+    this.#mintCode = options.mintCode ?? mintCode
+    this.#announce = options.announce ?? (() => {})
+    this.token = this.#mintToken()
+    this.#rotateCode()
+  }
+
+  /** Rend un bearer neuf uniquement contre le code courant, une seule fois. */
+  pair(presented: string): string | null {
+    const now = this.#now()
+    if (now - this.#windowStartedAt >= PAIRING_ATTEMPT_WINDOW_MS) {
+      this.#windowStartedAt = now
+      this.#attempts = 0
+    }
+    if (now >= this.#expiresAt) this.#rotateCode()
+    if (this.#attempts >= MAX_PAIRING_ATTEMPTS || !equal(this.#code, presented)) {
+      this.#attempts += 1
+      return null
+    }
+    this.#attempts = 0
+    this.#windowStartedAt = now
+    this.token = this.#mintToken()
+    this.version += 1
+    this.#rotateCode()
+    return this.token
+  }
+
+  /** Invalide immédiatement bearer et code, puis annonce la prochaine preuve. */
+  revoke(): void {
+    this.token = this.#mintToken()
+    this.version += 1
+    this.#attempts = 0
+    this.#windowStartedAt = this.#now()
+    this.#rotateCode()
+  }
+
+  #rotateCode(): void {
+    let next = this.#mintCode()
+    for (let retry = 0; next === this.#code && retry < 8; retry += 1) next = this.#mintCode()
+    if (next === this.#code) throw new Error('PAIRING_CODE_ROTATION_FAILED')
+    this.#code = next
+    this.#expiresAt = this.#now() + PAIRING_CODE_TTL_MS
+    this.#announce(this.#code, this.#expiresAt)
+  }
 }
 
-/** Comparaison à durée constante ; `timingSafeEqual` lève sur des tampons inégaux. */
+/** Comparaison à durée constante, y compris quand les longueurs diffèrent. */
+function equal(expected: string, presented: string): boolean {
+  const given = Buffer.alloc(expected.length)
+  Buffer.from(presented).copy(given, 0, 0, expected.length)
+  return timingSafeEqual(Buffer.from(expected), given) && presented.length === expected.length
+}
+
+export function createPairing(options?: PairingOptions): Pairing {
+  return new Pairing(options)
+}
+
 export function verifyToken(pairing: Pairing, presented: string | undefined): boolean {
-  if (!presented) return false
-  const expected = Buffer.from(pairing.token)
-  const given = Buffer.from(presented)
-  return expected.length === given.length && timingSafeEqual(expected, given)
+  return presented !== undefined && equal(pairing.token, presented)
 }
 
 /** Extrait le jeton d'un en-tête `Authorization: Bearer …`. */

@@ -69,6 +69,8 @@ export interface RelayHello {
   token: string
 }
 
+export const relayPairSchema = z.object({ code: z.string().regex(/^\d{6}$/) }).strict()
+
 /**
  * Ce que le démon pousse dans le flux, en un seul événement `calls`.
  *

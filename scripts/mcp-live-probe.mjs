@@ -53,14 +53,18 @@ function pngHeader(width, height) {
   ihdr.writeUInt32BE(height, 4)
   ihdr[8] = 8
   ihdr[9] = 6
-  const head = Buffer.alloc(8)
-  head.writeUInt32BE(13, 0)
-  head.write('IHDR', 4, 'ascii')
+  /** @param {string} type @param {Buffer} data */
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(8)
+    head.writeUInt32BE(data.length, 0)
+    head.write(type, 4, 'ascii')
+    return Buffer.concat([head, data, Buffer.alloc(4)])
+  }
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    head,
-    ihdr,
-    Buffer.alloc(4),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', Buffer.from([1])),
+    chunk('IEND', Buffer.alloc(0)),
   ])
 }
 
@@ -241,10 +245,12 @@ class FakeEditor {
   }
 
   /** @param {Answer} answer */
-  async connect(answer) {
+  /** @param {Answer} answer @param {string} code */
+  async connect(answer, code) {
     const paired = await fetch(`${this.#base}/pair`, {
       method: 'POST',
-      headers: { Origin: ORIGIN },
+      headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
     })
     assert.equal(paired.status, 200, 'appairage refusé à une origine admise')
     this.#token = (await paired.json()).token
@@ -439,7 +445,9 @@ async function main() {
     assert.match(refusal, /"enum"/, 'le refus ne liste pas les valeurs admises')
 
     // 3. Éditeur branché : l'aller-retour aboutit, et la lecture voit son état.
-    await editor.connect((request) => ({ applied: request.calls?.length ?? 0 }))
+    const code = /Code d’appairage ScreenForge : (\d{6})/.exec(client.stderr)?.[1]
+    assert.ok(code, 'le démon n’a pas annoncé son code sur stderr')
+    await editor.connect((request) => ({ applied: request.calls?.length ?? 0 }), code)
 
     const round = await client.send('tools/call', {
       name: 'screenforge_add_screen',

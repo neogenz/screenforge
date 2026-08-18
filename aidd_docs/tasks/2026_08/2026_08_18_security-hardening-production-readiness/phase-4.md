@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Sécuriser l’appairage MCP et son coffre d’assets
@@ -19,16 +19,19 @@ status: pending
 │   │   ├── session.ts                                  ✏️ coupure des appels en vol
 │   │   └── assets.ts                                   ✏️ octets immuables et coffre borné
 │   ├── relay.test.ts                                   ✏️ appairage attaque rotation revoke
-│   └── assets.test.ts                                  ✏️ TOCTOU limites et purge
+│   ├── assets.test.ts                                  ✏️ TOCTOU limites et purge
+│   └── refresh.test.ts                                 ✏️ médias structurels partagés
 ├── apps/web/src/
 │   ├── lib/mcp/client.ts                               ✏️ code explicite reconnexion et unpair
 │   ├── stores/mcp.store.ts                             ✏️ étape d’appairage sans jeton
 │   └── components/mcp/McpDialog.tsx                    ✏️ champ code et révocation accessible
-└── apps/web/e2e/
-    ├── mcp-relay.ts                                    ✏️ fixture du code éphémère
-    ├── mcp-live.spec.ts                                ✏️ parcours clavier et reconnexion
-    ├── mcp-assets.spec.ts                              ✏️ octets validés de bout en bout
-    └── semantics.spec.ts                               ✏️ rôles focus et annonces
+├── apps/web/e2e/
+│   ├── mcp-relay.ts                                    ✏️ fixture du code éphémère
+│   ├── mcp-live.spec.ts                                ✏️ parcours clavier et reconnexion
+│   ├── mcp-templates.spec.ts                           ✏️ réappairage explicite après reload
+│   ├── mcp-assets.spec.ts                              ✏️ octets validés de bout en bout
+│   └── semantics.spec.ts                               ✏️ rôles focus et annonces
+└── scripts/mcp-live-probe.mjs                          ✏️ code stderr et média structurel réel
 
 ❌ Aucun fichier supprimé.
 ```
