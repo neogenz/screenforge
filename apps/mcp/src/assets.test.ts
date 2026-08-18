@@ -140,6 +140,26 @@ describe('coffre d’assets', () => {
     await expect(byteVault.offer(small)).resolves.toMatchObject({ width: 1, height: 1 })
   })
 
+  it('sérialise les offres concurrentes et invalide celles précédant une purge', async () => {
+    const dir = await sandbox()
+    const small = join(dir, 'petit.png')
+    await writeFile(small, pngBytes(1, 1))
+    const vault = new AssetVault()
+
+    const concurrent = await Promise.allSettled(
+      Array.from({ length: MAX_VAULT_ASSETS + 1 }, () => vault.offer(small)),
+    )
+    expect(concurrent.filter((result) => result.status === 'fulfilled')).toHaveLength(
+      MAX_VAULT_ASSETS,
+    )
+    expect(concurrent.filter((result) => result.status === 'rejected')).toHaveLength(1)
+
+    const pending = new AssetVault()
+    const offered = pending.offer(small)
+    pending.clear()
+    await expect(offered).rejects.toThrow(/révoqué/)
+  })
+
   it('nomme la cause de chaque refus', async () => {
     const dir = await sandbox()
     const vault = new AssetVault()

@@ -166,11 +166,11 @@ Tout ce qui est écrit part sur `stderr` : `stdout` est le canal JSON-RPC, et un
 1. Ouvrez ScreenForge (`pnpm run dev`, ou la version déployée servie en local).
 2. Activez « Connexion MCP » dans la barre du haut.
 
-L'onglet appelle `POST /pair`, reçoit un jeton et ouvre son flux. Aucun secret à
-recopier : ce qui garde l'échange fermé n'est pas le jeton mais l'**origine** —
-seule une page servie depuis une origine admise l'obtient, et une page hostile
-ne peut pas mentir sur la sienne. Le jeton sert ensuite, pour que le flux et les
-réponses ne dépendent pas d'un en-tête qu'`EventSource` ne sait pas poser.
+Le démon affiche un code à six chiffres valable cinq minutes. Recopiez-le dans
+ScreenForge : l'onglet l'envoie à `POST /pair`, reçoit un jeton à usage de
+session et ouvre son flux. Le code ne peut être rejoué et cinq essais infructueux
+bloquent temporairement l'appairage. Désactiver la connexion révoque le jeton,
+les appels en vol et le coffre d'assets côté démon.
 
 Le démon écoute sur `127.0.0.1:4591`, jamais sur `0.0.0.0`. Les origines admises
 sont celles des serveurs de développement (5173, 4173, 5199) ; ajoutez-en avec

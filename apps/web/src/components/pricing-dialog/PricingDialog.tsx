@@ -5,6 +5,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { billingConfigured, createCheckout, createPortalSession } from '@/lib/account'
 import type { Entitlements } from '@/lib/entitlements'
 import { formatGrantDate, PLANS, type Plan, type SellableProduct } from '@/lib/plans'
+import { afterProjectSaved } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from '@/stores/toast.store'
@@ -33,7 +34,11 @@ function PricingDialogContent() {
     /* Le succès ne repasse pas ici : la page part chez Polar. Seul l'échec
        revient, et il faut alors rendre le bouton. */
     if (outcome.ok) {
-      window.location.assign(outcome.url)
+      try {
+        await afterProjectSaved(() => window.location.assign(outcome.url))
+      } catch {
+        setPending(null)
+      }
       return
     }
     setPending(null)
@@ -44,7 +49,11 @@ function PricingDialogContent() {
     setPending('portal')
     const url = await createPortalSession()
     if (url) {
-      window.location.assign(url)
+      try {
+        await afterProjectSaved(() => window.location.assign(url))
+      } catch {
+        setPending(null)
+      }
       return
     }
     setPending(null)

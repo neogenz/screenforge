@@ -167,7 +167,7 @@ http.route({
         'Content-Type': found.contentType,
         /* Privé : la réponse porte les octets d'un compte, et un cache partagé
            les servirait au suivant qui demande la même URL. */
-        'Cache-Control': 'private, max-age=31536000, immutable',
+        'Cache-Control': 'private, no-store',
       },
     })
   }),

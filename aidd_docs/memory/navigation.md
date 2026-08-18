@@ -5,6 +5,7 @@
 - ScreenForge is a single-workspace application with no client router, no URL routes and no protected areas. Sign-in, pricing and account are dialogs, not pages — the deliberate consequence of the app being one screen.
 - Navigation state lives in the UI and project stores; overlays and dialogs are lazy-mounted from `src/App.tsx`.
 - The only URL parameter consumed is `?checkout=success` on return from Polar; it is removed as soon as it is read.
+- OAuth, Polar checkout, the billing portal and controlled recovery reloads wait for the active project save; a storage failure keeps the user in place.
 
 ## Structure
 

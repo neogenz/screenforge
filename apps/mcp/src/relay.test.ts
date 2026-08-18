@@ -134,6 +134,17 @@ describe('appairage', () => {
     ).toBe(401)
   })
 
+  it('refuse une préparation liée à une connexion révoquée', async () => {
+    const session = new RelaySession()
+    session.attach({ send: () => undefined, close: () => undefined })
+    const lease = session.lease()
+    session.revoke()
+    session.attach({ send: () => undefined, close: () => undefined })
+    await expect(
+      session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] }, lease),
+    ).rejects.toBeInstanceOf(AppUnavailableError)
+  })
+
   it('refuse le flux et les réponses sans le jeton', async () => {
     const { app } = relay()
     expect((await app.request('/events?token=faux', { headers: { Origin: ORIGIN } })).status).toBe(

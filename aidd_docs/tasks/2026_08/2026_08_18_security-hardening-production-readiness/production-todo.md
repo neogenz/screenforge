@@ -5,6 +5,7 @@ Cette checklist ne contient volontairement ni valeur d’environnement, ni ident
 ## Avant `GO DOMAIN`
 
 - [ ] Fusionner uniquement un candidat dont Quality, la Preview Vercel, le gate release, Gitleaks, la review AIDD et le rescan sécurité sont verts sur le même SHA.
+- [ ] Créer un ruleset GitHub `v*` réservé à la Release GitHub App, interdire mise à jour et suppression manuelles des tags, puis conserver l'approbation humaine de l'Environment `production` comme second verrou.
 - [ ] Fermer ou accepter explicitement chaque finding de sécurité; aucun finding critique, élevé, secret exposé ou contournement d’entitlement ne peut être accepté.
 - [ ] Terminer Polar Sandbox : achat, relivraison idempotente, annulation/échéance et restauration du droit propriétaire.
 - [ ] Terminer le test Resend de préproduction et la synchronisation réelle projet, image et settings entre deux profils.

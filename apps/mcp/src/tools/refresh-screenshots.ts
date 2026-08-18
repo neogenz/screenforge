@@ -154,8 +154,10 @@ export async function refreshScreenshots(
   vault: AssetVault,
   args: RefreshArgs,
 ): Promise<CallToolResult> {
+  let lease: number
   let request: RelayRefresh
   try {
+    lease = session.lease()
     request = await planRefreshRequest(vault, args)
   } catch (error) {
     return {
@@ -173,7 +175,7 @@ export async function refreshScreenshots(
   }
 
   try {
-    const result = await session.dispatch({ refreshScreenshots: request })
+    const result = await session.dispatch({ refreshScreenshots: request }, lease)
     if (!isRefreshed(result)) {
       return { content: [{ type: 'text', text: 'L’éditeur n’a rien reposé.' }], isError: true }
     }

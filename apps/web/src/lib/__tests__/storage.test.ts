@@ -3,6 +3,7 @@ import { openDB } from 'idb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib/assets'
 import {
+  afterProjectSaved,
   adoptRemoteProject,
   deleteProject,
   initAutoSave,
@@ -302,6 +303,20 @@ describe('storage', () => {
     const db = await database()
     expect(await db.get('projects', 'project')).toBeUndefined()
     db.close()
+  })
+
+  it('termine l’autosave avant une navigation contrôlée', async () => {
+    await saveProject(project('Before'))
+    useProjectStore.getState().loadProject(project('Before'))
+    const unsubscribe = initAutoSave()
+    useProjectStore.getState().updateProjectName('After')
+
+    await afterProjectSaved(async () => {
+      const db = await database()
+      expect((await db.get('projects', 'project')) as Project).toMatchObject({ name: 'After' })
+      db.close()
+    })
+    unsubscribe()
   })
 
   it('migrates inline data and removes persisted orphans on load', async () => {

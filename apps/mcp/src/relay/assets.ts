@@ -34,8 +34,21 @@ type StoredAsset = OfferedAsset & { bytes: Buffer }
 export class AssetVault {
   readonly #offered = new Map<string, StoredAsset>()
   #bytes = 0
+  #epoch = 0
+  #tail: Promise<void> = Promise.resolve()
 
-  async offer(path: string): Promise<OfferedAsset> {
+  offer(path: string): Promise<OfferedAsset> {
+    const epoch = this.#epoch
+    const operation = this.#tail.then(() => this.#offer(path, epoch))
+    this.#tail = operation.then(
+      () => undefined,
+      () => undefined,
+    )
+    return operation
+  }
+
+  async #offer(path: string, epoch: number): Promise<OfferedAsset> {
+    if (epoch !== this.#epoch) throw new AssetRefusedError('Le coffre a été révoqué.')
     if (!isAbsolute(path)) {
       throw new AssetRefusedError(
         `Chemin relatif : « ${path} ». Donnez le chemin absolu du fichier.`,
@@ -79,6 +92,7 @@ export class AssetVault {
     if (this.#bytes + bytes.length > MAX_VAULT_BYTES) {
       throw new AssetRefusedError('Coffre plein : 64 Mo au total.')
     }
+    if (epoch !== this.#epoch) throw new AssetRefusedError('Le coffre a été révoqué.')
 
     const stored: StoredAsset = {
       id: randomBytes(12).toString('hex'),
@@ -110,6 +124,7 @@ export class AssetVault {
   }
 
   clear(): void {
+    this.#epoch += 1
     this.#offered.clear()
     this.#bytes = 0
   }

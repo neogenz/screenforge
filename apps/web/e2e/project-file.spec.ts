@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import { decode } from 'fast-png'
 import JSZip from 'jszip'
 import { addDeviceLayer, downloadFirstExportedPng, readDownload, waitForApp } from './helpers'
@@ -14,7 +15,7 @@ interface PortableFixture {
   }
 }
 
-const OVERSIZED_ASSET_BYTES = 64 * 1024 * 1024 + 1
+const OVERSIZED_ASSET_BYTES = 16 * 1024 * 1024 + 1
 
 function withCentralUncompressedSize(
   source: Uint8Array,
@@ -36,16 +37,24 @@ function withCentralUncompressedSize(
 }
 
 async function portableFixture(page: Page): Promise<PortableFixture> {
-  return page.evaluate(async () => {
+  const fixturePngs = [
+    Array.from(makeSolidPng(2, 2, [34, 197, 94, 255])),
+    Array.from(makeSolidPng(2, 2, [59, 130, 246, 255])),
+    Array.from(makeSolidPng(2, 2, [244, 63, 94, 255])),
+  ]
+  return page.evaluate(async (rawPngs) => {
     const projectFilePath = '/src/lib/project-file.ts'
     const { clearAssets, registerAsset } = window.__sfAssets!
     const { createProjectFile, readProjectFile } = (await import(
       projectFilePath
     )) as typeof import('../src/lib/project-file')
     clearAssets()
-    const imageId = registerAsset('data:image/png;base64,aW1hZ2U=')
-    const screenshotId = registerAsset('data:image/jpeg;base64,c2NyZWVuc2hvdA==')
-    const bezelId = registerAsset('data:image/png;base64,YmV6ZWw=')
+    const pngs = rawPngs.map(
+      (rawPng) => `data:image/png;base64,${btoa(String.fromCharCode(...rawPng))}`,
+    )
+    const imageId = registerAsset(pngs[0]!)
+    const screenshotId = registerAsset(pngs[1]!)
+    const bezelId = registerAsset(pngs[2]!)
     const now = Date.now()
     const base = {
       x: 10,
@@ -135,7 +144,34 @@ async function portableFixture(page: Page): Promise<PortableFixture> {
         assets: candidate.assets,
       },
     }
-  })
+  }, fixturePngs)
+}
+
+async function replaceFirstAsset(
+  source: Uint8Array,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(source)
+  const manifest = JSON.parse(await zip.file('project.json')!.async('string')) as {
+    assets: Array<{
+      id: string
+      path: string
+      mimeType: string
+      byteLength: number
+      sha256: string
+    }>
+  }
+  const descriptor = manifest.assets[0]!
+  const oldPath = descriptor.path
+  descriptor.mimeType = mimeType
+  descriptor.path = `assets/${descriptor.id}.${mimeType === 'image/svg+xml' ? 'svg' : mimeType === 'image/jpeg' ? 'jpg' : 'png'}`
+  descriptor.byteLength = bytes.byteLength
+  descriptor.sha256 = createHash('sha256').update(bytes).digest('hex')
+  zip.remove(oldPath)
+  zip.file(descriptor.path, bytes, { createFolders: false })
+  zip.file('project.json', JSON.stringify(manifest))
+  return zip.generateAsync({ type: 'uint8array' })
 }
 
 async function readArchive(page: Page, bytes: Uint8Array) {
@@ -314,6 +350,11 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     missingManifest.assets[0].path,
     OVERSIZED_ASSET_BYTES,
   )
+  const activeSvg = await replaceFirstAsset(
+    source,
+    new TextEncoder().encode('<svg width="1" height="1"><script>alert(1)</script></svg>'),
+    'image/svg+xml',
+  )
 
   expect(
     await Promise.all([
@@ -331,6 +372,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
       readArchive(page, duplicateLayerId),
       readArchive(page, legacyShape),
       readArchive(page, oversizedCentralEntry),
+      readArchive(page, activeSvg),
     ]),
   ).toEqual([
     'unsupported-version',
@@ -347,6 +389,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     'invalid-manifest',
     'ok',
     'asset-too-large',
+    'corrupt-asset',
   ])
 })
 

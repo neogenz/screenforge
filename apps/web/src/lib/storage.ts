@@ -564,6 +564,12 @@ export async function saveCurrentProject(): Promise<void> {
   await flushPendingSave()
 }
 
+/** Termine l'autosave avant un geste contrôlé qui quitte le document. */
+export async function afterProjectSaved<T>(action: () => T | Promise<T>): Promise<T> {
+  await saveCurrentProject()
+  return await action()
+}
+
 export function initAutoSave(): () => void {
   const unsubscribe = useProjectStore.subscribe((state, previous) => {
     if (

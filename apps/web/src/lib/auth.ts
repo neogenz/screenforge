@@ -1,5 +1,6 @@
 import { authActions } from '@/lib/auth-actions'
 import { cloudConfigured, errorCode } from '@/lib/convex'
+import { afterProjectSaved } from '@/lib/storage'
 import { toast } from '@/stores/toast.store'
 
 export type OAuthProvider = 'google' | 'github'
@@ -57,7 +58,7 @@ export async function signInWithProvider(provider: OAuthProvider) {
     const { signIn } = await authActions()
     /* Cet appel quitte la page : il n'y a pas de « succès » à observer ici, seul
        un échec revient, et il revient avant la redirection. */
-    await signIn(provider, { redirectTo: editorUrl() })
+    await afterProjectSaved(() => signIn(provider, { redirectTo: editorUrl() }))
     return { error: null }
   } catch (error) {
     return { error: readable(error) }

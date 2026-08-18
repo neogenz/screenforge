@@ -306,7 +306,7 @@ test.describe('Sync cloud', () => {
         rejectedId,
         new Blob([sizedPng(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
       ).catch((error: unknown) => {
-        expect(error).toBeInstanceOf(TypeError)
+        expect(error).toBeInstanceOf(Error)
         return null
       })
       if (rejected) expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })

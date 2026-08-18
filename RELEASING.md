@@ -6,6 +6,9 @@ ScreenForge has one version and one production path. Do not create or move a
 ## Prerequisites
 
 - `main` accepts squash merges only and requires the Quality checks.
+- A GitHub ruleset reserves creation of `v*` tags to the Release GitHub App and
+  forbids their manual update or deletion. The `production` Environment keeps a
+  human approval as a second release gate.
 - The release GitHub App is installed only on this repository. Its client ID is
   stored as `RELEASE_APP_CLIENT_ID`; its private key is stored as
   `RELEASE_APP_PRIVATE_KEY`.
@@ -32,7 +35,8 @@ real `vercel build --prod` pass without it.
    and absence of obsolete Local-paid wording.
 4. Merge that pull request only after every required check is green. Release
    Please creates the immutable tag and GitHub Release.
-5. Follow `Deploy Production`: tag provenance and the complete release gate run
+5. Follow `Deploy Production`: the tag must equal the fetched `origin/main` HEAD,
+   then the complete release gate runs
    without production secrets; only the second job may enter the production
    Environment.
 6. The workflow checks the currently deployed Convex configuration, builds one

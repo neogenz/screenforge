@@ -51,6 +51,7 @@ export class RelaySession {
   #connection: AppConnection | null = null
   #pending = new Map<string, Pending>()
   #state: unknown = null
+  #epoch = 0
   readonly #newId: () => string
   readonly #timeoutMs: number
 
@@ -68,6 +69,12 @@ export class RelaySession {
     return this.#state
   }
 
+  /** Identifie la connexion courante pendant une préparation asynchrone. */
+  lease(): number {
+    if (!this.#connection) throw new AppUnavailableError()
+    return this.#epoch
+  }
+
   /**
    * Branche un éditeur, en évinçant celui qui tenait la place.
    *
@@ -77,6 +84,7 @@ export class RelaySession {
    */
   attach(connection: AppConnection): void {
     const previous = this.#connection
+    this.#epoch += 1
     this.#connection = connection
     this.#state = null
     if (previous) {
@@ -94,6 +102,7 @@ export class RelaySession {
    */
   detach(connection: AppConnection): void {
     if (this.#connection !== connection) return
+    this.#epoch += 1
     this.#connection = null
     this.#state = null
     this.#failAll('L’éditeur ScreenForge s’est déconnecté avant de répondre.')
@@ -102,6 +111,7 @@ export class RelaySession {
   /** Coupe la capacité côté démon, y compris les appels déjà partis. */
   revoke(): void {
     const connection = this.#connection
+    this.#epoch += 1
     this.#connection = null
     this.#state = null
     this.#failAll('La connexion MCP a été révoquée.')
@@ -131,9 +141,9 @@ export class RelaySession {
    * Les dédoubler aurait dupliqué la corrélation et les trois façons dont elle
    * échoue.
    */
-  dispatch(payload: Omit<RelayRequest, 'id'>): Promise<unknown> {
+  dispatch(payload: Omit<RelayRequest, 'id'>, lease = this.#epoch): Promise<unknown> {
     const connection = this.#connection
-    if (!connection) return Promise.reject(new AppUnavailableError())
+    if (!connection || lease !== this.#epoch) return Promise.reject(new AppUnavailableError())
     const id = this.#newId()
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {

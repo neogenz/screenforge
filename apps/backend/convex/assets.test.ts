@@ -59,6 +59,7 @@ describe('upload asset possédé par le serveur', () => {
 
     const response = await t.withIdentity({ subject: userId }).fetch('/asset/gros')
     expect(response.headers.get('Content-Type')).toBe(PNG)
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     const received = new Uint8Array(await response.arrayBuffer())
     expect(received.byteLength).toBe(MAX_IMAGE_FILE_BYTES)
     expect(received[0]).toBe(137)

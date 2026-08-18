@@ -1,5 +1,6 @@
 import type JSZip from 'jszip'
 import type { JSZipObject } from 'jszip'
+import { inspectMedia } from '@screenforge/project-format/media-validation'
 import { resolveAsset } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { sha256Hex } from '@/lib/hash'
@@ -9,7 +10,7 @@ import type { Project } from '@/types'
 export const PROJECT_FILE_EXTENSION = '.screenforge.zip'
 export const PROJECT_FILE_MIME = 'application/zip'
 export const MAX_PROJECT_FILE_BYTES = 256 * 1024 * 1024
-export const MAX_PROJECT_ASSET_BYTES = 64 * 1024 * 1024
+export const MAX_PROJECT_ASSET_BYTES = 16 * 1024 * 1024
 export const MAX_PROJECT_TOTAL_ASSET_BYTES = 256 * 1024 * 1024
 export const MAX_PROJECT_FILE_ENTRIES = 128
 
@@ -150,6 +151,7 @@ async function dataUrlBytes(
   const bytes = new Uint8Array(await blob.arrayBuffer())
   if (bytes.byteLength === 0) throw new ProjectFileError('invalid-manifest')
   if (bytes.byteLength > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
+  if (!inspectMedia(bytes, blob.type)) throw new ProjectFileError('corrupt-asset')
   return { mimeType: blob.type, bytes }
 }
 
@@ -362,6 +364,7 @@ export async function readProjectFile(file: File): Promise<DecodedProjectFile> {
       ) {
         throw new ProjectFileError('corrupt-asset')
       }
+      if (!inspectMedia(bytes, descriptor.mimeType)) throw new ProjectFileError('corrupt-asset')
       return {
         id: descriptor.id,
         dataUrl: await blobAsDataUrl(

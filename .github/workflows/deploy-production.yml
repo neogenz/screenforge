@@ -46,7 +46,7 @@ jobs:
           pnpm run test:release-tag
           pnpm run verify:release-tag "$RELEASE_TAG"
           git fetch --no-tags origin main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)"
       - name: Run release gate
         run: pnpm run test:release
       - name: Scan Playwright diagnostics before upload

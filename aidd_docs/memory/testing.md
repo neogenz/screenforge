@@ -8,6 +8,7 @@
 - `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape.
 - `apps/backend/convex/*.test.ts` run under `convex-test` and cover authorization from the attacker's point of view. Only the third party is faked: real webhook signatures, the real SDK parser, the real mutations.
 - What the simulator does **not** cover is exercised by the strict Playwright gate against the real local engine: document size limits, cron execution, and transport behavior. Only failures specific to hosted infrastructure remain manual.
+- Security regressions exercise concurrent MCP offers and revocation leases, authenticated cache headers, hostile portable archives and the exact release-tag provenance check.
 
 ## Tools
 

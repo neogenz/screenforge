@@ -1,6 +1,6 @@
 import { Component, createRef, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { deleteProject } from '@/lib/storage'
+import { afterProjectSaved, deleteProject } from '@/lib/storage'
 import { useProjectStore } from '@/stores/project.store'
 
 interface ErrorBoundaryProps {
@@ -9,12 +9,18 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   failed: boolean
+  reloadError: boolean
   resetting: boolean
   resetError: boolean
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { failed: false, resetting: false, resetError: false }
+  state: ErrorBoundaryState = {
+    failed: false,
+    reloadError: false,
+    resetting: false,
+    resetError: false,
+  }
   private reloadButton = createRef<HTMLButtonElement>()
 
   static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
@@ -29,7 +35,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!previousState.failed && this.state.failed) this.reloadButton.current?.focus()
   }
 
-  private reload = (): void => window.location.reload()
+  private reload = async (): Promise<void> => {
+    this.setState({ reloadError: false })
+    try {
+      await afterProjectSaved(() => window.location.reload())
+    } catch (error) {
+      console.error('Could not save before reloading.', error)
+      this.setState({ reloadError: true })
+    }
+  }
 
   private resetProject = async (): Promise<void> => {
     if (!window.confirm('Supprimer le projet actif et ses ressources locales ?')) return
@@ -68,8 +82,19 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               La réinitialisation a échoué. Le projet a été conservé.
             </p>
           )}
+          {this.state.reloadError && (
+            <p role="status" className="mt-3 text-sm text-destructive">
+              La sauvegarde a échoué. Le projet reste ouvert pour éviter de perdre vos
+              modifications.
+            </p>
+          )}
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button ref={this.reloadButton} variant="primary" size="lg" onClick={this.reload}>
+            <Button
+              ref={this.reloadButton}
+              variant="primary"
+              size="lg"
+              onClick={() => void this.reload()}
+            >
               Recharger l’application
             </Button>
             <Button

@@ -17,7 +17,7 @@
 - Convention: Conventional Commits.
 - Observed formats: `feat:`, `fix(scope):`, `refactor:`, `test:`, and `docs:` followed by a concise imperative description.
 - Pull-request titles follow Conventional Commits because squash merge makes the title the commit on `main`; release tags are never created manually.
-- Public-repository rulesets require reviewed, strictly green pull requests on `main` and protect `v*` tags from manual creation, update, or deletion.
+- Public-repository rulesets must require reviewed, strictly green pull requests on `main`; before production, a `v*` ruleset must reserve tag creation to the Release GitHub App and forbid manual update or deletion. The deploy workflow also requires the tagged SHA to equal the fetched `origin/main` HEAD.
 - The official Vercel Git integration is scoped to this repository. Internal
   branches may create protected Previews, `main` is disabled by `vercel.json`,
   and forks remain protected; the Vercel check stays informative until bot

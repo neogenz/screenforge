@@ -26,6 +26,9 @@ export function auditDeploymentConfig(workflows, vercel) {
   const production = workflows['deploy-production.yml'] ?? ''
   if (!/tags:\s*\n\s*- ['"]v\*['"]/.test(production)) findings.push('production:tag-trigger')
   if (/^\s{0,6}branches\s*:/m.test(production)) findings.push('production:branch-trigger')
+  if (!production.includes('test "$GITHUB_SHA" = "$(git rev-parse origin/main)"')) {
+    findings.push('production:tag-must-match-main-head')
+  }
   for (const secret of ['CONVEX_DEPLOY_KEY', 'VERCEL_TOKEN']) {
     for (const line of production
       .split('\n')
@@ -58,7 +61,7 @@ export function auditDeploymentConfig(workflows, vercel) {
 }
 
 function selfTest() {
-  const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy Convex production backend\n      - name: Check candidate Convex production configuration\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
+  const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  validate:\n    steps:\n      - run: test "$GITHUB_SHA" = "$(git rev-parse origin/main)"\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy Convex production backend\n      - name: Check candidate Convex production configuration\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
   assert.deepEqual(
     auditDeploymentConfig(
       { 'deploy-production.yml': valid },
@@ -70,6 +73,7 @@ function selfTest() {
     ['scope', valid.replace('          CONVEX_', '      CONVEX_')],
     ['branch-trigger', `${valid}\nbranches: [main]\n`],
     ['missing-skip-domain', valid.replace('--skip-domain', '')],
+    ['tag-must-match-main-head', valid.replace('test "$GITHUB_SHA" =', 'test "$GITHUB_SHA" !=')],
     ['step-order', valid.replace('name: Promote tested candidate', 'name: Promote too early')],
   ])
     assert.ok(
