@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: prouver le parcours complet et itérer jusqu'au vert

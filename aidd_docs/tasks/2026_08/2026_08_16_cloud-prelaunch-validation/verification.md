@@ -9,13 +9,13 @@ compte, URL temporaire ni capture de console sensible.
 
 | Surface | Preuve attendue | État | Date | Commit ou URL publique stable |
 | --- | --- | --- | --- | --- |
-| Preflight expurgé | Configuration complète ou noms/règles seulement | vert local | 2026-08-16 | commit de phase 1 |
+| Preflight expurgé | Configuration complète ou noms/règles seulement | vert local et préproduction | 2026-08-18 | `1b75f93` |
 | Convex préproduction | Auth, projets, images et settings sur deux sessions | vert | 2026-08-17 | commit de phase 2 |
 | Resend test | Lien livré uniquement au destinataire autorisé | vert | 2026-08-17 | `ac7d120` |
 | Compte propriétaire | Cloud complémentaire actif, aucun rôle admin | vert | 2026-08-17 | `ac7d120` |
 | Polar Sandbox | Achat, relivraison, révocation et signature | achat, signature et relivraison verts; révocation à valider | 2026-08-18 | commit de phase 3 |
-| Preview Vercel | Local puis Cloud sur Convex préproduction uniquement | à valider | — | — |
-| Sauvegarde | Restauration cohérente dans une cible jetable | à valider | — | — |
+| Preview Vercel | Intégration Git, protection, build et smokes; parcours Cloud navigateur restant | vert technique, QA partielle | 2026-08-18 | `1b75f93` |
+| Sauvegarde | Restauration cohérente dans une cible jetable | bloquée avant export réel | 2026-08-18 | accord payload requis |
 | Production | Aucun tag, domaine ou paiement réel avant les gates | protégé | 2026-08-16 | workflow tagué |
 
 ## Asserts
@@ -65,6 +65,16 @@ compte, URL temporaire ni capture de console sensible.
   dans les logs.
 - GitHub : dépôt public, secret scanning et push protection actifs, rulesets
   branche et tags actifs; aucun tag v1 créé.
+- Preview : l'intégration Git officielle est reliée au seul dépôt; fork et
+  authentification de déploiement sont actifs. Un push interne a produit une
+  Preview protégée `Ready` sur le SHA candidat. Les trois documents passent les
+  smokes authentifiés. Preview ne porte que le nom public `VITE_CONVEX_URL`; le
+  suffixe d'origine existe seulement en préproduction et le preflight y retourne
+  `ready: true` sans diagnostic.
+- Restauration : une cible locale jetable vide a été préparée puis supprimée.
+  Aucun export n'a été créé, car le snapshot complet aurait copié des données
+  utilisateur réelles et exige une autorisation dédiée au payload. Cette preuve
+  reste donc ouverte; aucune donnée préproduction n'a été modifiée ou copiée.
 
 ## Review
 
@@ -92,3 +102,5 @@ compte, URL temporaire ni capture de console sensible.
   réelles de préproduction.
 - Aucune capture, adresse, URL éphémère, identifiant ou sortie sensible n'est
   publiée dans cette preuve.
+- Preview Vercel : build Git et smokes protégés verts; le parcours Cloud humain
+  sur cette URL reste à exécuter avant de clore la phase.

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: Exécuter le sous-plan Previews Vercel par pull request
