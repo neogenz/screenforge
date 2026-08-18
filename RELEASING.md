@@ -23,16 +23,19 @@ real `vercel build --prod` pass without it.
 
 ## Release
 
-1. Merge conventional pull requests into `main` (`feat`, `fix`, `perf`,
+1. Push an internal branch and review its protected Vercel Preview. Git
+   deployments are disabled for `main`; forks remain blocked until explicitly
+   authorized and should instead be replayed on a reviewed internal branch.
+2. Merge conventional pull requests into `main` (`feat`, `fix`, `perf`,
    `refactor`, `docs`, `test`, `build`, `ci` or `chore`).
-2. Review the single Release Please pull request: version, `CHANGELOG.md`, CI
+3. Review the single Release Please pull request: version, `CHANGELOG.md`, CI
    and absence of obsolete Local-paid wording.
-3. Merge that pull request only after every required check is green. Release
+4. Merge that pull request only after every required check is green. Release
    Please creates the immutable tag and GitHub Release.
-4. Follow `Deploy Production`: tag provenance and the complete release gate run
+5. Follow `Deploy Production`: tag provenance and the complete release gate run
    without production secrets; only the second job may enter the production
    Environment.
-5. The workflow checks the currently deployed Convex configuration, builds one
+6. The workflow checks the currently deployed Convex configuration, builds one
    staged Vercel deployment, deploys Convex, checks the candidate backend,
    smoke-tests the staged URL, promotes that exact build and audits the public
    headers. Each provider credential exists only in the steps that call it.

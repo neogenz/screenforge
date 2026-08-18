@@ -36,6 +36,7 @@ type Env = {
   readonly POLAR_SERVER: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
   readonly SITE_URL: string | undefined;
+  readonly VERCEL_PREVIEW_HOST_SUFFIX: string | undefined;
 };
 
 /**

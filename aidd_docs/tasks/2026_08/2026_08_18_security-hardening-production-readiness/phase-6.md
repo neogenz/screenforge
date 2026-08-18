@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: Terminer les Previews Vercel et les preuves préproduction

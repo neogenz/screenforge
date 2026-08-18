@@ -6,6 +6,7 @@ import { env, httpAction } from './_generated/server'
 import { auth } from './auth'
 import { webhook } from './billing'
 import { MAX_IMAGE_FILE_BYTES, MAX_PROJECT_BLOB_BYTES } from './media'
+import { configuredOrigins, isAllowedOrigin } from './origins'
 
 /**
  * Les routes HTTP du déploiement, servies sur `<deployment>.convex.site`.
@@ -32,14 +33,6 @@ function tail(url: string): string | null {
   return segment.length > 0 ? decodeURIComponent(segment) : null
 }
 
-const LOCAL_CORS_ORIGINS = new Set([
-  'http://localhost:5173',
-  'http://localhost:5198',
-  'http://localhost:5199',
-  'http://localhost:5200',
-  'http://127.0.0.1:5173',
-])
-
 const CORS_BASE = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -51,34 +44,17 @@ const CORS_BASE = {
  * valeur présente doit être une liste d'origines canoniques séparées par des
  * virgules : ni chemin, ni joker, ni HTTP distant. Toute erreur ferme CORS.
  */
-function configuredCorsOrigins(): ReadonlySet<string> | null {
-  const configured = env.CORS_ALLOWED_ORIGINS
-  if (configured === undefined) return LOCAL_CORS_ORIGINS
-  if (configured.trim().length === 0) return null
-
-  const origins = new Set<string>()
-  for (const candidate of configured.split(',').map((value) => value.trim())) {
-    try {
-      const url = new URL(candidate)
-      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-      if (
-        candidate !== url.origin ||
-        (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
-      ) {
-        return null
-      }
-      origins.add(candidate)
-    } catch {
-      return null
-    }
-  }
-  return origins.size > 0 ? origins : null
-}
-
 function corsHeaders(request: Request): Record<string, string> | null {
   const origin = request.headers.get('Origin')
   if (origin === null) return CORS_BASE
-  if (!configuredCorsOrigins()?.has(origin)) return null
+  if (
+    !isAllowedOrigin(
+      origin,
+      configuredOrigins(env.CORS_ALLOWED_ORIGINS),
+      env.VERCEL_PREVIEW_HOST_SUFFIX,
+    )
+  )
+    return null
   return { ...CORS_BASE, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
 }
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { api } from './_generated/api'
-import { testPasswordEnabled } from './auth'
+import { safeRedirect, testPasswordEnabled } from './auth'
 import { deriveSourceKey } from './limits'
 import { rateLimited, testConvex } from './test.helpers'
 
@@ -55,6 +55,22 @@ test('le mot de passe de test exige un flag et un déploiement loopback', () => 
   expect(() => testPasswordEnabled('1', 'https://screenforge.app')).toThrow(
     'restricted to loopback',
   )
+})
+
+test('le code de session ne revient que sur le site ou une Preview approuvée', () => {
+  const site = 'https://screenforge.example'
+  const suffix = '-team-123.vercel.app'
+  expect(safeRedirect('/editor', site, suffix)).toBe(`${site}/editor`)
+  expect(
+    safeRedirect('https://screenforge-git-branch-team-123.vercel.app/editor', site, suffix),
+  ).toBe('https://screenforge-git-branch-team-123.vercel.app/editor')
+  for (const hostile of [
+    'https://screenforge.example.hostile.test',
+    'https://screenforge-git-branch-team-123.vercel.app.hostile.test',
+    'https://user@screenforge-git-branch-team-123.vercel.app',
+  ]) {
+    expect(safeRedirect(hostile, site, suffix)).toBe(`${site}/`)
+  }
 })
 
 test('un compte se crée par mot de passe, puis se reconnecte', async () => {

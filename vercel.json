@@ -3,7 +3,9 @@
   "framework": "vite",
   "public": false,
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "main": false
+    }
   },
   "buildCommand": "pnpm run build",
   "outputDirectory": "apps/web/dist",

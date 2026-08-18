@@ -13,6 +13,7 @@ import {
   sourceRateLimitKey,
   type RequestMetadataCtx,
 } from './limits'
+import { configuredOrigins, isAllowedOrigin } from './origins'
 
 /**
  * Qui a le droit d'entrer, et par quelles portes.
@@ -65,13 +66,20 @@ function siteUrl(): string {
  * parce qu'un rappel `redirect` reste nécessaire : le défaut lève sur une
  * destination refusée, là où on préfère ramener à l'éditeur.
  */
-export function safeRedirect(redirectTo: string, site: string): string {
+export function safeRedirect(redirectTo: string, site: string, previewSuffix?: string): string {
   /* Un chemin relatif est toujours sur le site : il est concaténé, pas comparé.
      `//exemple.com` y compris, qui devient un chemin de notre hôte. */
   if (redirectTo.startsWith('/')) return `${site}${redirectTo}`
-  if (redirectTo.startsWith(site)) {
-    const after = redirectTo[site.length]
-    if (after === undefined || after === '/' || after === '?') return redirectTo
+  try {
+    const destination = new URL(redirectTo)
+    if (
+      !destination.username &&
+      !destination.password &&
+      isAllowedOrigin(destination.origin, configuredOrigins(site), previewSuffix)
+    )
+      return redirectTo
+  } catch {
+    // Une URL absolue mal formée suit le même retour sûr qu'une origine refusée.
   }
   return `${site}/`
 }
@@ -252,7 +260,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
      * ce que « hors du site » veut dire exactement.
      */
     redirect({ redirectTo }) {
-      return Promise.resolve(safeRedirect(redirectTo, siteUrl()))
+      return Promise.resolve(safeRedirect(redirectTo, siteUrl(), env.VERCEL_PREVIEW_HOST_SUFFIX))
     },
   },
 })

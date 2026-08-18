@@ -278,7 +278,9 @@ it('après expiration, l’asset reste lisible et supprimable mais plus modifiab
 describe('CORS exact sans autorité ambiante', () => {
   it('reflète seulement une origine configurée et garde les clients serveur utilisables', async () => {
     const previous = process.env.CORS_ALLOWED_ORIGINS
+    const previousPreview = process.env.VERCEL_PREVIEW_HOST_SUFFIX
     process.env.CORS_ALLOWED_ORIGINS = 'https://preview.screenforge.app,https://screenforge.app'
+    process.env.VERCEL_PREVIEW_HOST_SUFFIX = '-team-123.vercel.app'
     try {
       const t = testConvex()
       const userId = await cloudAccount(t)
@@ -290,6 +292,14 @@ describe('CORS exact sans autorité ambiante', () => {
       expect(allowed.status).toBe(200)
       expect(allowed.headers.get('Access-Control-Allow-Origin')).toBe('https://screenforge.app')
       expect(allowed.headers.get('Vary')).toBe('Origin')
+
+      const preview = await t.withIdentity({ subject: userId }).fetch('/asset/cors', {
+        headers: { Origin: 'https://screenforge-git-branch-team-123.vercel.app' },
+      })
+      expect(preview.status).toBe(200)
+      expect(preview.headers.get('Access-Control-Allow-Origin')).toBe(
+        'https://screenforge-git-branch-team-123.vercel.app',
+      )
 
       for (const origin of ['https://hostile.example', 'null']) {
         const rejected = await t.withIdentity({ subject: userId }).fetch('/asset/cors', {
@@ -313,6 +323,8 @@ describe('CORS exact sans autorité ambiante', () => {
     } finally {
       if (previous === undefined) delete process.env.CORS_ALLOWED_ORIGINS
       else process.env.CORS_ALLOWED_ORIGINS = previous
+      if (previousPreview === undefined) delete process.env.VERCEL_PREVIEW_HOST_SUFFIX
+      else process.env.VERCEL_PREVIEW_HOST_SUFFIX = previousPreview
     }
   })
 })

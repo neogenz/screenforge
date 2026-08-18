@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: autoriser strictement les origines Preview dans Convex préproduction

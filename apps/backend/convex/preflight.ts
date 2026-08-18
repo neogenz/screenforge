@@ -90,6 +90,9 @@ export function evaluatePreflight(target: PreflightTarget, configuration: Config
     if (!site || site.protocol !== 'https:')
       inconsistent.push('PRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN')
     if (site?.hostname.endsWith('.vercel.app')) inconsistent.push('PRODUCTION_FORBIDS_PREVIEW_SITE')
+    if (configuration.VERCEL_PREVIEW_HOST_SUFFIX?.trim()) {
+      inconsistent.push('PRODUCTION_FORBIDS_PREVIEW_ORIGINS')
+    }
     if (!site || !checkout || checkout.origin !== site.origin) {
       inconsistent.push('CHECKOUT_SUCCESS_URL_REQUIRES_SITE_ORIGIN')
     }

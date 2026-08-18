@@ -74,6 +74,7 @@ describe('preflight Cloud expurgé', () => {
     ['AUTH_TEST_PASSWORD_FORBIDDEN_IN_PRODUCTION', { AUTH_TEST_PASSWORD: '1' }],
     ['PRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN', { SITE_URL: 'http://screenforge.example' }],
     ['PRODUCTION_FORBIDS_PREVIEW_SITE', { SITE_URL: 'https://branch.vercel.app' }],
+    ['PRODUCTION_FORBIDS_PREVIEW_ORIGINS', { VERCEL_PREVIEW_HOST_SUFFIX: '-team.vercel.app' }],
     [
       'CHECKOUT_SUCCESS_URL_REQUIRES_SITE_ORIGIN',
       { CHECKOUT_SUCCESS_URL: 'https://other.example/?checkout=success' },

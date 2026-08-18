@@ -24,6 +24,7 @@ const app = defineApp({
     POLAR_SERVER: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
     SITE_URL: v.optional(v.string()),
+    VERCEL_PREVIEW_HOST_SUFFIX: v.optional(v.string()),
   },
 })
 app.use(rateLimiter)

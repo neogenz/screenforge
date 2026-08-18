@@ -84,6 +84,11 @@ pnpm exec convex run  --env-file .env.production preflight:check '{"target":"pro
 pnpm exec convex data --env-file .env.preprod projects
 ```
 
+La préproduction peut aussi porter `VERCEL_PREVIEW_HOST_SUFFIX`, le suffixe DNS
+étroit observé après une première Preview Git. Il est absent de production. Le
+nom peut être contrôlé par `convex env list --names-only`; sa valeur ne doit pas
+être copiée dans un document public.
+
 ```bash
 pnpm run deploy:preprod   # depuis la racine — convex deploy --env-file .env.preprod
 pnpm run deploy:prod      # depuis la racine — convex deploy --env-file .env.production

@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: activer et documenter l'intégration Git Vercel sur le dépôt public
