@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Valider les médias Cloud et borner les téléchargements
@@ -22,7 +22,11 @@ status: pending
 │       ├── download.ts                               ✏️ propriété et budget dans une mutation interne
 │       ├── http.ts                                   ✏️ validation avant stockage et 429 en lecture
 │       ├── limits.ts                                 ✏️ budgets egress par compte
+│       ├── media-validation.test.ts                  ✅ contrat partagé et SVG hostile
+│       ├── media.test-fixtures.ts                    ✅ fixtures PNG/JPEG structurelles
+│       ├── projects.test.ts                          ✏️ budget egress projet et média valide
 │       └── accountDeletion.test.ts                   ✏️ remise à zéro des nouveaux budgets
+├── apps/web/e2e/sync.spec.ts                         ✏️ transport PNG réel à la taille limite
 └── pnpm-lock.yaml                                    ✏️ dépendances verrouillées
 
 ❌ Aucun fichier supprimé.

@@ -30,6 +30,7 @@
     "test:unit": "AUTH_TEST_PASSWORD=1 SITE_URL=http://localhost:5173 vitest run convex"
   },
   "dependencies": {
+    "@screenforge/project-format": "workspace:*",
     "@auth/core": "0.41.3",
     "@convex-dev/auth": "^0.0.94",
     "@convex-dev/rate-limiter": "^0.3.2",

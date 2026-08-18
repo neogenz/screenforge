@@ -38,6 +38,9 @@ export const MAX_PROJECTS_PER_ACCOUNT = 100
 export const MAX_PROJECT_BYTES_PER_ACCOUNT = 128 * 1024 * 1024
 export const MAX_ASSETS_PER_ACCOUNT = 500
 export const MAX_ASSET_BYTES_PER_ACCOUNT = 512 * 1024 * 1024
+/** Un compte plein (500 assets / 100 projets) peut être restauré sur une nouvelle machine. */
+export const ASSET_DOWNLOADS_PER_HOUR = 600
+export const PROJECT_DOWNLOADS_PER_HOUR = 120
 
 const LIMITS = {
   /**
@@ -88,6 +91,10 @@ const LIMITS = {
   /** Borne le coût récurrent du seul droit qui en a un. */
   projectPush: { kind: 'token bucket', rate: 60, period: HOUR, capacity: 20 },
 
+  /** L'egress reste disponible après expiration, mais pas sans borne de coût. */
+  assetDownload: { kind: 'fixed window', rate: ASSET_DOWNLOADS_PER_HOUR, period: HOUR },
+  projectDownload: { kind: 'fixed window', rate: PROJECT_DOWNLOADS_PER_HOUR, period: HOUR },
+
   /** Geste irréversible, et chaque tentative relance un cycle de nettoyage. */
   accountDeletion: { kind: 'fixed window', rate: 3, period: HOUR },
 } as const
@@ -101,6 +108,8 @@ export const USER_SCOPED_LIMITS = [
   'checkout',
   'assetUpload',
   'projectPush',
+  'assetDownload',
+  'projectDownload',
   'accountDeletion',
 ] as const satisfies readonly LimitName[]
 

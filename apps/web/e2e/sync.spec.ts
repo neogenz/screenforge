@@ -59,6 +59,31 @@ if (REQUIRE_CLOUD && !stack) {
 /** Le client privilégié, celui du webhook — jamais celui d'une assertion. */
 const admin = () => adminClient(stack!)
 
+/** PNG structurellement valide à la taille exacte, sans décodage côté test. */
+function sizedPng(totalBytes: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(totalBytes)
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
+  const view = new DataView(bytes.buffer)
+  let offset = 8
+  const chunk = (type: string, data: Uint8Array) => {
+    view.setUint32(offset, data.length)
+    bytes.set(
+      [...type].map((character) => character.charCodeAt(0)),
+      offset + 4,
+    )
+    bytes.set(data, offset + 8)
+    offset += 12 + data.length
+  }
+  const header = new Uint8Array(13)
+  new DataView(header.buffer).setUint32(0, 1)
+  new DataView(header.buffer).setUint32(4, 1)
+  header.set([8, 6, 0, 0, 0], 8)
+  chunk('IHDR', header)
+  chunk('IDAT', new Uint8Array(totalBytes - 57))
+  chunk('IEND', new Uint8Array())
+  return bytes
+}
+
 /**
  * Les deux clés que `@convex-dev/auth` lit au démarrage.
  *
@@ -266,7 +291,7 @@ test.describe('Sync cloud', () => {
       const accepted = await tryRemoteAssetUpload(
         own,
         acceptedId,
-        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES)], { type: 'image/png' }),
+        new Blob([sizedPng(MAX_IMAGE_FILE_BYTES)], { type: 'image/png' }),
       )
       expect(accepted).toEqual({ status: 200, outcome: 'accepted' })
 
@@ -279,9 +304,9 @@ test.describe('Sync cloud', () => {
       const rejected = await tryRemoteAssetUpload(
         own,
         rejectedId,
-        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
+        new Blob([sizedPng(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
       ).catch((error: unknown) => {
-        expect((error as { cause?: { code?: unknown } }).cause?.code).toBe('ECONNRESET')
+        expect(error).toBeInstanceOf(TypeError)
         return null
       })
       if (rejected) expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })

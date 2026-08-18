@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { MAX_PROJECT_BYTES_PER_ACCOUNT, MAX_PROJECTS_PER_ACCOUNT } from './limits'
+import {
+  MAX_PROJECT_BYTES_PER_ACCOUNT,
+  MAX_PROJECTS_PER_ACCOUNT,
+  PROJECT_DOWNLOADS_PER_HOUR,
+} from './limits'
 import { MAX_PROJECT_BLOB_BYTES } from './media'
+import { png } from './media.test-fixtures'
 import { cloudAccount, errorCode, testConvex } from './test.helpers'
 
 type Test = ReturnType<typeof testConvex>
@@ -210,6 +215,31 @@ describe('dernier écrivain gagne sans fichier orphelin', () => {
   })
 })
 
+it('borne les téléchargements projet par propriétaire sans exiger Cloud active', async () => {
+  const t = testConvex()
+  const owner = await cloudAccount(t)
+  const other = await cloudAccount(t)
+  await push(t, owner, { projectId: 'a', name: 'a', updatedAt: 1 }, { owner: true })
+  await push(t, other, { projectId: 'b', name: 'b', updatedAt: 1 }, { other: true })
+  await t.run(async (ctx) => {
+    const entitlement = await ctx.db
+      .query('entitlements')
+      .withIndex('by_user', (q) => q.eq('userId', owner))
+      .unique()
+    await ctx.db.patch(entitlement!._id, {
+      cloudStatus: 'canceled',
+      cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+    })
+  })
+
+  expect((await t.withIdentity({ subject: other }).fetch('/project-blob/a')).status).toBe(404)
+  for (let count = 0; count < PROJECT_DOWNLOADS_PER_HOUR; count += 1) {
+    expect((await t.withIdentity({ subject: owner }).fetch('/project-blob/a')).status).toBe(200)
+  }
+  expect((await t.withIdentity({ subject: owner }).fetch('/project-blob/a')).status).toBe(429)
+  expect((await t.withIdentity({ subject: other }).fetch('/project-blob/b')).status).toBe(200)
+})
+
 describe('quotas de stockage projet', () => {
   it('borne le nombre de projets, y compris deux créations concurrentes, puis libère la place', async () => {
     const t = testConvex()
@@ -338,7 +368,7 @@ describe('références historiques aliasées', () => {
 
     await push(t, owner, { projectId: 'p', name: 'p2', updatedAt: 2 }, { v: 2 })
     expect(await stored(t, shared)).toBe(true)
-    expect((await pushAsset(t, other, 'a', new Uint8Array([1, 2, 3]))).status).toBe(200)
+    expect((await pushAsset(t, other, 'a', png())).status).toBe(200)
     expect(await stored(t, shared)).toBe(false)
   })
 

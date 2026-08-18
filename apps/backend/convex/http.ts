@@ -1,9 +1,9 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { inspectMedia } from '@screenforge/project-format/media-validation'
 import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
 import { env, httpAction } from './_generated/server'
 import { auth } from './auth'
-import { acceptable } from './assets'
 import { webhook } from './billing'
 import { MAX_IMAGE_FILE_BYTES, MAX_PROJECT_BLOB_BYTES } from './media'
 
@@ -175,7 +175,12 @@ http.route({
     const assetId = tail(request.url)
     if (userId === null || assetId === null) return missing(cors)
 
-    const found = await ctx.runQuery(internal.download.assetStorageId, { userId, assetId })
+    let found
+    try {
+      found = await ctx.runMutation(internal.download.assetStorageId, { assetId })
+    } catch (error) {
+      return errorCode(error) === 'RATE_LIMITED' ? denied(cors, error) : missing(cors)
+    }
     if (!found) return missing(cors)
     const blob = await ctx.storage.get(found.storageId)
     if (!blob) return missing(cors)
@@ -204,7 +209,12 @@ http.route({
     const projectId = tail(request.url)
     if (userId === null || projectId === null) return missing(cors)
 
-    const blobId = await ctx.runQuery(internal.download.projectBlobId, { userId, projectId })
+    let blobId
+    try {
+      blobId = await ctx.runMutation(internal.download.projectBlobId, { projectId })
+    } catch (error) {
+      return errorCode(error) === 'RATE_LIMITED' ? denied(cors, error) : missing(cors)
+    }
     if (!blobId) return missing(cors)
     const blob = await ctx.storage.get(blobId)
     if (!blob) return missing(cors)
@@ -294,18 +304,20 @@ http.route({
       return denied(cors, error)
     }
 
-    const blob = await request.blob()
-    const actualType = blob.type.split(';', 1)[0]!.trim().toLowerCase()
-    if (!acceptable(actualType, blob.size) || blob.size > MAX_IMAGE_FILE_BYTES) {
-      return json(cors, 'rejected', blob.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
+    const body = await request.blob()
+    if (body.size <= 0 || body.size > MAX_IMAGE_FILE_BYTES) {
+      return json(cors, 'rejected', body.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
     }
+    const bytes = new Uint8Array(await body.arrayBuffer())
+    const inspected = inspectMedia(bytes, type)
+    if (!inspected) return json(cors, 'rejected', 400)
 
-    const storageId = await ctx.storage.store(blob)
+    const storageId = await ctx.storage.store(new Blob([bytes], { type: inspected.type }))
     try {
       const accepted = await ctx.runMutation(internal.assets.commitAssetUpload, {
         assetId,
         storageId,
-        contentType: actualType,
+        contentType: inspected.type,
       })
       if (!accepted) await ctx.storage.delete(storageId)
       return json(cors, accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)

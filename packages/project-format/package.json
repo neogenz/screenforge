@@ -18,6 +18,9 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "saxes": "6.0.0"
+  },
   "devDependencies": {
     "typescript": "^5.9.3"
   }

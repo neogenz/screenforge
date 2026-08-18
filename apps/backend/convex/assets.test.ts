@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Id } from './_generated/dataModel'
 import { api } from './_generated/api'
 import { acceptable } from './assets'
-import { MAX_ASSET_BYTES_PER_ACCOUNT, MAX_ASSETS_PER_ACCOUNT } from './limits'
+import {
+  ASSET_DOWNLOADS_PER_HOUR,
+  MAX_ASSET_BYTES_PER_ACCOUNT,
+  MAX_ASSETS_PER_ACCOUNT,
+} from './limits'
 import { MAX_IMAGE_FILE_BYTES } from './media'
+import { jpeg, png } from './media.test-fixtures'
 import { cloudAccount, testConvex } from './test.helpers'
 
 type Test = ReturnType<typeof testConvex>
@@ -46,9 +51,7 @@ describe('upload asset possédé par le serveur', () => {
   it('accepte 16 MiB entiers puis les sert avec leur type', async () => {
     const t = testConvex()
     const userId = await cloudAccount(t)
-    const bytes = new Uint8Array(MAX_IMAGE_FILE_BYTES)
-    bytes[0] = 137
-    bytes[bytes.length - 1] = 42
+    const bytes = png(42, MAX_IMAGE_FILE_BYTES)
 
     const result = await upload(t, userId, 'gros', new Blob([bytes], { type: PNG }))
     expect(result.response.status).toBe(200)
@@ -59,7 +62,43 @@ describe('upload asset possédé par le serveur', () => {
     const received = new Uint8Array(await response.arrayBuffer())
     expect(received.byteLength).toBe(MAX_IMAGE_FILE_BYTES)
     expect(received[0]).toBe(137)
-    expect(received[received.length - 1]).toBe(42)
+    expect(received[41]).toBe(42)
+  })
+
+  it('accepte PNG JPEG et SVG réels puis refuse octets mensongers ou actifs sans orphelin', async () => {
+    const t = testConvex()
+    const userId = await cloudAccount(t)
+    const safeSvg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><path d="M0 0"/></svg>'
+
+    for (const [assetId, blob] of [
+      ['png', new Blob([png()], { type: PNG })],
+      ['jpeg', new Blob([jpeg()], { type: 'image/jpeg' })],
+      ['svg', new Blob([safeSvg], { type: 'image/svg+xml' })],
+    ] as const) {
+      expect((await upload(t, userId, assetId, blob)).response.status).toBe(200)
+    }
+    expect(await storageCount(t)).toBe(3)
+
+    for (const [assetId, blob] of [
+      ['mismatch', new Blob([jpeg()], { type: PNG })],
+      ['truncated', new Blob([png().subarray(0, 20)], { type: PNG })],
+      [
+        'script',
+        new Blob(['<svg width="1" height="1"><script>alert(1)</script></svg>'], {
+          type: 'image/svg+xml',
+        }),
+      ],
+      [
+        'external',
+        new Blob(['<svg width="1" height="1"><use href="https://evil.test/a"/></svg>'], {
+          type: 'image/svg+xml',
+        }),
+      ],
+    ] as const) {
+      expect((await upload(t, userId, assetId, blob)).response.status).toBe(400)
+    }
+    expect(await storageCount(t)).toBe(3)
   })
 
   it('refuse 17 MiB, un type inconnu et un fichier vide sans orphelin', async () => {
@@ -102,9 +141,9 @@ describe('remplacement et isolation', () => {
   it('remplace un asset et supprime son ancien fichier', async () => {
     const t = testConvex()
     const userId = await cloudAccount(t)
-    await upload(t, userId, 'a', new Blob(['un'], { type: PNG }))
+    await upload(t, userId, 'a', new Blob([png(1)], { type: PNG }))
     const first = (await asset(t, userId, 'a'))!.storageId
-    await upload(t, userId, 'a', new Blob(['deux'], { type: PNG }))
+    await upload(t, userId, 'a', new Blob([png(2)], { type: PNG }))
     const second = (await asset(t, userId, 'a'))!.storageId
     expect(await stored(t, first)).toBe(false)
     expect(await stored(t, second)).toBe(true)
@@ -114,19 +153,25 @@ describe('remplacement et isolation', () => {
     const t = testConvex()
     const victim = await cloudAccount(t)
     const attacker = await cloudAccount(t)
-    await upload(t, victim, 'secret', new Blob(['victime'], { type: PNG }))
+    const victimBytes = png(3)
+    const attackerBytes = png(4)
+    await upload(t, victim, 'secret', new Blob([victimBytes], { type: PNG }))
     const victimStorage = (await asset(t, victim, 'secret'))!.storageId
 
-    const result = await upload(t, attacker, 'vol', new Blob(['attaquant'], { type: PNG }), {
+    const result = await upload(t, attacker, 'vol', new Blob([attackerBytes], { type: PNG }), {
       storageId: victimStorage,
     })
     expect(result.response.status).toBe(200)
-    expect(await (await t.withIdentity({ subject: attacker }).fetch('/asset/vol')).text()).toBe(
-      'attaquant',
-    )
-    expect(await (await t.withIdentity({ subject: victim }).fetch('/asset/secret')).text()).toBe(
-      'victime',
-    )
+    expect(
+      new Uint8Array(
+        await (await t.withIdentity({ subject: attacker }).fetch('/asset/vol')).arrayBuffer(),
+      ),
+    ).toEqual(attackerBytes)
+    expect(
+      new Uint8Array(
+        await (await t.withIdentity({ subject: victim }).fetch('/asset/secret')).arrayBuffer(),
+      ),
+    ).toEqual(victimBytes)
     expect(await stored(t, victimStorage)).toBe(true)
   })
 
@@ -134,10 +179,25 @@ describe('remplacement et isolation', () => {
     const t = testConvex()
     const owner = await cloudAccount(t)
     const other = await cloudAccount(t)
-    await upload(t, owner, 'privé', new Blob(['secret'], { type: PNG }))
+    await upload(t, owner, 'privé', new Blob([png()], { type: PNG }))
     expect((await t.withIdentity({ subject: other }).fetch('/asset/privé')).status).toBe(404)
     expect((await t.fetch('/asset/privé')).status).toBe(404)
   })
+})
+
+it('borne les téléchargements du propriétaire sans consommer le budget des autres', async () => {
+  const t = testConvex()
+  const owner = await cloudAccount(t)
+  const other = await cloudAccount(t)
+  await upload(t, owner, 'a', new Blob([png()], { type: PNG }))
+  await upload(t, other, 'b', new Blob([png(1)], { type: PNG }))
+
+  expect((await t.withIdentity({ subject: other }).fetch('/asset/a')).status).toBe(404)
+  for (let count = 0; count < ASSET_DOWNLOADS_PER_HOUR; count += 1) {
+    expect((await t.withIdentity({ subject: owner }).fetch('/asset/a')).status).toBe(200)
+  }
+  expect((await t.withIdentity({ subject: owner }).fetch('/asset/a')).status).toBe(429)
+  expect((await t.withIdentity({ subject: other }).fetch('/asset/b')).status).toBe(200)
 })
 
 describe('quotas de stockage asset', () => {
@@ -157,14 +217,14 @@ describe('quotas de stockage asset', () => {
       }
     })
 
-    const blocked = await upload(t, userId, 'nouveau', new Blob(['x'], { type: PNG }))
+    const blocked = await upload(t, userId, 'nouveau', new Blob([png()], { type: PNG }))
     expect(blocked.response.status).toBe(409)
     expect(blocked.body.outcome).toBe('asset-count-limit')
     await t.withIdentity({ subject: userId }).mutation(api.assets.removeAsset, {
       assetId: 'seed-0',
     })
     expect(
-      (await upload(t, userId, 'nouveau', new Blob(['x'], { type: PNG }))).response.status,
+      (await upload(t, userId, 'nouveau', new Blob([png()], { type: PNG }))).response.status,
     ).toBe(200)
   })
 
@@ -182,10 +242,10 @@ describe('quotas de stockage asset', () => {
       })
     })
 
-    const blocked = await upload(t, userId, 'autre', new Blob(['x'], { type: PNG }))
+    const blocked = await upload(t, userId, 'autre', new Blob([png()], { type: PNG }))
     expect(blocked.response.status).toBe(413)
     expect(blocked.body.outcome).toBe('asset-storage-limit')
-    expect((await upload(t, userId, 'plein', new Blob(['x'], { type: PNG }))).body.outcome).toBe(
+    expect((await upload(t, userId, 'plein', new Blob([png()], { type: PNG }))).body.outcome).toBe(
       'accepted',
     )
   })
@@ -194,7 +254,7 @@ describe('quotas de stockage asset', () => {
 it('après expiration, l’asset reste lisible et supprimable mais plus modifiable', async () => {
   const t = testConvex()
   const userId = await cloudAccount(t)
-  await upload(t, userId, 'a', new Blob(['x'], { type: PNG }))
+  await upload(t, userId, 'a', new Blob([png()], { type: PNG }))
   await t.run(async (ctx) => {
     const entitlement = await ctx.db
       .query('entitlements')
@@ -207,7 +267,9 @@ it('après expiration, l’asset reste lisible et supprimable mais plus modifiab
   })
 
   expect((await t.withIdentity({ subject: userId }).fetch('/asset/a')).status).toBe(200)
-  expect((await upload(t, userId, 'a', new Blob(['y'], { type: PNG }))).response.status).toBe(403)
+  expect((await upload(t, userId, 'a', new Blob([png(1)], { type: PNG }))).response.status).toBe(
+    403,
+  )
   await expect(
     t.withIdentity({ subject: userId }).mutation(api.assets.removeAsset, { assetId: 'a' }),
   ).resolves.toBe(true)
@@ -220,7 +282,7 @@ describe('CORS exact sans autorité ambiante', () => {
     try {
       const t = testConvex()
       const userId = await cloudAccount(t)
-      await upload(t, userId, 'cors', new Blob(['octets'], { type: PNG }))
+      await upload(t, userId, 'cors', new Blob([png()], { type: PNG }))
 
       const allowed = await t.withIdentity({ subject: userId }).fetch('/asset/cors', {
         headers: { Origin: 'https://screenforge.app' },

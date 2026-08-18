@@ -9,6 +9,7 @@ import {
   TABLES_OWNED_BY_USER,
 } from './accountDeletion'
 import { consume, EMAIL_SCOPED_LIMITS, USER_SCOPED_LIMITS } from './limits'
+import { png } from './media.test-fixtures'
 import schema from './schema'
 import {
   cloudAccount,
@@ -416,7 +417,7 @@ describe('la barrière', () => {
       as.fetch('/upload/asset?assetId=asset-1', {
         method: 'POST',
         headers: { 'Content-Type': PNG },
-        body: new Blob([new Uint8Array(4096)], { type: PNG }),
+        body: new Blob([png(0, 4096)], { type: PNG }),
       })
 
     /* Le contre-test : sans la ligne, le même appel avec le même jeton passe. */

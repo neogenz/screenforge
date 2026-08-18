@@ -1,13 +1,15 @@
 import { v } from 'convex/values'
-import { internalQuery } from './_generated/server'
+import { internalMutation } from './_generated/server'
+import { requireUser } from './authz'
+import { consume } from './limits'
 
 /**
  * Où sont les octets de celui qui demande — et de personne d'autre.
  *
- * Ces deux requêtes sont internes et prennent l'utilisateur en argument parce
- * que leur seul appelant est une `httpAction`, qui l'a lu dans le jeton. Le
- * paramètre n'est donc jamais fourni par un client : c'est la même règle que
- * partout ailleurs — la propriété vient de la session, jamais de la requête.
+ * Ces mutations internes relisent elles-mêmes l'utilisateur dans la session,
+ * vérifient la propriété, puis consomment le budget d'egress avant de rendre
+ * l'identifiant Storage. L'appelant ne peut donc fournir ni propriétaire ni
+ * clé de quota.
  *
  * Elles rendent `null` et non une erreur : la route traduit ce `null` en 404,
  * et c'est délibéré. Un 403 confirmerait que l'objet existe, or l'existence est
@@ -16,26 +18,32 @@ import { internalQuery } from './_generated/server'
  * existe.
  */
 
-export const assetStorageId = internalQuery({
-  args: { userId: v.id('users'), assetId: v.string() },
+export const assetStorageId = internalMutation({
+  args: { assetId: v.string() },
   returns: v.union(v.object({ storageId: v.id('_storage'), contentType: v.string() }), v.null()),
-  handler: async (ctx, { userId, assetId }) => {
+  handler: async (ctx, { assetId }) => {
+    const userId = await requireUser(ctx)
     const row = await ctx.db
       .query('assets')
       .withIndex('by_user_asset', (q) => q.eq('userId', userId).eq('assetId', assetId))
       .unique()
-    return row ? { storageId: row.storageId, contentType: row.contentType } : null
+    if (!row) return null
+    await consume(ctx, 'assetDownload', userId)
+    return { storageId: row.storageId, contentType: row.contentType }
   },
 })
 
-export const projectBlobId = internalQuery({
-  args: { userId: v.id('users'), projectId: v.string() },
+export const projectBlobId = internalMutation({
+  args: { projectId: v.string() },
   returns: v.union(v.id('_storage'), v.null()),
-  handler: async (ctx, { userId, projectId }) => {
+  handler: async (ctx, { projectId }) => {
+    const userId = await requireUser(ctx)
     const row = await ctx.db
       .query('projects')
       .withIndex('by_user_project', (q) => q.eq('userId', userId).eq('projectId', projectId))
       .unique()
-    return row?.blobId ?? null
+    if (!row) return null
+    await consume(ctx, 'projectDownload', userId)
+    return row.blobId
   },
 })
