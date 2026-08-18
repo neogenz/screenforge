@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-18T07:51:00+02:00",
+  "title": "Design System: ScreenForge",
+  "extensions": {
+    "colorMeta": {
+      "stage": {
+        "role": "neutral",
+        "displayName": "Scène graphite",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Panneau graphite",
+        "canonical": "oklch(0.215 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Creux graphite",
+        "canonical": "oklch(0.165 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Encre claire",
+        "canonical": "oklch(0.97 0 0)",
+        "tonalRamp": ["oklch(0.15 0 0)", "oklch(0.25 0 0)", "oklch(0.35 0 0)", "oklch(0.45 0 0)", "oklch(0.55 0 0)", "oklch(0.68 0 0)", "oklch(0.82 0 0)", "oklch(0.95 0 0)"]
+      },
+      "marker": {
+        "role": "primary",
+        "displayName": "Citron de repérage",
+        "canonical": "oklch(0.87 0.2 124)",
+        "tonalRamp": ["oklch(0.15 0.08 124)", "oklch(0.25 0.12 124)", "oklch(0.35 0.16 124)", "oklch(0.47 0.19 124)", "oklch(0.59 0.2 124)", "oklch(0.71 0.2 124)", "oklch(0.83 0.18 124)", "oklch(0.95 0.08 124)"]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Rouge destructif",
+        "canonical": "oklch(0.64 0.18 25)",
+        "tonalRamp": ["oklch(0.15 0.08 25)", "oklch(0.25 0.12 25)", "oklch(0.35 0.16 25)", "oklch(0.47 0.18 25)", "oklch(0.59 0.18 25)", "oklch(0.71 0.16 25)", "oklch(0.83 0.12 25)", "oklch(0.95 0.04 25)"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Vert de résultat",
+        "canonical": "oklch(0.65 0.12 155)",
+        "tonalRamp": ["oklch(0.15 0.05 155)", "oklch(0.25 0.08 155)", "oklch(0.35 0.1 155)", "oklch(0.47 0.12 155)", "oklch(0.59 0.12 155)", "oklch(0.71 0.11 155)", "oklch(0.83 0.08 155)", "oklch(0.95 0.03 155)"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Ambre d’attention",
+        "canonical": "oklch(0.72 0.11 75)",
+        "tonalRamp": ["oklch(0.15 0.05 75)", "oklch(0.25 0.07 75)", "oklch(0.35 0.09 75)", "oklch(0.47 0.11 75)", "oklch(0.59 0.11 75)", "oklch(0.71 0.1 75)", "oklch(0.83 0.07 75)", "oklch(0.95 0.03 75)"]
+      }
+    },
+    "typographyMeta": {
+      "panel-title": { "displayName": "Titre de panneau", "purpose": "Titre principal d’un drawer ou d’une boîte." },
+      "section-title": { "displayName": "Titre de section", "purpose": "Découpe les groupes de propriétés." },
+      "body": { "displayName": "Corps opératoire", "purpose": "Actions, valeurs et texte fonctionnel." },
+      "label": { "displayName": "Micro-libellé", "purpose": "Champs et métadonnées en casse normale." }
+    },
+    "shadows": [
+      { "name": "island", "value": "0 1px 1px oklch(0 0 0 / 0.3), 0 6px 16px -6px oklch(0 0 0 / 0.4), 0 24px 48px -24px oklch(0 0 0 / 0.55)", "purpose": "Barre, drawer et îlot persistant." },
+      { "name": "menu", "value": "0 2px 6px oklch(0 0 0 / 0.24), 0 12px 32px -10px oklch(0 0 0 / 0.45), 0 32px 64px -32px oklch(0 0 0 / 0.6)", "purpose": "Menu, popover et palette." },
+      { "name": "modal", "value": "0 8px 24px -8px oklch(0 0 0 / 0.4), 0 40px 96px -24px oklch(0 0 0 / 0.65)", "purpose": "Boîte bloquante au-dessus du voile." },
+      { "name": "contact", "value": "0 1px 3px oklch(0 0 0 / 0.4)", "purpose": "Poignée ou vignette courante." },
+      { "name": "inset", "value": "inset 0 1px 0 oklch(0 0 0 / 0.35)", "purpose": "Creux d’un champ." },
+      { "name": "hairline-top", "value": "inset 0 1px 0 oklch(1 0 0 / 0.05)", "purpose": "Lumière rasante sur l’arête d’une surface flottante." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.22, 0.61, 0.36, 1)", "purpose": "Transition de couleur, bordure et état en 150ms." },
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Entrée d’une surface en 160–240ms." },
+      { "name": "ease-settle", "value": "linear(0, 0.394 7.6%, 0.677 16.6%, 0.865 26.4%, 0.971 36.6%, 1.024 47%, 1.042 57.7%, 1.036 68.5%, 1.016 79.4%, 1)", "purpose": "Pose d’une ligne ou vignette en 220ms." }
+    ],
+    "breakpoints": [
+      { "name": "filmstrip-left-anchor", "value": "361px" },
+      { "name": "dialog-stack", "value": "612px" },
+      { "name": "fold-tools", "value": "640px" },
+      { "name": "single-drawer", "value": "876px" },
+      { "name": "fold-actions", "value": "1280px" },
+      { "name": "status-labels", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Action principale neutre, une seule par surface.",
+      "html": "<button class=\"ds-button-primary\">Exporter</button>",
+      "css": ".ds-button-primary { height: 36px; padding: 0 16px; border: 1px solid var(--color-foreground); border-radius: var(--radius-md); background: var(--color-foreground); color: var(--color-stage); font: 500 14px/20px var(--font-sans); transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out); } .ds-button-primary:hover, .ds-button-primary:active { background: var(--color-muted-foreground); border-color: var(--color-muted-foreground); } .ds-button-primary:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Action secondaire en relief neutre.",
+      "html": "<button class=\"ds-button-default\">Appliquer</button>",
+      "css": ".ds-button-default { height: 36px; padding: 0 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-secondary); color: var(--color-foreground); font: 500 14px/20px var(--font-sans); transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out); } .ds-button-default:hover { background: var(--color-accent); border-color: var(--color-input); } .ds-button-default:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Commande compacte et neutre de la TopBar.",
+      "html": "<button class=\"ds-icon-button\" aria-label=\"Calques\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3h18v18H3zM9 3v18\"/></svg></button>",
+      "css": ".ds-icon-button { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-muted-foreground); transition: background 150ms var(--ease-out), color 150ms var(--ease-out), border-color 150ms var(--ease-out); } .ds-icon-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; } .ds-icon-button:hover { background: var(--color-accent); color: var(--color-foreground); } .ds-icon-button:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; } .ds-icon-button[aria-pressed=\"true\"] { border-color: var(--color-input); background: var(--color-secondary); color: var(--color-foreground); box-shadow: var(--hairline-top); }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Champ en creux pour texte et valeurs.",
+      "html": "<input class=\"ds-input\" value=\"1320\" aria-label=\"Largeur\" />",
+      "css": ".ds-input { width: 180px; height: 32px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-muted); box-shadow: var(--shadow-inset); color: var(--color-foreground); font: 400 14px/20px var(--font-sans); font-variant-numeric: tabular-nums; transition: border-color 150ms var(--ease-out); } .ds-input:hover { border-color: var(--color-input); } .ds-input:focus-visible { outline: 1px solid var(--color-ring); outline-offset: 0; border-color: var(--color-ring); }"
+    },
+    {
+      "name": "Scrubbable Number Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Champ numérique avec libellé intégré et prise horizontale.",
+      "html": "<label class=\"ds-number-field\"><span>X</span><input value=\"24\" aria-label=\"Position X\" /></label>",
+      "css": ".ds-number-field { display: flex; align-items: center; gap: 6px; width: 180px; height: 32px; padding: 0 10px; border: 1px solid var(--color-input); border-radius: var(--radius-md); background: var(--color-muted); box-shadow: var(--shadow-inset); cursor: ew-resize; } .ds-number-field span { color: var(--color-muted-foreground); font: 500 11px/16px var(--font-sans); } .ds-number-field input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--color-foreground); font: 400 14px/20px var(--font-sans); font-variant-numeric: tabular-nums; } .ds-number-field:hover { border-color: var(--color-input); } .ds-number-field:focus-within { border-color: var(--color-ring); box-shadow: var(--shadow-inset), 0 0 0 1px var(--color-ring); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "description": "Choix exclusif compact, neutre même lorsqu’il est actif.",
+      "html": "<div class=\"ds-segmented\" role=\"group\"><button>Uni</button><button aria-pressed=\"true\">Dégradé</button></div>",
+      "css": ".ds-segmented { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-muted); } .ds-segmented button { height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--color-muted-foreground); font: 500 11px/16px var(--font-sans); transition: background 150ms var(--ease-out), color 150ms var(--ease-out); } .ds-segmented button:hover { background: var(--color-accent); color: var(--color-foreground); } .ds-segmented button[aria-pressed=\"true\"] { background: var(--color-secondary); color: var(--color-foreground); box-shadow: var(--hairline-top); } .ds-segmented button:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }"
+    },
+    {
+      "name": "Floating Island",
+      "kind": "card",
+      "refersTo": "island",
+      "description": "Matière partagée par la barre et les drawers.",
+      "html": "<section class=\"ds-island\"><h2>Propriétés</h2><p>Sélectionnez un calque</p></section>",
+      "css": ".ds-island { width: 280px; padding: 9px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-card); box-shadow: var(--shadow-md), var(--hairline-top); color: var(--color-foreground); font-family: var(--font-sans); } .ds-island h2 { margin: 0; font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: -0.014em; } .ds-island p { margin: 12px 0 0; color: var(--color-muted-foreground); font-size: 14px; line-height: 20px; }"
+    },
+    {
+      "name": "Current Screen Thumbnail",
+      "kind": "custom",
+      "refersTo": "screen-thumbnail",
+      "description": "Aperçu au rapport App Store, état courant hors du contenu.",
+      "html": "<div class=\"ds-screen\"><span class=\"ds-screen-badge\">1</span><button aria-current=\"true\"><span></span></button><small>Écran 1</small></div>",
+      "css": ".ds-screen { display: grid; justify-items: center; width: 53px; gap: 6px; color: var(--color-foreground); font-family: var(--font-sans); } .ds-screen-badge { justify-self: start; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--radius-sm); background: var(--color-marker); color: var(--color-marker-ink); font: 600 11px/16px var(--font-sans); font-variant-numeric: tabular-nums; } .ds-screen button { width: 53px; height: 116px; padding: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-muted); box-shadow: var(--shadow-handle); transition: border-color 150ms var(--ease-out), scale 150ms var(--ease-out); } .ds-screen button span { display: block; width: 100%; height: 100%; background: var(--color-secondary); } .ds-screen button:hover { border-color: var(--color-input); } .ds-screen button:active { scale: .97; } .ds-screen button:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; } .ds-screen small { width: 53px; overflow: hidden; color: var(--color-foreground); font: 500 11px/16px var(--font-sans); text-align: center; text-overflow: ellipsis; white-space: nowrap; }"
+    },
+    {
+      "name": "Modal Dialog",
+      "kind": "card",
+      "refersTo": "dialog",
+      "description": "Surface bloquante avec titre, contenu et action unique.",
+      "html": "<section class=\"ds-dialog\" role=\"dialog\" aria-labelledby=\"ds-dialog-title\"><header><h2 id=\"ds-dialog-title\">Exporter</h2></header><p>Prépare un ZIP App Store conforme.</p><footer><button>Exporter</button></footer></section>",
+      "css": ".ds-dialog { width: min(480px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-card); box-shadow: var(--shadow-xl), var(--hairline-top); color: var(--color-foreground); font: 400 14px/20px var(--font-sans); } .ds-dialog header, .ds-dialog footer { padding: 16px 24px; border-color: var(--color-border); } .ds-dialog header { border-bottom: 1px solid var(--color-border); } .ds-dialog h2 { margin: 0; font-size: 16px; line-height: 20px; font-weight: 600; } .ds-dialog p { margin: 0; padding: 24px; color: var(--color-muted-foreground); } .ds-dialog footer { display: flex; justify-content: flex-end; border-top: 1px solid var(--color-border); } .ds-dialog button { height: 36px; padding: 0 16px; border: 1px solid var(--color-foreground); border-radius: var(--radius-md); background: var(--color-foreground); color: var(--color-stage); font: 500 14px/20px var(--font-sans); } .ds-dialog button:hover { background: var(--color-muted-foreground); border-color: var(--color-muted-foreground); } .ds-dialog button:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "L’Instrument de Précision",
+    "overview": "ScreenForge est un outil de composition, pas un dashboard. Son chrome dense flotte au-dessus du travail puis s’efface derrière les planches. La précision vient d’une hiérarchie mesurée, de contrôles compacts et d’états sans ambiguïté, jamais d’une décoration ajoutée.\n\nLe système est dark-first parce que l’éditeur s’utilise surtout sur desktop pendant des sessions concentrées, souvent le soir. Les surfaces restent strictement achromatiques afin de ne pas contaminer le jugement des couleurs exportées. Le citron n’est ni une marque publicitaire ni un appel à l’action : il indique exclusivement « vous êtes ici ».",
+    "keyCharacteristics": [
+      "Chrome monochrome, compact et flottant.",
+      "Un seul pigment réservé à l’état courant et au focus.",
+      "Profondeur obtenue par niveaux de luminance, puis par bordures, puis par ombres.",
+      "Typographie Inter unique, hiérarchisée par taille et poids.",
+      "Interface française, concise et opératoire."
+    ],
+    "rules": [
+      { "name": "The One Marker Rule", "body": "Le citron dit uniquement « ici ». Il ne colore jamais une action, un décor ou le bord d’un artboard.", "section": "colors" },
+      { "name": "The True Neutral Rule", "body": "Toute surface voisine du contenu reste à chroma zéro, dans les deux thèmes.", "section": "colors" },
+      { "name": "The Three-Level Rule", "body": "Un panneau utilise panneau, section et libellé ; aucun échelon intermédiaire ne doit aplatir la hiérarchie.", "section": "typography" },
+      { "name": "The Tabular Rule", "body": "Toute valeur numérique qui peut changer de largeur active les chiffres tabulaires.", "section": "typography" },
+      { "name": "The Ten-Screen Rule", "body": "L’unité de travail est la planche de dix écrans. Tout geste répétitif dix fois doit avoir un équivalent « pour tous les écrans ».", "section": "layout" },
+      { "name": "The Earned Depth Rule", "body": "Une ombre n’existe que si une surface flotte ou se détache physiquement ; un panneau statique se sépare d’abord par sa matière.", "section": "elevation" },
+      { "name": "The Nested Radius Rule", "body": "Rayon intérieur = rayon extérieur − retrait. Ne choisissez jamais les trois valeurs indépendamment.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do garder toutes les surfaces de chrome à chroma zéro.",
+      "Do réserver le citron à l’état courant et au focus.",
+      "Do utiliser les primitives partagées et leurs variantes CVA avant toute classe de contrôle locale.",
+      "Do conserver des états hover, active, disabled, focus-visible, loading et invalid lisibles.",
+      "Do écrire toute l’interface en français concis et en casse normale.",
+      "Do vérifier le contraste avec pnpm run audit:contrast et les échelles avec pnpm run audit:scale."
+    ],
+    "donts": [
+      "Don't utiliser le citron pour Exporter, pour une illustration ou pour un anneau d’artboard.",
+      "Don't empiler des cartes dans des cartes ou donner une ombre à une surface statique.",
+      "Don't introduire de capitale trackée, de police mono décorative ou de nouvel échelon typographique.",
+      "Don't poser un badge, un libellé ou un contrôle sur l’aperçu d’un écran.",
+      "Don't masquer une commande critique au responsive ; repliez-la dans un contenant adapté."
+    ]
+  }
+}
