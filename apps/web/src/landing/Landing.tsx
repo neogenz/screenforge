@@ -1,3 +1,4 @@
+import { AgentSection } from './components/AgentSection'
 import { Faq } from './components/Faq'
 import { Features } from './components/Features'
 import { FinalCta } from './components/FinalCta'
@@ -16,10 +17,11 @@ export function Landing() {
       <div>
         <main id="content">
           <Hero />
+          <ProductShowcase />
           <Marquee />
           <ProofStrip />
-          <ProductShowcase />
           <Features />
+          <AgentSection />
           <Pricing />
           <Faq />
           <FinalCta />

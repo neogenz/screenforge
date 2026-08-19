@@ -76,8 +76,8 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   <div class="brand" role="img" aria-label="ScreenForge"></div>
   <h1>App Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
-    <p class="lede">${SCREENS} iPhone screens, one ZIP, exported at native 1320&times;2868.
-      <span class="price"><span class="mark">Free Local</span> or $39/year Cloud.</span></p>
+    <p class="lede">${SCREENS} iPhone screens composed once, re-shot in one click, exported at native 1320&times;2868.
+      <span class="price"><span class="mark">Free on your machine</span> · $39/year Cloud.</span></p>
     <div class="strip" style="--sheets:${SCREENS}">${sheets}</div>
   </div>
 </body></html>`

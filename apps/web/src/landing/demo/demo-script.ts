@@ -53,15 +53,19 @@ export interface DemoSceneState {
 export const DEMO_TILES = MAX_PROJECT_SCREENS
 
 /* Hauteur du cadre, en % de l'artboard, et le cadre déborde par le bas.
-   66 avec un centre à 82 % : le téléphone couvre de 49 % à 115 %, donc ses
-   quinze derniers pour cent sont coupés par le bord de la planche. C'est la
-   convention la plus reconnaissable des planches App Store publiées, et à
-   50 % centrés sur 74 % le téléphone flottait au milieu d'une marge basse que
-   personne ne laisse. Il y gagne aussi un tiers de surface, donc une maquette
-   d'app lisible plutôt qu'une vignette. Le couple (hauteur, position) est
-   déclaré ici parce que la scène initiale du texte en dépend : le texte se
-   tape au-dessus du cadre, jamais dessus. */
-export const DEVICE_HEIGHT_PCT = 66
+   74 avec un centre à 74 % : le téléphone couvre de 37 % à 111 %, donc son
+   dernier septième est coupé par le bord de la planche. C'est la convention
+   la plus reconnaissable des planches App Store publiées, et c'est aussi leur
+   proportion : le téléphone y prend les trois quarts de la largeur. À 66
+   centrés sur 82 il n'en prenait que deux tiers et démarrait à mi-hauteur —
+   entre le titre et lui, un tiers de planche de dégradé nu, la signature d'un
+   gabarit. Le couple (hauteur, position) est déclaré ici parce que la scène
+   initiale du texte en dépend : le texte se tape au-dessus du cadre, jamais
+   dessus. */
+export const DEVICE_HEIGHT_PCT = 74
+
+/* Le titre se tape à 26 % puis se tire à 13 %, où il reste. */
+export const TITLE_Y = 13
 
 export const EMPTY_SCENE: DemoSceneState = {
   device: false,
@@ -74,10 +78,10 @@ export const EMPTY_SCENE: DemoSceneState = {
   textSize: 1,
   textColor: 0,
   frameColor: 0,
-  textPos: { x: 50, y: 34 },
-  devicePos: { x: 50, y: 82 },
-  spreadTextPos: { x: 50, y: 14 },
-  spreadDevicePos: { x: 50, y: 82 },
+  textPos: { x: 50, y: 26 },
+  devicePos: { x: 50, y: 74 },
+  spreadTextPos: { x: 50, y: TITLE_Y },
+  spreadDevicePos: { x: 50, y: 74 },
 }
 
 /* L'état figé servi aux utilisateurs en reduced-motion : la composition
@@ -90,7 +94,7 @@ export const FINAL_SCENE: DemoSceneState = {
   textChars: Number.POSITIVE_INFINITY,
   tiles: DEMO_TILES,
   frameColor: 1,
-  textPos: { x: 50, y: 14 },
+  textPos: { x: 50, y: TITLE_Y },
 }
 
 /* Dégradés de l'artboard : les trois premiers presets réels du produit,
@@ -116,15 +120,24 @@ export const FRAME_COLORS = ['#ffffff', '#3A4B63', '#C75B33']
    Un éditeur de captures sans réglage de taille de titre n'est pas un
    éditeur, c'est un gabarit. */
 export const TEXT_SIZES = [
-  { label: 'S', size: 5 },
-  { label: 'M', size: 6.5 },
-  { label: 'L', size: 8.5 },
+  { label: 'S', size: 6 },
+  { label: 'M', size: 7.5 },
+  { label: 'L', size: 9.5 },
 ]
 
 /* Blanc, encre, sable : les trois valeurs qui tiennent sur les vingt-deux
    dégradés du produit. Ce sont des littéraux comme le reste de ce qui se pose
    sur la planche de l'utilisateur — un token de thème virerait avec elle. */
 export const TEXT_COLORS = ['#ffffff', '#101014', '#ffdca8']
+
+/* L'encre que la boucle choisit pour chaque fond, indexée comme
+   `DEMO_GRADIENTS`. La passe d'édition tirait taille, encre et fond du même
+   compteur : au premier tour elle posait « Encre » sur « Ocean » et laissait
+   quatre secondes un titre noir sur bleu nuit, illisible — la démo d'un outil
+   qui vend des planches lisibles montrait la seule combinaison qui ne l'est
+   pas. Le fond se choisit d'abord, l'encre suit, et chaque encre passe une
+   fois : blanc sur Sunset, sable sur Ocean, encre sur Emerald. */
+export const LEGIBLE_TEXT_COLOR = [0, 2, 1]
 
 /* Durée de déplacement : proportionnelle à la distance, bornée. Une constante
    unique faisait mettre le même temps à un saut de 20 px et à une traversée de

@@ -188,3 +188,42 @@ main li,
 main summary {
   text-wrap: pretty;
 }
+
+/*
+ * La démo interactive : le chrome de l'éditeur, en îlots.
+ *
+ * `.demo-island` est `.island` de l'app à l'échelle de la maquette — même
+ * carte, même filet, même ombre ; le rayon descend d'un cran (`md`, 12 px)
+ * parce que la maquette rend le chrome à six dixièmes, et le retrait est
+ * porté par chaque îlot (la barre en `p-1.5`, les tiroirs par leur en-tête à
+ * fleur de bord et leur contenu en retrait), pour que « rayon interne = rayon
+ * externe − retrait » tienne : 12 − 6 = 6, le rayon des contrôles.
+ *
+ * `.demo-board` prend la plus petite de deux mesures : la hauteur que la
+ * rangée lui laisse, et le tiers de sa largeur moins les deux écarts. Les
+ * unités `cq*` se résolvent sur la rangée (`container-type: size`), pas sur
+ * la planche — un élément conteneur lit ses propres unités sur son ancêtre.
+ * Le rapport est celui d'`APP_STORE_TARGET`, posé en variable par
+ * `DemoEditor` pour ne pas l'écrire une seconde fois ici. Sous `sm` la
+ * largeur ne borne plus : trois planches de 98 px ne montrent rien, et les
+ * voisines qui débordent disent « plan de travail » comme sur un vrai écran
+ * étroit.
+ */
+.demo-stage {
+  background-image: radial-gradient(var(--color-stage-dot) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.demo-island {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md), var(--hairline-top);
+}
+.demo-board {
+  height: 100%;
+}
+@media (min-width: 40rem) {
+  .demo-board {
+    height: min(100%, calc((100cqw - 2rem) / 3 * var(--demo-board-ratio)));
+  }
+}
