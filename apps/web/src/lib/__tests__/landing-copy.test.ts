@@ -17,3 +17,13 @@ test.each(['en', 'fr'] as const)(
     )
   },
 )
+
+/* La marche à suivre de la section IA cite la commande du démon MCP ; elle
+   est recopiée dans la vitrine (importer le client y tirerait les stores), et
+   c'est ici qu'on la tient en phase avec `MCP_COMMAND`. */
+test.each(['en', 'fr'] as const)('la section IA %s cite la vraie commande MCP', async (lang) => {
+  const { MCP_COMMAND } = await import('@/lib/mcp/client')
+  const agent = copy[lang].agent
+  expect(agent.setupSteps.join('\n')).toContain(MCP_COMMAND)
+  expect(copy[lang].faq.items.map((item) => item.a).join('\n')).toContain(MCP_COMMAND)
+})

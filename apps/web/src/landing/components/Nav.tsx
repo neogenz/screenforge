@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { useLang } from '../i18n'
 import { LINKS } from '../links'
 import { CtaPrimary } from './cta'
+import { BrandWordmark } from './BrandWordmark'
 import { LangLink } from './LangLink'
 
 const MENU_ID = 'nav-menu'
@@ -55,6 +56,9 @@ export function Nav() {
       <a className={anchorClass} href="#features" onClick={onNavigate}>
         {t.nav.features}
       </a>
+      <a className={anchorClass} href="#agent" onClick={onNavigate}>
+        {t.nav.agent}
+      </a>
       <a className={anchorClass} href="#pricing" onClick={onNavigate}>
         {t.nav.pricing}
       </a>
@@ -85,9 +89,9 @@ export function Nav() {
       >
         <a
           href="#hero"
-          className="py-3 font-display text-[2rem] leading-none tracking-[-0.025em] italic focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          className="flex py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
         >
-          ScreenForge
+          <BrandWordmark className="h-8" />
         </a>
         <div className="ml-auto flex items-center gap-2">
           <div

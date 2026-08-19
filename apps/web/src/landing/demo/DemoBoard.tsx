@@ -107,7 +107,11 @@ export function DemoBoard({
   boardRef?: React.Ref<HTMLDivElement>
   className?: string
 }) {
-  const showText = filled && !scene.hidden.includes('text')
+  /* Un calque de texte n'existe qu'à partir de son premier caractère : la
+     planche courante est « remplie » dès que le cadre est posé, et le bloc
+     titre se rendait vide, avec son curseur qui clignotait au milieu du fond
+     avant même que l'outil Texte soit choisi. */
+  const showText = filled && title.length > 0 && !scene.hidden.includes('text')
   const showDevice = filled && !scene.hidden.includes('device')
   const bezel = FRAME_COLORS[scene.frameColor]
   const ink = TEXT_COLORS[scene.textColor]
@@ -229,9 +233,9 @@ export function DemoBoard({
             /* Le châssis se mesure en `cqw` de la planche, pas en pixels : un
                `border-2` fixe donnait un liseré de deux pixels sur un
                téléphone rendu 180 px de large — un cheveu là où un iPhone
-               porte 2,5 % de sa largeur. À 1,2cqw il tient sa proportion que
+               porte 2,5 % de sa largeur. À 1,6cqw il tient sa proportion que
                la planche fasse 130 px ou 260. */
-            className="relative h-full overflow-hidden border-solid bg-black/25 transition-[border-color] duration-300 ease-out"
+            className="relative h-full overflow-hidden border-solid transition-[border-color] duration-300 ease-out"
             style={{
               aspectRatio: '1170 / 2532',
               borderRadius: '16% / 8%',
@@ -240,7 +244,17 @@ export function DemoBoard({
               boxShadow: '0 3px 14px oklch(0 0 0 / 0.38)',
             }}
           >
-            <DemoPhoneApp label={appLabel} variant={variant} />
+            {/* Le liseré noir de la dalle, entre le châssis et l'écran. Un
+                iPhone en porte un quelle que soit sa couleur, et c'est lui qui
+                fait lire la silhouette : en « Argent » le châssis blanc et
+                l'écran blanc de l'app se fondaient en une seule plaque, sans
+                bord — un rectangle, pas un téléphone. */}
+            <div
+              className="h-full overflow-hidden border-solid border-black bg-black"
+              style={{ borderRadius: '14.5% / 7.2%', borderWidth: '1cqw' }}
+            >
+              <DemoPhoneApp label={appLabel} variant={variant} />
+            </div>
             <span className="absolute top-[2.4%] left-1/2 h-[3.2%] w-[30%] -translate-x-1/2 rounded-full bg-black" />
           </div>
           {edit && edit.selected === 'device' ? <SelectionFrame /> : null}
@@ -256,16 +270,23 @@ export function DemoBoard({
  * s'annoncer. Un emplacement vide est un contour, pas un dégradé assombri — à
  * 25 % d'opacité le rose du fond vire au bordeaux et se lit comme une vignette
  * cassée.
+ *
+ * Le rang au-dessus, la vignette courante qui se soulève et porte le badge
+ * citron : c'est le filmstrip du produit (`ScreenThumbnail`), à son échelle.
+ * Dix pastilles roses de 17 px sans rang ni état ne prouvaient pas « dix
+ * écrans », elles faisaient un motif.
  */
 export function DemoTile({
   scene,
   filled,
   current,
+  rank,
   titleWidth,
 }: {
   scene: DemoSceneState
   filled: boolean
   current: boolean
+  rank: number
   titleWidth: number
 }) {
   const showText = filled && !scene.hidden.includes('text')
@@ -273,47 +294,56 @@ export function DemoTile({
   const textPos = current ? scene.textPos : scene.spreadTextPos
   const devicePos = current ? scene.devicePos : scene.spreadDevicePos
   return (
-    <div
-      className={cn(
-        'relative h-9 overflow-hidden rounded-[3px] transition-transform duration-300',
-        filled
-          ? 'outline -outline-offset-1 outline-white/10'
-          : 'translate-y-0.5 border border-border/60',
-      )}
-      style={{ aspectRatio: '1320 / 2868' }}
-    >
-      {filled ? (
-        <>
-          <GradientLayers index={scene.bgIndex} />
-          {showText ? (
-            /* La largeur du titre varie d'une vignette à l'autre : dix barres
+    <div className="flex flex-col items-center gap-1">
+      <span
+        className={cn(
+          'grid size-3 place-items-center rounded-full font-mono text-[8px] leading-none font-semibold tabular-nums',
+          current ? 'bg-marker text-marker-ink' : 'text-muted-foreground',
+        )}
+      >
+        {rank}
+      </span>
+      <div
+        className={cn(
+          'relative h-8 overflow-hidden rounded-[3px] transition-[transform,box-shadow] duration-300 md:h-11',
+          filled ? 'outline -outline-offset-1 outline-white/10' : 'border border-border/60',
+          current && filled && '-translate-y-0.5 shadow-(--shadow-handle)',
+        )}
+        style={{ aspectRatio: '1320 / 2868' }}
+      >
+        {filled ? (
+          <>
+            <GradientLayers index={scene.bgIndex} />
+            {showText ? (
+              /* La largeur du titre varie d'une vignette à l'autre : dix barres
                identiques annoncent dix fois la même planche, et le produit
                vend l'inverse. */
-            <span
-              className="absolute h-[4%] -translate-x-1/2 -translate-y-1/2 rounded-[1px]"
-              style={{
-                left: `${textPos.x}%`,
-                top: `${textPos.y}%`,
-                width: `${titleWidth}%`,
-                background: TEXT_COLORS[scene.textColor],
-              }}
-            />
-          ) : null}
-          {showDevice ? (
-            <span
-              className="absolute -translate-x-1/2 -translate-y-1/2 border bg-white/85"
-              style={{
-                left: `${devicePos.x}%`,
-                top: `${devicePos.y}%`,
-                height: `${DEVICE_HEIGHT_PCT}%`,
-                aspectRatio: '1170 / 2532',
-                borderRadius: '16% / 8%',
-                borderColor: FRAME_COLORS[scene.frameColor],
-              }}
-            />
-          ) : null}
-        </>
-      ) : null}
+              <span
+                className="absolute h-[4%] -translate-x-1/2 -translate-y-1/2 rounded-[1px]"
+                style={{
+                  left: `${textPos.x}%`,
+                  top: `${textPos.y}%`,
+                  width: `${titleWidth}%`,
+                  background: TEXT_COLORS[scene.textColor],
+                }}
+              />
+            ) : null}
+            {showDevice ? (
+              <span
+                className="absolute -translate-x-1/2 -translate-y-1/2 border bg-white/85"
+                style={{
+                  left: `${devicePos.x}%`,
+                  top: `${devicePos.y}%`,
+                  height: `${DEVICE_HEIGHT_PCT}%`,
+                  aspectRatio: '1170 / 2532',
+                  borderRadius: '16% / 8%',
+                  borderColor: FRAME_COLORS[scene.frameColor],
+                }}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </div>
   )
 }
