@@ -84,10 +84,11 @@ pnpm exec convex run  --env-file .env.production preflight:check '{"target":"pro
 pnpm exec convex data --env-file .env.preprod projects
 ```
 
-La préproduction peut aussi porter `VERCEL_PREVIEW_HOST_SUFFIX`, le suffixe DNS
-étroit observé après une première Preview Git. Il est absent de production. Le
-nom peut être contrôlé par `convex env list --names-only`; sa valeur ne doit pas
-être copiée dans un document public.
+Les parcours Cloud authentifiés de préproduction utilisent une origine hébergée
+stable, déclarée exactement dans `SITE_URL` et `CORS_ALLOWED_ORIGINS`. Les
+Previews Vercel éphémères restent Local-only : elles ne partagent ni retour
+d'authentification ni CORS Cloud. L'ancienne variable de suffixe Preview doit
+être retirée des déploiements; le preflight la refuse désormais par son nom.
 
 ```bash
 pnpm run deploy:preprod   # depuis la racine — convex deploy --env-file .env.preprod
@@ -545,6 +546,7 @@ pnpm exec convex env --env-file .env.production set CORS_ALLOWED_ORIGINS https:/
 
 La première valeur reste volontairement un placeholder bloquant : le projet
 Vercel n'existe pas encore, donc aucune origine exacte ne peut être attestée.
+Une URL Preview générée ne remplace jamais cet alias stable dans l'allowlist.
 Référence : [variables par déploiement Convex](https://docs.convex.dev/production/environment-variables).
 
 ### Variables Vercel et séparation des secrets

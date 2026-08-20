@@ -33,32 +33,6 @@ export function configuredOrigins(value: string | undefined): ReadonlySet<string
   return origins.size ? origins : null
 }
 
-function validPreviewSuffix(value: string | undefined): value is string {
-  return Boolean(value && /^-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(value))
-}
-
-export function isAllowedOrigin(
-  origin: string,
-  exactOrigins: ReadonlySet<string> | null,
-  previewSuffix?: string,
-): boolean {
-  if (exactOrigins?.has(origin)) return true
-  if (!validPreviewSuffix(previewSuffix)) return false
-  try {
-    const url = new URL(origin)
-    if (
-      origin !== url.origin ||
-      url.protocol !== 'https:' ||
-      url.port ||
-      url.username ||
-      url.password
-    ) {
-      return false
-    }
-    if (!url.hostname.startsWith('screenforge-') || !url.hostname.endsWith(previewSuffix))
-      return false
-    return url.hostname.slice('screenforge-'.length, -previewSuffix.length).length > 0
-  } catch {
-    return false
-  }
+export function isAllowedOrigin(origin: string, exactOrigins: ReadonlySet<string> | null): boolean {
+  return exactOrigins?.has(origin) ?? false
 }

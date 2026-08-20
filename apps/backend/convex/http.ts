@@ -47,14 +47,7 @@ const CORS_BASE = {
 function corsHeaders(request: Request): Record<string, string> | null {
   const origin = request.headers.get('Origin')
   if (origin === null) return CORS_BASE
-  if (
-    !isAllowedOrigin(
-      origin,
-      configuredOrigins(env.CORS_ALLOWED_ORIGINS),
-      env.VERCEL_PREVIEW_HOST_SUFFIX,
-    )
-  )
-    return null
+  if (!isAllowedOrigin(origin, configuredOrigins(env.CORS_ALLOWED_ORIGINS))) return null
   return { ...CORS_BASE, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
 }
 

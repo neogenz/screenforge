@@ -57,19 +57,21 @@ test('le mot de passe de test exige un flag et un déploiement loopback', () => 
   )
 })
 
-test('le code de session ne revient que sur le site ou une Preview approuvée', () => {
+test('le code de session ne revient que sur une origine exacte', () => {
   const site = 'https://screenforge.example'
-  const suffix = '-team-123.vercel.app'
-  expect(safeRedirect('/editor', site, suffix)).toBe(`${site}/editor`)
-  expect(
-    safeRedirect('https://screenforge-git-branch-team-123.vercel.app/editor', site, suffix),
-  ).toBe('https://screenforge-git-branch-team-123.vercel.app/editor')
+  const exact = new Set([site, 'https://preview.screenforge.example'])
+  expect(safeRedirect('/editor', site, exact)).toBe(`${site}/editor`)
+  expect(safeRedirect('https://preview.screenforge.example/editor', site, exact)).toBe(
+    'https://preview.screenforge.example/editor',
+  )
   for (const hostile of [
     'https://screenforge.example.hostile.test',
     'https://screenforge-git-branch-team-123.vercel.app.hostile.test',
     'https://user@screenforge-git-branch-team-123.vercel.app',
+    'https://screenforge-x-evil-team-123.vercel.app',
+    'https://screenforge-git-branch-team-123.vercel.app',
   ]) {
-    expect(safeRedirect(hostile, site, suffix)).toBe(`${site}/`)
+    expect(safeRedirect(hostile, site, exact)).toBe(`${site}/`)
   }
 })
 

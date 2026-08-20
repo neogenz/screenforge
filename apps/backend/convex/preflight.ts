@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { env, internalQuery } from './_generated/server'
+import { configuredOrigins } from './origins'
 
 export type PreflightTarget = 'preproduction' | 'production'
 
@@ -59,6 +60,7 @@ export function evaluatePreflight(target: PreflightTarget, configuration: Config
 
   const siteValue = configuration.SITE_URL?.trim()
   const site = parseOrigin(siteValue)
+  const cors = configuredOrigins(configuration.CORS_ALLOWED_ORIGINS)
   const checkout = (() => {
     try {
       return configuration.CHECKOUT_SUCCESS_URL
@@ -86,18 +88,31 @@ export function evaluatePreflight(target: PreflightTarget, configuration: Config
     inconsistent.push('PRODUCTION_REQUIRES_POLAR_PRODUCTION')
   }
 
+  if (configuration.VERCEL_PREVIEW_HOST_SUFFIX?.trim()) {
+    inconsistent.push('VERCEL_PREVIEW_HOST_SUFFIX_FORBIDDEN')
+  }
+
+  if (target === 'preproduction') {
+    if (!site || site.protocol !== 'https:') {
+      inconsistent.push('PREPRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN')
+    }
+    if (
+      !site ||
+      !cors?.has(site.origin) ||
+      [...(cors ?? [])].some((origin) => new URL(origin).protocol !== 'https:')
+    ) {
+      inconsistent.push('PREPRODUCTION_REQUIRES_EXACT_HTTPS_CORS')
+    }
+  }
+
   if (target === 'production') {
     if (!site || site.protocol !== 'https:')
       inconsistent.push('PRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN')
     if (site?.hostname.endsWith('.vercel.app')) inconsistent.push('PRODUCTION_FORBIDS_PREVIEW_SITE')
-    if (configuration.VERCEL_PREVIEW_HOST_SUFFIX?.trim()) {
-      inconsistent.push('PRODUCTION_FORBIDS_PREVIEW_ORIGINS')
-    }
     if (!site || !checkout || checkout.origin !== site.origin) {
       inconsistent.push('CHECKOUT_SUCCESS_URL_REQUIRES_SITE_ORIGIN')
     }
-    const cors = configuration.CORS_ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim())
-    if (!site || cors?.length !== 1 || cors[0] !== site.origin) {
+    if (!site || cors?.size !== 1 || !cors.has(site.origin)) {
       inconsistent.push('PRODUCTION_REQUIRES_EXACT_SITE_CORS')
     }
     if (emailDomain(configuration.AUTH_EMAIL_FROM) === 'resend.dev') {

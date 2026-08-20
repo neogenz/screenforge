@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: remplacer les suffixes Preview par des origines exactes

@@ -5,12 +5,12 @@ const complete = {
   ABUSE_KEY_SECRET: 'anti-abuse-test-value',
   AUTH_EMAIL_FROM: 'ScreenForge <onboarding@resend.dev>',
   AUTH_RESEND_KEY: 'resend-test-value',
-  CHECKOUT_SUCCESS_URL: 'http://localhost:5173/?checkout=success',
-  CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
+  CHECKOUT_SUCCESS_URL: 'https://preprod.screenforge.example/?checkout=success',
+  CORS_ALLOWED_ORIGINS: 'https://preprod.screenforge.example',
   POLAR_ACCESS_TOKEN: 'polar-test-value',
   POLAR_CLOUD_PRODUCT_ID: 'cloud-product-test-value',
   POLAR_WEBHOOK_SECRET: 'webhook-test-value',
-  SITE_URL: 'http://localhost:5173',
+  SITE_URL: 'https://preprod.screenforge.example',
 } as const
 
 const production = {
@@ -48,6 +48,7 @@ describe('preflight Cloud expurgé', () => {
       ...complete,
       AUTH_TEST_PASSWORD: '1',
       SITE_URL: 'https://preview.example',
+      CORS_ALLOWED_ORIGINS: 'https://preview.example',
     })
 
     expect(result.inconsistent).toEqual(['AUTH_TEST_PASSWORD_REQUIRES_LOOPBACK_SITE_URL'])
@@ -62,6 +63,27 @@ describe('preflight Cloud expurgé', () => {
     expect(result.inconsistent).toEqual(['PREPRODUCTION_REQUIRES_POLAR_SANDBOX'])
   })
 
+  test.each([
+    ['PREPRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN', { SITE_URL: 'http://localhost:5173' }],
+    ['PREPRODUCTION_REQUIRES_EXACT_HTTPS_CORS', { CORS_ALLOWED_ORIGINS: 'https://other.example' }],
+  ])('exige une origine hébergée stable en préproduction : %s', (rule, override) => {
+    const result = evaluatePreflight('preproduction', { ...complete, ...override })
+    expect(result.ready).toBe(false)
+    expect(result.inconsistent).toContain(rule)
+  })
+
+  test.each(['preproduction', 'production'] as const)(
+    'refuse l’ancienne variable Preview en %s',
+    (target) => {
+      const result = evaluatePreflight(target, {
+        ...(target === 'production' ? production : complete),
+        VERCEL_PREVIEW_HOST_SUFFIX: '-team.vercel.app',
+      })
+      expect(result.ready).toBe(false)
+      expect(result.inconsistent).toContain('VERCEL_PREVIEW_HOST_SUFFIX_FORBIDDEN')
+    },
+  )
+
   test('accepte une production canonique sans valeur de test', () => {
     expect(evaluatePreflight('production', production)).toEqual({
       ready: true,
@@ -74,7 +96,6 @@ describe('preflight Cloud expurgé', () => {
     ['AUTH_TEST_PASSWORD_FORBIDDEN_IN_PRODUCTION', { AUTH_TEST_PASSWORD: '1' }],
     ['PRODUCTION_REQUIRES_HTTPS_SITE_ORIGIN', { SITE_URL: 'http://screenforge.example' }],
     ['PRODUCTION_FORBIDS_PREVIEW_SITE', { SITE_URL: 'https://branch.vercel.app' }],
-    ['PRODUCTION_FORBIDS_PREVIEW_ORIGINS', { VERCEL_PREVIEW_HOST_SUFFIX: '-team.vercel.app' }],
     [
       'CHECKOUT_SUCCESS_URL_REQUIRES_SITE_ORIGIN',
       { CHECKOUT_SUCCESS_URL: 'https://other.example/?checkout=success' },
