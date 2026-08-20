@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { open } from 'node:fs/promises'
-import { extname, isAbsolute, resolve } from 'node:path'
+import { open, realpath } from 'node:fs/promises'
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { inspectMedia } from '@screenforge/project-format/media-validation'
 
 const MEDIA_TYPES: Record<string, string> = {
@@ -29,6 +29,13 @@ export interface OfferedAsset {
 }
 
 type StoredAsset = OfferedAsset & { bytes: Buffer }
+export type AssetRootProvider = () => Promise<readonly string[]>
+type CanonicalRoot = { requested: string; canonical: string }
+
+function contains(root: string, target: string): boolean {
+  const path = relative(root, target)
+  return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path))
+}
 
 /** Coffre de session : octets validés une fois, immuables jusqu'à révocation. */
 export class AssetVault {
@@ -36,6 +43,60 @@ export class AssetVault {
   #bytes = 0
   #epoch = 0
   #tail: Promise<void> = Promise.resolve()
+  #roots: Promise<readonly CanonicalRoot[]> | null = null
+  readonly #rootProvider: AssetRootProvider
+
+  constructor(rootProvider: AssetRootProvider = () => Promise.resolve([])) {
+    this.#rootProvider = rootProvider
+  }
+
+  async #allowedRoots(): Promise<readonly CanonicalRoot[]> {
+    this.#roots ??= this.#rootProvider()
+      .then(async (roots) =>
+        (
+          await Promise.all(
+            roots.filter(isAbsolute).map(async (root) => {
+              const canonical = await realpath(root).catch(() => null)
+              return canonical ? { requested: resolve(root), canonical } : null
+            }),
+          )
+        ).filter((root): root is CanonicalRoot => root !== null),
+      )
+      .catch(() => [])
+    return this.#roots
+  }
+
+  async #authorized(path: string, noun: 'Fichier' | 'Répertoire'): Promise<string> {
+    if (!isAbsolute(path)) {
+      throw new AssetRefusedError(
+        `Chemin relatif : « ${path} ». Donnez le chemin absolu du ${noun.toLowerCase()}.`,
+      )
+    }
+    const requested = resolve(path)
+    const roots = await this.#allowedRoots()
+    if (roots.length === 0) {
+      throw new AssetRefusedError(
+        'Aucun répertoire d’images autorisé par le client MCP ou la configuration.',
+      )
+    }
+    if (
+      !roots.some(
+        (root) => contains(root.requested, requested) || contains(root.canonical, requested),
+      )
+    ) {
+      throw new AssetRefusedError(`${noun} hors des répertoires autorisés : « ${requested} ».`)
+    }
+    const canonical = await realpath(requested).catch(() => null)
+    if (!canonical) throw new AssetRefusedError(`${noun} introuvable : « ${requested} ».`)
+    if (!roots.some((root) => contains(root.canonical, canonical))) {
+      throw new AssetRefusedError(`${noun} hors des répertoires autorisés : « ${requested} ».`)
+    }
+    return canonical
+  }
+
+  authorizeDirectory(path: string): Promise<string> {
+    return this.#authorized(path, 'Répertoire')
+  }
 
   offer(path: string): Promise<OfferedAsset> {
     const epoch = this.#epoch
@@ -54,16 +115,17 @@ export class AssetVault {
         `Chemin relatif : « ${path} ». Donnez le chemin absolu du fichier.`,
       )
     }
-    const full = resolve(path)
-    const mediaType = MEDIA_TYPES[extname(full).toLowerCase()]
+    const requested = resolve(path)
+    const mediaType = MEDIA_TYPES[extname(requested).toLowerCase()]
     if (!mediaType) {
       throw new AssetRefusedError(
-        `Format non pris en charge : « ${extname(full) || full} ». Attendu : ${Object.keys(MEDIA_TYPES).join(', ')}.`,
+        `Format non pris en charge : « ${extname(requested) || requested} ». Attendu : ${Object.keys(MEDIA_TYPES).join(', ')}.`,
       )
     }
     if (this.#offered.size >= MAX_VAULT_ASSETS) {
       throw new AssetRefusedError(`Coffre plein : ${MAX_VAULT_ASSETS} fichiers au plus.`)
     }
+    const full = await this.#authorized(requested, 'Fichier')
 
     const handle = await open(full, 'r').catch(() => null)
     if (!handle) throw new AssetRefusedError(`Fichier introuvable : « ${full} ».`)
@@ -127,6 +189,7 @@ export class AssetVault {
     this.#epoch += 1
     this.#offered.clear()
     this.#bytes = 0
+    this.#roots = null
   }
 }
 

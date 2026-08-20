@@ -91,18 +91,20 @@ export function safeRedirect(
 /**
  * Le courriel de lien magique, envoyé par Resend.
  *
- * Deux compteurs avant l'envoi, jamais après : le composant compte dans la
+ * Trois compteurs avant l'envoi, jamais après : le composant compte dans la
  * transaction de l'appelant, donc un envoi qui échoue rend son jeton.
  *
  * **Par adresse** protège le titulaire d'une boîte contre l'inondation.
  * **Par source réseau pseudonymisée** protège la réputation du domaine
  * expéditeur contre un balayage d'adresses sans fermer le service aux autres
  * sources. La métadonnée vient de Convex, jamais d'un en-tête client.
+ * **Globalement** borne le coût si l'attaquant fait tourner sources et adresses.
  */
 async function sendMagicLink(
   { identifier: email, url, provider }: SendParams,
   ctx: RunMutationCtx & RequestMetadataCtx,
 ): Promise<void> {
+  await consume(ctx, 'magicLinkSendGlobal')
   await consume(ctx, 'magicLinkSendBySource', await sourceRateLimitKey(ctx, 'auth'))
   await consume(ctx, 'magicLinkSend', email.toLowerCase())
 

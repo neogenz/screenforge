@@ -69,8 +69,12 @@ besoin de vérité. Le retour est une image MCP, pas une URL. Rien n'est écrit 
 le rendu se fait sur une toile jetable, sans toucher au projet, à l'historique
 ni à la sélection.
 
-`screenforge_add_image` prend un **chemin absolu** sur votre machine. Le chemin
-ne traverse pas : le démon le fait entrer dans un coffre qui vit avec son
+`screenforge_add_image` prend un **chemin absolu sous une racine accordée** sur
+votre machine. Le client MCP annonce normalement les dossiers de travail. Pour
+un client qui ne le fait pas, configurez explicitement
+`SCREENFORGE_MCP_ASSET_ROOTS` avec un ou plusieurs dossiers absolus séparés par
+le séparateur de chemins du système (`:` sur macOS/Linux, `;` sur Windows).
+Sans racine, la lecture échoue fermée. Le chemin ne traverse pas : le démon le fait entrer dans un coffre qui vit avec son
 processus, l'appel qui part vers la page ne porte qu'un identifiant, et la page
 récupère les octets par `GET /asset/:id`, sur jeton. La route ne sait pas lire
 un chemin — un `?path=` aurait fait de l'onglet un lecteur de tout le disque, à
@@ -121,7 +125,8 @@ cet accord, ce qui est pourquoi ce fichier peut être versionné.
   "mcpServers": {
     "screenforge": {
       "command": "node",
-      "args": ["/chemin/absolu/vers/screen-forge/apps/mcp/build/main.js"]
+      "args": ["/chemin/absolu/vers/screen-forge/apps/mcp/build/main.js"],
+      "env": { "SCREENFORGE_MCP_ASSET_ROOTS": "/chemin/vers/vos/captures" }
     }
   }
 }
@@ -135,6 +140,7 @@ cet accord, ce qui est pourquoi ce fichier peut être versionné.
 [mcp_servers.screenforge]
 command = "node"
 args = ["/chemin/absolu/vers/screen-forge/apps/mcp/build/main.js"]
+env = { SCREENFORGE_MCP_ASSET_ROOTS = "/chemin/vers/vos/captures" }
 ```
 
 Ou, en une commande :
@@ -175,6 +181,9 @@ les appels en vol et le coffre d'assets côté démon.
 Le démon écoute sur `127.0.0.1:4591`, jamais sur `0.0.0.0`. Les origines admises
 sont celles des serveurs de développement (5173, 4173, 5199) ; ajoutez-en avec
 `SCREENFORGE_MCP_ORIGINS`, déplacez le port avec `SCREENFORGE_MCP_PORT`.
+Les fichiers et répertoires d’images restent bornés aux racines annoncées par le
+client ou à `SCREENFORGE_MCP_ASSET_ROOTS`; les symlinks qui en sortent sont
+refusés après canonicalisation.
 
 Déplacer le port se fait des deux côtés, sans quoi l'onglet continuerait
 d'appeler 4591. Une page statique ne lit pas de variable d'environnement, donc

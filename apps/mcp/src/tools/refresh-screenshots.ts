@@ -75,7 +75,7 @@ export async function planRefreshRequest(
       `Chemin relatif : « ${args.directory} ». Donnez le chemin absolu du répertoire.`,
     )
   }
-  const full = resolve(args.directory)
+  const full = await vault.authorizeDirectory(resolve(args.directory))
 
   const entries = await readdir(full, { withFileTypes: true }).catch(
     (error: NodeJS.ErrnoException) =>

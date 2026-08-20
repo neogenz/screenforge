@@ -66,8 +66,8 @@ il ne transforme pas l'éditeur en client dépendant du réseau.
 
 Points importants :
 
-- le lien expire après une heure et les demandes sont limitées par adresse et
-  par source réseau pseudonymisée ;
+- le lien expire après une heure et les demandes sont limitées par adresse, par
+  source réseau pseudonymisée et par un plafond global de dernier recours ;
 - les erreurs affichées côté client restent génériques pour ne pas révéler si
   un compte existe ;
 - avec l'expéditeur de test `resend.dev`, Resend n'autorise que l'adresse liée

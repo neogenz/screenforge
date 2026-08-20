@@ -15,7 +15,7 @@ One applied batch per screen, each a single undo step.
 1. **Recipe.** Pick the matching entry in [workflows.md](../references/workflows.md) and follow the call order it gives.
 2. **Palette.** Fix one background, one ink and one accent for the whole set before the first call, and reuse them on every screen.
    - The ink must stay readable on the darkest and the lightest stop of its own background, since a headline is what sells the download.
-3. **Files first.** Local images do not travel inside a batch. Call `screenforge_add_image` once per file, with an absolute path, before the batch that arranges the screen around it.
+3. **Files first.** Local images do not travel inside a batch. Call `screenforge_add_image` once per file, with an absolute path under a root granted by the MCP client, before the batch that arranges the screen around it.
    - Only that tool can turn a path into an asset the project accepts. The contract's `add_image` inside `calls` needs an identifier no agent can produce and is refused.
 4. **Draft.** Place every layer on the 440 by 956 board, deriving a headline box height from its own font size as `lines × fontSize × 1.2` rather than declaring one.
    - A screen holds 24 layers at most, and a project 10 screens at most.

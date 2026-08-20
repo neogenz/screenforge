@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -42,7 +42,7 @@ async function directory(files: Record<string, Buffer | string>): Promise<string
   return base
 }
 
-const vault = () => new AssetVault()
+const vault = (root: string) => new AssetVault(() => Promise.resolve([root]))
 
 describe('la livraison de captures', () => {
   it('offre chaque image du répertoire, dans un ordre stable', async () => {
@@ -52,7 +52,7 @@ describe('la livraison de captures', () => {
       'accueil.png': png(1320, 2868),
     })
 
-    const request = await planRefreshRequest(vault(), { directory: base })
+    const request = await planRefreshRequest(vault(base), { directory: base })
     expect(request.files.map((file) => file.name)).toEqual([
       'accueil.png',
       'budget.png',
@@ -70,24 +70,25 @@ describe('la livraison de captures', () => {
       'logo.svg': '<svg viewBox="0 0 10 10"></svg>',
     })
 
-    const request = await planRefreshRequest(vault(), { directory: base })
+    const request = await planRefreshRequest(vault(base), { directory: base })
     // Le SVG est un logo, jamais une capture : `add_image` le pose, pas celui-ci.
     expect(request.files.map((file) => file.name)).toEqual(['accueil.png'])
   })
 
   it('nomme la cause de chaque refus', async () => {
-    await expect(planRefreshRequest(vault(), { directory: 'captures' })).rejects.toThrow(/relatif/)
-
     const base = await directory({ 'accueil.png': png(10, 10) })
+    await expect(planRefreshRequest(vault(base), { directory: 'captures' })).rejects.toThrow(
+      /relatif/,
+    )
     await expect(
-      planRefreshRequest(vault(), { directory: join(base, 'accueil.png') }),
+      planRefreshRequest(vault(base), { directory: join(base, 'accueil.png') }),
     ).rejects.toThrow(/fichier, pas un répertoire/)
     await expect(
-      planRefreshRequest(vault(), { directory: join(base, 'nulle-part') }),
+      planRefreshRequest(vault(base), { directory: join(base, 'nulle-part') }),
     ).rejects.toThrow(/introuvable/)
 
     const empty = await directory({ 'notes.txt': 'rien' })
-    await expect(planRefreshRequest(vault(), { directory: empty })).rejects.toThrow(
+    await expect(planRefreshRequest(vault(empty), { directory: empty })).rejects.toThrow(
       /Aucune capture/,
     )
   })
@@ -101,14 +102,28 @@ describe('la livraison de captures', () => {
     }
     const base = await directory(files)
 
-    await expect(planRefreshRequest(vault(), { directory: base })).rejects.toThrow(/40 au plus/)
+    await expect(planRefreshRequest(vault(base), { directory: base })).rejects.toThrow(/40 au plus/)
+  })
+
+  it('refuse un répertoire hors racine ou un symlink qui en sort', async () => {
+    const root = await directory({})
+    const outside = await directory({ 'capture.png': png(10, 10) })
+    await expect(planRefreshRequest(vault(root), { directory: outside })).rejects.toThrow(
+      /hors des répertoires autorisés/,
+    )
+
+    const escaped = join(root, 'captures')
+    await symlink(outside, escaped)
+    await expect(planRefreshRequest(vault(root), { directory: escaped })).rejects.toThrow(
+      /hors des répertoires autorisés/,
+    )
   })
 
   it('transporte le manifeste sans l’interpréter', async () => {
     const base = await directory({ '20260816-0930.png': png(1320, 2868) })
     const manifest = { budget: '20260816-0930.png' }
 
-    const request = await planRefreshRequest(vault(), { directory: base, manifest })
+    const request = await planRefreshRequest(vault(base), { directory: base, manifest })
     // L'appariement vit dans l'onglet, avec la règle de la boîte « Rafraîchir ».
     expect(request.manifest).toEqual(manifest)
   })

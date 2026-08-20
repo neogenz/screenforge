@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { api } from './_generated/api'
 import { safeRedirect, testPasswordEnabled } from './auth'
 import { deriveSourceKey } from './limits'
-import { rateLimited, testConvex } from './test.helpers'
+import { rateLimited, testConvex, useRateLimit } from './test.helpers'
 
 /**
  * Ce que la phase 1 doit prouver, et son contre-test à chaque fois.
@@ -322,6 +322,25 @@ test('une source ne contourne pas son plafond en changeant d’adresse', async (
   source = '203.0.113.21'
   await expect(send(21)).resolves.toBeDefined()
   expect(sent).toHaveLength(21)
+})
+
+test('changer simultanément de source et d’adresse ne contourne pas le plafond global', async () => {
+  let source = '203.0.113.30'
+  const t = testConvex(() => source)
+  for (let index = 0; index < 99; index += 1) await useRateLimit(t, 'magicLinkSendGlobal')
+
+  await t.action(api.auth.signIn, {
+    provider: 'resend',
+    params: { email: 'avant-plafond@screenforge.test' },
+  })
+  source = '203.0.113.31'
+  await expect(
+    t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: 'apres-plafond@screenforge.test' },
+    }),
+  ).rejects.toSatisfy(rateLimited)
+  expect(sent).toHaveLength(1)
 })
 
 test('une source ou un secret absent ferme le lien sans envoi', async () => {

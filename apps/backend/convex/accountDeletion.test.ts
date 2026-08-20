@@ -628,11 +628,13 @@ describe('compteurs indirects', () => {
     for (const name of USER_SCOPED_LIMITS) await useRateLimit(t, name, userId)
     for (const name of EMAIL_SCOPED_LIMITS) await useRateLimit(t, name, FIXTURE_EMAIL)
     await useRateLimit(t, 'passwordSignUpGlobal')
+    await useRateLimit(t, 'magicLinkSendGlobal')
     await useRateLimit(t, 'magicLinkSendBySource', 'source-key')
     await useRateLimit(t, 'polarWebhookBySource', 'source-key')
 
     const globalBefore = await Promise.all([
       rateLimitValue(t, 'passwordSignUpGlobal'),
+      rateLimitValue(t, 'magicLinkSendGlobal'),
       rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
       rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
     ])
@@ -646,6 +648,7 @@ describe('compteurs indirects', () => {
     }
     const globalAfter = await Promise.all([
       rateLimitValue(t, 'passwordSignUpGlobal'),
+      rateLimitValue(t, 'magicLinkSendGlobal'),
       rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
       rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
     ])

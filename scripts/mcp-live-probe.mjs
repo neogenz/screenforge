@@ -375,7 +375,11 @@ async function main() {
   const port = await freePort()
   const child = spawn(process.execPath, [DAEMON], {
     cwd: ROOT,
-    env: { ...process.env, SCREENFORGE_MCP_PORT: String(port) },
+    env: {
+      ...process.env,
+      SCREENFORGE_MCP_PORT: String(port),
+      SCREENFORGE_MCP_ASSET_ROOTS: tmpdir(),
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
   child.on('error', (error) => {

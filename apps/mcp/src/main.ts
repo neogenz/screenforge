@@ -1,6 +1,8 @@
 import { serve } from '@hono/node-server'
 import { McpServer } from '@modelcontextprotocol/server'
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
+import { fileURLToPath } from 'node:url'
+import { delimiter, isAbsolute } from 'node:path'
 import { allowedOrigins, relayPort, RELAY_HOST } from './relay/protocol.ts'
 import { createRelay, createRelayState, MCP_VERSION } from './relay/server.ts'
 import { registerEditorTools } from './tools/editor-tools.ts'
@@ -22,15 +24,45 @@ import { registerEditorTools } from './tools/editor-tools.ts'
  * les interfaces est un service exposé au réseau local, jeton ou pas.
  */
 
-const state = createRelayState({
-  announce: (code, expiresAt) => {
-    const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
-    console.error(`Code d’appairage ScreenForge : ${code} (valable ${seconds} s)`)
+const server = new McpServer({ name: 'screenforge', version: MCP_VERSION })
+
+async function assetRoots(): Promise<string[]> {
+  const configured = (process.env.SCREENFORGE_MCP_ASSET_ROOTS ?? '')
+    .split(delimiter)
+    .map((root) => root.trim())
+    .filter((root) => root.length > 0 && isAbsolute(root))
+  if (!server.server.getClientCapabilities()?.roots) return configured
+  try {
+    const listed = await server.server.listRoots()
+    return [
+      ...configured,
+      ...listed.roots.flatMap((root) => {
+        try {
+          const path = fileURLToPath(root.uri)
+          return isAbsolute(path) ? [path] : []
+        } catch {
+          return []
+        }
+      }),
+    ]
+  } catch {
+    return configured
+  }
+}
+
+const state = createRelayState(
+  {
+    announce: (code, expiresAt) => {
+      const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
+      console.error(`Code d’appairage ScreenForge : ${code} (valable ${seconds} s)`)
+    },
   },
-})
+  assetRoots,
+)
 const origins = allowedOrigins()
 const port = relayPort()
-const server = new McpServer({ name: 'screenforge', version: MCP_VERSION })
+
+server.server.setNotificationHandler('notifications/roots/list_changed', () => state.assets.clear())
 
 registerEditorTools(server, state)
 

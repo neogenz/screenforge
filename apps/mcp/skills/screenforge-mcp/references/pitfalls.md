@@ -51,7 +51,8 @@ nothing and cost no undo step. Call them freely.
 `apply` accepts `add_image` in its enumeration, and the page refuses it there.
 The contract's version needs an asset identifier the browser already holds, and
 an agent has no way to produce one. Use the standalone `screenforge_add_image`
-with an absolute path, and let it register the file. Run it before the batch
+with an absolute path under a root granted by the MCP client (or
+`SCREENFORGE_MCP_ASSET_ROOTS`), and let it register the file. Run it before the batch
 that arranges the screen around the image.
 
 ## The closed catalogue

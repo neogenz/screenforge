@@ -12,7 +12,7 @@ import {
   type RelayHello,
 } from './protocol.ts'
 import { RelaySession, type AppConnection } from './session.ts'
-import { AssetVault } from './assets.ts'
+import { AssetVault, type AssetRootProvider } from './assets.ts'
 
 /**
  * Le relais : une seule page légitime, sur la boucle locale.
@@ -40,11 +40,14 @@ export interface RelayState {
   assets: AssetVault
 }
 
-export function createRelayState(pairingOptions?: PairingOptions): RelayState {
+export function createRelayState(
+  pairingOptions?: PairingOptions,
+  assetRoots?: AssetRootProvider,
+): RelayState {
   return {
     pairing: createPairing(pairingOptions),
     session: new RelaySession(),
-    assets: new AssetVault(),
+    assets: new AssetVault(assetRoots),
   }
 }
 

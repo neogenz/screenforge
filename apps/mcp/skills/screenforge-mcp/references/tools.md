@@ -96,7 +96,8 @@ tool, useful for a single correction and wasteful for anything else.
 to the active screen when the batch created none.
 
 `add_image` is the one tool whose arguments are not the shared contract's: it
-takes an absolute path, reads the file on the machine running the daemon, and
+takes an absolute path under a root granted by the MCP client (or
+`SCREENFORGE_MCP_ASSET_ROOTS`), reads the file on the machine running the daemon, and
 turns it into a call the project accepts. `role` is `image` for a logo or
 `screenshot` for a capture, which lands in an iPhone frame. Give `layerId` to
 fill a frame that already exists, keeping the crop the user set on it. Refused
@@ -104,7 +105,7 @@ with its cause named: a relative path, an extension outside PNG, JPEG and SVG, a
 missing file, more than 16 MB, or an SVG offered as a screenshot.
 
 `refresh_screenshots` is the whole "I re-exported my captures" gesture: give it
-the absolute path of a flat directory of PNG or JPEG files, and every device
+the absolute path of an authorized flat directory of PNG or JPEG files, and every device
 frame whose `slot` matches a filename gets its new capture. Nothing else moves —
 not the geometry, not the role, not the crop the user set — and the whole
 delivery is one write and one undo step.

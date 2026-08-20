@@ -70,15 +70,17 @@ const LIMITS = {
   passwordSignUpGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
 
   /**
-   * L'envoi d'un lien magique, deux clés pour deux victimes différentes.
+   * L'envoi d'un lien magique, trois clés pour trois formes d'abus.
    *
    * Par adresse : protège le titulaire d'une boîte contre l'inondation — un
    * balayage change d'adresse à chaque coup et passerait sous cette clé sans
    * jamais la déclencher. Par source réseau pseudonymisée : protège la
-   * réputation du domaine sans créer de coupe-circuit mondial.
+   * réputation du domaine sans créer de coupe-circuit mondial. Globalement :
+   * borne le coût restant quand l'attaquant fait tourner les deux autres clés.
    */
   magicLinkSend: { kind: 'fixed window', rate: 3, period: HOUR },
   magicLinkSendBySource: { kind: 'fixed window', rate: 20, period: HOUR },
+  magicLinkSendGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
 
   /** Admission du webhook avant lecture du corps et vérification Node. */
   polarWebhookBySource: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 30 },
