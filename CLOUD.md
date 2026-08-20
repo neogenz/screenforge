@@ -1,7 +1,7 @@
 # ScreenForge Cloud — guide concret
 
-Ce document explique l'état actuel des comptes et le rôle de Convex, Resend et
-Polar. Il ne contient volontairement aucun email, identifiant, jeton ou URL
+Ce document explique les responsabilités de Local, Convex, Resend et Polar. Il
+ne contient aucun inventaire d'environnement, email, identifiant, jeton ou URL
 privée.
 
 ## En une minute
@@ -17,47 +17,20 @@ privée.
 
 Autrement dit : **Resend identifie, Polar facture, Convex décide et stocke**.
 
-## Quels comptes existent aujourd'hui ?
+## Comptes et environnements
 
-| Compte ou environnement              | État au 18 août 2026                          | À quoi il sert                                                                     |
-| ------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Utilisateur Local                    | Aucun compte nécessaire                       | Éditeur, projets, images et exports entièrement locaux                             |
-| Compte propriétaire de préproduction | Actif, créé par lien magique Resend           | Test réel du compte et de la synchronisation sur deux sessions                     |
-| Droit Cloud du propriétaire          | Actif par Polar Sandbox et offert en secours  | Le paiement et la dérogation sont indépendants; aucun des deux n'est un rôle admin |
-| Comptes E2E automatiques             | Éphémères, créés pendant les tests locaux     | Testent auth et Cloud sur un Convex local, jamais en préproduction ou production   |
-| Client Polar Sandbox                 | Achat et webhook validés; révocation à tester | Prouve la facturation Sandbox et l'attribution du droit au compte propriétaire     |
-| Compte de test Vercel Preview        | Pas encore validé                             | Servira à tester le frontend déployé contre la préproduction                       |
-| Compte Production                    | Aucun parcours réel validé dans cette phase   | La production reste fermée jusqu'aux gates explicites                              |
+- Local ne demande aucun compte.
+- Un compte ScreenForge authentifié peut recevoir le droit Cloud; il n'est
+  jamais un compte administrateur.
+- Les comptes automatisés utilisent le fournisseur réservé aux tests et restent
+  confinés au déploiement Convex local.
+- Les comptes d'infrastructure Resend, Polar, Convex et Vercel sont distincts
+  des comptes clients ScreenForge.
+- Sandbox et Production ne partagent ni clients, ni produits, ni jetons.
 
-À ne pas confondre avec les comptes d'infrastructure : **oui, l'organisation
-Polar opérateur existe déjà**. Le compte Resend expéditeur et le projet Convex
-de préproduction existent aussi. Ce sont les consoles qui font tourner le
-service, pas des comptes clients ScreenForge. L'achat client Sandbox a été
-validé dans cette organisation existante; aucune organisation en doublon n'a
-été créée.
-
-Il n'existe donc **aucun mot de passe de test partagé** à retenir :
-
-- le compte propriétaire se connecte avec un lien magique envoyé à l'adresse
-  associée à ton compte Resend ;
-- les tests E2E génèrent seuls une adresse `@screenforge.test` et un mot de passe
-  aléatoire et restent confinés au déploiement Convex local ;
-- le client Polar Sandbox est le compte propriétaire ScreenForge utilisé pour
-  le checkout; il n'existe pas de mot de passe Polar partagé.
-
-### État réel et expurgé de la préproduction
-
-Une lecture seule effectuée le 18 août 2026 confirme :
-
-- 1 utilisateur ;
-- 2 sessions actives ;
-- 1 entitlement Cloud, à la fois relié à Polar et complémentaire ;
-- 3 projets, 18 assets et 1 jeu de settings ;
-- 1 abonnement Polar Sandbox actif avec une échéance enregistrée ;
-- le preflight fournisseur est prêt, sans variable manquante ou incohérente.
-
-Ces projets et assets comprennent de vraies données utilisateur. Ils ne doivent
-pas être supprimés comme des fixtures de test.
+Il n'existe aucun mot de passe de test partagé à retenir. Les tests E2E génèrent
+leurs propres identifiants `@screenforge.test`; les connexions hébergées passent
+par les fournisseurs configurés pour l'environnement concerné.
 
 ## Le flux complet
 
@@ -93,8 +66,8 @@ il ne transforme pas l'éditeur en client dépendant du réseau.
 
 Points importants :
 
-- le lien expire après une heure et les demandes sont limitées globalement et
-  par adresse ;
+- le lien expire après une heure et les demandes sont limitées par adresse et
+  par source réseau pseudonymisée ;
 - les erreurs affichées côté client restent génériques pour ne pas révéler si
   un compte existe ;
 - avec l'expéditeur de test `resend.dev`, Resend n'autorise que l'adresse liée
@@ -121,12 +94,6 @@ Polar fonctionne comme la caisse, pas comme la base d'autorisation :
 Les environnements Polar **Sandbox et Production sont isolés** : organisations,
 clients, produits et jetons d'un environnement ne valent pas dans l'autre. Les
 tests doivent rester en Sandbox jusqu'au GO Production.
-
-Le compte propriétaire possède maintenant deux sources indépendantes de droit
-Cloud : l'abonnement Polar Sandbox actif et la dérogation interne
-`complimentaryCloud`. Une lecture expurgée du miroir confirme que Polar seul
-suffit à maintenir Cloud actif; la dérogation reste un secours opérateur et ne
-masque pas le résultat du paiement.
 
 ## Convex : l'autorité et le stockage
 
@@ -199,7 +166,7 @@ Pour le gate complet avant release :
 pnpm run test:release
 ```
 
-### 3. Vérifier le vrai compte propriétaire en préproduction
+### 3. Vérifier un compte en préproduction
 
 ```bash
 pnpm run dev:preprod
@@ -209,38 +176,31 @@ pnpm run dev:preprod
 2. Demander un lien magique avec l'adresse autorisée dans Resend.
 3. Ouvrir ce lien sur la même origine que celle affichée dans le lien.
 4. Vérifier que Cloud est actif.
-5. Créer un **nouveau projet de test clairement nommé**, ajouter une image et
-   changer le thème.
+5. Créer une fixture clairement nommée, ajouter une image et changer le thème.
 6. Attendre l'état « Synchronisé ».
 7. Ouvrir une seconde session avec un nouveau lien magique et vérifier le même
    contenu.
-8. Supprimer uniquement la fixture créée pour ce test, jamais les projets
-   existants non identifiés.
+8. Supprimer uniquement la fixture créée par ce parcours.
 
 Attention : `localhost` et `127.0.0.1` sont deux origines différentes. Un lien
 pour l'une ne connecte pas automatiquement l'autre.
 
 ### 4. Vérifier Polar Sandbox
 
-Le 18 août 2026, le parcours achat a été validé sans argent réel :
+Le parcours doit rester entièrement dans Polar Sandbox :
 
-1. ScreenForge a créé le checkout du produit Cloud dans Polar Sandbox ;
-2. la carte de test officielle a produit un abonnement et une facture Sandbox ;
-3. le retour a rejoint l'origine locale configurée ;
-4. le paramètre de session client ajouté par Polar a été retiré immédiatement
-   de l'URL par ScreenForge ;
-5. `customer.state_changed` a été vérifié avec le secret du déploiement puis
-   accepté en HTTP 200 ;
-6. Convex porte une unique ligne d'entitlement reliée à Polar, au statut actif ;
-7. une relivraison du même événement a de nouveau rendu HTTP 200 sans créer de
-   seconde ligne ;
-8. l'interface authentifiée affiche le plan Cloud et l'accès aux factures.
+1. créer le checkout du produit Cloud configuré ;
+2. utiliser la carte de test officielle ;
+3. vérifier le retour sur l'origine configurée ;
+4. vérifier que le paramètre de session client est retiré de l'URL ;
+5. vérifier l'acceptation du webhook signé `customer.state_changed` ;
+6. vérifier l'attribution puis la révocation du droit Cloud ;
+7. relivrer l'événement et vérifier l'idempotence ;
+8. supprimer les fixtures créées par le parcours.
 
-La dernière preuve manuelle de ce cycle consiste à annuler l'abonnement dans
-Sandbox, vérifier l'état propagé et confirmer la règle de fin de période. Cette
-action ne doit être effectuée qu'avec une confirmation explicite au moment de
-l'annulation. Les refus de signature, de corps altéré et de taille excessive
-sont déjà couverts par les tests backend.
+Toute annulation Sandbox demande une confirmation explicite. Les refus de
+signature, de corps altéré et de taille excessive sont couverts par les tests
+backend.
 
 Ne jamais effectuer ce test dans Polar Production et ne jamais copier de
 payload, email ou identifiant fournisseur dans `aidd_docs/`.
@@ -260,22 +220,17 @@ Les secrets ne doivent apparaître ni dans Git, ni dans les logs, ni dans les
 artifacts, ni dans les documents AIDD. Les fichiers `.env` réels et `.private/`
 sont ignorés.
 
-## Ce qui reste avant de vendre Cloud
+## Gates avant activation de Production
 
-- valider l'annulation Polar Sandbox et la propagation de la fin de période ;
-- valider Local puis Cloud sur une Preview Vercel reliée uniquement à la
-  préproduction ;
-- exécuter et vérifier une restauration de sauvegarde dans une cible jetable ;
-- acheter le domaine seulement après le GO Domain, puis configurer Resend avec
-  SPF, DKIM et idéalement DMARC ;
-- terminer les informations légales, le KYC et le compte bancaire Polar ;
-- valider le déploiement de production avant le GO Production et le premier
-  paiement réel.
+- Local et Cloud passent le gate de release sur le même SHA.
+- L'auth Cloud utilise une origine de préproduction stable et exacte.
+- Une restauration de sauvegarde est vérifiée dans une cible jetable.
+- Le domaine d'envoi Resend possède SPF, DKIM et idéalement DMARC.
+- Les obligations légales et marchand de référence sont validées hors Git.
+- Le déploiement Production est vérifié avant tout paiement réel.
 
 ## Sources et runbooks
 
-- État interne :
-  [`aidd_docs/tasks/2026_08/2026_08_16_cloud-prelaunch-validation/verification.md`](aidd_docs/tasks/2026_08/2026_08_16_cloud-prelaunch-validation/verification.md)
 - Runbook opérateur détaillé :
   [`aidd_docs/tasks/2026_08/2026_08_11_migration-convex/environnements.md`](aidd_docs/tasks/2026_08/2026_08_11_migration-convex/environnements.md)
 - [Polar — environnements API](https://polar.sh/docs/api-reference/introduction)
