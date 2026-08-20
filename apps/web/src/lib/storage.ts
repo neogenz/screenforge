@@ -512,14 +512,23 @@ export async function adoptRemoteProject(
 export async function openStoredProject(id: string): Promise<Project | undefined> {
   if (useProjectStore.getState().project?.id === id)
     return useProjectStore.getState().project ?? undefined
-  await saveCurrentProject()
-  const project = await loadProject(id)
-  if (!project) return undefined
-  useProjectStore.getState().loadProject(project)
-  useCanvasStore.getState().clearSelection()
-  useHistoryStore.getState().clear()
-  useUIStore.getState().setSaveStatus('saved')
-  return project
+  // Le popover n'est pas modal : une édition pendant un await recommence le
+  // cycle afin d'être durable avant de remplacer le store actif.
+  for (;;) {
+    const current = useProjectStore.getState().project
+    await saveCurrentProject()
+    if (useProjectStore.getState().project !== current) continue
+
+    const project = await loadProject(id)
+    if (!project) return undefined
+    if (useProjectStore.getState().project !== current) continue
+
+    useProjectStore.getState().loadProject(project)
+    useCanvasStore.getState().clearSelection()
+    useHistoryStore.getState().clear()
+    useUIStore.getState().setSaveStatus('saved')
+    return project
+  }
 }
 
 async function persist(project: Project): Promise<void> {

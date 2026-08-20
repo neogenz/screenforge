@@ -10,6 +10,7 @@ import {
   listProjects,
   loadLatestProject,
   loadProject,
+  openStoredProject,
   saveCurrentProject,
   saveProject,
   storeRemoteProject,
@@ -316,6 +317,39 @@ describe('storage', () => {
       expect((await db.get('projects', 'project')) as Project).toMatchObject({ name: 'After' })
       db.close()
     })
+    unsubscribe()
+  })
+
+  it('conserve une édition concurrente avant d’ouvrir un autre projet', async () => {
+    const initial = project('Initial')
+    const target = { ...project('Cible'), id: 'target' }
+    await saveProject(initial)
+    await saveProject(target)
+    useProjectStore.getState().loadProject(initial)
+    const unsubscribe = initAutoSave()
+    const originalPut = IDBObjectStore.prototype.put
+    let edited = false
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: Project,
+      key?: IDBValidKey,
+    ) {
+      if (this.name === 'projects' && value.id === initial.id && !edited) {
+        edited = true
+        useProjectStore.getState().updateProjectName('Édition concurrente')
+      }
+      return originalPut.call(this, value, key)
+    })
+
+    await expect(openStoredProject(target.id)).resolves.toMatchObject({ id: target.id })
+    put.mockRestore()
+    expect(useProjectStore.getState().project).toMatchObject({ id: target.id })
+
+    const db = await database()
+    expect((await db.get('projects', initial.id)) as Project).toMatchObject({
+      name: 'Édition concurrente',
+    })
+    db.close()
     unsubscribe()
   })
 
