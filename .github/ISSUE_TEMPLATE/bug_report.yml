@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a reproducible problem in ScreenForge
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Do not include credentials, private project data or customer information.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor or canvas
+        - Export
+        - Local storage
+        - Cloud account or sync
+        - MCP or bridge
+        - Landing page
+        - Build or tooling
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, commit SHA or approximate date.
+      placeholder: v0.1.0 or 1a2b3c4
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give the smallest reliable sequence of steps.
+      placeholder: |
+        1. Open…
+        2. Select…
+        3. Observe…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system and anything else needed to reproduce.
+      placeholder: Safari 20 on macOS 27
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Additional context
+      description: Add sanitized screenshots or logs if useful. Remove tokens, emails, project content and personal paths.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched for an existing issue.
+          required: true
+        - label: This report contains no secret or private user data.
+          required: true

@@ -5,18 +5,13 @@
 **The App Store screenshot studio for indie developers — pixel-exact and local-first.**
 
 [![Quality](https://github.com/neogenz/screenforge/actions/workflows/quality.yml/badge.svg)](https://github.com/neogenz/screenforge/actions/workflows/quality.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square)](https://github.com/neogenz/screenforge)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue?style=flat-square)](LICENSE)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
-[![Fabric.js](https://img.shields.io/badge/Fabric.js-7-FF6B35?style=flat-square)](https://fabricjs.com)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-[![pnpm](https://img.shields.io/badge/pnpm-10-F69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io)
+
+[Quick start](#quick-start) · [Features](#features) · [Cloud](CLOUD.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
----
+![ScreenForge — App Store screenshots, down to the pixel](apps/web/public/og-landing.png)
 
 ## Overview
 
@@ -50,7 +45,7 @@ walkthrough of the Resend, Polar, Convex and synchronization flows.
 
 - **Pixel-exact** — 1320 × 2868 px (iPhone 6.9" portrait), validated against Apple's spec
 - **App Store compliant** — PNG-24, opaque, sRGB, under 5 MB per file
-- **Verifiable** — `npm run validate:export -- <file.zip>` checks any export against App Store rules
+- **Verifiable** — `pnpm validate:export -- <file.zip>` checks any export against App Store rules
 
 ## Tech stack
 
@@ -66,7 +61,7 @@ walkthrough of the Resend, Polar, Convex and synchronization flows.
 | Testing | Vitest + Playwright        |
 | Export  | JSZip                      |
 
-## Getting started
+## Quick start
 
 **Prerequisites:** Node.js 24, pnpm 10
 
@@ -109,6 +104,9 @@ apps/
   web/       React editor and bilingual landing page
   backend/   Convex auth, entitlements, sync, storage and billing boundary
   bridge/    Optional loopback-only local publishing bridge
+  mcp/       Optional MCP server for agent-assisted authoring
+packages/
+  project-format/  Shared project contract, validation and dimensions
 scripts/     Release, security and export audits
 aidd_docs/   Versioned plans and project memory; secrets are forbidden here
 ```
@@ -120,6 +118,17 @@ by the approved Release Please pull request. A tag first runs the complete
 release gate without production secrets, then builds a staged Vercel candidate,
 deploys the compatible Convex backend, smoke-tests the candidate and promotes
 the same build. See [RELEASING.md](RELEASING.md) for the operator runbook.
+
+## Contributing
+
+Issues and focused pull requests are welcome. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md), use the provided issue forms and keep large
+feature proposals in an issue until the scope is clear. Security reports must
+follow [SECURITY.md](SECURITY.md) and never be posted publicly.
+
+ScreenForge is maintained independently, so review time is finite. Clear
+reproductions, small diffs and tests for changed behavior are the fastest path
+to a merge.
 
 ## License
 
