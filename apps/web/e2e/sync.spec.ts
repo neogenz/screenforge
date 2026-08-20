@@ -732,6 +732,11 @@ test.describe('Sync cloud', () => {
     ).toBe(true)
     releaseDownload()
 
+    const attachDialog = page.getByRole('dialog', {
+      name: 'Ajouter ces projets au Cloud ?',
+    })
+    await expect(attachDialog).toBeVisible({ timeout: 30_000 })
+    await attachDialog.getByRole('button', { name: 'Ajouter ce projet au Cloud' }).click()
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
     await expect(projectName(page)).toHaveValue(keptName)
     expect(
@@ -854,6 +859,11 @@ test.describe('Sync cloud', () => {
     await expect(projectName(page)).toHaveValue(localBName)
     releaseDownload()
 
+    const attachDialog = page.getByRole('dialog', {
+      name: 'Ajouter ces projets au Cloud ?',
+    })
+    await expect(attachDialog).toBeVisible({ timeout: 30_000 })
+    await attachDialog.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
     await expect
       .poll(async () => Boolean(await remoteRow(own, editedAName)), { timeout: 30_000 })
       .toBe(true)
@@ -1458,6 +1468,14 @@ test.describe('Rattachement des projets locaux', () => {
         .find((candidate) => candidate.type === 'image')
       return layer?.type === 'image' ? layer.assetId : null
     })
+    expect(activeAssetId).not.toBeNull()
+
+    const expectNothingRemote = async () => {
+      await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+      await expect
+        .poll(async () => readRemote(stack!, own, `/asset/${String(activeAssetId)}`))
+        .toBeNull()
+    }
 
     await seedSession(page, own)
     await waitForApp(page)
@@ -1501,16 +1519,42 @@ test.describe('Rattachement des projets locaux', () => {
     expect(actionBox).not.toBeNull()
     expect(guaranteeBox!.y + guaranteeBox!.height).toBeLessThanOrEqual(actionBox!.y)
     await page.setViewportSize({ width: 1600, height: 1000 })
-    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+    await expectNothingRemote()
     await page.getByRole('button', { name: 'Pas maintenant' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
-    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+    await expectNothingRemote()
+
+    /* Tous ces gestes repassent par le commit local commun. Aucun ne vaut
+       consentement, même après l'autosave. */
+    await page.keyboard.press('ControlOrMeta+s')
+    await expectNothingRemote()
+
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await expect(page.getByText('Cet appareil').first()).toBeVisible()
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Télécharger une copie' }).click(),
+    ])
+    expect(await download.failure()).toBeNull()
+    await expectNothingRemote()
+
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    const otherLocal = page.getByRole('button', { name: `Ouvrir « ${noms[0]} »` })
+    await expect(otherLocal).toHaveAccessibleDescription(/Cet appareil/)
+    await otherLocal.click()
+    await expect(projectName(page)).toHaveValue(noms[0])
+    await expectNothingRemote()
+
+    await page.getByLabel('Ajouter Texte').click()
+    await page.waitForTimeout(2_500)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await expectNothingRemote()
 
     await waitForApp(page)
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
     for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
-    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+    await expectNothingRemote()
 
     /* L'action Cloud explicite est le premier geste qui envoie ces projets. */
     await page.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
@@ -1519,10 +1563,13 @@ test.describe('Rattachement des projets locaux', () => {
     for (const nom of noms) expect(await remoteRow(own, nom)).toBeTruthy()
     expect(activeAssetId).not.toBeNull()
     expect(
-      await page.evaluate(
-        (id) => Boolean(id && window.__sfAssets?.resolveAsset(id)),
-        activeAssetId,
-      ),
+      await page.evaluate(async (id) => {
+        const storagePath = '/src/lib/storage.ts'
+        const { getDB } = (await import(storagePath)) as typeof import('../src/lib/storage')
+        if (!id) return false
+        const db = await getDB()
+        return Boolean(await db.get('assets', id))
+      }, activeAssetId),
     ).toBe(true)
 
     /* Une création puis un changement après le login restent automatiques :

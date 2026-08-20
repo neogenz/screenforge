@@ -410,16 +410,17 @@ async function pullProjects(userId: string): Promise<PullProjectsResult> {
   return { adopted, failedProjectIds: [...failedProjectIds], preservedProject }
 }
 
-function acknowledgePulledProject(
+async function acknowledgePulledProject(
   userId: string,
   project: Project,
   assets: readonly { id: string }[],
 ): Promise<void> {
-  return writeSyncRecord({
+  await writeSyncRecord({
     key: syncKey(userId, project.id),
     pushedUpdatedAt: project.updatedAt,
     uploadedAssetIds: assets.map((asset) => asset.id),
   })
+  releaseConsent(userId, project.id)
 }
 
 function reportPullFailures(projectIds: readonly string[]): void {
@@ -451,6 +452,35 @@ export interface ProjectCatalogueEntry {
 }
 
 type ProjectMetadata = Pick<Project, 'id' | 'name' | 'updatedAt'>
+
+export interface ConsentBarrier {
+  userId: string | null
+  ready: boolean
+  projectIds: ReadonlySet<string>
+}
+
+/** Projects already carrying local work when this account's Cloud session opened. */
+export function consentRequiredProjectIds(
+  projects: readonly Pick<Project, 'id' | 'createdAt' | 'updatedAt'>[],
+  userId: string,
+  records: readonly Pick<SyncRecord, 'key'>[],
+): Set<string> {
+  const attached = new Set(records.map((record) => record.key))
+  return new Set(
+    projects.flatMap((project) =>
+      touched(project) && !attached.has(syncKey(userId, project.id)) ? [project.id] : [],
+    ),
+  )
+}
+
+/** Fail closed until the active account's local catalogue has been classified. */
+export function canCreateSyncRecord(
+  barrier: ConsentBarrier,
+  userId: string,
+  projectId: string,
+): boolean {
+  return barrier.ready && barrier.userId === userId && !barrier.projectIds.has(projectId)
+}
 
 /**
  * Vue pure du catalogue : elle décrit où une copie est disponible, jamais ce
@@ -511,12 +541,11 @@ export interface LocalProject {
 export async function unattachedProjects(): Promise<LocalProject[]> {
   const userId = currentUserId()
   if (!userId || !syncAllowed()) return []
+  await ensureConsentBarrier(userId)
+  if (!stillSyncing(userId) || !consentBarrier.ready) return []
   const local = await listProjects()
-  const records = await Promise.all(
-    local.map((project) => readSyncRecord(syncKey(userId, project.id))),
-  )
-  return local.flatMap((project, index) =>
-    records[index].pushedUpdatedAt === 0 && touched(project)
+  return local.flatMap((project) =>
+    consentBarrier.projectIds.has(project.id) && touched(project)
       ? [{ id: project.id, name: project.name, updatedAt: project.updatedAt }]
       : [],
   )
@@ -559,6 +588,9 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
           const project = await loadProject(id)
           if (!project || !(await pushProject(userId, project))) {
             failed.push(id)
+          } else {
+            releaseConsent(userId, id)
+            queued.delete(id)
           }
         } catch (error) {
           console.error('Could not attach a local project.', error)
@@ -626,6 +658,10 @@ async function pushPendingProjects(userId: string): Promise<PendingPushResult> {
 let chain: Promise<void> = Promise.resolve()
 /** In-session coalescing only; IndexedDB metadata + acknowledgements are authoritative. */
 const queued = new Map<string, Project>()
+/** Account-scoped privacy barrier rebuilt before any project can join the durable queue. */
+let consentBarrier: ConsentBarrier = { userId: null, ready: false, projectIds: new Set() }
+let consentBarrierLoad: Promise<void> | null = null
+let consentBarrierGeneration = 0
 /** The one autosave commit produced by a remote adoption, and no other commit. */
 let ignoredAdoptionCommit: Pick<Project, 'id' | 'updatedAt'> | null = null
 /** Le tirage n'a lieu qu'une fois par session ouverte, à l'ouverture. */
@@ -633,6 +669,51 @@ let pulled = false
 /** Les préférences se tirent à l'ouverture, puis seulement après un changement local. */
 let settingsPulled = false
 let settingsDirty = false
+
+function resetConsentBarrier(userId: string | null): void {
+  consentBarrierGeneration += 1
+  consentBarrier = { userId, ready: false, projectIds: new Set() }
+  consentBarrierLoad = null
+}
+
+async function ensureConsentBarrier(userId: string): Promise<void> {
+  if (consentBarrier.userId !== userId) resetConsentBarrier(userId)
+  if (consentBarrier.ready) return
+  if (!consentBarrierLoad) {
+    const generation = consentBarrierGeneration
+    const load = Promise.all([listProjects(), listSyncRecords(userId)]).then(
+      ([projects, records]) => {
+        if (
+          generation !== consentBarrierGeneration ||
+          consentBarrier.userId !== userId ||
+          !stillSyncing(userId)
+        ) {
+          return
+        }
+        consentBarrier = {
+          userId,
+          ready: true,
+          projectIds: consentRequiredProjectIds(projects, userId, records),
+        }
+      },
+    )
+    consentBarrierLoad = load
+    try {
+      await load
+    } finally {
+      if (consentBarrierLoad === load) consentBarrierLoad = null
+    }
+    return
+  }
+  await consentBarrierLoad
+}
+
+function releaseConsent(userId: string, projectId: string): void {
+  if (consentBarrier.userId !== userId || !consentBarrier.projectIds.has(projectId)) return
+  const projectIds = new Set(consentBarrier.projectIds)
+  projectIds.delete(projectId)
+  consentBarrier = { ...consentBarrier, projectIds }
+}
 
 function preserveProject(project: Project | null): void {
   if (!project) return
@@ -648,6 +729,8 @@ async function cycle(): Promise<void> {
   if (!syncAllowed()) return setStatus('off')
   const userId = currentUserId()
   if (!userId) return setStatus('off')
+  await ensureConsentBarrier(userId)
+  if (!stillSyncing(userId)) return setStatus('off')
   if (offline()) return setStatus('offline')
 
   setStatus('syncing')
@@ -684,8 +767,11 @@ async function cycle(): Promise<void> {
      peut avoir été créé bien avant la session Cloud et doit rester local tant
      que « Ajouter les N projets au Cloud » n'a pas été choisi. Les projets déjà rattachés ont
      un record durable; les commits post-login entrent dans `queued`. */
+  const barrier = consentBarrier
   await Promise.all(
-    [...queued.values()].map((project) => ensureSyncRecord(syncKey(userId, project.id))),
+    [...queued.values()]
+      .filter((project) => canCreateSyncRecord(barrier, userId, project.id))
+      .map((project) => ensureSyncRecord(syncKey(userId, project.id))),
   )
   const pushed = await pushPendingProjects(userId)
   for (const projectId of pushed.pushedProjectIds) queued.delete(projectId)
@@ -765,11 +851,7 @@ export function initSync(): () => void {
     const userId = currentUserId()
     if (!userId || !syncAllowed()) return
     preserveProject(project)
-    void ensureSyncRecord(syncKey(userId, project.id))
-      .then(() => {
-        if (syncAllowed() && currentUserId() === userId) schedule()
-      })
-      .catch(fail)
+    schedule()
   }
 
   const stopCommits = onProjectCommitted((project) => {
@@ -792,6 +874,7 @@ export function initSync(): () => void {
      ne l'allumerait jamais. */
   let allowed = syncAllowed()
   let activeUserId = allowed ? currentUserId() : null
+  resetConsentBarrier(activeUserId)
   const stopAuth = useAuthStore.subscribe((state) => {
     const next = syncAllowed(state)
     const nextUserId = next ? (state.user?.id ?? null) : null
@@ -800,6 +883,7 @@ export function initSync(): () => void {
     allowed = next
     activeUserId = nextUserId
     if (accountChanged) {
+      resetConsentBarrier(nextUserId)
       pulled = false
       settingsPulled = false
       settingsDirty = false
@@ -818,6 +902,7 @@ export function initSync(): () => void {
     settingsDirty = false
     queued.clear()
     ignoredAdoptionCommit = null
+    resetConsentBarrier(null)
     setStatus('off')
   })
 
@@ -846,6 +931,7 @@ export function initSync(): () => void {
     stopPrompt()
     window.removeEventListener('online', onOnline)
     window.removeEventListener('offline', onOffline)
+    resetConsentBarrier(null)
   }
 }
 
@@ -861,17 +947,20 @@ export function initSync(): () => void {
  * à chaque reconnexion réseau.
  */
 function promptForUnattachedProjects(): () => void {
-  let asked = false
+  let askedForUserId: string | null = null
 
   const consider = () => {
-    if (asked || useUIStore.getState().syncStatus !== 'synced') return
-    asked = true
+    const userId = currentUserId()
+    if (!userId || askedForUserId === userId || useUIStore.getState().syncStatus !== 'synced') {
+      return
+    }
+    askedForUserId = userId
     void unattachedProjects()
       .then((projects) => {
         if (projects.length > 0) useUIStore.getState().setShowMigrateDialog(true)
       })
       .catch((error: unknown) => {
-        asked = false
+        if (askedForUserId === userId) askedForUserId = null
         console.error('Could not inspect local projects to attach.', error)
       })
   }
@@ -880,7 +969,7 @@ function promptForUnattachedProjects(): () => void {
   return useUIStore.subscribe((state, previous) => {
     if (state.syncStatus === previous.syncStatus) return
     /* Une déconnexion réarme : le compte suivant a ses propres orphelins. */
-    if (state.syncStatus === 'off') asked = false
+    if (state.syncStatus === 'off') askedForUserId = null
     else consider()
   })
 }

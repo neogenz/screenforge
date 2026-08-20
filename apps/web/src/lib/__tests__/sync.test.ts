@@ -33,7 +33,9 @@ vi.mock('@/lib/sync-queue', async (importOriginal) => ({
 }))
 
 import {
+  canCreateSyncRecord,
   cloudQuotaMessage,
+  consentRequiredProjectIds,
   fetchRemoteProjectRows,
   mapBounded,
   mapBoundedSettled,
@@ -194,6 +196,38 @@ describe('disponibilité du catalogue local', () => {
       entitlements: null,
       entitlementsVerified: false,
     })
+  })
+})
+
+describe('barrière de consentement Cloud', () => {
+  const projects = [
+    { id: 'historical', createdAt: 1, updatedAt: 2 },
+    { id: 'attached', createdAt: 1, updatedAt: 3 },
+    { id: 'empty', createdAt: 4, updatedAt: 4 },
+  ] as const
+
+  it('protège les projets locaux touchés qui ne sont pas rattachés à ce compte', () => {
+    expect(
+      consentRequiredProjectIds(projects, 'owner', [
+        { key: 'owner:attached' },
+        { key: 'other:historical' },
+      ]),
+    ).toEqual(new Set(['historical']))
+  })
+
+  it('échoue fermé pendant la classification puis autorise seulement les nouveaux ids', () => {
+    expect(
+      canCreateSyncRecord({ userId: 'owner', ready: false, projectIds: new Set() }, 'owner', 'new'),
+    ).toBe(false)
+
+    const barrier = {
+      userId: 'owner',
+      ready: true,
+      projectIds: new Set(['historical']),
+    }
+    expect(canCreateSyncRecord(barrier, 'other', 'new')).toBe(false)
+    expect(canCreateSyncRecord(barrier, 'owner', 'historical')).toBe(false)
+    expect(canCreateSyncRecord(barrier, 'owner', 'new')).toBe(true)
   })
 })
 
