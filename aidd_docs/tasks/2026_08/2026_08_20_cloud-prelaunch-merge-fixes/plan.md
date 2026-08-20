@@ -1,6 +1,6 @@
 ---
-objective: "Rendre la PR #12 réellement mergeable en garantissant le consentement Cloud, des origines d’authentification exactes, une documentation publique expurgée et des gates de release verts sur un même SHA."
-status: in-progress
+objective: "Rendre la PR #12 réellement mergeable en garantissant le consentement Cloud, des origines d’authentification exactes, des budgets anti-abus complets, des racines MCP autorisées, une documentation publique expurgée et des gates de release verts sur un même SHA."
+status: implemented
 ---
 
 # Plan: fermer les blockers de la PR Cloud avant merge
@@ -9,7 +9,7 @@ status: in-progress
 
 | Field | Value |
 | --- | --- |
-| **Goal** | Corriger les deux régressions de sécurité et de confidentialité, remettre CSP et Quality au vert, puis produire une preuve de merge sur le HEAD exact de la PR. |
+| **Goal** | Corriger les régressions de sécurité et de confidentialité, remettre CSP et Quality au vert, puis produire une preuve de merge sur le HEAD exact de la PR. |
 | **Source** | Demande utilisateur du 2026-08-20, review de `codex/cloud-prelaunch-plan` (`f4fe3b9..a846383`) et rapport Codex Security `35294961-be4f-496e-ad18-f9c323c8ba89`. |
 
 ## Phases
@@ -19,7 +19,7 @@ status: in-progress
 | 1 | Rendre le refus Cloud durable | [`phase-1.md`](./phase-1.md) |
 | 2 | Remplacer les suffixes Preview par des origines exactes | [`phase-2.md`](./phase-2.md) |
 | 3 | Expurger la documentation et stabiliser les gates | [`phase-3.md`](./phase-3.md) |
-| 4 | Prouver le candidat final sur un SHA unique | [`phase-4.md`](./phase-4.md) |
+| 4 | Fermer les derniers findings puis prouver un SHA unique | [`phase-4.md`](./phase-4.md) |
 
 ## Resources
 
@@ -39,3 +39,5 @@ status: in-progress
 | `CLOUD.md` décrit l’architecture et les procédures, jamais les volumes, sessions, comptes ou états fournisseur réels. | Le dépôt public n’est pas un inventaire opérationnel; les valeurs courantes restent hors Git. |
 | Le CSP reste strict et reçoit uniquement les hashes exacts du build; aucun `unsafe-inline` ni assouplissement n’est ajouté. | Le gate détecte correctement un manifeste de hashes périmé et ne doit pas être contourné pour redevenir vert. |
 | Le job E2E conserve l’installation Playwright officielle et passe à 60 minutes, sans retry, cache système ou conteneur supplémentaire. | Le timeout actuel est inférieur au budget officiel et a expiré sur APT; une nouvelle infrastructure serait spéculative. |
+| Le lien magique conserve les limites par destinataire et source, plus un plafond global de dernier recours. | Une action publique qui déclenche un envoi payant doit rester bornée même si l’attaquant fait tourner simultanément les deux clés ciblées. |
+| Les outils MCP ne lisent que sous les racines fichier annoncées par le client ou configurées explicitement; l’absence de racine ferme l’accès. | L’appairage autorise l’édition de l’onglet, pas la lecture de tout le disque par un modèle influencé par du contenu non fiable. |

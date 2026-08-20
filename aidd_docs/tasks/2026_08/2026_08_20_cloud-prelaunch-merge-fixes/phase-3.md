@@ -77,7 +77,7 @@ journey
 1. Retirer les nombres d’utilisateurs, sessions, entitlements, projets, assets, settings et abonnements ainsi que les dates d’inventaire.
 2. Retirer les affirmations sur l’existence ou l’état courant de comptes, organisations, achats, dérogations et données utilisateur réelles; ne pas les déplacer dans un autre fichier versionné.
 3. Garder les rôles génériques de Local, Convex, Resend et Polar, les invariants de sécurité et les procédures sans valeur d’environnement.
-4. Corriger la phrase de rate limit pour décrire les limites par destinataire et source réseau, sans prétendre qu’un plafond global subsiste.
+4. Décrire fidèlement les limites par destinataire, source réseau et plafond global de dernier recours.
 5. Passer format, audit de publication, Gitleaks et une recherche explicite des anciens chiffres et états.
 
 ## Test acceptance criteria
