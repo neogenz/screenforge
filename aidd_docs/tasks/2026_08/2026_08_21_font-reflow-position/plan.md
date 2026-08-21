@@ -1,6 +1,6 @@
 ---
 objective: "L’arrivée asynchrone d’une police remesure les textes sans déplacer leur position sauvegardée, y compris pour les calques de layout."
-status: in-progress
+status: implemented
 ---
 
 # Plan: préserver la position des textes après remesure
