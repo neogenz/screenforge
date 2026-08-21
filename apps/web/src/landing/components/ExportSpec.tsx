@@ -8,7 +8,7 @@ import { useLang } from '../i18n'
  * Remplace une capture censée montrer le dialogue d'export : celle qui était
  * livrée avait été prise pendant le chargement de l'app et ne montrait que
  * l'écran de démarrage. Ici rien n'est photographié — les noms de fichiers
- * suivent `lib/zip.ts` (`{dimension}/{NN}_{nom}.png`) et les dimensions
+ * suivent `lib/zip.ts` (`{folder}/{NN}_{nom}.png`) et les dimensions
  * `lib/dimensions.ts`. Pour un produit vendu sur l'exactitude au pixel, la
  * spécification vraie prouve mieux qu'une image d'interface.
  *
@@ -56,27 +56,38 @@ export function ExportSpec() {
   const { t } = useLang()
   const exportCopy = t.features.export
   return (
-    <figure>
+    <figure aria-label={exportCopy.zipLabel}>
       <div className="border border-border/60 bg-background p-5 sm:p-6">
         <p className="flex items-center gap-2 font-mono text-sm font-semibold">
           <FileArchive aria-hidden className="size-4 shrink-0 text-marker" />
           {exportCopy.zipName}
         </p>
-        <ul className="mt-1">
-          <li>
-            <p className="relative flex h-8 items-center pl-7 text-sm">
-              <span aria-hidden className="absolute top-0 left-2.5 h-4 w-px bg-border" />
-              <span aria-hidden className="absolute top-4 left-2.5 h-px w-3 bg-border" />
-              <span className="font-mono">6.9/</span>
-            </p>
-            <ul className="ml-7">
-              {exportCopy.zipFiles.map((file) => (
-                <TreeRow key={file} label={file} meta="1320 × 2868" />
-              ))}
-              <TreeRow label={exportCopy.zipMore} last muted />
-            </ul>
-          </li>
-        </ul>
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          {exportCopy.profiles.map((profile) => (
+            <div key={profile.folder} className="border border-border/60 p-3">
+              <p className="text-xs font-medium text-foreground">{profile.store}</p>
+              <ul className="mt-1">
+                <li>
+                  <p className="relative flex h-8 items-center pl-7 text-sm">
+                    <span aria-hidden className="absolute top-0 left-2.5 h-4 w-px bg-border" />
+                    <span aria-hidden className="absolute top-4 left-2.5 h-px w-3 bg-border" />
+                    <span className="font-mono">{profile.folder}</span>
+                  </p>
+                  <ul className="ml-7">
+                    {exportCopy.zipFiles.map((file) => (
+                      <TreeRow
+                        key={`${profile.folder}-${file}`}
+                        label={file}
+                        meta={profile.dimensions}
+                      />
+                    ))}
+                    <TreeRow label={profile.more} last muted />
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          ))}
+        </div>
 
         <dl className="mt-5 grid grid-cols-1 gap-x-8 gap-y-2 border-t border-border/60 pt-5 sm:grid-cols-2">
           {exportCopy.specRows.map((row) => (

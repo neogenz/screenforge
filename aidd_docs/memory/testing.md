@@ -4,7 +4,7 @@
 
 - Co-located Vitest unit tests cover pure library logic and Zustand store contracts.
 - Playwright E2E tests drive the real French-labelled UI and cover editor interaction, persistence, accessibility recovery, and export.
-- Export tests and `scripts/validate-export.mjs` enforce exact dimensions, opaque PNG output, and ZIP structure.
+- Export tests and `scripts/validate-export.mjs` enforce both exact contracts: `app-store-iphone` produces 1320×2868 opaque PNGs under `6.9/`, while `google-play-phone` produces 1080×1920 opaque PNGs under `phone/`.
 - `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape.
 - `apps/backend/convex/*.test.ts` run under `convex-test` and cover authorization from the attacker's point of view. Only the third party is faked: real webhook signatures, the real SDK parser, the real mutations.
 - What the simulator does **not** cover is exercised by the strict Playwright gate against the real local engine: document size limits, cron execution, and transport behavior. Only failures specific to hosted infrastructure remain manual.
@@ -21,7 +21,7 @@
 - Unit tests live in `src/**/__tests__/*.test.ts`; browser tests live in `e2e/*.spec.ts`.
 - E2E selectors use accessible French labels; development-only `window.__sfCanvas` and `window.__sfStores` are reserved for state contracts the UI cannot expose.
 - Canvas transforms must assert the canvas → store → sync round-trip does not drift after pointer release.
-- Any export-path change must retain the pixel-exact E2E contract.
+- Any export-path change must retain both pixel-exact E2E contracts, their 10/8 maxima, deterministic numbering and all-or-nothing download behavior.
 - `runtime-resilience.spec.ts` forces IndexedDB startup failure and delays a lazy chunk to cover the editable memory fallback, persistent warning, loading status, and final dialog focus.
 
 ## Run

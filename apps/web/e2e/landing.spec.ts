@@ -4,6 +4,12 @@ test('la landing présente Local gratuit et Cloud payant en anglais et en franç
   page,
 }) => {
   await page.goto('/landing.html')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Store screenshots')
+  await page.getByRole('tab', { name: 'Export' }).click()
+  await expect(page.getByText('6.9/', { exact: true })).toBeVisible()
+  await expect(page.getByText('phone/', { exact: true })).toBeVisible()
+  await expect(page.getByText('1320 × 2868', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('1080 × 1920', { exact: true }).first()).toBeVisible()
   const pricing = page.locator('#pricing')
   await expect(pricing.getByText('$0', { exact: true })).toBeVisible()
   await expect(pricing.getByText('$39', { exact: true })).toBeVisible()
@@ -20,6 +26,7 @@ test('la landing présente Local gratuit et Cloud payant en anglais et en franç
   await expect(pricing).not.toContainText(/\$49|free trial|three watermarked/i)
 
   await page.getByRole('link', { name: 'Français' }).first().click()
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('captures de store')
   await expect(pricing.getByText('0 $', { exact: true })).toBeVisible()
   await expect(pricing.getByText('39 $', { exact: true })).toBeVisible()
   await expect(pricing).toContainText('100 projets et 128 Mio')

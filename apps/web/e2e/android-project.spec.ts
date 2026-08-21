@@ -24,7 +24,7 @@ test('creates, composes and reopens a Google Play phone project', async ({ page 
   await expect(page.getByText('Google Play · téléphone', { exact: true })).toBeVisible()
   await projectTrigger.click()
 
-  await page.getByRole('button', { name: 'Ajouter un cadre de téléphone' }).click()
+  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
   await page.getByRole('menuitem', { name: /Téléphone Android/ }).click()
   await expect
     .poll(() =>

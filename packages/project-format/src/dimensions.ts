@@ -20,10 +20,7 @@ export interface StoreTargetProfile {
   defaultDeviceColor: DeviceColor
 }
 
-/**
- * The only production profile ScreenForge exports.
- * App Store Connect derives the smaller iPhone screenshot sizes from this set.
- */
+/** App Store Connect derives smaller iPhone screenshot sizes from this set. */
 export const APP_STORE_TARGET: DisplayClass = {
   name: 'iPhone 6.9 inch',
   size: '6.9"',

@@ -103,6 +103,9 @@ for (const file of sources) {
 
 const commercialSources = [...sources, fileURLToPath(new URL('./og-card.mjs', import.meta.url))]
 const commercialCopy = commercialSources.map((file) => readFileSync(file, 'utf8')).join('\n')
+for (const claim of ['App Store', 'Google Play', '1320×2868', '1080×1920', '6.9/', 'phone/']) {
+  if (!commercialCopy.includes(claim)) failures.push(`profil absent de la vitrine : ${claim}`)
+}
 const COMMERCIAL_BANS = [
   { pattern: /commercialLaunch/, label: 'ancien interrupteur de lancement commercial' },
   { pattern: /(?:\$49|49\s*\$)/, label: 'ancien prix Local payant' },
@@ -110,6 +113,10 @@ const COMMERCIAL_BANS = [
   {
     pattern: /(?:three watermarked exports|trois exports filigranés)/i,
     label: 'ancien quota Local',
+  },
+  {
+    pattern: /(?:publishes? directly to Google Play|publication Google Play incluse)/i,
+    label: 'publication Google Play non livrée',
   },
 ]
 for (const ban of COMMERCIAL_BANS) {

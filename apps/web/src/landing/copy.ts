@@ -14,9 +14,9 @@ const CLOUD_LIMITS_FR = cloudOfferSummary('fr')
  */
 const en = {
   meta: {
-    title: 'ScreenForge — App Store screenshots, pixel-exact',
+    title: 'ScreenForge — App Store & Google Play screenshots',
     description:
-      'Compose your iPhone App Store screenshot set once, export pixel-exact PNGs at 1320×2868, refresh in one click. Free, local, no account. Cloud sync optional, $39/year.',
+      'Compose App Store and Google Play phone screenshots, export pixel-exact PNGs at 1320×2868 or 1080×1920. Free, local, no account. Cloud sync optional, $39/year.',
   },
   nav: {
     features: 'The editor',
@@ -30,8 +30,8 @@ const en = {
     skipToContent: 'Skip to content',
   },
   hero: {
-    headline: 'App Store screenshots, down to the pixel.',
-    sub: 'For people who ship iPhone apps: compose the set once in your browser, export at Apple’s exact sizes, re-shoot in one click at every release. Or tell Claude Code or Codex what the app does and let it compose all ten. Free, no account, local by default.',
+    headline: 'Store screenshots, down to the pixel.',
+    sub: 'For people who ship iPhone and Android apps: choose App Store or Google Play phone, compose the set once in your browser, then refresh it in one click at every release. Or let Claude Code or Codex compose it. Free, no account, local by default.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
   },
@@ -95,35 +95,35 @@ const en = {
     bgLayer: 'Background',
   },
   proof: {
-    title: 'App Store screenshots break in three places.',
-    body: 'The set drifts while you tweak screen four. The export gets scaled and goes soft. One file misses one of Apple’s rules and the build sits in review. ScreenForge closes all three, by construction.',
+    title: 'Store screenshots break in three places.',
+    body: 'The set drifts while you tweak screen four. The export gets scaled and goes soft. One file misses a store rule and the release stalls. ScreenForge closes all three, by construction.',
     label: 'Three breaks, closed',
     items: [
       { value: '10 screens', label: 'One change lands on all ten. The set cannot drift.' },
       {
         value: '1320×2868',
-        label: 'Rendered at native size, never scaled. Apple gets the pixels you drew.',
+        label: 'App Store native size; Google Play phone is rendered at 1080×1920.',
       },
       {
         value: 'PNG-24',
-        label: 'Opaque, sRGB, under the size cap. Nothing left for review to reject.',
+        label: 'Opaque, sRGB, under the size cap. Checked for both store profiles.',
       },
     ],
   },
   showcase: {
     /* Titre hors écran : la section n'a plus d'en-tête visible, la démo
        arrive collée au hero, mais le plan du document garde sa rubrique. */
-    title: 'One editor that ships all ten.',
+    title: 'One editor for App Store and Google Play.',
   },
   features: {
     heading: 'Compose once. Refresh at every release. Export to the pixel.',
     editor: {
       tab: 'Compose',
       title: 'A real editor, not a form',
-      body: 'Layers, accurate iPhone frames, gradients, Google Fonts on demand. Design one screen, then push it to the other nine. Background, type, frame and position travel together.',
+      body: 'Layers, accurate iPhone frames, a generic Android phone frame, gradients, Google Fonts on demand. Design one screen, then push it across the set. Background, type, frame and position travel together.',
       points: [
-        'Every current iPhone frame, in Apple’s own colours',
-        'Change one screen, the other nine follow',
+        'Current iPhone frames plus a crisp generic Android phone',
+        'Change one screen, the rest of the set follows',
         'Any Google Font, loaded the moment you pick it',
         'Undo everything, keyboard first, ⌘K for the rest',
       ],
@@ -135,7 +135,7 @@ const en = {
     refresh: {
       tab: 'Refresh',
       title: 'New build, new screenshots, same set',
-      body: 'Ship a version, re-shoot the app, drop the folder on ScreenForge. Each capture lands on its device, and the layout, headlines, backgrounds and frames stay exactly where you put them. Ten screens updated in one step, one undo if you change your mind.',
+      body: 'Ship a version, re-shoot the app, drop the folder on ScreenForge. Each capture lands on its device, and the layout, headlines, backgrounds and frames stay exactly where you put them. The whole set updates in one step, one undo if you change your mind.',
       points: [
         'Files matched to devices by name, corrected by hand where needed',
         'Layout, type and frames untouched',
@@ -145,18 +145,18 @@ const en = {
       figureFolder: 'screenshots/',
       figureFiles: ['home.png', 'tracking.png', 'stats.png', 'settings.png'],
       figureTarget: 'device',
-      figureMore: 'six more',
-      figureResult: '10 devices refilled, one write, one undo',
+      figureMore: 'the rest',
+      figureResult: 'Every device refilled, one write, one undo',
       figureLabel: 'One folder in, the layout stays where you left it',
     },
     export: {
       tab: 'Export',
       title: 'Exports that pass review',
-      body: 'Rendered at native 1320×2868 on your machine, never upscaled. App Store Connect derives every smaller iPhone size from this one set.',
+      body: 'Rendered on your machine at native 1320×2868 for App Store or 1080×1920 for Google Play phone, never upscaled.',
       points: [
-        'Native 6.9″ resolution, portrait or landscape',
-        'PNG-24, sRGB, within the size limits',
-        'One ZIP, grouped by dimension',
+        'App Store 6.9″ or Google Play phone portrait',
+        'Opaque PNG-24, sRGB, within the size limits',
+        'One ZIP, grouped by store profile',
         'Dimensions checked before download',
       ],
       zipLabel: 'What lands in your Downloads folder',
@@ -166,10 +166,23 @@ const en = {
          arborescence en français sur la page anglaise redirait exactement le
          défaut que ce bloc a remplacé. */
       zipFiles: ['01_home.png', '02_tracking.png', '03_stats.png', '04_settings.png'],
-      zipMore: 'up to six more screens',
+      profiles: [
+        {
+          store: 'App Store',
+          folder: '6.9/',
+          dimensions: '1320 × 2868',
+          more: 'up to six more screens',
+        },
+        {
+          store: 'Google Play · phone',
+          folder: 'phone/',
+          dimensions: '1080 × 1920',
+          more: 'up to four more screens',
+        },
+      ],
       specRows: [
-        { key: 'Dimensions', value: '1320 × 2868 px' },
-        { key: 'Format', value: 'PNG-24, 8-bit RGBA' },
+        { key: 'Dimensions', value: 'Apple 1320×2868 · Android 1080×1920' },
+        { key: 'Format', value: 'PNG-24, 8-bit RGB opaque' },
         { key: 'Color space', value: 'sRGB' },
         { key: 'Scaling', value: 'None, rendered at target size' },
         { key: 'Rendered by', value: 'Your browser' },
@@ -178,7 +191,7 @@ const en = {
   },
   agent: {
     heading: 'Let Claude Code or Codex compose it.',
-    sub: 'Give your agent the app’s URL and a folder of screenshots: it writes the headlines, lays out the ten screens in the editor you have open, and checks its own render. Everything it does is a layer, one ⌘Z away.',
+    sub: 'Give your agent the destination, app URL and a folder of screenshots: it writes the headlines, lays out the target-sized set in the editor you have open, and checks its own render. Everything it does is a layer, one ⌘Z away.',
     ways: [
       {
         title: 'From your terminal, over MCP',
@@ -190,7 +203,7 @@ const en = {
       },
       {
         title: 'Without any AI',
-        body: 'The default: a local builder lays out the ten screens from your screenshots, you write the words. No request, no account.',
+        body: 'The default: a local builder lays out the target-sized set from your screenshots, you write the words. No request, no account.',
       },
     ],
     setupTitle: 'Connect an agent',
@@ -202,14 +215,15 @@ const en = {
     setupNote: 'Ships in the repository for now, not on npm.',
     /* Une session dessinée, pas enregistrée : les noms d’outils sont ceux
        que `apps/mcp` expose réellement, les notes sont ce que chacun rend. */
-    sessionPrompt: 'Compose the App Store set for https://sleeptracker.app, screenshots in ~/shots',
+    sessionPrompt:
+      'Compose the Google Play phone set for https://sleeptracker.app, screenshots in ~/shots',
     sessionSteps: [
       ['screenforge_get_project_state', '1 empty screen'],
-      ['screenforge_declare_plan', '10 screens, 10 headlines'],
-      ['screenforge_apply', '49 calls, one write, one undo'],
+      ['screenforge_declare_plan', '8 screens, 8 headlines'],
+      ['screenforge_apply', '39 calls, one write, one undo'],
       ['screenforge_get_thumbnail', 'screen 1, rendered'],
     ],
-    sessionDone: '10 screens composed. Everything is a layer: ⌘Z undoes it.',
+    sessionDone: '8 screens composed. Everything is a layer: ⌘Z undoes it.',
     sessionLabel: 'Tool names as the server exposes them, in the editor you have open',
   },
   pricing: {
@@ -265,7 +279,8 @@ const en = {
     localNote: 'Local has no export cap, no watermark and no paywall. It is not a trial.',
   },
   marquee: [
-    '1320×2868 px',
+    'App Store · 1320×2868',
+    'Google Play · 1080×1920',
     'PNG-24 · sRGB',
     '10 screens per set',
     'Batch refresh',
@@ -282,11 +297,11 @@ const en = {
     items: [
       {
         q: 'Is Local really free?',
-        a: 'Yes. Local is the complete editor: unlimited clean exports, grouped ZIPs, every iPhone frame, no account, no trial clock, no watermark. Cloud is optional and only adds sync, storage and backups.',
+        a: 'Yes. Local is the complete editor: unlimited clean App Store and Google Play phone exports, grouped ZIPs, phone frames, no account, no trial clock, no watermark. Cloud is optional and only adds sync, storage and backups.',
       },
       {
-        q: 'Will the exports pass App Store Connect?',
-        a: 'Yes, on everything a file can be rejected for: 1320×2868, opaque PNG, sRGB, under the size limit, all checked before download. Apple derives every smaller iPhone size from that one set. Your content is Apple’s review, not the file’s.',
+        q: 'Will the exports pass the store file checks?',
+        a: 'Yes, on the file contract: App Store 1320×2868 or Google Play phone 1080×1920, opaque PNG, sRGB and under the size target, all checked before download. Store content review remains yours.',
       },
       {
         q: 'What are the Cloud storage limits?',
@@ -309,24 +324,24 @@ const en = {
         a: 'No key is needed: the default generator is a local builder, and an agent over MCP uses your existing login. To have a model write the headlines from inside the editor, use Claude Code on your machine, an Anthropic key, or an OpenRouter key with the model you pick. Keys are encrypted at rest on this computer.',
       },
       {
-        q: 'Which iPhones can I frame?',
-        a: 'Every current model, from iPhone 16e to iPhone 17 Pro Max, iPhone Air included, in Apple’s own colours. Frames are vector, so they stay sharp at 1320×2868.',
+        q: 'Which phones can I frame?',
+        a: 'Current iPhones, from iPhone 16e to iPhone 17 Pro Max with iPhone Air, plus a generic vector Android phone. You can also import a bezel locally.',
       },
       {
         q: 'Can I use my own screenshots?',
-        a: 'That is the point. Drop a capture on a device frame, or drop a whole folder to refresh all ten at once: files are matched to devices by name, and the layout, headlines and backgrounds stay exactly where they were.',
+        a: 'That is the point. Drop a capture on a device frame, or drop a whole folder to refresh the set at once: files are matched to devices by name, and the layout, headlines and backgrounds stay exactly where they were.',
       },
       {
         q: 'Why not Figma or a template?',
-        a: 'Figma will draw one beautiful screenshot. It will not keep ten of them at Apple’s exact size, re-render them at every release, or check the file rules before you upload. A template gives you one style and no refresh. ScreenForge is the editor and the export pipeline in one place, and the editor is free.',
+        a: 'Figma will draw one beautiful screenshot. It will not keep a full set at the selected store’s exact size, re-render it at every release, or check the file rules before export. A template gives you one style and no refresh. ScreenForge is the editor and export pipeline in one place, and the editor is free.',
       },
       {
         q: 'Is it open source? What if the project stops?',
         a: 'Yes, the whole editor is AGPL-3.0 on GitHub. Your projects live on your machine and export to plain PNG, so if ScreenForge stopped tomorrow you would keep the code, the files and the ZIPs. Nothing here depends on a server staying up.',
       },
       {
-        q: 'Which dimensions does it export?',
-        a: 'Native 6.9″ (1320×2868), portrait or landscape, the largest size App Store Connect accepts. Apple derives every smaller iPhone size from it, so one set covers every iPhone.',
+        q: 'Which stores and dimensions does it export?',
+        a: 'App Store iPhone portrait at native 6.9″ (1320×2868), or Google Play phone portrait at 1080×1920. Android v1 does not include tablets, Wear OS, XR, landscape, feature graphics or direct Google Play publication.',
       },
       {
         q: 'Where are my projects stored?',
@@ -347,7 +362,7 @@ const en = {
     ],
   },
   finalCta: {
-    headline: 'Your next screenshot set, ten minutes from now.',
+    headline: 'Your next store screenshot set, ten minutes from now.',
     body: 'No account, no upload, no card. The editor opens on an empty artboard.',
     cta: 'Open the editor for free',
     ctaCloud: 'Choose Cloud',
@@ -368,9 +383,9 @@ export type Copy = typeof en
 
 const fr: Copy = {
   meta: {
-    title: 'ScreenForge — des captures App Store au pixel près',
+    title: 'ScreenForge — captures App Store et Google Play',
     description:
-      'Composez vos captures App Store iPhone une fois, exportez des PNG exacts en 1320×2868, mettez-les à jour en un clic. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
+      'Composez vos captures App Store et Google Play téléphone, exportez des PNG exacts en 1320×2868 ou 1080×1920. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
   },
   nav: {
     features: 'L’éditeur',
@@ -384,8 +399,8 @@ const fr: Copy = {
     skipToContent: 'Aller au contenu',
   },
   hero: {
-    headline: 'Des captures App Store, au pixel près.',
-    sub: 'Pour ceux qui sortent des apps iPhone : composez vos dix captures une fois dans le navigateur, exportez-les aux tailles exactes d’Apple, remplacez-les en un clic à chaque version. Ou dites à Claude Code ou Codex ce que fait l’app, et laissez-le composer les dix. Gratuit, sans compte, tout reste sur votre machine.',
+    headline: 'Des captures de store, au pixel près.',
+    sub: 'Pour ceux qui sortent des apps iPhone et Android : choisissez App Store ou Google Play téléphone, composez la série une fois dans le navigateur, puis actualisez-la en un clic à chaque version. Ou laissez Claude Code ou Codex la composer. Gratuit, sans compte, tout reste sur votre machine.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
   },
@@ -425,8 +440,8 @@ const fr: Copy = {
     bgLayer: 'Arrière-plan',
   },
   proof: {
-    title: 'Les captures App Store, ça casse à trois endroits.',
-    body: 'La série se décale pendant que vous retouchez le quatrième écran. L’export est redimensionné et devient flou. Un fichier enfreint une règle d’Apple et le build reste bloqué en validation. ScreenForge règle les trois, par construction.',
+    title: 'Les captures de store, ça casse à trois endroits.',
+    body: 'La série se décale pendant que vous retouchez le quatrième écran. L’export est redimensionné et devient flou. Un fichier enfreint une règle du store et la livraison bloque. ScreenForge règle les trois, par construction.',
     label: 'Trois problèmes, réglés',
     items: [
       {
@@ -435,28 +450,26 @@ const fr: Copy = {
       },
       {
         value: '1320×2868',
-        label:
-          'Rendu à la taille native, jamais redimensionné. Apple reçoit les pixels que vous avez dessinés.',
+        label: 'Taille App Store native ; Google Play téléphone est rendu en 1080×1920.',
       },
       {
         value: 'PNG-24',
-        label:
-          'Opaque, sRGB, sous la limite de poids. Plus rien qu’App Store Connect puisse refuser.',
+        label: 'Opaque, sRGB, sous la limite de poids. Contrôlé pour les deux profils.',
       },
     ],
   },
   showcase: {
-    title: 'Un seul éditeur pour les dix écrans.',
+    title: 'Un seul éditeur pour App Store et Google Play.',
   },
   features: {
     heading: 'Composez une fois. Actualisez à chaque version. Exportez au pixel près.',
     editor: {
       tab: 'Composer',
       title: 'Un vrai éditeur, pas un formulaire',
-      body: 'Calques, cadres iPhone fidèles, dégradés, Google Fonts à la demande. Dessinez un écran, appliquez-le aux neuf autres : le fond, la typo, le cadre et la position passent d’un coup.',
+      body: 'Calques, cadres iPhone fidèles, cadre Android générique, dégradés, Google Fonts à la demande. Dessinez un écran, appliquez-le à toute la série : fond, typo, cadre et position passent d’un coup.',
       points: [
-        'Tous les cadres iPhone courants, dans les coloris d’Apple',
-        'Changez un écran, les neuf autres suivent',
+        'Cadres iPhone courants et téléphone Android générique net',
+        'Changez un écran, le reste de la série suit',
         'N’importe quelle Google Font, chargée dès que vous la choisissez',
         'Tout s’annule, raccourcis clavier partout, ⌘K pour le reste',
       ],
@@ -468,7 +481,7 @@ const fr: Copy = {
     refresh: {
       tab: 'Actualiser',
       title: 'Nouvelle version, nouvelles captures, rien à recomposer',
-      body: 'Vous sortez une version, vous refaites vos captures, vous glissez le dossier dans ScreenForge. Chaque capture retrouve son appareil ; la mise en page, les accroches, les fonds et les cadres ne bougent pas. Les dix écrans se mettent à jour d’un coup, et un ⌘Z suffit si vous changez d’avis.',
+      body: 'Vous sortez une version, vous refaites vos captures, vous glissez le dossier dans ScreenForge. Chaque capture retrouve son appareil ; la mise en page, les accroches, les fonds et les cadres ne bougent pas. Toute la série se met à jour d’un coup, et un ⌘Z suffit si vous changez d’avis.',
       points: [
         'Chaque fichier va sur l’appareil qui porte son nom, à corriger à la main au besoin',
         'Mise en page, typographie et cadres intacts',
@@ -478,27 +491,40 @@ const fr: Copy = {
       figureFolder: 'captures/',
       figureFiles: ['accueil.png', 'suivi.png', 'statistiques.png', 'reglages.png'],
       figureTarget: 'appareil',
-      figureMore: 'six de plus',
-      figureResult: '10 appareils mis à jour d’un coup, un seul ⌘Z pour tout défaire',
+      figureMore: 'le reste',
+      figureResult: 'Tous les appareils mis à jour, une écriture, un seul ⌘Z',
       figureLabel: 'Vous donnez un dossier, la mise en page ne bouge pas',
     },
     export: {
       tab: 'Exporter',
       title: 'Des exports qui passent la validation',
-      body: 'Rendus en 1320×2868 natif sur votre machine, jamais redimensionnés. App Store Connect en dérive lui-même toutes les tailles iPhone plus petites.',
+      body: 'Rendus sur votre machine en 1320×2868 natif pour App Store ou 1080×1920 pour Google Play téléphone, jamais redimensionnés.',
       points: [
-        'Résolution native 6,9″, portrait ou paysage',
-        'PNG-24, sRGB, dans les limites de poids',
-        'Un seul ZIP, groupé par dimension',
+        'App Store 6,9″ ou Google Play téléphone portrait',
+        'PNG-24 opaque, sRGB, dans les limites de poids',
+        'Un seul ZIP, groupé par profil de store',
         'Dimensions contrôlées avant téléchargement',
       ],
       zipLabel: 'Ce qui arrive dans votre dossier Téléchargements',
       zipName: 'screenshots.zip',
       zipFiles: ['01_accueil.png', '02_suivi.png', '03_statistiques.png', '04_reglages.png'],
-      zipMore: 'jusqu’à six écrans de plus',
+      profiles: [
+        {
+          store: 'App Store',
+          folder: '6.9/',
+          dimensions: '1320 × 2868',
+          more: 'jusqu’à six écrans de plus',
+        },
+        {
+          store: 'Google Play · téléphone',
+          folder: 'phone/',
+          dimensions: '1080 × 1920',
+          more: 'jusqu’à quatre écrans de plus',
+        },
+      ],
       specRows: [
-        { key: 'Dimensions', value: '1320 × 2868 px' },
-        { key: 'Format', value: 'PNG-24, 8 bits RGBA' },
+        { key: 'Dimensions', value: 'Apple 1320×2868 · Android 1080×1920' },
+        { key: 'Format', value: 'PNG-24, RGB opaque 8 bits' },
         { key: 'Colorimétrie', value: 'sRGB' },
         { key: 'Échelle', value: 'Aucune, taille cible' },
         { key: 'Rendu par', value: 'Votre navigateur' },
@@ -507,7 +533,7 @@ const fr: Copy = {
   },
   agent: {
     heading: 'Laissez Claude Code ou Codex composer.',
-    sub: 'Donnez à votre agent l’adresse de l’app et un dossier de captures : il écrit les accroches, met en page les dix écrans dans l’éditeur que vous avez ouvert, et vérifie son propre rendu. Tout ce qu’il pose est un calque, à un ⌘Z près.',
+    sub: 'Donnez à votre agent la destination, l’adresse de l’app et un dossier de captures : il écrit les accroches, met en page la série aux dimensions de la cible dans l’éditeur ouvert, et vérifie son propre rendu. Tout ce qu’il pose est un calque, à un ⌘Z près.',
     ways: [
       {
         title: 'Depuis votre terminal, par MCP',
@@ -519,7 +545,7 @@ const fr: Copy = {
       },
       {
         title: 'Sans aucune IA',
-        body: 'Le défaut : un générateur local met en page les dix écrans à partir de vos captures, vous écrivez les mots. Aucune requête, aucun compte.',
+        body: 'Le défaut : un générateur local met en page la série adaptée à la cible depuis vos captures, vous écrivez les mots. Aucune requête, aucun compte.',
       },
     ],
     setupTitle: 'Brancher un agent',
@@ -530,14 +556,14 @@ const fr: Copy = {
     ],
     setupNote: 'Livré dans le dépôt pour l’instant, pas sur npm.',
     sessionPrompt:
-      'Compose mes captures App Store pour https://sleeptracker.app, les captures sont dans ~/captures',
+      'Compose mes captures Google Play téléphone pour https://sleeptracker.app, elles sont dans ~/captures',
     sessionSteps: [
       ['screenforge_get_project_state', '1 écran vide'],
-      ['screenforge_declare_plan', '10 écrans, 10 accroches'],
-      ['screenforge_apply', '49 appels, écrits d’un coup, un seul ⌘Z'],
+      ['screenforge_declare_plan', '8 écrans, 8 accroches'],
+      ['screenforge_apply', '39 appels, écrits d’un coup, un seul ⌘Z'],
       ['screenforge_get_thumbnail', 'écran 1, rendu'],
     ],
-    sessionDone: '10 écrans composés. Ce ne sont que des calques : ⌘Z défait tout.',
+    sessionDone: '8 écrans composés. Ce ne sont que des calques : ⌘Z défait tout.',
     sessionLabel: 'Les vrais noms des outils, dans l’éditeur que vous avez ouvert',
   },
   pricing: {
@@ -596,7 +622,8 @@ const fr: Copy = {
       'Local n’a ni limite d’export, ni filigrane, ni paywall. Ce n’est pas une version d’essai.',
   },
   marquee: [
-    '1320×2868 px',
+    'App Store · 1320×2868',
+    'Google Play · 1080×1920',
     'PNG-24 · sRGB',
     '10 écrans par projet',
     'Mise à jour groupée',
@@ -609,11 +636,11 @@ const fr: Copy = {
     items: [
       {
         q: 'Local est-il vraiment gratuit ?',
-        a: 'Oui. Local, c’est l’éditeur complet : exports illimités, ZIP, tous les cadres iPhone, sans compte, sans période d’essai, sans filigrane. Cloud est en option et n’ajoute que la synchronisation, le stockage et les sauvegardes.',
+        a: 'Oui. Local, c’est l’éditeur complet : exports App Store et Google Play téléphone illimités, ZIP, cadres de téléphone, sans compte, sans période d’essai, sans filigrane. Cloud est en option et n’ajoute que la synchronisation, le stockage et les sauvegardes.',
       },
       {
-        q: 'Les exports passent-ils App Store Connect ?',
-        a: 'Oui, sur tout ce qui peut faire rejeter un fichier : 1320×2868, PNG opaque, sRGB, sous la limite de poids, le tout vérifié avant le téléchargement. Apple en dérive lui-même toutes les tailles iPhone plus petites. Reste le contenu, et là c’est la revue d’Apple qui juge, pas le fichier.',
+        q: 'Les exports passent-ils les contrôles de fichier des stores ?',
+        a: 'Oui, pour le contrat du fichier : App Store 1320×2868 ou Google Play téléphone 1080×1920, PNG opaque, sRGB et sous la cible de poids, le tout vérifié avant téléchargement. La revue du contenu reste la vôtre.',
       },
       {
         q: 'Quelles sont les limites de stockage Cloud ?',
@@ -636,24 +663,24 @@ const fr: Copy = {
         a: 'Aucune clé n’est nécessaire : le générateur par défaut est local, et un agent par MCP utilise le compte que vous avez déjà. Pour qu’un modèle écrive les accroches depuis l’éditeur, utilisez Claude Code sur votre machine, une clé Anthropic, ou une clé OpenRouter avec le modèle de votre choix. Les clés sont chiffrées sur cet ordinateur.',
       },
       {
-        q: 'Quels cadres iPhone sont proposés ?',
-        a: 'Tous les modèles courants, de l’iPhone 16e à l’iPhone 17 Pro Max, iPhone Air compris, dans les coloris d’Apple. Les cadres sont vectoriels : ils restent nets en 1320×2868.',
+        q: 'Quels cadres de téléphone sont proposés ?',
+        a: 'Les iPhone courants, de l’iPhone 16e à l’iPhone 17 Pro Max avec l’iPhone Air, plus un téléphone Android générique vectoriel. Vous pouvez aussi importer un bezel localement.',
       },
       {
         q: 'Puis-je utiliser mes propres captures ?',
-        a: 'C’est le principe. Glissez une capture sur un cadre, ou tout un dossier pour mettre à jour les dix d’un coup : chaque fichier va sur l’appareil qui porte son nom, et la mise en page, les accroches et les fonds ne bougent pas.',
+        a: 'C’est le principe. Glissez une capture sur un cadre, ou tout un dossier pour mettre à jour la série d’un coup : chaque fichier va sur l’appareil qui porte son nom, et la mise en page, les accroches et les fonds ne bougent pas.',
       },
       {
         q: 'Pourquoi pas Figma ou un template ?',
-        a: 'Figma fait une belle capture. Il ne tient pas dix captures à la taille exacte d’Apple, ne les regénère pas à chaque version et ne vérifie pas les règles du fichier avant l’envoi. Un template donne un style, pas de mise à jour. ScreenForge réunit l’éditeur et l’export au même endroit, et l’éditeur est gratuit.',
+        a: 'Figma fait une belle capture. Il ne tient pas une série entière à la taille exacte du store choisi, ne la regénère pas à chaque version et ne vérifie pas les règles du fichier avant l’export. Un template donne un style, pas de mise à jour. ScreenForge réunit l’éditeur et l’export au même endroit, et l’éditeur est gratuit.',
       },
       {
         q: 'Est-ce open source ? Et si le projet s’arrête ?',
         a: 'Oui, tout l’éditeur est sous AGPL-3.0 sur GitHub. Vos projets restent sur votre machine et sortent en PNG tout à fait ordinaires : si ScreenForge s’arrêtait demain, vous garderiez le code, les fichiers et les ZIP. Rien ne dépend d’un serveur qu’il faudrait garder allumé.',
       },
       {
-        q: 'Quelles dimensions sont exportées ?',
-        a: 'Le 6,9″ natif (1320×2868), portrait ou paysage, la plus grande taille acceptée par App Store Connect. Apple en dérive toutes les tailles iPhone plus petites : un seul export couvre tous les iPhone.',
+        q: 'Quels stores et dimensions sont exportés ?',
+        a: 'App Store iPhone portrait en 6,9″ natif (1320×2868), ou Google Play téléphone portrait en 1080×1920. Android v1 n’inclut ni tablettes, ni Wear OS, ni XR, ni paysage, ni feature graphic, ni publication directe sur Google Play.',
       },
       {
         q: 'Où sont stockés mes projets ?',
@@ -674,7 +701,7 @@ const fr: Copy = {
     ],
   },
   finalCta: {
-    headline: 'Vos prochaines captures App Store, dans dix minutes.',
+    headline: 'Vos prochaines captures de store, dans dix minutes.',
     body: 'Sans compte, sans carte, sans rien envoyer. L’éditeur s’ouvre sur un écran vide.',
     cta: 'Ouvrir l’éditeur gratuitement',
     ctaCloud: 'Choisir Cloud',

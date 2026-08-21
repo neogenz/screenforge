@@ -247,10 +247,10 @@ const measure = () =>
   )
 
 const darkReadings = await measure()
-await page.evaluate(async () => {
-  const moduleUrl = new URL('/src/stores/ui.store.ts', window.location.href).href
-  const { useUIStore } = await import(moduleUrl)
-  useUIStore.getState().toggleTheme()
+await page.evaluate(() => {
+  const store = window.__sfStores?.useUIStore
+  if (!store) throw new Error('__sfStores absent — le script exige le serveur de dev')
+  store.getState().toggleTheme()
 })
 await page.waitForFunction(() => document.documentElement.classList.contains('light'))
 const readingsByTheme = { dark: darkReadings, light: await measure() }
