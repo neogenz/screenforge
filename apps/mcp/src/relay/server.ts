@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { bearer, createPairing, verifyToken, type Pairing } from './pairing.ts'
+import { bearer, createPairing, verifyToken, type Pairing, type PairingOptions } from './pairing.ts'
 import {
   allowedOrigins,
   originAllowed,
+  relayPairSchema,
   relayResultSchema,
   relayStateSchema,
   RELAY_PROTOCOL,
@@ -11,10 +12,10 @@ import {
   type RelayHello,
 } from './protocol.ts'
 import { RelaySession, type AppConnection } from './session.ts'
-import { AssetVault } from './assets.ts'
+import { AssetVault, type AssetRootProvider } from './assets.ts'
 
 /**
- * Le relais : cinq routes, une seule page légitime, la boucle locale.
+ * Le relais : une seule page légitime, sur la boucle locale.
  *
  * Le contrôle d'origine passe avant tout le reste et avant le moindre en-tête
  * CORS — un `Origin` refusé repart en 403 nu, donc le navigateur retient la
@@ -26,10 +27,8 @@ import { AssetVault } from './assets.ts'
  * destinées à l'onglet qui l'a ouvert ; il ne rend jamais le projet, qui
  * remonte par `POST /state`.
  *
- * `/asset/:id` est la seule route qui touche au disque, et elle ne prend pas de
- * chemin : elle sert un identifiant qu'un appel d'outil a fait entrer dans le
- * coffre. Une route prenant `?path=` aurait fait de l'onglet un lecteur du
- * disque entier, à un paramètre près.
+ * `/asset/:id` ne prend jamais de chemin : elle sert la copie immuable qu'un
+ * appel d'outil a fait entrer dans le coffre.
  */
 
 export const MCP_VERSION = '0.1.0'
@@ -41,8 +40,15 @@ export interface RelayState {
   assets: AssetVault
 }
 
-export function createRelayState(): RelayState {
-  return { pairing: createPairing(), session: new RelaySession(), assets: new AssetVault() }
+export function createRelayState(
+  pairingOptions?: PairingOptions,
+  assetRoots?: AssetRootProvider,
+): RelayState {
+  return {
+    pairing: createPairing(pairingOptions),
+    session: new RelaySession(),
+    assets: new AssetVault(assetRoots),
+  }
 }
 
 function fail(code: RelayError['error'], detail: string): RelayError {
@@ -67,17 +73,35 @@ export function createRelay(state: RelayState, origins = allowedOrigins()) {
   })
 
   /**
-   * L'appairage : l'origine a déjà été vérifiée par le garde ci-dessus, donc
-   * arriver ici suffit à obtenir le jeton. Aucun secret à recopier — le geste
-   * qui autorise est le clic sur « Activer » dans l'éditeur.
+   * L'appairage exige les deux preuves disponibles : origine navigateur admise
+   * et code usage unique lu dans le terminal local.
    */
-  app.post('/pair', (context) => {
+  app.post('/pair', async (context) => {
+    const origin = context.req.header('Origin')
+    if (!originAllowed(origin, origins)) {
+      return context.json(fail('forbidden-origin', 'Appairage refusé.'), 403)
+    }
+    const parsed = relayPairSchema.safeParse(await context.req.json().catch(() => null))
+    const token = parsed.success ? state.pairing.pair(parsed.data.code) : null
+    if (!token) return context.json(fail('unauthorized', 'Appairage refusé.'), 401)
+    state.session.revoke()
+    state.assets.clear()
     const hello: RelayHello = {
       protocol: RELAY_PROTOCOL,
       mcp: MCP_VERSION,
-      token: state.pairing.token,
+      token,
     }
     return context.json(hello)
+  })
+
+  app.post('/revoke', (context) => {
+    if (!authorized(state, context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
+    }
+    state.pairing.revoke()
+    state.session.revoke()
+    state.assets.clear()
+    return context.json({ revoked: true })
   })
 
   app.get('/events', (context) => {
@@ -123,10 +147,7 @@ export function createRelay(state: RelayState, origins = allowedOrigins()) {
   })
 
   /**
-   * Le fichier local que l'agent a désigné, servi une fois à la page.
-   *
-   * Relu à la demande plutôt que gardé en mémoire : offrir un fichier n'est pas
-   * le copier, et un lot de captures d'écran ferait grossir le démon d'autant.
+   * Le fichier local que l'agent a désigné, copié et validé lors de l'offre.
    * Un identifiant absent du coffre est un 404 sans détail — il n'y a rien à
    * apprendre d'une clé qu'on n'a pas.
    */

@@ -5,7 +5,15 @@ import { Password } from '@convex-dev/auth/providers/Password'
 import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
 import { env } from './_generated/server'
-import { clear, consume, normalizeEmail, PASSWORD_ATTEMPTS_PER_HOUR } from './limits'
+import {
+  clear,
+  consume,
+  normalizeEmail,
+  PASSWORD_ATTEMPTS_PER_HOUR,
+  sourceRateLimitKey,
+  type RequestMetadataCtx,
+} from './limits'
+import { configuredOrigins, isAllowedOrigin } from './origins'
 
 /**
  * Qui a le droit d'entrer, et par quelles portes.
@@ -58,13 +66,24 @@ function siteUrl(): string {
  * parce qu'un rappel `redirect` reste nécessaire : le défaut lève sur une
  * destination refusée, là où on préfère ramener à l'éditeur.
  */
-export function safeRedirect(redirectTo: string, site: string): string {
+export function safeRedirect(
+  redirectTo: string,
+  site: string,
+  exactOrigins: ReadonlySet<string> | null = configuredOrigins(site),
+): string {
   /* Un chemin relatif est toujours sur le site : il est concaténé, pas comparé.
      `//exemple.com` y compris, qui devient un chemin de notre hôte. */
   if (redirectTo.startsWith('/')) return `${site}${redirectTo}`
-  if (redirectTo.startsWith(site)) {
-    const after = redirectTo[site.length]
-    if (after === undefined || after === '/' || after === '?') return redirectTo
+  try {
+    const destination = new URL(redirectTo)
+    if (
+      !destination.username &&
+      !destination.password &&
+      isAllowedOrigin(destination.origin, exactOrigins)
+    )
+      return redirectTo
+  } catch {
+    // Une URL absolue mal formée suit le même retour sûr qu'une origine refusée.
   }
   return `${site}/`
 }
@@ -72,23 +91,21 @@ export function safeRedirect(redirectTo: string, site: string): string {
 /**
  * Le courriel de lien magique, envoyé par Resend.
  *
- * Deux compteurs avant l'envoi, jamais après : le composant compte dans la
+ * Trois compteurs avant l'envoi, jamais après : le composant compte dans la
  * transaction de l'appelant, donc un envoi qui échoue rend son jeton.
  *
  * **Par adresse** protège le titulaire d'une boîte contre l'inondation.
- * **Globalement** protège la réputation du domaine expéditeur contre un balayage
- * d'adresses — la clé qu'on voudrait là est l'IP, et une fonction Convex ne la
- * connaît pas : seule une `httpAction` reçoit des en-têtes, or `signIn` est une
- * action ordinaire. Le plafond global est donc la mesure réellement disponible,
- * et il est posé assez haut pour qu'un usage normal ne le touche jamais. Le prix
- * assumé : un balayage peut fermer le lien magique pour une heure, pendant
- * laquelle les deux SSO restent ouverts.
+ * **Par source réseau pseudonymisée** protège la réputation du domaine
+ * expéditeur contre un balayage d'adresses sans fermer le service aux autres
+ * sources. La métadonnée vient de Convex, jamais d'un en-tête client.
+ * **Globalement** borne le coût si l'attaquant fait tourner sources et adresses.
  */
 async function sendMagicLink(
   { identifier: email, url, provider }: SendParams,
-  ctx: RunMutationCtx,
+  ctx: RunMutationCtx & RequestMetadataCtx,
 ): Promise<void> {
   await consume(ctx, 'magicLinkSendGlobal')
+  await consume(ctx, 'magicLinkSendBySource', await sourceRateLimitKey(ctx, 'auth'))
   await consume(ctx, 'magicLinkSend', email.toLowerCase())
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -101,7 +118,7 @@ async function sendMagicLink(
       from: provider.from,
       to: [email],
       subject: 'Votre lien de connexion ScreenForge',
-      text: `Ouvrez ce lien depuis ce navigateur pour vous connecter :\n\n${url}\n\nIl expire dans une heure. Si vous n’avez rien demandé, ignorez ce message.`,
+      text: `Ouvrez ce lien pour vous connecter :\n\n${url}\n\nIl expire dans une heure. Si vous n’avez rien demandé, ignorez ce message.`,
     }),
   })
   if (!response.ok) {
@@ -119,6 +136,7 @@ const magicLink = Resend({
   id: 'resend',
   apiKey: env.AUTH_RESEND_KEY,
   from: env.AUTH_EMAIL_FROM ?? 'ScreenForge <onboarding@resend.dev>',
+  maxAge: 60 * 60,
   /*
    * La conversion est celle que la bibliothèque fait elle-même.
    *
@@ -248,7 +266,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
      * ce que « hors du site » veut dire exactement.
      */
     redirect({ redirectTo }) {
-      return Promise.resolve(safeRedirect(redirectTo, siteUrl()))
+      const site = siteUrl()
+      const origins = configuredOrigins(env.CORS_ALLOWED_ORIGINS)
+      return Promise.resolve(safeRedirect(redirectTo, site, new Set([site, ...(origins ?? [])])))
     },
   },
 })

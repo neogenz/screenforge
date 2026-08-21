@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isProject, migrateProject } from '@/lib/project-validation'
-import type { Project } from '@/types'
+import {
+  isProject,
+  MAX_GRADIENT_STOPS,
+  MAX_LAYER_TEXT_LENGTH,
+  MAX_PROJECT_LAYERS,
+  migrateProject,
+} from '@/lib/project-validation'
+import type { Layer, Project } from '@/types'
 
 function project(): Project {
   return {
@@ -93,6 +99,45 @@ describe('project validation', () => {
     const duplicateScreen = structuredClone(project())
     duplicateScreen.screens.push(structuredClone(duplicateScreen.screens[0]))
     expect(isProject(duplicateScreen)).toBe(false)
+  })
+
+  it('rejects projects that exceed render complexity limits', () => {
+    const tooMany = structuredClone(project())
+    tooMany.screens[0].layers = Array.from({ length: MAX_PROJECT_LAYERS + 1 }, (_, index) => ({
+      ...tooMany.screens[0].layers[0],
+      id: `shape-${index}`,
+      zIndex: index,
+    }))
+    expect(isProject(tooMany)).toBe(false)
+
+    const tooMuchText = structuredClone(project())
+    tooMuchText.screens[0].layers = [
+      {
+        ...tooMuchText.screens[0].layers[0],
+        type: 'text',
+        content: 'x'.repeat(MAX_LAYER_TEXT_LENGTH + 1),
+        fontFamily: 'Inter',
+        fontSize: 40,
+        fontWeight: 400,
+        color: '#000',
+        textAlign: 'left',
+        lineHeight: 1.2,
+        letterSpacing: 0,
+        textTransform: 'none',
+      },
+    ] as Layer[]
+    expect(isProject(tooMuchText)).toBe(false)
+
+    const tooManyStops = structuredClone(project())
+    ;(tooManyStops.screens[0].layers[0] as Layer & { fill: unknown }).fill = {
+      type: 'linear',
+      angle: 0,
+      stops: Array.from({ length: MAX_GRADIENT_STOPS + 1 }, (_, index) => ({
+        offset: index / MAX_GRADIENT_STOPS,
+        color: '#000',
+      })),
+    }
+    expect(isProject(tooManyStops)).toBe(false)
   })
 
   it('migrates a legacy shape gradient into the current fill field', () => {

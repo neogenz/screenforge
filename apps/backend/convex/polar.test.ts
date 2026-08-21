@@ -31,6 +31,7 @@ vi.mock('@polar-sh/sdk', () => ({
 }))
 
 process.env.POLAR_ACCESS_TOKEN = 'polar_at_test'
+process.env.ABUSE_KEY_SECRET = 'test-abuse-key'
 process.env.POLAR_WEBHOOK_SECRET = 'whsec_screenforge_test'
 process.env.POLAR_CLOUD_PRODUCT_ID = 'prod_cloud'
 process.env.CHECKOUT_SUCCESS_URL = 'http://localhost:5173/?checkout=success'

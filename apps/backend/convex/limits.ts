@@ -1,6 +1,7 @@
 import { RateLimiter, HOUR, type RunMutationCtx } from '@convex-dev/rate-limiter'
 import { ConvexError } from 'convex/values'
 import { components } from './_generated/api'
+import { env } from './_generated/server'
 
 /**
  * Les compteurs, tous, et leurs valeurs écrites une seule fois.
@@ -37,6 +38,9 @@ export const MAX_PROJECTS_PER_ACCOUNT = 100
 export const MAX_PROJECT_BYTES_PER_ACCOUNT = 128 * 1024 * 1024
 export const MAX_ASSETS_PER_ACCOUNT = 500
 export const MAX_ASSET_BYTES_PER_ACCOUNT = 512 * 1024 * 1024
+/** Un compte plein (500 assets / 100 projets) peut être restauré sur une nouvelle machine. */
+export const ASSET_DOWNLOADS_PER_HOUR = 600
+export const PROJECT_DOWNLOADS_PER_HOUR = 120
 
 const LIMITS = {
   /**
@@ -66,18 +70,20 @@ const LIMITS = {
   passwordSignUpGlobal: { kind: 'fixed window', rate: 200, period: HOUR },
 
   /**
-   * L'envoi d'un lien magique, deux clés pour deux victimes différentes.
+   * L'envoi d'un lien magique, trois clés pour trois formes d'abus.
    *
    * Par adresse : protège le titulaire d'une boîte contre l'inondation — un
    * balayage change d'adresse à chaque coup et passerait sous cette clé sans
-   * jamais la déclencher. Globalement : protège la réputation du domaine
-   * expéditeur contre ce balayage-là. La clé qu'on voudrait pour le second est
-   * l'IP, et une fonction Convex ne la connaît pas (seule une `httpAction`
-   * reçoit des en-têtes) ; le plafond global est ce qui est réellement
-   * disponible, posé assez haut pour qu'un usage normal ne le touche jamais.
+   * jamais la déclencher. Par source réseau pseudonymisée : protège la
+   * réputation du domaine sans créer de coupe-circuit mondial. Globalement :
+   * borne le coût restant quand l'attaquant fait tourner les deux autres clés.
    */
   magicLinkSend: { kind: 'fixed window', rate: 3, period: HOUR },
+  magicLinkSendBySource: { kind: 'fixed window', rate: 20, period: HOUR },
   magicLinkSendGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
+
+  /** Admission du webhook avant lecture du corps et vérification Node. */
+  polarWebhookBySource: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 30 },
 
   /** Chaque appel crée un objet chez Polar. La route est authentifiée, pas gratuite. */
   checkout: { kind: 'fixed window', rate: 10, period: HOUR },
@@ -86,6 +92,10 @@ const LIMITS = {
   assetUpload: { kind: 'token bucket', rate: 30, period: HOUR, capacity: 10 },
   /** Borne le coût récurrent du seul droit qui en a un. */
   projectPush: { kind: 'token bucket', rate: 60, period: HOUR, capacity: 20 },
+
+  /** L'egress reste disponible après expiration, mais pas sans borne de coût. */
+  assetDownload: { kind: 'fixed window', rate: ASSET_DOWNLOADS_PER_HOUR, period: HOUR },
+  projectDownload: { kind: 'fixed window', rate: PROJECT_DOWNLOADS_PER_HOUR, period: HOUR },
 
   /** Geste irréversible, et chaque tentative relance un cycle de nettoyage. */
   accountDeletion: { kind: 'fixed window', rate: 3, period: HOUR },
@@ -100,6 +110,8 @@ export const USER_SCOPED_LIMITS = [
   'checkout',
   'assetUpload',
   'projectPush',
+  'assetDownload',
+  'projectDownload',
   'accountDeletion',
 ] as const satisfies readonly LimitName[]
 
@@ -131,6 +143,42 @@ export async function resetAccountLimits(
 /** Le code que le client reconnaît ; le texte affiché appartient à l'éditeur. */
 export const RATE_LIMITED = 'RATE_LIMITED' as const
 
+export type AbuseScope = 'auth' | 'polar'
+
+export type RequestMetadataCtx = {
+  meta: { getRequestMetadata(): Promise<{ ip: string | null }> }
+}
+
+/** HMAC cloisonné : la valeur persistée ne révèle jamais l'adresse réseau. */
+export async function deriveSourceKey(
+  ip: string,
+  scope: AbuseScope,
+  secret: string,
+): Promise<string> {
+  if (!ip || !secret) throw new Error('ABUSE_PROTECTION_UNAVAILABLE')
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const digest = new Uint8Array(
+    await crypto.subtle.sign('HMAC', key, encoder.encode(`screenforge:${scope}:v1\0${ip}`)),
+  )
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/** La source vient de Convex, jamais d'un en-tête fourni par l'appelant. */
+export async function sourceRateLimitKey(
+  ctx: RequestMetadataCtx,
+  scope: AbuseScope,
+): Promise<string> {
+  const { ip } = await ctx.meta.getRequestMetadata()
+  return deriveSourceKey(ip ?? '', scope, env.ABUSE_KEY_SECRET?.trim() ?? '')
+}
+
 /**
  * `type` et non `interface` : la charge d'un `ConvexError` doit être une valeur
  * Convex, donc porter une signature d'index. TypeScript en déduit une pour un
@@ -140,6 +188,33 @@ export type RateLimitedError = {
   code: typeof RATE_LIMITED
   /** Millisecondes d'attente, telles que le composant les calcule. */
   retryAfter: number
+}
+
+/** Reconnaît la charge sérialisée à travers une frontière action/mutation. */
+export function rateLimitedError(error: unknown): RateLimitedError | null {
+  const direct = (error as { data?: unknown })?.data
+  if (
+    typeof direct === 'object' &&
+    direct !== null &&
+    (direct as { code?: unknown }).code === RATE_LIMITED
+  ) {
+    const retryAfter = (direct as { retryAfter?: unknown }).retryAfter
+    return { code: RATE_LIMITED, retryAfter: typeof retryAfter === 'number' ? retryAfter : 0 }
+  }
+  try {
+    const parsed: unknown = JSON.parse(String((error as { message?: unknown })?.message ?? ''))
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      (parsed as { code?: unknown }).code === RATE_LIMITED
+    ) {
+      const retryAfter = (parsed as { retryAfter?: unknown }).retryAfter
+      return { code: RATE_LIMITED, retryAfter: typeof retryAfter === 'number' ? retryAfter : 0 }
+    }
+  } catch {
+    // Not a serialized ConvexError.
+  }
+  return null
 }
 
 /**

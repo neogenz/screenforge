@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: rendre le contrat Preview/Production exécutable
@@ -23,7 +23,7 @@ status: pending
 ```mermaid
 flowchart TD
   A["Pousser une branche interne"] --> B["Quality vérifie aussi le contrat de déploiement"]
-  B --> C{"Configuration valide ?"}
+  B --> C["Configuration valide ou non"]
   C -->|"oui"| D["La branche est éligible à une Preview"]
   C -->|"non"| E["La PR est bloquée avec un diagnostic"]
   F["Pousser ou merger main"] --> G["Aucun déploiement Git Vercel"]

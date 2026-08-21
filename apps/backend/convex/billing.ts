@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { env, httpAction, internalQuery } from './_generated/server'
+import { consume, rateLimitedError, sourceRateLimitKey } from './limits'
 
 /**
  * L'enveloppe HTTP de la vente : le webhook, et l'inventaire des variables.
@@ -16,13 +17,30 @@ import { env, httpAction, internalQuery } from './_generated/server'
  * La garde n'est pas l'origine, c'est la signature.
  */
 
-const json = (body: unknown, status = 200): Response =>
+const json = (body: unknown, status = 200, headers?: HeadersInit): Response =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
   })
 
 export const MAX_WEBHOOK_BYTES = 256 * 1024
+const MAX_WEBHOOK_HEADER_BYTES = {
+  'webhook-id': 256,
+  'webhook-timestamp': 32,
+  'webhook-signature': 2048,
+} as const
+
+export function webhookHeaders(
+  request: Request,
+): { id: string; timestamp: string; signature: string } | null {
+  const values = Object.entries(MAX_WEBHOOK_HEADER_BYTES).map(([name, max]) => {
+    const value = request.headers.get(name)
+    return value && new TextEncoder().encode(value).byteLength <= max ? value : null
+  })
+  if (values.some((value) => value === null)) return null
+  const [id, timestamp, signature] = values as [string, string, string]
+  return { id, timestamp, signature }
+}
 
 async function readWebhookBody(
   request: Request,
@@ -63,13 +81,28 @@ async function readWebhookBody(
 }
 
 export const webhook = httpAction(async (ctx, request) => {
+  try {
+    await consume(ctx, 'polarWebhookBySource', await sourceRateLimitKey(ctx, 'polar'))
+  } catch (error) {
+    const limited = rateLimitedError(error)
+    if (limited) {
+      return json({ error: 'RATE_LIMITED' }, 429, {
+        'Retry-After': String(Math.max(1, Math.ceil(limited.retryAfter / 1000))),
+      })
+    }
+    return json({ error: 'SERVICE_UNAVAILABLE' }, 503)
+  }
+
+  const headers = webhookHeaders(request)
+  if (headers === null) return json({ error: 'INVALID_HEADERS' }, 400)
+
   const payload = await readWebhookBody(request)
   if ('error' in payload) return json({ error: payload.error }, payload.status)
   const outcome = await ctx.runAction(internal.polar.applySignedWebhook, {
     body: payload.body,
-    id: request.headers.get('webhook-id') ?? '',
-    timestamp: request.headers.get('webhook-timestamp') ?? '',
-    signature: request.headers.get('webhook-signature') ?? '',
+    id: headers.id,
+    timestamp: headers.timestamp,
+    signature: headers.signature,
   })
 
   if (outcome === 'invalid-signature') return json({ error: 'INVALID_SIGNATURE' }, 403)
@@ -95,6 +128,7 @@ export const webhook = httpAction(async (ctx, request) => {
  * défaut voulu. Poser la production demande de l'écrire.
  */
 const REQUIRED_VARIABLES = [
+  'ABUSE_KEY_SECRET',
   'POLAR_ACCESS_TOKEN',
   'POLAR_WEBHOOK_SECRET',
   'POLAR_CLOUD_PRODUCT_ID',

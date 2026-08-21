@@ -59,6 +59,31 @@ if (REQUIRE_CLOUD && !stack) {
 /** Le client privilégié, celui du webhook — jamais celui d'une assertion. */
 const admin = () => adminClient(stack!)
 
+/** PNG structurellement valide à la taille exacte, sans décodage côté test. */
+function sizedPng(totalBytes: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(totalBytes)
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
+  const view = new DataView(bytes.buffer)
+  let offset = 8
+  const chunk = (type: string, data: Uint8Array) => {
+    view.setUint32(offset, data.length)
+    bytes.set(
+      [...type].map((character) => character.charCodeAt(0)),
+      offset + 4,
+    )
+    bytes.set(data, offset + 8)
+    offset += 12 + data.length
+  }
+  const header = new Uint8Array(13)
+  new DataView(header.buffer).setUint32(0, 1)
+  new DataView(header.buffer).setUint32(4, 1)
+  header.set([8, 6, 0, 0, 0], 8)
+  chunk('IHDR', header)
+  chunk('IDAT', new Uint8Array(totalBytes - 57))
+  chunk('IEND', new Uint8Array())
+  return bytes
+}
+
 /**
  * Les deux clés que `@convex-dev/auth` lit au démarrage.
  *
@@ -266,7 +291,7 @@ test.describe('Sync cloud', () => {
       const accepted = await tryRemoteAssetUpload(
         own,
         acceptedId,
-        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES)], { type: 'image/png' }),
+        new Blob([sizedPng(MAX_IMAGE_FILE_BYTES)], { type: 'image/png' }),
       )
       expect(accepted).toEqual({ status: 200, outcome: 'accepted' })
 
@@ -279,9 +304,9 @@ test.describe('Sync cloud', () => {
       const rejected = await tryRemoteAssetUpload(
         own,
         rejectedId,
-        new Blob([new Uint8Array(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
+        new Blob([sizedPng(MAX_IMAGE_FILE_BYTES + 1)], { type: 'image/png' }),
       ).catch((error: unknown) => {
-        expect((error as { cause?: { code?: unknown } }).cause?.code).toBe('ECONNRESET')
+        expect(error).toBeInstanceOf(Error)
         return null
       })
       if (rejected) expect(rejected).toEqual({ status: 413, outcome: 'file-too-large' })
@@ -633,8 +658,8 @@ test.describe('Sync cloud', () => {
 
     /* Make the target the last durable local project so the reload selects it,
        while the second project remains available in the catalogue. */
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localTargetName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localTargetName} »` }).click()
     await page.getByLabel('Ajouter Texte').click()
     await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
@@ -699,21 +724,26 @@ test.describe('Sync cloud', () => {
     await expect(projectName(page)).toHaveValue(localTargetName)
     await downloadStarted
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${keptName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${keptName} »` }).click()
     await expect(projectName(page)).toHaveValue(keptName)
     expect(
       await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
     ).toBe(true)
     releaseDownload()
 
+    const attachDialog = page.getByRole('dialog', {
+      name: 'Ajouter ces projets au Cloud ?',
+    })
+    await expect(attachDialog).toBeVisible({ timeout: 30_000 })
+    await attachDialog.getByRole('button', { name: 'Ajouter ce projet au Cloud' }).click()
     await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
     await expect(projectName(page)).toHaveValue(keptName)
     expect(
       await page.evaluate((id) => Boolean(id && window.__sfAssets?.resolveAsset(id)), keptAssetId),
     ).toBe(true)
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${remoteTargetName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${remoteTargetName} »` }).click()
     await expect(projectName(page)).toHaveValue(remoteTargetName)
     expect(
       await page.evaluate(
@@ -816,25 +846,30 @@ test.describe('Sync cloud', () => {
     await expect(projectName(page)).toHaveValue(localBName)
     await downloadStarted
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localAName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localAName} »` }).click()
     const editedAName = `${localAName} édité`
     await projectName(page).fill(editedAName)
     await projectName(page).press('Enter')
     await expect(syncBadge(page, 'Enregistré')).toBeAttached({
       timeout: 15_000,
     })
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${localBName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${localBName} »` }).click()
     await expect(projectName(page)).toHaveValue(localBName)
     releaseDownload()
 
+    const attachDialog = page.getByRole('dialog', {
+      name: 'Ajouter ces projets au Cloud ?',
+    })
+    await expect(attachDialog).toBeVisible({ timeout: 30_000 })
+    await attachDialog.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
     await expect
       .poll(async () => Boolean(await remoteRow(own, editedAName)), { timeout: 30_000 })
       .toBe(true)
     await expect(projectName(page)).toHaveValue(localBName)
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${editedAName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${editedAName} »` }).click()
     await expect(projectName(page)).toHaveValue(editedAName)
 
     await context.close()
@@ -982,10 +1017,10 @@ test.describe('Sync cloud', () => {
 
     const page = await openApp(browser, baseURL!, own)
     await expect(syncBadge(page, 'Échec de la synchronisation')).toBeAttached({ timeout: 30_000 })
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: `Ouvrir « ${brokenName} »` })).toHaveCount(0)
-    await page.getByRole('menuitem', { name: `Ouvrir « ${healthyName} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await expect(page.getByRole('button', { name: `Ouvrir « ${healthyName} »` })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Ouvrir « ${brokenName} »` })).toHaveCount(0)
+    await page.getByRole('button', { name: `Ouvrir « ${healthyName} »` }).click()
     await expect(projectName(page)).toHaveValue(healthyName)
 
     await page.context().close()
@@ -1066,8 +1101,8 @@ test.describe('Sync cloud', () => {
         .toBe(true)
     }
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[0]} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${onlineNames[0]} »` }).click()
     await expect(projectName(page)).toHaveValue(onlineNames[0])
     await page.context().setOffline(true)
 
@@ -1090,8 +1125,8 @@ test.describe('Sync cloud', () => {
       return layer?.type === 'image' ? layer.assetId : null
     })
 
-    await page.getByLabel('Ouvrir le menu Projet').click()
-    await page.getByRole('menuitem', { name: `Ouvrir « ${onlineNames[1]} »` }).click()
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await page.getByRole('button', { name: `Ouvrir « ${onlineNames[1]} »` }).click()
     await expect(projectName(page)).toHaveValue(onlineNames[1])
     await projectName(page).fill(offlineNames[1])
     await projectName(page).press('Enter')
@@ -1371,16 +1406,17 @@ test.describe('Porte Cloud côté client', () => {
 /**
  * Le premier login ne fait perdre aucun projet local.
  *
- * Le cycle ordinaire ne pousse que le projet ouvert. Quelqu'un qui a construit
- * plusieurs projets avant d'acheter le Cloud n'en verrait donc remonter qu'un,
- * et la perte serait silencieuse : rien à l'écran ne distingue « pas encore
- * synchronisé » de « jamais synchronisé ».
+ * Aucun projet antérieur au login ne quitte le navigateur sans consentement,
+ * y compris celui qui est ouvert. Une fois connecté, les nouveaux commits sont
+ * synchronisés automatiquement et les projets explicitement rattachés restent
+ * dans la file durable.
  */
 test.describe('Rattachement des projets locaux', () => {
   test.skip(!stack, 'déploiement Convex local arrêté')
   test.setTimeout(120_000)
 
-  const migrateDialog = (page: Page) => page.getByRole('dialog', { name: 'Rattacher vos projets' })
+  const migrateDialog = (page: Page) =>
+    page.getByRole('dialog', { name: 'Ajouter ces projets au Cloud ?' })
 
   /** Un projet nommé, modifié, et écrit sur le disque local. */
   async function makeLocalProject(page: Page, name: string) {
@@ -1412,7 +1448,10 @@ test.describe('Rattachement des projets locaux', () => {
     await requireAccountEntry(page)
 
     const marque = Date.now()
-    const noms = [`Local A ${String(marque)}`, `Local B ${String(marque)}`]
+    const noms = [
+      `Local A ${'nom étendu '.repeat(4)}${String(marque)}`,
+      `Local B ${String(marque)}`,
+    ]
     for (const nom of noms) await makeLocalProject(page, nom)
     await page.getByLabel('Importer une image').setInputFiles({
       name: 'active.png',
@@ -1429,51 +1468,205 @@ test.describe('Rattachement des projets locaux', () => {
         .find((candidate) => candidate.type === 'image')
       return layer?.type === 'image' ? layer.assetId : null
     })
+    expect(activeAssetId).not.toBeNull()
+
+    const expectNothingRemote = async () => {
+      await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+      await expect
+        .poll(async () => readRemote(stack!, own, `/asset/${String(activeAssetId)}`))
+        .toBeNull()
+    }
 
     await seedSession(page, own)
     await waitForApp(page)
 
-    /* « Plus tard » n'efface rien et n'enregistre rien — la boîte revient au
-       login suivant. */
+    /* Les deux projets antérieurs à la session, actif inclus, attendent un
+       consentement explicite. « Pas maintenant » n'envoie et n'enregistre rien. */
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
-    /* Seul le premier y figure, et c'est le résultat attendu : le second est le
-       projet ouvert, que le cycle ordinaire envoie de lui-même dès la session
-       établie. La boîte ne propose que ce qu'elle seule peut faire remonter. */
-    await expect(migrateDialog(page).getByText(noms[0])).toBeVisible()
-    await expect(migrateDialog(page).getByText(noms[1])).toHaveCount(0)
-    await page.getByRole('button', { name: 'Plus tard' }).click()
+    await expect(
+      migrateDialog(page).getByText(
+        'Ces projets sont enregistrés uniquement sur cet appareil. Ajoutez-les au Cloud pour les retrouver sur vos autres appareils.',
+      ),
+    ).toBeVisible()
+    const projectList = migrateDialog(page).getByRole('list', { name: 'Projets à ajouter' })
+    await expect(projectList.getByRole('listitem')).toHaveCount(2)
+    for (const nom of noms) await expect(projectList.getByText(nom)).toBeVisible()
+    await expect(projectList.locator('button, input')).toHaveCount(0)
+    const localCopyGuarantee = migrateDialog(page).getByText('Leur copie locale reste disponible.')
+    await expect(localCopyGuarantee).toBeVisible()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }),
+    ).toBeVisible()
+    /* Un zoom navigateur à 200 % divise par deux le viewport CSS disponible.
+       Cette largeur/hauteur effective force le même reflow sans dépendre du
+       chrome du navigateur, absent en headless. */
+    await page.setViewportSize({ width: 260, height: 380 })
+    await expect(migrateDialog(page).getByRole('button', { name: 'Fermer' })).toBeInViewport()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Pas maintenant' }),
+    ).toBeInViewport()
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }),
+    ).toBeInViewport()
+    await projectList.scrollIntoViewIfNeeded()
+    await expect(projectList).toBeInViewport()
+    await localCopyGuarantee.scrollIntoViewIfNeeded()
+    const [guaranteeBox, actionBox] = await Promise.all([
+      localCopyGuarantee.boundingBox(),
+      migrateDialog(page).getByRole('button', { name: 'Pas maintenant' }).boundingBox(),
+    ])
+    expect(guaranteeBox).not.toBeNull()
+    expect(actionBox).not.toBeNull()
+    expect(guaranteeBox!.y + guaranteeBox!.height).toBeLessThanOrEqual(actionBox!.y)
+    await page.setViewportSize({ width: 1600, height: 1000 })
+    await expectNothingRemote()
+    await page.getByRole('button', { name: 'Pas maintenant' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await expectNothingRemote()
+
+    /* Tous ces gestes repassent par le commit local commun. Aucun ne vaut
+       consentement, même après l'autosave. */
+    await page.keyboard.press('ControlOrMeta+s')
+    await expectNothingRemote()
+
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    await expect(page.getByText('Cet appareil').first()).toBeVisible()
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Télécharger une copie' }).click(),
+    ])
+    expect(await download.failure()).toBeNull()
+    await expectNothingRemote()
+
+    await page.getByLabel('Ouvrir le sélecteur de projets').click()
+    const otherLocal = page.getByRole('button', { name: `Ouvrir « ${noms[0]} »` })
+    await expect(otherLocal).toHaveAccessibleDescription(/Cet appareil/)
+    await otherLocal.click()
+    await expect(projectName(page)).toHaveValue(noms[0])
+    await expectNothingRemote()
+
+    await page.getByLabel('Ajouter Texte').click()
+    await page.waitForTimeout(2_500)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+    await expectNothingRemote()
 
     await waitForApp(page)
     await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    for (const nom of noms) await expect(migrateDialog(page).getByText(nom)).toBeVisible()
+    await expectNothingRemote()
 
-    /* Après « Tout rattacher », les deux projets existent côté serveur — donc
-       sur n'importe quelle autre machine du même compte. */
-    await page.getByRole('button', { name: 'Tout rattacher' }).click()
+    /* L'action Cloud explicite est le premier geste qui envoie ces projets. */
+    await page.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
     await expect(migrateDialog(page)).toHaveCount(0)
-    for (const nom of noms) {
-      await expect
-        .poll(async () => Boolean(await remoteRow(own, nom)), { timeout: 30_000 })
-        .toBe(true)
-    }
+    await expect.poll(async () => (await listRemote(own)).length, { timeout: 30_000 }).toBe(2)
+    for (const nom of noms) expect(await remoteRow(own, nom)).toBeTruthy()
     expect(activeAssetId).not.toBeNull()
     expect(
-      await page.evaluate(
-        (id) => Boolean(id && window.__sfAssets?.resolveAsset(id)),
-        activeAssetId,
-      ),
+      await page.evaluate(async (id) => {
+        const storagePath = '/src/lib/storage.ts'
+        const { getDB } = (await import(storagePath)) as typeof import('../src/lib/storage')
+        if (!id) return false
+        const db = await getDB()
+        return Boolean(await db.get('assets', id))
+      }, activeAssetId),
     ).toBe(true)
+
+    /* Une création puis un changement après le login restent automatiques :
+       ce consentement découle de la session Cloud déjà active, pas du cycle
+       initial qui vient d'être corrigé. Cette preuve précède le profil neuf,
+       dont le projet initial est lui aussi créé après restauration de session. */
+    const postLoginName = `Après connexion ${String(marque)}`
+    await makeLocalProject(page, postLoginName)
+    await expect
+      .poll(async () => Boolean(await remoteRow(own, postLoginName)), { timeout: 30_000 })
+      .toBe(true)
+    await expect.poll(async () => (await listRemote(own)).length).toBe(3)
 
     const fresh = await openApp(browser, baseURL!, own)
     await expect(syncBadge(fresh, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
-    await fresh.getByLabel('Ouvrir le menu Projet').click()
-    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[0]} »` }).click()
+    await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
+    const firstProject = fresh.getByRole('button', { name: `Ouvrir « ${noms[0]} »` })
+    await expect(firstProject).toHaveAccessibleDescription(/Cloud/)
+    await firstProject.click()
     await expect(projectName(fresh)).toHaveValue(noms[0])
-    await fresh.getByLabel('Ouvrir le menu Projet').click()
-    await fresh.getByRole('menuitem', { name: `Ouvrir « ${noms[1]} »` }).click()
+    await fresh.getByLabel('Ouvrir le sélecteur de projets').click()
+    await fresh.getByRole('button', { name: `Ouvrir « ${noms[1]} »` }).click()
     await expect(projectName(fresh)).toHaveValue(noms[1])
 
     await fresh.context().close()
+    await context.close()
+    await dropRemoteProjects(own)
+  })
+
+  test('nomme explicitement l’ajout d’un seul projet', async ({ browser, baseURL }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const context = await browser.newContext({ baseURL: baseURL! })
+    const page = await context.newPage()
+    await waitForApp(page)
+    await requireAccountEntry(page)
+
+    await makeLocalProject(page, `Projet unique ${String(Date.now())}`)
+    await seedSession(page, own)
+    await waitForApp(page)
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    await expect(
+      migrateDialog(page).getByRole('button', { name: 'Ajouter ce projet au Cloud' }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Pas maintenant' }).click()
+    await expect.poll(async () => (await listRemote(own)).length).toBe(0)
+
+    await context.close()
+    await dropRemoteProjects(own)
+  })
+
+  test('nomme le projet qui échoue sans retenir les autres', async ({ browser, baseURL }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const context = await browser.newContext({ baseURL: baseURL! })
+    const page = await context.newPage()
+    await waitForApp(page)
+    await requireAccountEntry(page)
+
+    const marker = Date.now()
+    const healthyName = `Projet sain ${String(marker)}`
+    const brokenName = `Projet incomplet ${String(marker)}`
+    await makeLocalProject(page, healthyName)
+    await makeLocalProject(page, brokenName)
+    await page.getByLabel('Importer une image').setInputFiles({
+      name: 'missing.png',
+      mimeType: 'image/png',
+      buffer: makeSolidPng(8, 8, [59, 130, 246, 255]),
+    })
+    await expect(syncBadge(page, 'Enregistré')).toBeAttached({ timeout: 15_000 })
+    const brokenAssetId = await page.evaluate(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const layer = project?.screens
+        .flatMap((screen) => screen.layers)
+        .find((candidate) => candidate.type === 'image')
+      return layer?.type === 'image' ? layer.assetId : null
+    })
+    expect(brokenAssetId).not.toBeNull()
+    await page.evaluate(async (assetId) => {
+      const storagePath = '/src/lib/storage.ts'
+      const { getDB } = (await import(storagePath)) as typeof import('../src/lib/storage')
+      const db = await getDB()
+      if (assetId) await db.delete('assets', assetId)
+    }, brokenAssetId)
+
+    await seedSession(page, own)
+    await waitForApp(page)
+    await expect(migrateDialog(page)).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: 'Ajouter les 2 projets au Cloud' }).click()
+    await expect(migrateDialog(page)).toHaveCount(0)
+    await expect.poll(async () => (await listRemote(own)).length, { timeout: 30_000 }).toBe(1)
+    expect(await remoteRow(own, healthyName)).toBeTruthy()
+    expect(await remoteRow(own, brokenName)).toBeFalsy()
+    const result = page.getByRole('alert').filter({ hasText: 'Échec de l’ajout au Cloud' })
+    await expect(result).toContainText(brokenName)
+    await expect(result).toContainText('Leur copie locale reste disponible.')
+
     await context.close()
     await dropRemoteProjects(own)
   })

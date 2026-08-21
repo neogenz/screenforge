@@ -3,12 +3,14 @@ import { openDB } from 'idb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib/assets'
 import {
+  afterProjectSaved,
   adoptRemoteProject,
   deleteProject,
   initAutoSave,
   listProjects,
   loadLatestProject,
   loadProject,
+  openStoredProject,
   saveCurrentProject,
   saveProject,
   storeRemoteProject,
@@ -304,6 +306,53 @@ describe('storage', () => {
     db.close()
   })
 
+  it('termine l’autosave avant une navigation contrôlée', async () => {
+    await saveProject(project('Before'))
+    useProjectStore.getState().loadProject(project('Before'))
+    const unsubscribe = initAutoSave()
+    useProjectStore.getState().updateProjectName('After')
+
+    await afterProjectSaved(async () => {
+      const db = await database()
+      expect((await db.get('projects', 'project')) as Project).toMatchObject({ name: 'After' })
+      db.close()
+    })
+    unsubscribe()
+  })
+
+  it('conserve une édition concurrente avant d’ouvrir un autre projet', async () => {
+    const initial = project('Initial')
+    const target = { ...project('Cible'), id: 'target' }
+    await saveProject(initial)
+    await saveProject(target)
+    useProjectStore.getState().loadProject(initial)
+    const unsubscribe = initAutoSave()
+    const originalPut = IDBObjectStore.prototype.put
+    let edited = false
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (
+      this: IDBObjectStore,
+      value: Project,
+      key?: IDBValidKey,
+    ) {
+      if (this.name === 'projects' && value.id === initial.id && !edited) {
+        edited = true
+        useProjectStore.getState().updateProjectName('Édition concurrente')
+      }
+      return originalPut.call(this, value, key)
+    })
+
+    await expect(openStoredProject(target.id)).resolves.toMatchObject({ id: target.id })
+    put.mockRestore()
+    expect(useProjectStore.getState().project).toMatchObject({ id: target.id })
+
+    const db = await database()
+    expect((await db.get('projects', initial.id)) as Project).toMatchObject({
+      name: 'Édition concurrente',
+    })
+    db.close()
+    unsubscribe()
+  })
+
   it('migrates inline data and removes persisted orphans on load', async () => {
     const legacy = structuredClone(project()) as unknown as {
       screens: Array<{ layers: object[] }>
@@ -417,6 +466,22 @@ describe('storage', () => {
     db.close()
 
     expect((await loadLatestProject())?.name).toBe('Valid')
+    const stored = await database()
+    expect(await stored.get('projects', 'invalid')).toEqual(invalid)
+    stored.close()
+  })
+
+  it('écarte du catalogue une métadonnée invalide sans toucher au record', async () => {
+    await saveProject(project('Valid'))
+    const invalid = { id: 'invalid', name: 42, createdAt: 1, updatedAt: 2 }
+    const db = await database()
+    await db.put('projects', invalid)
+    db.close()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(await listProjects()).toEqual([
+      { id: 'project', name: 'Valid', createdAt: 1, updatedAt: 1 },
+    ])
     const stored = await database()
     expect(await stored.get('projects', 'invalid')).toEqual(invalid)
     stored.close()

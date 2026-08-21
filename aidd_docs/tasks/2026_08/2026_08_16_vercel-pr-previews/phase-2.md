@@ -1,8 +1,13 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: autoriser strictement les origines Preview dans Convex préproduction
+
+> **Superseded le 2026-08-20.** Cette phase conserve la décision historique et
+> ses preuves, mais sa politique de suffixe n'est plus active. Auth et CORS
+> n'acceptent désormais que des origines exactes; les Previews éphémères restent
+> Local-only et les parcours Cloud passent par l'origine stable de préproduction.
 
 ## Architecture projection
 

@@ -1,11 +1,12 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { inspectMedia } from '@screenforge/project-format/media-validation'
 import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
 import { env, httpAction } from './_generated/server'
 import { auth } from './auth'
-import { acceptable } from './assets'
 import { webhook } from './billing'
 import { MAX_IMAGE_FILE_BYTES, MAX_PROJECT_BLOB_BYTES } from './media'
+import { configuredOrigins, isAllowedOrigin } from './origins'
 
 /**
  * Les routes HTTP du déploiement, servies sur `<deployment>.convex.site`.
@@ -32,14 +33,6 @@ function tail(url: string): string | null {
   return segment.length > 0 ? decodeURIComponent(segment) : null
 }
 
-const LOCAL_CORS_ORIGINS = new Set([
-  'http://localhost:5173',
-  'http://localhost:5198',
-  'http://localhost:5199',
-  'http://localhost:5200',
-  'http://127.0.0.1:5173',
-])
-
 const CORS_BASE = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
@@ -51,34 +44,10 @@ const CORS_BASE = {
  * valeur présente doit être une liste d'origines canoniques séparées par des
  * virgules : ni chemin, ni joker, ni HTTP distant. Toute erreur ferme CORS.
  */
-function configuredCorsOrigins(): ReadonlySet<string> | null {
-  const configured = env.CORS_ALLOWED_ORIGINS
-  if (configured === undefined) return LOCAL_CORS_ORIGINS
-  if (configured.trim().length === 0) return null
-
-  const origins = new Set<string>()
-  for (const candidate of configured.split(',').map((value) => value.trim())) {
-    try {
-      const url = new URL(candidate)
-      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-      if (
-        candidate !== url.origin ||
-        (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
-      ) {
-        return null
-      }
-      origins.add(candidate)
-    } catch {
-      return null
-    }
-  }
-  return origins.size > 0 ? origins : null
-}
-
 function corsHeaders(request: Request): Record<string, string> | null {
   const origin = request.headers.get('Origin')
   if (origin === null) return CORS_BASE
-  if (!configuredCorsOrigins()?.has(origin)) return null
+  if (!isAllowedOrigin(origin, configuredOrigins(env.CORS_ALLOWED_ORIGINS))) return null
   return { ...CORS_BASE, 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
 }
 
@@ -175,7 +144,12 @@ http.route({
     const assetId = tail(request.url)
     if (userId === null || assetId === null) return missing(cors)
 
-    const found = await ctx.runQuery(internal.download.assetStorageId, { userId, assetId })
+    let found
+    try {
+      found = await ctx.runMutation(internal.download.assetStorageId, { assetId })
+    } catch (error) {
+      return errorCode(error) === 'RATE_LIMITED' ? denied(cors, error) : missing(cors)
+    }
     if (!found) return missing(cors)
     const blob = await ctx.storage.get(found.storageId)
     if (!blob) return missing(cors)
@@ -186,7 +160,7 @@ http.route({
         'Content-Type': found.contentType,
         /* Privé : la réponse porte les octets d'un compte, et un cache partagé
            les servirait au suivant qui demande la même URL. */
-        'Cache-Control': 'private, max-age=31536000, immutable',
+        'Cache-Control': 'private, no-store',
       },
     })
   }),
@@ -204,7 +178,12 @@ http.route({
     const projectId = tail(request.url)
     if (userId === null || projectId === null) return missing(cors)
 
-    const blobId = await ctx.runQuery(internal.download.projectBlobId, { userId, projectId })
+    let blobId
+    try {
+      blobId = await ctx.runMutation(internal.download.projectBlobId, { projectId })
+    } catch (error) {
+      return errorCode(error) === 'RATE_LIMITED' ? denied(cors, error) : missing(cors)
+    }
     if (!blobId) return missing(cors)
     const blob = await ctx.storage.get(blobId)
     if (!blob) return missing(cors)
@@ -294,18 +273,20 @@ http.route({
       return denied(cors, error)
     }
 
-    const blob = await request.blob()
-    const actualType = blob.type.split(';', 1)[0]!.trim().toLowerCase()
-    if (!acceptable(actualType, blob.size) || blob.size > MAX_IMAGE_FILE_BYTES) {
-      return json(cors, 'rejected', blob.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
+    const body = await request.blob()
+    if (body.size <= 0 || body.size > MAX_IMAGE_FILE_BYTES) {
+      return json(cors, 'rejected', body.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
     }
+    const bytes = new Uint8Array(await body.arrayBuffer())
+    const inspected = inspectMedia(bytes, type)
+    if (!inspected) return json(cors, 'rejected', 400)
 
-    const storageId = await ctx.storage.store(blob)
+    const storageId = await ctx.storage.store(new Blob([bytes], { type: inspected.type }))
     try {
       const accepted = await ctx.runMutation(internal.assets.commitAssetUpload, {
         assetId,
         storageId,
-        contentType: actualType,
+        contentType: inspected.type,
       })
       if (!accepted) await ctx.storage.delete(storageId)
       return json(cors, accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)

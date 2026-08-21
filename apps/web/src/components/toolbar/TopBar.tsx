@@ -7,8 +7,6 @@ import {
   CloudUpload,
   Command,
   Download,
-  FileDown,
-  FolderOpen,
   ImageIcon,
   Languages,
   LayoutTemplate,
@@ -18,7 +16,6 @@ import {
   Moon,
   Package,
   Plug2,
-  PenLine,
   PanelLeft,
   PanelRight,
   Redo2,
@@ -40,6 +37,7 @@ import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
 import { MCP_LABELS, useMcpStore } from '@/stores/mcp.store'
 import { McpStatusDot } from '@/components/mcp/McpStatusDot'
+import { ProjectSwitcher } from '@/components/project-switcher/ProjectSwitcher'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
@@ -47,23 +45,9 @@ import { Kbd } from '@/components/ui/kbd'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
-import {
-  createProjectFile,
-  PROJECT_FILE_EXTENSION,
-  PROJECT_FILE_MIME,
-  projectFileErrorMessage,
-} from '@/lib/project-file'
 import { billingConfigured } from '@/lib/account'
 import { planName } from '@/lib/plans'
-import {
-  importPortableProject,
-  listProjects,
-  openStoredProject,
-  saveCurrentProject,
-} from '@/lib/storage'
 import { cloudConfigured } from '@/lib/convex'
-import { downloadBlob, slugify } from '@/lib/zip'
-import { toast } from '@/stores/toast.store'
 import {
   createDeviceLayer,
   createIconLayer,
@@ -181,7 +165,7 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
     <div className="flex min-w-0 items-center gap-1">
       <div className="flex min-w-0 items-center gap-2">
         <ProjectName />
-        <ProjectFileMenu />
+        <ProjectSwitcher projectNameInputId={PROJECT_NAME_INPUT_ID} />
         {/*
         L'état informe, il n'alerte pas : casse normale, teinte faible.
 
@@ -285,153 +269,6 @@ function SyncIndicator({ written }: { written: boolean }) {
       {syncStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
       <span className={statusLabelClass(written)}>{label}</span>
     </span>
-  )
-}
-
-function ProjectFileMenu() {
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [projects, setProjects] = useState<Awaited<ReturnType<typeof listProjects>>>([])
-  const inputRef = useRef<HTMLInputElement>(null)
-  const currentProjectId = useProjectStore((s) => s.project?.id)
-
-  async function refreshProjects() {
-    try {
-      setProjects(await listProjects())
-    } catch (error) {
-      console.error('Could not list local projects.', error)
-      toast('Liste des projets indisponible.', 'error')
-    }
-  }
-
-  async function downloadProject() {
-    const project = useProjectStore.getState().project
-    if (!project) return
-    setBusy(true)
-    try {
-      await saveCurrentProject()
-      const blob = await createProjectFile(useProjectStore.getState().project ?? project)
-      downloadBlob(blob, `${slugify(project.name)}${PROJECT_FILE_EXTENSION}`)
-      toast('Copie du projet téléchargée.', 'success')
-    } catch (error) {
-      toast(projectFileErrorMessage(error), 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function importProject(file: File) {
-    setBusy(true)
-    try {
-      await importPortableProject(file)
-      toast('Projet importé.', 'success')
-    } catch (error) {
-      toast(projectFileErrorMessage(error), 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function openProject(id: string) {
-    setBusy(true)
-    try {
-      const project = await openStoredProject(id)
-      if (!project) throw new Error('Project not found.')
-    } catch (error) {
-      console.error('Could not open the local project.', error)
-      toast('Ouverture du projet impossible.', 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const items = [
-    {
-      id: 'rename-project',
-      label: 'Renommer le projet',
-      icon: <PenLine size={14} strokeWidth={1.75} />,
-      onSelect: () => {
-        const input = document.getElementById(PROJECT_NAME_INPUT_ID)
-        if (input instanceof HTMLInputElement) {
-          input.focus()
-          input.select()
-        }
-      },
-    },
-    {
-      id: 'download-project',
-      label: 'Télécharger une copie',
-      icon: <FileDown size={14} strokeWidth={1.75} />,
-      disabled: busy,
-      onSelect: () => void downloadProject(),
-    },
-    ...projects.flatMap((project) =>
-      project.id === currentProjectId
-        ? []
-        : [
-            {
-              id: `open-${project.id}`,
-              label: `Ouvrir « ${project.name} »`,
-              icon: <FolderOpen size={14} strokeWidth={1.75} />,
-              disabled: busy,
-              onSelect: () => void openProject(project.id),
-            },
-          ],
-    ),
-    {
-      id: 'import-project',
-      label: 'Importer un fichier…',
-      icon: <FolderOpen size={14} strokeWidth={1.75} />,
-      disabled: busy,
-      onSelect: () => inputRef.current?.click(),
-    },
-  ]
-
-  return (
-    <>
-      <Dropdown
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next)
-          if (next) void refreshProjects()
-        }}
-        trigger={
-          <IconButton
-            size="sm"
-            // La colonne de gauche est celle qui cède : sans cela le chevron
-            // s'écrasait à 17px avant que le nom n'ait commencé à se tronquer.
-            className="shrink-0"
-            aria-label="Ouvrir le menu Projet"
-            tooltip="Menu Projet"
-            aria-busy={busy}
-            active={open}
-            aria-expanded={open}
-            disabled={busy}
-          >
-            {busy ? (
-              <LoaderCircle size={13} className="animate-spin" aria-hidden />
-            ) : (
-              <ChevronDown size={13} strokeWidth={2} aria-hidden />
-            )}
-          </IconButton>
-        }
-        ariaLabel="Fichier du projet"
-        items={items}
-      />
-      <input
-        ref={inputRef}
-        type="file"
-        accept={`${PROJECT_FILE_EXTENSION},${PROJECT_FILE_MIME}`}
-        aria-label="Ouvrir un projet ScreenForge"
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          event.target.value = ''
-          if (file) void importProject(file)
-        }}
-      />
-    </>
   )
 }
 

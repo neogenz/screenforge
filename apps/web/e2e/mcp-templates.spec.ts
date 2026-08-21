@@ -110,6 +110,10 @@ test.describe('gabarits enregistrés par l’agent', () => {
       const opened = relay.opened()
       await page.reload({ waitUntil: 'networkidle' })
       await waitForApp(page)
+      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBeGreaterThan(opened)
 
       relay.askListTemplates('liste-2')

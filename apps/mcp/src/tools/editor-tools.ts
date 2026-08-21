@@ -168,11 +168,15 @@ function reject(calls: readonly ToolCall[]): string | null {
   return null
 }
 
-async function relay(session: RelaySession, calls: ToolCall[]): Promise<CallToolResult> {
+async function relay(
+  session: RelaySession,
+  calls: ToolCall[],
+  lease?: number,
+): Promise<CallToolResult> {
   const refusal = reject(calls)
   if (refusal) return refuse(refusal)
   try {
-    return text(await session.dispatch({ calls }))
+    return text(await session.dispatch({ calls }, lease))
   } catch (error) {
     return refuse(error instanceof Error ? error.message : 'Appel interrompu.')
   }
@@ -297,7 +301,8 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
     },
     async (args) => {
       try {
-        return await relay(session, [await planAddImage(state.assets, args)])
+        const lease = session.lease()
+        return await relay(session, [await planAddImage(state.assets, args)], lease)
       } catch (error) {
         return refuse(
           error instanceof AssetRefusedError

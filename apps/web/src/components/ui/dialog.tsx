@@ -110,7 +110,7 @@ export function Dialog({
                   <ChevronLeft size={15} strokeWidth={1.75} />
                 </IconButton>
               )}
-              <DialogPrimitive.Title className="panel-title truncate">
+              <DialogPrimitive.Title className="panel-title min-w-0 break-words">
                 {title}
               </DialogPrimitive.Title>
             </div>

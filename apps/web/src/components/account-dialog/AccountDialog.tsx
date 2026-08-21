@@ -6,7 +6,7 @@ import { createPortalSession, deleteAccount } from '@/lib/account'
 import { handleAccountDeletionOutcome } from '@/lib/account-deletion-ui'
 import { signOut, signOutAndReport } from '@/lib/auth'
 import { formatGrantDate, planName } from '@/lib/plans'
-import { ensureDurableStorage } from '@/lib/storage'
+import { afterProjectSaved, ensureDurableStorage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -78,7 +78,11 @@ function AccountDialogContent() {
     setPending('portal')
     const url = await createPortalSession()
     if (url) {
-      window.location.assign(url)
+      try {
+        await afterProjectSaved(() => window.location.assign(url))
+      } catch {
+        setPending(null)
+      }
       return
     }
     setPending(null)

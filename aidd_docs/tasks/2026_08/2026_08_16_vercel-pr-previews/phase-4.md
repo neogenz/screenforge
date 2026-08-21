@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: prouver le parcours complet et itérer jusqu'au vert
@@ -10,17 +10,15 @@ status: pending
 
 ```txt
 .
-└── aidd_docs/tasks/2026_08/2026_08_16_vercel-pr-previews/
-    ├── plan.md                              ✏️ statut final après preuves
-    ├── phase-1.md                           ✏️ statut final après preuves
-    ├── phase-2.md                           ✏️ statut final après preuves
-    ├── phase-3.md                           ✏️ statut final après preuves
-    ├── phase-4.md                           ✏️ statut final après preuves
-    ├── assert.md                            ✅ résultats reproductibles des gates
-    ├── review.md                            ✅ findings et résolution
-    ├── preview-evidence.md                  ✅ preuve externe expurgée
-    └── browser-qa/
-        └── qa.md                            ✅ parcours Preview observé
+└── aidd_docs/tasks/2026_08/
+    ├── 2026_08_16_vercel-pr-previews/
+    │   ├── plan.md                          ✏️ statut AIDD après preuves
+    │   ├── phase-1.md                       ✏️ statut AIDD après preuves
+    │   ├── phase-2.md                       ✏️ statut AIDD après preuves
+    │   ├── phase-3.md                       ✏️ statut AIDD après preuves
+    │   └── phase-4.md                       ✏️ statut AIDD après preuves
+    └── 2026_08_16_cloud-prelaunch-validation/
+        └── verification.md                  ✏️ preuve unique asserts review et browser QA
 
 ❌ Aucun fichier supprimé.
 ```
@@ -36,7 +34,7 @@ flowchart TD
   E --> F["Synchroniser projet, image et settings"]
   F --> G["Prouver que seul Convex préproduction a reçu les écritures"]
   G --> H["Relire sécurité, tests et diff"]
-  H --> I{"Finding ou échec ?"}
+  H --> I["Finding ou échec"]
   I -->|"oui"| J["Corriger la cause puis rejouer le gate complet"]
   J --> H
   I -->|"non"| K["Clore la PR témoin sans tag ni changement production"]
@@ -74,7 +72,7 @@ journey
 1. Lancer l'audit de configuration, les auto-tests, `pnpm run test:unit`, `pnpm run typecheck`, `pnpm run lint`, `pnpm run build` puis `pnpm run test:release` depuis la racine.
 2. Lancer Gitleaks et l'audit de publication sur le contenu suivi, le bundle et les artifacts de test.
 3. Vérifier que Quality reste verte sur la PR sans accès aux secrets de production et que le workflow tagué n'a pas été exécuté.
-4. Écrire dans `assert.md` uniquement commandes, SHA, statuts, compteurs et diagnostics expurgés.
+4. Écrire dans la section Preview de `verification.md` uniquement commandes, SHA, statuts, compteurs et diagnostics expurgés.
 
 ### `2)` Exécuter le browser QA de la Preview
 
@@ -94,16 +92,16 @@ journey
 2. Ouvrir une PR de fork contrôlée après publication et vérifier qu'aucun déploiement n'est produit sans autorisation; fermer la PR sans l'autoriser.
 3. Vérifier une PR Release Please ou son équivalent : une limite d'auteur Hobby peut omettre la Preview mais ne doit pas bloquer Quality, le merge ni la release taguée.
 4. Vérifier que seule la création ultérieure d'un tag SemVer valide peut entrer dans `deploy-production.yml`; ne créer aucun tag pour cette preuve.
-5. Consigner dans `preview-evidence.md` les états et timestamps utiles, sans URL temporaire, identifiant fournisseur, adresse personnelle ni valeur d'environnement.
+5. Consigner dans la section Preview de `verification.md` les états et timestamps utiles, sans URL temporaire, identifiant fournisseur, adresse personnelle ni valeur d'environnement.
 
 ### `4)` Review et boucle corrective
 
-> Le plan ne passe à `done` qu'après correction de chaque finding confirmé.
+> Le plan ne passe à `implemented`, puis à `reviewed`, qu’après correction de chaque finding confirmé.
 
 1. Relire le diff pour les trust boundaries, fuites d'environnement, dérive du flux tagué, dépendances inutiles et divergence CORS/auth.
-2. Classer les findings avec fichier et preuve dans `review.md`; corriger la cause partagée plutôt qu'un appel isolé.
+2. Classer les findings avec fichier et preuve dans la section Review de `verification.md`; corriger la cause partagée plutôt qu'un appel isolé.
 3. Après chaque correction, rejouer le test ciblé puis le gate complet et le scénario navigateur concerné.
-4. Marquer les phases et le plan `done` seulement lorsque les gates automatisés, la Preview, le fork refusé, la séparation préproduction/production et la revue sont tous verts.
+4. L’implémentation passe les phases et le plan à `implemented` lorsque les critères sont prouvés; seule la review approuvée les passe ensuite à `reviewed`.
 
 ## Test acceptance criteria
 
@@ -112,4 +110,4 @@ journey
 | 1 | Tous les gates locaux et CI sont verts, Gitleaks ne trouve aucun secret et aucun workflow de production n'est parti. |
 | 2 | La Preview protégée couvre Local puis Cloud réel sur préproduction, y compris projets, images et settings, sans appel production ni porte de test distante. |
 | 3 | Le fork reste non déployé, un merge sans tag laisse la production inchangée et la limitation Hobby éventuelle n'empêche pas la release. |
-| 4 | Chaque finding confirmé est corrigé et retesté; plan et phases restent `pending` tant qu'une preuve manque ou qu'un gate échoue. |
+| 4 | Chaque finding confirmé est corrigé et retesté; plan et phases ne passent pas à `implemented` tant qu’une preuve manque ou qu’un gate échoue. |

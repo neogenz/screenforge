@@ -1,9 +1,15 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, symlink, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
-import { AssetRefusedError, AssetVault } from './relay/assets.ts'
+import {
+  AssetRefusedError,
+  AssetVault,
+  MAX_ASSET_BYTES,
+  MAX_VAULT_ASSETS,
+  MAX_VAULT_BYTES,
+} from './relay/assets.ts'
 import { planAddImage } from './tools/add-image.ts'
 
 /**
@@ -16,7 +22,7 @@ import { planAddImage } from './tools/add-image.ts'
  * la main pour leur faire plaisir.
  */
 
-function pngBytes(width: number, height: number): Buffer {
+function pngBytes(width: number, height: number, totalBytes?: number): Buffer {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(width, 0)
   ihdr.writeUInt32BE(height, 4)
@@ -31,10 +37,11 @@ function pngBytes(width: number, height: number): Buffer {
     return Buffer.concat([head, data, Buffer.alloc(4)])
   }
   const raw = Buffer.alloc(height * (width * 4 + 1))
+  const imageData = totalBytes ? Buffer.alloc(totalBytes - 57) : deflateSync(raw)
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw)),
+    chunk('IDAT', imageData),
     chunk('IEND', Buffer.alloc(0)),
   ])
 }
@@ -59,10 +66,12 @@ async function sandbox(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'screenforge-mcp-'))
 }
 
+const rootedVault = (root: string) => new AssetVault(() => Promise.resolve([root]))
+
 describe('coffre d’assets', () => {
   it('lit les dimensions des trois formats et rend un identifiant, pas un chemin', async () => {
     const dir = await sandbox()
-    const vault = new AssetVault()
+    const vault = rootedVault(dir)
 
     await writeFile(join(dir, 'capture.png'), pngBytes(1290, 2796))
     await writeFile(join(dir, 'photo.jpg'), jpegBytes(800, 600))
@@ -86,7 +95,7 @@ describe('coffre d’assets', () => {
 
   it('ne sert que ce qui a été offert', async () => {
     const dir = await sandbox()
-    const vault = new AssetVault()
+    const vault = rootedVault(dir)
     await writeFile(join(dir, 'capture.png'), pngBytes(10, 20))
 
     const offered = await vault.offer(join(dir, 'capture.png'))
@@ -94,23 +103,108 @@ describe('coffre d’assets', () => {
     expect(await vault.read('jamais-offert')).toBeNull()
   })
 
+  it('sert les octets inspectés même si le chemin est remplacé puis supprimé', async () => {
+    const dir = await sandbox()
+    const vault = rootedVault(dir)
+    const path = join(dir, 'capture.png')
+    const original = pngBytes(10, 20)
+    await writeFile(path, original)
+
+    const offered = await vault.offer(path)
+    await writeFile(path, pngBytes(30, 40))
+    await unlink(path)
+    const first = vault.read(offered.id)!
+    expect(first.bytes).toEqual(original)
+    first.bytes.fill(0)
+    expect(vault.read(offered.id)!.bytes).toEqual(original)
+  })
+
+  it('borne taille unitaire, nombre, total puis purge tout', async () => {
+    const dir = await sandbox()
+    const tooLarge = join(dir, 'trop.png')
+    await writeFile(tooLarge, Buffer.alloc(MAX_ASSET_BYTES + 1))
+    await expect(rootedVault(dir).offer(tooLarge)).rejects.toThrow(/trop lourd/)
+
+    const small = join(dir, 'petit.png')
+    await writeFile(small, pngBytes(1, 1))
+    const countVault = rootedVault(dir)
+    for (let index = 0; index < MAX_VAULT_ASSETS; index += 1) await countVault.offer(small)
+    await expect(countVault.offer(small)).rejects.toThrow(/fichiers au plus/)
+
+    const large = join(dir, 'large.png')
+    await writeFile(large, pngBytes(1, 1, MAX_VAULT_BYTES / 8))
+    const byteVault = rootedVault(dir)
+    const offered = []
+    for (let index = 0; index < 8; index += 1) offered.push(await byteVault.offer(large))
+    await expect(byteVault.offer(large)).rejects.toThrow(/64 Mo au total/)
+    byteVault.clear()
+    expect(byteVault.read(offered[0]!.id)).toBeNull()
+    await expect(byteVault.offer(small)).resolves.toMatchObject({ width: 1, height: 1 })
+  })
+
+  it('sérialise les offres concurrentes et invalide celles précédant une purge', async () => {
+    const dir = await sandbox()
+    const small = join(dir, 'petit.png')
+    await writeFile(small, pngBytes(1, 1))
+    const vault = rootedVault(dir)
+
+    const concurrent = await Promise.allSettled(
+      Array.from({ length: MAX_VAULT_ASSETS + 1 }, () => vault.offer(small)),
+    )
+    expect(concurrent.filter((result) => result.status === 'fulfilled')).toHaveLength(
+      MAX_VAULT_ASSETS,
+    )
+    expect(concurrent.filter((result) => result.status === 'rejected')).toHaveLength(1)
+
+    const pending = rootedVault(dir)
+    const offered = pending.offer(small)
+    pending.clear()
+    await expect(offered).rejects.toThrow(/révoqué/)
+  })
+
   it('nomme la cause de chaque refus', async () => {
     const dir = await sandbox()
-    const vault = new AssetVault()
+    const vault = rootedVault(dir)
 
     await expect(vault.offer('captures/accueil.png')).rejects.toThrow(/absolu/)
     await expect(vault.offer(join(dir, 'notes.txt'))).rejects.toThrow(/Format non pris en charge/)
     await expect(vault.offer(join(dir, 'absent.png'))).rejects.toThrow(/introuvable/)
 
     await writeFile(join(dir, 'vide.png'), Buffer.from([137, 80, 78, 71]))
-    await expect(vault.offer(join(dir, 'vide.png'))).rejects.toThrow(/Dimensions illisibles/)
+    await expect(vault.offer(join(dir, 'vide.png'))).rejects.toThrow(/Média invalide/)
+
+    await writeFile(
+      join(dir, 'actif.svg'),
+      '<svg width="1" height="1"><script>alert(1)</script></svg>',
+    )
+    await expect(vault.offer(join(dir, 'actif.svg'))).rejects.toThrow(/invalide ou actif/)
+  })
+
+  it('refuse une image hors racine et un symlink qui en sort', async () => {
+    const root = await sandbox()
+    const outside = await sandbox()
+    const secret = join(outside, 'prive.png')
+    await writeFile(secret, pngBytes(10, 20))
+    const vault = rootedVault(root)
+
+    await expect(vault.offer(secret)).rejects.toThrow(/hors des répertoires autorisés/)
+    const escaped = join(root, 'raccourci.png')
+    await symlink(secret, escaped)
+    await expect(vault.offer(escaped)).rejects.toThrow(/hors des répertoires autorisés/)
+  })
+
+  it('échoue fermé quand le client n’accorde aucune racine', async () => {
+    const dir = await sandbox()
+    const path = join(dir, 'capture.png')
+    await writeFile(path, pngBytes(10, 20))
+    await expect(new AssetVault().offer(path)).rejects.toThrow(/Aucun répertoire/)
   })
 })
 
 describe('plan d’ajout d’image', () => {
   it('traduit un chemin en appel du contrat, jamais en chemin envoyé à la page', async () => {
     const dir = await sandbox()
-    const vault = new AssetVault()
+    const vault = rootedVault(dir)
     await writeFile(join(dir, 'accueil.png'), pngBytes(1290, 2796))
     const path = join(dir, 'accueil.png')
 
@@ -135,7 +229,7 @@ describe('plan d’ajout d’image', () => {
 
   it('refuse un SVG comme capture d’écran, et dit par quoi le remplacer', async () => {
     const dir = await sandbox()
-    const vault = new AssetVault()
+    const vault = rootedVault(dir)
     await writeFile(join(dir, 'logo.svg'), '<svg viewBox="0 0 10 10"></svg>')
 
     await expect(

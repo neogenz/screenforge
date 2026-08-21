@@ -9,6 +9,7 @@ import {
   TABLES_OWNED_BY_USER,
 } from './accountDeletion'
 import { consume, EMAIL_SCOPED_LIMITS, USER_SCOPED_LIMITS } from './limits'
+import { png } from './media.test-fixtures'
 import schema from './schema'
 import {
   cloudAccount,
@@ -416,7 +417,7 @@ describe('la barrière', () => {
       as.fetch('/upload/asset?assetId=asset-1', {
         method: 'POST',
         headers: { 'Content-Type': PNG },
-        body: new Blob([new Uint8Array(4096)], { type: PNG }),
+        body: new Blob([png(0, 4096)], { type: PNG }),
       })
 
     /* Le contre-test : sans la ligne, le même appel avec le même jeton passe. */
@@ -622,16 +623,20 @@ describe('la reprise', () => {
 })
 
 describe('compteurs indirects', () => {
-  it('réinitialise les clés compte et e-mail, jamais les limites globales', async () => {
+  it('réinitialise les clés compte et e-mail, jamais les limites réseau', async () => {
     const userId = await populated(t, { assets: 0 })
     for (const name of USER_SCOPED_LIMITS) await useRateLimit(t, name, userId)
     for (const name of EMAIL_SCOPED_LIMITS) await useRateLimit(t, name, FIXTURE_EMAIL)
     await useRateLimit(t, 'passwordSignUpGlobal')
     await useRateLimit(t, 'magicLinkSendGlobal')
+    await useRateLimit(t, 'magicLinkSendBySource', 'source-key')
+    await useRateLimit(t, 'polarWebhookBySource', 'source-key')
 
     const globalBefore = await Promise.all([
       rateLimitValue(t, 'passwordSignUpGlobal'),
       rateLimitValue(t, 'magicLinkSendGlobal'),
+      rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
+      rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
     ])
     await expect(remove(t, userId)).resolves.toBe('deleted')
 
@@ -644,6 +649,8 @@ describe('compteurs indirects', () => {
     const globalAfter = await Promise.all([
       rateLimitValue(t, 'passwordSignUpGlobal'),
       rateLimitValue(t, 'magicLinkSendGlobal'),
+      rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
+      rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
     ])
     expect(globalAfter).toEqual(globalBefore)
   })

@@ -1,8 +1,8 @@
 ---
-status: pending
+status: done
 ---
 
-# Instruction: activer et documenter l'intégration Git Vercel après le gate public
+# Instruction: activer et documenter l'intégration Git Vercel sur le dépôt public
 
 ## Architecture projection
 
@@ -22,7 +22,7 @@ status: pending
 
 ```mermaid
 flowchart TD
-  A["Gate GO PUBLIC traité par le plan de publication"] --> B["Installer l'intégration Git Vercel officielle sur ScreenForge seul"]
+  A["Dépôt public vérifié sans mutation de visibilité"] --> B["Installer l'intégration Git Vercel officielle sur ScreenForge seul"]
   B --> C["Ouvrir une PR depuis une branche interne"]
   C --> D["Vercel construit une Preview protégée"]
   D --> E["GitHub affiche le statut et l'URL dans la PR"]
@@ -38,12 +38,12 @@ title: Test scope
 ---
 journey
   section Setup
-    Vérifier dépôt public ou équipe Vercel compatible => intégration Git activable sans contourner le gate: 5: system
+    Vérifier que le dépôt ScreenForge est toujours public => intégration Git activable sans mutation ni achat: 5: system
   section Happy path
     Pousser une PR interne éligible => check Vercel terminé et URL protégée publiée dans GitHub: 5: system
     Construire la Preview avec son environnement => bundle relié uniquement à Convex préproduction: 5: system
-  section Edge case - dépôt encore privé
-    Rester sur Hobby avec dépôt privé d'organisation => activation suspendue sans changement de visibilité ni achat implicite: 1: system
+  section Edge case - visibilité régressée
+    Constater un dépôt redevenu privé sur Hobby => activation suspendue sans changement de visibilité ni achat implicite: 1: system
   section Edge case - fork
     Ouvrir une PR depuis un fork => aucun déploiement avant autorisation et aucune autorisation donnée: 1: system
   section Edge case - auteur Hobby
@@ -52,12 +52,12 @@ journey
 
 ## Tasks to do
 
-### `1)` Respecter le gate de visibilité et le plan Vercel
+### `1)` Constater le gate de visibilité et le plan Vercel
 
-> Cette phase consomme un état public validé; elle ne rend jamais le dépôt public elle-même.
+> Le gate public est déjà satisfait; cette phase vérifie cet état sans jamais le modifier elle-même.
 
-1. Vérifier que le plan de publication a déjà reçu et exécuté le gate littéral `GO PUBLIC`; sinon laisser cette phase en attente.
-2. Si le dépôt reste privé, ne poursuivre que si l'utilisateur a séparément choisi Vercel Pro; ne déclencher aucun achat depuis ce plan.
+1. Constater que `neogenz/screenforge` est public et que le gate littéral `GO PUBLIC` a déjà été exécuté; consigner seulement le statut.
+2. Si la visibilité a régressé, suspendre l’activation; ne modifier ni visibilité ni facturation depuis ce plan.
 3. Vérifier que le propriétaire GitHub qui signe les commits internes est éligible sur l'équipe Vercel Hobby avant de promettre une Preview.
 
 ### `2)` Installer l'intégration officielle au moindre privilège
@@ -91,7 +91,7 @@ journey
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | L'activation ne commence qu'après visibilité publique validée ou choix explicite de Vercel Pro; ce plan ne change jamais la visibilité ni la facturation. |
+| 1 | L’activation constate le dépôt public déjà validé; toute régression suspend le travail sans modifier la visibilité ni la facturation. |
 | 2 | L'intégration officielle ne voit que ScreenForge, protège previews et forks, et aucun workflow PR ne possède de jeton Vercel. |
 | 3 | Une Preview interne utilise exclusivement Convex préproduction et aucun secret serveur n'apparaît dans ses variables, son bundle, ses logs ou ses artifacts. |
 | 4 | La documentation décrit fidèlement les trois états Local, Preview/préproduction et Production taguée, sans transformer un check Hobby intermittent en blocage de merge. |

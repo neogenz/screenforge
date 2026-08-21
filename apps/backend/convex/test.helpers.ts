@@ -15,8 +15,29 @@ import { rateLimiter as limiter, type LimitName } from './limits'
  * plafonds de taille des documents, ni l'exécution des crons, ni les messages
  * du vrai moteur. Ces trois-là se constatent contre un déploiement réel.
  */
-export function testConvex() {
+export function testConvex(sourceIp: string | null | (() => string | null) = '127.0.0.1') {
   const t = convexTest(schema, import.meta.glob('./**/*.ts'))
+  /* convex-test 0.0.38 ne simule pas encore la métadonnée ajoutée par Convex
+     1.43. On complète uniquement son syscall de test ; le code produit reste
+     fermé si la plateforme ne fournit pas d'IP. */
+  const runtime = (
+    globalThis as unknown as {
+      Convex: { asyncSyscall(op: string, args: string): Promise<string> }
+    }
+  ).Convex
+  const asyncSyscall = runtime.asyncSyscall
+  runtime.asyncSyscall = (op, args) =>
+    op === '1.0/getRequestMetadata'
+      ? Promise.resolve(
+          JSON.stringify({
+            ip: typeof sourceIp === 'function' ? sourceIp() : sourceIp,
+            userAgent: 'convex-test',
+            requestId: 'convex-test',
+            scheduledFunctionId: null,
+            authToken: null,
+          }),
+        )
+      : asyncSyscall(op, args)
   rateLimiter.register(t)
   return t
 }

@@ -19,6 +19,7 @@ import { waitForApp } from './helpers'
  */
 
 export const TOKEN = 'jeton-de-test-mcp'
+export const CODE = '123456'
 
 export interface Answer {
   id: string
@@ -45,6 +46,7 @@ export interface Relay {
   live: () => number
   /** Cumulé, jamais décrémenté : c'est lui qui distingue « pas encore » de « plus ». */
   opened: () => number
+  code: () => string
   /** Fait entrer des octets dans le coffre, comme un appel d'outil le ferait. */
   serve: (id: string, bytes: Buffer, mediaType?: string) => void
   /** Les identifiants que la page est allée chercher, dans l'ordre. */
@@ -54,6 +56,7 @@ export interface Relay {
   askSaveTemplate: (id: string, save: { name: string; screenId?: string }) => void
   askListTemplates: (id: string) => void
   waitForStream: () => Promise<void>
+  dropStream: () => void
   stop: () => Promise<void>
 }
 
@@ -65,6 +68,9 @@ export async function startRelay(port = 0): Promise<Relay> {
   let stream: ServerResponse | null = null
   let opened = 0
   let closed = 0
+  let activeToken = TOKEN
+  let pairingCode = CODE
+  let nextCode = 654321
 
   const server: Server = createServer((request, response) => {
     const origin = request.headers.origin ?? '*'
@@ -81,14 +87,27 @@ export async function startRelay(port = 0): Promise<Relay> {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
 
     if (url.pathname === '/pair') {
-      response
-        .writeHead(200, { ...cors, 'Content-Type': 'application/json' })
-        .end(JSON.stringify({ protocol: 1, mcp: '0.1.0-test', token: TOKEN }))
+      let body = ''
+      request.on('data', (chunk: Buffer) => {
+        body += chunk.toString()
+      })
+      request.on('end', () => {
+        const supplied = (JSON.parse(body || '{}') as { code?: string }).code
+        if (supplied !== pairingCode) {
+          response.writeHead(401, { ...cors, 'Content-Type': 'application/json' }).end('{}')
+          return
+        }
+        activeToken = `${TOKEN}-${nextCode}`
+        pairingCode = String(nextCode++)
+        response
+          .writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ protocol: 1, mcp: '0.1.0-test', token: activeToken }))
+      })
       return
     }
 
     if (url.pathname === '/events') {
-      if (url.searchParams.get('token') !== TOKEN) {
+      if (url.searchParams.get('token') !== activeToken) {
         response.writeHead(401, cors).end()
         return
       }
@@ -112,7 +131,7 @@ export async function startRelay(port = 0): Promise<Relay> {
        sans jeton : c'est ce que la page doit trouver en face d'elle pour que le
        test dise quelque chose du vrai démon. */
     if (url.pathname.startsWith('/asset/')) {
-      if (request.headers.authorization !== `Bearer ${TOKEN}`) {
+      if (request.headers.authorization !== `Bearer ${activeToken}`) {
         response.writeHead(401, cors).end()
         return
       }
@@ -132,11 +151,18 @@ export async function startRelay(port = 0): Promise<Relay> {
       body += chunk.toString()
     })
     request.on('end', () => {
-      if (request.headers.authorization !== `Bearer ${TOKEN}`) {
+      if (request.headers.authorization !== `Bearer ${activeToken}`) {
         response.writeHead(401, cors).end()
         return
       }
       const payload = JSON.parse(body || '{}') as Answer & { state?: unknown }
+      if (url.pathname === '/revoke') {
+        activeToken = `revoked-${nextCode}`
+        assets.clear()
+        stream?.end()
+        response.writeHead(200, { ...cors, 'Content-Type': 'application/json' }).end('{}')
+        return
+      }
       if (url.pathname === '/result') answers.push(payload)
       if (url.pathname === '/state') states.push(payload.state)
       response.writeHead(200, { ...cors, 'Content-Type': 'application/json' }).end('{}')
@@ -158,6 +184,7 @@ export async function startRelay(port = 0): Promise<Relay> {
     states,
     live: () => opened - closed,
     opened: () => opened,
+    code: () => pairingCode,
     serve: (id, bytes, mediaType = 'image/png') => assets.set(id, { bytes, mediaType }),
     claims: () => claims,
     push: (id, calls) => frame({ id, calls }),
@@ -167,6 +194,7 @@ export async function startRelay(port = 0): Promise<Relay> {
     waitForStream: async () => {
       await expect.poll(() => opened, { timeout: 10_000 }).toBeGreaterThan(0)
     },
+    dropStream: () => stream?.end(),
     stop: () =>
       new Promise<void>((resolve) => {
         stream?.end()
@@ -187,8 +215,8 @@ export async function connect(page: Page, relay: Relay): Promise<void> {
   await expect(dialog).toBeVisible()
   // Le mode est éteint tant que personne ne l'a demandé : c'est « Activer »
   // qui s'offre, pas « Désactiver ».
-  await expect(dialog.getByRole('button', { name: 'Activer' })).toBeVisible()
-  await dialog.getByRole('button', { name: 'Activer' }).click()
+  await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+  await dialog.getByRole('button', { name: 'Appairer' }).click()
   await expect(dialog.getByRole('status')).toHaveText('Connectée')
   await relay.waitForStream()
 }

@@ -52,20 +52,97 @@ async function openStream(state: RelayState, app: ReturnType<typeof createRelay>
 
 describe('appairage', () => {
   it('rend le jeton à une origine admise et refuse les autres', async () => {
-    const { state, app } = relay()
+    const codes: string[] = []
+    let nextCode = 123456
+    const state = createRelayState({
+      mintCode: () => String(nextCode++),
+      announce: (code) => codes.push(code),
+    })
+    const { app } = relay(state)
 
-    const granted = await app.request('/pair', { method: 'POST', headers: { Origin: ORIGIN } })
+    const granted = await app.request('/pair', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: codes[0] }),
+    })
     expect(granted.status).toBe(200)
     expect(await granted.json()).toMatchObject({ token: state.pairing.token, protocol: 1 })
 
     const refused = await app.request('/pair', {
       method: 'POST',
       headers: { Origin: 'http://evil.example' },
+      body: JSON.stringify({ code: '123456' }),
     })
     expect(refused.status).toBe(403)
     /* Le 403 part nu : sans en-tête CORS, le navigateur retient la réponse et
        la page hostile ne lit même pas le refus. */
     expect(refused.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  })
+
+  it('exige origine et code, borne les essais et rend le code non rejouable', async () => {
+    let now = 1_000
+    let nextCode = 111_111
+    const state = createRelayState({
+      now: () => now,
+      mintCode: () => String(nextCode++),
+    })
+    const { app } = relay(state)
+    const request = (code: string, origin = ORIGIN) =>
+      app.request('/pair', {
+        method: 'POST',
+        headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+
+    expect((await request('111111', '')).status).toBe(403)
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      expect((await request('000000')).status).toBe(401)
+    }
+    expect((await request('111111')).status).toBe(401)
+    now += 10 * 60_000
+    expect((await request('111111')).status).toBe(401)
+    const granted = await request('111112')
+    expect(granted.status).toBe(200)
+    const token = ((await granted.json()) as { token: string }).token
+    expect(token).toBe(state.pairing.token)
+    expect((await request('111112')).status).toBe(401)
+    expect((await request('111113')).status).toBe(200)
+  })
+
+  it('révoque le flux, les appels et l’ancien bearer côté démon', async () => {
+    const { state, app } = relay()
+    const events = await openStream(state, app)
+    const oldToken = state.pairing.token
+    const pending = state.session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] })
+    await events.next()
+
+    const revoked = await app.request('/revoke', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, Authorization: `Bearer ${oldToken}` },
+    })
+    expect(revoked.status).toBe(200)
+    await expect(pending).rejects.toThrow(/révoquée/)
+    expect(state.session.connected).toBe(false)
+    expect(
+      (
+        await app.request('/state', {
+          method: 'POST',
+          headers: { Origin: ORIGIN, Authorization: `Bearer ${oldToken}` },
+          body: JSON.stringify({ state: {} }),
+        })
+      ).status,
+    ).toBe(401)
+  })
+
+  it('refuse une préparation liée à une connexion révoquée', async () => {
+    const session = new RelaySession()
+    session.attach({ send: () => undefined, close: () => undefined })
+    const lease = session.lease()
+    session.revoke()
+    session.attach({ send: () => undefined, close: () => undefined })
+    await expect(
+      session.dispatch({ calls: [{ tool: 'add_screen', args: {} }] }, lease),
+    ).rejects.toBeInstanceOf(AppUnavailableError)
   })
 
   it('refuse le flux et les réponses sans le jeton', async () => {

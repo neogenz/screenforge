@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -14,15 +14,24 @@ import { planRefreshRequest } from './tools/refresh-screenshots.ts'
  * et à quel moment le plafond mord.
  */
 
-/** Le plus petit PNG que `AssetVault` sait mesurer : un IHDR complet suffit. */
+/** PNG structurel minimal : IHDR, IDAT non vide puis IEND. */
 function png(width: number, height: number): Buffer {
-  const head = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0)
-  head.writeUInt32BE(13, 8)
-  head.write('IHDR', 12, 'ascii')
-  head.writeUInt32BE(width, 16)
-  head.writeUInt32BE(height, 20)
-  return head
+  const chunk = (type: string, data: Buffer) => {
+    const head = Buffer.alloc(8)
+    head.writeUInt32BE(data.length)
+    head.write(type, 4, 'ascii')
+    return Buffer.concat([head, data, Buffer.alloc(4)])
+  }
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width)
+  header.writeUInt32BE(height, 4)
+  header.set([8, 6, 0, 0, 0], 8)
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', Buffer.from([1])),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
 }
 
 async function directory(files: Record<string, Buffer | string>): Promise<string> {
@@ -33,7 +42,7 @@ async function directory(files: Record<string, Buffer | string>): Promise<string
   return base
 }
 
-const vault = () => new AssetVault()
+const vault = (root: string) => new AssetVault(() => Promise.resolve([root]))
 
 describe('la livraison de captures', () => {
   it('offre chaque image du répertoire, dans un ordre stable', async () => {
@@ -43,7 +52,7 @@ describe('la livraison de captures', () => {
       'accueil.png': png(1320, 2868),
     })
 
-    const request = await planRefreshRequest(vault(), { directory: base })
+    const request = await planRefreshRequest(vault(base), { directory: base })
     expect(request.files.map((file) => file.name)).toEqual([
       'accueil.png',
       'budget.png',
@@ -61,24 +70,25 @@ describe('la livraison de captures', () => {
       'logo.svg': '<svg viewBox="0 0 10 10"></svg>',
     })
 
-    const request = await planRefreshRequest(vault(), { directory: base })
+    const request = await planRefreshRequest(vault(base), { directory: base })
     // Le SVG est un logo, jamais une capture : `add_image` le pose, pas celui-ci.
     expect(request.files.map((file) => file.name)).toEqual(['accueil.png'])
   })
 
   it('nomme la cause de chaque refus', async () => {
-    await expect(planRefreshRequest(vault(), { directory: 'captures' })).rejects.toThrow(/relatif/)
-
     const base = await directory({ 'accueil.png': png(10, 10) })
+    await expect(planRefreshRequest(vault(base), { directory: 'captures' })).rejects.toThrow(
+      /relatif/,
+    )
     await expect(
-      planRefreshRequest(vault(), { directory: join(base, 'accueil.png') }),
+      planRefreshRequest(vault(base), { directory: join(base, 'accueil.png') }),
     ).rejects.toThrow(/fichier, pas un répertoire/)
     await expect(
-      planRefreshRequest(vault(), { directory: join(base, 'nulle-part') }),
+      planRefreshRequest(vault(base), { directory: join(base, 'nulle-part') }),
     ).rejects.toThrow(/introuvable/)
 
     const empty = await directory({ 'notes.txt': 'rien' })
-    await expect(planRefreshRequest(vault(), { directory: empty })).rejects.toThrow(
+    await expect(planRefreshRequest(vault(empty), { directory: empty })).rejects.toThrow(
       /Aucune capture/,
     )
   })
@@ -92,14 +102,28 @@ describe('la livraison de captures', () => {
     }
     const base = await directory(files)
 
-    await expect(planRefreshRequest(vault(), { directory: base })).rejects.toThrow(/40 au plus/)
+    await expect(planRefreshRequest(vault(base), { directory: base })).rejects.toThrow(/40 au plus/)
+  })
+
+  it('refuse un répertoire hors racine ou un symlink qui en sort', async () => {
+    const root = await directory({})
+    const outside = await directory({ 'capture.png': png(10, 10) })
+    await expect(planRefreshRequest(vault(root), { directory: outside })).rejects.toThrow(
+      /hors des répertoires autorisés/,
+    )
+
+    const escaped = join(root, 'captures')
+    await symlink(outside, escaped)
+    await expect(planRefreshRequest(vault(root), { directory: escaped })).rejects.toThrow(
+      /hors des répertoires autorisés/,
+    )
   })
 
   it('transporte le manifeste sans l’interpréter', async () => {
     const base = await directory({ '20260816-0930.png': png(1320, 2868) })
     const manifest = { budget: '20260816-0930.png' }
 
-    const request = await planRefreshRequest(vault(), { directory: base, manifest })
+    const request = await planRefreshRequest(vault(base), { directory: base, manifest })
     // L'appariement vit dans l'onglet, avec la règle de la boîte « Rafraîchir ».
     expect(request.manifest).toEqual(manifest)
   })

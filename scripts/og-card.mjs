@@ -16,6 +16,14 @@ const out = fileURLToPath(new URL('../apps/web/public/og-landing.png', import.me
 /* Les woff2 sont chargés par URL de fichier : `setContent` sert une page
    `about:blank`, où un chemin relatif ne résout rien. */
 const FONTS = new URL('../apps/web/public/fonts', import.meta.url).href
+/* Le wordmark est embarqué en data URL : la page est servie en `about:blank`
+   par `setContent`, et Chromium n'y résout pas un masque en `file://` — la
+   police passe, le masque non, et la marque restait invisible sur la carte.
+   Il est masqué (encre de la carte) plutôt qu'affiché, pour rester dans la
+   couleur du haut de page quelle qu'elle soit. */
+const WORDMARK = `data:image/svg+xml;base64,${readFileSync(
+  new URL('../apps/web/public/brand/screenforge-wordmark.svg', import.meta.url),
+).toString('base64')}`
 
 /* La carte disait « Ten iPhone screens » et en dessinait neuf. Le nombre est
    lu dans `dimensions.ts` plutôt que recopié : il apparaît deux fois sur cette
@@ -55,8 +63,9 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   .lede{font-size:24px;line-height:34px;color:oklch(0.708 0 0);max-width:34ch}
   .price{font-family:'IBM Plex Mono',monospace;font-size:22px;color:oklch(0.985 0 0);font-weight:600}
   .mark{color:oklch(0.87 0.2 124)}
-  .brand{display:flex;align-items:center;gap:14px;font-family:Gloock,serif;font-size:30px;font-weight:400;letter-spacing:-0.01em}
-  .dot{width:14px;height:14px;background:oklch(0.87 0.2 124)}
+  .brand{width:240px;aspect-ratio:5900/1060;background:oklch(0.985 0 0);
+       -webkit-mask:url('${WORDMARK}') center/contain no-repeat;
+       mask:url('${WORDMARK}') center/contain no-repeat}
   .strip{display:grid;grid-template-columns:repeat(var(--sheets),1fr);gap:7px;width:340px;flex:0 0 auto}
   .sheet{aspect-ratio:1320/2868;background:${SHEET};border-radius:3px;position:relative;overflow:hidden}
   .bar{position:absolute;top:8%;left:50%;transform:translateX(-50%);width:60%;height:3%;
@@ -64,7 +73,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
   .dev{position:absolute;top:24%;left:50%;transform:translateX(-50%);height:58%;aspect-ratio:1170/2532;
        border:1px solid rgba(255,255,255,0.7);background:rgba(0,0,0,0.3);border-radius:18%/8%}
 </style></head><body>
-  <div class="brand"><span class="dot"></span>ScreenForge</div>
+  <div class="brand" role="img" aria-label="ScreenForge"></div>
   <h1>App Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
     <p class="lede">${SCREENS} iPhone screens composed once, re-shot in one click, exported at native 1320&times;2868.
