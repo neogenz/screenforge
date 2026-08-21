@@ -1,6 +1,6 @@
 ---
 objective: "Un projet ScreenForge peut cibler Google Play téléphone, être composé avec des cadres et mises en page Android, puis exporter un ZIP PNG opaque 1080×1920 conforme sans régresser le flux App Store existant."
-status: in-progress
+status: implemented
 ---
 
 # Plan: ajouter Android et Google Play téléphone
