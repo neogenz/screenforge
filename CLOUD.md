@@ -220,6 +220,29 @@ pnpm run dev:preprod
 Attention : `localhost` et `127.0.0.1` sont deux origines différentes. Un lien
 pour l'une ne connecte pas automatiquement l'autre.
 
+### Livraison de la préproduction
+
+La branche longue durée `preprod` est l'unique source de la préproduction
+hébergée. Une pull request de `main` vers `preprod`, fusionnée avec un merge
+commit, déclenche deux chemins complémentaires :
+
+- l'intégration Git Vercel redéploie l'alias stable
+  `screenforge-git-preprod-maximes-projects-56d66b35.vercel.app` ;
+- le workflow Quality exécute `actionlint`, `security`, `backend`, `web` et
+  `e2e`, vérifie que l'arbre publié est identique à `main`, contrôle la
+  configuration Convex courante, déploie le backend puis relance le preflight.
+
+Le job Convex utilise uniquement `CONVEX_DEPLOY_KEY` depuis l'Environment
+GitHub `preproduction`. Cette clé est dédiée au déploiement
+`acrobatic-orca-116`; Resend, Polar, Auth et Vercel restent configurés chez leur
+propriétaire respectif.
+
+Vercel et Convex ne forment pas une transaction atomique. Toute évolution qui
+traverse leur frontière doit donc rester compatible expand/contract pendant le
+déploiement. En secours, un mainteneur autorisé peut relancer le backend depuis
+la racine avec `pnpm run deploy:preprod`; la clé locale reste uniquement dans
+`apps/backend/.env.preprod`, ignoré par Git.
+
 ### 4. Vérifier Polar Sandbox
 
 Le parcours doit rester entièrement dans Polar Sandbox :

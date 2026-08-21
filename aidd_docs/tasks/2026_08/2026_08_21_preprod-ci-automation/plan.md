@@ -1,6 +1,6 @@
 ---
 objective: "Chaque push autorisé sur preprod valide le candidat complet, déploie Convex préproduction avec une clé bornée et termine par un preflight vert, tandis que Vercel conserve son alias de branche stable."
-status: in-progress
+status: blocked
 ---
 
 # Plan: Automatiser la livraison de la préproduction

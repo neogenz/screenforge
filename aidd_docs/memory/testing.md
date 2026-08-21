@@ -33,7 +33,11 @@
 - Run all commands from the workspace root; root scripts delegate to the owning package.
 - `pnpm --filter backend run test:unit`: the deployment suite (already included in `pnpm run test:unit`).
 - Aggregate commit and release gates are defined in `coding-assertions.md`.
-- GitHub runs Quality on `main` and pull requests. Production runs only from a canonical Release Please SemVer tag; diagnostics are scanned before their three-day upload.
+- GitHub runs Quality on `main`, `preprod`, and pull requests. A successful push
+  to `preprod` additionally deploys Convex only after all five checks, tree
+  equality with `main`, and the current preflight; a second preflight validates
+  the deployed candidate. Production runs only from a canonical Release Please
+  SemVer tag; diagnostics are scanned before their three-day upload.
 - Internal branches also receive a protected Vercel Preview. The deployment
   audit proves that `main` stays disabled, PR workflows receive no Vercel token,
   and only the public `VITE_CONVEX_URL` is configured for Preview.
