@@ -9,9 +9,12 @@ import {
   HardDrive,
   LoaderCircle,
   PenLine,
+  Plus,
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
+import { Field } from '@/components/ui/field'
 import { IconButton } from '@/components/ui/icon-button'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
@@ -27,10 +30,18 @@ import {
   type ProjectAvailability,
   type ProjectCatalogueEntry,
 } from '@/lib/sync'
-import { importPortableProject, openStoredProject, saveCurrentProject } from '@/lib/storage'
+import {
+  createStoredProject,
+  importPortableProject,
+  openStoredProject,
+  saveCurrentProject,
+} from '@/lib/storage'
+import { getStoreTargetProfile, STORE_TARGET_IDS } from '@/lib/dimensions'
+import { MAX_PROJECT_NAME_LENGTH } from '@/lib/project-validation'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
+import type { StoreTargetId } from '@/types'
 
 interface ProjectSwitcherProps {
   projectNameInputId: string
@@ -61,11 +72,17 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState('')
   const [catalogue, setCatalogue] = useState<ProjectCatalogueEntry[]>([])
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('Nouveau projet')
+  const [newTarget, setNewTarget] = useState<StoreTargetId>('app-store-iphone')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const currentProjectId = useProjectStore((state) => state.project?.id ?? null)
   const currentProjectName = useProjectStore((state) => state.project?.name ?? '')
+  const currentProjectTarget = useProjectStore(
+    (state) => state.project?.target ?? 'app-store-iphone',
+  )
   const current = catalogue.find((project) => project.id === currentProjectId)
   const needle = filter.trim().toLocaleLowerCase('fr-FR')
   const others = catalogue.filter(
@@ -155,6 +172,35 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
     }
   }
 
+  function startCreating() {
+    setOpen(false)
+    setNewName('Nouveau projet')
+    setNewTarget('app-store-iphone')
+    setCreating(true)
+  }
+
+  function closeCreating() {
+    setCreating(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  async function createProject() {
+    const name = newName.trim()
+    if (!name) return
+    setBusy(true)
+    try {
+      await createStoredProject(name, newTarget)
+      setCreating(false)
+      toast(`Projet « ${name} » créé.`, 'success')
+      requestAnimationFrame(() => triggerRef.current?.focus())
+    } catch (error) {
+      console.error('Could not create the project.', error)
+      toast('Création du projet impossible.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <IconButton
@@ -200,6 +246,9 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 title={currentProjectName}
               >
                 {currentProjectName}
+              </span>
+              <span className="shrink-0 text-2xs text-muted-foreground">
+                {getStoreTargetProfile(currentProjectTarget).label}
               </span>
               {current && <Availability value={current.availability} />}
             </div>
@@ -289,6 +338,9 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             <span className="block truncate text-sm text-foreground">
                               {project.name}
                             </span>
+                            <span className="block text-2xs text-muted-foreground">
+                              {getStoreTargetProfile(project.target).label}
+                            </span>
                             <span id={availabilityId}>
                               <Availability value={project.availability} />
                             </span>
@@ -316,6 +368,16 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               variant="ghost"
               className="w-full justify-start"
               disabled={busy}
+              onClick={startCreating}
+            >
+              <Plus size={13} strokeWidth={1.75} aria-hidden />
+              Nouveau projet…
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full justify-start"
+              disabled={busy}
               onClick={() => {
                 setOpen(false)
                 triggerRef.current?.focus()
@@ -328,6 +390,71 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           </footer>
         </div>
       </Popover>
+
+      <Dialog
+        open={creating}
+        onClose={closeCreating}
+        title="Nouveau projet"
+        size="sm"
+        footer={
+          <>
+            <Button variant="default" disabled={busy} onClick={closeCreating}>
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              loading={busy}
+              disabled={!newName.trim()}
+              onClick={() => void createProject()}
+            >
+              Créer
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void createProject()
+          }}
+        >
+          <Field label="Nom">
+            <Input
+              data-autofocus
+              font="sans"
+              value={newName}
+              maxLength={MAX_PROJECT_NAME_LENGTH}
+              aria-label="Nom du nouveau projet"
+              onChange={(event) => setNewName(event.target.value)}
+            />
+          </Field>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="field-label mb-1">Destination</legend>
+            {STORE_TARGET_IDS.map((target) => {
+              const profile = getStoreTargetProfile(target)
+              return (
+                <Button
+                  key={target}
+                  type="button"
+                  variant="default"
+                  aria-pressed={newTarget === target}
+                  className="h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
+                  onClick={() => setNewTarget(target)}
+                >
+                  <span className="flex flex-col items-start gap-0.5">
+                    <span>{profile.label}</span>
+                    <span className="text-2xs font-normal text-muted-foreground">
+                      {profile.output.portrait.width}×{profile.output.portrait.height} · portrait ·{' '}
+                      {profile.maxScreens} captures max.
+                    </span>
+                  </span>
+                </Button>
+              )
+            })}
+          </fieldset>
+        </form>
+      </Dialog>
 
       <input
         ref={fileRef}

@@ -12,6 +12,7 @@ import { NumberField } from '@/components/ui/number-field'
 import { Select } from '@/components/ui/select'
 import { SwatchButton } from '@/components/ui/swatch-button'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
 export function GlobalsEditor() {
@@ -25,9 +26,17 @@ export function GlobalsEditor() {
 function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
   const setShowGlobalsEditor = useUIStore((s) => s.setShowGlobalsEditor)
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
 
   const frame = getDeviceFrame(draft.deviceModel)
-  const modelOptions = frame.current ? CURRENT_DEVICE_FRAMES : [frame, ...CURRENT_DEVICE_FRAMES]
+  const compatibleModels = CURRENT_DEVICE_FRAMES.filter((candidate) =>
+    profile.deviceModels.includes(candidate.model),
+  )
+  const modelOptions =
+    frame.current && compatibleModels.includes(frame)
+      ? compatibleModels
+      : [frame, ...compatibleModels]
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))

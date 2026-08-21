@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: ajouter le setup, les cadres et les gabarits Android

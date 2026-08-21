@@ -508,6 +508,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     applyTemplate: (template, mode) => {
       const project = useProjectStore.getState().project
       if (!project) return null
+      if ((template.target ?? 'app-store-iphone') !== project.target) return null
       const layers = template.layers.map((layer, index) => ({
         ...structuredClone(layer),
         id: crypto.randomUUID(),

@@ -94,6 +94,7 @@ export function getCommands(): Command[] {
   }
   const hasSelection = () => canvas().selectedLayerIds.length > 0
   const activeScreenId = () => project().project?.activeScreenId ?? ''
+  const profile = getStoreTargetProfile(project().project?.target ?? APP_STORE_PROFILE.id)
 
   return [
     {
@@ -121,11 +122,11 @@ export function getCommands(): Command[] {
     },
     {
       id: 'add-device',
-      title: 'Ajouter un cadre iPhone',
+      title: 'Ajouter un cadre de téléphone',
       section: 'Calques',
-      keywords: ['iphone', 'device', 'mockup', 'cadre'],
+      keywords: [profile.platform === 'apple' ? 'iphone' : 'android', 'device', 'mockup', 'cadre'],
       run: () => {
-        const model = project().project?.globals.deviceModel ?? 'iphone-17-pro-max'
+        const model = project().project?.globals.deviceModel ?? profile.defaultDeviceModel
         canvas().addLayer(createDeviceLayer(model, layerCount(), board()))
       },
     },
@@ -230,7 +231,7 @@ export function getCommands(): Command[] {
     },
     {
       id: 'compose-campaign',
-      title: 'Générer les visuels App Store…',
+      title: 'Générer les visuels de la fiche…',
       section: 'Projet',
       keywords: ['ia', 'générer', 'plan', 'campagne', 'accroche', 'brief', 'visuel'],
       run: () => ui().setShowCampaignDialog(true),
@@ -242,13 +243,17 @@ export function getCommands(): Command[] {
       keywords: ['locale', 'traduction', 'langue', 'i18n', 'localisation'],
       run: () => ui().setShowLocaleDialog(true),
     },
-    {
-      id: 'publish',
-      title: 'Publier chez Apple…',
-      section: 'Projet',
-      keywords: ['asc', 'publier', 'app store', 'preflight', 'manifeste', 'upload'],
-      run: () => ui().setShowPublishDialog(true),
-    },
+    ...(profile.platform === 'apple'
+      ? [
+          {
+            id: 'publish',
+            title: 'Publier chez Apple…',
+            section: 'Projet' as const,
+            keywords: ['asc', 'publier', 'app store', 'preflight', 'manifeste', 'upload'],
+            run: () => ui().setShowPublishDialog(true),
+          },
+        ]
+      : []),
     {
       id: 'templates',
       title: 'Modèles de mise en page…',

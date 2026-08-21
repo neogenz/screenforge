@@ -186,6 +186,21 @@ describe('validation', () => {
     expect(isCustomTemplate({ ...template, source: 'humain' })).toBe(false)
   })
 
+  it('relit un ancien gabarit sans cible comme Apple et conserve une cible Android', () => {
+    const apple = templateFromScreen(screen([textLayer()]), { name: 'Ancien', source: 'user' })
+    delete (apple as { target?: string }).target
+    expect(isCustomTemplate(apple)).toBe(true)
+    expect(instantiateTemplate(apple).target).toBe('app-store-iphone')
+
+    const android = templateFromScreen(screen([]), {
+      name: 'Android',
+      source: 'user',
+      target: 'google-play-phone',
+    })
+    expect(isCustomTemplate(android)).toBe(true)
+    expect(instantiateTemplate(android).target).toBe('google-play-phone')
+  })
+
   it('ignore un enregistrement illisible sans perdre les autres', async () => {
     const good = templateFromScreen(screen([textLayer()]), { name: 'Bon', source: 'ai' })
     await writeCustomTemplate(good)

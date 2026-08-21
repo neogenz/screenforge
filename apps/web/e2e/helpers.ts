@@ -83,6 +83,7 @@ declare global {
         getState: () => {
           project: Project | null
           createProject: (name: string, target?: StoreTargetId) => void
+          addScreen: () => string | null
           addScreenLayer: (screenId: string, layer: Layer) => void
           updateScreenBackground: (
             screenId: string,
@@ -98,6 +99,7 @@ declare global {
         setState: (partial: { saveStatus?: SaveStatus; syncStatus?: SyncStatus }) => void
         getState: () => {
           syncStatus: SyncStatus
+          saveStatus: SaveStatus
           theme: Theme
           setZoom: (zoom: number) => void
           toggleTheme: () => void

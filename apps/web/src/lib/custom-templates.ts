@@ -1,8 +1,9 @@
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { getDB } from '@/lib/storage'
-import { DEFAULT_GLOBALS } from '@/stores/project.store'
+import { createDefaultGlobals } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
 
 /**
@@ -71,12 +72,15 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     return false
   }
 
+  const target =
+    record.target === undefined ? 'app-store-iphone' : getStoreTargetProfile(record.target)?.id
+  if (!target) return false
   return isProject({
     id: 'template',
     name: record.name,
-    target: record.target ?? 'app-store-iphone',
+    target,
     activeScreenId: 'screen',
-    globals: DEFAULT_GLOBALS,
+    globals: createDefaultGlobals(target),
     createdAt: record.createdAt,
     updatedAt: record.createdAt,
     layoutLayers: [],

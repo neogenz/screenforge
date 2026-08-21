@@ -444,6 +444,8 @@ function useToolActions(): SecondaryAction[] {
   const canUndo = useHistoryStore((s) => s.past.length > 0)
   const canRedo = useHistoryStore((s) => s.future.length > 0)
   const deviceModel = useProjectStore((s) => s.project?.globals.deviceModel)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
 
   function addLayer(create: (index: number) => Layer) {
     useCanvasStore
@@ -482,12 +484,12 @@ function useToolActions(): SecondaryAction[] {
     },
     {
       id: 'add-device',
-      label: 'Ajouter un cadre iPhone',
-      hint: 'Ajouter : cadre iPhone',
+      label: 'Ajouter un cadre de téléphone',
+      hint: 'Ajouter : cadre de téléphone',
       icon: <Smartphone size={16} strokeWidth={1.75} />,
       onSelect: () =>
         addLayer((index) =>
-          createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index, board()),
+          createDeviceLayer(deviceModel ?? profile.defaultDeviceModel, index, board()),
         ),
     },
     {
@@ -627,6 +629,8 @@ function useSecondaryActions(): SecondaryAction[] {
   const showMcpDialog = useUIStore((s) => s.showMcpDialog)
   const mcpStatus = useMcpStore((s) => s.status)
   const theme = useUIStore((s) => s.theme)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const isApple = getStoreTargetProfile(target).platform === 'apple'
 
   return [
     ...(plan ? [plan] : []),
@@ -649,7 +653,7 @@ function useSecondaryActions(): SecondaryAction[] {
     },
     {
       id: 'campaign',
-      label: 'Générer les visuels App Store',
+      label: 'Générer les visuels de la fiche',
       hint: 'Captures, brief et style vers des calques éditables',
       /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
          du marketing, et la génération n'est intelligente que si l'utilisateur
@@ -667,14 +671,18 @@ function useSecondaryActions(): SecondaryAction[] {
       expanded: showLocaleDialog,
       onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
     },
-    {
-      id: 'publish',
-      label: 'Publier chez Apple',
-      hint: 'Preflight, manifeste et commande asc',
-      icon: <CloudUpload size={16} strokeWidth={1.75} />,
-      expanded: showPublishDialog,
-      onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
-    },
+    ...(isApple
+      ? [
+          {
+            id: 'publish',
+            label: 'Publier chez Apple',
+            hint: 'Preflight, manifeste et commande asc',
+            icon: <CloudUpload size={16} strokeWidth={1.75} />,
+            expanded: showPublishDialog,
+            onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+          },
+        ]
+      : []),
     {
       id: 'mcp',
       label: 'Connexion MCP',
@@ -847,10 +855,12 @@ function ActionsSegment({
 function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void }) {
   const [open, setOpen] = useState(false)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
 
-  const models = [...CURRENT_DEVICE_FRAMES].sort(
-    (a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel),
-  )
+  const models = CURRENT_DEVICE_FRAMES.filter((frame) =>
+    profile.deviceModels.includes(frame.model),
+  ).sort((a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel))
 
   return (
     <Dropdown
@@ -858,8 +868,8 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       onOpenChange={setOpen}
       trigger={
         <IconButton
-          aria-label="Ajouter un cadre iPhone"
-          tooltip="Ajouter : cadre iPhone"
+          aria-label="Ajouter un cadre de téléphone"
+          tooltip="Ajouter : cadre de téléphone"
           active={open}
           aria-expanded={open}
         >
@@ -867,7 +877,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
         </IconButton>
       }
-      ariaLabel="Modèle d’iPhone"
+      ariaLabel="Modèle de téléphone"
       items={models.map((frame) => ({
         id: frame.model,
         label: frame.modelName,

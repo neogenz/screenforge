@@ -151,7 +151,7 @@ export function createDeviceLayer(
   return {
     id: crypto.randomUUID(),
     type: 'device-frame' as const,
-    name: 'iPhone',
+    name: config.platform === 'android' ? 'Téléphone Android' : 'iPhone',
     x: (board.width - width) / 2,
     y: board.height - height - 120,
     width,
