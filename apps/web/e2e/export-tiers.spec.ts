@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { decode } from 'fast-png'
 import JSZip from 'jszip'
-import { addDeviceLayer, readDownload, waitForApp } from './helpers'
+import { addDeviceLayer, openAndroidProject, readDownload, waitForApp } from './helpers'
 
 async function exportLocalZip(page: Page): Promise<JSZip> {
   await page.getByLabel('Ouvrir l’export').click()
@@ -47,5 +47,20 @@ test.describe('Local gratuit à l’export', () => {
     expect(remoteRequests.filter((url) => /convex|entitlements|\/me(?:\?|$)/i.test(url))).toEqual(
       [],
     )
+  })
+
+  test('exporte aussi Google Play en Local sans compte', async ({ page }) => {
+    await waitForApp(page)
+    await openAndroidProject(page)
+    const zip = await exportLocalZip(page)
+    const entry = Object.values(zip.files).find((file) => !file.dir)
+    expect(entry?.name).toMatch(/^phone\//)
+    const png = decode(await entry!.async('uint8array'))
+    expect({
+      width: png.width,
+      height: png.height,
+      depth: png.depth,
+      channels: png.channels,
+    }).toEqual({ width: 1080, height: 1920, depth: 8, channels: 3 })
   })
 })

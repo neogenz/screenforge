@@ -29,6 +29,7 @@ import {
 import { MAX_PROJECT_RELEASES, MAX_RELEASE_NAME_LENGTH } from '@/lib/project-validation'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import { saveCurrentProject } from '@/lib/storage'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogColumns } from '@/components/ui/dialog'
@@ -70,6 +71,8 @@ function formatDate(timestamp: number): string {
 }
 
 function ReleaseDialogContent({ project }: { project: Project }) {
+  const profile = getStoreTargetProfile(project.target)
+  const isApple = profile.platform === 'apple'
   const close = () => useUIStore.getState().setShowReleaseDialog(false)
   const releases = project.releases ?? []
   const [name, setName] = useState('')
@@ -116,8 +119,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
     setError(null)
     setChecks(null)
     const locale = (project.locales ?? []).find((entry) => entry.code === localeCode)
-    /* Un lot ne se fige pas sur une langue qui déborde : ce qui est figé finit
-       chez Apple, et une accroche hors cadre y arrive telle quelle. */
+    /* Un lot ne se fige pas sur une langue qui déborde : une accroche hors
+       cadre arriverait telle quelle dans la fiche de la boutique. */
     if (locale && localeBlocked(reviewLocale(project, locale))) {
       setError(`« ${locale.name} » a des textes à corriger : figez-la depuis « Langues ».`)
       return
@@ -213,7 +216,11 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           {releases.length}/{MAX_PROJECT_RELEASES}
         </span>
       }
-      footerNote="Un lot figé ne change plus : c’est lui que « Publier chez Apple » envoie, et lui que « Reprendre » ramène."
+      footerNote={
+        isApple
+          ? 'Un lot figé ne change plus : c’est lui que « Publier chez Apple » envoie, et lui que « Reprendre » ramène.'
+          : 'Un lot figé ne change plus : c’est lui que l’export reproduit, et lui que « Reprendre » ramène.'
+      }
       footer={
         <Button variant="default" onClick={close} disabled={busy}>
           Fermer
@@ -328,7 +335,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         {!selected ? (
           <div className="flex flex-col gap-3">
             <h3 className="section-title">À quoi sert de figer un lot</h3>
-            <FreezeReasons />
+            <FreezeReasons isApple={isApple} />
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -352,7 +359,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 À quoi sert de figer un lot
               </summary>
               <div className="mt-3">
-                <FreezeReasons />
+                <FreezeReasons isApple={isApple} />
               </div>
             </details>
 
@@ -426,8 +433,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
             <p className="text-2xs text-muted-foreground">
               «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} planches de ce lot et
               recompare leurs empreintes : c’est ce qui dit si une police disparue ou un cadre
-              d’appareil remplacé l’a changé depuis. Publier refait ce contrôle et refuse un lot qui
-              a dérivé — vérifier sert à l’apprendre avant.
+              d’appareil remplacé l’a changé depuis. L’utiliser refait ce contrôle et refuse un lot
+              qui a dérivé — vérifier sert à l’apprendre avant.
             </p>
 
             {checks && checks.releaseId === selected.id && (
@@ -471,19 +478,20 @@ function VerdictIcon({ verdict }: { verdict: Verdict }) {
  * publier consomme une release, ni qu'on peut y revenir. Les quatre lignes sont
  * les quatre choses qu'une release permet, dans l'ordre où on les rencontre.
  */
-function FreezeReasons() {
+function FreezeReasons({ isApple }: { isApple: boolean }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-2xs text-muted-foreground">
-        Un projet bouge tous les jours ; une livraison App Store, non. Une release est la photo
+        Un projet bouge tous les jours ; une livraison en boutique, non. Une release est la photo
         datée de ce que vous avez décidé de livrer — le projet continue de vivre à côté, sans jamais
         la modifier.
       </p>
       <ul className="flex flex-col gap-2">
         <ReasonLine>
-          <strong className="text-foreground">Publier ce que vous avez relu.</strong> «&nbsp;Publier
-          chez Apple&nbsp;» part d’une release, jamais du projet vivant : ce qui monte est ce que
-          vous avez vu, même si vous avez déplacé un titre entre-temps.
+          <strong className="text-foreground">Livrer ce que vous avez relu.</strong>{' '}
+          {isApple ? '« Publier chez Apple »' : 'L’export Google Play'} part d’une release, jamais
+          du projet vivant : le lot reste celui que vous avez vu, même si vous avez déplacé un titre
+          entre-temps.
         </ReasonLine>
         <ReasonLine>
           <strong className="text-foreground">Vérifier plus tard qu’il tient.</strong> Le lot est

@@ -1,7 +1,7 @@
 /**
  * Visuels de la landing : des captures réelles du produit, jamais des mockups.
  *
- * Peuple un projet dans l'app (cadre iPhone + titre + dégradés), décline la
+ * Peuple un projet dans l'app (cadre de téléphone + titre + dégradés), décline la
  * planche sur quatre écrans, puis capture trois états : la scène (hero),
  * l'éditeur avec le panneau Calques (feature) et le dialogue d'export. Une
  * quatrième capture 1200×630 sert d'image Open Graph.
@@ -67,8 +67,8 @@ await page.reload()
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
-// Un écran soigné : cadre iPhone + titre, sur un dégradé.
-await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+// Un écran soigné : cadre de téléphone + titre, sur un dégradé.
+await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(600)
 await page.click('button[aria-label="Ajouter Texte"]')

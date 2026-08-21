@@ -1,8 +1,6 @@
 import { Rect, StaticCanvas } from 'fabric'
 import { encode as encodePng } from 'fast-png'
 import {
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
   backgroundToFabricFill,
   disposeFabricObjectResource,
   layerToFabricObject,
@@ -117,8 +115,8 @@ async function convertCanvasPngToOpaqueRgb(
  * La scène rendue, avant tout contrat de sortie.
  *
  * Séparée d'`exportScreenToBlob` parce que deux besoins la partagent et qu'un
- * seul porte le contrat App Store : l'export officiel enchaîne dessus la
- * conversion en RGB opaque et `assertAppStorePng`, l'aperçu que le MCP rend à
+ * seul porte le contrat de sortie : l'export officiel enchaîne dessus la
+ * conversion en RGB opaque et `assertExportPng`, l'aperçu que le MCP rend à
  * l'agent n'en a que faire — il veut voir la composition, pas la valider chez
  * Apple. Recopier ce montage aurait fait deux moteurs de rendu, et le second
  * aurait fini par ne plus montrer ce que le premier exporte.
@@ -180,18 +178,19 @@ export async function exportScreenToBlob(
   targetWidth: number,
   targetHeight: number,
   screenIndex = 0,
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): Promise<Blob> {
-  const scaleX = targetWidth / SCREEN_WIDTH
-  const scaleY = targetHeight / SCREEN_HEIGHT
+  const scaleX = targetWidth / board.width
+  const scaleY = targetHeight / board.height
   if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
     throw new Error(
       `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
     )
   }
 
-  const browserPng = await renderScreenToBlob(screen, layoutLayers, scaleX, screenIndex)
+  const browserPng = await renderScreenToBlob(screen, layoutLayers, scaleX, screenIndex, board)
   const blob = await convertCanvasPngToOpaqueRgb(browserPng, targetWidth, targetHeight)
-  assertAppStorePng(await inspectPng(blob), targetWidth, targetHeight)
+  assertExportPng(await inspectPng(blob), targetWidth, targetHeight)
   return blob
 }
 
@@ -213,7 +212,7 @@ export async function inspectPng(blob: Blob): Promise<PngMetadata> {
   }
 }
 
-export function assertAppStorePng(
+export function assertExportPng(
   metadata: PngMetadata,
   expectedWidth: number,
   expectedHeight: number,

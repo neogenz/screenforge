@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addTextLayer, transformInput, waitForApp } from './helpers'
+import { addTextLayer, openAndroidProject, transformInput, waitForApp } from './helpers'
 
 /**
  * Le lot livré : figé, vérifiable, et indifférent à ce que le projet devient.
@@ -13,7 +13,7 @@ interface ReleaseState {
   id: string
   name: string
   files: { path: string; sha256: string }[]
-  snapshot: unknown
+  snapshot: { target?: string }
 }
 
 async function releases(page: Page): Promise<ReleaseState[]> {
@@ -70,6 +70,24 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
 
   // Rejouée après la modification, la release se vérifie toujours : c'est son
   // instantané qui est rendu, jamais le projet d'aujourd'hui.
+  await page.getByRole('button', { name: 'Vérifier' }).click()
+  await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
+})
+
+test('fige et rejoue une release Google Play avec son profil', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  await openReleaseDialog(page)
+  await page.getByLabel('Nom du lot').fill('android-1')
+  await page.getByRole('button', { name: 'Figer une release' }).click()
+
+  await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
+  const frozen = (await releases(page))[0]
+  expect(frozen.snapshot.target).toBe('google-play-phone')
+  expect(frozen.files).toHaveLength(1)
+  expect(frozen.files[0].path).toMatch(/^phone\/01_/)
+  expect(frozen.files[0]).toMatchObject({ width: 1080, height: 1920 })
+
   await page.getByRole('button', { name: 'Vérifier' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })

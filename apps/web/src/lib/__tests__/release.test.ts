@@ -5,6 +5,7 @@ import {
   diffSnapshots,
   freezeRelease,
   removeRelease,
+  restoreRelease,
   snapshotOf,
 } from '@/lib/release'
 import { isProject, MAX_PROJECT_RELEASES } from '@/lib/project-validation'
@@ -113,6 +114,21 @@ describe('l’instantané', () => {
     const snapshot = snapshotOf(source)
     ;(source.screens[0].layers[0] as TextLayer).content = 'Après'
     expect((snapshot.screens[0].layers[0] as TextLayer).content).toBe('Avant')
+  })
+
+  it('restaure aussi la cible figée', () => {
+    const android = project()
+    android.target = 'google-play-phone'
+    android.globals.deviceModel = 'android-phone'
+    android.globals.deviceColor = 'black'
+    const release = freezeRelease('android', 'Android', snapshotOf(android), [], 1)
+    useProjectStore.setState({ project: project() })
+
+    expect(restoreRelease(release)).toMatchObject({ committed: true })
+    expect(useProjectStore.getState().project).toMatchObject({
+      target: 'google-play-phone',
+      globals: { deviceModel: 'android-phone', deviceColor: 'black' },
+    })
   })
 })
 

@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { addTextLayer, waitForApp } from './helpers'
+import { addTextLayer, openAndroidProject, waitForApp } from './helpers'
 
 /**
  * La publication, et l'ordre qu'elle ne peut pas inverser.
@@ -161,4 +161,21 @@ test('un lot filigrané ne se publie pas', async ({ page }) => {
 
   await expect(dialog.getByRole('alert').filter({ hasText: /filigrane/ })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Préparer le lot' })).toBeDisabled()
+})
+
+test('un projet Google Play ne propose ni n’exécute la publication Apple', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  await expect(page.getByRole('button', { name: 'Publier chez Apple' })).toHaveCount(0)
+
+  await page.evaluate(() => {
+    ;(
+      window.__sfStores?.useUIStore.setState as unknown as (
+        partial: Record<string, unknown>,
+      ) => void
+    )({ showPublishDialog: true })
+  })
+  const dialog = publishDialog(page)
+  await expect(dialog.getByRole('alert')).toContainText('réservée aux projets App Store')
+  await expect(dialog.getByRole('button', { name: 'Préparer le lot' })).toHaveCount(0)
 })

@@ -283,7 +283,7 @@ export interface ProjectSnapshot {
 }
 
 export interface ReleaseFile {
-  /** `6.9/01_onboarding.png` — la place du fichier dans le lot. */
+  /** `6.9/01_onboarding.png` ou `phone/01_onboarding.png`. */
   path: string
   screenId: string
   width: number
@@ -325,7 +325,7 @@ export interface Release {
 
 export interface ExportConfig {
   screenIds: string[]
-  dimensions: DisplayClass[]
+  target: StoreTargetId
   format: 'png'
 }
 

@@ -177,7 +177,7 @@ export async function addShapeLayer(page: Page): Promise<void> {
 }
 
 export async function addDeviceLayer(page: Page): Promise<void> {
-  await page.locator('button[aria-label="Ajouter un cadre iPhone"]').click()
+  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
   const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
   await expect(model).toBeVisible()
   await model.click()

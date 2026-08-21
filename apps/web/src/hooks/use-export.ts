@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
-import type { DisplayClass, Layer, Screen } from '@/types'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import type { Layer, Screen, StoreTargetId } from '@/types'
 
 interface ExportProgress {
   current: number
@@ -33,7 +34,6 @@ interface ExportJob {
   screen: Screen
   screenIndex: number
   index: number
-  dimension: DisplayClass
 }
 
 /** Never release export UI while another Fabric worker is still active. */
@@ -54,22 +54,20 @@ export function useExport() {
   const exportBatch = useCallback(
     async (
       projectName: string,
+      target: StoreTargetId,
       screens: ExportScreen[],
       layoutLayers: Layer[],
-      dimensions: DisplayClass[],
     ) => {
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
 
-      const jobs: ExportJob[] = dimensions.flatMap((dimension) =>
-        screens.map(({ screen, screenIndex }, index) => ({
-          screen,
-          screenIndex,
-          index,
-          dimension,
-        })),
-      )
+      const profile = getStoreTargetProfile(target)
+      const jobs: ExportJob[] = screens.map(({ screen, screenIndex }, index) => ({
+        screen,
+        screenIndex,
+        index,
+      }))
       const total = jobs.length
       const entries: ExportEntry[] = []
       const summaries: ExportedFileSummary[] = []
@@ -90,19 +88,19 @@ export function useExport() {
             blob = await exportScreenToBlob(
               job.screen,
               layoutLayers,
-              job.dimension.portrait.width,
-              job.dimension.portrait.height,
+              profile.output.portrait.width,
+              profile.output.portrait.height,
               job.screenIndex,
+              profile.board,
             )
           } catch (cause) {
             throw new Error(`${job.screen.name} : ${errorMessage(cause)}`)
           }
 
           const name = slugify(job.screen.name)
-          const dimensionName = job.dimension.size.replace('"', '')
-          const path = `${dimensionName}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
+          const path = `${profile.zipFolder}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
           const metadata = await inspectPng(blob)
-          entries.push({ dimension: dimensionName, index: job.index + 1, name, blob })
+          entries.push({ folder: profile.zipFolder, index: job.index + 1, name, blob })
           summaries.push({ path, size: metadata.byteLength })
           completed += 1
           setProgress({ current: completed, total, label: `${completed}/${total} rendus` })
@@ -120,11 +118,14 @@ export function useExport() {
           label: 'Validation et création du ZIP',
         })
         // Parallel workers finish out of order — restore a deterministic order.
-        entries.sort((a, b) => a.dimension.localeCompare(b.dimension) || a.index - b.index)
+        entries.sort((a, b) => a.folder.localeCompare(b.folder) || a.index - b.index)
         summaries.sort((a, b) => a.path.localeCompare(b.path))
 
         const zipBlob = await createExportZip(entries)
-        downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
+        downloadBlob(
+          zipBlob,
+          `${slugify(projectName)}-${profile.platform === 'android' ? 'google-play' : 'app-store'}.zip`,
+        )
         setCompletedFiles(summaries)
       } catch (cause) {
         setError(errorMessage(cause))

@@ -86,15 +86,3 @@ export function getStoreTargetProfile(target: unknown): StoreTargetProfile | und
 export function deviceModelSupportsTarget(model: DeviceModelId, target: StoreTargetId): boolean {
   return STORE_TARGET_PROFILES[target].deviceModels.includes(model)
 }
-
-/** Compatibility aliases used by the export UI until the export phase. */
-export const PRIMARY_DIMENSION = APP_STORE_TARGET
-export const DISPLAY_CLASSES: Record<string, DisplayClass> = {
-  [APP_STORE_TARGET.size]: APP_STORE_TARGET,
-  [GOOGLE_PLAY_TARGET.size]: GOOGLE_PLAY_TARGET,
-}
-export const EXPORT_DIMENSIONS = [APP_STORE_TARGET, GOOGLE_PLAY_TARGET]
-
-export function getDisplayClass(size: string): DisplayClass | undefined {
-  return DISPLAY_CLASSES[size]
-}

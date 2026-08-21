@@ -131,7 +131,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
 
   // 3) Le rôle et le cadrage, posés une fois pour toutes les releases à venir.
   await addScreen(page)
-  await page.locator('button[aria-label="Ajouter un cadre iPhone"]').click()
+  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
   await page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ }).click()
   const role = page.getByLabel('Rôle de l’écran dans la campagne')
   await role.fill('reglages')

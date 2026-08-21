@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useExport } from '@/hooks/use-export'
-import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -26,6 +26,7 @@ function ExportDialogGate() {
 }
 
 function ExportDialogContent({ project }: { project: Project }) {
+  const profile = getStoreTargetProfile(project.target)
   const showExportDialog = useUIStore((state) => state.showExportDialog)
   const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
@@ -95,9 +96,9 @@ function ExportDialogContent({ project }: { project: Project }) {
     try {
       await exportBatch(
         localeCode ? `${project.name}-${localeCode}` : project.name,
+        project.target,
         selectedScreens,
         exportedLayoutLayers,
-        EXPORT_DIMENSIONS,
       )
       /* Le téléchargement part en silence : le bouton qui vient de produire le
          lot le confirme une seconde, puis redevient une proposition. */
@@ -105,7 +106,15 @@ function ExportDialogContent({ project }: { project: Project }) {
     } catch {
       // `useExport` exposes the actionable rendering error in this dialog.
     }
-  }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
+  }, [
+    exportBatch,
+    exportedLayoutLayers,
+    localeCode,
+    localeRefused,
+    project.name,
+    project.target,
+    selectedScreens,
+  ])
 
   return (
     <Dialog
@@ -114,7 +123,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       title="Export officiel"
       size="lg"
       flush
-      headerActions={<span className="field-label px-1">App Store</span>}
+      headerActions={<span className="field-label px-1">{profile.label}</span>}
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
@@ -150,11 +159,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             <>
               <div className="surface-inner p-4">
                 <span className="field-label">Profil</span>
-                <p className="mt-1.5 text-sm font-medium text-foreground">
-                  iPhone {PRIMARY_DIMENSION.size}
-                </p>
+                <p className="mt-1.5 text-sm font-medium text-foreground">{profile.output.name}</p>
                 <p className="tabular mt-1 text-sm text-muted-foreground">
-                  {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
+                  {profile.output.portrait.width}×{profile.output.portrait.height} px
                 </p>
                 <div className="hairline my-3" />
                 <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
@@ -178,8 +185,15 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <p className="text-2xs text-muted-foreground">
                   fichier{selectedScreens.length > 1 ? 's' : ''}
                   {' sous '}
-                  <span className="font-mono">6.9/</span>
+                  <span className="font-mono">{profile.zipFolder}/</span>
                 </p>
+                {profile.platform === 'android' && selectedScreens.length < 4 && (
+                  <p className="mt-2 text-2xs text-warning">
+                    {selectedScreens.length < 2
+                      ? 'Google Play demande au moins 2 captures pour publier la fiche.'
+                      : '4 captures portrait 9:16 sont recommandées pour la promotion.'}
+                  </p>
+                )}
               </div>
 
               <div className="surface-inner p-4">
