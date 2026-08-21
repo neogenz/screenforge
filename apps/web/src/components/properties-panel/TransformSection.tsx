@@ -3,6 +3,8 @@ import { CornerUpLeft, Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import { useProjectStore } from '@/stores/project.store'
 import { Button } from '@/components/ui/button'
 import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
@@ -117,10 +119,12 @@ export function TransformSection({ layer }: TransformSectionProps) {
    * fantôme depuis la scène vide. Le panneau garde cette issue directe pour un
    * calque parti hors du champ ou difficile à viser.
    */
-  const outOfReach = layerOutOfReach(layer)
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const board = getStoreTargetProfile(target).board
+  const outOfReach = layerOutOfReach(layer, board)
 
   function bringBack() {
-    update(clampLayerToBoard(layer))
+    update(clampLayerToBoard(layer, board))
   }
 
   return (

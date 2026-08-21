@@ -45,7 +45,10 @@ function stubFontFaces() {
   } as unknown as Document)
 }
 
-const project = { screens: [{ id: 'screen-1' } as Screen] } as Project
+const project = {
+  target: 'app-store-iphone',
+  screens: [{ id: 'screen-1' } as Screen],
+} as Project
 
 async function installed(objects: RenderedObject[]) {
   stubFontFaces()
@@ -77,7 +80,7 @@ describe('installFonts', () => {
     for (const box of boxes) expect(box.initDimensions).toHaveBeenCalledTimes(1)
     expect(shape.setCoords).not.toHaveBeenCalled()
     expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
-    expect(generateThumbnails).toHaveBeenCalledWith(project.screens)
+    expect(generateThumbnails).toHaveBeenCalledWith(project.screens, { width: 440, height: 956 })
   })
 
   it('réenroule aussi les boîtes des autres familles, car le cache est purgé par famille', async () => {

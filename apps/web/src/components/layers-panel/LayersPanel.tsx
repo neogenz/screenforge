@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { Layer } from '@/types'
 
 type LayerRow = { layer: Layer; ghost: boolean }
@@ -23,6 +24,7 @@ export function LayersPanel() {
   const activeScreenId = useProjectStore((state) => state.project?.activeScreenId)
   const selectedLayerIds = useCanvasStore((state) => state.selectedLayerIds)
   const defaultDeviceModel = useProjectStore((state) => state.project?.globals.deviceModel)
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
 
   const [query, setQuery] = useState('')
   const dragSourceId = useRef<string | null>(null)
@@ -196,8 +198,10 @@ export function LayersPanel() {
     if (!defaultDeviceModel) return
     const { addLayer } = useCanvasStore.getState()
     const layers = getProjectLayers(useProjectStore.getState().project)
-    addLayer(createDeviceLayer(defaultDeviceModel, layers.length))
-  }, [defaultDeviceModel])
+    addLayer(
+      createDeviceLayer(defaultDeviceModel, layers.length, getStoreTargetProfile(target).board),
+    )
+  }, [defaultDeviceModel, target])
 
   return (
     // `max-h-full` sans `h-full` : l'îlot s'arrête sous sa dernière ligne et ne

@@ -1,4 +1,5 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH, transformText } from '@/lib/canvas/canvas-utils'
+import { transformText } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import {
@@ -247,6 +248,7 @@ export function reviewLocale(
   measure: TextMeasure = measureWithCanvas,
 ): LocaleFinding[] {
   const findings: LocaleFinding[] = []
+  const board = getStoreTargetProfile(project.target).board
   /* Les calques partagés en font partie. Ils sont semés dans la variante, tenus
      dans la boîte, substitués à l'export — et la revue ne descendait que dans
      les écrans, donc un titre partagé pouvait déborder sur les dix planches
@@ -292,8 +294,8 @@ export function reviewLocale(
       if (
         layer.x < 0 ||
         layer.y < 0 ||
-        layer.x + layer.width > SCREEN_WIDTH ||
-        bottom > SCREEN_HEIGHT
+        layer.x + layer.width > board.width ||
+        bottom > board.height
       ) {
         findings.push({ ...at, kind: 'off-canvas', detail: 'Le bloc sort du cadre de l’écran.' })
       }

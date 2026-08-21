@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: rendre la géométrie de planche dépendante de la cible

@@ -13,13 +13,14 @@ import { Provider as TooltipProvider } from '@radix-ui/react-tooltip'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
-import { DUAL_DRAWER_MIN_WIDTH, FILMSTRIP_CENTERED_MIN_WIDTH } from '@/lib/stage'
+import { DUAL_DRAWER_MIN_WIDTH, filmstripMetrics } from '@/lib/stage'
 import { loadLatestProject, initAutoSave } from '@/lib/storage'
 import { initSync } from '@/lib/sync'
 import { resumeMcp } from '@/lib/mcp/client'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
@@ -99,8 +100,11 @@ export default function App() {
   useKeyboard()
 
   const theme = useUIStore((s) => s.theme)
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
   const exclusiveDrawers = useMediaQuery(belowWidth(DUAL_DRAWER_MIN_WIDTH))
-  const filmstripCentered = !useMediaQuery(belowWidth(FILMSTRIP_CENTERED_MIN_WIDTH))
+  const filmstripCentered = !useMediaQuery(
+    belowWidth(filmstripMetrics(getStoreTargetProfile(target).board).centeredMinWidth),
+  )
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -219,9 +223,11 @@ export default function App() {
     event.target.value = ''
     if (!file) return
     const { addLayer } = useCanvasStore.getState()
+    const project = useProjectStore.getState().project
     const result = await createImageLayerFromFile(
       file,
-      getProjectLayers(useProjectStore.getState().project).length,
+      getProjectLayers(project).length,
+      project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board,
     )
     if (result.ok) addLayer(result.layer)
     else toast(result.error, 'error')

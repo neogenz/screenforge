@@ -8,6 +8,7 @@ import {
 } from '@/lib/layer-factories'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
 import { normalizeSlot } from '@/lib/slots'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { setRangeFill } from '@/lib/text-styles'
 import {
   AI_LIMITS,
@@ -128,6 +129,7 @@ export function applyToolCalls(
   calls: readonly ToolCall[],
   context: ToolContext = {},
 ): ExecutionOutcome {
+  const profile = getStoreTargetProfile(draft.target)
   const results: ToolResult[] = []
   if (calls.length > AI_LIMITS.maxCalls) {
     return { results, error: `Trop d’opérations : ${AI_LIMITS.maxCalls} au plus` }
@@ -166,8 +168,8 @@ export function applyToolCalls(
 
       case 'add_screen': {
         if (context.screenId) return { results, error: 'Édition limitée à l’écran sélectionné' }
-        if (draft.screens.length >= AI_LIMITS.maxScreens) {
-          return { results, error: `Campagne pleine : ${AI_LIMITS.maxScreens} écrans au plus` }
+        if (draft.screens.length >= profile.maxScreens) {
+          return { results, error: `Campagne pleine : ${profile.maxScreens} écrans au plus` }
         }
         const name =
           typeof args.name === 'string' && args.name.trim()
@@ -191,7 +193,7 @@ export function applyToolCalls(
       case 'add_text': {
         const screen = targetScreen(args)
         if (typeof screen === 'string') return { results, error: screen }
-        const layer = createTextLayer(0)
+        const layer = createTextLayer(0, profile.board)
         layer.content = args.content as string
         if (typeof args.fontFamily === 'string') layer.fontFamily = args.fontFamily
         if (typeof args.fontSize === 'number') layer.fontSize = args.fontSize
@@ -213,7 +215,7 @@ export function applyToolCalls(
       case 'add_shape': {
         const screen = targetScreen(args)
         if (typeof screen === 'string') return { results, error: screen }
-        const layer = createShapeLayer(0, args.shapeType as never)
+        const layer = createShapeLayer(0, args.shapeType as never, profile.board)
         if (typeof args.fill === 'string') layer.fill = args.fill
         const failure = push(screen, place(layer, args), call.tool)
         if (failure) return { results, error: failure }
@@ -223,7 +225,7 @@ export function applyToolCalls(
       case 'add_icon': {
         const screen = targetScreen(args)
         if (typeof screen === 'string') return { results, error: screen }
-        const layer = createIconLayer(0, args.iconId as never)
+        const layer = createIconLayer(0, args.iconId as never, profile.board)
         if (typeof args.color === 'string') layer.color = args.color
         if (typeof args.strokeWidth === 'number') layer.strokeWidth = args.strokeWidth
         const failure = push(screen, place(layer, args), call.tool)
@@ -235,7 +237,7 @@ export function applyToolCalls(
         const screen = targetScreen(args)
         if (typeof screen === 'string') return { results, error: screen }
         const model = (args.deviceModel as DeviceModel | undefined) ?? draft.globals.deviceModel
-        const layer = createDeviceLayer(model, 0)
+        const layer = createDeviceLayer(model, 0, profile.board)
         if (typeof args.slot === 'string') {
           const slot = normalizeSlot(args.slot)
           if (!slot) return { results, error: `Rôle inutilisable : ${args.slot}` }

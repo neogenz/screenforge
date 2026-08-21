@@ -24,7 +24,6 @@ import {
   THUMBNAIL_LABEL_GAP,
   THUMBNAIL_LABEL_HEIGHT,
   THUMBNAIL_LABEL_ROW,
-  THUMBNAIL_WIDTH,
 } from '@/lib/stage'
 import type { Screen } from '@/types'
 
@@ -50,6 +49,7 @@ async function saveAsTemplate(screen: Screen): Promise<void> {
 
 interface ScreenThumbnailProps {
   screen: Screen
+  width: number
   isActive: boolean
   isSelected: boolean
   /** Combien d'écrans les actions de cette tuile toucheront — 1 hors sélection multiple. */
@@ -75,6 +75,7 @@ function grouped(label: string, size: number): string {
 
 export const ScreenThumbnail = memo(function ScreenThumbnail({
   screen,
+  width,
   isActive,
   isSelected,
   groupSize,
@@ -136,7 +137,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
     <div
       // Largeur imposée par la vignette, et non par le libellé : c'est en
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
-      style={{ width: THUMBNAIL_WIDTH }}
+      style={{ width }}
       onAnimationEnd={(event) => {
         if (event.target === event.currentTarget) setEntered(true)
       }}

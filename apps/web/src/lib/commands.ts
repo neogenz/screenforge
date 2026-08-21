@@ -12,6 +12,7 @@ import {
   createTextLayer,
 } from '@/lib/layer-factories'
 import type { AlignMode, DistributeMode } from '@/lib/align'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 
 export interface Command {
   id: string
@@ -87,6 +88,10 @@ export function getCommands(): Command[] {
   const history = useHistoryStore.getState
 
   const layerCount = () => getProjectLayers(project().project).length
+  const board = () => {
+    const current = project().project
+    return current ? getStoreTargetProfile(current.target).board : APP_STORE_PROFILE.board
+  }
   const hasSelection = () => canvas().selectedLayerIds.length > 0
   const activeScreenId = () => project().project?.activeScreenId ?? ''
 
@@ -97,7 +102,7 @@ export function getCommands(): Command[] {
       section: 'Calques',
       keywords: ['texte', 'titre', 'typo'],
       shortcut: 'T',
-      run: () => canvas().addLayer(createTextLayer(layerCount())),
+      run: () => canvas().addLayer(createTextLayer(layerCount(), board())),
     },
     {
       id: 'add-shape',
@@ -105,14 +110,14 @@ export function getCommands(): Command[] {
       section: 'Calques',
       keywords: ['rectangle', 'forme', 'cercle'],
       shortcut: 'R',
-      run: () => canvas().addLayer(createShapeLayer(layerCount())),
+      run: () => canvas().addLayer(createShapeLayer(layerCount(), 'rectangle', board())),
     },
     {
       id: 'add-icon',
       title: 'Ajouter une icône',
       section: 'Calques',
       keywords: ['icone', 'icône', 'pictogramme', 'symbole'],
-      run: () => canvas().addLayer(createIconLayer(layerCount())),
+      run: () => canvas().addLayer(createIconLayer(layerCount(), undefined, board())),
     },
     {
       id: 'add-device',
@@ -121,7 +126,7 @@ export function getCommands(): Command[] {
       keywords: ['iphone', 'device', 'mockup', 'cadre'],
       run: () => {
         const model = project().project?.globals.deviceModel ?? 'iphone-17-pro-max'
-        canvas().addLayer(createDeviceLayer(model, layerCount()))
+        canvas().addLayer(createDeviceLayer(model, layerCount(), board()))
       },
     },
     {

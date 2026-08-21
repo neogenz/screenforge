@@ -7,6 +7,7 @@ import {
   disposeFabricObjectResource,
   getScreenOffset,
   getTotalWidth,
+  type BoardSize,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
 import {
@@ -48,8 +49,8 @@ export function useCanvas() {
   const pendingPatch = useRef<PatchJob | 'full' | null>(null)
   const [selectionFrame, setSelectionFrame] = useState<SelectionFrame | null>(null)
 
-  const generateThumbnails = useCallback((screens: Screen[]) => {
-    thumbnails.current?.schedule(screens)
+  const generateThumbnails = useCallback((screens: Screen[], board: BoardSize) => {
+    thumbnails.current?.schedule(screens, board)
   }, [])
 
   const getLayerIdAtPoint = useCallback((event: MouseEvent): string | null => {
@@ -282,9 +283,11 @@ export function useCanvas() {
           void drainPatches({ project: state.project, change })
           return
         }
-        const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
+        const geometryChanged =
+          state.project.screens.length !== previous.project?.screens.length ||
+          state.project.target !== previous.project?.target
         void sync(state.project).then(() => {
-          if (screenCountChanged) viewport.current?.fitAll()
+          if (geometryChanged) viewport.current?.fitAll()
         })
       }),
     [sync, drainPatches],

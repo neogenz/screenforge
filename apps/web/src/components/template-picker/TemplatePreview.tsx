@@ -1,11 +1,8 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { ICON_BOX, ICON_STROKE, iconEntry, shapeEntry, SHAPE_BOX } from '@/lib/vector-catalog'
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
-
-const WIDTH = SCREEN_WIDTH
-const HEIGHT = SCREEN_HEIGHT
 
 interface TemplatePreviewProps {
   template: TemplateDefinition
@@ -20,12 +17,13 @@ interface TemplatePreviewProps {
 }
 
 export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
+  const { width, height } = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
   const backgroundId = `${template.id}-background`
   const sortedLayers = [...template.layers].sort((first, second) => first.zIndex - second.zIndex)
 
   return (
     <svg
-      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      viewBox={`0 0 ${width} ${height}`}
       className="block h-full w-full"
       role="img"
       aria-label={`Aperçu du modèle ${template.name}`}
@@ -36,7 +34,7 @@ export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
             texte plus large que la planche déborde sur la vignette et l'aperçu
             passe pour cassé. */}
         <clipPath id={`${template.id}-clip`}>
-          <rect width={WIDTH} height={HEIGHT} />
+          <rect width={width} height={height} />
         </clipPath>
         {gradientDefinition(backgroundId, backgroundGradient(template.background))}
         {sortedLayers.map((layer) =>
@@ -47,12 +45,18 @@ export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
       </defs>
       <g clipPath={`url(#${template.id}-clip)`}>
         <rect
-          width={WIDTH}
-          height={HEIGHT}
+          width={width}
+          height={height}
           fill={paintForBackground(template.background, backgroundId)}
         />
         {sortedLayers.map((layer) => (
-          <TemplateLayer key={layer.id} templateId={template.id} layer={layer} assets={assets} />
+          <TemplateLayer
+            key={layer.id}
+            templateId={template.id}
+            layer={layer}
+            assets={assets}
+            boardHeight={height}
+          />
         ))}
       </g>
     </svg>
@@ -63,10 +67,12 @@ function TemplateLayer({
   templateId,
   layer,
   assets,
+  boardHeight,
 }: {
   templateId: string
   layer: Layer
   assets?: Readonly<Record<string, string>>
+  boardHeight: number
 }) {
   if (!layer.visible) return null
   const image = (id: string | undefined) => (id ? (assets?.[id] ?? resolveAsset(id)) : undefined)
@@ -84,7 +90,7 @@ function TemplateLayer({
         x={layer.x}
         y={layer.y}
         width={layer.width}
-        height={HEIGHT - layer.y}
+        height={boardHeight - layer.y}
       >
         <div
           style={{

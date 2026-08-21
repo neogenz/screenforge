@@ -69,6 +69,19 @@ describe('canvas store domain boundaries', () => {
     ).toBeNull()
   })
 
+  it('aligns and transfers layers with the Android board width', () => {
+    useProjectStore.getState().createProject('Android', 'google-play-phone')
+    useCanvasStore.getState().addLayer(shape())
+    useCanvasStore.getState().selectLayer('shape')
+    useCanvasStore.getState().alignSelection('right')
+    expect(getProjectLayers(useProjectStore.getState().project)[0].x).toBe(440)
+
+    useCanvasStore.getState().setLayerScope('shape', 'layout')
+    expect(useProjectStore.getState().project?.layoutLayers[0].x).toBe(440)
+    useCanvasStore.getState().setLayerScope('shape', 'screen')
+    expect(useProjectStore.getState().project?.screens[0].layers[0].x).toBe(440)
+  })
+
   it('undoes and redoes directly through the project store', () => {
     useCanvasStore.getState().addLayer(shape())
     expect(getProjectLayers(useProjectStore.getState().project)).toHaveLength(1)

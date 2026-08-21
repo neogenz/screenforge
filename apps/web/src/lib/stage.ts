@@ -6,7 +6,8 @@
  * so artboards never hide behind the chrome.
  */
 
-import { APP_STORE_TARGET } from './dimensions'
+import { APP_STORE_PROFILE } from './dimensions'
+import type { BoardSize } from './canvas/canvas-utils'
 
 export const ISLAND_MARGIN = 12
 /** Contrôle de 36 + le retrait d'îlot (2×6) + son filet (2×1). */
@@ -41,9 +42,11 @@ export const THUMBNAIL_HEIGHT = 116
  * en `object-cover`, et 14px de trop en largeur coupaient 21% de la hauteur de
  * la composition, en haut et en bas.
  */
-export const THUMBNAIL_WIDTH = Math.round(
-  (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
-)
+export function thumbnailWidth(board: BoardSize): number {
+  return Math.round((THUMBNAIL_HEIGHT * board.width) / board.height)
+}
+
+export const THUMBNAIL_WIDTH = thumbnailWidth(APP_STORE_PROFILE.board)
 /**
  * Puce du numéro, posée au-dessus de l'aperçu.
  *
@@ -167,6 +170,19 @@ export const FILMSTRIP_MAX_WIDTH = `max(${FILMSTRIP_MIN_WIDTH}px, min(760px, cal
  */
 export const FILMSTRIP_CENTERED_MIN_WIDTH =
   FILMSTRIP_MIN_WIDTH + (ZOOM_HUD_WIDTH + ISLAND_MARGIN) * 2
+
+export function filmstripMetrics(board: BoardSize) {
+  const thumbnail = thumbnailWidth(board)
+  const slot = thumbnail + FILMSTRIP_GAP
+  const minimum = slot + FILMSTRIP_PADDING * 2
+  return {
+    thumbnailWidth: thumbnail,
+    thumbnailSlot: slot,
+    minWidth: minimum,
+    maxWidth: `max(${minimum}px, min(760px, calc(100vw - ${FILMSTRIP_SIDE_GUTTER * 2}px)))`,
+    centeredMinWidth: minimum + (ZOOM_HUD_WIDTH + ISLAND_MARGIN) * 2,
+  }
+}
 
 /**
  * Largeur de scène sous laquelle l'aperçu cesse de rendre service.

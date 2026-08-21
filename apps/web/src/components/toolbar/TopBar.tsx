@@ -55,6 +55,7 @@ import {
   createTextLayer,
 } from '@/lib/layer-factories'
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import type { DeviceModel, Layer } from '@/types'
 
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
@@ -355,6 +356,11 @@ function ToolsSegment() {
     return getProjectLayers(useProjectStore.getState().project).length
   }
 
+  function board() {
+    const project = useProjectStore.getState().project
+    return project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
+  }
+
   return (
     <div className="flex items-center gap-1 justify-self-center">
       {/*
@@ -368,11 +374,13 @@ function ToolsSegment() {
       <IconButton
         aria-label="Ajouter Texte"
         tooltip="Ajouter : texte"
-        onClick={() => addLayer(createTextLayer(layerCount()))}
+        onClick={() => addLayer(createTextLayer(layerCount(), board()))}
       >
         <Type size={16} strokeWidth={1.75} />
       </IconButton>
-      <DeviceAddTool onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))} />
+      <DeviceAddTool
+        onSelect={(model) => addLayer(createDeviceLayer(model, layerCount(), board()))}
+      />
       <IconButton
         aria-label="Ajouter Image"
         tooltip="Ajouter : image…"
@@ -383,14 +391,14 @@ function ToolsSegment() {
       <IconButton
         aria-label="Ajouter Forme"
         tooltip="Ajouter : forme"
-        onClick={() => addLayer(createShapeLayer(layerCount()))}
+        onClick={() => addLayer(createShapeLayer(layerCount(), 'rectangle', board()))}
       >
         <Square size={16} strokeWidth={1.75} />
       </IconButton>
       <IconButton
         aria-label="Ajouter Icône"
         tooltip="Ajouter : icône"
-        onClick={() => addLayer(createIconLayer(layerCount()))}
+        onClick={() => addLayer(createIconLayer(layerCount(), undefined, board()))}
       >
         <Star size={16} strokeWidth={1.75} />
       </IconButton>
@@ -443,6 +451,11 @@ function useToolActions(): SecondaryAction[] {
       .addLayer(create(getProjectLayers(useProjectStore.getState().project).length))
   }
 
+  function board() {
+    const project = useProjectStore.getState().project
+    return project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
+  }
+
   return [
     {
       id: 'undo',
@@ -465,7 +478,7 @@ function useToolActions(): SecondaryAction[] {
       label: 'Ajouter Texte',
       hint: 'Ajouter : texte',
       icon: <Type size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createTextLayer),
+      onSelect: () => addLayer((index) => createTextLayer(index, board())),
     },
     {
       id: 'add-device',
@@ -474,7 +487,7 @@ function useToolActions(): SecondaryAction[] {
       icon: <Smartphone size={16} strokeWidth={1.75} />,
       onSelect: () =>
         addLayer((index) =>
-          createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index),
+          createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index, board()),
         ),
     },
     {
@@ -489,14 +502,14 @@ function useToolActions(): SecondaryAction[] {
       label: 'Ajouter Forme',
       hint: 'Ajouter : forme',
       icon: <Square size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createShapeLayer),
+      onSelect: () => addLayer((index) => createShapeLayer(index, 'rectangle', board())),
     },
     {
       id: 'add-icon',
       label: 'Ajouter Icône',
       hint: 'Ajouter : icône',
       icon: <Star size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createIconLayer),
+      onSelect: () => addLayer((index) => createIconLayer(index, undefined, board())),
     },
   ]
 }
