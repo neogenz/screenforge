@@ -1,6 +1,6 @@
 ---
 objective: "Un visiteur comprend en un écran ce que ScreenForge fait, dans quelle langue est l’éditeur et quelle offre lui est destinée ; la navigation est visible dès qu’elle tient, les sections montrent leur contenu sans clic, la démo ne commence jamais par du vide, et le pied de page dit comment joindre l’auteur."
-status: in-progress
+status: implemented
 ---
 
 # Plan: corrections UX/UI de la landing issues de l’audit du 21/08/2026
