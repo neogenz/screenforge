@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
+import { PrivacyConsent } from '@/components/privacy/PrivacyConsent'
+import { PRIVACY_COPY } from '@/components/privacy/privacy-copy'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
@@ -327,6 +329,7 @@ function Overlays() {
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
   const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return (
     <>
@@ -354,6 +357,12 @@ function Overlays() {
         {showPublishDialog && <PublishDialog />}
         {showMcpDialog && <McpDialog />}
       </Suspense>
+
+      <PrivacyConsent
+        copy={PRIVACY_COPY.fr}
+        open={showPrivacyDialog}
+        onOpenChange={(open) => useUIStore.getState().setShowPrivacyDialog(open)}
+      />
 
       {/* Le pont vers Convex : il ne rend rien, il tient la session. Monté ici
           plutôt qu'autour de l'arbre parce qu'un fournisseur qui enveloppe `App`

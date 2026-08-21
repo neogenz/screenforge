@@ -1,4 +1,5 @@
 import { CLOUD_OFFER, cloudOfferSummary } from '@screenforge/project-format'
+import { PRIVACY_COPY } from '@/components/privacy/privacy-copy'
 
 const CLOUD_PRICE = `$${CLOUD_OFFER.price.amount}`
 const CLOUD_LIMITS_EN = cloudOfferSummary('en')
@@ -360,8 +361,11 @@ const en = {
   },
   footer: {
     source: 'Source',
+    privacy: 'Privacy',
+    preferences: 'Privacy settings',
     copyright: '© 2026 ScreenForge',
   },
+  privacy: PRIVACY_COPY.en,
 }
 
 export type Copy = typeof en
@@ -684,8 +688,11 @@ const fr: Copy = {
   },
   footer: {
     source: 'Code source',
+    privacy: 'Confidentialité',
+    preferences: 'Préférences de confidentialité',
     copyright: '© 2026 ScreenForge',
   },
+  privacy: PRIVACY_COPY.fr,
 }
 
 export const copy = { en, fr } as const

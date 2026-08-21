@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge dispose d’un projet PostHog EU isolé de Pulpe, utile pour l’analytics et le diagnostic, corrélé aux comptes sans capturer de contenu privé ni émettre avant consentement."
-status: blocked
+status: in-progress
 ---
 
 # Plan: Brancher PostHog à ScreenForge sous contrôle RGPD

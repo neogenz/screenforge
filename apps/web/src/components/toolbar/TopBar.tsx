@@ -21,6 +21,7 @@ import {
   Redo2,
   RefreshCw,
   Settings,
+  ShieldCheck,
   Smartphone,
   Square,
   Star,
@@ -46,6 +47,7 @@ import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import { billingConfigured } from '@/lib/account'
+import { analyticsConfigured } from '@/lib/analytics'
 import { planName } from '@/lib/plans'
 import { cloudConfigured } from '@/lib/convex'
 import {
@@ -612,6 +614,7 @@ function useSecondaryActions(): SecondaryAction[] {
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
   const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
   const mcpStatus = useMcpStore((s) => s.status)
   const theme = useUIStore((s) => s.theme)
 
@@ -694,6 +697,18 @@ function useSecondaryActions(): SecondaryAction[] {
       expanded: showGlobalsEditor,
       onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
     },
+    ...(analyticsConfigured
+      ? [
+          {
+            id: 'privacy',
+            label: 'Préférences de confidentialité',
+            hint: 'Choisir les analytics et le diagnostic',
+            icon: <ShieldCheck size={16} strokeWidth={1.75} />,
+            expanded: showPrivacyDialog,
+            onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
+          },
+        ]
+      : []),
     {
       id: 'theme',
       label: 'Changer de thème',

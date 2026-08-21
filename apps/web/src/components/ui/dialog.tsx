@@ -11,6 +11,7 @@ export interface DialogProps {
   open: boolean
   onClose: () => void
   title: string
+  closeLabel?: string
   children: ReactNode
   footer?: ReactNode
   /**
@@ -49,6 +50,7 @@ export function Dialog({
   open,
   onClose,
   title,
+  closeLabel = 'Fermer',
   children,
   footer,
   footerNote,
@@ -116,7 +118,12 @@ export function Dialog({
             </div>
             <div className="flex items-center gap-1">
               {headerActions}
-              <IconButton aria-label="Fermer" tooltip="Fermer (Échap)" onClick={onClose} size="sm">
+              <IconButton
+                aria-label={closeLabel}
+                tooltip={`${closeLabel} (Échap)`}
+                onClick={onClose}
+                size="sm"
+              >
                 <X size={15} strokeWidth={1.75} />
               </IconButton>
             </div>
