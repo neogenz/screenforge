@@ -1223,6 +1223,51 @@ test.describe('Porte Cloud côté client', () => {
     await page.context().close()
   })
 
+  test('mesure puis efface la copie Cloud sans perdre le projet local', async ({
+    browser,
+    baseURL,
+  }) => {
+    const own = await signUpSession(stack!)
+    expect(await grantCloud(admin(), own.userId)).toBe('written')
+    const page = await openApp(browser, baseURL!, own)
+    await requireAccountEntry(page)
+    await expect(syncBadge(page, 'Synchronisé')).toBeAttached({ timeout: 30_000 })
+
+    const marker = `Projet reset ${String(Date.now())}`
+    await projectName(page).fill(marker)
+    await projectName(page).press('Enter')
+    await expect.poll(async () => Boolean(await remoteRow(own, marker))).toBe(true)
+
+    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    const account = page.getByRole('dialog', { name: 'Compte' })
+    await expect(account.getByText('Utilisation Cloud')).toBeVisible()
+    await expect(account.getByText(/1\/100/)).toBeVisible()
+    await account.getByRole('button', { name: 'Effacer la copie Cloud…' }).click()
+    await expect(account.getByText(/projets de cet appareil.*abonnement restent/s)).toBeVisible()
+    await account.getByRole('button', { name: 'Effacer la copie' }).click()
+    await expect(account.getByText(/0\/100/)).toBeVisible()
+    await account.getByRole('button', { name: 'Fermer' }).click()
+
+    await expect(projectName(page)).toHaveValue(marker)
+    await page.getByLabel('Ouvrir l’export').click()
+    await expect(page.getByRole('button', { name: 'Exporter le ZIP' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Annuler' }).click()
+    await page.getByLabel('Ajouter Texte').click()
+    await page.waitForTimeout(5_000)
+    expect(await listRemote(own)).toEqual([])
+
+    await page.reload()
+    await waitForApp(page)
+    await expect(projectName(page)).toHaveValue(marker)
+    const attach = page.getByRole('dialog', { name: 'Ajouter ces projets au Cloud ?' })
+    await expect(attach).toBeVisible()
+    await attach.getByRole('button', { name: 'Ajouter ce projet au Cloud' }).click()
+    await expect.poll(async () => Boolean(await remoteRow(own, marker))).toBe(true)
+
+    await page.context().close()
+    await dropRemoteProjects(own)
+  })
+
   test('l’accès propriétaire active puis révoque les droits client sans facturation', async ({
     browser,
     baseURL,

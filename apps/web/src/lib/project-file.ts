@@ -307,6 +307,69 @@ function preflightEntries(entries: JSZipObject[]): void {
   }
 }
 
+interface ZipEntryStream {
+  on(event: 'data', callback: (chunk: Uint8Array) => void): ZipEntryStream
+  on(event: 'end', callback: () => void): ZipEntryStream
+  on(event: 'error', callback: (error: Error) => void): ZipEntryStream
+  pause(): ZipEntryStream
+  resume(): ZipEntryStream
+}
+
+interface OutputBudget {
+  used: number
+  limit: number
+}
+
+async function readEntryBounded(
+  entry: JSZipObject,
+  entryLimit: number,
+  budget: OutputBudget,
+  tooLarge: ProjectFileErrorCode,
+  corrupt: ProjectFileErrorCode,
+): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const stream = (
+      entry as JSZipObject & { internalStream(type: 'uint8array'): ZipEntryStream }
+    ).internalStream('uint8array')
+    const chunks: Uint8Array[] = []
+    let size = 0
+    let settled = false
+
+    stream
+      .on('data', (chunk) => {
+        if (settled) return
+        const nextSize = size + chunk.byteLength
+        const nextTotal = budget.used + chunk.byteLength
+        if (nextSize > entryLimit || nextTotal > budget.limit) {
+          settled = true
+          stream.pause()
+          reject(new ProjectFileError(tooLarge))
+          return
+        }
+        chunks.push(chunk)
+        size = nextSize
+        budget.used = nextTotal
+      })
+      .on('error', () => {
+        if (settled) return
+        settled = true
+        reject(new ProjectFileError(corrupt))
+      })
+      .on('end', () => {
+        if (settled) return
+        settled = true
+        const bytes = new Uint8Array(size)
+        let offset = 0
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset)
+          offset += chunk.byteLength
+        }
+        resolve(bytes)
+      })
+      .resume()
+  })
+}
+
 async function loadZip(file: File): Promise<JSZip> {
   try {
     const { default: JSZip } = await import('jszip')
@@ -322,14 +385,20 @@ export async function readProjectFile(file: File): Promise<DecodedProjectFile> {
   const zip = await loadZip(file)
   const entries = Object.values(zip.files)
   preflightEntries(entries)
+  const manifestBudget = { used: 0, limit: MAX_MANIFEST_BYTES }
+  const assetBudget = { used: 0, limit: MAX_PROJECT_TOTAL_ASSET_BYTES }
   const manifestEntry = zip.file(MANIFEST_PATH)
   if (!manifestEntry) throw new ProjectFileError('invalid-manifest')
   let rawManifest: unknown
   try {
-    const manifestJson = await manifestEntry.async('string')
-    if (new TextEncoder().encode(manifestJson).byteLength > MAX_MANIFEST_BYTES) {
-      throw new ProjectFileError('invalid-manifest')
-    }
+    const manifestBytes = await readEntryBounded(
+      manifestEntry,
+      MAX_MANIFEST_BYTES,
+      manifestBudget,
+      'invalid-manifest',
+      'invalid-manifest',
+    )
+    const manifestJson = new TextDecoder().decode(manifestBytes)
     rawManifest = JSON.parse(manifestJson)
   } catch (error) {
     if (error instanceof ProjectFileError) throw error
@@ -347,31 +416,30 @@ export async function readProjectFile(file: File): Promise<DecodedProjectFile> {
     throw new ProjectFileError('unsafe-entry')
   }
 
-  const assets = await Promise.all(
-    manifest.assets.map(async (descriptor) => {
-      const entry = zip.file(descriptor.path)
-      if (!entry) throw new ProjectFileError('missing-asset')
-      let bytes: Uint8Array
-      try {
-        bytes = await entry.async('uint8array')
-      } catch {
-        throw new ProjectFileError('corrupt-asset')
-      }
-      if (bytes.byteLength > MAX_PROJECT_ASSET_BYTES) throw new ProjectFileError('asset-too-large')
-      if (
-        bytes.byteLength !== descriptor.byteLength ||
-        (await sha256Hex(bytes)) !== descriptor.sha256
-      ) {
-        throw new ProjectFileError('corrupt-asset')
-      }
-      if (!inspectMedia(bytes, descriptor.mimeType)) throw new ProjectFileError('corrupt-asset')
-      return {
-        id: descriptor.id,
-        dataUrl: await blobAsDataUrl(
-          new Blob([Uint8Array.from(bytes)], { type: descriptor.mimeType }),
-        ),
-      }
-    }),
-  )
+  const assets: DecodedProjectFile['assets'] = []
+  for (const descriptor of manifest.assets) {
+    const entry = zip.file(descriptor.path)
+    if (!entry) throw new ProjectFileError('missing-asset')
+    const bytes = await readEntryBounded(
+      entry,
+      MAX_PROJECT_ASSET_BYTES,
+      assetBudget,
+      'asset-too-large',
+      'corrupt-asset',
+    )
+    if (
+      bytes.byteLength !== descriptor.byteLength ||
+      (await sha256Hex(bytes)) !== descriptor.sha256
+    ) {
+      throw new ProjectFileError('corrupt-asset')
+    }
+    if (!inspectMedia(bytes, descriptor.mimeType)) throw new ProjectFileError('corrupt-asset')
+    assets.push({
+      id: descriptor.id,
+      dataUrl: await blobAsDataUrl(
+        new Blob([Uint8Array.from(bytes)], { type: descriptor.mimeType }),
+      ),
+    })
+  }
   return { project: structuredClone(manifest.project), assets }
 }

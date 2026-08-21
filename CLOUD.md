@@ -17,6 +17,38 @@ privée.
 
 Autrement dit : **Resend identifie, Polar facture, Convex décide et stocke**.
 
+## Dépôt public, service géré et auto-hébergement
+
+Le dépôt contient tout le code de ScreenForge, backend Cloud compris. Il ne
+contient toutefois aucun accès au service Cloud opéré par ScreenForge : publier,
+recompiler ou modifier le frontend ne crée pas de droit côté serveur. Chaque
+écriture distante repart de la session Convex et passe par `requireCloud`, qui
+vérifie l'entitlement actif reflété depuis Polar.
+
+La dérogation propriétaire dite _complimentary_ est une mutation Convex
+`internalMutation` : elle n'est pas exposée à l'API client et requiert l'autorité
+du déploiement. De même, le fournisseur de mot de passe des E2E n'est activable
+que sur une origine loopback; le preflight le refuse en production. Connaître le
+code ou les noms de fonctions ne permet donc pas de s'accorder un compte Cloud.
+
+L'AGPL autorise l'auto-hébergement. Une instance auto-hébergée doit cependant
+utiliser ses propres déploiements, domaine, stockage, clés Resend/Polar/Vercel et
+en supporter les coûts et l'exploitation. Elle n'accède ni aux comptes clients,
+ni aux secrets, ni aux sauvegardes, ni à l'infrastructure du service géré.
+
+## Contrat public de l'offre Cloud
+
+Cloud coûte 39 USD par an. Il comprend au maximum 100 projets et 128 Mio de
+données projet, ainsi que 500 images et 512 Mio de données image. Les taxes
+applicables sont précisées par Polar au checkout. Ces plafonds concernent
+uniquement la copie synchronisée : Local conserve l'édition et les exports
+illimités, sans compte.
+
+La source exécutable de ce contrat est `packages/project-format/src/cloud-offer.ts`;
+le backend, la landing et l'éditeur la consomment tous. Quand un plafond Cloud
+est atteint, les nouvelles écritures attendent qu'une place soit libérée, sans
+bloquer la copie locale ni l'export.
+
 ## Comptes et environnements
 
 - Local ne demande aucun compte.
@@ -134,6 +166,9 @@ Le client ne reçoit pas d'URL publique permanente vers les fichiers.
   file puis synchronisées automatiquement.
 - Les images requises sont envoyées avant le document projet qui les référence.
 - Une panne réseau n'empêche pas de continuer à travailler localement.
+- Si une limite globale Convex rend Cloud temporairement indisponible, l'édition,
+  l'autosave local et l'export continuent. La synchronisation signale la panne
+  puis reprend après la réactivation du déploiement.
 - En cas de modifications concurrentes, la version au `updatedAt` le plus
   récent gagne.
 
@@ -222,6 +257,8 @@ sont ignorés.
 
 ## Gates avant activation de Production
 
+- Tant qu'aucun domaine final n'est choisi, Production reste volontairement
+  inactive : aucun tag de release, paiement réel ou promotion Vercel.
 - Local et Cloud passent le gate de release sur le même SHA.
 - L'auth Cloud utilise une origine de préproduction stable et exacte.
 - Une restauration de sauvegarde est vérifiée dans une cible jetable.
@@ -232,6 +269,8 @@ sont ignorés.
 ## Sources et runbooks
 
 - Runbook opérateur détaillé :
+  [`aidd_docs/tasks/2026_08/2026_08_21_preprod-hardening-cloud-quota-ux/operations.md`](aidd_docs/tasks/2026_08/2026_08_21_preprod-hardening-cloud-quota-ux/operations.md)
+- Configuration détaillée des environnements :
   [`aidd_docs/tasks/2026_08/2026_08_11_migration-convex/environnements.md`](aidd_docs/tasks/2026_08/2026_08_11_migration-convex/environnements.md)
 - [Polar — environnements API](https://polar.sh/docs/api-reference/introduction)
 - [Polar — endpoints et tests de webhooks](https://polar.sh/docs/integrate/webhooks/endpoints)

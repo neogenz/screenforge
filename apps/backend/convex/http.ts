@@ -114,6 +114,17 @@ function contentType(request: Request): string {
   return (request.headers.get('Content-Type') ?? '').split(';', 1)[0]!.trim().toLowerCase()
 }
 
+type BoundedBody = { kind: 'ok'; blob: Blob } | { kind: 'empty' | 'too-large' }
+
+async function readBoundedBody(request: Request, maximum: number): Promise<BoundedBody> {
+  const length = contentLength(request)
+  if (length === 0 || !request.body) return { kind: 'empty' }
+  if (length !== null && length > maximum) return { kind: 'too-large' }
+  const blob = await request.blob()
+  if (blob.size === 0) return { kind: 'empty' }
+  return blob.size <= maximum ? { kind: 'ok', blob } : { kind: 'too-large' }
+}
+
 /**
  * L'absence et le refus rendent la même chose, et c'est le point.
  *
@@ -217,35 +228,31 @@ http.route({
     const length = contentLength(request)
     if (updatedAtValue === null || !Number.isFinite(updatedAt)) return json(cors, 'rejected', 400)
 
+    let blobId: Awaited<ReturnType<typeof ctx.storage.store>> | null = null
     try {
-      await ctx.runMutation(internal.projects.authorizeProjectUpload, {
+      const generation = await ctx.runMutation(internal.projects.authorizeProjectUpload, {
         projectId,
         name,
         updatedAt,
         contentType: type,
         byteLength: length,
       })
-    } catch (error) {
-      return denied(cors, error)
-    }
+      const body = await readBoundedBody(request, MAX_PROJECT_BLOB_BYTES)
+      if (type !== 'application/json' || body.kind !== 'ok')
+        return json(cors, 'rejected', body.kind === 'too-large' ? 413 : 400)
 
-    const blob = await request.blob()
-    if (type !== 'application/json' || blob.size <= 0 || blob.size > MAX_PROJECT_BLOB_BYTES) {
-      return json(cors, 'rejected', blob.size > MAX_PROJECT_BLOB_BYTES ? 413 : 400)
-    }
-
-    const blobId = await ctx.storage.store(blob)
-    try {
+      blobId = await ctx.storage.store(body.blob)
       const outcome = await ctx.runMutation(internal.projects.commitProjectUpload, {
         projectId,
         name,
         updatedAt,
         blobId,
+        generation,
       })
       if (outcome !== 'accepted') await ctx.storage.delete(blobId)
       return json(cors, outcome, outcome === 'too-large' ? 413 : 200)
     } catch (error) {
-      await ctx.storage.delete(blobId)
+      if (blobId) await ctx.storage.delete(blobId)
       return denied(cors, error)
     }
   }),
@@ -263,35 +270,30 @@ http.route({
     const type = contentType(request)
     const length = contentLength(request)
 
+    let storageId: Awaited<ReturnType<typeof ctx.storage.store>> | null = null
     try {
-      await ctx.runMutation(internal.assets.authorizeAssetUpload, {
+      const generation = await ctx.runMutation(internal.assets.authorizeAssetUpload, {
         assetId,
         contentType: type,
         byteLength: length,
       })
-    } catch (error) {
-      return denied(cors, error)
-    }
+      const body = await readBoundedBody(request, MAX_IMAGE_FILE_BYTES)
+      if (body.kind !== 'ok') return json(cors, 'rejected', body.kind === 'too-large' ? 413 : 400)
+      const bytes = new Uint8Array(await body.blob.arrayBuffer())
+      const inspected = inspectMedia(bytes, type)
+      if (!inspected) return json(cors, 'rejected', 400)
 
-    const body = await request.blob()
-    if (body.size <= 0 || body.size > MAX_IMAGE_FILE_BYTES) {
-      return json(cors, 'rejected', body.size > MAX_IMAGE_FILE_BYTES ? 413 : 400)
-    }
-    const bytes = new Uint8Array(await body.arrayBuffer())
-    const inspected = inspectMedia(bytes, type)
-    if (!inspected) return json(cors, 'rejected', 400)
-
-    const storageId = await ctx.storage.store(new Blob([bytes], { type: inspected.type }))
-    try {
+      storageId = await ctx.storage.store(new Blob([bytes], { type: inspected.type }))
       const accepted = await ctx.runMutation(internal.assets.commitAssetUpload, {
         assetId,
         storageId,
         contentType: inspected.type,
+        generation,
       })
       if (!accepted) await ctx.storage.delete(storageId)
       return json(cors, accepted ? 'accepted' : 'rejected', accepted ? 200 : 400)
     } catch (error) {
-      await ctx.storage.delete(storageId)
+      if (storageId) await ctx.storage.delete(storageId)
       return denied(cors, error)
     }
   }),

@@ -55,15 +55,15 @@ export async function createCheckout(product: 'cloud'): Promise<CheckoutOutcome>
 /**
  * Supprime le compte et purge ce qu'il a déposé.
  *
- * Les cinq issues sont celles d'avant, et la raison de chacune n'a pas changé
- * avec le transport : `deletion-pending` et `cleanup-pending` disent qu'un
+ * Les issues voyagent sans être réinterprétées par le transport :
+ * `deletion-pending` et `cleanup-pending` disent qu'un
  * travail borné continue côté déploiement, `unknown` dit que la réponse peut
  * s'être perdue **après** la suppression effective. Cette dernière n'est plus
  * une ambiguïté du serveur — il supprime l'identité dans la même transaction que
  * le reste — mais une ambiguïté du trajet, et elle survit telle quelle.
  */
 export type DeleteAccountOutcome =
-  'deleted' | 'cleanup-pending' | 'deletion-pending' | 'failed' | 'unknown'
+  'deleted' | 'cleanup-pending' | 'deletion-pending' | 'billing-active' | 'failed' | 'unknown'
 
 export async function deleteAccount(): Promise<DeleteAccountOutcome> {
   const connected = connect()

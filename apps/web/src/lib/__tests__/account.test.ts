@@ -100,7 +100,12 @@ describe('la suppression de compte', () => {
    * demandait trois conditions pour dire un seul mot.
    */
   it('rend l’issue du serveur sans la réinterpréter', async () => {
-    for (const outcome of ['deleted', 'cleanup-pending', 'deletion-pending'] as const) {
+    for (const outcome of [
+      'deleted',
+      'cleanup-pending',
+      'deletion-pending',
+      'billing-active',
+    ] as const) {
       cloud.mutation.mockResolvedValueOnce(outcome)
       await expect(deleteAccount()).resolves.toBe(outcome)
     }

@@ -269,6 +269,7 @@ describe('quotas de stockage projet', () => {
           name: projectId,
           updatedAt: 1,
           blobId: candidates[index]!,
+          generation: 0,
         }),
       ),
     )

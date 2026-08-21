@@ -12,7 +12,12 @@ import { cloudAccount, errorCode, rateLimited, testConvex } from './test.helpers
  */
 const polarClient = vi.hoisted(() => ({
   checkouts: {
-    create: vi.fn(() => Promise.resolve({ url: 'https://sandbox.polar.sh/checkout/abc' })),
+    create: vi.fn(() =>
+      Promise.resolve({
+        url: 'https://sandbox.polar.sh/checkout/abc',
+        expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    ),
   },
   customerSessions: {
     create: vi.fn(() =>
@@ -53,6 +58,10 @@ let t: Stack
 beforeEach(() => {
   t = testConvex()
   vi.clearAllMocks()
+  polarClient.checkouts.create.mockResolvedValue({
+    url: 'https://sandbox.polar.sh/checkout/abc',
+    expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+  })
 })
 
 describe('createCheckout', () => {
@@ -63,6 +72,45 @@ describe('createCheckout', () => {
     expect(polarClient.checkouts.create).toHaveBeenCalledWith(
       expect.objectContaining({ products: ['prod_cloud'], externalCustomerId: userId }),
     )
+    await expect(
+      t.run((ctx) =>
+        ctx.db
+          .query('billingCheckoutFences')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .unique(),
+      ),
+    ).resolves.toMatchObject({ expiresAt: new Date('2099-01-01T00:00:00.000Z').getTime() })
+    await expect(
+      t.withIdentity({ subject: userId }).mutation(api.accountDeletion.requestAccountDeletion, {}),
+    ).resolves.toBe('billing-active')
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.not.toBeNull()
+  })
+
+  it('retire la réservation si Polar refuse avant de créer le checkout', async () => {
+    const userId = await newcomer(t)
+    polarClient.checkouts.create.mockRejectedValueOnce(new Error('Polar unavailable'))
+
+    await expect(checkout(t, userId, 'cloud')).rejects.toThrow('Polar unavailable')
+    await expect(t.run((ctx) => ctx.db.query('billingCheckoutFences').collect())).resolves.toEqual(
+      [],
+    )
+  })
+
+  it('refuse Polar quand la suppression a déjà posé son tombstone', async () => {
+    const userId = await newcomer(t)
+    await t.run((ctx) =>
+      ctx.db.insert('accountDeletionJobs', {
+        userId,
+        status: 'prepared',
+        attempts: 0,
+        lastError: null,
+      }),
+    )
+
+    await expect(checkout(t, userId, 'cloud')).rejects.toSatisfy(
+      (error: unknown) => errorCode(error) === 'DELETION_PENDING',
+    )
+    expect(polarClient.checkouts.create).not.toHaveBeenCalled()
   })
 
   it('refuse tout produit autre que Cloud avant Polar', async () => {
