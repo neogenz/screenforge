@@ -1,4 +1,16 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+/* `landing.css` déclare `scroll-behavior: smooth` : un `scrollIntoView` anime,
+   donc la position n'est pas acquise au retour de `evaluate` et toute mesure
+   qui suit lit la page d'avant. On pose la position, à l'instant. */
+async function scrollDemoIntoView(page: Page) {
+  await page.evaluate(() => {
+    const rect = document.querySelector('.demo-stage')?.getBoundingClientRect()
+    if (!rect) throw new Error('démo introuvable')
+    const top = rect.top + window.scrollY - (window.innerHeight - rect.height) / 2
+    window.scrollTo({ top, behavior: 'instant' })
+  })
+}
 
 test('la landing présente Local gratuit et Cloud payant en anglais et en français', async ({
   page,
@@ -133,4 +145,71 @@ test('la marche à suivre de l’agent est repliée, pas absente', async ({ page
 
   await details.getByRole('heading', { name: 'Connect an agent' }).click()
   await expect(page.locator('#agent').getByText('pnpm --filter mcp run start')).toBeVisible()
+})
+
+/* La démo ne commence jamais par du vide : le premier état est la planche
+   finie, servie telle quelle par le prérendu. Ce que la source contient est
+   vérifié par `scripts/landing-audit.mjs` sur `dist/` ; ici on mesure le même
+   état sur le rendu client, avant que la boucle ait pu démarrer. */
+test('la démo s’affiche composée avant d’avoir joué', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/landing.html')
+  await expect(page.locator('[data-demo-tile="filled"]')).toHaveCount(10)
+  await expect(page.locator('[data-cursor-target="layer-row-device"]')).toHaveCount(1)
+})
+
+/* Le seuil se mesure sous la barre fixe, pas contre la fenêtre : à 0,7 sans
+   marge il fallait avoir défilé bien après l'arrivée de la section. */
+test('la démo démarre quand on la regarde, et ne se vide pas si on revient', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/landing.html')
+  const cursor = page.locator('[data-demo-cursor]').first()
+
+  await page.evaluate(() => {
+    const stage = document.querySelector('.demo-stage')
+    if (!stage) throw new Error('démo introuvable')
+    const rect = stage.getBoundingClientRect()
+    /* La moitié de la démo sous la barre de 72 px. */
+    const wanted = rect.top + window.scrollY + rect.height / 2 - (window.innerHeight + 72) / 2
+    window.scrollTo({ top: wanted, behavior: 'instant' })
+  })
+  await expect(cursor).toHaveCSS('opacity', '1', { timeout: 1500 })
+
+  /* Le retour dans le champ reprend les réglages sur la planche montée ; il
+     rejouait `build()` depuis la planche vide, donc effaçait la composition
+     que le visiteur venait de regarder se monter. */
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  await page.waitForTimeout(400)
+  await scrollDemoIntoView(page)
+  /* Le temps que l'observateur reparte et que l'effet reprenne la main. Une
+     reconstruction, elle, tiendrait la planche vide une dizaine de secondes :
+     ce délai ne la masque pas, il écarte seulement l'image d'avant. */
+  await page.waitForTimeout(600)
+  const lowest = await page.evaluate(async () => {
+    let least = Number.POSITIVE_INFINITY
+    for (let i = 0; i < 30; i++) {
+      least = Math.min(least, document.querySelectorAll('[data-demo-tile="filled"]').length)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    return least
+  })
+  expect(lowest).toBeGreaterThan(0)
+})
+
+/* 24 px de haut et 10 px de texte pour la seule commande de la démo. La zone
+   de frappe de 44 n'est pas mesurable par `boundingBox` — elle vit sur un
+   `::after` — donc on la constate par un clic hors de la boîte visible. */
+test('la pastille de la démo se vise', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/landing.html')
+  await scrollDemoIntoView(page)
+  const pill = page.getByRole('button', { name: 'Take over' })
+  const box = await pill.boundingBox()
+  if (!box) throw new Error('pastille introuvable')
+  expect(box.height).toBeGreaterThanOrEqual(32)
+
+  /* Quatre pixels au-dessus du bord visible : dans les six que `hit-44` ajoute
+     de chaque côté d'une pastille de 32, et hors de la boîte peinte. */
+  await page.mouse.click(box.x + box.width / 2, box.y - 4)
+  await expect(page.getByRole('button', { name: 'Replay the demo' })).toBeVisible()
 })

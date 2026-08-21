@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { useLang } from '../i18n'
+import { NAV_HEIGHT } from '../demo/demo-script'
 import { LINKS } from '../links'
 import { CtaPrimary } from './cta'
 import { BrandWordmark } from './BrandWordmark'
@@ -91,7 +92,8 @@ export function Nav() {
       </a>
       <nav
         aria-label={t.nav.navLabel}
-        className="flex h-[72px] items-center gap-6 px-5 text-sm md:px-14"
+        style={{ height: NAV_HEIGHT }}
+        className="flex items-center gap-6 px-5 text-sm md:px-14"
       >
         <a
           href="#hero"
@@ -160,7 +162,8 @@ export function Nav() {
       <div
         id={MENU_ID}
         popover="auto"
-        className="fixed top-[72px] right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border border-border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
+        style={{ top: NAV_HEIGHT }}
+        className="fixed right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border border-border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
       >
         <div className="flex flex-col">
           {anchors(undefined, closeMenu)}

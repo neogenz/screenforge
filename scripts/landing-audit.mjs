@@ -130,6 +130,20 @@ for (const file of ['dist/landing.html', 'dist/landing-fr.html']) {
   if (/class="[^"]*\bopacity-0\b/.test(doc)) {
     failures.push(`${file} : contenu pré-rendu masqué (opacity-0), invisible sans JS`)
   }
+  /* La démo est servie composée, jamais vide. Le premier écran sous le pli
+     montrait un éditeur sans rien dessus — l'image qui ne vend rien — et un
+     lecteur sans JS n'en voyait jamais d'autre, puisque la construction est
+     précisément ce que le script fait. Dix vignettes pleines et l'appareil
+     dans la liste des calques : c'est l'état final de la séquence. */
+  const filledTiles = doc.match(/data-demo-tile="filled"/g)?.length ?? 0
+  if (filledTiles !== 10) {
+    failures.push(
+      `${file} : démo pré-rendue à ${String(filledTiles)} vignettes pleines, attendu 10`,
+    )
+  }
+  if (!doc.includes('data-cursor-target="layer-row-device"')) {
+    failures.push(`${file} : démo pré-rendue sans calque d'appareil`)
+  }
 }
 
 if (failures.length > 0) {

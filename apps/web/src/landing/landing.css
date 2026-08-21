@@ -222,6 +222,20 @@ main summary {
 .demo-board {
   height: 100%;
 }
+/* La rangée s'efface avant que la démo reparte de zéro. Sans ce fondu, le
+   premier tour remplace d'un coup la composition servie par un plan de travail
+   vide, ce qui se lit comme un bug plutôt que comme un début. */
+.demo-boards {
+  transition: opacity 250ms var(--ease-out);
+}
+.demo-boards[data-resetting] {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-boards {
+    transition: none;
+  }
+}
 @media (min-width: 40rem) {
   .demo-board {
     height: min(100%, calc((100cqw - 2rem) / 3 * var(--demo-board-ratio)));

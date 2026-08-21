@@ -294,7 +294,10 @@ export function DemoTile({
   const textPos = current ? scene.textPos : scene.spreadTextPos
   const devicePos = current ? scene.devicePos : scene.spreadDevicePos
   return (
-    <div className="flex flex-col items-center gap-1">
+    /* L'état de remplissage est déclaré : c'est ce que `landing.spec.ts` compte
+       pour vérifier que la démo ne démarre jamais sur un plan de travail vide,
+       et une vignette pleine ne se distingue autrement que par sa peinture. */
+    <div className="flex flex-col items-center gap-1" data-demo-tile={filled ? 'filled' : 'empty'}>
       <span
         className={cn(
           'grid size-3 place-items-center rounded-full font-mono text-[8px] leading-none font-semibold tabular-nums',
