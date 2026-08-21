@@ -125,7 +125,7 @@ const en = {
   features: {
     heading: 'Compose once. Refresh at every release. Export to the pixel.',
     editor: {
-      tab: 'Compose',
+      eyebrow: 'Compose',
       title: 'A real editor, not a form',
       body: 'Layers, accurate iPhone frames, gradients, Google Fonts on demand. Design one screen, then push it to the other nine. Background, type, frame and position travel together.',
       points: [
@@ -140,7 +140,7 @@ const en = {
       diagramCarries: 'background · type · frame · position',
     },
     refresh: {
-      tab: 'Refresh',
+      eyebrow: 'Refresh',
       title: 'New build, new screenshots, same set',
       body: 'Ship a version, re-shoot the app, drop the folder on ScreenForge. Each capture lands on its device, and the layout, headlines, backgrounds and frames stay exactly where you put them. Ten screens updated in one step, one undo if you change your mind.',
       points: [
@@ -157,7 +157,7 @@ const en = {
       figureLabel: 'One folder in, the layout stays where you left it',
     },
     export: {
-      tab: 'Export',
+      eyebrow: 'Export',
       title: 'Exports that pass review',
       body: 'Rendered at native 1320×2868 on your machine, never upscaled. App Store Connect derives every smaller iPhone size from this one set.',
       points: [
@@ -201,6 +201,9 @@ const en = {
       },
     ],
     setupTitle: 'Connect an agent',
+    /* Ce que le repli contient, dit avant de l'ouvrir : sans cela le
+       `summary` demande un clic pour savoir ce qu'il y a derrière. */
+    setupSummary: 'Three steps, one command.',
     setupSteps: [
       'Clone the repo, run pnpm --filter mcp run start',
       'Add it as a stdio server to your agent (Claude Code reads the repo’s .mcp.json)',
@@ -460,7 +463,7 @@ const fr: Copy = {
   features: {
     heading: 'Composez une fois. Actualisez à chaque version. Exportez au pixel près.',
     editor: {
-      tab: 'Composer',
+      eyebrow: 'Composer',
       title: 'Un vrai éditeur, pas un formulaire',
       body: 'Calques, cadres iPhone fidèles, dégradés, Google Fonts à la demande. Dessinez un écran, appliquez-le aux neuf autres : le fond, la typo, le cadre et la position passent d’un coup.',
       points: [
@@ -475,7 +478,7 @@ const fr: Copy = {
       diagramCarries: 'fond · typographie · cadre · position',
     },
     refresh: {
-      tab: 'Actualiser',
+      eyebrow: 'Actualiser',
       title: 'Nouvelle version, nouvelles captures, rien à recomposer',
       body: 'Vous sortez une version, vous refaites vos captures, vous glissez le dossier dans ScreenForge. Chaque capture retrouve son appareil ; la mise en page, les accroches, les fonds et les cadres ne bougent pas. Les dix écrans se mettent à jour d’un coup, et un ⌘Z suffit si vous changez d’avis.',
       points: [
@@ -492,7 +495,7 @@ const fr: Copy = {
       figureLabel: 'Vous donnez un dossier, la mise en page ne bouge pas',
     },
     export: {
-      tab: 'Exporter',
+      eyebrow: 'Exporter',
       title: 'Des exports qui passent la validation',
       body: 'Rendus en 1320×2868 natif sur votre machine, jamais redimensionnés. App Store Connect en dérive lui-même toutes les tailles iPhone plus petites.',
       points: [
@@ -532,6 +535,7 @@ const fr: Copy = {
       },
     ],
     setupTitle: 'Brancher un agent',
+    setupSummary: 'Trois étapes, une commande.',
     setupSteps: [
       'Clonez le dépôt, lancez pnpm --filter mcp run start',
       'Ajoutez-le comme serveur stdio à votre agent (Claude Code lit le .mcp.json du dépôt)',

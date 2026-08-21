@@ -98,3 +98,39 @@ test('le pied de page dit comment joindre l’auteur', async ({ page }) => {
   )
   await expect(footer.getByRole('link', { name: 'Source', exact: true })).toBeVisible()
 })
+
+/* Deux tiers de la section vivaient derrière un onglet, dans une page dont le
+   travail entier est de montrer. Le prérendu est le livrable : c'est lui qui
+   est lu ici. */
+test('les fonctionnalités montrent leurs trois blocs sans un clic', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/landing.html')
+  const features = page.locator('#features')
+  await expect(features.locator('h3')).toHaveCount(3)
+  await expect(features.getByText('One screen, applied to ten')).toBeVisible()
+  await expect(
+    features.getByText('One folder in, the layout stays where you left it'),
+  ).toBeVisible()
+  await expect(features.getByText('What lands in your Downloads folder')).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(0)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(features.locator('h3')).toHaveCount(3)
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow).toBe(0)
+})
+
+/* La marche à suivre reste dans le DOM prérendu — la commande MCP y est lisible
+   par un crawler — mais repliée : elle n'intéresse que qui va la suivre. */
+test('la marche à suivre de l’agent est repliée, pas absente', async ({ page }) => {
+  await page.goto('/landing.html')
+  const details = page.locator('#agent details')
+  await expect(details).toHaveCount(1)
+  await expect(details).not.toHaveAttribute('open', /.*/)
+  await expect(page.locator('#agent').getByText('pnpm --filter mcp run start')).toBeHidden()
+
+  await details.getByRole('heading', { name: 'Connect an agent' }).click()
+  await expect(page.locator('#agent').getByText('pnpm --filter mcp run start')).toBeVisible()
+})
