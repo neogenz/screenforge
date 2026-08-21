@@ -74,6 +74,14 @@ function AuthDialogContent() {
   return (
     <Dialog open onClose={handleClose} title="Connexion à ScreenForge" size="sm">
       <div className="flex flex-col gap-4">
+        {/* Ce que le compte ouvre, dit avant qu'on choisisse comment se
+            connecter : le produit promet « local est complet », et la boîte qui
+            demande un compte est précisément l'endroit où cette promesse se
+            vérifie ou se perd. */}
+        <p className="text-2xs text-muted-foreground">
+          Un compte sert uniquement à Cloud : synchroniser vos projets sur plusieurs machines.
+          L’éditeur et l’export n’en ont pas besoin.
+        </p>
         <div className="flex flex-col gap-2">
           {PROVIDERS.map((provider, index) => (
             <Button

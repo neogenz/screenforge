@@ -361,7 +361,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           </p>
         )}
 
-        {findings.length > 0 && (
+        {release && findings.length > 0 && (
           <ul className="flex flex-col gap-1" aria-label="Résultat du preflight">
             {findings.map((finding) => (
               <li
@@ -379,7 +379,17 @@ function PublishDialogContent({ project }: { project: Project }) {
           </ul>
         )}
 
-        {findings.length === 0 && (
+        {/* Trois états, jamais deux : sans release le preflight n'a rien lu, et
+            une liste vide ne vaut pas un feu vert. La coche ne s'affiche que sur
+            un lot réellement passé par `preflight()`. */}
+        {!release && (
+          <p className="flex items-start gap-2 text-2xs text-muted-foreground">
+            <Package size={12} className="mt-0.5 shrink-0" aria-hidden />
+            Figez d’abord une release dans « Releases » : le preflight porte sur un lot rendu.
+          </p>
+        )}
+
+        {release && findings.length === 0 && (
           <p className="flex items-center gap-2 text-2xs text-success">
             <ShieldCheck size={12} aria-hidden />
             Preflight sans réserve : {targetSummary(target)}

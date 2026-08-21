@@ -213,9 +213,7 @@ export function LayersPanel() {
           <h2 id="sf-layers-panel-title" className="panel-title">
             Calques
           </h2>
-          <span className="tabular text-2xs text-muted-foreground">
-            {String(layers.length).padStart(2, '0')}
-          </span>
+          <span className="tabular text-2xs text-muted-foreground">{String(layers.length)}</span>
         </div>
         <div className="relative mt-2">
           <Search

@@ -153,11 +153,11 @@ function ReleaseDialogContent({ project }: { project: Project }) {
          perdue — c'est le fait daté sur lequel tout le reste s'appuie. */
       await saveCurrentProject()
       toast(
-        `Release « ${release.name} » figée : ${files.length} planche${files.length > 1 ? 's' : ''}.`,
+        `Release « ${release.name} » figée : ${files.length} écran${files.length > 1 ? 's' : ''}.`,
         'success',
       )
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Le rendu du lot a échoué.')
+      setError(cause instanceof Error ? cause.message : 'Le rendu de la release a échoué.')
     } finally {
       setProgress(null)
       setRunning(null)
@@ -194,7 +194,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
     if (busy) return
     const outcome = restoreRelease(release)
     if (!outcome.committed) {
-      setError('Cette release ne contient aucune planche : rien à reprendre.')
+      setError('Cette release ne contient aucun écran : rien à reprendre.')
       return
     }
     setError(null)
@@ -209,11 +209,16 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       size="lg"
       flush
       headerActions={
-        <span className="tabular field-label px-1">
-          {releases.length}/{MAX_PROJECT_RELEASES}
+        /* « 0/20 » se lit comme un score de test. Le compteur dit ce qu'il
+           compte, et le lecteur d'écran en entend la phrase entière. */
+        <span
+          className="tabular field-label px-1"
+          aria-label={`${releases.length} release${releases.length > 1 ? 's' : ''} sur ${MAX_PROJECT_RELEASES}`}
+        >
+          {releases.length} release{releases.length > 1 ? 's' : ''} sur {MAX_PROJECT_RELEASES}
         </span>
       }
-      footerNote="Un lot figé ne change plus : c’est lui que « Publier chez Apple » envoie, et lui que « Reprendre » ramène."
+      footerNote="Une release figée ne change plus : c’est elle que « Publier chez Apple » envoie, et elle que « Reprendre » ramène."
       footer={
         <Button variant="default" onClick={close} disabled={busy}>
           Fermer
@@ -221,12 +226,12 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       }
     >
       <DialogColumns
-        railLabel="Lots figés"
-        contentLabel="Détail du lot"
+        railLabel="Releases figées"
+        contentLabel="Détail de la release"
         rail={
           <>
             <div className="flex flex-col gap-1.5">
-              <Field id={RELEASE_NAME_FIELD_ID} label="Nom du lot">
+              <Field id={RELEASE_NAME_FIELD_ID} label="Nom de la release">
                 <Input
                   id={RELEASE_NAME_FIELD_ID}
                   font="sans"
@@ -238,7 +243,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 />
               </Field>
               <Select
-                aria-label="Langue du lot"
+                aria-label="Langue de la release"
                 label="Langue"
                 value={localeCode}
                 disabled={busy}
@@ -264,13 +269,14 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   complet prend plusieurs secondes : savoir ce qu'on attend
                   change ce qu'on comprend de l'attente. */}
               <p className="text-2xs text-muted-foreground">
-                Rend les {project.screens.length} planche
-                {project.screens.length > 1 ? 's' : ''} et retient leurs empreintes.
+                {project.screens.length > 1
+                  ? `Rend les ${project.screens.length} écrans et retient leurs empreintes.`
+                  : 'Rend l’écran et retient son empreinte.'}
               </p>
             </div>
 
             {releases.length === 0 ? (
-              <p className="text-2xs text-muted-foreground">Aucun lot figé pour l’instant.</p>
+              <p className="text-2xs text-muted-foreground">Aucune release figée pour l’instant.</p>
             ) : (
               <ul className="flex flex-col gap-1">
                 {[...releases].reverse().map((release) => (
@@ -289,7 +295,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     >
                       <span className="truncate text-sm text-foreground">{release.name}</span>
                       <span className="tabular text-2xs text-muted-foreground">
-                        {formatDate(release.createdAt)} · {release.files.length} planches
+                        {formatDate(release.createdAt)} · {release.files.length} écrans
                         {release.locale ? ` · ${release.locale}` : ''}
                       </span>
                     </button>
@@ -326,41 +332,16 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         )}
 
         {!selected ? (
-          <div className="flex flex-col gap-3">
-            <h3 className="section-title">À quoi sert de figer un lot</h3>
-            <FreezeReasons />
-          </div>
+          <WhyFreeze open />
         ) : (
           <div className="flex flex-col gap-4">
-            {/* La même explication, atteignable une fois qu'on a des lots.
-                Elle ne vivait que dans la branche vide, et la boîte sélectionne
-                toujours une release à l'ouverture : quiconque en avait déjà
-                figé une ne l'a jamais lue, ce qui est très exactement la
-                question qu'on nous a reposée avec une capture à l'appui.
-
-                Un `details` natif plutôt qu'un état : refermé, il ne coûte
-                qu'une ligne à qui sait déjà, et il n'a rien à resynchroniser
-                quand on change de lot. */}
-            <details className="group/why">
-              <summary className="flex list-none items-center gap-1.5 text-2xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
-                <ChevronRight
-                  size={12}
-                  strokeWidth={1.75}
-                  aria-hidden
-                  className="shrink-0 transition-transform duration-150 ease-out group-open/why:rotate-90"
-                />
-                À quoi sert de figer un lot
-              </summary>
-              <div className="mt-3">
-                <FreezeReasons />
-              </div>
-            </details>
+            <WhyFreeze />
 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="section-title">{selected.name}</h3>
                 <p className="tabular mt-1 text-2xs text-muted-foreground">
-                  {formatDate(selected.createdAt)} · {selected.files.length} planches
+                  {formatDate(selected.createdAt)} · {selected.files.length} écrans
                   {selected.watermarked ? ' · filigrané' : ''}
                 </p>
               </div>
@@ -382,8 +363,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   disabled={busy}
                   tooltip={
                     verdict === 'ok'
-                      ? 'Ce lot vient de se rejouer à l’identique. Cliquez pour recommencer.'
-                      : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si ce lot se rend encore à l’identique.'
+                      ? 'Cette release vient de se rejouer à l’identique. Cliquez pour recommencer.'
+                      : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si cette release se rend encore à l’identique.'
                   }
                 >
                   {running !== 'verify' && <VerdictIcon verdict={verdict} />}
@@ -396,7 +377,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   tooltip={
                     diff?.identical
                       ? 'Le projet est déjà dans cet état.'
-                      : 'Ramène les écrans et les réglages du projet dans l’état de ce lot. Le lot, lui, ne bouge pas.'
+                      : 'Ramène les écrans et les réglages du projet dans l’état de cette release. La release, elle, ne bouge pas.'
                   }
                 >
                   <RotateCcw size={12} aria-hidden />
@@ -424,10 +405,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 l'intention de publier aujourd'hui. Le taire laissait croire à
                 une étape obligatoire dont personne ne voyait l'effet. */}
             <p className="text-2xs text-muted-foreground">
-              «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} planches de ce lot et
-              recompare leurs empreintes : c’est ce qui dit si une police disparue ou un cadre
-              d’appareil remplacé l’a changé depuis. Publier refait ce contrôle et refuse un lot qui
-              a dérivé — vérifier sert à l’apprendre avant.
+              «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} écrans de cette release
+              et recompare leurs empreintes : c’est ce qui dit si une police disparue ou un cadre
+              d’appareil remplacé l’a changé depuis. Publier refait ce contrôle et refuse une
+              release qui a dérivé — vérifier sert à l’apprendre avant.
             </p>
 
             {checks && checks.releaseId === selected.id && (
@@ -471,6 +452,35 @@ function VerdictIcon({ verdict }: { verdict: Verdict }) {
  * publier consomme une release, ni qu'on peut y revenir. Les quatre lignes sont
  * les quatre choses qu'une release permet, dans l'ordre où on les rencontre.
  */
+/**
+ * La même explication, à un seul endroit et repliable.
+ *
+ * Elle ne vivait que dans la branche vide, et la boîte sélectionne toujours une
+ * release à l'ouverture : quiconque en avait déjà figé une ne l'a jamais lue,
+ * ce qui est très exactement la question qu'on nous a reposée avec une capture
+ * à l'appui. Un `details` natif plutôt qu'un état : refermé, il ne coûte qu'une
+ * ligne à qui sait déjà, et il n'a rien à resynchroniser quand on change de
+ * release. Ouvert tant qu'aucune release n'existe, replié ensuite.
+ */
+function WhyFreeze({ open }: { open?: boolean }) {
+  return (
+    <details className="group/why" {...(open ? { open: true } : {})}>
+      <summary className="flex list-none items-center gap-1.5 text-2xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          size={12}
+          strokeWidth={1.75}
+          aria-hidden
+          className="shrink-0 transition-transform duration-150 ease-out group-open/why:rotate-90"
+        />
+        À quoi sert de figer une release
+      </summary>
+      <div className="mt-3">
+        <FreezeReasons />
+      </div>
+    </details>
+  )
+}
+
 function FreezeReasons() {
   return (
     <div className="flex flex-col gap-3">
@@ -486,8 +496,8 @@ function FreezeReasons() {
           vous avez vu, même si vous avez déplacé un titre entre-temps.
         </ReasonLine>
         <ReasonLine>
-          <strong className="text-foreground">Vérifier plus tard qu’il tient.</strong> Le lot est
-          rejoué et ses empreintes recomparées. Une police qui ne se charge plus, un cadre
+          <strong className="text-foreground">Vérifier plus tard qu’elle tient.</strong> La release
+          est rejouée et ses empreintes recomparées. Une police qui ne se charge plus, un cadre
           d’appareil remplacé : ça se voit avant l’envoi, pas après.
         </ReasonLine>
         <ReasonLine>
@@ -497,8 +507,8 @@ function FreezeReasons() {
         </ReasonLine>
         <ReasonLine>
           <strong className="text-foreground">Y revenir.</strong> «&nbsp;Reprendre&nbsp;» ramène le
-          projet dans l’état du lot, en un seul pas d’annulation. Deux semaines d’essais se défont
-          sans compter les ⌘Z.
+          projet dans l’état de la release, en un seul pas d’annulation. Deux semaines d’essais se
+          défont sans compter les ⌘Z.
         </ReasonLine>
       </ul>
     </div>
@@ -535,8 +545,8 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
       {broken.length === 0 ? (
         <p className="mt-2 flex items-center gap-2 text-2xs text-foreground">
           <Check size={13} className="text-success" aria-hidden />
-          Les {results.length} planches se rejouent à l’identique : ce lot est encore publiable tel
-          quel.
+          Les {results.length} écrans se rejouent à l’identique : cette release est encore publiable
+          telle quelle.
         </p>
       ) : (
         <>
@@ -558,8 +568,8 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
               faits : l'envoi est fermé pour ce lot, et un lot n'est jamais
               réparé — il est remplacé, puisque sa date est ce qu'il atteste. */}
           <p className="mt-2 text-2xs text-muted-foreground">
-            Publier refusera ce lot. Une release ne se répare pas : reprenez-la si vous voulez
-            retrouver cet état, puis figez-en une nouvelle.
+            Publier refusera cette release. Une release ne se répare pas : reprenez-la si vous
+            voulez retrouver cet état, puis figez-en une nouvelle.
           </p>
         </>
       )}

@@ -152,7 +152,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Ouvrir les releases').click()
   dialog = page.getByRole('dialog', { name: 'Releases' })
-  await dialog.getByLabel('Nom du lot').fill('1.0.0')
+  await dialog.getByLabel('Nom de la release').fill('1.0.0')
   await dialog.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
@@ -178,7 +178,7 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
   // Un lot figé : sans lui, deux des boîtes n'affichent que leur état vide, et
   // c'est justement leur colonne de contenu qui est à l'étroit.
   await page.getByLabel('Ouvrir les releases').click()
-  await page.getByLabel('Nom du lot').fill('1.0.0')
+  await page.getByLabel('Nom de la release').fill('1.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await page.keyboard.press('Escape')

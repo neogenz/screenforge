@@ -33,7 +33,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await addTextLayer(page)
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('1.0.0')
+  await page.getByLabel('Nom de la release').fill('1.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
 
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
@@ -77,7 +77,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
 test('un lot figé survit au rechargement et se retire à la demande', async ({ page }) => {
   await waitForApp(page)
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('2.0.0')
+  await page.getByLabel('Nom de la release').fill('2.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   /* Le toast suit l'écriture durable : l'attendre, c'est attendre que le lot
      soit sur disque, sans dépendre du délai de l'autosave. */
@@ -120,7 +120,7 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   expect(origin).not.toBeNull()
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('3.0.0')
+  await page.getByLabel('Nom de la release').fill('3.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]

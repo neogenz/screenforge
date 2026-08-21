@@ -58,7 +58,7 @@ export function PropertiesPanel() {
         </h2>
         {selectedLayers.length > 1 && (
           <span className="tabular text-2xs text-muted-foreground">
-            {String(selectedLayers.length).padStart(2, '0')}
+            {String(selectedLayers.length)}
           </span>
         )}
       </div>

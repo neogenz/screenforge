@@ -8,6 +8,7 @@ import {
   buildManifest,
   commandLine,
   preflight,
+  targetSummary,
   uploadCommand,
   APP_STORE_LOCALES,
   ASC_DISPLAY_TYPE,
@@ -258,5 +259,20 @@ describe('preflight', () => {
     expect(blocking(preflight(release(), TARGET, []))).toBe(true)
     const many = Array.from({ length: 11 }, (_, index) => manifestFile({ name: `${index}_a.png` }))
     expect(blocking(preflight(release(), TARGET, many))).toBe(true)
+  })
+})
+
+describe('résumé de cible', () => {
+  it('ne résume rien tant qu’un champ manque', () => {
+    expect(targetSummary({ ...TARGET, bundleId: '' })).toBeNull()
+    expect(targetSummary({ ...TARGET, appVersion: '' })).toBeNull()
+    expect(targetSummary({ ...TARGET, locale: '' })).toBeNull()
+  })
+
+  it('rend les valeurs saisies, jamais un chevron', () => {
+    const summary = targetSummary(TARGET)
+    expect(summary).toContain('com.exemple.cadence 1.4.0')
+    expect(summary).toContain('fr-FR')
+    expect(summary).not.toContain('<')
   })
 })

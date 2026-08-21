@@ -106,7 +106,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const shotsInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
 
-  const [appName, setAppName] = useState(project.name)
+  /* Vide, jamais `project.name` : le nom du projet est « Projet sans titre »
+     tant que personne ne l'a changé, et le constructeur le recopiait tel quel
+     dans chaque accroche. Un nom d'app se saisit, il ne se devine pas. */
+  const [appName, setAppName] = useState('')
   const [pitch, setPitch] = useState('')
   const [landingUrl, setLandingUrl] = useState('')
   const [productContext, setProductContext] = useState('')
@@ -201,10 +204,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const room = Math.max(0, AI_LIMITS.maxScreens - project.screens.length)
   const full = room === 0
   const screenCount = Math.max(1, Math.min(chosenCount, room))
+  const named = appName.trim().length > 0
 
   const brief: CampaignBrief = useMemo(
     () => ({
-      appName: appName.trim() || project.name,
+      appName: appName.trim(),
       pitch,
       landingUrl: landingUrl.trim() || undefined,
       productContext: productContext.trim() || undefined,
@@ -224,7 +228,6 @@ function CampaignDialogContent({ project }: { project: Project }) {
       palette,
       screenCount,
       project.globals.deviceModel,
-      project.name,
       shots,
       logo,
     ],
@@ -570,7 +573,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
             <Button variant="default" onClick={close} disabled={busy}>
               Annuler
             </Button>
-            <Button variant="primary" onClick={() => void compose()} loading={busy} disabled={full}>
+            <Button
+              variant="primary"
+              onClick={() => void compose()}
+              loading={busy}
+              disabled={full || !named}
+            >
               <Megaphone size={12} aria-hidden />
               Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
             </Button>
@@ -638,7 +646,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     }}
                   />
                 </Field>
-                <Field id={CONTEXT_FIELD_ID} label="Accroches produit vérifiées (une par ligne)">
+                <Field
+                  id={CONTEXT_FIELD_ID}
+                  label="Arguments à reprendre (un par ligne, facultatif)"
+                >
                   <Textarea
                     id={CONTEXT_FIELD_ID}
                     value={productContext}
@@ -673,11 +684,20 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       font="sans"
                       value={appName}
                       maxLength={60}
+                      placeholder="Ex. : Sleep Tracker"
                       disabled={busy}
-                      onChange={(event) => setAppName(event.target.value)}
+                      onChange={(event) => {
+                        setAppName(event.target.value)
+                        setPlan(null)
+                      }}
                     />
+                    {!named && (
+                      <p className="text-2xs text-muted-foreground">
+                        Les accroches le citent : sans lui, rien n’est proposé.
+                      </p>
+                    )}
                   </Field>
-                  <Field id={PITCH_FIELD_ID} label="Accroche générale vérifiée (3 à 7 mots)">
+                  <Field id={PITCH_FIELD_ID} label="Ce que fait l’app, en une phrase">
                     <Input
                       id={PITCH_FIELD_ID}
                       font="sans"
@@ -836,19 +856,30 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   }}
                 />
               </div>
-              {activeScreen && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={harmonize}
-                  disabled={busy}
-                >
-                  <Paintbrush size={12} aria-hidden />
-                  Appliquer à « {activeScreen.name} »
-                </Button>
-              )}
             </CampaignSection>
+
+            {/* Repeindre l'écran courant n'est pas un style de plus : c'est
+                l'autre moitié de la boîte, et elle ne se choisit pas dans le
+                groupe radio qu'elle consomme. */}
+            {activeScreen && (
+              <CampaignSection title="Repeindre l’écran courant">
+                <div className="grid gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-self-start"
+                    onClick={harmonize}
+                    disabled={busy}
+                  >
+                    <Paintbrush size={12} aria-hidden />
+                    Appliquer à « {activeScreen.name} »
+                  </Button>
+                  <p className="text-2xs text-muted-foreground">
+                    Repeint « {activeScreen.name} » avec le style ci-dessus, sans ajouter d’écran.
+                  </p>
+                </div>
+              </CampaignSection>
+            )}
 
             <CampaignSection title="Accroches">
               <AssistantRow
@@ -952,7 +983,7 @@ function AssistantRow({
       onClick={onOpen}
       className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >
-      <span className="field-label">Rédaction</span>
+      <span className="field-label">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
       {status && <span className="shrink-0 text-2xs text-muted-foreground">{status}</span>}
       <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />

@@ -181,6 +181,11 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
         <span
           role="status"
           aria-live="polite"
+          /* Replié, le témoin n'est plus qu'une pastille de couleur : le
+             lecteur d'écran garde le libellé `sr-only`, et le `title` le rend
+             à la souris. Un état qui ne tient qu'à une couleur n'est pas un
+             état, c'est une décoration. */
+          title={written ? undefined : SAVE_LABELS[saveStatus]}
           className={cn(
             'flex shrink-0 items-center gap-1.5 text-2xs',
             saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
@@ -258,6 +263,7 @@ function SyncIndicator({ written }: { written: boolean }) {
     <span
       role="status"
       aria-live="polite"
+      title={written ? undefined : label}
       className={cn(
         'flex shrink-0 items-center gap-1.5 text-2xs',
         syncStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
