@@ -31,9 +31,16 @@ const en = {
   },
   hero: {
     headline: 'App Store screenshots, down to the pixel.',
-    sub: 'For people who ship iPhone apps: compose the set once in your browser, export at Apple’s exact sizes, re-shoot in one click at every release. Or tell Claude Code or Codex what the app does and let it compose all ten. Free, no account, local by default.',
+    /* Une idée, puis le prix. La phrase sur Claude Code / Codex est partie
+       dans `#agent`, qui existe pour elle : cinq propositions en quatre lignes
+       ne se lisent pas. `landing-copy.test.ts` tient la longueur sous 160. */
+    sub: 'Compose the set once in your browser, export at Apple’s exact sizes, re-shoot in one click at every release. Free, no account, local by default.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
+    /* La seule information qui change ce que le visiteur anglophone va vivre
+       au clic, et elle n'a rien à dire en français — d'où le `undefined` côté
+       `fr`, que `Hero` lit pour ne rien rendre. La FAQ la reprend en détail. */
+    langNote: 'The editor is in French for now.' as string | undefined,
   },
   demo: {
     frame: 'iPhone frame',
@@ -360,6 +367,7 @@ const en = {
   },
   footer: {
     source: 'Source',
+    contact: 'Report a problem',
     copyright: '© 2026 ScreenForge',
   },
 }
@@ -385,9 +393,10 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures App Store, au pixel près.',
-    sub: 'Pour ceux qui sortent des apps iPhone : composez vos dix captures une fois dans le navigateur, exportez-les aux tailles exactes d’Apple, remplacez-les en un clic à chaque version. Ou dites à Claude Code ou Codex ce que fait l’app, et laissez-le composer les dix. Gratuit, sans compte, tout reste sur votre machine.',
+    sub: 'Composez vos captures une fois, exportez-les aux tailles exactes d’Apple, refaites-les en un clic à chaque version. Gratuit, sans compte, tout en local.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
+    langNote: undefined,
   },
   demo: {
     frame: 'Cadre iPhone',
@@ -684,6 +693,7 @@ const fr: Copy = {
   },
   footer: {
     source: 'Code source',
+    contact: 'Signaler un problème',
     copyright: '© 2026 ScreenForge',
   },
 }

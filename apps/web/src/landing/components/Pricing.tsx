@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { Check, Cloud, HardDrive } from 'lucide-react'
 import { useLang } from '../i18n'
 import { offerHref } from '../links'
+import { CtaGhost, CtaPrimary } from './cta'
 import { SectionHeading } from './SectionHeading'
 import { SpecLabel } from './SpecLabel'
 
@@ -25,12 +26,13 @@ type Plan = {
 /*
  * Deux cartes, deux modèles autonomes : Local gratuit et Cloud payant.
  *
- * Le citron va au bouton qui marche, pas à la carte recommandée. La page
- * apprend à l'œil pendant trois mille pixels que citron = « c'est ici qu'on
- * clique » ; poser ce citron sur « Être prévenu à l'ouverture » braquait cet
- * apprentissage sur une impasse et laissait la seule action réalisable en
- * contour. La recommandation reste dite par la carte — fond, anneau, badge —
- * qui sont des états, pas des actions.
+ * Le citron va au bouton du plan mis en avant, et à lui seul. Il allait
+ * autrefois à tout bouton « disponible », ce qui, les deux offres l'étant,
+ * posait deux aplats côte à côte — soit zéro action primaire. La page apprend
+ * à l'œil pendant trois mille pixels que citron = « c'est ici qu'on clique » ;
+ * elle doit désigner une seule cible par rangée. La recommandation reste dite
+ * aussi par la carte — fond, anneau, badge — qui sont des états, pas des
+ * actions.
  */
 function PlanCard({ plan }: { plan: Plan }) {
   const StorageIcon = plan.cloud ? Cloud : HardDrive
@@ -92,18 +94,21 @@ function PlanCard({ plan }: { plan: Plan }) {
       </ul>
 
       <div className="mt-auto pt-6">
-        <a
-          href={plan.href}
-          aria-label={`${plan.cta} (${plan.name})`}
-          className={cn(
-            'flex h-11 w-full items-center justify-center border font-mono text-[13px] font-semibold uppercase transition-[color,background-color,border-color,scale] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-            plan.available
-              ? 'border-marker bg-marker text-marker-ink hover:border-marker-hover hover:bg-marker-hover'
-              : 'border-foreground text-foreground hover:bg-foreground hover:text-background',
-          )}
-        >
-          {plan.cta}
-        </a>
+        {/* Le rang du plan, pas sa disponibilité : deux boutons citron côte à
+            côte, c'est zéro bouton primaire. Local est le primaire parce que
+            c'est ce que la page demande d'ouvrir ; Cloud se vend depuis
+            l'éditeur. `FinalCta` porte déjà exactement ce couple, et c'est là
+            qu'il faut lire la référence de rang. `available` ne décide plus
+            que de la note de disponibilité. */}
+        {plan.highlighted ? (
+          <CtaPrimary href={plan.href} ariaLabel={`${plan.cta} (${plan.name})`} className="w-full">
+            {plan.cta}
+          </CtaPrimary>
+        ) : (
+          <CtaGhost href={plan.href} ariaLabel={`${plan.cta} (${plan.name})`} className="w-full">
+            {plan.cta}
+          </CtaGhost>
+        )}
         {!plan.available ? (
           <p className="mt-2 text-center font-mono text-2xs text-muted-foreground">
             {plan.availabilityNote}
