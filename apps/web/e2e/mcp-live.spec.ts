@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { openUtility, waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
 
 const PNG_8x4 =
@@ -40,7 +40,7 @@ test.describe('connexion MCP', () => {
         localStorage.setItem('screenforge-mcp-port', String(port))
       }, relay.port)
       await waitForApp(page)
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       const code = dialog.getByLabel('Code à 6 chiffres affiché par le démon')
       const pair = dialog.getByRole('button', { name: 'Appairer' })
@@ -152,7 +152,7 @@ test.describe('connexion MCP', () => {
       // L'état est repoussé après l'écriture : l'agent voit ce qu'il a fait.
       await expect.poll(() => relay.states.length).toBeGreaterThan(1)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const reopened = page.getByRole('dialog', { name: 'Connexion MCP' })
       await reopened.getByText('Détails de connexion').click()
       await expect(reopened.getByText('1 lot · 3 appels')).toBeVisible()
@@ -200,7 +200,7 @@ test.describe('connexion MCP', () => {
       await expect(dialog).toBeHidden()
       expect(relay.live()).toBe(1)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByRole('button', { name: 'Désactiver' }).click()
       await expect(dialog.getByRole('status')).toHaveText('Inactive')
@@ -287,7 +287,7 @@ test.describe('connexion MCP', () => {
       await page.waitForTimeout(1500)
       expect(relay.opened()).toBe(0)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
       await dialog.getByRole('button', { name: 'Appairer' }).click()
@@ -297,7 +297,7 @@ test.describe('connexion MCP', () => {
       // Le choix est mémorisé, le jeton non : la reprise exige le nouveau code.
       await page.reload({ waitUntil: 'networkidle' })
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(1)
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const resumed = page.getByRole('dialog', { name: 'Connexion MCP' })
       await expect(resumed.getByRole('alert')).toContainText(/code affiché/i)
       await resumed.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
@@ -333,7 +333,7 @@ test.describe('connexion MCP', () => {
       }, port)
       await waitForApp(page)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill('123456')
       await dialog.getByRole('button', { name: 'Appairer' }).click()

@@ -14,10 +14,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const returnFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    /* Un menu n'est pas une cible de retour : il est démonté au moment même où
+       la palette s'ouvre, et le focus ne revenait donc nulle part — la palette
+       s'appelle désormais depuis le menu « … », où le déclencheur ne reçoit
+       jamais le focus, Radix le posant directement dans la liste. Ce qui rend
+       le focus, c'est le bouton qui a ouvert ce menu, et il se lit sur la
+       relation ARIA que ce bouton publie lui-même. */
     const rememberFocus = (target: EventTarget | null) => {
-      if (target instanceof HTMLElement && !target.closest('[cmdk-dialog]')) {
-        returnFocusRef.current = target
-      }
+      if (!(target instanceof HTMLElement) || target.closest('[cmdk-dialog]')) return
+      const remembered = target.closest('[role="menu"]')
+        ? document.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-expanded="true"]')
+        : target
+      if (remembered) returnFocusRef.current = remembered
     }
     rememberFocus(document.activeElement)
     const handleFocus = (event: FocusEvent) => rememberFocus(event.target)

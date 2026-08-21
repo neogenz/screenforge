@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTextLayer, layerRows, waitForApp } from './helpers'
+import { addTextLayer, layerRows, openUtility, utilitiesTrigger, waitForApp } from './helpers'
 
 /**
  * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
@@ -17,15 +17,18 @@ import { addTextLayer, layerRows, waitForApp } from './helpers'
 
 import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
 
-/** Libellé du bouton d'ouverture, puis nom accessible de la boîte. */
+/**
+ * Libellé de l'entrée d'ouverture, nom accessible de la boîte, et par où on y
+ * entre : la rangée, ou le menu « … » qui porte les utilitaires.
+ */
 const DIALOGS = [
-  ['Actualiser les captures', 'Actualiser les captures'],
-  ['Ouvrir les releases', 'Releases'],
-  ['Générer les visuels App Store', 'Générer les visuels App Store'],
-  ['Ouvrir les langues', 'Langues'],
-  ['Publier chez Apple', 'Publier chez Apple'],
-  ['Connexion MCP', 'Connexion MCP'],
-  ['Ouvrir l’export', 'Export officiel'],
+  ['Actualiser les captures', 'Actualiser les captures', 'rangée'],
+  ['Ouvrir les releases', 'Releases', 'rangée'],
+  ['Générer les visuels App Store', 'Générer les visuels App Store', 'rangée'],
+  ['Ouvrir les langues', 'Langues', 'rangée'],
+  ['Publier chez Apple', 'Publier chez Apple', 'rangée'],
+  ['Connexion MCP', 'Connexion MCP', 'menu'],
+  ['Ouvrir l’export', 'Export officiel', 'rangée'],
 ] as const
 
 function activeInsideDialog(page: Page): Promise<boolean> {
@@ -35,8 +38,22 @@ function activeInsideDialog(page: Page): Promise<boolean> {
   })
 }
 
-async function openWithKeyboard(page: Page, opener: Locator, title: string): Promise<Locator> {
-  await opener.focus()
+async function openWithKeyboard(
+  page: Page,
+  label: string,
+  title: string,
+  via: 'rangée' | 'menu',
+): Promise<Locator> {
+  if (via === 'menu') {
+    /* L'entrée est dans le menu « … » : deux activations au clavier, et c'est
+       le déclencheur du menu qui reste l'appelant, l'entrée disparaissant avec
+       lui. */
+    await utilitiesTrigger(page).focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menuitem', { name: label }).focus()
+  } else {
+    await page.getByLabel(label).focus()
+  }
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', { name: title })
   await expect(dialog).toBeVisible()
@@ -96,9 +113,9 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
   await waitForApp(page)
   await page.setViewportSize({ width: 1440, height: 900 })
 
-  for (const [label, title] of DIALOGS) {
-    const opener = page.getByLabel(label)
-    const dialog = await openWithKeyboard(page, opener, title)
+  for (const [label, title, via] of DIALOGS) {
+    const opener = via === 'menu' ? utilitiesTrigger(page) : page.getByLabel(label)
+    const dialog = await openWithKeyboard(page, label, title, via)
 
     // Le focus entre dans la boîte, il ne reste pas sur la page en dessous.
     expect(await activeInsideDialog(page), `${title} : focus resté dehors`).toBe(true)
@@ -183,9 +200,10 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await page.keyboard.press('Escape')
 
-  for (const [label, title] of DIALOGS) {
+  for (const [label, title, via] of DIALOGS) {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByLabel(label).click()
+    if (via === 'menu') await openUtility(page, label)
+    else await page.getByLabel(label).click()
     const dialog = page.getByRole('dialog', { name: title })
     await expect(dialog).toBeVisible()
 

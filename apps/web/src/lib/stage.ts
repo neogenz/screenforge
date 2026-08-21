@@ -199,14 +199,18 @@ export const DUAL_DRAWER_MIN_WIDTH =
  * le rattraper. La bande fautive couvrait 768 à 1114, donc 1024×768 et toute
  * fenêtre à moitié d'écran sur un 1920 ou un 2560.
  *
- * Le plancher re-mesuré est 1114 : 86 de colonne de gauche incompressible, 293
- * d'outils, 675 d'actions, deux gouttières, le retrait de l'îlot et les marges.
- * Arrondi au palier standard immédiatement au-dessus. Replier plus tôt que
- * nécessaire entre 1114 et 1280 est le prix assumé : ce que la marge achète,
- * c'est qu'un mot de palier plus long ou une police un peu plus large ne
- * remette pas le CTA hors de l'écran.
+ * Re-mesurée une seconde fois quand la rangée est passée à trois rangs : les
+ * utilitaires (offre, compte, MCP, thème, ⌘K) sont descendus dans le menu
+ * « … » à toute largeur, et deux filets sont apparus entre composer et livrer.
+ * La rangée déployée est passée de 675 à 617 — et surtout, sa largeur ne
+ * dépend plus de la configuration : le mot du palier et le bouton de compte,
+ * les deux seules pièces qui variaient d'une build à l'autre, ne sont plus
+ * dessus. Le plancher mesuré est 920, la première largeur où la colonne
+ * d'identité ne peut plus céder et recouvre les outils. Arrondi au palier
+ * standard immédiatement au-dessus. Replier entre 920 et 1024 est le prix
+ * assumé de la marge.
  */
-export const TOP_BAR_COMPACT_WIDTH = 1280
+export const TOP_BAR_COMPACT_WIDTH = 1024
 /**
  * Largeur sous laquelle la barre replie aussi ses outils de création.
  *
@@ -223,9 +227,13 @@ export const TOP_BAR_TOOLS_WIDTH = 640
  *
  * « Modifications non enregistrées » plus « Hors ligne — reprendra au retour du
  * réseau ». Mesuré, comme les deux seuils au-dessus, parce que la largeur d'un
- * mot ne se dérive de rien.
+ * mot ne se dérive de rien : le recouvrement des outils par la colonne
+ * d'identité vaut 391px de moins que la largeur disponible au-dessus du
+ * plancher, à toutes les largeurs testées. Il valait 160 ici, faux depuis
+ * toujours et sans conséquence tant que le seuil de repli au-dessus laissait
+ * plus de marge que le manque. Arrondi au-dessus du besoin réel.
  */
-const TOP_BAR_STATUS_LABELS_WIDTH = 160
+const TOP_BAR_STATUS_LABELS_WIDTH = 400
 /**
  * Largeur à partir de laquelle les témoins d'état s'écrivent au lieu de se
  * réduire à leur pictogramme.

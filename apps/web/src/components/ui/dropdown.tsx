@@ -15,11 +15,14 @@ export interface MenuItem {
   onSelect: () => void
 }
 
+/** Une entrée de menu est soit une action, soit un filet. Même grammaire que `ContextMenu`. */
+export type MenuEntry = MenuItem | 'separator'
+
 export interface DropdownProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   trigger: ReactElement
-  items: MenuItem[]
+  items: MenuEntry[]
   ariaLabel: string
   align?: 'start' | 'end'
   className?: string
@@ -52,32 +55,41 @@ export function Dropdown({
             className,
           )}
         >
-          {items.map((item) => (
-            <DropdownMenuPrimitive.Item
-              key={item.id}
-              disabled={item.disabled}
-              onSelect={() => item.onSelect()}
-              className={cn(
-                'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left outline-none',
-                'transition-colors duration-100 ease-out',
-                'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
-                item.danger
-                  ? 'text-destructive data-[highlighted]:bg-destructive/14'
-                  : 'text-foreground data-[highlighted]:bg-accent',
-              )}
-            >
-              {item.icon && (
-                <span className="shrink-0 text-muted-foreground" aria-hidden>
-                  {item.icon}
-                </span>
-              )}
-              <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
-              {item.meta && (
-                <span className="tabular shrink-0 text-2xs text-muted-foreground">{item.meta}</span>
-              )}
-              {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
-            </DropdownMenuPrimitive.Item>
-          ))}
+          {items.map((item, index) =>
+            item === 'separator' ? (
+              <DropdownMenuPrimitive.Separator
+                key={`separator-${index}`}
+                className="mx-1 my-1 h-px bg-border"
+              />
+            ) : (
+              <DropdownMenuPrimitive.Item
+                key={item.id}
+                disabled={item.disabled}
+                onSelect={() => item.onSelect()}
+                className={cn(
+                  'flex h-8 w-full items-center gap-2 rounded-sm px-2.5 text-left outline-none',
+                  'transition-colors duration-100 ease-out',
+                  'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
+                  item.danger
+                    ? 'text-destructive data-[highlighted]:bg-destructive/14'
+                    : 'text-foreground data-[highlighted]:bg-accent',
+                )}
+              >
+                {item.icon && (
+                  <span className="shrink-0 text-muted-foreground" aria-hidden>
+                    {item.icon}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+                {item.meta && (
+                  <span className="tabular shrink-0 text-2xs text-muted-foreground">
+                    {item.meta}
+                  </span>
+                )}
+                {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
+              </DropdownMenuPrimitive.Item>
+            ),
+          )}
         </DropdownMenuPrimitive.Content>
       </DropdownMenuPrimitive.Portal>
     </DropdownMenuPrimitive.Root>

@@ -1,19 +1,23 @@
 import { expect, test } from '@playwright/test'
-import { addTextLayer, layerRows, waitForApp } from './helpers'
+import { addTextLayer, layerRows, openUtility, utilitiesTrigger, waitForApp } from './helpers'
 
 test.describe('command palette', () => {
   test('le déclencheur de la TopBar garde la primitive et rend le focus', async ({ page }) => {
     await waitForApp(page)
-    const trigger = page.getByRole('button', { name: 'Ouvrir la palette de commandes' })
+    /* La palette est descendue dans le menu « … » avec les autres utilitaires :
+       une commande qu'on appelle à ⌘K n'a pas à tenir une case de la rangée,
+       où la place revient à composer et à livrer. Le déclencheur mesuré est
+       donc celui du menu, et c'est à lui que la boîte rend le focus. */
+    const trigger = utilitiesTrigger(page)
     await expect(trigger).toHaveAttribute('data-slot', 'icon-button')
     /* L'infobulle est la primitive, pas le `title=` natif : elle se montre au
        survol comme au focus clavier. */
     await trigger.hover()
-    await expect(page.getByRole('tooltip')).toContainText('Palette de commandes')
+    await expect(page.getByRole('tooltip')).toContainText('Autres actions')
     await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(36)
     await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(36)
 
-    await trigger.click()
+    await openUtility(page, 'Ouvrir la palette de commandes')
     const dialog = page.getByRole('dialog', { name: 'Palette de commandes' })
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')

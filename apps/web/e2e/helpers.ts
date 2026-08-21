@@ -248,6 +248,22 @@ export async function waitForCanvasSettled(page: Page): Promise<void> {
     .toBe(true)
 }
 
+/** Le bouton qui porte les utilitaires : ils ne sont plus sur la rangée. */
+export function utilitiesTrigger(page: Page) {
+  return page.getByLabel('Ouvrir les autres actions')
+}
+
+/**
+ * Ouvre un utilitaire — offre, compte, MCP, thème, palette.
+ *
+ * Ils vivent dans le menu « … » à toute largeur depuis que la barre haute
+ * hiérarchise ses actions : composer et livrer sur la rangée, le reste ici.
+ */
+export async function openUtility(page: Page, name: string | RegExp): Promise<void> {
+  await utilitiesTrigger(page).click()
+  await page.getByRole('menuitem', { name }).click()
+}
+
 export function layerRows(page: Page) {
   return page.locator('[data-layer-id]')
 }

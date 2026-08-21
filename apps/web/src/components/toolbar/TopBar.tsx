@@ -41,7 +41,6 @@ import { ProjectSwitcher } from '@/components/project-switcher/ProjectSwitcher'
 import { IconButton } from '@/components/ui/icon-button'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
-import { Kbd } from '@/components/ui/kbd'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
@@ -607,83 +606,22 @@ function BadgeIcon({ children }: { children: string }) {
   )
 }
 
-function useSecondaryActions(): SecondaryAction[] {
-  const account = useAccountAction()
-  const plan = usePlanAction()
+/**
+ * Trois rangs, et non une liste.
+ *
+ * Onze pictogrammes alignés sans respiration se lisaient comme un tiroir : rien
+ * ne disait que « Publier chez Apple » et « Changer de thème » n'ont pas le même
+ * poids. Les libellés ne réglaient pas ça — neuf mots ne tiennent pas sous
+ * 1280px et doubleraient les infobulles — mais l'ordre et les filets, si.
+ *
+ * Composer : ce qui pose des calques sur la planche.
+ */
+function useComposeActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
-  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
-  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
-  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
-  const showPublishDialog = useUIStore((s) => s.showPublishDialog)
-  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
-  const mcpStatus = useMcpStore((s) => s.status)
-  const theme = useUIStore((s) => s.theme)
 
   return [
-    ...(plan ? [plan] : []),
-    ...(account ? [account] : []),
-    {
-      id: 'refresh',
-      label: 'Actualiser les captures',
-      hint: 'Remplacer le lot de captures',
-      icon: <RefreshCw size={16} strokeWidth={1.75} />,
-      expanded: showRefreshDialog,
-      onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
-    },
-    {
-      id: 'releases',
-      label: 'Ouvrir les releases',
-      hint: 'Lots figés et comparaison',
-      icon: <Package size={16} strokeWidth={1.75} />,
-      expanded: showReleaseDialog,
-      onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
-    },
-    {
-      id: 'campaign',
-      label: 'Générer les visuels App Store',
-      hint: 'Captures, brief et style vers des calques éditables',
-      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
-         du marketing, et la génération n'est intelligente que si l'utilisateur
-         a branché un modèle — une baguette la promettait dans tous les cas et
-         se lisait par ailleurs comme une retouche par IA du calque courant. */
-      icon: <Megaphone size={16} strokeWidth={1.75} />,
-      expanded: showCampaignDialog,
-      onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
-    },
-    {
-      id: 'locales',
-      label: 'Ouvrir les langues',
-      hint: 'Variantes de langue et débordements',
-      icon: <Languages size={16} strokeWidth={1.75} />,
-      expanded: showLocaleDialog,
-      onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
-    },
-    {
-      id: 'publish',
-      label: 'Publier chez Apple',
-      hint: 'Preflight, manifeste et commande asc',
-      icon: <CloudUpload size={16} strokeWidth={1.75} />,
-      expanded: showPublishDialog,
-      onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
-    },
-    {
-      id: 'mcp',
-      label: 'Connexion MCP',
-      hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
-      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
-         menu, l'icône retombe dans une fente que le menu dimensionne, et une
-         pastille en absolu y déborderait sur le libellé. */
-      icon: (
-        <span className="inline-flex items-center gap-1">
-          <Plug2 size={16} strokeWidth={1.75} />
-          <McpStatusDot status={mcpStatus} />
-        </span>
-      ),
-      expanded: showMcpDialog,
-      onSelect: () => useUIStore.getState().setShowMcpDialog(!showMcpDialog),
-    },
     {
       id: 'templates',
       label: 'Ouvrir les modèles',
@@ -699,6 +637,96 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <Settings size={16} strokeWidth={1.75} />,
       expanded: showGlobalsEditor,
       onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
+    },
+    {
+      id: 'campaign',
+      label: 'Générer les visuels App Store',
+      hint: 'Captures, brief et style vers des calques éditables',
+      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
+         du marketing, et la génération n'est intelligente que si l'utilisateur
+         a branché un modèle — une baguette la promettait dans tous les cas et
+         se lisait par ailleurs comme une retouche par IA du calque courant. */
+      icon: <Megaphone size={16} strokeWidth={1.75} />,
+      expanded: showCampaignDialog,
+      onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
+    },
+  ]
+}
+
+/** Livrer : ce qui mène un projet relu jusqu'à la fiche du magasin. */
+function useDeliverActions(): SecondaryAction[] {
+  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
+  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
+  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
+  const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+
+  return [
+    {
+      id: 'refresh',
+      label: 'Actualiser les captures',
+      hint: 'Remplacer le lot de captures',
+      icon: <RefreshCw size={16} strokeWidth={1.75} />,
+      expanded: showRefreshDialog,
+      onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
+    },
+    {
+      id: 'locales',
+      label: 'Ouvrir les langues',
+      hint: 'Variantes de langue et débordements',
+      icon: <Languages size={16} strokeWidth={1.75} />,
+      expanded: showLocaleDialog,
+      onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
+    },
+    {
+      id: 'releases',
+      label: 'Ouvrir les releases',
+      hint: 'Releases figées et comparaison',
+      icon: <Package size={16} strokeWidth={1.75} />,
+      expanded: showReleaseDialog,
+      onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
+    },
+    {
+      id: 'publish',
+      label: 'Publier chez Apple',
+      hint: 'Preflight, manifeste et commande asc',
+      icon: <CloudUpload size={16} strokeWidth={1.75} />,
+      expanded: showPublishDialog,
+      onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+    },
+  ]
+}
+
+/**
+ * Utilitaires : ce qu'on ouvre une fois, ou une fois par mois.
+ *
+ * Ils vivent dans le menu « … » à toute largeur. Un thème qu'on choisit une
+ * fois n'a pas à occuper en permanence la place d'une action de livraison.
+ */
+function useUtilityActions(): SecondaryAction[] {
+  const account = useAccountAction()
+  const plan = usePlanAction()
+  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const mcpStatus = useMcpStore((s) => s.status)
+  const theme = useUIStore((s) => s.theme)
+
+  return [
+    ...(plan ? [plan] : []),
+    ...(account ? [account] : []),
+    {
+      id: 'mcp',
+      label: 'Connexion MCP',
+      hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
+      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
+         menu, l'icône retombe dans une fente que le menu dimensionne, et une
+         pastille en absolu y déborderait sur le libellé. */
+      icon: (
+        <span className="inline-flex items-center gap-1">
+          <Plug2 size={16} strokeWidth={1.75} />
+          <McpStatusDot status={mcpStatus} />
+        </span>
+      ),
+      expanded: showMcpDialog,
+      onSelect: () => useUIStore.getState().setShowMcpDialog(!showMcpDialog),
     },
     {
       id: 'theme',
@@ -722,8 +750,16 @@ function useSecondaryActions(): SecondaryAction[] {
   ]
 }
 
-function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
+/**
+ * Le menu « … », et les rangs qu'il porte encore repliés.
+ *
+ * Il reçoit des groupes, pas une liste : les filets qui séparent composer de
+ * livrer sur la rangée doivent survivre au repli, sinon le repli défait
+ * précisément la hiérarchie qu'il est censé préserver.
+ */
+function SecondaryActionsMenu({ groups }: { groups: SecondaryAction[][] }) {
   const [open, setOpen] = useState(false)
+  const filled = groups.filter((group) => group.length > 0)
 
   return (
     <Dropdown
@@ -740,14 +776,33 @@ function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
         </IconButton>
       }
       ariaLabel="Autres actions"
-      items={actions.map((action) => ({
-        id: action.id,
-        label: action.label,
-        icon: action.icon,
-        disabled: action.disabled,
-        onSelect: action.onSelect,
-      }))}
+      items={filled.flatMap((group, index) => [
+        ...(index > 0 ? (['separator'] as const) : []),
+        ...group.map((action) => ({
+          id: action.id,
+          label: action.label,
+          icon: action.icon,
+          disabled: action.disabled,
+          onSelect: action.onSelect,
+        })),
+      ])}
     />
+  )
+}
+
+function RowAction({ action }: { action: SecondaryAction }) {
+  return (
+    <IconButton
+      aria-label={action.label}
+      tooltip={action.hint}
+      active={action.expanded}
+      aria-expanded={action.expanded}
+      aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
+      onClick={action.onSelect}
+      className={action.className}
+    >
+      {action.icon}
+    </IconButton>
   )
 }
 
@@ -760,12 +815,16 @@ function ActionsSegment({
 }) {
   const layersOpen = useUIStore((s) => s.layersOpen)
   const propsOpen = useUIStore((s) => s.propsOpen)
-  const secondary = useSecondaryActions()
+  const compose = useComposeActions()
+  const deliver = useDeliverActions()
+  const utilities = useUtilityActions()
   const tools = useToolActions()
   // Le CTA principal reste, ce sont ses voisins qui cèdent — et les outils
   // repliés arrivent en tête du menu, dans l'ordre de la rangée qu'ils quittent.
   const compact = compactActions || compactTools
-  const actions = compactTools ? [...tools, ...secondary] : secondary
+  const folded = compact
+    ? [...(compactTools ? [tools] : []), compose, deliver, utilities]
+    : [utilities]
 
   return (
     <div className="flex items-center gap-1 justify-self-end">
@@ -793,35 +852,20 @@ function ActionsSegment({
 
       <Divider />
 
-      {compact ? (
-        <SecondaryActionsMenu actions={actions} />
-      ) : (
-        actions.map((action) =>
-          action.id === 'palette' ? (
-            <IconButton
-              key={action.id}
-              aria-label={action.label}
-              tooltip={action.hint}
-              onClick={action.onSelect}
-            >
-              <Kbd>⌘K</Kbd>
-            </IconButton>
-          ) : (
-            <IconButton
-              key={action.id}
-              aria-label={action.label}
-              tooltip={action.hint}
-              active={action.expanded}
-              aria-expanded={action.expanded}
-              aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
-              onClick={action.onSelect}
-              className={action.className}
-            >
-              {action.icon}
-            </IconButton>
-          ),
-        )
+      {!compact && (
+        <>
+          {compose.map((action) => (
+            <RowAction key={action.id} action={action} />
+          ))}
+          <Divider />
+          {deliver.map((action) => (
+            <RowAction key={action.id} action={action} />
+          ))}
+          <Divider />
+        </>
       )}
+
+      <SecondaryActionsMenu groups={folded} />
 
       <Button
         variant="primary"
