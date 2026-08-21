@@ -1,6 +1,6 @@
 ---
 status: blocked
-verified_at: 2026-08-21
+verified_at: 2026-08-22
 ---
 
 # Preproduction verification
@@ -47,30 +47,42 @@ verified_at: 2026-08-21
   offer at 39 USD per year with 100 projects, 128 MiB of project data, 500
   images and 512 MiB of image storage.
 - Polar Sandbox contains one public recurring `ScreenForge Cloud` product at
-  39 USD per year. Its checkout description is empty, so the four quotas are
-  not currently repeated by Polar at checkout.
-- Resend contains delivered ScreenForge magic-link events. A fresh event from
-  this candidate has not been generated yet.
+  39 USD per year. Its checkout repeats the four quotas, the local-first
+  guarantee, the yearly billing interval and the tax calculation.
+- A new Sandbox checkout completed with Polar's test payment method. The
+  signed customer-state webhook granted Cloud, an immediate Sandbox
+  cancellation removed it, and the owner's pre-existing complimentary grant
+  was then restored unchanged.
+- A fresh magic link from this candidate was delivered to the owner and its
+  successful delivery is visible in Resend. No address, token or signed URL is
+  retained in this document.
+
+### Convex usage limits
+
+- Daily usage was inspected after the hosted checkout and sync journey.
+- The dashboard currently disables every warning-threshold control for this
+  development deployment and exposes only disable thresholds. A temporary,
+  non-reachable Function calls disable value was used solely to confirm that
+  it does not unlock warnings, then deleted immediately.
+- Every daily and monthly disable threshold is inactive. No hard limit can
+  disable this deployment.
 
 ## Blocking gates
 
-The following checks require an authenticated human session or an explicit
-browser-side confirmation before they can be executed safely:
+The following checks still require another client, a destructive-action
+confirmation or a provider capability:
 
-1. Sign in to the Convex dashboard, run three comparable gates, inspect usage
-   and enable measured warnings while leaving every disable inactive.
-2. Send a fresh magic link to the owner's address, sign in to ScreenForge and
-   prove the delivery event in Resend.
-3. Add the four Cloud quotas to the Polar Sandbox checkout description and run
-   a Sandbox checkout/revocation cycle.
-4. Complete the two-client sync, quota, Cloud reset, consent and local-data
+1. Complete the two-client sync, quota, Cloud reset, consent and local-data
    preservation journey.
-5. Confirm the owner of the existing Vercel automation bypass, then retain it
+2. Enable measured Convex warnings once the provider exposes warning controls
+   for this deployment; do not substitute a disable threshold.
+3. Confirm the owner of the existing Vercel automation bypass, then retain it
    with a note or revoke it with explicit approval.
 
 ## Verdict
 
-The automatic preproduction delivery path is validated. Hosted Cloud product
-validation remains blocked on the authenticated gates above. Production stays
-blocked until a final domain, distinct production secrets and a non-Sandbox
-validation exist.
+The automatic delivery path, hosted authentication email and complete Polar
+Sandbox entitlement lifecycle are validated. Full preproduction validation
+remains blocked on the two-client destructive journey, provider warning
+support and the unowned Vercel bypass. Production stays blocked until a final
+domain, distinct production secrets and a non-Sandbox validation exist.
