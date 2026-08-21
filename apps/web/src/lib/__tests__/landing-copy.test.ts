@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { copy } from '@/landing/copy'
+import { CLOUD_OFFER, cloudOfferSummary } from '@screenforge/project-format'
 
 test.each(['en', 'fr'] as const)(
   'la landing %s ne présente que Local gratuit et Cloud payant',
@@ -17,6 +18,13 @@ test.each(['en', 'fr'] as const)(
     )
   },
 )
+
+test.each(['en', 'fr'] as const)('la landing %s publie le contrat Cloud appliqué', (lang) => {
+  const rendered = JSON.stringify(copy[lang])
+  expect(rendered).toContain(String(CLOUD_OFFER.price.amount))
+  expect(rendered).toContain(cloudOfferSummary(lang))
+  expect(rendered).not.toMatch(/sans limite artificielle|tax(?:es)? (?:included|comprises)/i)
+})
 
 /* La marche à suivre de la section IA cite la commande du démon MCP ; elle
    est recopiée dans la vitrine (importer le client y tirerait les stores), et

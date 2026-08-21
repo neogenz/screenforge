@@ -2,7 +2,7 @@ import { Webhook } from 'standardwebhooks'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from './_generated/dataModel'
 import { MAX_WEBHOOK_BYTES } from './billing'
-import { testConvex } from './test.helpers'
+import { testConvex, useRateLimit } from './test.helpers'
 
 /**
  * Le webhook de bout en bout : signature réelle, analyse réelle du SDK Polar,
@@ -361,6 +361,22 @@ describe('POST /billing/webhook', () => {
     const userId = await account(limited)
     const body = customerStateChanged({ externalId: userId })
     expect((await post(limited, body, sign(body, 'msg_other_source'))).status).toBe(200)
+  })
+
+  it('réserve le budget global aux livraisons Polar signées', async () => {
+    let source = '203.0.113.40'
+    const distributed = testConvex(() => source)
+    for (let index = 0; index < 500; index += 1) {
+      await useRateLimit(distributed, 'polarWebhookGlobal')
+    }
+
+    expect((await post(distributed, '{}', {})).status).toBe(400)
+    source = '203.0.113.41'
+    const userId = await account(distributed)
+    const body = customerStateChanged({ externalId: userId })
+    const refused = await post(distributed, body, sign(body, 'msg_trusted_budget'))
+    expect(refused.status).toBe(429)
+    expect(refused.headers.get('retry-after')).toMatch(/^\d+$/)
   })
 
   it('échoue fermé sans IP ou secret sans divulguer la cause privée', async () => {

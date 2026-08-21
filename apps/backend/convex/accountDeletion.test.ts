@@ -95,9 +95,9 @@ async function populated(
     })
     await ctx.db.insert('entitlements', {
       userId,
-      polarCustomerId: `cus_${userId}`,
-      cloudStatus: 'active',
-      cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
+      polarCustomerId: null,
+      cloudStatus: null,
+      cloudPeriodEnd: null,
       sourceUpdatedAt: null,
       complimentaryCloud: true,
       complimentaryNote: 'owner complimentary access',
@@ -269,7 +269,32 @@ describe('le schéma, énuméré', () => {
 })
 
 describe('requestAccountDeletion', () => {
-  it('pose la barrière durable avant l’identité puis vide le dossier', async () => {
+  it('refuse avant toute suppression tant que la facturation Polar est active', async () => {
+    const userId = await populated(t)
+    await t.run(async (ctx) => {
+      const entitlement = await ctx.db
+        .query('entitlements')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique()
+      await ctx.db.patch(entitlement!._id, {
+        polarCustomerId: `cus_${userId}`,
+        cloudStatus: 'active',
+        cloudPeriodEnd: '2099-01-01T00:00:00.000Z',
+      })
+    })
+
+    await expect(remove(t, userId)).resolves.toBe('billing-active')
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 1,
+      assets: 1,
+      projects: 1,
+      entitlements: 1,
+      jobs: 0,
+      files: 2,
+    })
+  })
+
+  it('pose la barrière puis supprime entièrement un compte complimentary', async () => {
     const userId = await populated(t, { assets: 2 })
 
     await expect(remove(t, userId)).resolves.toBe('deleted')
@@ -282,6 +307,9 @@ describe('requestAccountDeletion', () => {
       projects: 0,
       entitlements: 0,
       userSettings: 0,
+      cloudDataClearJobs: 0,
+      cloudDataStates: 0,
+      billingCheckoutFences: 0,
       users: 0,
       authRefreshTokens: 0,
       authVerificationCodes: 0,
@@ -300,7 +328,7 @@ describe('requestAccountDeletion', () => {
     await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toBeNull()
   })
 
-  it('reste disponible après expiration du droit Cloud', async () => {
+  it('reste disponible après l’état Polar sans abonnement Cloud actif', async () => {
     const userId = await populated(t)
     await t.run(async (ctx) => {
       const entitlement = await ctx.db
@@ -308,13 +336,65 @@ describe('requestAccountDeletion', () => {
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .unique()
       await ctx.db.patch(entitlement!._id, {
-        cloudStatus: 'canceled',
-        cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+        polarCustomerId: `cus_${userId}`,
+        cloudStatus: null,
+        cloudPeriodEnd: null,
       })
     })
 
     await expect(remove(t, userId)).resolves.toBe('deleted')
     await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toBeNull()
+  })
+
+  it('ne prend pas une période locale dépassée pour une fin de facturation Polar', async () => {
+    const userId = await populated(t)
+    await t.run(async (ctx) => {
+      const entitlement = await ctx.db
+        .query('entitlements')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique()
+      await ctx.db.patch(entitlement!._id, {
+        polarCustomerId: `cus_${userId}`,
+        cloudStatus: 'active',
+        cloudPeriodEnd: '2020-01-01T00:00:00.000Z',
+      })
+    })
+
+    await expect(remove(t, userId)).resolves.toBe('billing-active')
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.not.toBeNull()
+  })
+
+  it('bloque un checkout en attente et oublie seulement une URL expirée par Polar', async () => {
+    const userId = await populated(t)
+    const fenceId = await t.run((ctx) =>
+      ctx.db.insert('billingCheckoutFences', { userId, expiresAt: null }),
+    )
+
+    await expect(remove(t, userId)).resolves.toBe('billing-active')
+    await t.run((ctx) => ctx.db.patch(fenceId, { expiresAt: 0 }))
+    await expect(remove(t, userId)).resolves.toBe('deleted')
+  })
+
+  it('recontrôle la facturation avant chaque reprise prepared', async () => {
+    const userId = await populated(t)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('accountDeletionJobs', {
+        userId,
+        status: 'prepared',
+        attempts: 0,
+        lastError: null,
+      })
+      await ctx.db.insert('billingCheckoutFences', {
+        userId,
+        expiresAt: new Date('2099-01-01T00:00:00.000Z').getTime(),
+      })
+    })
+
+    await expect(t.mutation(internal.accountDeletion.resume, { userId })).resolves.toBe(
+      'billing-active',
+    )
+    await expect(job(t, userId)).resolves.toBeNull()
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.not.toBeNull()
   })
 
   it('sans jeton, rien d’irréversible ne commence', async () => {
@@ -631,12 +711,14 @@ describe('compteurs indirects', () => {
     await useRateLimit(t, 'magicLinkSendGlobal')
     await useRateLimit(t, 'magicLinkSendBySource', 'source-key')
     await useRateLimit(t, 'polarWebhookBySource', 'source-key')
+    await useRateLimit(t, 'polarWebhookGlobal')
 
     const globalBefore = await Promise.all([
       rateLimitValue(t, 'passwordSignUpGlobal'),
       rateLimitValue(t, 'magicLinkSendGlobal'),
       rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
       rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
+      rateLimitValue(t, 'polarWebhookGlobal'),
     ])
     await expect(remove(t, userId)).resolves.toBe('deleted')
 
@@ -651,6 +733,7 @@ describe('compteurs indirects', () => {
       rateLimitValue(t, 'magicLinkSendGlobal'),
       rateLimitValue(t, 'magicLinkSendBySource', 'source-key'),
       rateLimitValue(t, 'polarWebhookBySource', 'source-key'),
+      rateLimitValue(t, 'polarWebhookGlobal'),
     ])
     expect(globalAfter).toEqual(globalBefore)
   })

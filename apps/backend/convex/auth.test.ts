@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { api } from './_generated/api'
+import { api, internal } from './_generated/api'
 import { safeRedirect, testPasswordEnabled } from './auth'
 import { deriveSourceKey } from './limits'
-import { rateLimited, testConvex, useRateLimit } from './test.helpers'
+import { rateLimited, rateLimitValue, testConvex, useRateLimit } from './test.helpers'
 
 /**
  * Ce que la phase 1 doit prouver, et son contre-test à chaque fois.
@@ -277,6 +277,7 @@ test('un succès efface l’ardoise du mot de passe, quel que soit le flux', asy
 
 test('trois liens magiques partent, le quatrième est refusé', async () => {
   const t = testConvex()
+  const sourceKey = await deriveSourceKey('127.0.0.1', 'auth', 'test-abuse-key')
   const send = () =>
     t.action(api.auth.signIn, { provider: 'resend', params: { email: 'lien@screenforge.test' } })
 
@@ -285,7 +286,17 @@ test('trois liens magiques partent, le quatrième est refusé', async () => {
   await send()
   expect(sent).toHaveLength(3)
 
+  const [globalBefore, sourceBefore] = await Promise.all([
+    rateLimitValue(t, 'magicLinkSendGlobal'),
+    rateLimitValue(t, 'magicLinkSendBySource', sourceKey),
+  ])
   await expect(send()).rejects.toSatisfy(rateLimited)
+  const [globalAfter, sourceAfter] = await Promise.all([
+    rateLimitValue(t, 'magicLinkSendGlobal'),
+    rateLimitValue(t, 'magicLinkSendBySource', sourceKey),
+  ])
+  expect(globalAfter.value).toBeGreaterThanOrEqual(globalBefore.value)
+  expect(sourceAfter.value).toBe(sourceBefore.value)
   /* Le contre-test du contre-test : le refus a lieu avant l'appel à Resend, pas
      après. Un compteur posé derrière l'envoi bornerait le message d'erreur et
      rien d'autre. */
@@ -324,16 +335,80 @@ test('une source ne contourne pas son plafond en changeant d’adresse', async (
   expect(sent).toHaveLength(21)
 })
 
+test('un refus large ne consomme aucun quota victime et ne crée aucun état durable', async () => {
+  let source = '203.0.113.22'
+  const t = testConvex(() => source)
+  const sourceKey = await deriveSourceKey(source, 'auth', 'test-abuse-key')
+  for (let index = 0; index < 20; index += 1) {
+    await useRateLimit(t, 'magicLinkSendBySource', sourceKey)
+  }
+
+  const beforeGlobal = await rateLimitValue(t, 'magicLinkSendGlobal')
+  await expect(
+    t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: 'victime@screenforge.test' },
+    }),
+  ).rejects.toSatisfy(rateLimited)
+
+  expect((await rateLimitValue(t, 'magicLinkSendGlobal')).value).toBeGreaterThanOrEqual(
+    beforeGlobal.value,
+  )
+  expect((await rateLimitValue(t, 'magicLinkSend', 'victime@screenforge.test')).value).toBe(3)
+  await expect(
+    t.run(async (ctx) => ({
+      users: (await ctx.db.query('users').collect()).length,
+      accounts: (await ctx.db.query('authAccounts').collect()).length,
+      codes: (await ctx.db.query('authVerificationCodes').collect()).length,
+    })),
+  ).resolves.toEqual({ users: 0, accounts: 0, codes: 0 })
+
+  source = '203.0.113.23'
+  for (let index = 0; index < 3; index += 1) {
+    await expect(
+      t.action(api.auth.signIn, {
+        provider: 'resend',
+        params: { email: 'victime@screenforge.test' },
+      }),
+    ).resolves.toBeDefined()
+  }
+  expect(sent).toHaveLength(3)
+})
+
+test('un refus après un lien livré ne remplace pas son code durable', async () => {
+  const source = '203.0.113.24'
+  const t = testConvex(source)
+  const sourceKey = await deriveSourceKey(source, 'auth', 'test-abuse-key')
+  await t.action(api.auth.signIn, {
+    provider: 'resend',
+    params: { email: 'lien-stable@screenforge.test' },
+  })
+  const before = await t.run((ctx) => ctx.db.query('authVerificationCodes').unique())
+  for (let index = 1; index < 20; index += 1) {
+    await useRateLimit(t, 'magicLinkSendBySource', sourceKey)
+  }
+
+  await expect(
+    t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: 'lien-stable@screenforge.test' },
+    }),
+  ).rejects.toSatisfy(rateLimited)
+  expect(await t.run((ctx) => ctx.db.query('authVerificationCodes').unique())).toEqual(before)
+  expect(sent).toHaveLength(1)
+})
+
 test('changer simultanément de source et d’adresse ne contourne pas le plafond global', async () => {
   let source = '203.0.113.30'
   const t = testConvex(() => source)
-  for (let index = 0; index < 99; index += 1) await useRateLimit(t, 'magicLinkSendGlobal')
+  for (let index = 0; index < 29; index += 1) await useRateLimit(t, 'magicLinkSendGlobal')
 
   await t.action(api.auth.signIn, {
     provider: 'resend',
     params: { email: 'avant-plafond@screenforge.test' },
   })
   source = '203.0.113.31'
+  const freshSourceKey = await deriveSourceKey(source, 'auth', 'test-abuse-key')
   await expect(
     t.action(api.auth.signIn, {
       provider: 'resend',
@@ -341,6 +416,15 @@ test('changer simultanément de source et d’adresse ne contourne pas le plafon
     }),
   ).rejects.toSatisfy(rateLimited)
   expect(sent).toHaveLength(1)
+  expect((await rateLimitValue(t, 'magicLinkSendBySource', freshSourceKey)).value).toBe(20)
+  expect((await rateLimitValue(t, 'magicLinkSend', 'apres-plafond@screenforge.test')).value).toBe(3)
+  await expect(
+    t.run(async (ctx) => ({
+      users: (await ctx.db.query('users').collect()).length,
+      accounts: (await ctx.db.query('authAccounts').collect()).length,
+      codes: (await ctx.db.query('authVerificationCodes').collect()).length,
+    })),
+  ).resolves.toEqual({ users: 1, accounts: 1, codes: 1 })
 })
 
 test('une source ou un secret absent ferme le lien sans envoi', async () => {
@@ -354,6 +438,68 @@ test('une source ou un secret absent ferme le lien sans envoi', async () => {
   process.env.ABUSE_KEY_SECRET = ''
   await expect(send(testConvex())).rejects.toThrow('ABUSE_PROTECTION_UNAVAILABLE')
   expect(sent).toHaveLength(0)
+})
+
+test('OAuth est admis avant insertion puis borné par source', async () => {
+  const source = '203.0.113.40'
+  const t = testConvex(source)
+  const first = await t.action(api.auth.signIn, { provider: 'google' })
+  expect(first.redirect).toContain('/api/auth/signin/google')
+  expect(await t.run((ctx) => ctx.db.query('authVerifiers').collect())).toHaveLength(1)
+
+  const sourceKey = await deriveSourceKey(source, 'auth', 'test-abuse-key')
+  for (let index = 1; index < 30; index += 1) await useRateLimit(t, 'oauthStartBySource', sourceKey)
+  await expect(t.action(api.auth.signIn, { provider: 'github' })).rejects.toSatisfy(rateLimited)
+  expect(await t.run((ctx) => ctx.db.query('authVerifiers').collect())).toHaveLength(1)
+})
+
+test('le nettoyage conserve un flux OAuth actif puis retire son vérificateur expiré', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-08-21T10:00:00.000Z'))
+  try {
+    const t = testConvex()
+    await t.action(api.auth.signIn, { provider: 'google' })
+
+    vi.advanceTimersByTime(29 * 60 * 1_000)
+    await expect(t.mutation(internal.authAdmission.sweepStaleState, {})).resolves.toEqual({
+      verifiers: 0,
+      codes: 0,
+    })
+    vi.advanceTimersByTime(2 * 60 * 1_000)
+    await expect(t.mutation(internal.authAdmission.sweepStaleState, {})).resolves.toEqual({
+      verifiers: 1,
+      codes: 0,
+    })
+    expect(await t.run((ctx) => ctx.db.query('authVerifiers').collect())).toHaveLength(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('le nettoyage retire le lien expiré et son identité jamais vérifiée', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-08-21T10:00:00.000Z'))
+  try {
+    const t = testConvex()
+    await t.action(api.auth.signIn, {
+      provider: 'resend',
+      params: { email: 'abandon@screenforge.test' },
+    })
+    vi.advanceTimersByTime(61 * 60 * 1_000)
+    await expect(t.mutation(internal.authAdmission.sweepStaleState, {})).resolves.toEqual({
+      verifiers: 0,
+      codes: 1,
+    })
+    await expect(
+      t.run(async (ctx) => ({
+        users: (await ctx.db.query('users').collect()).length,
+        accounts: (await ctx.db.query('authAccounts').collect()).length,
+        codes: (await ctx.db.query('authVerificationCodes').collect()).length,
+      })),
+    ).resolves.toEqual({ users: 0, accounts: 0, codes: 0 })
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 test('un lien magique envoyé porte l’URL du site, pas celle du déploiement', async () => {

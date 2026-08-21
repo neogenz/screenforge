@@ -92,11 +92,17 @@ export async function readEntitlements(
  * supprime son compte.
  */
 async function deletionPending(ctx: QueryCtx, userId: Id<'users'>): Promise<boolean> {
-  const job = await ctx.db
-    .query('accountDeletionJobs')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
-    .unique()
-  return job !== null
+  const [account, cloudData] = await Promise.all([
+    ctx.db
+      .query('accountDeletionJobs')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique(),
+    ctx.db
+      .query('cloudDataClearJobs')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique(),
+  ])
+  return account !== null || cloudData !== null
 }
 
 /**

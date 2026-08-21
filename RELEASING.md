@@ -3,6 +3,18 @@
 ScreenForge has one version and one production path. Do not create or move a
 `v*` tag manually and do not deploy production from a branch.
 
+## Current production status
+
+The production workflow is prepared but intentionally inactive until a final
+domain is owned and configured. Before that gate, do not merge a release PR or
+create a release tag. The backend preflight also fails closed without an HTTPS
+non-Preview `SITE_URL`, exact CORS origin, matching checkout return URL,
+production Polar configuration and a verified non-test email sender.
+
+Preproduction may continue on its protected Vercel branch URL. It is evidence
+for the candidate, not a substitute production domain and must not process real
+payments.
+
 ## Prerequisites
 
 - `main` accepts squash merges only and requires the Quality checks.
@@ -13,8 +25,10 @@ ScreenForge has one version and one production path. Do not create or move a
   stored as `RELEASE_APP_CLIENT_ID`; its private key is stored as
   `RELEASE_APP_PRIVATE_KEY`.
 - The GitHub `production` Environment allows only `v*` tags. It contains
-  `VERCEL_TOKEN` and `CONVEX_DEPLOY_KEY` secrets plus `VERCEL_ORG_ID`,
-  `VERCEL_PROJECT_ID` and `PRODUCTION_URL` variables.
+  `VERCEL_TOKEN`, the production `CONVEX_DEPLOY_KEY` and the existing
+  preproduction deployment key as `CONVEX_PREPROD_DEPLOY_KEY`, plus
+  `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` and `PRODUCTION_URL` variables. The two
+  Convex keys must target different deployments.
 - Vercel production contains only public browser configuration such as
   `VITE_CONVEX_URL`. Auth, billing and email secrets stay in Convex.
 - Gitleaks, `pnpm run audit:publication` and `pnpm run audit:dependencies`
@@ -23,6 +37,25 @@ ScreenForge has one version and one production path. Do not create or move a
 The root `pnpm.overrides` entries are deliberate supply-chain patches for the
 pinned Vercel CLI tree. Remove one only after both the dependency audit and a
 real `vercel build --prod` pass without it.
+
+## Preproduction
+
+Promote the current candidate with a pull request from `main` to `preprod` and
+merge it with a merge commit. The protected branch requires `actionlint`,
+`security`, `backend`, `web`, and `e2e`; direct and force pushes are not a
+delivery path.
+
+After the merge, follow the new Quality run to completion. Its
+`deploy-preproduction` job first proves that the `preprod` tree equals the
+current `origin/main` tree, then runs the current Convex preflight, deploys the
+tested SHA to `acrobatic-orca-116`, and runs the candidate preflight. In
+parallel, the Vercel Git integration updates the stable `preprod` branch alias.
+The Convex deployment message and the Quality run must reference the same SHA.
+
+Vercel and Convex promotion are not atomic. Keep cross-provider changes
+expand/contract compatible. If only the automatic Convex job needs recovery,
+use the ignored local key through `pnpm run deploy:preprod`, rerun the preflight,
+and record no secret or provider payload in GitHub or AIDD documents.
 
 ## Release
 
@@ -40,9 +73,13 @@ real `vercel build --prod` pass without it.
    without production secrets; only the second job may enter the production
    Environment.
 6. The workflow checks the currently deployed Convex configuration, builds one
-   staged Vercel deployment, deploys Convex, checks the candidate backend,
-   smoke-tests the staged URL, promotes that exact build and audits the public
-   headers. Each provider credential exists only in the steps that call it.
+   staged Vercel deployment, then deploys the backend candidate to the isolated
+   preproduction deployment and checks it there. The candidate code evaluates
+   the actual production configuration in-memory without logging its values;
+   only then may the same revision be pushed to production. The workflow checks
+   the live backend again, smoke-tests the staged URL, promotes that exact build
+   and audits the public headers. Each provider credential exists only in the
+   steps that call it.
 
 The workflow is serialized. Rerunning a failed job is safe before promotion. Do
 not create a replacement tag for the same version; fix the cause and release a
@@ -56,8 +93,10 @@ new patch.
 - Convex changes follow expand/contract compatibility and are never rolled back
   automatically. Prefer a forward fix; restore data only through the separately
   tested backup procedure.
-- If the Convex candidate fails after deployment, do not promote Vercel. Apply a
-  compatible forward fix; use the tested backup/restore runbook only for data
-  recovery. A Vercel rollback never restores the backend.
+- If the Convex candidate fails in preproduction or against the production
+  configuration gate, production remains unchanged and Vercel is not promoted.
+  A failure after the production push still requires a compatible forward fix;
+  use the tested backup/restore runbook only for data recovery. A Vercel
+  rollback never restores the backend.
 - Never paste provider output, environment values or customer data into issues,
   release notes, Actions logs or AIDD documents.

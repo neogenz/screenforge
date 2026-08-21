@@ -6,6 +6,9 @@ import { createPortalSession, deleteAccount } from '@/lib/account'
 import { handleAccountDeletionOutcome } from '@/lib/account-deletion-ui'
 import { signOut, signOutAndReport } from '@/lib/auth'
 import { formatGrantDate, planName } from '@/lib/plans'
+import { fetchRemoteCloudUsage, type CloudUsage, type CloudUsageRow } from '@/lib/cloud'
+import { cloudUsageState, formatCloudBytes, type CloudUsageState } from '@/lib/cloud-usage'
+import { clearCloudCopy } from '@/lib/sync'
 import { afterProjectSaved, ensureDurableStorage } from '@/lib/storage'
 import { useAuthStore } from '@/stores/auth.store'
 import { toast } from '@/stores/toast.store'
@@ -32,7 +35,7 @@ function AccountDialogContent() {
   const email = useAuthStore((s) => s.user?.email ?? null)
   const entitlements = useAuthStore((s) => s.entitlements)
   /** Quel geste attend, pas un booléen : trois boutons partagent la boîte. */
-  const [pending, setPending] = useState<'portal' | 'delete' | null>(null)
+  const [pending, setPending] = useState<'portal' | 'clear-cloud' | 'delete' | null>(null)
   /**
    * La suppression se demande deux fois.
    *
@@ -42,6 +45,7 @@ function AccountDialogContent() {
    * conséquence — c'est elle qu'on lit, pas le mot « confirmer ».
    */
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
   /**
    * Le navigateur s'est-il engagé à garder les projets ?
    *
@@ -51,6 +55,10 @@ function AccountDialogContent() {
    * négatif.
    */
   const [durable, setDurable] = useState<boolean | null>(null)
+  const cloud = entitlements?.cloud ?? false
+  const hasBillingHistory = Boolean(entitlements?.cloudStatus)
+  const showCloudData = cloud || hasBillingHistory
+  const [usage, setUsage] = useState<CloudUsage | 'loading' | 'error'>('loading')
   useEffect(() => {
     let live = true
     void ensureDurableStorage().then((granted) => {
@@ -60,9 +68,21 @@ function AccountDialogContent() {
       live = false
     }
   }, [])
-
-  const cloud = entitlements?.cloud ?? false
-  const hasBillingHistory = Boolean(entitlements?.cloudStatus)
+  useEffect(() => {
+    if (!showCloudData) return
+    let live = true
+    void fetchRemoteCloudUsage().then(
+      (value) => {
+        if (live) setUsage(value ?? 'error')
+      },
+      () => {
+        if (live) setUsage('error')
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [showCloudData])
   const currentPlan = planName(entitlements)
   const cloudEnd = dateLabel('Actif jusqu’au', entitlements?.cloudPeriodEnd)
   const planDetail = cloud
@@ -113,6 +133,25 @@ function AccountDialogContent() {
     })
   }
 
+  async function confirmClearCloud() {
+    setPending('clear-cloud')
+    const outcome = await clearCloudCopy()
+    if (outcome === 'cleared') {
+      const next = await fetchRemoteCloudUsage().catch(() => null)
+      setUsage(next ?? 'error')
+      setConfirmingClear(false)
+      toast('La copie Cloud est effacée. Vos projets restent sur cet appareil.', 'info')
+    } else {
+      toast(
+        outcome === 'incomplete'
+          ? 'Le nettoyage Cloud doit être repris.'
+          : 'Le résultat du nettoyage Cloud est incertain. Vérifiez puis réessayez.',
+        'error',
+      )
+    }
+    setPending(null)
+  }
+
   return (
     <Dialog open onClose={() => setShowAccountDialog(false)} title="Compte" size="sm">
       <div className="flex flex-col gap-4">
@@ -128,6 +167,53 @@ function AccountDialogContent() {
           </span>
           <p className="min-w-0 truncate text-sm text-foreground">{email ?? 'Session en cours'}</p>
         </div>
+
+        {showCloudData && (
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="field-label">Utilisation Cloud</p>
+            <CloudUsagePanel usage={usage} />
+            <div className="mt-3 border-t border-border pt-3">
+              {confirmingClear ? (
+                <div className="flex flex-col gap-2">
+                  <p role="alert" className="text-2xs leading-4 text-muted-foreground">
+                    Les projets de cet appareil, votre compte et votre abonnement restent en place.
+                    Les copies uniquement présentes dans Cloud ou sur d’autres machines ne seront
+                    plus récupérables depuis Cloud.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending !== null}
+                      onClick={() => setConfirmingClear(false)}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      loading={pending === 'clear-cloud'}
+                      disabled={pending !== null}
+                      onClick={() => void confirmClearCloud()}
+                    >
+                      Effacer la copie
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className="w-full"
+                  disabled={pending !== null}
+                  onClick={() => setConfirmingClear(true)}
+                >
+                  Effacer la copie Cloud…
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border bg-card p-3">
           <p className="field-label">Plan actuel</p>
@@ -207,6 +293,56 @@ function AccountDialogContent() {
       </div>
     </Dialog>
   )
+}
+
+function CloudUsagePanel({ usage }: { usage: CloudUsage | 'loading' | 'error' }) {
+  if (usage === 'loading') {
+    return (
+      <p role="status" className="mt-2 text-2xs text-muted-foreground">
+        Mesure en cours…
+      </p>
+    )
+  }
+  if (usage === 'error') {
+    return (
+      <p role="status" className="mt-2 text-2xs text-muted-foreground">
+        Utilisation indisponible. Local et les autres actions restent disponibles.
+      </p>
+    )
+  }
+  return (
+    <div className="mt-2 flex flex-col gap-2" aria-live="polite">
+      <CloudUsageLine label="Projets" value={usage.projects} />
+      <CloudUsageLine label="Images" value={usage.assets} />
+    </div>
+  )
+}
+
+function CloudUsageLine({ label, value }: { label: string; value: CloudUsageRow }) {
+  const states = [
+    cloudUsageState(value.count, value.limitCount),
+    cloudUsageState(value.bytes, value.limitBytes),
+  ]
+  const state: CloudUsageState = states.includes('reached')
+    ? 'reached'
+    : states.includes('near')
+      ? 'near'
+      : 'normal'
+  return (
+    <p className={`flex items-center justify-between gap-3 text-2xs ${usageClass(state)}`}>
+      <span>{label}</span>
+      <span className="text-right tabular-nums">
+        {value.count}/{value.limitCount} · {formatCloudBytes(value.bytes)}/
+        {formatCloudBytes(value.limitBytes)}
+      </span>
+    </p>
+  )
+}
+
+function usageClass(state: CloudUsageState): string {
+  if (state === 'reached') return 'text-destructive'
+  if (state === 'near') return 'text-warning'
+  return 'text-muted-foreground'
 }
 
 function dateLabel(prefix: string, iso: string | null | undefined): string | null {

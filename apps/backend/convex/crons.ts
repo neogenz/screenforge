@@ -17,6 +17,7 @@ import { internal } from './_generated/api'
 const crons = cronJobs()
 
 crons.interval('account-deletion', { minutes: 1 }, internal.accountDeletion.resumeAll, {})
+crons.interval('stale-auth-state', { hours: 1 }, internal.authAdmission.sweepStaleState, {})
 crons.interval('storage-orphan-sweep', { hours: 24 }, internal.maintenance.sweepOrphanBlobs, {
   cursor: null,
   visited: 0,

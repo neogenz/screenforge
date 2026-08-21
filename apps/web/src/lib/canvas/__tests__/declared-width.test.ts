@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { Textbox } from 'fabric'
+import { Point, Textbox } from 'fabric'
 import {
   fabricObjectToLayerUpdate,
   rewrapTextbox,
@@ -27,9 +27,13 @@ import {
 function bumpedTextbox(options: {
   declaredWidth: number
   measuredWidth: number
+  measuredHeight?: number
   scaleX?: number
+  grouped?: boolean
 }): Textbox & RenderedObject {
   const box = Object.create(Textbox.prototype) as Textbox & RenderedObject
+  let centerX = 500
+  let centerY = 400
   box.data = { declaredWidth: options.declaredWidth }
   box.width = options.declaredWidth
   box.height = 120
@@ -38,14 +42,17 @@ function bumpedTextbox(options: {
   // Ce que fait Fabric quand un mot ne tient pas dans la boîte.
   const bump = () => {
     if (options.measuredWidth > box.width) box.width = options.measuredWidth
+    if (options.measuredHeight !== undefined) box.height = options.measuredHeight
   }
   box.initDimensions = bump
   // `FabricText.set` : toute propriété de mise en page relance `initDimensions`.
-  box.set = ((props: Record<string, unknown>) => {
+  box.set = vi.fn((props: Record<string, unknown>) => {
     Object.assign(box, props)
+    if (typeof props.left === 'number') centerX = props.left
+    if (typeof props.top === 'number') centerY = props.top
     if ('width' in props) bump()
     return box
-  }) as Textbox['set']
+  }) as unknown as Textbox['set']
   // `_set` écrit sans relancer la mise en page — c'est ce que Fabric emploie
   // lui-même pour poser `dynamicMinWidth`.
   Object.assign(box, {
@@ -53,7 +60,16 @@ function bumpedTextbox(options: {
       Object.assign(box, { [key]: value })
     },
   })
-  box.calcTransformMatrix = () => [options.scaleX ?? 1, 0, 0, 1, 500, 400]
+  box.getCenterPoint = () => new Point(centerX, centerY)
+  box.calcTransformMatrix = () => [options.scaleX ?? 1, 0, 0, 1, centerX, centerY]
+  if (options.grouped) {
+    box.group = {} as RenderedObject['group']
+    box.setXY = vi.fn((point: Point) => {
+      centerX = point.x
+      centerY = point.y
+      return box
+    }) as unknown as Textbox['setXY']
+  }
   return box
 }
 
@@ -82,6 +98,42 @@ describe('largeur déclarée', () => {
     rewrapTextbox(box)
 
     expect(fabricObjectToLayerUpdate(box).width).toBe(480)
+  })
+
+  it('conserve le coin supérieur gauche quand la hauteur mesurée change', () => {
+    const box = bumpedTextbox({
+      declaredWidth: 320,
+      measuredWidth: 512,
+      measuredHeight: 200,
+    })
+    const before = fabricObjectToLayerUpdate(box)
+
+    rewrapTextbox(box)
+
+    expect(fabricObjectToLayerUpdate(box)).toMatchObject({ x: before.x, y: before.y })
+  })
+
+  it('ne repositionne pas la boîte quand sa hauteur ne change pas', () => {
+    const box = bumpedTextbox({ declaredWidth: 320, measuredWidth: 512 })
+
+    rewrapTextbox(box)
+
+    expect(box.set).not.toHaveBeenCalled()
+  })
+
+  it('compense en coordonnées de scène dans une sélection multiple', () => {
+    const box = bumpedTextbox({
+      declaredWidth: 320,
+      measuredWidth: 512,
+      measuredHeight: 200,
+      grouped: true,
+    })
+    const before = fabricObjectToLayerUpdate(box)
+
+    rewrapTextbox(box)
+
+    expect(box.setXY).toHaveBeenCalledWith(new Point(500, 440), 'center', 'center')
+    expect(fabricObjectToLayerUpdate(box)).toMatchObject({ x: before.x, y: before.y })
   })
 
   it('laisse Fabric décider quand le calque ne déclare rien', () => {

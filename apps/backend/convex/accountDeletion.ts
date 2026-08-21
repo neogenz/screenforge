@@ -226,6 +226,43 @@ const IDENTITY_PURGES = {
 } satisfies Record<string, Purge>
 
 const DATA_PURGES = {
+  /** Checkout fences are normally expired before admission; purge is the backstop. */
+  billingCheckoutFences: async (ctx, userId, budget) => {
+    while (budget.left > 0) {
+      const rows = await ctx.db
+        .query('billingCheckoutFences')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .take(Math.min(BATCH, budget.left))
+      if (rows.length === 0) return
+      for (const row of rows) {
+        await ctx.db.delete(row._id)
+        budget.left -= 1
+      }
+    }
+  },
+
+  /** The retained upload generation belongs to the account and leaves with it. */
+  cloudDataStates: async (ctx, userId, budget) => {
+    const row = await ctx.db
+      .query('cloudDataStates')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    if (!row || budget.left <= 0) return
+    await ctx.db.delete(row._id)
+    budget.left -= 1
+  },
+
+  /** Une remise à zéro Cloud interrompue ne survit pas à la suppression du compte. */
+  cloudDataClearJobs: async (ctx, userId, budget) => {
+    const row = await ctx.db
+      .query('cloudDataClearJobs')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    if (!row || budget.left <= 0) return
+    await ctx.db.delete(row._id)
+    budget.left -= 1
+  },
+
   /** Les binaires : le fichier d'abord, la ligne ensuite. */
   assets: async (ctx, userId, budget) => {
     while (budget.left > 0) {
@@ -328,7 +365,37 @@ export const TABLES_OWNED_BY_USER: readonly string[] = [
  */
 export const TABLES_OUTLIVING_THE_USER: readonly string[] = ['accountDeletionJobs']
 
-export type AccountDeletionOutcome = 'deleted' | 'cleanup-pending' | 'deletion-pending'
+type DeletionProgress = 'deleted' | 'cleanup-pending' | 'deletion-pending' | 'billing-active'
+
+export type AccountDeletionOutcome = DeletionProgress
+
+async function billingPreventsDeletion(ctx: MutationCtx, userId: Id<'users'>): Promise<boolean> {
+  const entitlement = await ctx.db
+    .query('entitlements')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .unique()
+  /* `cloudStatus` comes from Polar's activeSubscriptions collection. Its
+     presence, not our wall clock, says that a renewable relationship still
+     exists. A stale past period must therefore fail closed until Polar sends a
+     customer state with no active Cloud subscription. */
+  if (
+    entitlement !== null &&
+    entitlement.polarCustomerId !== null &&
+    entitlement.cloudStatus !== null
+  ) {
+    return true
+  }
+
+  const now = Date.now()
+  let pending = false
+  for await (const fence of ctx.db
+    .query('billingCheckoutFences')
+    .withIndex('by_user', (q) => q.eq('userId', userId))) {
+    if (fence.expiresAt !== null && fence.expiresAt <= now) await ctx.db.delete(fence._id)
+    else pending = true
+  }
+  return pending
+}
 
 async function jobFor(
   ctx: MutationCtx,
@@ -351,13 +418,20 @@ async function jobFor(
 async function advance(
   ctx: MutationCtx,
   job: Doc<'accountDeletionJobs'>,
-): Promise<AccountDeletionOutcome> {
+): Promise<DeletionProgress> {
   const userId = ctx.db.normalizeId('users', job.userId)
   if (userId === null) {
     /* Une ligne dont l'identifiant n'a jamais été un `Id<'users'>` ne désigne
        rien à nettoyer, et la garder ferait tourner le cron pour toujours. */
     await ctx.db.delete(job._id)
     return 'deleted'
+  }
+
+  /* Re-evaluate on every prepared pass, not only at initial admission. A
+     signed Polar update can land while a bounded identity purge is queued. */
+  if (job.status === 'prepared' && (await billingPreventsDeletion(ctx, userId))) {
+    await ctx.db.delete(job._id)
+    return 'billing-active'
   }
 
   const budget: Budget = { left: PASS_BUDGET, failures: [] }
@@ -427,9 +501,18 @@ export const requestAccountDeletion = mutation({
     v.literal('deleted'),
     v.literal('cleanup-pending'),
     v.literal('deletion-pending'),
+    v.literal('billing-active'),
   ),
   handler: async (ctx): Promise<AccountDeletionOutcome> => {
     const userId = await requireUser(ctx)
+    /* Ne jamais effacer la seule identité qui peut encore ouvrir le portail et
+       résilier un abonnement Polar en cours. Un grant complimentary n'a pas de
+       facturation à abandonner et ne passe donc pas par ce verrou. */
+    if (await billingPreventsDeletion(ctx, userId)) {
+      const existing = await jobFor(ctx, userId)
+      if (existing) await ctx.db.delete(existing._id)
+      return 'billing-active'
+    }
     /* Geste irréversible, et chaque tentative relance un cycle de nettoyage. */
     await consume(ctx, 'accountDeletion', userId)
 
@@ -460,8 +543,9 @@ export const resume = internalMutation({
     v.literal('deleted'),
     v.literal('cleanup-pending'),
     v.literal('deletion-pending'),
+    v.literal('billing-active'),
   ),
-  handler: async (ctx, args): Promise<AccountDeletionOutcome> => {
+  handler: async (ctx, args): Promise<DeletionProgress> => {
     const job = await jobFor(ctx, args.userId)
     /* Plus de ligne : le travail est fini, et c'est le seul endroit qui le dit. */
     return job === null ? 'deleted' : await advance(ctx, job)

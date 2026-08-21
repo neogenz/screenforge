@@ -11,6 +11,10 @@
 ## Branches
 
 - Feature branches merged into `main`; the current repository history uses `codex/<short-description>` for Codex work.
+- `preprod` is a protected long-lived promotion branch. Update it only through
+  a merge-commit pull request from `main`; its tree must equal the current
+  `main` tree before Convex can deploy. Vercel owns the stable branch Preview,
+  while Quality owns the gated Convex preproduction deployment.
 
 ## Commits
 

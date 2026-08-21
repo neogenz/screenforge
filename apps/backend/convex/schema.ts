@@ -18,6 +18,9 @@ import { v } from 'convex/values'
 export default defineSchema({
   ...authTables,
   authVerifiers: authTables.authVerifiers.index('by_sessionId', ['sessionId']),
+  authVerificationCodes: authTables.authVerificationCodes.index('by_expirationTime', [
+    'expirationTime',
+  ]),
 
   /**
    * Le miroir des droits : ce que Polar dit, recopié ici pour que l'éditeur
@@ -113,6 +116,30 @@ export default defineSchema({
     userId: v.id('users'),
     theme: v.union(v.literal('light'), v.literal('dark')),
     updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  /** Durable write barrier while a bounded Cloud-copy clear is in progress. */
+  cloudDataClearJobs: defineTable({
+    userId: v.id('users'),
+  }).index('by_user', ['userId']),
+
+  /** Retained generation fence: uploads authorized before a purge cannot commit afterward. */
+  cloudDataStates: defineTable({
+    userId: v.id('users'),
+    generation: v.number(),
+  }).index('by_user', ['userId']),
+
+  /**
+   * One durable fence per Polar checkout request.
+   *
+   * `expiresAt: null` is the fail-closed state between the local transaction
+   * and Polar's response. Once Polar answers, its own checkout expiry replaces
+   * it. Multiple rows are intentional: concurrent checkouts must not let the
+   * newest failed request erase an older live checkout.
+   */
+  billingCheckoutFences: defineTable({
+    userId: v.id('users'),
+    expiresAt: v.union(v.number(), v.null()),
   }).index('by_user', ['userId']),
 
   /**

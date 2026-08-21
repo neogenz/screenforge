@@ -1,4 +1,5 @@
 import type { Entitlements } from '@/lib/entitlements'
+import { CLOUD_OFFER, cloudOfferSummary } from '@screenforge/project-format'
 
 /**
  * L'offre, dite une fois.
@@ -40,13 +41,13 @@ export const PLANS: Plan[] = [
   {
     id: 'cloud',
     name: 'Cloud',
-    price: '39 $',
+    price: `${CLOUD_OFFER.price.amount} $`,
     period: '/an',
     tagline: 'L’éditeur complet et vos projets sur chaque machine',
     points: [
-      'Tout Local, sans limite artificielle',
+      'Tout Local, avec exports illimités',
       'Projets, images et thème synchronisés',
-      'Reprendre un projet sur une autre machine',
+      cloudOfferSummary('fr'),
     ],
   },
 ]

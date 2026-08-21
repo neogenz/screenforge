@@ -7,6 +7,8 @@ test('la landing présente Local gratuit et Cloud payant en anglais et en franç
   const pricing = page.locator('#pricing')
   await expect(pricing.getByText('$0', { exact: true })).toBeVisible()
   await expect(pricing.getByText('$39', { exact: true })).toBeVisible()
+  await expect(pricing).toContainText('100 projects and 128 MiB')
+  await expect(pricing).toContainText('500 images and 512 MiB')
   await expect(pricing.getByRole('link', { name: 'Open the editor (Local)' })).toHaveAttribute(
     'href',
     '/',
@@ -20,6 +22,8 @@ test('la landing présente Local gratuit et Cloud payant en anglais et en franç
   await page.getByRole('link', { name: 'Français' }).first().click()
   await expect(pricing.getByText('0 $', { exact: true })).toBeVisible()
   await expect(pricing.getByText('39 $', { exact: true })).toBeVisible()
+  await expect(pricing).toContainText('100 projets et 128 Mio')
+  await expect(pricing).toContainText('500 images et 512 Mio')
   await expect(page.getByText('Local est-il vraiment gratuit ?')).toBeVisible()
   await expect(pricing).not.toContainText(/49 \$|essai gratuit|trois exports filigranés/i)
 })

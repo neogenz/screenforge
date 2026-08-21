@@ -23,6 +23,7 @@
 import { collectAssetIds } from '@/lib/asset-refs'
 import { resolveAsset } from '@/lib/assets'
 import {
+  clearRemoteCloudData,
   downloadRemoteAsset,
   fetchRemoteProject,
   fetchRemoteUserSettings,
@@ -42,8 +43,10 @@ import {
   loadProject,
   onProjectCommitted,
   storeRemoteProject,
+  saveCurrentProject,
 } from '@/lib/storage'
 import {
+  clearSyncRecords,
   ensureSyncRecord,
   listSyncRecords,
   readSyncRecord,
@@ -63,6 +66,7 @@ import {
   type UserSettings,
 } from '@/lib/user-settings'
 import type { Project } from '@/types'
+import { CLOUD_OFFER, MEBIBYTE } from '@screenforge/project-format'
 
 const PROJECT_DOWNLOAD_CONCURRENCY = 2
 const ASSET_UPLOAD_CONCURRENCY = 4
@@ -610,6 +614,47 @@ export async function attachProjects(ids: string[]): Promise<string[]> {
   return failed
 }
 
+export type ClearCloudCopyOutcome = 'cleared' | 'incomplete' | 'unknown'
+
+/** Clear the remote mirror while preserving local projects and requiring fresh consent. */
+export async function clearCloudCopy(): Promise<ClearCloudCopyOutcome> {
+  await saveCurrentProject()
+  let outcome: ClearCloudCopyOutcome = 'unknown'
+  const run = async () => {
+    const userId = currentUserId()
+    if (!userId) {
+      outcome = 'unknown'
+      return
+    }
+    setStatus('syncing')
+    try {
+      const remote = await clearRemoteCloudData()
+      if (remote !== 'cleared') {
+        outcome = 'incomplete'
+        setStatus('error')
+        return
+      }
+      await clearSyncRecords(userId)
+      queued.clear()
+      resetConsentBarrier(userId)
+      await ensureConsentBarrier(userId)
+      pulled = true
+      settingsPulled = true
+      settingsDirty = false
+      ignoredAdoptionCommit = null
+      setStatus('synced')
+      outcome = 'cleared'
+    } catch (error) {
+      console.error('Could not clear the Cloud copy.', error)
+      setStatus('error')
+      outcome = 'unknown'
+    }
+  }
+  chain = chain.then(run)
+  await chain
+  return outcome
+}
+
 interface PendingPushResult {
   pushedProjectIds: string[]
   remoteRejected: boolean
@@ -809,14 +854,10 @@ function fail(error: unknown): void {
 }
 
 const CLOUD_QUOTA_MESSAGES: Readonly<Record<string, string>> = {
-  'project-count-limit':
-    'Limite Cloud atteinte : 100 projets. Supprimez des données Cloud ou votre compte avant de réessayer.',
-  'project-storage-limit':
-    'Limite Cloud atteinte : 128 Mio de projets. Supprimez des données Cloud ou votre compte avant de réessayer.',
-  'asset-count-limit':
-    'Limite Cloud atteinte : 500 images. Supprimez des données Cloud ou votre compte avant de réessayer.',
-  'asset-storage-limit':
-    'Limite Cloud atteinte : 512 Mio d’images. Supprimez des données Cloud ou votre compte avant de réessayer.',
+  'project-count-limit': `Limite Cloud atteinte : ${CLOUD_OFFER.limits.projects} projets. Effacez la copie Cloud avant de réessayer.`,
+  'project-storage-limit': `Limite Cloud atteinte : ${CLOUD_OFFER.limits.projectBytes / MEBIBYTE} Mio de projets. Effacez la copie Cloud avant de réessayer.`,
+  'asset-count-limit': `Limite Cloud atteinte : ${CLOUD_OFFER.limits.assets} images. Effacez la copie Cloud avant de réessayer.`,
+  'asset-storage-limit': `Limite Cloud atteinte : ${CLOUD_OFFER.limits.assetBytes / MEBIBYTE} Mio d’images. Effacez la copie Cloud avant de réessayer.`,
   'file-too-large': 'Ce fichier dépasse la limite Cloud. Réduisez-le avant de réessayer.',
 }
 
