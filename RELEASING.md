@@ -38,6 +38,25 @@ The root `pnpm.overrides` entries are deliberate supply-chain patches for the
 pinned Vercel CLI tree. Remove one only after both the dependency audit and a
 real `vercel build --prod` pass without it.
 
+## Preproduction
+
+Promote the current candidate with a pull request from `main` to `preprod` and
+merge it with a merge commit. The protected branch requires `actionlint`,
+`security`, `backend`, `web`, and `e2e`; direct and force pushes are not a
+delivery path.
+
+After the merge, follow the new Quality run to completion. Its
+`deploy-preproduction` job first proves that the `preprod` tree equals the
+current `origin/main` tree, then runs the current Convex preflight, deploys the
+tested SHA to `acrobatic-orca-116`, and runs the candidate preflight. In
+parallel, the Vercel Git integration updates the stable `preprod` branch alias.
+The Convex deployment message and the Quality run must reference the same SHA.
+
+Vercel and Convex promotion are not atomic. Keep cross-provider changes
+expand/contract compatible. If only the automatic Convex job needs recovery,
+use the ignored local key through `pnpm run deploy:preprod`, rerun the preflight,
+and record no secret or provider payload in GitHub or AIDD documents.
+
 ## Release
 
 1. Push an internal branch and review its protected Vercel Preview. Git
