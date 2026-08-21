@@ -44,14 +44,14 @@ export const ADD_IMAGE_SCHEMA: ParamSchema = {
       type: 'string',
       enum: ['image', 'screenshot'],
       description:
-        '« image » pose un calque image (un logo). « screenshot » pose un cadre iPhone portant la capture.',
+        '« image » pose un calque image (un logo). « screenshot » pose un cadre de téléphone portant la capture.',
     },
     screenId: { type: 'string', maxLength: 64, description: 'Par défaut, l’écran actif.' },
     layerId: {
       type: 'string',
       maxLength: 64,
       description:
-        'Pour « screenshot » : remplit un cadre iPhone déjà posé au lieu d’en ajouter un. Le cadrage existant est conservé.',
+        'Pour « screenshot » : remplit un cadre de téléphone déjà posé au lieu d’en ajouter un. Le cadrage existant est conservé.',
     },
     name: { type: 'string', maxLength: 80 },
     slot: { type: 'string', maxLength: 48, description: 'Rôle de l’écran, pour « screenshot ».' },

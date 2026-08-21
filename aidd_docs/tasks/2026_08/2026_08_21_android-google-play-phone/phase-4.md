@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: adapter campagnes, localisation et MCP à la cible

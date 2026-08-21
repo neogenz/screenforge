@@ -237,6 +237,12 @@ export function applyToolCalls(
         const screen = targetScreen(args)
         if (typeof screen === 'string') return { results, error: screen }
         const model = (args.deviceModel as DeviceModel | undefined) ?? draft.globals.deviceModel
+        if (!profile.deviceModels.includes(model)) {
+          return {
+            results,
+            error: `Le modèle ${model} n’est pas compatible avec ${profile.label}`,
+          }
+        }
         const layer = createDeviceLayer(model, 0, profile.board)
         if (typeof args.slot === 'string') {
           const slot = normalizeSlot(args.slot)
@@ -299,6 +305,16 @@ export function applyToolCalls(
         if (found.layer.locked) return { results, error: `Calque verrouillé : ${found.layer.name}` }
         const allowed = PATCHABLE_PROPS[found.layer.type]
         const patch = (args.patch ?? {}) as Record<string, unknown>
+        if (
+          found.layer.type === 'device-frame' &&
+          typeof patch.deviceModel === 'string' &&
+          !profile.deviceModels.includes(patch.deviceModel as DeviceModel)
+        ) {
+          return {
+            results,
+            error: `Le modèle ${patch.deviceModel} n’est pas compatible avec ${profile.label}`,
+          }
+        }
         for (const [key, value] of Object.entries(patch)) {
           if (!allowed.includes(key)) {
             return {

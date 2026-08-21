@@ -14,7 +14,7 @@ Each refusal names its cause. This maps the cause to the fix.
 | propriété inconnue                                           | a key the schema does not declare                                                            | drop it, nothing accepts undeclared properties                           |
 | format invalide on a colour                                  | a shorthand, an alpha, or a name                                                             | write `#rrggbb`, six hex digits                                          |
 | Appel N refusé                                               | one call in the batch failed                                                                 | the whole batch was dropped, fix that call and resend all of it          |
-| Campagne pleine                                              | the project holds 10 screens                                                                 | compose on existing screens                                              |
+| Campagne pleine                                              | the project reached its target cap: 10 App Store or 8 Google Play                            | compose on existing screens                                              |
 | 24 calques au plus                                           | the screen is full                                                                           | merge or drop layers                                                     |
 | Image refusée                                                | a relative path, an unknown extension, a missing file, over 16 MB, or an SVG as a screenshot | the message names which, each is a different correction                  |
 | Passage absent du texte                                      | an `emphasis` passage is not in the `content` it was sent with                               | the message quotes both, copy the passage out of the content itself      |
@@ -65,8 +65,9 @@ a text in the wrong place.
 
 ## Board units, not export pixels
 
-Every coordinate is on the 440 by 956 artboard. The export is 1320 by 2868 and
-is derived at render time. A headline placed at y 300 thinking in export pixels
+Every coordinate is on the `canvas` returned by project state: 440 by 956 for
+App Store or 540 by 960 for Google Play phone. Export pixels are derived at
+render time. A headline placed at y 300 thinking in export pixels
 lands a third of the way down a board it should have crossed at the top.
 
 ## Structure, not pixels

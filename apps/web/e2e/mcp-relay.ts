@@ -33,7 +33,14 @@ export interface Answer {
     data?: string
     id?: string
     name?: string
-    templates?: { id: string; name: string; source: string; layerCount: number }[]
+    target?: 'app-store-iphone' | 'google-play-phone'
+    templates?: {
+      id: string
+      name: string
+      source: string
+      target: 'app-store-iphone' | 'google-play-phone'
+      layerCount: number
+    }[]
   }
   error?: string
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { EngineId } from '@/lib/ai/providers'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 
 /**
  * Le client du pont local.
@@ -211,7 +212,13 @@ export async function planViaBridge(
   engine: EngineId,
   model?: string,
 ): Promise<CampaignPlan> {
-  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const expected = Math.max(
+    1,
+    Math.min(
+      brief.screenCount,
+      getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id).maxScreens,
+    ),
+  )
   const capacityFailure = validateBriefGroundingCapacity(brief, expected)
   if (capacityFailure) throw new Error(capacityFailure)
   const { plan } = await call<{ plan: BridgePlan }>('/plan', token, {
@@ -267,6 +274,7 @@ export async function planViaBridge(
   })
 
   const result: CampaignPlan = {
+    target: brief.target ?? 'app-store-iphone',
     appName: brief.appName,
     direction: brief.direction,
     palette,

@@ -21,7 +21,7 @@ import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
 const DIALOGS = [
   ['Actualiser les captures', 'Actualiser les captures'],
   ['Ouvrir les releases', 'Releases'],
-  ['Générer les visuels App Store', 'Générer les visuels App Store'],
+  ['Générer les visuels de la fiche', 'Générer les visuels · App Store · iPhone'],
   ['Ouvrir les langues', 'Langues'],
   ['Publier chez Apple', 'Publier chez Apple'],
   ['Connexion MCP', 'Connexion MCP'],
@@ -132,8 +132,8 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await waitForApp(page)
   await addTextLayer(page)
 
-  await page.getByLabel('Générer les visuels App Store').click()
-  let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  await page.getByLabel('Générer les visuels de la fiche').click()
+  let dialog = page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' })
   await expectRingToken(page, dialog.getByRole('radio', { name: 'Sobre' }))
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
   await expectRingToken(page, assistance)
@@ -230,8 +230,8 @@ test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }
   await waitForApp(page)
   await addTextLayer(page)
 
-  await page.getByLabel('Générer les visuels App Store').click()
-  const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+  await page.getByLabel('Générer les visuels de la fiche').click()
+  const dialog = page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' })
   const radio = dialog.getByRole('radio', { name: 'Sobre' })
   await radio.focus()
   /* L'input invisible couvre toute la carte : sans `outline-none` il peint le

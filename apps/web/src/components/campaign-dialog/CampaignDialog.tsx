@@ -59,6 +59,7 @@ import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
 import type { Project } from '@/types'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 
 const NAME_FIELD_ID = 'sf-campaign-name'
 const PITCH_FIELD_ID = 'sf-campaign-pitch'
@@ -67,11 +68,11 @@ const CONTEXT_FIELD_ID = 'sf-campaign-context'
 const COUNT_FIELD_ID = 'sf-campaign-count'
 const HEADLINE_FIELD_ID = 'sf-campaign-headline'
 
-/** Le défaut quand aucune capture n'est encore déposée : Apple en montre trois. */
+/** Quatre visuels forment le lot promotionnel recommandé sur Google Play. */
 const DEFAULT_SCREEN_COUNT = 4
 
 /**
- * Générer les visuels de la fiche App Store, puis les corriger comme le reste.
+ * Générer les visuels de la fiche du store, puis les corriger comme le reste.
  *
  * La boîte tient en deux temps : le brief, puis le plan. Le plan est relu avant
  * que quoi que ce soit ne soit posé — c'est la différence entre une génération
@@ -80,7 +81,7 @@ const DEFAULT_SCREEN_COUNT = 4
  * reprend ensuite au clavier, à la souris et à l'export, sans rien savoir de la
  * façon dont il est né.
  *
- * Le vocabulaire est celui de l'App Store, pas celui de l'implémentation.
+ * Le vocabulaire est celui de la fiche du store, pas celui de l'implémentation.
  * « Composition locale » et « Assistance » nommaient des choses vraies —
  * l'absence de réseau, le choix du fournisseur — que personne n'était venu
  * chercher : l'utilisateur vient faire des images pour sa fiche. Le fournisseur
@@ -102,6 +103,7 @@ interface LoadedShot extends BriefScreenshot {
 }
 
 function CampaignDialogContent({ project }: { project: Project }) {
+  const profile = getStoreTargetProfile(project.target)
   const close = () => useUIStore.getState().setShowCampaignDialog(false)
   const shotsInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
@@ -198,12 +200,13 @@ function CampaignDialogContent({ project }: { project: Project }) {
      sur « Campagne pleine ». Le plafond se lit avant de choisir, pas après
      avoir relu. Dérivé au rendu et non recopié dans l'état : le projet peut
      gagner un écran pendant que la boîte est ouverte. */
-  const room = Math.max(0, AI_LIMITS.maxScreens - project.screens.length)
+  const room = Math.max(0, profile.maxScreens - project.screens.length)
   const full = room === 0
   const screenCount = Math.max(1, Math.min(chosenCount, room))
 
   const brief: CampaignBrief = useMemo(
     () => ({
+      target: project.target,
       appName: appName.trim() || project.name,
       pitch,
       landingUrl: landingUrl.trim() || undefined,
@@ -222,6 +225,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       productContext,
       direction,
       palette,
+      project.target,
       screenCount,
       project.globals.deviceModel,
       project.name,
@@ -537,7 +541,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
     <Dialog
       open
       onClose={busy ? () => undefined : close}
-      title="Générer les visuels App Store"
+      title={`Générer les visuels · ${profile.label}`}
       size="lg"
       flush
       /* Le retour d'une sous-vue vit en haut à gauche, où on le cherche. Le
@@ -579,6 +583,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
       }
     >
       <div className="flex max-h-[60dvh] flex-col overflow-y-auto px-6 py-4">
+        <p className="mb-3 text-2xs text-muted-foreground">
+          {profile.output.portrait.width}×{profile.output.portrait.height} · portrait ·{' '}
+          {profile.maxScreens} captures maximum pour cette destination.
+        </p>
         {error && (
           <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
             <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
@@ -760,8 +768,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
                 {full ? (
                   <p role="status" className="text-xs text-muted-foreground">
-                    Le projet contient déjà {AI_LIMITS.maxScreens} écrans. Supprimez-en un pour
-                    créer un nouveau lot.
+                    Le projet contient déjà {profile.maxScreens} écrans. Supprimez-en un pour créer
+                    un nouveau lot.
                   </p>
                 ) : shots.length === 0 ? (
                   <p className="text-xs text-muted-foreground">

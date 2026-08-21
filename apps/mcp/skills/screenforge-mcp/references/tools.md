@@ -18,14 +18,15 @@ tools of all its servers flat.
 
 | Fact                   | Value                                                            |
 | ---------------------- | ---------------------------------------------------------------- |
-| Artboard               | 440 wide by 956 tall, in board units                             |
-| Export                 | 1320 by 2868, derived, never addressed by a call                 |
-| Coordinates `x` `y`    | -440 to 880, so a layer may overflow the board but not escape it |
-| Sizes `width` `height` | 4 to 1912                                                        |
+| App Store artboard     | 440 wide by 956 tall; export 1320 by 2868                        |
+| Google Play artboard   | 540 wide by 960 tall; export 1080 by 1920                        |
+| Active target          | read `target`, `canvas` and `globals.deviceModel` before writing |
+| Coordinates `x` `y`    | -540 to 1080; the active board still decides what is visible     |
+| Sizes `width` `height` | 4 to 1920                                                        |
 | `rotation`             | -360 to 360 degrees, around the layer centre                     |
 | `opacity`              | 0 to 1                                                           |
 | Colours                | `#rrggbb` exactly, six hex digits, no shorthand and no alpha     |
-| Screens per project    | 10                                                               |
+| Screens per project    | 10 for App Store, 8 for Google Play phone                        |
 | Layers per screen      | 24                                                               |
 | Calls per batch        | 200                                                              |
 
@@ -33,7 +34,7 @@ tools of all its servers flat.
 
 | Tool                | Arguments                                                | Returns                                                                 |
 | ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `get_project_state` | none                                                     | name, canvas, globals, every screen with its layers, layout layers      |
+| `get_project_state` | none                                                     | name, target, platform, canvas, globals, every screen and layout layers |
 | `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                        |
 | `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                               |
 | `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template |
@@ -54,7 +55,7 @@ box is holding five lines.
 | Measure        | Threshold                                                   |
 | -------------- | ----------------------------------------------------------- |
 | Text overflow  | measured height above the layer's own `height`              |
-| Off-board text | a text box leaving 440 by 956, on any side                  |
+| Off-board text | a text box leaving the active `canvas`, on any side         |
 | Cropped device | under 70 % of the device frame on the board                 |
 | Contrast       | under 4.5:1 against **every** stop of the screen background |
 | Overlap        | two **text** layers whose boxes intersect                   |
@@ -99,7 +100,7 @@ to the active screen when the batch created none.
 takes an absolute path under a root granted by the MCP client (or
 `SCREENFORGE_MCP_ASSET_ROOTS`), reads the file on the machine running the daemon, and
 turns it into a call the project accepts. `role` is `image` for a logo or
-`screenshot` for a capture, which lands in an iPhone frame. Give `layerId` to
+`screenshot` for a capture, which lands in a phone frame compatible with the active target. Give `layerId` to
 fill a frame that already exists, keeping the crop the user set on it. Refused
 with its cause named: a relative path, an extension outside PNG, JPEG and SVG, a
 missing file, more than 16 MB, or an SVG offered as a screenshot.
@@ -203,9 +204,11 @@ A stop is `{ "offset": 0 to 1, "color": "#rrggbb" }`.
 
 `iphone-17-pro-max`, `iphone-17-pro`, `iphone-17`, `iphone-air`,
 `iphone-16-plus`, `iphone-16`, `iphone-16e`, `iphone-16-pro-max`,
-`iphone-16-pro`.
+`iphone-16-pro`, `android-phone`.
 
-Widest first. The last two are legacy, kept so older projects still render.
+Use only models compatible with the open project: the iPhone models belong to
+`app-store-iphone`; `android-phone` belongs to `google-play-phone`. The last two
+iPhone models are legacy, kept so older projects still render.
 
 ## Shapes
 

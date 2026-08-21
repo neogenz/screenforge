@@ -6,8 +6,10 @@ import {
   backgroundToFabricFill,
   disposeFabricObjectResource,
   layerToFabricObject,
+  type BoardSize,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE } from '@/lib/dimensions'
 import { isFontLoaded, loadGoogleFont } from '@/lib/fonts'
 import type { Layer, Screen } from '@/types'
 
@@ -64,8 +66,13 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
   await document.fonts.ready
 }
 
-function sortedLayers(screen: Screen, layoutLayers: Layer[], screenIndex: number): Layer[] {
-  const panoramaOffset = screenIndex * SCREEN_WIDTH
+function sortedLayers(
+  screen: Screen,
+  layoutLayers: Layer[],
+  screenIndex: number,
+  board: BoardSize,
+): Layer[] {
+  const panoramaOffset = screenIndex * board.width
   return [
     ...screen.layers,
     ...layoutLayers.map((layer) => ({ ...layer, x: layer.x - panoramaOffset })),
@@ -121,13 +128,14 @@ export async function renderScreenToBlob(
   layoutLayers: Layer[],
   multiplier: number,
   screenIndex = 0,
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): Promise<Blob> {
-  const layers = sortedLayers(screen, layoutLayers, screenIndex)
+  const layers = sortedLayers(screen, layoutLayers, screenIndex, board)
   await ensureFonts(layers)
 
   const exportCanvas = new StaticCanvas(undefined, {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: board.width,
+    height: board.height,
     backgroundColor: '#ffffff',
     enableRetinaScaling: false,
     renderOnAddRemove: false,
@@ -140,8 +148,8 @@ export async function renderScreenToBlob(
       originY: 'top',
       left: 0,
       top: 0,
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
+      width: board.width,
+      height: board.height,
       fill: backgroundToFabricFill(screen.background),
       selectable: false,
       evented: false,

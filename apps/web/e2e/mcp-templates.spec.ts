@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { openAndroidProject, waitForApp } from './helpers'
 import { connect, startRelay, type Relay } from './mcp-relay'
 
 /**
@@ -37,17 +37,21 @@ async function openPicker(page: Page): Promise<void> {
 }
 
 test.describe('gabarits enregistrés par l’agent', () => {
-  test('un gabarit posé par l’agent s’applique et survit au rechargement', async ({ page }) => {
+  test('un gabarit Android posé par l’agent s’applique et survit au rechargement', async ({
+    page,
+  }) => {
     const relay = await startRelay()
     try {
       await connect(page, relay)
       await page.keyboard.press('Escape')
+      await openAndroidProject(page)
       await compose(page, relay)
 
       relay.askSaveTemplate('gabarit-1', { name: 'Ouverture sombre' })
       await expect.poll(() => relay.answers.length, { timeout: 10_000 }).toBe(2)
       expect(relay.answers[1].ok).toBe(true)
       expect(relay.answers[1].result?.name).toBe('Ouverture sombre')
+      expect(relay.answers[1].result?.target).toBe('google-play-phone')
 
       // Visible dans le sélecteur, sous sa propre section et marqué d'où il vient.
       await openPicker(page)
@@ -75,6 +79,20 @@ test.describe('gabarits enregistrés par l’agent', () => {
       })
       expect(applied.types).toEqual(['text', 'device-frame'])
       expect(applied.background).toEqual({ type: 'solid', color: '#101114' })
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              window.__sfStores?.useProjectStore
+                .getState()
+                .project?.screens.at(-1)
+                ?.layers.find((layer) => layer.type === 'device-frame')?.deviceModel,
+          ),
+        )
+        .toBe('android-phone')
+      await expect
+        .poll(() => page.evaluate(() => window.__sfStores?.useUIStore.getState().saveStatus))
+        .toBe('saved')
 
       // Le gabarit vit hors du projet : c'est ce que le rechargement démontre.
       await page.reload({ waitUntil: 'networkidle' })
@@ -105,6 +123,7 @@ test.describe('gabarits enregistrés par l’agent', () => {
       expect(listed).toHaveLength(1)
       expect(listed[0].name).toBe('Réutilisable')
       expect(listed[0].source).toBe('ai')
+      expect(listed[0].target).toBe('app-store-iphone')
       expect(listed[0].layerCount).toBe(2)
 
       const opened = relay.opened()

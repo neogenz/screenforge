@@ -54,7 +54,7 @@ const TOOL_PREFIX = 'screenforge_'
  *
  * Le nom est une adresse — préfixée, en anglais, avec des tirets bas — et un
  * client MCP l'affiche tel quel faute de mieux : « screenforge_add_device »
- * dans une liste de permissions à accorder ne dit pas qu'on va poser un iPhone
+ * dans une liste de permissions à accorder ne dit pas qu'on va poser un téléphone
  * sur une planche. La spec 2026-07-28 réserve `title` à cet affichage, le nom
  * restant l'identifiant.
  *
@@ -74,7 +74,7 @@ const TOOL_TITLES: Record<string, string> = {
   add_text: 'Poser un texte',
   add_shape: 'Poser une forme',
   add_icon: 'Poser une icône',
-  add_device: 'Poser un iPhone',
+  add_device: 'Poser un téléphone',
   add_image: 'Poser une image locale',
   update_layer: 'Modifier un calque',
   delete_layer: 'Retirer un calque',
@@ -295,7 +295,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
     {
       title: TOOL_TITLES.add_image,
       description:
-        'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre iPhone (role « screenshot »). Donnez un chemin absolu.',
+        'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre de téléphone compatible (role « screenshot »). Donnez un chemin absolu.',
       inputSchema: fromJsonSchema<AddImageArgs>(ADD_IMAGE_SCHEMA, contractValidator),
       annotations: { readOnlyHint: false },
     },

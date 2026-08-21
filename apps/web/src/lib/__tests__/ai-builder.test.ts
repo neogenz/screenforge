@@ -77,11 +77,14 @@ function screen(id: string, layers: Layer[] = []): Screen {
   return { id, name: `Écran ${id}`, layers, background: { type: 'solid', color: '#000000' } }
 }
 
-function project(screens: Screen[] = [screen('s1')]): Project {
+function project(
+  screens: Screen[] = [screen('s1')],
+  target: Project['target'] = 'app-store-iphone',
+): Project {
   return {
     id: 'p1',
     name: 'Projet',
-    target: 'app-store-iphone',
+    target,
     screens,
     activeScreenId: screens[0].id,
     globals: structuredClone(DEFAULT_GLOBALS),
@@ -613,6 +616,23 @@ describe('le run', () => {
     expect(useHistoryStore.getState().past).toHaveLength(0)
   })
 
+  it('refuse un iPhone dans un projet Android sans mutation partielle', () => {
+    const before = project([screen('s1')], 'google-play-phone')
+    before.globals.deviceModel = 'android-phone'
+    useProjectStore.setState({ project: before })
+
+    const outcome = commitAiRun([
+      { tool: 'add_text', args: { content: 'Posé avant le refus' } },
+      { tool: 'add_device', args: { deviceModel: 'iphone-17-pro-max' } },
+    ])
+
+    expect(outcome).toMatchObject({ committed: false })
+    expect(outcome.error).toMatch(/pas compatible avec Google Play/)
+    expect(useProjectStore.getState().project).toBe(before)
+    expect(before.screens[0].layers).toEqual([])
+    expect(useHistoryStore.getState().past).toHaveLength(0)
+  })
+
   /* Ce que la boîte de campagne délègue en la rappelant sans condition : elle
      ne sait pas ce que le plan a posé, cette fonction le sait pour elle. C'est
      ce qui rend un drapeau « accepté » non seulement inutile mais nuisible —
@@ -640,5 +660,17 @@ describe('l’état montré au modèle', () => {
     expect(JSON.stringify(view)).not.toContain(device.screenshotAssetId)
     expect(view.screens[0].layers[1].hasScreenshot).toBe(true)
     expect(view.canvas).toEqual({ width: 440, height: 956 })
+  })
+
+  it('annonce la cible Android et sa vraie planche', () => {
+    const android = project([screen('s1')], 'google-play-phone')
+    android.globals.deviceModel = 'android-phone'
+
+    expect(describeProject(android)).toMatchObject({
+      target: 'google-play-phone',
+      platform: 'android',
+      canvas: { width: 540, height: 960 },
+      globals: { deviceModel: 'android-phone' },
+    })
   })
 })

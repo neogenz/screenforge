@@ -346,6 +346,7 @@ describe('le catalogue publié', () => {
       name: 'Plein cadre',
       description: 'Accroche haute, appareil centré',
       source: 'user',
+      target: 'app-store-iphone',
       layerCount: 4,
       createdAt: 1_755_000_000_000,
     }
