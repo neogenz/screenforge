@@ -17,6 +17,11 @@ const STEP_ORDER = [
   'Smoke test staged candidate',
   'Promote tested candidate',
 ]
+const PREPRODUCTION_STEP_ORDER = [
+  'Check current Convex preproduction configuration',
+  'Deploy Convex preproduction backend',
+  'Check candidate Convex preproduction configuration',
+]
 
 /** @param {string} source @param {string} name */
 function workflowStep(source, name) {
@@ -35,6 +40,55 @@ export function auditDeploymentConfig(workflows, vercel) {
     if (/\bpull_request\s*:/.test(source) && /secrets\.VERCEL_TOKEN/.test(source)) {
       findings.push(`${name}:vercel-secret-in-pr`)
     }
+  }
+
+  const quality = workflows['quality.yml'] ?? ''
+  const preproduction = quality.split('\n  deploy-preproduction:')[1] ?? ''
+  if (!/branches:\s*\[[^\]]*\bmain\b[^\]]*\bpreprod\b[^\]]*\]/.test(quality)) {
+    findings.push('preproduction:push-trigger')
+  }
+  if (!/\bpull_request\s*:/.test(quality)) findings.push('preproduction:pull-request-trigger')
+  if (!preproduction.includes("github.event_name == 'push'")) {
+    findings.push('preproduction:push-only')
+  }
+  if (!preproduction.includes("github.ref == 'refs/heads/preprod'")) {
+    findings.push('preproduction:branch-only')
+  }
+  if (!/^\s{4}environment: preproduction$/m.test(preproduction)) {
+    findings.push('preproduction:environment')
+  }
+  const needs = preproduction.match(/^\s{4}needs:\s*\[([^\]]+)\]/m)?.[1] ?? ''
+  for (const job of ['actionlint', 'security', 'backend', 'web', 'e2e']) {
+    if (!new RegExp(`\\b${job}\\b`).test(needs)) findings.push(`preproduction:needs:${job}`)
+  }
+  if (
+    !preproduction.includes(
+      'test "$(git rev-parse "$GITHUB_SHA^{tree}")" = "$(git rev-parse \'origin/main^{tree}\')"',
+    )
+  ) {
+    findings.push('preproduction:main-tree-guard')
+  }
+  const preproductionSecretLines = preproduction
+    .split('\n')
+    .filter((line) => line.includes('secrets.CONVEX_DEPLOY_KEY'))
+  if (
+    preproductionSecretLines.length !== 3 ||
+    preproductionSecretLines.some(
+      (line) => !/^\s{10}CONVEX_DEPLOY_KEY: \$\{\{ secrets\.CONVEX_DEPLOY_KEY \}\}$/.test(line),
+    )
+  ) {
+    findings.push('preproduction:CONVEX_DEPLOY_KEY:scope')
+  }
+  if (/\bVERCEL_(?:TOKEN|ORG_ID|PROJECT_ID)\b/.test(preproduction)) {
+    findings.push('preproduction:vercel-coupling')
+  }
+  let preproductionPrevious = -1
+  for (const step of PREPRODUCTION_STEP_ORDER) {
+    const index = preproduction.indexOf(`name: ${step}`)
+    if (index < 0 || index <= preproductionPrevious) {
+      findings.push(`preproduction:step-order:${step}`)
+    }
+    preproductionPrevious = index
   }
 
   const production = workflows['deploy-production.yml'] ?? ''
@@ -115,9 +169,10 @@ function selfTest() {
   const preflight = `pnpm --filter backend exec convex run preflight:check '{"target":"production"}' | node scripts/convex-preflight-gate.mjs`
   const canaryPreflight = `pnpm --filter backend exec convex run preflight:check '{"target":"preproduction"}' | node scripts/convex-preflight-gate.mjs`
   const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  validate:\n    steps:\n      - run: test "$GITHUB_SHA" = "$(git rev-parse origin/main)"\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: ${preflight}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy candidate Convex backend to preproduction\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: pnpm run deploy:ci --message "$GITHUB_SHA-canary"\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: ${canaryPreflight}\n      - name: Gate candidate against production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: |\n          set -o pipefail\n          pnpm --filter backend exec convex env list | node --experimental-strip-types scripts/convex-production-config-gate.mjs\n      - name: Deploy Convex production backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex production configuration\n        run: ${preflight}\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
+  const quality = `on:\n  push:\n    branches: [main, preprod]\n  pull_request:\njobs:\n  deploy-preproduction:\n    needs: [actionlint, security, backend, web, e2e]\n    if: github.event_name == 'push' && github.ref == 'refs/heads/preprod'\n    environment: preproduction\n    steps:\n      - name: Require the current main tree\n        run: test "$(git rev-parse "$GITHUB_SHA^{tree}")" = "$(git rev-parse 'origin/main^{tree}')"\n      - name: Check current Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Deploy Convex preproduction backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n`
   assert.deepEqual(
     auditDeploymentConfig(
-      { 'deploy-production.yml': valid },
+      { 'deploy-production.yml': valid, 'quality.yml': quality },
       { git: { deploymentEnabled: false } },
     ),
     [],
@@ -150,7 +205,7 @@ function selfTest() {
   ])
     assert.ok(
       auditDeploymentConfig(
-        { 'deploy-production.yml': changed },
+        { 'deploy-production.yml': changed, 'quality.yml': quality },
         { git: { deploymentEnabled: false } },
       ).some((finding) => finding.includes(needle)),
     )
@@ -158,6 +213,7 @@ function selfTest() {
     auditDeploymentConfig(
       {
         'deploy-production.yml': valid,
+        'quality.yml': quality,
         'preview.yml': 'on: pull_request:\nenv:\n  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}',
       },
       { git: { deploymentEnabled: false } },
@@ -195,6 +251,43 @@ function selfTest() {
     ),
     'Convex preflight passed.',
   )
+  for (const [finding, changed] of [
+    ['push-trigger', quality.replace('main, preprod', 'main')],
+    ['pull-request-trigger', quality.replace('  pull_request:\n', '')],
+    ['push-only', quality.replace("github.event_name == 'push' && ", '')],
+    ['branch-only', quality.replace(" && github.ref == 'refs/heads/preprod'", '')],
+    ['environment', quality.replace('environment: preproduction', 'environment: production')],
+    ['needs:actionlint', quality.replace('actionlint, ', '')],
+    ['main-tree-guard', quality.replace("origin/main^{tree}')", "origin/preprod^{tree}')")],
+    [
+      'CONVEX_DEPLOY_KEY:scope',
+      quality.replace('          CONVEX_DEPLOY_KEY:', '      CONVEX_DEPLOY_KEY:'),
+    ],
+    [
+      'step-order:Check current',
+      quality.replace('name: Check current Convex preproduction configuration', 'name: Check old'),
+    ],
+    [
+      'step-order:Deploy Convex',
+      quality.replace('name: Deploy Convex preproduction backend', 'name: Deploy backend'),
+    ],
+    [
+      'step-order:Check candidate',
+      quality.replace(
+        'name: Check candidate Convex preproduction configuration',
+        'name: Check new',
+      ),
+    ],
+    ['vercel-coupling', `${quality}\n    env:\n      VERCEL_TOKEN: nope\n`],
+  ]) {
+    assert.ok(
+      auditDeploymentConfig(
+        { 'deploy-production.yml': valid, 'quality.yml': changed },
+        { git: { deploymentEnabled: false } },
+      ).some((candidate) => candidate.includes(finding)),
+      finding,
+    )
+  }
 }
 
 async function main() {
