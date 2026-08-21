@@ -1,6 +1,6 @@
 ---
 objective: "La branche preprod déploie automatiquement le même candidat testé sur Vercel et Convex, puis les parcours Cloud et les garde-fous fournisseurs sont prouvés sans activer la production."
-status: in-progress
+status: blocked
 ---
 
 # Plan: Livrer et valider la préproduction
