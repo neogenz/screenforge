@@ -25,7 +25,7 @@ const LOCAL_FIRST_PORT = 5199
 const CLOUD_PORT = 5198
 const PRIVACY_PORT = 5197
 const CLOUD_SPEC = '**/sync.spec.ts'
-const PRIVACY_SPEC = '**/privacy-consent.spec.ts'
+const PRIVACY_SPEC = '**/{privacy-consent,posthog-observability}.spec.ts'
 const configuredConvex = localConvex()
 const convex = REQUIRE_CLOUD
   ? {

@@ -8,6 +8,7 @@ import { enforceConvexPreflight } from './convex-preflight-gate.mjs'
 const ROOT = resolve(import.meta.dirname, '..')
 const STEP_ORDER = [
   'Check current Convex production configuration',
+  'Build immutable production candidate',
   'Deploy staged production candidate',
   'Deploy candidate Convex backend to preproduction',
   'Check candidate Convex preproduction configuration',
@@ -39,6 +40,12 @@ export function auditDeploymentConfig(workflows, vercel) {
     if (/\bpull_request_target\s*:/.test(source)) findings.push(`${name}:pull-request-target`)
     if (/\bpull_request\s*:/.test(source) && /secrets\.VERCEL_TOKEN/.test(source)) {
       findings.push(`${name}:vercel-secret-in-pr`)
+    }
+    if (/\bpull_request\s*:/.test(source) && /secrets\.POSTHOG_PERSONAL_API_KEY/.test(source)) {
+      findings.push(`${name}:posthog-secret-in-pr`)
+    }
+    if (/VITE_[A-Z0-9_]*POSTHOG_PERSONAL_API_KEY/.test(source)) {
+      findings.push(`${name}:posthog-secret-public`)
     }
   }
 
@@ -120,6 +127,7 @@ export function auditDeploymentConfig(workflows, vercel) {
   const canaryCheck = workflowStep(production, 'Check candidate Convex preproduction configuration')
   const productionGate = workflowStep(production, 'Gate candidate against production configuration')
   const productionDeploy = workflowStep(production, 'Deploy Convex production backend')
+  const productionBuild = workflowStep(production, 'Build immutable production candidate')
   if (
     !canaryDeploy.includes('secrets.CONVEX_PREPROD_DEPLOY_KEY') ||
     canaryDeploy.includes('secrets.CONVEX_DEPLOY_KEY') ||
@@ -141,6 +149,19 @@ export function auditDeploymentConfig(workflows, vercel) {
     productionDeploy.includes('secrets.CONVEX_PREPROD_DEPLOY_KEY')
   ) {
     findings.push('production:wrong-convex-production-target')
+  }
+  const posthogSecretLines = production
+    .split('\n')
+    .filter((line) => line.includes('secrets.POSTHOG_PERSONAL_API_KEY'))
+  if (
+    posthogSecretLines.length !== 1 ||
+    !productionBuild.includes(
+      'POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}',
+    ) ||
+    !productionBuild.includes('VITE_APP_VERSION: ${{ github.ref_name }}') ||
+    !productionBuild.includes('VITE_GIT_SHA: ${{ github.sha }}')
+  ) {
+    findings.push('production:posthog-source-maps-scope')
   }
   let previous = -1
   for (const step of STEP_ORDER) {
@@ -168,7 +189,7 @@ export function auditDeploymentConfig(workflows, vercel) {
 function selfTest() {
   const preflight = `pnpm --filter backend exec convex run preflight:check '{"target":"production"}' | node scripts/convex-preflight-gate.mjs`
   const canaryPreflight = `pnpm --filter backend exec convex run preflight:check '{"target":"preproduction"}' | node scripts/convex-preflight-gate.mjs`
-  const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  validate:\n    steps:\n      - run: test "$GITHUB_SHA" = "$(git rev-parse origin/main)"\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: ${preflight}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy candidate Convex backend to preproduction\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: pnpm run deploy:ci --message "$GITHUB_SHA-canary"\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: ${canaryPreflight}\n      - name: Gate candidate against production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: |\n          set -o pipefail\n          pnpm --filter backend exec convex env list | node --experimental-strip-types scripts/convex-production-config-gate.mjs\n      - name: Deploy Convex production backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex production configuration\n        run: ${preflight}\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
+  const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  validate:\n    steps:\n      - run: test "$GITHUB_SHA" = "$(git rev-parse origin/main)"\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: ${preflight}\n      - name: Build immutable production candidate\n        env:\n          POSTHOG_PERSONAL_API_KEY: \${{ secrets.POSTHOG_PERSONAL_API_KEY }}\n          VITE_APP_VERSION: \${{ github.ref_name }}\n          VITE_GIT_SHA: \${{ github.sha }}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy candidate Convex backend to preproduction\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: pnpm run deploy:ci --message "$GITHUB_SHA-canary"\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: ${canaryPreflight}\n      - name: Gate candidate against production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: |\n          set -o pipefail\n          pnpm --filter backend exec convex env list | node --experimental-strip-types scripts/convex-production-config-gate.mjs\n      - name: Deploy Convex production backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex production configuration\n        run: ${preflight}\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
   const quality = `on:\n  push:\n    branches: [main, preprod]\n  pull_request:\njobs:\n  deploy-preproduction:\n    needs: [actionlint, security, backend, web, e2e]\n    if: github.event_name == 'push' && github.ref == 'refs/heads/preprod'\n    environment: preproduction\n    steps:\n      - name: Require the current main tree\n        run: test "$(git rev-parse "$GITHUB_SHA^{tree}")" = "$(git rev-parse 'origin/main^{tree}')"\n      - name: Check current Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Deploy Convex preproduction backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n`
   assert.deepEqual(
     auditDeploymentConfig(
@@ -202,6 +223,10 @@ function selfTest() {
         '      - name: Deploy Convex production backend\n        env:\n          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}',
       ),
     ],
+    [
+      'posthog-source-maps-scope',
+      valid.replace('secrets.POSTHOG_PERSONAL_API_KEY', 'secrets.OTHER_KEY'),
+    ],
   ])
     assert.ok(
       auditDeploymentConfig(
@@ -218,6 +243,17 @@ function selfTest() {
       },
       { git: { deploymentEnabled: false } },
     ).includes('preview.yml:vercel-secret-in-pr'),
+  )
+  assert.ok(
+    auditDeploymentConfig(
+      {
+        'deploy-production.yml': valid,
+        'quality.yml': quality,
+        'preview.yml':
+          'on: pull_request:\nenv:\n  POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}',
+      },
+      { git: { deploymentEnabled: false } },
+    ).includes('preview.yml:posthog-secret-in-pr'),
   )
   assert.equal(
     enforceConvexPreflight('{"ready":true,"missing":[],"inconsistent":[]}'),

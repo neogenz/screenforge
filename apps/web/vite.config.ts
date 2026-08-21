@@ -1,10 +1,29 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import posthogRollupPlugin from '@posthog/rollup-plugin'
 import path from 'path'
 
+const posthogPersonalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim()
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    Boolean(posthogPersonalApiKey) &&
+      posthogRollupPlugin({
+        personalApiKey: posthogPersonalApiKey ?? '',
+        projectId: '254685',
+        host: 'https://eu.i.posthog.com',
+        sourcemaps: {
+          enabled: true,
+          releaseName: 'screenforge-web',
+          releaseVersion: process.env.VITE_APP_VERSION,
+          build: process.env.VITE_GIT_SHA,
+          deleteAfterUpload: true,
+        },
+      }),
+  ],
   /* Le `.env` vit à la racine de l'espace de travail, pas dans ce paquet : la
      même URL de déploiement sert le web et les scripts d'audit, et deux fichiers
      à tenir en phase auraient divergé au premier changement d'environnement. */

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
+import { captureAnalytics, captureDiagnosticLog } from '@/lib/analytics'
 import type { DisplayClass, Layer, Screen } from '@/types'
 
 interface ExportProgress {
@@ -58,6 +59,8 @@ export function useExport() {
       layoutLayers: Layer[],
       dimensions: DisplayClass[],
     ) => {
+      const startedAt = performance.now()
+      const dimension = dimensions.map((value) => value.size).join(',')
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
@@ -126,8 +129,20 @@ export function useExport() {
         const zipBlob = await createExportZip(entries)
         downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
         setCompletedFiles(summaries)
+        captureAnalytics('screenforge_export_succeeded', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+        })
       } catch (cause) {
         setError(errorMessage(cause))
+        captureAnalytics('screenforge_export_failed', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+          issue: 'export',
+        })
+        captureDiagnosticLog('export_failed', { issue: 'export' })
         throw cause
       } finally {
         setIsExporting(false)

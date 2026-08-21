@@ -38,6 +38,9 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
 
   function commit(next: PrivacyChoice): boolean {
     if (!savePrivacyChoice(next)) return false
+    /* Le choix prend effet avant que le dialogue disparaisse : un clic immédiat
+       sur le CTA suivant ne doit pas doubler la fenêtre de non-capture. */
+    void applyPrivacyChoice(next)
     setChoice(next)
     onOpenChange(false)
     return true

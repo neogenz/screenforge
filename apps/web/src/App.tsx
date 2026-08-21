@@ -22,10 +22,11 @@ import { resumeMcp } from '@/lib/mcp/client'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
+import { setAnalyticsUser } from '@/lib/analytics'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
+import { consumeCheckoutReturn, initAuth, useAuthStore } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -210,10 +211,15 @@ export default function App() {
    */
   useEffect(() => {
     const stopAuth = initAuth()
+    setAnalyticsUser(useAuthStore.getState().user)
+    const stopAnalyticsIdentity = useAuthStore.subscribe((state) => setAnalyticsUser(state.user))
     // Après la session, pas avant : l'attente relit les droits, qui demandent
     // un jeton.
     consumeCheckoutReturn()
-    return stopAuth
+    return () => {
+      stopAnalyticsIdentity()
+      stopAuth()
+    }
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
