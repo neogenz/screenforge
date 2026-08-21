@@ -121,6 +121,7 @@ describe('le constat d’une planche', () => {
     const draft: Project = {
       id: 'p1',
       name: 'Projet',
+      target: 'app-store-iphone',
       screens: [],
       activeScreenId: '',
       globals: structuredClone(DEFAULT_GLOBALS),

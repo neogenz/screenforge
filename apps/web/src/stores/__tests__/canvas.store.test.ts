@@ -58,6 +58,17 @@ describe('canvas store domain boundaries', () => {
     expect(useCanvasStore.getState().selectedLayerIds).toEqual([])
   })
 
+  it('uses the target screen ceiling for projects and templates', () => {
+    useProjectStore.getState().createProject('Android', 'google-play-phone')
+    for (let index = 1; index < 8; index += 1) {
+      expect(useProjectStore.getState().addScreen()).toBeTruthy()
+    }
+    expect(useProjectStore.getState().addScreen()).toBeNull()
+    expect(
+      useProjectStore.getState().duplicateScreen(useProjectStore.getState().project!.screens[0].id),
+    ).toBeNull()
+  })
+
   it('undoes and redoes directly through the project store', () => {
     useCanvasStore.getState().addLayer(shape())
     expect(getProjectLayers(useProjectStore.getState().project)).toHaveLength(1)

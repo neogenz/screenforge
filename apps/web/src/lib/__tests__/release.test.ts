@@ -67,6 +67,7 @@ function project(screens: Screen[] = [screen('a')], layoutLayers: Layer[] = []):
   return {
     id: 'p1',
     name: 'Projet',
+    target: 'app-store-iphone',
     screens,
     activeScreenId: screens[0].id,
     globals: structuredClone(DEFAULT_GLOBALS),
@@ -93,7 +94,13 @@ beforeEach(() => {
 describe('l’instantané', () => {
   it('ne garde que ce qui se rend', () => {
     const snapshot = snapshotOf(project())
-    expect(Object.keys(snapshot).sort()).toEqual(['globals', 'layoutLayers', 'name', 'screens'])
+    expect(Object.keys(snapshot).sort()).toEqual([
+      'globals',
+      'layoutLayers',
+      'name',
+      'screens',
+      'target',
+    ])
   })
 
   it('laisse l’aperçu dehors : il change à chaque coup de pinceau', () => {

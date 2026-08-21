@@ -74,6 +74,7 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
   return isProject({
     id: 'template',
     name: record.name,
+    target: record.target ?? 'app-store-iphone',
     activeScreenId: 'screen',
     globals: DEFAULT_GLOBALS,
     createdAt: record.createdAt,
@@ -111,7 +112,12 @@ export class TemplateRefusedError extends Error {
  */
 export function templateFromScreen(
   screen: Screen,
-  meta: { name: string; description?: string; source: CustomTemplate['source'] },
+  meta: {
+    name: string
+    description?: string
+    source: CustomTemplate['source']
+    target?: CustomTemplate['target']
+  },
 ): CustomTemplate {
   const layers = screen.layers.map(keepable)
   const ids = new Set<string>()
@@ -132,6 +138,7 @@ export function templateFromScreen(
     id: crypto.randomUUID(),
     name: meta.name,
     description: meta.description ?? `D’après « ${screen.name} ».`,
+    target: meta.target ?? 'app-store-iphone',
     background: structuredClone(screen.background),
     layers,
     assets,
@@ -168,6 +175,7 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
     id: template.id,
     name: template.name,
     description: template.description,
+    target: template.target ?? 'app-store-iphone',
     background: structuredClone(template.background),
     layers,
   }

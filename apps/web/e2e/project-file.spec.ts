@@ -69,6 +69,7 @@ async function portableFixture(page: Page): Promise<PortableFixture> {
     const project = {
       id: 'portable-project',
       name: 'Projet portable',
+      target: 'app-store-iphone' as const,
       activeScreenId: 'screen-1',
       screens: [
         {
@@ -246,7 +247,7 @@ test('round-trips a versioned archive with each referenced asset once', async ({
   }
 
   expect(names).toEqual(['project.json', ...manifest.assets.map((asset) => asset.path)].sort())
-  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 5 })
+  expect(manifest).toMatchObject({ format: 'screenforge-project', version: 6 })
   expect(manifest.assets).toHaveLength(3)
   expect(new Set(manifest.assets.map((asset) => asset.id))).toEqual(new Set(fixture.assetIds))
   expect(manifest.assets.every((asset) => asset.sha256.match(/^[a-f0-9]{64}$/))).toBe(true)
@@ -278,7 +279,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
      Un numéro sous le plancher ou non entier ne vient d'aucune version publiée
      et suit la même porte, plutôt que d'atteindre les migrations. */
   const futureVersion = await mutateManifest((manifest) => {
-    manifest.version = 6
+    manifest.version = 7
   })
   const belowFloorVersion = await mutateManifest((manifest) => {
     manifest.version = 0

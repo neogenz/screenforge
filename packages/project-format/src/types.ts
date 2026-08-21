@@ -200,6 +200,7 @@ export interface GlobalSettings {
 export interface Project {
   id: string
   name: string
+  target: StoreTargetId
   screens: Screen[]
   activeScreenId: string
   globals: GlobalSettings
@@ -275,6 +276,7 @@ export interface LocaleVariant {
  */
 export interface ProjectSnapshot {
   name: string
+  target: StoreTargetId
   screens: Screen[]
   layoutLayers: Layer[]
   globals: GlobalSettings
@@ -332,6 +334,10 @@ export interface ExportConfig {
 /** Les modèles que le format connaît — la liste vit dans `catalog-ids.ts`. */
 export type DeviceModel = DeviceModelId
 
+export type StoreTargetId = 'app-store-iphone' | 'google-play-phone'
+
+export type DevicePlatform = 'apple' | 'android'
+
 export type DeviceColor =
   | 'cosmic-orange'
   | 'deep-blue'
@@ -373,6 +379,7 @@ export interface TemplateDefinition {
   id: string
   name: string
   description: string
+  target?: StoreTargetId
   thumbnail?: string
   layers: Layer[]
   background: Background

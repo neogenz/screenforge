@@ -6,12 +6,14 @@ import {
   MAX_PROJECT_LAYERS,
   migrateProject,
 } from '@/lib/project-validation'
+import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import type { Layer, Project } from '@/types'
 
 function project(): Project {
   return {
     id: 'project',
     name: 'Project',
+    target: 'app-store-iphone',
     activeScreenId: 'screen',
     screens: [
       {
@@ -56,6 +58,57 @@ function project(): Project {
 describe('project validation', () => {
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
+    expect(APP_STORE_PROFILE).toMatchObject({
+      board: { width: 440, height: 956 },
+      output: { portrait: { width: 1320, height: 2868 } },
+      maxScreens: 10,
+    })
+    expect(GOOGLE_PLAY_PROFILE).toMatchObject({
+      board: { width: 540, height: 960 },
+      output: { portrait: { width: 1080, height: 1920 } },
+      maxScreens: 8,
+    })
+  })
+
+  it('migrates historical projects and release snapshots to App Store', () => {
+    const legacy = structuredClone(project()) as unknown as Record<string, unknown>
+    delete legacy.target
+    legacy.releases = [
+      {
+        id: 'release',
+        name: '1.0',
+        createdAt: 1,
+        watermarked: false,
+        files: [],
+        snapshot: {
+          name: 'Project',
+          screens: structuredClone(project().screens),
+          layoutLayers: [],
+          globals: structuredClone(project().globals),
+        },
+      },
+    ]
+    const migrated = migrateProject(legacy) as Project
+    expect(migrated.target).toBe('app-store-iphone')
+    expect(migrated.releases?.[0].snapshot.target).toBe('app-store-iphone')
+    expect(isProject(migrated)).toBe(true)
+  })
+
+  it('enforces the screen ceiling of the selected target', () => {
+    const android = project()
+    android.target = 'google-play-phone'
+    android.globals.deviceModel = 'android-phone'
+    android.globals.deviceColor = 'black'
+    android.screens = Array.from({ length: 8 }, (_, index) => ({
+      ...structuredClone(android.screens[0]),
+      id: `screen-${index}`,
+      layers: [],
+    }))
+    android.activeScreenId = android.screens[0].id
+    expect(isProject(android)).toBe(true)
+    android.screens.push({ ...structuredClone(android.screens[0]), id: 'screen-8', layers: [] })
+    expect(isProject(android)).toBe(false)
+    expect(isProject({ ...project(), target: 'unknown-target' })).toBe(false)
   })
 
   it.each([

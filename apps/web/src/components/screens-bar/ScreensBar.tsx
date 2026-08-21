@@ -6,7 +6,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
 import {
   FILMSTRIP_GAP,
@@ -39,14 +39,15 @@ function slotShift(index: number, drag: { from: number; over: number } | null): 
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const { screens, activeScreenId } = useProjectStore(
+  const { screens, activeScreenId, maxScreens } = useProjectStore(
     useShallow((state) => ({
       screens: state.project?.screens,
       activeScreenId: state.project?.activeScreenId ?? '',
+      maxScreens: state.project ? getStoreTargetProfile(state.project.target).maxScreens : 10,
     })),
   )
   const list = screens ?? []
-  const atCapacity = list.length >= MAX_PROJECT_SCREENS
+  const atCapacity = list.length >= maxScreens
   const dragSourceIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
@@ -133,7 +134,8 @@ export function ScreensBar() {
 
   const handleAdd = useCallback(() => {
     const project = useProjectStore.getState().project
-    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
+    if (!project || project.screens.length >= getStoreTargetProfile(project.target).maxScreens)
+      return
     useCanvasStore.getState().recordProjectHistory()
     if (useProjectStore.getState().addScreen()) {
       setPicked([])
@@ -149,7 +151,8 @@ export function ScreensBar() {
     (id: string) => {
       const project = useProjectStore.getState().project
       if (!project) return
-      const room = MAX_PROJECT_SCREENS - project.screens.length
+      const maximum = getStoreTargetProfile(project.target).maxScreens
+      const room = maximum - project.screens.length
       if (room <= 0) return
       const ids = targetIds(id)
       useCanvasStore.getState().recordProjectHistory()
@@ -160,7 +163,7 @@ export function ScreensBar() {
       // Ce qui n'a pas tenu est dit : un plafond silencieux se lit comme « tout
       // a été fait », et c'est faux d'exactement ce qui manque.
       if (copies.length < ids.length) {
-        toast(`${copies.length} copies sur ${ids.length} : maximum ${MAX_PROJECT_SCREENS} écrans.`)
+        toast(`${copies.length} copies sur ${ids.length} : maximum ${maximum} écrans.`)
       }
       setPicked(copies)
       useCanvasStore.getState().clearSelection()
@@ -446,7 +449,7 @@ export function ScreensBar() {
       >
         <IconButton
           size="sm"
-          tooltip={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
+          tooltip={atCapacity ? `Maximum ${maxScreens} écrans` : 'Ajouter un écran'}
           aria-label="Ajouter un écran"
           onClick={handleAdd}
           disabled={atCapacity}
@@ -462,12 +465,12 @@ export function ScreensBar() {
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
-      {list.length >= MAX_PROJECT_SCREENS - 1 && (
+      {list.length >= maxScreens - 1 && (
         <span
           style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
           className="tabular flex shrink-0 items-center px-1 text-2xs text-muted-foreground"
         >
-          {list.length}/{MAX_PROJECT_SCREENS}
+          {list.length}/{maxScreens}
         </span>
       )}
     </div>

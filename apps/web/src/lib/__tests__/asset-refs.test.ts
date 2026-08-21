@@ -29,6 +29,7 @@ function project(layers: Layer[], layoutLayers: Layer[] = []): Project {
   return {
     id: 'project',
     name: 'Project',
+    target: 'app-store-iphone',
     activeScreenId: 'screen',
     screens: [
       {

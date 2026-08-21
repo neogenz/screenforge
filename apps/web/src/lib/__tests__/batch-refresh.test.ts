@@ -47,6 +47,7 @@ function project(screens: Screen[], layoutLayers: Layer[] = []): Project {
   return {
     id: 'p1',
     name: 'Projet',
+    target: 'app-store-iphone',
     screens,
     activeScreenId: screens[0].id,
     globals: structuredClone(DEFAULT_GLOBALS),

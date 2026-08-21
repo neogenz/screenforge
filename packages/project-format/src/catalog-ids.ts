@@ -24,7 +24,7 @@ export const ICON_BOX = 24
 export const ICON_STROKE = 2
 
 /** La gamme Apple, la plus large d'abord ; les modèles legacy restent rendables. */
-export const DEVICE_MODEL_IDS = [
+export const IPHONE_DEVICE_MODEL_IDS = [
   'iphone-17-pro-max',
   'iphone-17-pro',
   'iphone-17',
@@ -37,7 +37,18 @@ export const DEVICE_MODEL_IDS = [
   'iphone-16-pro',
 ] as const
 
+/** Cadres génériques, sans marque ni ressource propriétaire. */
+export const ANDROID_DEVICE_MODEL_IDS = ['android-phone'] as const
+
+export const DEVICE_MODEL_IDS = [...IPHONE_DEVICE_MODEL_IDS, ...ANDROID_DEVICE_MODEL_IDS] as const
+
 export type DeviceModelId = (typeof DEVICE_MODEL_IDS)[number]
+
+const DEVICE_MODEL_ID_SET: ReadonlySet<string> = new Set(DEVICE_MODEL_IDS)
+
+export function isDeviceModelId(id: unknown): id is DeviceModelId {
+  return typeof id === 'string' && DEVICE_MODEL_ID_SET.has(id)
+}
 
 export const SHAPE_IDS = [
   'rectangle',

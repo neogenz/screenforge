@@ -6,7 +6,7 @@ import {
   type ScreenHistorySnapshot,
 } from '@/stores/history.store'
 import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
@@ -522,7 +522,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         return screenId
       }
 
-      if (project.screens.length >= MAX_PROJECT_SCREENS) return null
+      if (project.screens.length >= getStoreTargetProfile(project.target).maxScreens) return null
       recordProject()
       const screenId = useProjectStore.getState().addScreen({
         name: `${template.name} ${project.screens.length + 1}`,

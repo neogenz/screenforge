@@ -49,6 +49,7 @@ import type {
 export function snapshotOf(project: Project | ProjectSnapshot): ProjectSnapshot {
   const snapshot = structuredClone({
     name: project.name,
+    target: project.target,
     screens: project.screens,
     layoutLayers: project.layoutLayers,
     globals: project.globals,
