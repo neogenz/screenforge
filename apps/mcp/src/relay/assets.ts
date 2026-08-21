@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { open, realpath } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { realpath } from 'node:fs/promises'
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { promisify } from 'node:util'
 import { inspectMedia } from '@screenforge/project-format/media-validation'
 
 const MEDIA_TYPES: Record<string, string> = {
@@ -31,6 +33,9 @@ export interface OfferedAsset {
 type StoredAsset = OfferedAsset & { bytes: Buffer }
 export type AssetRootProvider = () => Promise<readonly string[]>
 type CanonicalRoot = { requested: string; canonical: string }
+
+const run = promisify(execFile)
+const OPEN_BENEATH = resolve(import.meta.dirname, '../../build/open-beneath')
 
 function contains(root: string, target: string): boolean {
   const path = relative(root, target)
@@ -125,31 +130,48 @@ export class AssetVault {
     if (this.#offered.size >= MAX_VAULT_ASSETS) {
       throw new AssetRefusedError(`Coffre plein : ${MAX_VAULT_ASSETS} fichiers au plus.`)
     }
-    const full = await this.#authorized(requested, 'Fichier')
+    const roots = await this.#allowedRoots()
+    if (roots.length === 0) {
+      throw new AssetRefusedError(
+        'Aucun répertoire d’images autorisé par le client MCP ou la configuration.',
+      )
+    }
+    const root = roots.find(
+      (candidate) =>
+        contains(candidate.requested, requested) || contains(candidate.canonical, requested),
+    )
+    if (!root) {
+      throw new AssetRefusedError(`Fichier hors des répertoires autorisés : « ${requested} ».`)
+    }
+    const localPath = contains(root.requested, requested)
+      ? relative(root.requested, requested)
+      : relative(root.canonical, requested)
 
-    const handle = await open(full, 'r').catch(() => null)
-    if (!handle) throw new AssetRefusedError(`Fichier introuvable : « ${full} ».`)
     let bytes: Buffer
     try {
-      const info = await handle.stat()
-      if (!info.isFile()) throw new AssetRefusedError(`Fichier introuvable : « ${full} ».`)
-      if (info.size > MAX_ASSET_BYTES) throw tooLarge(info.size)
-      const target = Buffer.alloc(Math.min(info.size, MAX_ASSET_BYTES) + 1)
-      let offset = 0
-      while (offset < target.length) {
-        const { bytesRead } = await handle.read(target, offset, target.length - offset, offset)
-        if (bytesRead === 0) break
-        offset += bytesRead
+      const args = [root.canonical, localPath]
+      if (process.env.SCREENFORGE_OPEN_BENEATH_TEST_HOOK) {
+        args.push(process.env.SCREENFORGE_OPEN_BENEATH_TEST_HOOK)
       }
-      if (offset > MAX_ASSET_BYTES || offset === target.length) throw tooLarge(offset)
-      bytes = Buffer.from(target.subarray(0, offset))
-    } finally {
-      await handle.close()
+      const result = await run(OPEN_BENEATH, args, {
+        encoding: 'buffer',
+        maxBuffer: MAX_ASSET_BYTES + 1024,
+      })
+      bytes = Buffer.from(result.stdout)
+    } catch (error) {
+      const stderr =
+        typeof error === 'object' && error && 'stderr' in error
+          ? String((error as { stderr?: unknown }).stderr)
+          : ''
+      if (/too large|maxBuffer/i.test(stderr || String(error))) throw tooLarge(MAX_ASSET_BYTES + 1)
+      throw new AssetRefusedError(
+        `Fichier introuvable, remplacé ou hors des répertoires autorisés : « ${requested} ».`,
+      )
     }
 
     const inspected = inspectMedia(bytes, mediaType)
     if (!inspected) {
-      throw new AssetRefusedError(`Média invalide ou actif dans « ${full} ».`)
+      throw new AssetRefusedError(`Média invalide ou actif dans « ${requested} ».`)
     }
     if (this.#bytes + bytes.length > MAX_VAULT_BYTES) {
       throw new AssetRefusedError('Coffre plein : 64 Mo au total.')

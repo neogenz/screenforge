@@ -174,6 +174,21 @@ async function replaceFirstAsset(
   return zip.generateAsync({ type: 'uint8array' })
 }
 
+async function oversizedAssetWithForgedMetadata(source: Uint8Array): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(source)
+  const manifest = JSON.parse(await zip.file('project.json')!.async('string')) as {
+    assets: Array<{ path: string; byteLength: number }>
+  }
+  const descriptor = manifest.assets[0]!
+  zip.file(descriptor.path, new Uint8Array(OVERSIZED_ASSET_BYTES), {
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 },
+    createFolders: false,
+  })
+  const archive = await zip.generateAsync({ type: 'uint8array' })
+  return withCentralUncompressedSize(archive, descriptor.path, descriptor.byteLength)
+}
+
 async function readArchive(page: Page, bytes: Uint8Array) {
   return page.evaluate(async (archive) => {
     const modulePath = '/src/lib/project-file.ts'
@@ -350,6 +365,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     missingManifest.assets[0].path,
     OVERSIZED_ASSET_BYTES,
   )
+  const oversizedInflatedEntry = await oversizedAssetWithForgedMetadata(source)
   const activeSvg = await replaceFirstAsset(
     source,
     new TextEncoder().encode('<svg width="1" height="1"><script>alert(1)</script></svg>'),
@@ -372,6 +388,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
       readArchive(page, duplicateLayerId),
       readArchive(page, legacyShape),
       readArchive(page, oversizedCentralEntry),
+      readArchive(page, oversizedInflatedEntry),
       readArchive(page, activeSvg),
     ]),
   ).toEqual([
@@ -388,6 +405,7 @@ test('rejects unsupported, incomplete and corrupt archives with stable errors', 
     'invalid-manifest',
     'invalid-manifest',
     'ok',
+    'asset-too-large',
     'asset-too-large',
     'corrupt-asset',
   ])

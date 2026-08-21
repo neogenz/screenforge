@@ -5,6 +5,7 @@ import { requireCloud, requireUser } from './authz'
 import { consume, MAX_ASSET_BYTES_PER_ACCOUNT, MAX_ASSETS_PER_ACCOUNT } from './limits'
 import { MAX_IMAGE_FILE_BYTES, isContentImageType } from './media'
 import { deleteIfUnreferenced } from './storageReferences'
+import { cloudDataGeneration } from './cloudData'
 
 export const ASSET_REJECTED = 'ASSET_REJECTED' as const
 export const ASSET_SIZE_LIMIT = 'ASSET_SIZE_LIMIT' as const
@@ -45,7 +46,7 @@ export const authorizeAssetUpload = internalMutation({
     contentType: v.string(),
     byteLength: v.union(v.number(), v.null()),
   },
-  returns: v.null(),
+  returns: v.number(),
   handler: async (ctx, { assetId, contentType, byteLength }) => {
     const userId = await requireCloud(ctx)
     if (
@@ -67,7 +68,7 @@ export const authorizeAssetUpload = internalMutation({
       assertAssetQuota(rows, existing, byteLength)
     }
     await consume(ctx, 'assetUpload', userId)
-    return null
+    return await cloudDataGeneration(ctx, userId)
   },
 })
 
@@ -77,10 +78,12 @@ export const commitAssetUpload = internalMutation({
     assetId: v.string(),
     storageId: v.id('_storage'),
     contentType: v.string(),
+    generation: v.number(),
   },
   returns: v.boolean(),
-  handler: async (ctx, { assetId, storageId, contentType }) => {
+  handler: async (ctx, { assetId, storageId, contentType, generation }) => {
     const userId = await requireCloud(ctx)
+    if ((await cloudDataGeneration(ctx, userId)) !== generation) return false
     const stored = await ctx.db.system.get(storageId)
     if (!stored || !acceptable(contentType, stored.size)) return false
 

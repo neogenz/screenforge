@@ -14,9 +14,13 @@
     }
   },
   "scripts": {
+    "native:build": "node scripts/build-open-beneath.mjs",
+    "prebuild": "pnpm run native:build",
     "build": "tsc -p tsconfig.build.json",
     "start": "node src/main.ts",
+    "predev": "pnpm run native:build",
     "dev": "node --watch src/main.ts",
+    "pretest:unit": "SCREENFORGE_NATIVE_TEST=1 pnpm run native:build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "vitest run src"
   },

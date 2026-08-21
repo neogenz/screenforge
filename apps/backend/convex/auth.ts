@@ -2,16 +2,17 @@ import GitHub from '@auth/core/providers/github'
 import Google from '@auth/core/providers/google'
 import Resend from '@auth/core/providers/resend'
 import { Password } from '@convex-dev/auth/providers/Password'
-import { convexAuth, type EmailConfig } from '@convex-dev/auth/server'
+import { convexAuth, type EmailConfig, type Tokens } from '@convex-dev/auth/server'
 import type { RunMutationCtx } from '@convex-dev/rate-limiter'
-import { env } from './_generated/server'
+import { v } from 'convex/values'
+import { internal } from './_generated/api'
+import { action, env, type ActionCtx } from './_generated/server'
 import {
   clear,
   consume,
   normalizeEmail,
   PASSWORD_ATTEMPTS_PER_HOUR,
   sourceRateLimitKey,
-  type RequestMetadataCtx,
 } from './limits'
 import { configuredOrigins, isAllowedOrigin } from './origins'
 
@@ -91,23 +92,12 @@ export function safeRedirect(
 /**
  * Le courriel de lien magique, envoyé par Resend.
  *
- * Trois compteurs avant l'envoi, jamais après : le composant compte dans la
- * transaction de l'appelant, donc un envoi qui échoue rend son jeton.
- *
- * **Par adresse** protège le titulaire d'une boîte contre l'inondation.
- * **Par source réseau pseudonymisée** protège la réputation du domaine
- * expéditeur contre un balayage d'adresses sans fermer le service aux autres
- * sources. La métadonnée vient de Convex, jamais d'un en-tête client.
- * **Globalement** borne le coût si l'attaquant fait tourner sources et adresses.
+ * L'admission est déjà terminée ici : elle doit précéder la mutation qui crée
+ * le code, alors que ce callback est précisément appelé après cette mutation.
+ * Un échec Resend garde donc la réservation et borne aussi les réessais qui
+ * laisseraient un code durable sans courriel livré.
  */
-async function sendMagicLink(
-  { identifier: email, url, provider }: SendParams,
-  ctx: RunMutationCtx & RequestMetadataCtx,
-): Promise<void> {
-  await consume(ctx, 'magicLinkSendGlobal')
-  await consume(ctx, 'magicLinkSendBySource', await sourceRateLimitKey(ctx, 'auth'))
-  await consume(ctx, 'magicLinkSend', email.toLowerCase())
-
+async function sendMagicLink({ identifier: email, url, provider }: SendParams): Promise<void> {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -142,9 +132,8 @@ const magicLink = Resend({
    *
    * `sendVerificationRequest` porte la signature d'Auth.js, qui ne prévoit qu'un
    * paramètre ; Convex Auth en passe un second — le contexte — et le marque d'un
-   * `@ts-expect-error` dans son propre code. Sans ce contexte, aucun compteur ne
-   * pourrait s'exécuter ici, et l'envoi de courriels serait la seule surface non
-   * bornée du déploiement.
+   * `@ts-expect-error` dans son propre code. L'admission l'utilise plus tôt dans
+   * l'action publique ; ce callback n'a donc plus besoin de ce second paramètre.
    */
   sendVerificationRequest: sendMagicLink as unknown as EmailConfig['sendVerificationRequest'],
 })
@@ -233,7 +222,7 @@ export function testPasswordEnabled(flag: string | undefined, site: string | und
   throw new Error('AUTH_TEST_PASSWORD is restricted to loopback deployments.')
 }
 
-export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+const configuredAuth = convexAuth({
   providers: [
     ...(testPasswordEnabled(env.AUTH_TEST_PASSWORD, env.SITE_URL) ? [testPassword] : []),
     magicLink,
@@ -270,5 +259,76 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       const origins = configuredOrigins(env.CORS_ALLOWED_ORIGINS)
       return Promise.resolve(safeRedirect(redirectTo, site, new Set([site, ...(origins ?? [])])))
     },
+  },
+})
+
+export const { auth, signOut, store, isAuthenticated } = configuredAuth
+
+type SignInArgs = {
+  provider?: string
+  params?: Record<string, unknown>
+  verifier?: string
+  refreshToken?: string
+  calledBy?: string
+}
+
+type SignInResult = {
+  redirect?: string
+  verifier?: string
+  tokens?: Tokens | null
+  started?: boolean
+}
+
+const unguardedSignIn = configuredAuth.signIn as unknown as {
+  _handler(ctx: ActionCtx, args: SignInArgs): Promise<SignInResult>
+}
+
+function startsProvider(args: SignInArgs, provider: string): boolean {
+  return (
+    args.provider === provider &&
+    !(typeof args.params === 'object' && args.params !== null && args.params.code !== undefined)
+  )
+}
+
+/**
+ * The library's public action persists email codes and OAuth verifiers before
+ * application callbacks can run. This thin wrapper is therefore the one shared
+ * pre-persistence admission boundary; the unguarded action stays module-local.
+ */
+export const signIn = action({
+  args: {
+    provider: v.optional(v.string()),
+    params: v.optional(v.any()),
+    verifier: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    calledBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<SignInResult> => {
+    const sourceKey =
+      startsProvider(args, 'resend') ||
+      startsProvider(args, 'google') ||
+      startsProvider(args, 'github')
+        ? await sourceRateLimitKey(ctx, 'auth')
+        : null
+
+    if (startsProvider(args, 'resend')) {
+      const email =
+        typeof args.params === 'object' && args.params !== null
+          ? normalizeEmail(String(args.params.email ?? ''))
+          : ''
+      if (!email || email.length > 320) throw new Error('Invalid magic-link email.')
+      await ctx.runMutation(internal.authAdmission.admit, {
+        kind: 'magic-link',
+        sourceKey: sourceKey!,
+        email,
+      })
+    } else if (startsProvider(args, 'google') || startsProvider(args, 'github')) {
+      await ctx.runMutation(internal.authAdmission.admit, {
+        kind: 'oauth',
+        sourceKey: sourceKey!,
+      })
+    }
+
+    return unguardedSignIn._handler(ctx, args)
   },
 })

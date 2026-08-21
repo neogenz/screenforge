@@ -1,4 +1,5 @@
 import { RateLimiter, HOUR, type RunMutationCtx } from '@convex-dev/rate-limiter'
+import { CLOUD_OFFER } from '@screenforge/project-format'
 import { ConvexError } from 'convex/values'
 import { components } from './_generated/api'
 import { env } from './_generated/server'
@@ -34,10 +35,10 @@ import { env } from './_generated/server'
  */
 export const PASSWORD_ATTEMPTS_PER_HOUR = 5
 
-export const MAX_PROJECTS_PER_ACCOUNT = 100
-export const MAX_PROJECT_BYTES_PER_ACCOUNT = 128 * 1024 * 1024
-export const MAX_ASSETS_PER_ACCOUNT = 500
-export const MAX_ASSET_BYTES_PER_ACCOUNT = 512 * 1024 * 1024
+export const MAX_PROJECTS_PER_ACCOUNT = CLOUD_OFFER.limits.projects
+export const MAX_PROJECT_BYTES_PER_ACCOUNT = CLOUD_OFFER.limits.projectBytes
+export const MAX_ASSETS_PER_ACCOUNT = CLOUD_OFFER.limits.assets
+export const MAX_ASSET_BYTES_PER_ACCOUNT = CLOUD_OFFER.limits.assetBytes
 /** Un compte plein (500 assets / 100 projets) peut être restauré sur une nouvelle machine. */
 export const ASSET_DOWNLOADS_PER_HOUR = 600
 export const PROJECT_DOWNLOADS_PER_HOUR = 120
@@ -80,10 +81,19 @@ const LIMITS = {
    */
   magicLinkSend: { kind: 'fixed window', rate: 3, period: HOUR },
   magicLinkSendBySource: { kind: 'fixed window', rate: 20, period: HOUR },
-  magicLinkSendGlobal: { kind: 'fixed window', rate: 100, period: HOUR },
+  /* Même budget maximal la première heure (30 initiaux + 70 régénérés), mais
+     sans panne figée d'une heure : un abus distribué doit rester actif pour
+     consommer les jetons qui reviennent progressivement. */
+  magicLinkSendGlobal: { kind: 'token bucket', rate: 70, period: HOUR, capacity: 30 },
+
+  /** OAuth starts persist a verifier before the browser reaches Google or GitHub. */
+  oauthStartBySource: { kind: 'fixed window', rate: 30, period: HOUR },
+  oauthStartGlobal: { kind: 'fixed window', rate: 500, period: HOUR },
 
   /** Admission du webhook avant lecture du corps et vérification Node. */
   polarWebhookBySource: { kind: 'token bucket', rate: 120, period: HOUR, capacity: 30 },
+  /** Coupe-circuit de dernier recours contre une rotation distribuée des sources. */
+  polarWebhookGlobal: { kind: 'fixed window', rate: 500, period: HOUR },
 
   /** Chaque appel crée un objet chez Polar. La route est authentifiée, pas gratuite. */
   checkout: { kind: 'fixed window', rate: 10, period: HOUR },
@@ -99,6 +109,8 @@ const LIMITS = {
 
   /** Geste irréversible, et chaque tentative relance un cycle de nettoyage. */
   accountDeletion: { kind: 'fixed window', rate: 3, period: HOUR },
+  /** Geste destructif borné; les reprises d'un job existant ne le recomptent pas. */
+  cloudDataClear: { kind: 'fixed window', rate: 3, period: HOUR },
 } as const
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, LIMITS)
@@ -113,6 +125,7 @@ export const USER_SCOPED_LIMITS = [
   'assetDownload',
   'projectDownload',
   'accountDeletion',
+  'cloudDataClear',
 ] as const satisfies readonly LimitName[]
 
 export const EMAIL_SCOPED_LIMITS = [

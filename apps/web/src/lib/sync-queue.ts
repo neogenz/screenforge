@@ -93,3 +93,15 @@ export async function listSyncRecords(userId: string): Promise<SyncRecord[]> {
   const prefix = `${userId}:`
   return (await db.getAll('pending')).filter((record) => record.key.startsWith(prefix))
 }
+
+/** Forget only this account's acknowledgements; project data lives in another DB. */
+export async function clearSyncRecords(userId: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('pending', 'readwrite')
+  const store = tx.objectStore('pending')
+  const prefix = `${userId}:`
+  for (const key of await store.getAllKeys()) {
+    if (String(key).startsWith(prefix)) await store.delete(key)
+  }
+  await tx.done
+}

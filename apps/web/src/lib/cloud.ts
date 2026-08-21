@@ -145,6 +145,36 @@ export async function fetchRemoteUserSettings(): Promise<UserSettings | null> {
   return await client.query(api.settings.mySettings, {})
 }
 
+export interface CloudUsageRow {
+  count: number
+  bytes: number
+  limitCount: number
+  limitBytes: number
+}
+
+export interface CloudUsage {
+  projects: CloudUsageRow
+  assets: CloudUsageRow
+}
+
+export async function fetchRemoteCloudUsage(): Promise<CloudUsage | null> {
+  const connected = connect()
+  if (!connected) return null
+  const { client, api } = await connected
+  return await client.query(api.cloudData.myUsage, {})
+}
+
+export async function clearRemoteCloudData(): Promise<'cleared' | 'incomplete'> {
+  const connected = connect()
+  if (!connected) return 'incomplete'
+  const { client, api } = await connected
+  for (let pass = 0; pass < 8; pass += 1) {
+    const outcome = await client.mutation(api.cloudData.clearMyCloudData, {})
+    if (outcome === 'cleared') return outcome
+  }
+  return 'incomplete'
+}
+
 export async function pushRemoteUserSettings(settings: UserSettings): Promise<boolean> {
   const connected = connect()
   if (!connected) return false

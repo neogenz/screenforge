@@ -12,6 +12,7 @@
 
 - [ ] Relevant automated checks pass
 - [ ] User-visible behavior was checked when applicable
+- [ ] Production milestone: a deep security scan covered the candidate SHA (N/A otherwise)
 
 ## Checklist
 

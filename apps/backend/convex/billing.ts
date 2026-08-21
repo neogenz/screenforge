@@ -98,12 +98,23 @@ export const webhook = httpAction(async (ctx, request) => {
 
   const payload = await readWebhookBody(request)
   if ('error' in payload) return json({ error: payload.error }, payload.status)
-  const outcome = await ctx.runAction(internal.polar.applySignedWebhook, {
-    body: payload.body,
-    id: headers.id,
-    timestamp: headers.timestamp,
-    signature: headers.signature,
-  })
+  let outcome
+  try {
+    outcome = await ctx.runAction(internal.polar.applySignedWebhook, {
+      body: payload.body,
+      id: headers.id,
+      timestamp: headers.timestamp,
+      signature: headers.signature,
+    })
+  } catch (error) {
+    const limited = rateLimitedError(error)
+    if (limited) {
+      return json({ error: 'RATE_LIMITED' }, 429, {
+        'Retry-After': String(Math.max(1, Math.ceil(limited.retryAfter / 1000))),
+      })
+    }
+    return json({ error: 'SERVICE_UNAVAILABLE' }, 503)
+  }
 
   if (outcome === 'invalid-signature') return json({ error: 'INVALID_SIGNATURE' }, 403)
   /* 503 et non 200 : un `customer.state_changed` illisible porte peut-être une

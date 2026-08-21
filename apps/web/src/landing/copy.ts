@@ -1,3 +1,9 @@
+import { CLOUD_OFFER, cloudOfferSummary } from '@screenforge/project-format'
+
+const CLOUD_PRICE = `$${CLOUD_OFFER.price.amount}`
+const CLOUD_LIMITS_EN = cloudOfferSummary('en')
+const CLOUD_LIMITS_FR = cloudOfferSummary('fr')
+
 /*
  * Source unique de tout le texte de la landing. `fr` est typé sur `en` :
  * une clé manquante est une erreur de compilation, pas une chaîne anglaise
@@ -209,7 +215,7 @@ const en = {
   pricing: {
     title: 'Free on your machine. Cloud if you work on two.',
     sub: 'Screenshot tools usually charge by the month. Here the complete editor is free on this machine, for good. Cloud is for people who work from more than one: account, sync, managed storage and backups, $39 a year, about $3 a month.',
-    currencyNote: 'Cloud price in USD, tax included.',
+    currencyNote: 'Cloud price in USD. Applicable taxes are shown at checkout.',
     availability: 'Local works right now, no account. Cloud is turned on from inside the editor.',
     availabilityShort: 'Available',
     storageLabel: 'Where your projects live',
@@ -232,13 +238,14 @@ const en = {
       },
       cloud: {
         name: 'Cloud',
-        price: '$39',
+        price: CLOUD_PRICE,
         period: '/year',
         tagline: 'Your projects on every machine you work from',
         points: [
           'Everything in Local',
           'Projects, images and settings synced',
           'Managed storage and backups',
+          CLOUD_LIMITS_EN,
         ],
         note: 'Needs an account. If you stop, your local copies stay yours.',
         cta: 'Choose Cloud',
@@ -280,6 +287,10 @@ const en = {
       {
         q: 'Will the exports pass App Store Connect?',
         a: 'Yes, on everything a file can be rejected for: 1320×2868, opaque PNG, sRGB, under the size limit, all checked before download. Apple derives every smaller iPhone size from that one set. Your content is Apple’s review, not the file’s.',
+      },
+      {
+        q: 'What are the Cloud storage limits?',
+        a: `${CLOUD_LIMITS_EN}. When a limit is reached, new Cloud writes pause until you clear space. Local editing and unlimited exports keep working.`,
       },
       {
         q: 'Do my screenshots leave my machine?',
@@ -532,7 +543,8 @@ const fr: Copy = {
   pricing: {
     title: 'Gratuit sur votre machine. Cloud si vous en avez deux.',
     sub: 'Ce genre d’outil se paie d’habitude à l’abonnement mensuel. Ici, l’éditeur complet est gratuit sur votre machine, pour de bon. Cloud sert à ceux qui travaillent sur plusieurs machines : compte, synchronisation, stockage et sauvegardes hébergés, 39 $ par an, soit à peu près 3 $ par mois.',
-    currencyNote: 'Prix Cloud en dollars américains, taxes comprises.',
+    currencyNote:
+      'Prix Cloud en dollars américains. Les taxes applicables sont affichées au paiement.',
     availability: 'Local fonctionne tout de suite, sans compte. Cloud s’active depuis l’éditeur.',
     availabilityShort: 'Disponible',
     storageLabel: 'Où vivent vos projets',
@@ -555,13 +567,14 @@ const fr: Copy = {
       },
       cloud: {
         name: 'Cloud',
-        price: '39 $',
+        price: `${CLOUD_OFFER.price.amount} $`,
         period: '/an',
         tagline: 'Vos projets sur toutes vos machines',
         points: [
           'Tout ce qui est inclus dans Local',
           'Projets, images et réglages synchronisés',
           'Stockage et sauvegardes hébergés',
+          CLOUD_LIMITS_FR,
         ],
         note: 'Compte requis. Si vous arrêtez, vos copies locales restent à vous.',
         cta: 'Choisir Cloud',
@@ -601,6 +614,10 @@ const fr: Copy = {
       {
         q: 'Les exports passent-ils App Store Connect ?',
         a: 'Oui, sur tout ce qui peut faire rejeter un fichier : 1320×2868, PNG opaque, sRGB, sous la limite de poids, le tout vérifié avant le téléchargement. Apple en dérive lui-même toutes les tailles iPhone plus petites. Reste le contenu, et là c’est la revue d’Apple qui juge, pas le fichier.',
+      },
+      {
+        q: 'Quelles sont les limites de stockage Cloud ?',
+        a: `${CLOUD_LIMITS_FR}. Quand une limite est atteinte, les nouvelles écritures Cloud s’arrêtent jusqu’à ce que vous libériez de la place. L’édition locale et les exports illimités continuent.`,
       },
       {
         q: 'Mes captures quittent-elles ma machine ?',

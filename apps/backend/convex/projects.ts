@@ -5,8 +5,9 @@ import { requireCloud, requireUser } from './authz'
 import { consume, MAX_PROJECT_BYTES_PER_ACCOUNT, MAX_PROJECTS_PER_ACCOUNT } from './limits'
 import { MAX_PROJECT_BLOB_BYTES } from './media'
 import { deleteIfUnreferenced } from './storageReferences'
+import { cloudDataGeneration } from './cloudData'
 
-export const PUSH_OUTCOMES = ['accepted', 'stale', 'too-large'] as const
+export const PUSH_OUTCOMES = ['accepted', 'stale', 'too-large', 'invalidated'] as const
 export type PushOutcome = (typeof PUSH_OUTCOMES)[number]
 export const PROJECT_REJECTED = 'PROJECT_REJECTED' as const
 export const PROJECT_SIZE_LIMIT = 'PROJECT_SIZE_LIMIT' as const
@@ -49,7 +50,7 @@ export const authorizeProjectUpload = internalMutation({
     contentType: v.string(),
     byteLength: v.union(v.number(), v.null()),
   },
-  returns: v.null(),
+  returns: v.number(),
   handler: async (ctx, { projectId, name, updatedAt, contentType, byteLength }) => {
     const userId = await requireCloud(ctx)
     if (
@@ -71,7 +72,7 @@ export const authorizeProjectUpload = internalMutation({
       assertProjectQuota(rows, existing, byteLength)
     }
     await consume(ctx, 'projectPush', userId)
-    return null
+    return await cloudDataGeneration(ctx, userId)
   },
 })
 
@@ -82,10 +83,15 @@ export const commitProjectUpload = internalMutation({
     name: v.string(),
     updatedAt: v.number(),
     blobId: v.id('_storage'),
+    generation: v.number(),
   },
   returns: v.union(...PUSH_OUTCOMES.map((outcome) => v.literal(outcome))),
-  handler: async (ctx, { projectId, name, updatedAt, blobId }): Promise<PushOutcome> => {
+  handler: async (
+    ctx,
+    { projectId, name, updatedAt, blobId, generation },
+  ): Promise<PushOutcome> => {
     const userId = await requireCloud(ctx)
+    if ((await cloudDataGeneration(ctx, userId)) !== generation) return 'invalidated'
     const blob = await ctx.db.system.get(blobId)
     if (!blob || blob.size <= 0 || blob.size > MAX_PROJECT_BLOB_BYTES) return 'too-large'
 

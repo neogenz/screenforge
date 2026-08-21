@@ -187,6 +187,12 @@ export const applySignedWebhook = internalAction({
 
     if (event.type !== 'customer.state_changed') return 'unsupported' as const
 
+    /* Cette réserve partagée n'est consommée qu'après vérification de la
+       signature Polar. Le trafic anonyme reste borné par source dans
+       l'enveloppe HTTP, sans pouvoir épuiser la capacité des livraisons
+       authentiques. */
+    await consume(ctx, 'polarWebhookGlobal')
+
     const state = event.data
     /* Sans `externalId`, le client Polar n'est rattaché à aucun compte. Cela
        n'arrive que pour un achat créé hors de notre checkout ; il n'y a rien à
@@ -233,12 +239,25 @@ export const createCheckout = action({
     await consume(ctx, 'checkout', userId)
 
     const account = await ctx.runQuery(api.users.me, {})
-
-    const checkout = await polar().checkouts.create({
-      products: [productId()],
-      externalCustomerId: userId,
-      customerEmail: account?.email ?? undefined,
-      successUrl: required('CHECKOUT_SUCCESS_URL'),
+    const fenceId = await ctx.runMutation(internal.billingLifecycle.beginCheckout, { userId })
+    let checkout
+    try {
+      checkout = await polar().checkouts.create({
+        products: [productId()],
+        externalCustomerId: userId,
+        customerEmail: account?.email ?? undefined,
+        successUrl: required('CHECKOUT_SUCCESS_URL'),
+      })
+    } catch (error) {
+      await ctx.runMutation(internal.billingLifecycle.abandonCheckout, { fenceId })
+      throw error
+    }
+    /* If this mutation cannot run, the null fence deliberately remains: a
+       checkout may already exist at Polar, so deleting the reservation would
+       recreate the orphan-billing race. */
+    await ctx.runMutation(internal.billingLifecycle.completeCheckout, {
+      fenceId,
+      expiresAt: checkout.expiresAt.getTime(),
     })
     return { url: checkout.url }
   },

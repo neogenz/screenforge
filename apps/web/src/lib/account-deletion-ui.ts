@@ -13,6 +13,15 @@ export async function handleAccountDeletionOutcome(
   outcome: DeleteAccountOutcome,
   effects: AccountDeletionEffects,
 ): Promise<void> {
+  if (outcome === 'billing-active') {
+    effects.retry()
+    effects.notify(
+      'Résiliez d’abord votre abonnement dans Factures et paiement, puis supprimez le compte à la fin de la période active.',
+      'error',
+    )
+    return
+  }
+
   if (outcome === 'failed' || outcome === 'unknown') {
     effects.retry()
     effects.notify(

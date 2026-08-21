@@ -22,6 +22,21 @@ Local never requires Convex, a connection, an account or an entitlement. Cloud w
 See [CLOUD.md](CLOUD.md) for the operated Cloud architecture and a concrete
 walkthrough of the Resend, Polar, Convex and synchronization flows.
 
+## Open source and the managed Cloud
+
+This repository contains the complete application, including the Cloud server
+code. It does not contain access to the operated ScreenForge Cloud service.
+Running or modifying the frontend cannot create a managed Cloud entitlement:
+every remote write is authorized by Convex from the authenticated user and the
+server-side state mirrored from Polar. The only complimentary grant is an
+internal Convex operation, not a client API.
+
+You may self-host ScreenForge under the AGPL, but a self-hosted instance uses
+your own domain, deployments, storage, email and payment-provider accounts. It
+does not reuse ScreenForge's customer database, credentials, quotas, backups or
+infrastructure. Local remains free and complete in either case; the paid plan
+covers the Cloud service operated by ScreenForge.
+
 ## Features
 
 - **Real-time canvas editor** — Fabric.js-powered, with snapping guides, precise transforms and a floating selection toolbar

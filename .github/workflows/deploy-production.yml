@@ -90,7 +90,7 @@ jobs:
       - name: Check current Convex production configuration
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}'
+        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}' | node scripts/convex-preflight-gate.mjs
       - name: Pull production settings
         env:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
@@ -112,6 +112,20 @@ jobs:
         run: |
           deployment_url=$(pnpm exec vercel deploy --prebuilt --prod --skip-domain --archive=tgz --token "$VERCEL_TOKEN")
           echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+      - name: Deploy candidate Convex backend to preproduction
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}
+        run: pnpm run deploy:ci --message "$GITHUB_SHA-canary"
+      - name: Check candidate Convex preproduction configuration
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}
+        run: pnpm --filter backend exec convex run preflight:check '{"target":"preproduction"}' | node scripts/convex-preflight-gate.mjs
+      - name: Gate candidate against production configuration
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          set -o pipefail
+          pnpm --filter backend exec convex env list | node --experimental-strip-types scripts/convex-production-config-gate.mjs
       - name: Deploy Convex production backend
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
@@ -119,7 +133,7 @@ jobs:
       - name: Check candidate Convex production configuration
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}'
+        run: pnpm --filter backend exec convex run preflight:check '{"target":"production"}' | node scripts/convex-preflight-gate.mjs
       - name: Smoke test staged candidate
         env:
           DEPLOYMENT_URL: ${{ steps.staged.outputs.url }}
