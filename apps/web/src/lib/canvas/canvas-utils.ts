@@ -149,6 +149,8 @@ export type RenderedObject = FabricObject & {
  * c'est le débordement que la revue de locales existe à signaler.
  */
 export function rewrapTextbox(object: Textbox & RenderedObject): void {
+  const center = object.getCenterPoint()
+  const previousHeight = object.height
   object.initDimensions()
   const declared = object.data?.declaredWidth
   // `_set` et non `set`, et c'est tout l'enjeu : `Textbox.textLayoutProperties`
@@ -160,6 +162,10 @@ export function rewrapTextbox(object: Textbox & RenderedObject): void {
   // contrat de Fabric plutôt qu'à ce commentaire.
   if (declared !== undefined && object.width !== declared) {
     ;(object as unknown as FabricInternalSetter)._set('width', declared)
+  }
+  const heightDelta = object.height - previousHeight
+  if (Number.isFinite(heightDelta) && heightDelta !== 0) {
+    placeAtSceneCenter(object, center.x, center.y + heightDelta / 2)
   }
   object.setCoords()
 }
