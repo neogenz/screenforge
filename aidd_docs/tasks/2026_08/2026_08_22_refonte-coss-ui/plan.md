@@ -1,6 +1,6 @@
 ---
 objective: "L'éditeur ScreenForge et ses treize dialogues tournent sur le design system coss ui (Base UI, palette neutre coss, composants installés par le CLI comme dans mandat-tan) avec une finition oa-design — motion, squelettes, états vides, copy — et ne gardent du langage v6 qu'une couche d'extension (stage, marqueur citron, artboard, z) sans casser les gates contrast/scale/semantics/motion."
-status: in-progress
+status: implemented
 ---
 
 <!-- Fill or omit these sections; never add, rename, or reorder one. -->
