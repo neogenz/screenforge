@@ -585,9 +585,29 @@
 
   /* Bas de zone défilante : le contenu s'estompe tant qu'il en reste sous le
      pli. Un masque ne peint pas, il ne mange donc pas la zone cliquable du
-     dernier contrôle. */
+     dernier contrôle.
+
+     La gouttière est réservée en permanence, et pas quand la piste apparaît :
+     le panneau Propriétés fait 240px de large, une piste qui pousse ses champs
+     de 12px les redimensionne sous le curseur au moment précis où l'on commence
+     à défiler. Elle est donc sur `.scroll-fade` et non sur `[data-fade]`.
+
+     Le fondu court sur 32px et non 20 : mesuré sur le panneau, 20px laissaient
+     la dernière rangée lisible à mi-hauteur, ce qui se lit comme un contrôle
+     mal coupé plutôt que comme une suite. Trente-deux, c'est une rangée de
+     contrôle entière (32px, la hauteur de panneau) — le fondu efface un rang,
+     il n'en tranche pas un.
+
+     La piste elle-même est décorative et reste hors de la matrice de contraste :
+     elle ne porte aucune information que le fondu ne porte déjà, elle dit
+     seulement où l'on en est. */
+  .scroll-fade {
+    scrollbar-gutter: stable;
+  }
   .scroll-fade[data-fade] {
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-input) transparent;
   }
 
   /* ── Scène : vignette discrète, les artboards portent la lumière ── */

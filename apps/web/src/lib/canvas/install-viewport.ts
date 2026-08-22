@@ -4,6 +4,7 @@ import {
   SCREEN_WIDTH,
   getScreenOffset,
   getTotalWidth,
+  scaleScreenLabels,
 } from '@/lib/canvas/canvas-utils'
 import { stageInsets } from '@/lib/stage'
 import { ZOOM_MAX, ZOOM_MIN } from '@/stores/ui.store'
@@ -148,6 +149,20 @@ export function installViewport({
    * seul le CSS lit. La clé évite les écritures identiques — `after:render` tire
    * aussi sur un simple survol d'objet, où rien n'a bougé.
    */
+  /* Les étiquettes se remettent à l'échelle avant le tracé, et non après.
+     Les corriger dans `after:render` demanderait un rendu de plus, donc une
+     image entière à l'ancienne taille pour chaque cran de molette. Ici la
+     passe qui les lit est celle qui vient de les écrire. Le zoom est comparé
+     pour ne rien faire quand seul le panoramique a bougé — un glisser tire
+     autant de rendus qu'un zoom. */
+  let labelZoom = 0
+  const disposeLabels = canvas.on('before:render', () => {
+    const zoom = canvas.getZoom()
+    if (zoom === labelZoom) return
+    labelZoom = zoom
+    scaleScreenLabels(canvas, zoom)
+  })
+
   let grainKey = ''
   const disposeGrain = canvas.on('after:render', () => {
     const [zoom, , , , panX, panY] = canvas.viewportTransform
@@ -325,6 +340,7 @@ export function installViewport({
   })
 
   function cleanup(): void {
+    disposeLabels()
     disposeGrain()
     disposeWheel()
     disposeMouseDown()
