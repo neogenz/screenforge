@@ -62,6 +62,12 @@ donc aucune preuve et ne bloque pas la validation locale proportionnée restante
 
 ## État fournisseur constaté sans mutation
 
+- Polar Sandbox présente ScreenForge Cloud comme un abonnement annuel à
+  39 USD. La description du checkout reprend les quatre quotas, précise que
+  l'édition et les exports locaux restent disponibles sans abonnement, et
+  annonce des taxes calculées au checkout. Une commande synthétique existante
+  distingue bien sous-total, net, taxe et total. Aucun achat ni réglage n'a été
+  créé ou modifié pendant cette vérification.
 - Vercel Authentication protège les previews et l'accès anonyme vérifié. Un
   bypass d'automation borné existe au niveau projet; son propriétaire et son
   consommateur doivent être confirmés avant toute révocation.
@@ -72,9 +78,7 @@ donc aucune preuve et ne bloque pas la validation locale proportionnée restante
   déploiement préproduction ni d'une commande CLI exposant les Usage Limits.
   Les warnings et le baseline de trois gates restent donc non prouvés; le hard
   disable demeure volontairement inactif jusqu'au choix du budget utilisateur.
-- La session Polar Sandbox et Resend n'était pas disponible. Le produit annuel,
-  la fiscalité visible, la description du checkout et l'envoi réel ne sont pas
-  déclarés conformes sans preuve.
+- L'envoi réel Resend n'est pas encore déclaré conforme dans cette preuve.
 
 ## Parcours hébergé restant avant GO production
 
