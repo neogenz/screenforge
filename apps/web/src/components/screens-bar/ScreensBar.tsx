@@ -6,7 +6,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
 import { IconButton } from '@/components/ui/icon-button'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
-import { getStoreTargetProfile } from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
 import {
   FILMSTRIP_GAP,
@@ -45,10 +45,12 @@ export function ScreensBar() {
     useShallow((state) => ({
       screens: state.project?.screens,
       activeScreenId: state.project?.activeScreenId ?? '',
-      maxScreens: state.project ? getStoreTargetProfile(state.project.target).maxScreens : 10,
+      maxScreens: state.project
+        ? getStoreTargetProfile(state.project.target).maxScreens
+        : APP_STORE_PROFILE.maxScreens,
       board: state.project
         ? getStoreTargetProfile(state.project.target).board
-        : getStoreTargetProfile('app-store-iphone').board,
+        : APP_STORE_PROFILE.board,
     })),
   )
   const list = screens ?? []

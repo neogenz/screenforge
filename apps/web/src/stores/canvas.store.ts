@@ -6,7 +6,7 @@ import {
   type ScreenHistorySnapshot,
 } from '@/stores/history.store'
 import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { getStoreTargetProfile } from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
@@ -107,7 +107,7 @@ function alignmentReference(selected: Layer[]): Placeable {
   if (selected.length > 1) return boundsOf(selected)
   const project = useProjectStore.getState().project
   const screens = project?.screens ?? []
-  const board = project ? getStoreTargetProfile(project.target).board : { width: 440, height: 956 }
+  const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
   const index =
     selected[0]?.scope === 'layout'
       ? Math.max(

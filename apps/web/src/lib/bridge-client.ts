@@ -28,7 +28,7 @@ import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 5
+const PROTOCOL = 6
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
 export type BridgeCapability = 'assistant' | 'asc-publish'
@@ -229,6 +229,7 @@ export async function planViaBridge(
       engine,
       ...(model ? { model } : {}),
       brief: {
+        target: brief.target ?? APP_STORE_PROFILE.id,
         appName: brief.appName,
         pitch: brief.pitch,
         ...(brief.landingUrl ? { landingUrl: brief.landingUrl } : {}),

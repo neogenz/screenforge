@@ -1,9 +1,9 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
 
-const W = 440
-const H = 956
+const { width: W, height: H } = APP_STORE_PROFILE.board
 
 function textLayer(
   id: string,
@@ -324,8 +324,7 @@ const IPHONE_TEMPLATES: TemplateDefinition[] = [
   },
 ]
 
-const ANDROID_W = 540
-const ANDROID_H = 960
+const { width: ANDROID_W, height: ANDROID_H } = GOOGLE_PLAY_PROFILE.board
 
 function androidVariant(template: TemplateDefinition): TemplateDefinition {
   const scaleX = ANDROID_W / W

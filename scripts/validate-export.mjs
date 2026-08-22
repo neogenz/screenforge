@@ -1,15 +1,23 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import JSZip from 'jszip'
+import { STORE_TARGET_PROFILES } from '../packages/project-format/src/dimensions.ts'
 
 const EXPECTED_BIT_DEPTH = 8
 const EXPECTED_COLOR_TYPE = 2
 const INTERNAL_SIZE_TARGET = 5 * 1024 * 1024
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10]
-const PROFILES = {
-  'app-store-iphone': { folder: '6.9', width: 1320, height: 2868, maxFiles: 10 },
-  'google-play-phone': { folder: 'phone', width: 1080, height: 1920, maxFiles: 8 },
-}
+const PROFILES = Object.fromEntries(
+  Object.entries(STORE_TARGET_PROFILES).map(([id, profile]) => [
+    id,
+    {
+      folder: profile.zipFolder,
+      width: profile.output.portrait.width,
+      height: profile.output.portrait.height,
+      maxFiles: profile.maxScreens,
+    },
+  ]),
+)
 
 /**
  * @typedef {{ width: number; height: number; bitDepth: number; colorType: number; byteLength: number }} PngMetadata
