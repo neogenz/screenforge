@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { addTextLayer, transformInput, waitForApp } from './helpers'
+import type { Project } from '../src/types'
 
 /**
  * Le lot livré : figé, vérifiable, et indifférent à ce que le projet devient.
@@ -12,8 +13,8 @@ import { addTextLayer, transformInput, waitForApp } from './helpers'
 interface ReleaseState {
   id: string
   name: string
-  files: { path: string; sha256: string }[]
-  snapshot: unknown
+  files: { path: string; width: number; height: number; sha256: string }[]
+  snapshot: { profileId: Project['profileId'] }
 }
 
 async function releases(page: Page): Promise<ReleaseState[]> {
@@ -28,8 +29,23 @@ async function openReleaseDialog(page: Page) {
   await expect(page.getByRole('dialog', { name: 'Releases' })).toBeVisible()
 }
 
+async function switchProfile(page: Page, profileId: Project['profileId']): Promise<void> {
+  await page.evaluate((id) => {
+    const store = window.__sfStores?.useProjectStore
+    const project = store?.getState().project
+    if (!store || !project) throw new Error('project store unavailable')
+    store.setState({ project: { ...project, profileId: id } })
+  }, profileId)
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.profileId),
+    )
+    .toBe(profileId)
+}
+
 test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', async ({ page }) => {
   await waitForApp(page)
+  await switchProfile(page, 'ipad-13')
   await addTextLayer(page)
 
   await openReleaseDialog(page)
@@ -38,10 +54,12 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
 
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]
-  // Une planche par écran et par format exporté : ici un seul des deux.
+  // Une seule planche, rendue dans le profil propre au document.
   expect(frozen.name).toBe('1.0.0')
   expect(frozen.files).toHaveLength(1)
-  expect(frozen.files[0].path).toMatch(/^6\.9\/01_/)
+  expect(frozen.snapshot.profileId).toBe('ipad-13')
+  expect(frozen.files[0]).toMatchObject({ width: 2064, height: 2752 })
+  expect(frozen.files[0].path).toMatch(/^ipad-13\/01_/)
   expect(frozen.files[0].sha256).toMatch(/^[a-f0-9]{64}$/)
 
   // Vérifier, c'est rejouer l'instantané et recomparer les empreintes.
@@ -52,6 +70,10 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   // Échap plutôt qu'un clic : « Fermer » nomme aussi la croix de l'en-tête.
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Releases' })).toBeHidden()
+
+  /* Le projet vivant passe même sur une autre famille d'appareil. Rejouer le
+     lot doit pourtant conserver le ratio iPad de son instantané. */
+  await switchProfile(page, 'watch-series-10')
 
   /* Le projet continue de vivre : le texte se déplace. La release, elle, ne
      doit rien en savoir. */
@@ -68,8 +90,8 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await expect(page.getByText(/changement.? structurel/)).toBeVisible()
   await expect(page.getByText(/position X/)).toBeVisible()
 
-  // Rejouée après la modification, la release se vérifie toujours : c'est son
-  // instantané qui est rendu, jamais le projet d'aujourd'hui.
+  // Rejouée après la modification et le passage sur Watch, la release se
+  // vérifie toujours : son instantané iPad dicte son propre rendu.
   await page.getByRole('button', { name: 'Vérifier' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })

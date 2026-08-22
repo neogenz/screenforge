@@ -1,4 +1,4 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH, transformText } from '@/lib/canvas/canvas-utils'
+import { canvasSize, transformText } from '@/lib/canvas/canvas-utils'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import {
@@ -246,6 +246,7 @@ export function reviewLocale(
   locale: LocaleVariant,
   measure: TextMeasure = measureWithCanvas,
 ): LocaleFinding[] {
+  const size = canvasSize(project.profileId)
   const findings: LocaleFinding[] = []
   /* Les calques partagés en font partie. Ils sont semés dans la variante, tenus
      dans la boîte, substitués à l'export — et la revue ne descendait que dans
@@ -292,8 +293,8 @@ export function reviewLocale(
       if (
         layer.x < 0 ||
         layer.y < 0 ||
-        layer.x + layer.width > SCREEN_WIDTH ||
-        bottom > SCREEN_HEIGHT
+        layer.x + layer.width > size.width ||
+        bottom > size.height
       ) {
         findings.push({ ...at, kind: 'off-canvas', detail: 'Le bloc sort du cadre de l’écran.' })
       }

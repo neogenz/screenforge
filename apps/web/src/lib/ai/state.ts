@@ -1,5 +1,5 @@
 import { layerDisplayName } from '@/lib/layer-factories'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
 import type { Layer, Project, Screen } from '@/types'
 
 /**
@@ -82,9 +82,10 @@ export function screenView(screen: Screen, rank: number): ScreenView {
 
 /** Réponse de `get_project_state`. */
 export function describeProject(project: Project): ProjectView {
+  const size = canvasSize(project.profileId)
   return {
     name: project.name,
-    canvas: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+    canvas: size,
     globals: structuredClone(project.globals),
     screens: project.screens.map(screenView),
     layoutLayers: project.layoutLayers.map(layerView),

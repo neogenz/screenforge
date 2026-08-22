@@ -1,10 +1,5 @@
 import { Canvas, Point } from 'fabric'
-import {
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
-  getScreenOffset,
-  getTotalWidth,
-} from '@/lib/canvas/canvas-utils'
+import { canvasSize, getScreenOffset, getTotalWidth } from '@/lib/canvas/canvas-utils'
 import { stageInsets } from '@/lib/stage'
 import { ZOOM_MAX, ZOOM_MIN } from '@/stores/ui.store'
 import type { Project } from '@/types'
@@ -77,6 +72,11 @@ export function installViewport({
   let resizeTimer: ReturnType<typeof setTimeout> | null = null
   let spaceHeld = false
 
+  function projectSize() {
+    const project = getProject()
+    return canvasSize(project?.profileId)
+  }
+
   function availableStage() {
     const { layersOpen, propsOpen } = getUi()
     const insets = stageInsets({ layers: layersOpen, props: propsOpen })
@@ -89,8 +89,9 @@ export function installViewport({
 
   function fitAll(): void {
     const screenCount = getProject()?.screens.length ?? 1
+    const size = projectSize()
     const { insets, width, height } = availableStage()
-    const totalWidth = getTotalWidth(screenCount)
+    const totalWidth = getTotalWidth(screenCount, size.width)
     const padding = 48
     /* Borné aux clamps du store : un fit sous `ZOOM_MIN` mettait le canvas à
        15 % pendant que le store affichait 25 % — HUD faux, puis saut au premier
@@ -98,7 +99,7 @@ export function installViewport({
        donc une partie de la scène, panoramique à l'appui, mais un seul zoom. */
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / SCREEN_HEIGHT, 1),
+      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / size.height, 1),
     )
     canvas.setViewportTransform([
       zoom,
@@ -106,7 +107,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - size.height * zoom) / 2,
     ])
     setZoom(zoom)
   }
@@ -121,11 +122,12 @@ export function installViewport({
    */
   function recenter(): void {
     const screenCount = getProject()?.screens.length ?? 1
+    const size = projectSize()
     const { insets, width, height } = availableStage()
     const zoom = canvas.getZoom()
-    const totalWidth = getTotalWidth(screenCount)
+    const totalWidth = getTotalWidth(screenCount, size.width)
 
-    if (totalWidth * zoom > width || SCREEN_HEIGHT * zoom > height) {
+    if (totalWidth * zoom > width || size.height * zoom > height) {
       fitAll()
       return
     }
@@ -136,7 +138,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - size.height * zoom) / 2,
     ])
   }
 
@@ -264,6 +266,11 @@ export function installViewport({
   resizeObserver.observe(container)
 
   const unsubscribeProject = subscribeProject((project, previous) => {
+    if (project?.profileId !== previous?.profileId) {
+      fitAll()
+      canvas.requestRenderAll()
+      return
+    }
     // Plus de recentrage au renommage : la pellicule réserve ses deux rangées
     // en permanence, donc sa hauteur ne dépend plus de ce que les écrans
     // s'appellent. C'est le renommage qui faisait auparavant passer la dernière
@@ -278,19 +285,20 @@ export function installViewport({
     if (screenIndex === -1) return
     const { insets, width, height } = availableStage()
     const padding = 48
+    const size = canvasSize(project.profileId)
     // Même borne que `fitAll` : le canvas et le store doivent lire un seul zoom.
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / SCREEN_WIDTH, (height - padding * 2) / SCREEN_HEIGHT, 1),
+      Math.min((width - padding * 2) / size.width, (height - padding * 2) / size.height, 1),
     )
-    const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
+    const screenCenterX = getScreenOffset(screenIndex, size.width) + size.width / 2
     canvas.setViewportTransform([
       zoom,
       0,
       0,
       zoom,
       insets.left + width / 2 - screenCenterX * zoom,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - size.height * zoom) / 2,
     ])
     setZoom(zoom)
     canvas.requestRenderAll()

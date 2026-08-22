@@ -64,8 +64,13 @@ async function ensureFonts(layers: Layer[]): Promise<void> {
   await document.fonts.ready
 }
 
-function sortedLayers(screen: Screen, layoutLayers: Layer[], screenIndex: number): Layer[] {
-  const panoramaOffset = screenIndex * SCREEN_WIDTH
+function sortedLayers(
+  screen: Screen,
+  layoutLayers: Layer[],
+  screenIndex: number,
+  logicalWidth: number,
+): Layer[] {
+  const panoramaOffset = screenIndex * logicalWidth
   return [
     ...screen.layers,
     ...layoutLayers.map((layer) => ({ ...layer, x: layer.x - panoramaOffset })),
@@ -121,13 +126,15 @@ export async function renderScreenToBlob(
   layoutLayers: Layer[],
   multiplier: number,
   screenIndex = 0,
+  logicalWidth = SCREEN_WIDTH,
+  logicalHeight = SCREEN_HEIGHT,
 ): Promise<Blob> {
-  const layers = sortedLayers(screen, layoutLayers, screenIndex)
+  const layers = sortedLayers(screen, layoutLayers, screenIndex, logicalWidth)
   await ensureFonts(layers)
 
   const exportCanvas = new StaticCanvas(undefined, {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    width: logicalWidth,
+    height: logicalHeight,
     backgroundColor: '#ffffff',
     enableRetinaScaling: false,
     renderOnAddRemove: false,
@@ -140,8 +147,8 @@ export async function renderScreenToBlob(
       originY: 'top',
       left: 0,
       top: 0,
-      width: SCREEN_WIDTH,
-      height: SCREEN_HEIGHT,
+      width: logicalWidth,
+      height: logicalHeight,
       fill: backgroundToFabricFill(screen.background),
       selectable: false,
       evented: false,
@@ -172,16 +179,25 @@ export async function exportScreenToBlob(
   targetWidth: number,
   targetHeight: number,
   screenIndex = 0,
+  logicalWidth = SCREEN_WIDTH,
+  logicalHeight = SCREEN_HEIGHT,
 ): Promise<Blob> {
-  const scaleX = targetWidth / SCREEN_WIDTH
-  const scaleY = targetHeight / SCREEN_HEIGHT
-  if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
+  const scaleX = targetWidth / logicalWidth
+  const scaleY = targetHeight / logicalHeight
+  if (Math.abs(scaleX - scaleY) > 1e-10) {
     throw new Error(
       `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
     )
   }
 
-  const browserPng = await renderScreenToBlob(screen, layoutLayers, scaleX, screenIndex)
+  const browserPng = await renderScreenToBlob(
+    screen,
+    layoutLayers,
+    scaleX,
+    screenIndex,
+    logicalWidth,
+    logicalHeight,
+  )
   const blob = await convertCanvasPngToOpaqueRgb(browserPng, targetWidth, targetHeight)
   assertAppStorePng(await inspectPng(blob), targetWidth, targetHeight)
   return blob

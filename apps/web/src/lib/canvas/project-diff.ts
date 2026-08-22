@@ -46,6 +46,7 @@ function changedLayerIds(current: Layer[], previous: Layer[]): string[] | null {
 /** Chooses the cheapest safe synchronization path from immutable project references. */
 export function diffProjectChange(current: Project, previous: Project | null): ProjectChange {
   if (!previous) return { type: 'full' }
+  if (current.profileId !== previous.profileId) return { type: 'full' }
   if (!screensHaveVisualChanges(current, previous)) return { type: 'none' }
   if (current.screens.length !== previous.screens.length) return { type: 'full' }
   if (current.activeScreenId !== previous.activeScreenId) return { type: 'full' }

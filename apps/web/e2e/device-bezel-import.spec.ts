@@ -371,7 +371,7 @@ test('accepts a real Apple Product Bezel outside the repository', async ({ page 
   expect(afterReload.importedBezel?.assetId).toBeTruthy()
   const { names, png } = await downloadFirstExportedPng(page)
   expect(names).toHaveLength(1)
-  expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
+  expect(names[0]).toMatch(/^iphone-6\.9\/\d{2}_[a-z0-9_]+\.png$/)
   const exported = decode(png)
   const exportScaleX = (afterReload.width * 3) / afterReload.importedBezel!.naturalWidth
   const exportScaleY = (afterReload.height * 3) / afterReload.importedBezel!.naturalHeight

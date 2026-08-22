@@ -1,14 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import JSZip from 'jszip'
+import { APP_STORE_PROFILES } from '../packages/project-format/src/dimensions.ts'
 
-const EXPECTED_WIDTH = 1320
-const EXPECTED_HEIGHT = 2868
 const EXPECTED_BIT_DEPTH = 8
 const EXPECTED_COLOR_TYPE = 2
 const INTERNAL_SIZE_TARGET = 5 * 1024 * 1024
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10]
-const FILE_PATTERN = /^6\.9\/(\d{2})_([a-z0-9_]+)\.png$/
+const FILE_PATTERN = /^([^/]+)\/(\d{2})_([a-z0-9_]+)\.png$/
+const PROFILE_BY_FOLDER = new Map(APP_STORE_PROFILES.map((profile) => [profile.folder, profile]))
 
 /**
  * @typedef {{ width: number; height: number; bitDepth: number; colorType: number; byteLength: number }} PngMetadata
@@ -34,11 +34,11 @@ function readPngMetadata(bytes, path) {
   }
 }
 
-/** @param {PngMetadata} metadata @param {string} path */
-function assertPng(metadata, path) {
-  if (metadata.width !== EXPECTED_WIDTH || metadata.height !== EXPECTED_HEIGHT) {
+/** @param {PngMetadata} metadata @param {string} path @param {(typeof APP_STORE_PROFILES)[number]} profile */
+function assertPng(metadata, path, profile) {
+  if (metadata.width !== profile.portrait.width || metadata.height !== profile.portrait.height) {
     throw new Error(
-      `${path}: ${metadata.width}×${metadata.height}, attendu ${EXPECTED_WIDTH}×${EXPECTED_HEIGHT}`,
+      `${path}: ${metadata.width}×${metadata.height}, attendu ${profile.portrait.width}×${profile.portrait.height}`,
     )
   }
   if (metadata.bitDepth !== EXPECTED_BIT_DEPTH) {
@@ -66,19 +66,24 @@ export async function validateExportZip(zipBytes) {
   }
 
   const summaries = []
+  let folder
   for (let index = 0; index < files.length; index += 1) {
     const entry = files[index]
     const match = FILE_PATTERN.exec(entry.name)
-    if (!match) throw new Error(`${entry.name}: chemin invalide, attendu 6.9/NN_nom.png`)
+    if (!match) throw new Error(`${entry.name}: chemin invalide, attendu profil/NN_nom.png`)
+    const profile = PROFILE_BY_FOLDER.get(match[1])
+    if (!profile) throw new Error(`${entry.name}: dossier de profil App Store inconnu`)
+    folder ??= profile.folder
+    if (folder !== profile.folder) throw new Error('le ZIP mélange plusieurs profils App Store')
     const expectedIndex = index + 1
-    if (Number(match[1]) !== expectedIndex) {
+    if (Number(match[2]) !== expectedIndex) {
       throw new Error(
-        `${entry.name}: index ${match[1]}, attendu ${String(expectedIndex).padStart(2, '0')}`,
+        `${entry.name}: index ${match[2]}, attendu ${String(expectedIndex).padStart(2, '0')}`,
       )
     }
     const bytes = await entry.async('uint8array')
     const metadata = readPngMetadata(bytes, entry.name)
-    assertPng(metadata, entry.name)
+    assertPng(metadata, entry.name, profile)
     summaries.push({ path: entry.name, ...metadata })
   }
   return summaries
@@ -89,8 +94,9 @@ async function main() {
   if (!inputPath) throw new Error('usage: pnpm validate:export -- <screenforge-app-store.zip>')
   const summaries = await validateExportZip(await readFile(inputPath))
   const totalBytes = summaries.reduce((total, file) => total + file.byteLength, 0)
+  const first = summaries[0]
   console.log(
-    `VALID ${summaries.length} PNG · ${EXPECTED_WIDTH}×${EXPECTED_HEIGHT} · RGB opaque · ${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
+    `VALID ${summaries.length} PNG · ${first.width}×${first.height} · RGB opaque · ${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
   )
 }
 

@@ -4,6 +4,7 @@ import {
   SCREEN_WIDTH,
   applyLayerToFabricObject,
   backgroundToFabricFill,
+  canvasSize,
   clipContentToScreen,
   clipControlsToScreen,
   disposeFabricObjectResource,
@@ -12,6 +13,7 @@ import {
   layerToFabricObject,
   needsFabricObjectRecreation,
   type RenderedObject,
+  type CanvasSize,
 } from '@/lib/canvas/canvas-utils'
 import {
   applyLassoColors,
@@ -48,12 +50,24 @@ export function ensureScreenClipPath(
   object: RenderedObject,
   screenIndex: number,
   screenCount: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
 ): void {
-  if (object.data?.clipScreenIndex === screenIndex && object.data?.clipScreenCount === screenCount)
+  if (
+    object.data?.clipScreenIndex === screenIndex &&
+    object.data?.clipScreenCount === screenCount &&
+    object.data?.clipScreenWidth === size.width &&
+    object.data?.clipScreenHeight === size.height
+  )
     return
-  clipContentToScreen(object, screenIndex, screenCount)
-  clipControlsToScreen(object, screenIndex)
-  object.set('data', { ...object.data, clipScreenIndex: screenIndex, clipScreenCount: screenCount })
+  clipContentToScreen(object, screenIndex, screenCount, size)
+  clipControlsToScreen(object, screenIndex, size)
+  object.set('data', {
+    ...object.data,
+    clipScreenIndex: screenIndex,
+    clipScreenCount: screenCount,
+    clipScreenWidth: size.width,
+    clipScreenHeight: size.height,
+  })
 }
 
 /**
@@ -79,13 +93,14 @@ function applyScreenPresence(
   layer: Layer,
   screenIndex: number,
   screenCount: number,
+  size: CanvasSize,
 ): void {
-  ensureScreenClipPath(object, screenIndex, screenCount)
+  ensureScreenClipPath(object, screenIndex, screenCount, size)
   /* Les deux drapeaux, pas un seul : `evented` garde le clic (`_checkTarget`),
      `selectable` garde le lasso (`collectObjects`, qui ignore `evented`). N'en
      poser qu'un laisserait un lasso tiré sur la planche voisine ramasser un
      calque qu'on n'y voit pas — le même défaut, par l'autre porte. */
-  const grabbable = !layer.locked && intersectsScreen(object, screenIndex)
+  const grabbable = !layer.locked && intersectsScreen(object, screenIndex, size)
   object.set({ selectable: grabbable, evented: grabbable })
 }
 
@@ -94,9 +109,14 @@ function applyLayoutInstance(
   layer: Layer,
   screenIndex: number,
   screenCount: number,
+  size: CanvasSize,
 ): void {
-  applyLayerToFabricObject(object, layer, getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH)
-  applyScreenPresence(object, layer, screenIndex, screenCount)
+  applyLayerToFabricObject(
+    object,
+    layer,
+    getScreenOffset(screenIndex, size.width) - screenIndex * size.width,
+  )
+  applyScreenPresence(object, layer, screenIndex, screenCount, size)
 }
 
 /**
@@ -127,6 +147,7 @@ function requestLayerFont(layer: Layer, runtime: CanvasSyncRuntime): void {
 export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): Promise<void> {
   const { canvas } = runtime
   const { screens, layoutLayers, activeScreenId } = project
+  const size = canvasSize(project.profileId)
   const chrome = readChromeColors()
   applyLassoColors(canvas, chrome)
   const version = ++runtime.syncVersion.current
@@ -205,15 +226,15 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
 
     for (let screenIndex = 0; screenIndex < screens.length; screenIndex += 1) {
       const screen = screens[screenIndex]
-      const offset = getScreenOffset(screenIndex)
+      const offset = getScreenOffset(screenIndex, size.width)
       const backgroundId = `background:${screen.id}`
       let background = objectsById.get(backgroundId)
       if (!background) {
         background = new Rect({
           originX: 'left',
           originY: 'top',
-          width: SCREEN_WIDTH,
-          height: SCREEN_HEIGHT,
+          width: size.width,
+          height: size.height,
           selectable: false,
           evented: false,
           strokeUniform: true,
@@ -230,6 +251,8 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       background.set({
         left: offset,
         top: 0,
+        width: size.width,
+        height: size.height,
         fill: backgroundToFabricFill(screen.background),
         stroke: artboard.stroke,
         strokeWidth: artboard.strokeWidth,
@@ -243,7 +266,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         label = new Textbox('', {
           originX: 'left',
           originY: 'top',
-          width: SCREEN_WIDTH,
+          width: size.width,
           fontSize: 12,
           fontFamily: 'Inter, system-ui, sans-serif',
           selectable: false,
@@ -257,7 +280,13 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(label)
         objectsById.set(labelId, label)
       }
-      label.set({ left: offset, top: -26, text: screen.name, fill: artboard.labelFill })
+      label.set({
+        left: offset,
+        top: -26,
+        width: size.width,
+        text: screen.name,
+        fill: artboard.labelFill,
+      })
       label.setCoords()
 
       for (const layer of screen.layers) {
@@ -288,7 +317,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           rendererType: layer.type,
         })
         applyLayerToFabricObject(object, layer, offset)
-        applyScreenPresence(object, layer, screenIndex, screens.length)
+        applyScreenPresence(object, layer, screenIndex, screens.length, size)
       }
     }
 
@@ -322,7 +351,7 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
           layout: true,
           rendererType: layer.type,
         })
-        applyLayoutInstance(object, layer, screenIndex, screens.length)
+        applyLayoutInstance(object, layer, screenIndex, screens.length, size)
       }
     }
 
@@ -414,6 +443,7 @@ export async function patchCanvas(
   runtime: CanvasSyncRuntime,
 ): Promise<boolean> {
   const { canvas } = runtime
+  const size = canvasSize(project.profileId)
   const objectsById = new Map<string, RenderedObject>()
   for (const object of canvas.getObjects() as RenderedObject[]) {
     const id = object.data?.uid
@@ -496,8 +526,8 @@ export async function patchCanvas(
     }
     if (layer.type === 'text' && !isFontLoaded(layer.fontFamily, [String(layer.fontWeight)]))
       return false
-    applyLayerToFabricObject(target, layer, getScreenOffset(screenIndex))
-    applyScreenPresence(target, layer, screenIndex, project.screens.length)
+    applyLayerToFabricObject(target, layer, getScreenOffset(screenIndex, size.width))
+    applyScreenPresence(target, layer, screenIndex, project.screens.length, size)
   }
 
   for (const layerId of change.layoutLayerIds) {
@@ -515,7 +545,7 @@ export async function patchCanvas(
         if (!replacement) return false
         target = replacement
       }
-      applyLayoutInstance(target, layer, index, project.screens.length)
+      applyLayoutInstance(target, layer, index, project.screens.length, size)
     }
   }
 

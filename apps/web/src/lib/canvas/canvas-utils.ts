@@ -19,6 +19,11 @@ import {
   screenshotImage,
 } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
+import {
+  DEFAULT_APP_STORE_PROFILE_ID,
+  getAppStoreProfile,
+  type AppStoreProfileId,
+} from '@/lib/dimensions'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
 import { ICON_STROKE, iconEntry, shapeEntry } from '@/lib/vector-catalog'
@@ -43,6 +48,19 @@ import type {
 export const SCREEN_WIDTH = 440
 export const SCREEN_HEIGHT = 956
 export const SCREEN_GAP = 40
+
+export interface CanvasSize {
+  width: number
+  height: number
+}
+
+export function canvasSize(
+  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+): CanvasSize {
+  const profile = getAppStoreProfile(profileId)
+  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
+  return profile.logical
+}
 
 FabricObject.ownDefaults.originX = 'left'
 FabricObject.ownDefaults.originY = 'top'
@@ -121,6 +139,8 @@ export type RenderedObject = FabricObject & {
     screenIndex?: number
     clipScreenIndex?: number
     clipScreenCount?: number
+    clipScreenWidth?: number
+    clipScreenHeight?: number
     layout?: boolean
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
@@ -175,8 +195,8 @@ interface FabricInternalSetter {
   _set(key: string, value: unknown): void
 }
 
-export function getScreenOffset(index: number): number {
-  return index * (SCREEN_WIDTH + SCREEN_GAP)
+export function getScreenOffset(index: number, screenWidth = SCREEN_WIDTH): number {
+  return index * (screenWidth + SCREEN_GAP)
 }
 
 // ─── Hors planche : ce qui est sorti du cadre, et ce qu'il en reste ──────────
@@ -219,14 +239,18 @@ const STAGE_REACH = 100_000
 const OFFBOARD_EPSILON = 0.5
 
 /** Le calque sort-il, si peu que ce soit, de la fenêtre de sa planche ? */
-export function escapesScreen(object: FabricObject, screenIndex: number): boolean {
+export function escapesScreen(
+  object: FabricObject,
+  screenIndex: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): boolean {
   const bounds = object.getBoundingRect()
-  const left = getScreenOffset(screenIndex)
+  const left = getScreenOffset(screenIndex, size.width)
   return (
     bounds.left < left - OFFBOARD_EPSILON ||
     bounds.top < -OFFBOARD_EPSILON ||
-    bounds.left + bounds.width > left + SCREEN_WIDTH + OFFBOARD_EPSILON ||
-    bounds.top + bounds.height > SCREEN_HEIGHT + OFFBOARD_EPSILON
+    bounds.left + bounds.width > left + size.width + OFFBOARD_EPSILON ||
+    bounds.top + bounds.height > size.height + OFFBOARD_EPSILON
   )
 }
 
@@ -246,16 +270,24 @@ interface Box {
 }
 
 /** Le rectangle a-t-il de quoi être attrapé sur une planche posée en `boardLeft` ? */
-function grabbable(box: Box, boardLeft: number): boolean {
+function grabbable(
+  box: Box,
+  boardLeft: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): boolean {
   const overlapX =
-    Math.min(box.left + box.width, boardLeft + SCREEN_WIDTH) - Math.max(box.left, boardLeft)
-  const overlapY = Math.min(box.top + box.height, SCREEN_HEIGHT) - Math.max(box.top, 0)
+    Math.min(box.left + box.width, boardLeft + size.width) - Math.max(box.left, boardLeft)
+  const overlapY = Math.min(box.top + box.height, size.height) - Math.max(box.top, 0)
   return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
 }
 
 /** Le calque a-t-il de quoi être attrapé sur la fenêtre de sa planche ? */
-export function intersectsScreen(object: FabricObject, screenIndex: number): boolean {
-  return grabbable(object.getBoundingRect(), getScreenOffset(screenIndex))
+export function intersectsScreen(
+  object: FabricObject,
+  screenIndex: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): boolean {
+  return grabbable(object.getBoundingRect(), getScreenOffset(screenIndex, size.width), size)
 }
 
 /**
@@ -271,20 +303,30 @@ export function intersectsScreen(object: FabricObject, screenIndex: number): boo
  * canevas vient de retirer la prise. Un pixel d'écart entre les deux laisserait
  * un calque injoignable sans rien pour le rappeler.
  */
-export function layerOutOfReach(layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>): boolean {
-  return !grabbable({ left: layer.x, top: layer.y, width: layer.width, height: layer.height }, 0)
+export function layerOutOfReach(
+  layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): boolean {
+  return !grabbable(
+    { left: layer.x, top: layer.y, width: layer.width, height: layer.height },
+    0,
+    size,
+  )
 }
 
 /** Où poser le calque pour qu'il tienne entier sur sa planche. */
-export function clampLayerToBoard(layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>): {
+export function clampLayerToBoard(
+  layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): {
   x: number
   y: number
 } {
   const clamp = (value: number, extent: number, size: number) =>
     Math.round(Math.min(Math.max(value, 0), Math.max(0, extent - size)))
   return {
-    x: clamp(layer.x, SCREEN_WIDTH, layer.width),
-    y: clamp(layer.y, SCREEN_HEIGHT, layer.height),
+    x: clamp(layer.x, size.width, layer.width),
+    y: clamp(layer.y, size.height, layer.height),
   }
 }
 
@@ -305,11 +347,11 @@ export function clampLayerToBoard(layer: Pick<BaseLayer, 'x' | 'y' | 'width' | '
  * donc un point du contour extérieur qui tombe dans l'un d'eux est traversé deux
  * fois et sort du tracé. C'est exactement le complément voulu.
  */
-function clipToStage(ctx: CanvasRenderingContext2D, screenCount: number): void {
+function clipToStage(ctx: CanvasRenderingContext2D, screenCount: number, size: CanvasSize): void {
   ctx.beginPath()
   ctx.rect(-STAGE_REACH, -STAGE_REACH, STAGE_REACH * 2, STAGE_REACH * 2)
   for (let index = 0; index < screenCount; index += 1) {
-    ctx.rect(getScreenOffset(index), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    ctx.rect(getScreenOffset(index, size.width), 0, size.width, size.height)
   }
   ctx.clip('evenodd')
 }
@@ -321,12 +363,13 @@ function clipToScreen(
   ctx: CanvasRenderingContext2D,
   object: FabricObject,
   screenIndex: number,
+  size: CanvasSize,
 ): void {
   const [a, b, c, d, e, f] = object.getViewportTransform()
   const transform = ctx.getTransform()
   ctx.transform(a, b, c, d, e, f)
   ctx.beginPath()
-  ctx.rect(getScreenOffset(screenIndex), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+  ctx.rect(getScreenOffset(screenIndex, size.width), 0, size.width, size.height)
   ctx.clip()
   // Le tracé de Fabric applique lui-même le transform de vue : on lui rend le
   // contexte tel qu'il l'attend. L'écrêtage, lui, est figé en espace device.
@@ -347,11 +390,15 @@ function clipToScreen(
  * Les autres tranches du même calque reçoivent un liseré atténué : elles disent
  * que l'objet continue sur la planche voisine, sans prétendre être saisissables.
  */
-export function clipControlsToScreen(object: RenderedObject, screenIndex: number): void {
+export function clipControlsToScreen(
+  object: RenderedObject,
+  screenIndex: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): void {
   const target = object as RenderedObject & ControlHost
   target._renderControls = function renderClippedControls(ctx, styleOverride) {
     ctx.save()
-    clipToScreen(ctx, this, screenIndex)
+    clipToScreen(ctx, this, screenIndex, size)
     renderTwoTone(this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
     ctx.restore()
 
@@ -362,7 +409,7 @@ export function clipControlsToScreen(object: RenderedObject, screenIndex: number
       const siblingScreen = sibling.data?.screenIndex
       if (siblingScreen === undefined) continue
       ctx.save()
-      clipToScreen(ctx, sibling, siblingScreen)
+      clipToScreen(ctx, sibling, siblingScreen, size)
       // La couleur, pas `globalAlpha` : le tracé de Fabric remet l'alpha à 1.
       renderTwoTone(sibling, ctx, { hasControls: false }, GHOST_INK, GHOST_HALO)
       ctx.restore()
@@ -426,6 +473,7 @@ export function clipContentToScreen(
   object: RenderedObject,
   screenIndex: number,
   screenCount: number,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
 ): void {
   const renderPlain = Object.getPrototypeOf(object).render as FabricObject['render']
   object.render = function renderClipped(ctx: CanvasRenderingContext2D) {
@@ -434,7 +482,7 @@ export function clipContentToScreen(
     // transform de vue avant de parcourir les objets. Contrairement au tracé
     // des poignées, qui lui arrive en espace device, il n'y a rien à composer.
     ctx.beginPath()
-    ctx.rect(getScreenOffset(screenIndex), 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    ctx.rect(getScreenOffset(screenIndex, size.width), 0, size.width, size.height)
     ctx.clip()
     renderPlain.call(this, ctx)
     ctx.restore()
@@ -451,15 +499,15 @@ export function clipContentToScreen(
        le fantôme y serait repassé à pleine opacité. `this.opacity` alimente les
        deux branches, celle du groupe comme celle de l'objet seul, et compose
        avec l'opacité que l'utilisateur a réglée sur son calque. */
-    if (!escapesScreen(this, screenIndex)) return
+    if (!escapesScreen(this, screenIndex, size)) return
     const opacity = this.opacity
     ctx.save()
     try {
-      clipToStage(ctx, screenCount)
+      clipToStage(ctx, screenCount, size)
       this.opacity = opacity * OFFBOARD_OPACITY
       renderPlain.call(this, ctx)
       this.opacity = opacity
-      if (!intersectsScreen(this, screenIndex)) strokeLostFrame(ctx, this)
+      if (!intersectsScreen(this, screenIndex, size)) strokeLostFrame(ctx, this)
     } finally {
       this.opacity = opacity
       ctx.restore()
@@ -467,10 +515,8 @@ export function clipContentToScreen(
   }
 }
 
-export function getTotalWidth(screenCount: number): number {
-  return screenCount < 1
-    ? SCREEN_WIDTH
-    : screenCount * SCREEN_WIDTH + (screenCount - 1) * SCREEN_GAP
+export function getTotalWidth(screenCount: number, screenWidth = SCREEN_WIDTH): number {
+  return screenCount < 1 ? screenWidth : screenCount * screenWidth + (screenCount - 1) * SCREEN_GAP
 }
 
 function createShadow(shadow?: TextShadow): Shadow | null {

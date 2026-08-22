@@ -512,14 +512,17 @@ export function backgroundFor(id: ArchetypeId, palette: Palette): Background {
 }
 
 /** La part de l'appareil qui reste dans le cadre. Le défaut ScreenForge exige 90 %. */
-export function onBoardRatio(device: PlanBox): number {
+export function onBoardRatio(
+  device: PlanBox,
+  board: Pick<PlanBox, 'width' | 'height'> = BOARD,
+): number {
   const visibleWidth = Math.max(
     0,
-    Math.min(device.x + device.width, BOARD.width) - Math.max(device.x, 0),
+    Math.min(device.x + device.width, board.width) - Math.max(device.x, 0),
   )
   const visibleHeight = Math.max(
     0,
-    Math.min(device.y + device.height, BOARD.height) - Math.max(device.y, 0),
+    Math.min(device.y + device.height, board.height) - Math.max(device.y, 0),
   )
   return (visibleWidth * visibleHeight) / (device.width * device.height)
 }
@@ -550,9 +553,12 @@ export function tallestEmptyBand(layout: ArchetypeLayout): number {
  * c'est ce qui permet à `board-review` d'exiger d'un agent ce que le dépôt
  * s'impose à lui-même, sans en réécrire une seconde version qui divergerait.
  */
-export function tallestEmptyBandOf(boxes: readonly PlanBox[]): number {
+export function tallestEmptyBandOf(
+  boxes: readonly PlanBox[],
+  height: number = BOARD.height,
+): number {
   const covered = boxes
-    .map((box) => [Math.max(0, box.y), Math.min(BOARD.height, box.y + box.height)] as const)
+    .map((box) => [Math.max(0, box.y), Math.min(height, box.y + box.height)] as const)
     .filter(([top, bottom]) => bottom > top)
     .sort((left, right) => left[0] - right[0])
 
@@ -562,7 +568,7 @@ export function tallestEmptyBandOf(boxes: readonly PlanBox[]): number {
     if (top > cursor) widest = Math.max(widest, top - cursor)
     cursor = Math.max(cursor, bottom)
   }
-  return Math.max(widest, BOARD.height - cursor)
+  return Math.max(widest, height - cursor)
 }
 
 export const PLAN_BOARD = BOARD

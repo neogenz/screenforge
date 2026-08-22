@@ -1,4 +1,4 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { SCREEN_HEIGHT, SCREEN_WIDTH, type CanvasSize } from '@/lib/canvas/canvas-utils'
 import { onBoardRatio, tallestEmptyBandOf, type PlanBox } from '@/lib/ai/archetypes'
 import { contrastRatio, READABLE } from '@/lib/ai/palette'
 import { measuredHeight, measureWithCanvas, type TextMeasure } from '@/lib/locale'
@@ -58,8 +58,6 @@ export interface BoardFinding {
 const DEVICE_ON_BOARD = 0.7
 
 /** Un quart de planche, la règle que `tallestEmptyBand` sert déjà. */
-const EMPTY_BAND = SCREEN_HEIGHT / 4
-
 function isText(layer: Layer): layer is TextLayer {
   return layer.type === 'text'
 }
@@ -82,12 +80,12 @@ function overlapArea(left: PlanBox, right: PlanBox): number {
   return width > 0 && height > 0 ? width * height : 0
 }
 
-function side(layer: Layer): string {
+function side(layer: Layer, size: CanvasSize): string {
   const out: string[] = []
   if (layer.x < 0) out.push('à gauche')
   if (layer.y < 0) out.push('en haut')
-  if (layer.x + layer.width > SCREEN_WIDTH) out.push('à droite')
-  if (layer.y + layer.height > SCREEN_HEIGHT) out.push('en bas')
+  if (layer.x + layer.width > size.width) out.push('à droite')
+  if (layer.y + layer.height > size.height) out.push('en bas')
   return out.join(' et ')
 }
 
@@ -103,6 +101,7 @@ export function reviewBoard(
   screen: Screen,
   layoutLayers: readonly Layer[] = [],
   measure: TextMeasure = measureWithCanvas,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
 ): BoardFinding[] {
   const findings: BoardFinding[] = []
   const layers = [...layoutLayers, ...screen.layers].filter((layer) => layer.visible)
@@ -142,18 +141,18 @@ export function reviewBoard(
      pour que les deux revues ne se contredisent pas sur la même planche.
      L'appareil a sa propre mesure, plus fine que « dedans ou dehors ». */
   for (const layer of texts) {
-    if (side(layer)) {
+    if (side(layer, size)) {
       findings.push({
         kind: 'off-canvas',
         layerId: layer.id,
-        detail: `« ${layer.name} » sort de la planche ${side(layer)}.`,
+        detail: `« ${layer.name} » sort de la planche ${side(layer, size)}.`,
       })
     }
   }
 
   for (const layer of layers) {
     if (layer.type === 'device-frame') {
-      const ratio = onBoardRatio(box(layer))
+      const ratio = onBoardRatio(box(layer), size)
       if (ratio < DEVICE_ON_BOARD) {
         findings.push({
           kind: 'device-cropped',
@@ -181,11 +180,11 @@ export function reviewBoard(
     }
   }
 
-  const band = tallestEmptyBandOf(layers.map(box))
-  if (band > EMPTY_BAND) {
+  const band = tallestEmptyBandOf(layers.map(box), size.height)
+  if (band > size.height / 4) {
     findings.push({
       kind: 'empty-band',
-      detail: `${Math.round(band)} px de planche sans rien, sur une hauteur de ${SCREEN_HEIGHT}.`,
+      detail: `${Math.round(band)} px de planche sans rien, sur une hauteur de ${size.height}.`,
     })
   }
 

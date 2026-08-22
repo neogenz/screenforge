@@ -24,7 +24,6 @@ import {
   THUMBNAIL_LABEL_GAP,
   THUMBNAIL_LABEL_HEIGHT,
   THUMBNAIL_LABEL_ROW,
-  THUMBNAIL_WIDTH,
 } from '@/lib/stage'
 import type { Screen } from '@/types'
 
@@ -59,6 +58,7 @@ interface ScreenThumbnailProps {
   canMoveLeft: boolean
   canMoveRight: boolean
   canPasteSettings: boolean
+  thumbnailWidth: number
   onSelect: (id: string, mode: PickMode) => void
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
@@ -83,6 +83,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
   canMoveLeft,
   canMoveRight,
   canPasteSettings,
+  thumbnailWidth,
   onSelect,
   onRename,
   onDuplicate,
@@ -136,7 +137,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
     <div
       // Largeur imposée par la vignette, et non par le libellé : c'est en
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
-      style={{ width: THUMBNAIL_WIDTH }}
+      style={{ width: thumbnailWidth }}
       onAnimationEnd={(event) => {
         if (event.target === event.currentTarget) setEntered(true)
       }}

@@ -54,6 +54,13 @@ describe('diffProjectChange', () => {
     expect(diffProjectChange(current, null)).toEqual({ type: 'full' })
   })
 
+  it('forces a full reconciliation when the canvas profile changes', () => {
+    const previous = project([screen('screen-1')])
+    const current = { ...previous, profileId: 'ipad-13' as const }
+
+    expect(diffProjectChange(current, previous)).toEqual({ type: 'full' })
+  })
+
   it('targets a changed layer on one screen', () => {
     const layer = shape('layer-1')
     const previous = project([screen('screen-1', [layer])])

@@ -15,7 +15,7 @@ import {
 } from '@/lib/canvas/canvas-interactions'
 import { ensureScreenClipPath } from '@/lib/canvas/canvas-sync'
 import {
-  SCREEN_WIDTH,
+  canvasSize,
   fabricObjectToLayerUpdate,
   getScreenOffset,
   intersectsScreen,
@@ -78,6 +78,7 @@ export function installInteractions({
   let ignoreSelectionCleared = false
   let interacting = false
   let applyingStoreSelection = false
+  const projectSize = () => canvasSize(getProject()?.profileId)
   let publishedFrame: SelectionFrame | null = null
   let guides: Guide[] = []
   let guideChrome: ChromeColors | null = null
@@ -150,7 +151,7 @@ export function installInteractions({
         })
         stand.objectCaching = false
         stand.setCoords()
-        ensureScreenClipPath(stand, screenIndex, getProject()?.screens.length ?? 1)
+        ensureScreenClipPath(stand, screenIndex, getProject()?.screens.length ?? 1, projectSize())
         // Au rang de l'original : une copie tirée par-dessus doit passer
         // devant lui, jamais derrière un calque qui les sépare tous les deux.
         canvas.insertAt(canvas.getObjects().indexOf(source), stand)
@@ -240,6 +241,7 @@ export function installInteractions({
         : [target as RenderedObject]
     const project = getProject()
     if (!project) return
+    const size = canvasSize(project.profileId)
     objects.sort(
       (a, b) =>
         Number(a.data?.screenId === project.activeScreenId) -
@@ -247,7 +249,9 @@ export function installInteractions({
     )
 
     const dropScreenIndex =
-      event.action === 'drag' ? screenIndexAtPoint(project.screens, target.getCenterPoint()) : null
+      event.action === 'drag'
+        ? screenIndexAtPoint(project.screens, target.getCenterPoint(), size)
+        : null
     const localUpdates: LocalLayerTransfer[] = []
     const layoutUpdates: LayoutLayerUpdate[] = []
     for (const object of objects) {
@@ -261,7 +265,7 @@ export function installInteractions({
           layerId,
           update: fabricObjectToLayerUpdate(
             object,
-            getScreenOffset(screenIndex) - screenIndex * SCREEN_WIDTH,
+            getScreenOffset(screenIndex, size.width) - screenIndex * size.width,
           ) as Partial<Layer>,
         })
         continue
@@ -275,7 +279,7 @@ export function installInteractions({
       if (!targetScreen || !layer) continue
       if (dropScreenIndex === null && object.data?.screenIndex !== sourceScreenIndex) {
         object.set('data', { ...object.data, screenIndex: sourceScreenIndex })
-        ensureScreenClipPath(object, sourceScreenIndex, project.screens.length)
+        ensureScreenClipPath(object, sourceScreenIndex, project.screens.length, size)
       }
       localUpdates.push({
         layer,
@@ -283,7 +287,7 @@ export function installInteractions({
         targetScreenId: targetScreen.id,
         update: fabricObjectToLayerUpdate(
           object,
-          getScreenOffset(targetScreenIndex),
+          getScreenOffset(targetScreenIndex, size.width),
         ) as Partial<Layer>,
       })
     }
@@ -431,7 +435,7 @@ export function installInteractions({
     const point = canvas.getScenePoint(event)
     // Une planche garde la priorité absolue : un fantôme ne doit jamais voler
     // le clic d'un calque réellement posé dessus.
-    if (screenIndexAtPoint(project.screens, point) !== null) return
+    if (screenIndexAtPoint(project.screens, point, canvasSize(project.profileId)) !== null) return
 
     const unlocked = new Set(
       [...project.screens.flatMap((screen) => screen.layers), ...project.layoutLayers]
@@ -473,7 +477,9 @@ export function installInteractions({
         ),
       )
       const grabbable =
-        unlocked && screenIndex !== undefined && intersectsScreen(recovered, screenIndex)
+        unlocked &&
+        screenIndex !== undefined &&
+        intersectsScreen(recovered, screenIndex, projectSize())
       recovered.set({ selectable: grabbable, evented: grabbable })
       canvas.requestRenderAll()
     })
@@ -483,7 +489,7 @@ export function installInteractions({
 
   const disposeAfterRender = canvas.on('after:render', () => {
     if (guides.length > 0) drawGuides(canvas, guides, (guideChrome ??= readChromeColors()))
-    const next = interacting ? null : readSelectionFrame(canvas)
+    const next = interacting ? null : readSelectionFrame(canvas, projectSize())
     if (sameFrame(next, publishedFrame)) return
     publishedFrame = next
     onSelectionFrame(next)
@@ -501,15 +507,17 @@ export function installInteractions({
         dragSourceScreenIndexes.set(object, sourceIndex)
       }
     }
-    const screens = getProject()?.screens ?? []
-    const targetScreenIndex = screenIndexAtPoint(screens, target.getCenterPoint())
+    const project = getProject()
+    const screens = project?.screens ?? []
+    const size = canvasSize(project?.profileId)
+    const targetScreenIndex = screenIndexAtPoint(screens, target.getCenterPoint(), size)
     if (
       targetScreenIndex !== null &&
       localMembers.some((object) => object.data?.screenIndex !== targetScreenIndex)
     ) {
       for (const object of localMembers) {
         object.set('data', { ...object.data, screenIndex: targetScreenIndex })
-        ensureScreenClipPath(object, targetScreenIndex, screens.length)
+        ensureScreenClipPath(object, targetScreenIndex, screens.length, size)
       }
       snapTargets = null
     }
@@ -527,7 +535,7 @@ export function installInteractions({
     if (freehand) {
       guides = []
     } else {
-      snapTargets ??= collectSnapTargets(canvas, target)
+      snapTargets ??= collectSnapTargets(canvas, target, size)
       const snap = computeSnap(boxOf(target), snapTargets, SNAP_DISTANCE_PX / canvas.getZoom())
       if (snap.dx !== 0 || snap.dy !== 0) {
         target.set({ left: target.left + snap.dx, top: target.top + snap.dy })

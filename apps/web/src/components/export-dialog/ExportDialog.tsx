@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useExport } from '@/hooks/use-export'
-import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
+import { getAppStoreProfile } from '@/lib/dimensions'
 import { Dialog, DialogColumns } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -26,6 +26,7 @@ function ExportDialogGate() {
 }
 
 function ExportDialogContent({ project }: { project: Project }) {
+  const profile = getAppStoreProfile(project.profileId)!
   const showExportDialog = useUIStore((state) => state.showExportDialog)
   const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
@@ -97,7 +98,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         localeCode ? `${project.name}-${localeCode}` : project.name,
         selectedScreens,
         exportedLayoutLayers,
-        EXPORT_DIMENSIONS,
+        [profile],
       )
       /* Le téléchargement part en silence : le bouton qui vient de produire le
          lot le confirme une seconde, puis redevient une proposition. */
@@ -105,7 +106,15 @@ function ExportDialogContent({ project }: { project: Project }) {
     } catch {
       // `useExport` exposes the actionable rendering error in this dialog.
     }
-  }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
+  }, [
+    exportBatch,
+    exportedLayoutLayers,
+    localeCode,
+    localeRefused,
+    profile,
+    project.name,
+    selectedScreens,
+  ])
 
   return (
     <Dialog
@@ -150,11 +159,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             <>
               <div className="surface-inner p-4">
                 <span className="field-label">Profil</span>
-                <p className="mt-1.5 text-sm font-medium text-foreground">
-                  iPhone {PRIMARY_DIMENSION.size}
-                </p>
+                <p className="mt-1.5 text-sm font-medium text-foreground">{profile.name}</p>
                 <p className="tabular mt-1 text-sm text-muted-foreground">
-                  {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
+                  {profile.portrait.width}×{profile.portrait.height} px
                 </p>
                 <div className="hairline my-3" />
                 <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
@@ -178,7 +185,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <p className="text-2xs text-muted-foreground">
                   fichier{selectedScreens.length > 1 ? 's' : ''}
                   {' sous '}
-                  <span className="font-mono">6.9/</span>
+                  <span className="font-mono">{profile.folder}/</span>
                 </p>
               </div>
 

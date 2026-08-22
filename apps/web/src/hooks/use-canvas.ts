@@ -171,6 +171,7 @@ export function useCanvas() {
 
     const thumbnailController = installThumbnails({
       currentCanvas: () => fabricRef.current,
+      getProfileId: () => useProjectStore.getState().project?.profileId ?? 'iphone-6.9',
       onGenerated: (generated) => {
         const project = useProjectStore.getState().project
         if (!project) return
@@ -282,9 +283,11 @@ export function useCanvas() {
           void drainPatches({ project: state.project, change })
           return
         }
-        const screenCountChanged = state.project.screens.length !== previous.project?.screens.length
+        const sceneChanged =
+          state.project.screens.length !== previous.project?.screens.length ||
+          state.project.profileId !== previous.project?.profileId
         void sync(state.project).then(() => {
-          if (screenCountChanged) viewport.current?.fitAll()
+          if (sceneChanged) viewport.current?.fitAll()
         })
       }),
     [sync, drainPatches],
