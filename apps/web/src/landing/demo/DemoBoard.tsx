@@ -217,7 +217,7 @@ export function DemoBoard({
              Aucun autre calque n'était touché parce qu'aucun autre ne porte
              d'animation d'entrée. */
           className={cn(
-            'absolute w-max -translate-x-1/2 -translate-y-1/2 animate-in fade-in zoom-in-95 animation-duration-300',
+            'absolute w-max -translate-x-1/2 -translate-y-1/2 animate-mark',
             edit && 'cursor-grab active:cursor-grabbing',
           )}
           style={{

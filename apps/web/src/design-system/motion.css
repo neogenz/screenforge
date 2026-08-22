@@ -1,0 +1,180 @@
+/* Motion fonctionnelle seulement : courte, 100 % CSS, effacée sous
+   prefers-reduced-motion. Rien ici ne bloque une interaction. Les entrées et
+   sorties des surfaces coss sont pilotées par `data-starting-style` /
+   `data-ending-style` de Base UI, pas par une animation. */
+
+@utility transition-ui {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+
+@utility animate-enter {
+  animation: enter var(--duration-slow) var(--ease-settle) both;
+}
+
+@utility animate-enter-delayed {
+  animation: enter var(--duration-slow) var(--ease-settle) both;
+  animation-delay: 60ms;
+}
+
+/* Les surfaces ouvertes dix fois par heure : plus court, sans décalage. */
+@utility animate-enter-quick {
+  animation: enter var(--duration-base) var(--ease-out) both;
+}
+
+/* Une marque d'étape qui change d'état (pending → running → done) se fond
+   plutôt que de se téléporter. */
+@utility animate-mark {
+  animation: mark var(--duration-base) var(--ease-out) both;
+}
+
+/* L'arrivée d'une donnée (vignette, aperçu) : par la netteté, pas par le
+   déplacement — le chrome était déjà là, seule la donnée arrive. */
+@utility oa-arrive {
+  animation: oa-arrive 0.3s var(--ease-out) both;
+}
+
+@keyframes mark {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes oa-arrive {
+  from {
+    opacity: 0.4;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* Deux signatures physiques pour les toasts : le succès pulse, l'erreur
+   secoue. Les variantes odd/even sont identiques et alternées par un
+   compteur, pour qu'un même toast répété rejoue son animation. */
+@theme inline {
+  --animate-toast-success-odd: toast-success-odd 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+
+  @keyframes toast-success-odd {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-success-even {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-error-odd {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
+  @keyframes toast-error-even {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
+}
+
+/* Le seul bloc reduced-motion du produit. On ne coupe que le déplacement :
+   les transitions de couleur et d'opacité restent, elles informent sans
+   bouger, et un menu qui apparaît sans fondu se lit comme un plantage. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property:
+      color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow;
+  }
+  .animate-enter,
+  .animate-enter-delayed,
+  .animate-enter-quick,
+  .animate-mark,
+  .oa-arrive {
+    animation-name: fade-in;
+  }
+  [class*='animate-toast-'] {
+    animation: none;
+  }
+  /* `scale` et non `transform` : c'est la propriété que Tailwind v4 écrit
+     pour `scale-*` et que coss pose sous `data-pressed`. */
+  button:active,
+  [role='button']:active,
+  [data-pressed] {
+    scale: none;
+  }
+}

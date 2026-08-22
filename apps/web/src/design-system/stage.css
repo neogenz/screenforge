@@ -1,0 +1,78 @@
+/* Ce qui n'est ni un jeton ni un composant coss : la scène, ses marques
+   d'état et deux textures. */
+
+/* ── Marques d'état ──
+   En `@utility` et non en classe : c'est ce qui permet de les préfixer d'un
+   variant (`data-[active=true]:marker-fill`). */
+
+/* Aplat citron, encre sombre — la marque forte : écran courant, coche. */
+@utility marker-fill {
+  background: var(--color-marker);
+  color: var(--color-marker-ink);
+}
+
+/* Marque discrète : voile et liseré, le texte garde sa couleur. */
+@utility marker-soft {
+  background: var(--color-marker-soft);
+  box-shadow: inset 0 0 0 1px var(--color-marker-line);
+}
+
+/* ── Grain de la scène ──
+   Une grille de points derrière les planches. Un aplat ne donne aucune
+   échelle : la planche y flottait sans que rien ne dise à quelle distance on
+   la regarde. Le pas (22) n'appartient à aucune échelle fermée du projet et
+   n'a donc pas à tomber sur la grille de 4 ; il se lit ici et nulle part
+   ailleurs. Les trois variables sont réécrites à chaque rendu du canevas
+   depuis la transformation de viewport : le grain est ancré à la scène, pas à
+   la fenêtre. */
+@utility stage-grain {
+  --stage-dot-step: 22px;
+  --stage-dot-x: 0px;
+  --stage-dot-y: 0px;
+  background-image: radial-gradient(circle at 1px 1px, var(--color-stage-dot) 1px, transparent 0);
+  background-size: var(--stage-dot-step) var(--stage-dot-step);
+  background-position: var(--stage-dot-x) var(--stage-dot-y);
+}
+
+/* Vignette discrète : les artboards portent la lumière. */
+@utility stage-vignette {
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 42%, transparent 62%, oklch(0.3 0 0 / 0.1) 100%);
+  @variant dark {
+    background: radial-gradient(120% 90% at 50% 42%, transparent 60%, oklch(0.08 0 0 / 0.35) 100%);
+  }
+}
+
+/* Damier alpha : ce qui distingue un blanc opaque d'un transparent. */
+@utility checkerboard {
+  background-color: oklch(1 0 0);
+  background-image:
+    linear-gradient(45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+    linear-gradient(-45deg, oklch(0 0 0 / 0.14) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%),
+    linear-gradient(-45deg, transparent 75%, oklch(0 0 0 / 0.14) 75%);
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+}
+
+/* ── Défilement de la pellicule ──
+   Horizontal seulement, barre fine, et sa place est réservée par
+   `FILMSTRIP_SCROLLBAR` : `overflow-x: auto` force l'autre axe, et
+   `overflow-y: hidden` est le seul appariement qui ne force rien. */
+@utility filmstrip-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* Coins en squircle là où le navigateur le sait, arrondi ailleurs. Jamais
+   `clip-path: shape()` : il couperait le `box-shadow`, qui porte l'état de la
+   planche courante. */
+@utility squircle {
+  corner-shape: squircle;
+}

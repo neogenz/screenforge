@@ -5,51 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScreenForge</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!--
-      La feuille Inter ne bloque plus le rendu. Le navigateur la déclarait
-      « blocking » : rien ne pouvait s'afficher avant un aller-retour vers une
-      origine tierce. `media="print"` la sort du chemin critique, et `boot.js`
-      la rend applicable une fois arrivée. L'URL porte déjà `display=swap`, donc
-      le texte s'affiche en repli puis bascule — un caractère de repli pendant
-      200ms vaut mieux qu'une page vide pendant le même temps.
-    -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-    />
-    <link
-      rel="stylesheet"
-      media="print"
-      data-screenforge-font
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-      />
-    </noscript>
     <script src="/boot.js"></script>
     <style>
       /* Évite le flash du mauvais thème avant la feuille de styles. Les valeurs
          recopient les tokens de la scène et du texte secondaire : le boot doit
          être juste avant que le CSS de l'app soit disponible. */
       html {
-        /* `--color-background`, pas `--color-stage` : c'est la valeur que le
-           chrome peint en premier au montage, et un boot plus sombre que
-           l'application se lisait comme un double flash. */
-        --boot-background: oklch(0.175 0 0);
-        --boot-ink: oklch(0.78 0 0);
-        --boot-track: oklch(0.26 0 0);
+        /* `--background`, pas `--stage` : c'est la valeur que le chrome peint
+           en premier au montage, et un boot plus sombre que l'application se
+           lisait comme un double flash. Les valeurs recopient la palette coss
+           neutre (`index.css`) : blanc en clair, neutral-950 éclairci de 5 %
+           en sombre. Le sombre est la classe, le clair son absence. */
+        --boot-background: #fff;
+        --boot-ink: #686868;
+        --boot-track: #ebebeb;
         background: var(--boot-background);
       }
-      html.light {
-        --boot-background: oklch(0.965 0 0);
-        --boot-ink: oklch(0.4 0 0);
-        --boot-track: oklch(0.915 0 0);
+      html.dark {
+        --boot-background: #161616;
+        --boot-ink: #818181;
+        --boot-track: #2a2a2a;
       }
 
       /* Le squelette de démarrage, en styles inline : la feuille de l'app fait

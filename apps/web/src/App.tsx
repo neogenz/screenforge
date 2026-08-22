@@ -117,9 +117,9 @@ export default function App() {
   // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
   // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('light', theme === 'light')
-    root.classList.toggle('dark', theme === 'dark')
+    // Le sombre est la classe, le clair son absence : c'est la convention que
+    // Base UI et coss lisent, et `boot.js` pose la même avant le premier rendu.
+    document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
   useEffect(() => {

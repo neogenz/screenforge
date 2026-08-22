@@ -9,7 +9,7 @@
 import { APP_STORE_TARGET } from './dimensions'
 
 export const ISLAND_MARGIN = 12
-/** Contrôle de 36 + le retrait d'îlot (2×6) + son filet (2×1). */
+/** Contrôle de 36 (coss `h-9`, la hauteur de barre haute) + le retrait d'îlot (2×6) + son filet (2×1). */
 export const TOP_BAR_HEIGHT = 50
 export const DRAWER_WIDTH_LAYERS = 280
 export const DRAWER_WIDTH_PROPS = 320

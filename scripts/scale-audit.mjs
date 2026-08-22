@@ -252,7 +252,7 @@ await page.evaluate(async () => {
   const { useUIStore } = await import(moduleUrl)
   useUIStore.getState().toggleTheme()
 })
-await page.waitForFunction(() => document.documentElement.classList.contains('light'))
+await page.waitForFunction(() => !document.documentElement.classList.contains('dark'))
 const readingsByTheme = { dark: darkReadings, light: await measure() }
 
 await context.close()

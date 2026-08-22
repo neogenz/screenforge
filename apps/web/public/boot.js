@@ -1,10 +1,7 @@
 try {
-  if (localStorage.getItem('screenforge-theme') === 'light') {
-    document.documentElement.classList.add('light')
+  if (localStorage.getItem('screenforge-theme') !== 'light') {
+    document.documentElement.classList.add('dark')
   }
-} catch {}
-
-for (const link of document.querySelectorAll('link[data-screenforge-font]')) {
-  if (link.sheet) link.media = 'all'
-  else link.addEventListener('load', () => (link.media = 'all'), { once: true })
+} catch {
+  document.documentElement.classList.add('dark')
 }
