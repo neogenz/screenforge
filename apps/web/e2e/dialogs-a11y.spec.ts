@@ -311,7 +311,7 @@ test('un drawer fermé est inerte et démonté', async ({ page }) => {
 
   /* Inerte tout de suite : Tab ne peut plus atteindre un contrôle d'un panneau
      traduit hors de l'écran mais encore monté. */
-  const drawer = page.locator('div[aria-hidden="true"][class*="transition-transform"]').first()
+  const drawer = page.locator('div[aria-hidden="true"][class*="transition-ui"]').first()
   await expect(drawer).toHaveAttribute('inert', '')
   /* Démonté une fois la transition de sortie jouée : un scrub du canvas ne
      re-rend plus un panneau que personne ne voit. */

@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { ContextMenu } from '@/components/patterns/action-menu'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import { Hint } from '@/components/patterns/hint'
@@ -179,27 +180,31 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
           `aria-hidden` : le bouton annonce déjà le nom complet, et le rang se
           lit dans l'ordre du parcours. */}
-      <span
+      <Badge
         aria-hidden
+        variant="outline"
+        size="sm"
         style={{
           height: THUMBNAIL_LABEL_HEIGHT,
           minWidth: THUMBNAIL_BADGE_SIZE,
           marginBottom: THUMBNAIL_LABEL_GAP,
         }}
         className={cn(
-          'tabular flex w-fit items-center justify-center rounded-sm px-1 text-2xs',
+          'tabular w-fit px-1 text-2xs',
           'transition-colors duration-150 ease-out',
           // Trois états, un seul repère. Le citron reste ce qui dit « vous êtes
           // ici » et ne se pose que sur l'écran courant ; un écran seulement
           // retenu par la sélection prend une pastille neutre — assez pour se
           // détacher de la rangée, pas assez pour se disputer le repère.
-          isActive && 'marker-fill font-semibold',
-          !isActive && isSelected && 'bg-secondary font-medium text-foreground',
-          !isActive && !isSelected && 'font-medium text-muted-foreground',
+          isActive && 'marker-fill border-transparent font-semibold',
+          !isActive && isSelected && 'border-transparent bg-secondary font-medium text-foreground',
+          !isActive &&
+            !isSelected &&
+            'border-transparent bg-transparent font-medium text-muted-foreground',
         )}
       >
         {index + 1}
-      </span>
+      </Badge>
 
       {/* Une tuile, un bouton, une cible. L'aperçu et le numéro vivaient dans
           deux boutons dont le second n'existait que pour doubler le premier au

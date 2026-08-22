@@ -3,11 +3,12 @@ import type { ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '@/stores/canvas.store'
+import { useUIStore } from '@/stores/ui.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { Segmented } from '@/components/patterns/segmented'
 import type { SegmentedOption } from '@/components/patterns/segmented'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { DrawerBody, DrawerIsland } from '@/components/patterns/drawer-island'
 import { cn } from '@/lib/utils'
 import { TransformSection } from './TransformSection'
 import { TextSection } from './TextSection'
@@ -40,6 +41,8 @@ export function PropertiesPanel() {
 
   const selectedLayer = selectedLayers.length === 1 ? selectedLayers[0] : null
 
+  const toggleProps = useUIStore((s) => s.toggleProps)
+
   let headerLabel = 'Arrière-plan'
   if (selectedLayers.length === 1) headerLabel = 'Propriétés'
   else if (selectedLayers.length > 1) headerLabel = 'Sélection'
@@ -48,24 +51,21 @@ export function PropertiesPanel() {
     // Voir `LayersPanel` : l'îlot mesure son contenu, le drawer pose le plafond.
     // Le repère est nommé par son titre : l'intitulé change avec la sélection,
     // et `aria-labelledby` suit sans qu'on ait à le recopier.
-    <aside
-      aria-labelledby="sf-properties-panel-title"
-      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
-    >
-      {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between px-3">
-        <h2 id="sf-properties-panel-title" className="panel-title">
-          {headerLabel}
-        </h2>
-        {selectedLayers.length > 1 && (
+    <DrawerIsland
+      titleId="sf-properties-panel-title"
+      title={headerLabel}
+      headerExtra={
+        selectedLayers.length > 1 ? (
           <span className="tabular text-2xs text-muted-foreground">
             {String(selectedLayers.length)}
           </span>
-        )}
-      </div>
-
+        ) : undefined
+      }
+      onClose={toggleProps}
+      closeLabel="Fermer le panneau Propriétés"
+    >
       {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
-      <ScrollArea className="px-3 pb-3">
+      <DrawerBody>
         <div className="flex flex-col gap-2">
           {selectedLayers.length === 0 && <BackgroundSection />}
 
@@ -131,8 +131,8 @@ export function PropertiesPanel() {
             </>
           )}
         </div>
-      </ScrollArea>
-    </aside>
+      </DrawerBody>
+    </DrawerIsland>
   )
 }
 

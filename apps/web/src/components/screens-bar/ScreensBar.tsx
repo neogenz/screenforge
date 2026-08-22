@@ -4,7 +4,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
-import { IconButton } from '@/components/patterns/icon-button'
+import { Button } from '@/components/ui/button'
+import { Hint } from '@/components/patterns/hint'
 import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
@@ -451,20 +452,17 @@ export function ScreensBar() {
         style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
         className="flex shrink-0 items-center"
       >
-        <IconButton
-          size="sm"
-          tooltip={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}
-          aria-label="Ajouter un écran"
-          onClick={handleAdd}
-          disabled={atCapacity}
-          // Rond, comme le « + » d'une palette d'outils : la bande aligne des
-          // objets rectangulaires, une action y prend la forme qu'aucun n'a.
-          // Sur la carte, parce qu'il est posé à même la scène et non dans un
-          // îlot : `bg-secondary` ne s'en détachait pas en thème clair.
-          className="rounded-full border-border bg-card shadow-(--shadow-handle) hover:border-input"
-        >
-          <Plus size={16} strokeWidth={1.75} />
-        </IconButton>
+        <Hint content={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Ajouter un écran"
+            onClick={handleAdd}
+            disabled={atCapacity}
+          >
+            <Plus size={16} strokeWidth={1.75} />
+          </Button>
+        </Hint>
       </div>
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il

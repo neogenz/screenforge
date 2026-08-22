@@ -14,6 +14,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/patterns/icon-button'
 import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { StatusChip, type StatusTone } from '@/components/patterns/status-chip'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import {
   createProjectFile,
@@ -44,13 +47,23 @@ const AVAILABILITY_ICONS: Record<ProjectAvailability, typeof HardDrive> = {
   pending: CloudUpload,
 }
 
+/** « Cet appareil » informe, « Cloud » confirme, « À synchroniser » patiente. */
+const AVAILABILITY_TONE: Record<ProjectAvailability, StatusTone> = {
+  'device-only': 'neutral',
+  cloud: 'success',
+  pending: 'pulse',
+}
+
 function Availability({ value }: { value: ProjectAvailability }) {
   const Icon = AVAILABILITY_ICONS[value]
   return (
-    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
-      <Icon size={11} strokeWidth={1.75} aria-hidden />
+    <StatusChip
+      tone={AVAILABILITY_TONE[value]}
+      size="sm"
+      icon={<Icon size={11} strokeWidth={1.75} aria-hidden />}
+    >
       {PROJECT_AVAILABILITY_LABELS[value]}
-    </span>
+    </StatusChip>
   )
 }
 
@@ -188,8 +201,14 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         ariaLabel="Sélecteur de projets"
         className="w-[min(22rem,calc(100vw-1rem))]"
       >
-        <div className="max-h-[calc(100vh-1rem)] overflow-y-auto">
-          <section className="border-b border-border p-3" aria-labelledby="current-project-title">
+        <ScrollArea scrollFade className="max-h-[calc(100vh-1rem)]">
+          {/* Carte plutôt que bande pleine largeur : le projet courant se
+              détache de la liste filtrable qui suit, la même distinction que
+              le tiroir Propriétés fait entre sa section et le reste. */}
+          <Card
+            render={<section aria-labelledby="current-project-title" />}
+            className="m-3 p-3 shadow-none"
+          >
             <h2 id="current-project-title" className="section-title mb-2">
               Projet courant
             </h2>
@@ -218,7 +237,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 Télécharger une copie
               </Button>
             </div>
-          </section>
+          </Card>
 
           <section className="p-3" aria-labelledby="other-projects-title">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -325,7 +344,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               Importer un fichier…
             </Button>
           </footer>
-        </div>
+        </ScrollArea>
       </AnchoredPopover>
 
       <Input

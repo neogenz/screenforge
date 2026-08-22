@@ -268,8 +268,15 @@
 
 /* Hors couche : le `cursor-pointer` du Button coss vit dans `utilities`, qui
    bat `base`, et son `disabled:pointer-events-none` n'ôte pas le curseur
-   relu par `semantics.spec.ts`. Un bouton inerte montre la flèche. */
+   relu par `semantics.spec.ts`. Un bouton inerte montre la flèche.
+
+   `button[aria-disabled='true']` en plus de `:disabled` : le `ToolbarButton`
+   coss (barre haute) désactive au sens ARIA, jamais au sens natif — il reste
+   focusable au clavier pour que les flèches du groupe continuent de le
+   traverser — donc `:disabled` ne le voit jamais. Sans cette ligne, Annuler et
+   Rétablir rendaient la main au premier repli du groupe. */
 button:disabled,
+button[aria-disabled='true'],
 [role='button'][aria-disabled='true'] {
   cursor: default;
 }
@@ -341,12 +348,6 @@ button:disabled,
   button:active {
     scale: 0.97;
     transition: scale 0.12s var(--ease-out);
-  }
-  .island {
-    @apply rounded-2xl border bg-popover p-1 shadow-lg/5;
-  }
-  .island-flush {
-    padding: 0;
   }
   .panel-title {
     @apply text-base font-medium;

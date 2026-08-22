@@ -18,7 +18,9 @@ import type { LucideIcon } from 'lucide-react'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { FontPicker } from '@/components/text-editor/FontPicker'
 import { IconButton } from '@/components/patterns/icon-button'
+import { Island } from '@/components/patterns/island'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { UnitField } from '@/components/patterns/unit-field'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import { SwatchButton } from '@/components/patterns/swatch-button'
@@ -43,7 +45,7 @@ import type { Layer, ScreenshotSize, TextLayer } from '@/types'
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
  *
  * 46 = contrôles de 32 + le retrait d'îlot (2×6) + son filet (2×1). La barre ne
- * pose plus sa propre géométrie : elle prend celle que `.island` donne à toutes
+ * pose plus sa propre géométrie : elle prend celle que `Island` donne à toutes
  * les autres, et cette constante ne fait que la répéter au calcul de position.
  */
 const BAR_HEIGHT = 46
@@ -117,10 +119,12 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   const top = flipped ? Math.max(EDGE, frame.top - OFFSET - BAR_HEIGHT) : below
 
   return (
-    <div
-      // `animate-enter` anime `translate`, une propriété indépendante de
+    <Island
+      // `animate-enter-quick` anime `translate`, une propriété indépendante de
       // `transform` : le settle ne touche pas le centrage en `translateX(-50%)`.
-      className="island animate-enter pointer-events-auto absolute z-(--z-chrome)
+      // La variante courte, pas `animate-enter` : cette barre s'ouvre et se
+      // referme à chaque changement de sélection, pas dix fois par session.
+      className="animate-enter-quick pointer-events-auto absolute z-(--z-chrome)
         flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
       // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
       // et des flèches entre contrôles, que cette barre n'a pas — chaque
@@ -191,7 +195,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
           </IconButton>
         </>
       )}
-    </div>
+    </Island>
   )
 }
 
@@ -201,7 +205,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
  * marge s'ajoutent aux 4 px du `gap` — 6 de chaque côté contre 4 entre voisins.
  */
 function Divider() {
-  return <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+  return <Separator orientation="vertical" className="mx-0.5 h-4" />
 }
 
 function MultiCount({ count }: { count: number }) {

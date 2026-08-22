@@ -5,6 +5,7 @@ import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DrawerIsland } from '@/components/patterns/drawer-island'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
@@ -200,6 +201,8 @@ export function LayersPanel() {
      transformer N captures en N planches complètes. */
   const capturesInput = useRef<HTMLInputElement>(null)
 
+  const toggleLayers = useUIStore((s) => s.toggleLayers)
+
   const handleAddDevice = useCallback(() => {
     if (!defaultDeviceModel) return
     const { addLayer } = useCanvasStore.getState()
@@ -212,17 +215,13 @@ export function LayersPanel() {
     // défile qu'une fois le plafond du drawer atteint.
     // `aside` et non `div` : c'est un repère de navigation, et le panneau n'en
     // était aucun — la carte du document s'arrêtait à « principal ».
-    <aside
-      aria-labelledby="sf-layers-panel-title"
-      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
-    >
-      <div className="shrink-0 px-3 pb-2 pt-3">
-        <div className="flex items-center justify-between">
-          <h2 id="sf-layers-panel-title" className="panel-title">
-            Calques
-          </h2>
-          <span className="tabular text-2xs text-muted-foreground">{String(layers.length)}</span>
-        </div>
+    <DrawerIsland
+      titleId="sf-layers-panel-title"
+      title="Calques"
+      headerExtra={
+        <span className="tabular text-2xs text-muted-foreground">{String(layers.length)}</span>
+      }
+      headerBelow={
         <div className="relative mt-2">
           <Search
             size={13}
@@ -238,8 +237,10 @@ export function LayersPanel() {
             className="pl-8"
           />
         </div>
-      </div>
-
+      }
+      onClose={toggleLayers}
+      closeLabel="Fermer le panneau Calques"
+    >
       {/* Les états vides vivent hors de la listbox : une listbox n'a que des
           options (et des groupes) pour enfants exposés, pas un paragraphe et
           un bouton d'appel. */}
@@ -335,6 +336,6 @@ export function LayersPanel() {
           </div>
         </ScrollArea>
       )}
-    </aside>
+    </DrawerIsland>
   )
 }

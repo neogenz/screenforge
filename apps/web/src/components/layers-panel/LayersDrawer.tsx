@@ -1,5 +1,5 @@
 import { LayersPanel } from '@/components/layers-panel/LayersPanel'
-import { useDeferredUnmount } from '@/hooks/use-deferred-unmount'
+import { DRAWER_EXIT_MS, useDeferredUnmount } from '@/hooks/use-deferred-unmount'
 import { useUIStore } from '@/stores/ui.store'
 import { cn } from '@/lib/utils'
 import {
@@ -13,18 +13,19 @@ import {
 /** Left drawer: layers panel sliding over the stage. */
 export function LayersDrawer() {
   const open = useUIStore((s) => s.layersOpen)
-  const mounted = useDeferredUnmount(open)
+  const mounted = useDeferredUnmount(open, DRAWER_EXIT_MS)
 
   return (
     <div
       aria-hidden={!open}
+      data-open={open || undefined}
       inert={!open}
       className={cn(
         // Colonne flex, et non simple bloc : `max-h-full` sur l'îlot se résout à
         // `none` sous un parent de hauteur automatique. C'est le rétrécissement
         // du flex qui le ramène sous le plafond, puis le fait défiler.
-        'fixed flex flex-col z-(--z-chrome) transition-transform duration-200 ease-out-expo',
-        open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]',
+        'fixed flex flex-col z-(--z-chrome) transition-ui duration-(--duration-slow)',
+        open ? 'translate-x-0 opacity-100' : '-translate-x-2 opacity-0',
         !open && 'pointer-events-none',
       )}
       // L'îlot épouse son contenu : `maxHeight` plafonne, `bottom` étirerait.
