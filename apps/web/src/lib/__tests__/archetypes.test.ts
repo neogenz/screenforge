@@ -14,11 +14,11 @@ import {
   type ArchetypeId,
 } from '@/lib/ai/archetypes'
 import { DEVICE_FRAMES, getDefaultDeviceSize } from '@/assets/device-frames'
+import { APP_STORE_PROFILES } from '@/lib/dimensions'
 import { contrastRatio, type Palette } from '@/lib/ai/palette'
 import { DIRECTIONS, planFromBrief, planScreenLayout, planToolCalls } from '@/lib/ai/plan'
 import { validateToolCall } from '@/lib/ai/tools'
 import type { CampaignBrief } from '@/lib/ai/plan'
-import type { DeviceModel } from '@/types'
 
 /**
  * Les règles de composition, en assertions plutôt qu'en prose.
@@ -33,11 +33,15 @@ import type { DeviceModel } from '@/types'
 /* Les vrais rapports de cadre, pas une valeur plausible : la marge du débord
    se joue au centième, et un modèle un peu plus étroit décapiterait l'appareil
    sans qu'un test écrit sur 0,46 ne s'en aperçoive. */
-const MODELS: DeviceModel[] = DEVICE_FRAMES.map((frame) => frame.model)
-const ASPECTS = MODELS.map((model) => {
-  const frame = getDefaultDeviceSize(model)
-  return frame.width / frame.height
+const CASES = DEVICE_FRAMES.map((config) => {
+  const frame = getDefaultDeviceSize(config.model)
+  const profile = [...APP_STORE_PROFILES]
+    .filter((candidate) => candidate.platform === config.platform)
+    .sort((left, right) => left.logical.height - right.logical.height)[0]
+  if (!profile) throw new Error(`Profil absent pour ${config.model}`)
+  return { model: config.model, aspect: frame.width / frame.height, board: profile.logical }
 })
+const ASPECTS = CASES.map(({ aspect }) => aspect)
 
 const PALETTES: Palette[] = DIRECTIONS.map((entry) => ({
   background: entry.background,
@@ -45,13 +49,20 @@ const PALETTES: Palette[] = DIRECTIONS.map((entry) => ({
   accent: entry.accent,
 }))
 
-function layoutOf(id: ArchetypeId, palette: Palette, index = 0, deviceAspect = ASPECTS[0]) {
+function layoutOf(
+  id: ArchetypeId,
+  palette: Palette,
+  index = 0,
+  deviceAspect = ASPECTS[0],
+  board: { width: number; height: number } = PLAN_BOARD,
+) {
   return composeArchetype(id, {
     palette,
     background: backgroundFor(id, palette),
     headline: 'Vos dépenses, enfin lisibles',
     deviceAspect,
     index,
+    board,
   })
 }
 
@@ -113,10 +124,10 @@ describe('chaque composition', () => {
 
   it('laisse au moins 90 % de l’appareil automatique dans le cadre', () => {
     for (const id of SAFE_ARCHETYPE_IDS) {
-      for (const [at, aspect] of ASPECTS.entries()) {
-        const { device } = layoutOf(id, PALETTES[0], 0, aspect)
+      for (const { model, aspect, board } of CASES) {
+        const { device } = layoutOf(id, PALETTES[0], 0, aspect, board)
         if (!device) continue
-        expect(onBoardRatio(device), `${id} sur ${MODELS[at]}`).toBeGreaterThanOrEqual(0.9)
+        expect(onBoardRatio(device, board), `${id} sur ${model}`).toBeGreaterThanOrEqual(0.9)
       }
     }
   })
@@ -124,13 +135,12 @@ describe('chaque composition', () => {
   it('ne laisse pas un quart de planche en fond nu', () => {
     /* « If more than about a quarter of the canvas ends up as one
        uninterrupted stretch of empty background, treat it as a defect. » */
-    const limit = PLAN_BOARD.height / 4
     for (const id of ARCHETYPE_IDS) {
-      for (const [at, aspect] of ASPECTS.entries()) {
+      for (const { model, aspect, board } of CASES) {
         expect(
-          tallestEmptyBand(layoutOf(id, PALETTES[0], 0, aspect)),
-          `${id} sur ${MODELS[at]}`,
-        ).toBeLessThan(limit)
+          tallestEmptyBand(layoutOf(id, PALETTES[0], 0, aspect, board), board.height),
+          `${id} sur ${model}`,
+        ).toBeLessThan(board.height / 4)
       }
     }
   })
@@ -147,14 +157,16 @@ describe('chaque composition', () => {
 
   it('tient l’accroche hors de chaque appareil automatique et réserve le pied', () => {
     for (const id of SAFE_ARCHETYPE_IDS) {
-      for (const aspect of ASPECTS) {
-        const { headline, device } = layoutOf(id, PALETTES[0], 0, aspect)
+      for (const { model, aspect, board } of CASES) {
+        const { headline, device } = layoutOf(id, PALETTES[0], 0, aspect, board)
         if (!device) continue
         const apart =
           headline.y + headline.height <= device.y || headline.y >= device.y + device.height
-        expect(apart, `${id}`).toBe(true)
-        expect(Math.abs(device.rotation), `${id}`).toBeLessThanOrEqual(2)
-        expect(device.y + device.height, `${id}`).toBeLessThanOrEqual(PLAN_BOARD.height - 72)
+        expect(apart, `${id} sur ${model}`).toBe(true)
+        expect(Math.abs(device.rotation), `${id} sur ${model}`).toBeLessThanOrEqual(2)
+        expect(device.y + device.height, `${id} sur ${model}`).toBeLessThanOrEqual(
+          board.height - Math.min(72, board.height * 0.075),
+        )
       }
     }
   })

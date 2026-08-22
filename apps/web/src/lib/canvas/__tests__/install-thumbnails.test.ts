@@ -11,7 +11,11 @@ describe('installThumbnails', () => {
     vi.useFakeTimers()
     const currentCanvas = vi.fn(() => null)
     const onGenerated = vi.fn()
-    const scheduler = installThumbnails({ currentCanvas, onGenerated })
+    const scheduler = installThumbnails({
+      currentCanvas,
+      onGenerated,
+      getProfileId: () => 'iphone-6.9',
+    })
 
     scheduler.schedule([{ id: 'screen' } as Screen])
     scheduler.cleanup()

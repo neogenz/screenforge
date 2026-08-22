@@ -15,7 +15,8 @@ import { describeProject, type ProjectView } from '@/lib/ai/state'
 import type { ToolCall } from '@/lib/ai/tools'
 import { resolveRelayAssets, type AssetFetcher } from '@/lib/mcp/assets'
 import { renderScreenToBlob } from '@/lib/export'
-import { SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
+import { getAppStoreProfile } from '@/lib/dimensions'
 import { useProjectStore } from '@/stores/project.store'
 import { useMcpStore } from '@/stores/mcp.store'
 
@@ -165,8 +166,16 @@ export async function renderRelayScreen(render: RelayRender): Promise<RelayOutco
 
   const screen = project.screens[index]
   const asked = Math.round(render.maxWidth ?? 640)
+  const logical = canvasSize(project.profileId)
   try {
-    const blob = await renderScreenToBlob(screen, project.layoutLayers, asked / SCREEN_WIDTH, index)
+    const blob = await renderScreenToBlob(
+      screen,
+      project.layoutLayers,
+      asked / logical.width,
+      index,
+      logical.width,
+      logical.height,
+    )
     const bytes = new Uint8Array(await blob.arrayBuffer())
     /* Les dimensions sont relues dans l'IHDR, jamais recalculées depuis le
        multiplicateur : c'est la toile qui décide de l'arrondi, et un chiffre
@@ -183,7 +192,9 @@ export async function renderRelayScreen(render: RelayRender): Promise<RelayOutco
            l'image, elle mesure la planche que l'image montre. Elle n'écrit
            rien — ni projet, ni historique, ni sélection — donc `get_thumbnail`
            reste la lecture qu'il annonce être. */
-        findings: reviewBoard(screen, project.layoutLayers).map((finding) => finding.detail),
+        findings: reviewBoard(screen, project.layoutLayers, undefined, logical).map(
+          (finding) => finding.detail,
+        ),
       } satisfies RelayRendered,
     }
   } catch (error) {
@@ -232,9 +243,19 @@ const templateSaves = new Set<Promise<unknown>>()
 export async function listRelayTemplates(): Promise<RelayOutcome> {
   await useTemplatesStore.getState().hydrate()
   await Promise.all(templateSaves)
+  const project = useProjectStore.getState().project
+  if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
+  const platform = getAppStoreProfile(project.profileId)!.platform
   return {
     committed: true,
-    result: { templates: useTemplatesStore.getState().templates.map(summarize) },
+    result: {
+      templates: useTemplatesStore
+        .getState()
+        .templates.filter(
+          (template) => getAppStoreProfile(template.profileId)?.platform === platform,
+        )
+        .map(summarize),
+    },
   }
 }
 

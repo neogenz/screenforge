@@ -3,6 +3,7 @@ import {
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
   getScreenOffset,
+  type CanvasSize,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
 import type { Box, Guide } from '@/lib/snapping'
@@ -84,7 +85,11 @@ export function boxOf(object: FabricObject): Box {
   return { left, top, width, height }
 }
 
-export function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] {
+export function collectSnapTargets(
+  canvas: Canvas,
+  moving: FabricObject,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): Box[] {
   const members = new Set<FabricObject>(
     moving instanceof ActiveSelection ? moving.getObjects() : [moving],
   )
@@ -94,7 +99,12 @@ export function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] 
       .find((index) => index !== undefined) ?? 0
 
   const targets: Box[] = [
-    { left: getScreenOffset(screenIndex), top: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+    {
+      left: getScreenOffset(screenIndex, size.width),
+      top: 0,
+      width: size.width,
+      height: size.height,
+    },
   ]
   for (const object of canvas.getObjects() as RenderedObject[]) {
     if (members.has(object) || object.data?.screenIndex !== screenIndex) continue
@@ -109,11 +119,12 @@ export function collectSnapTargets(canvas: Canvas, moving: FabricObject): Box[] 
 export function screenIndexAtPoint(
   screens: Screen[],
   point: { x: number; y: number },
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
 ): number | null {
-  if (point.y < 0 || point.y > SCREEN_HEIGHT) return null
+  if (point.y < 0 || point.y > size.height) return null
   const index = screens.findIndex((_, screenIndex) => {
-    const left = getScreenOffset(screenIndex)
-    return point.x >= left && point.x <= left + SCREEN_WIDTH
+    const left = getScreenOffset(screenIndex, size.width)
+    return point.x >= left && point.x <= left + size.width
   })
   return index === -1 ? null : index
 }
@@ -155,7 +166,10 @@ export interface SelectionFrame {
   stageHeight: number
 }
 
-export function readSelectionFrame(canvas: Canvas): SelectionFrame | null {
+export function readSelectionFrame(
+  canvas: Canvas,
+  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): SelectionFrame | null {
   const active = canvas.getActiveObject() as RenderedObject | null
   if (!active) return null
   active.setCoords()
@@ -164,8 +178,8 @@ export function readSelectionFrame(canvas: Canvas): SelectionFrame | null {
   let right = bounds.left + bounds.width
   const screenIndex = active.data?.screenIndex
   if (screenIndex !== undefined) {
-    left = Math.max(left, getScreenOffset(screenIndex))
-    right = Math.min(right, getScreenOffset(screenIndex) + SCREEN_WIDTH)
+    left = Math.max(left, getScreenOffset(screenIndex, size.width))
+    right = Math.min(right, getScreenOffset(screenIndex, size.width) + size.width)
   }
   if (right <= left) return null
   const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform

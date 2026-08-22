@@ -10,14 +10,14 @@ import {
   preflight,
   targetSummary,
   APP_STORE_LOCALES,
-  ASC_DISPLAY_TYPE,
-  ASC_SIZE_LABEL,
   EMPTY_TARGET,
   LOCALIZATION_HINT,
   ascLocaleFor,
+  ascSizeLabel,
   type AscManifestFile,
   type AscTarget,
 } from '@/lib/asc'
+import { getAppStoreProfile } from '@/lib/dimensions'
 import {
   ascBridgeStatus,
   publishSteps,
@@ -198,7 +198,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           releaseId: release.id,
           bundleHash: bundle.bundleHash,
           versionLocalization: target.versionLocalization,
-          deviceType: ASC_DISPLAY_TYPE,
+          deviceType: getAppStoreProfile(release.snapshot.profileId)!.appStoreConnectType,
           files: await Promise.all(
             bundle.files.map(async (file) => ({
               name: file.name,
@@ -302,7 +302,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                 ))}
               </ul>
             )}
-            <p className="text-2xs text-muted-foreground">{ASC_SIZE_LABEL}</p>
+            {release && <p className="text-2xs text-muted-foreground">{ascSizeLabel(release)}</p>}
           </>
         }
       >
@@ -382,7 +382,7 @@ function PublishDialogContent({ project }: { project: Project }) {
         {findings.length === 0 && (
           <p className="flex items-center gap-2 text-2xs text-success">
             <ShieldCheck size={12} aria-hidden />
-            Preflight sans réserve : {targetSummary(target)}
+            Preflight sans réserve : {targetSummary(target, release)}
           </p>
         )}
 

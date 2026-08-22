@@ -17,7 +17,7 @@ await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
 // Realistic content: device frame + text + gradient background preset.
-await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+await page.click('button[aria-label="Ajouter un appareil"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(500)
 await page.click('button[aria-label="Ajouter Texte"]')

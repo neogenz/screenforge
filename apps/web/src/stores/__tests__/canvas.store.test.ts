@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import type { ShapeLayer } from '@/types'
+import type { ShapeLayer, TemplateDefinition } from '@/types'
 
 function shape(id = 'shape'): ShapeLayer {
   return {
@@ -69,5 +69,24 @@ describe('canvas store domain boundaries', () => {
     expect(getProjectLayers(useProjectStore.getState().project).map((layer) => layer.id)).toEqual([
       'shape',
     ])
+  })
+
+  it('applies a template only inside its platform family', () => {
+    const template: TemplateDefinition = {
+      id: 'ipad-template',
+      name: 'iPad',
+      description: 'Test',
+      profileId: 'ipad-13',
+      background: { type: 'solid', color: '#ffffff' },
+      layers: [shape()],
+    }
+
+    useProjectStore.getState().createProject('Watch', 'watch-series-10')
+    expect(useCanvasStore.getState().applyTemplate(template, 'current')).toBeNull()
+    expect(getProjectLayers(useProjectStore.getState().project)).toEqual([])
+
+    useProjectStore.getState().createProject('iPad', 'ipad-13')
+    expect(useCanvasStore.getState().applyTemplate(template, 'current')).toBeTruthy()
+    expect(getProjectLayers(useProjectStore.getState().project)).toHaveLength(1)
   })
 })

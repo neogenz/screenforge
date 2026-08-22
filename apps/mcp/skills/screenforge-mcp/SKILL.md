@@ -30,5 +30,7 @@ Run the flow above. Read only the next action file.
 - Never invent an identifier. Device models, shapes, icons and fonts are closed lists, and a value outside them is refused before it reaches the project.
 - The project belongs to the user. Read it before writing, add rather than replace, and never delete a layer this run did not create.
 - Every call can be refused, and the refusal names its cause and the expected sub-schema. Correct the call from what it says instead of retrying it unchanged.
-- Coordinates are board units on a 440 by 956 artboard, never the 1320 by 2868 pixels of the export.
+- Before writing geometry, read `screenforge_get_project_state.canvas.width` and
+  `screenforge_get_project_state.canvas.height`. Use those board units and the
+  active ratio, never the export pixels in `profile.width` and `.height`.
 - Write the user's copy in the user's own language. The board is a real listing, not a demo.

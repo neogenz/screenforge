@@ -6,7 +6,7 @@
  * so artboards never hide behind the chrome.
  */
 
-import { APP_STORE_TARGET } from './dimensions'
+import { APP_STORE_TARGET, getAppStoreProfile, type AppStoreProfileId } from './dimensions'
 
 export const ISLAND_MARGIN = 12
 /** Contrôle de 36 + le retrait d'îlot (2×6) + son filet (2×1). */
@@ -44,6 +44,11 @@ export const THUMBNAIL_HEIGHT = 116
 export const THUMBNAIL_WIDTH = Math.round(
   (THUMBNAIL_HEIGHT * APP_STORE_TARGET.portrait.width) / APP_STORE_TARGET.portrait.height,
 )
+export function thumbnailWidth(profileId: AppStoreProfileId): number {
+  const profile = getAppStoreProfile(profileId)
+  if (!profile) return THUMBNAIL_WIDTH
+  return Math.round((THUMBNAIL_HEIGHT * profile.portrait.width) / profile.portrait.height)
+}
 /**
  * Puce du numéro, posée au-dessus de l'aperçu.
  *
@@ -77,6 +82,9 @@ export const THUMBNAIL_LIFT = 4
 export const FILMSTRIP_GAP = 8
 /** Le pas d'un rang à l'autre : la tuile et l'écart qui la suit. */
 export const THUMBNAIL_SLOT = THUMBNAIL_WIDTH + FILMSTRIP_GAP
+export function thumbnailSlot(profileId: AppStoreProfileId): number {
+  return thumbnailWidth(profileId) + FILMSTRIP_GAP
+}
 /**
  * Dégagement de la pellicule — pas un retrait d'îlot, la bande n'en est plus
  * un. C'est la place que la boîte défilante laisse à l'anneau de focus d'une

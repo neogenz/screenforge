@@ -1,5 +1,7 @@
 import { layerDisplayName } from '@/lib/layer-factories'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
+import { deviceModelIdsForPlatform } from '@screenforge/project-format'
+import { getAppStoreProfile, type AppStorePlatform, type AppStoreProfileId } from '@/lib/dimensions'
 import type { Layer, Project, Screen } from '@/types'
 
 /**
@@ -42,6 +44,14 @@ export interface ScreenView {
 
 export interface ProjectView {
   name: string
+  profile: {
+    id: AppStoreProfileId
+    platform: AppStorePlatform
+    name: string
+    width: number
+    height: number
+  }
+  deviceModels: readonly Project['globals']['deviceModel'][]
   canvas: { width: number; height: number }
   globals: Project['globals']
   screens: ScreenView[]
@@ -82,9 +92,19 @@ export function screenView(screen: Screen, rank: number): ScreenView {
 
 /** Réponse de `get_project_state`. */
 export function describeProject(project: Project): ProjectView {
+  const size = canvasSize(project.profileId)
+  const profile = getAppStoreProfile(project.profileId)!
   return {
     name: project.name,
-    canvas: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+    profile: {
+      id: profile.id,
+      platform: profile.platform,
+      name: profile.name,
+      width: profile.portrait.width,
+      height: profile.portrait.height,
+    },
+    deviceModels: deviceModelIdsForPlatform(profile.platform),
+    canvas: size,
     globals: structuredClone(project.globals),
     screens: project.screens.map(screenView),
     layoutLayers: project.layoutLayers.map(layerView),

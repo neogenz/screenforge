@@ -31,7 +31,7 @@ import type { Release, ReleaseFile } from '@/types'
 
 function releaseFile(over: Partial<ReleaseFile> = {}): ReleaseFile {
   return {
-    path: '6.9/01_accueil.png',
+    path: 'iphone-6.9/01_accueil.png',
     screenId: 's1',
     width: 1320,
     height: 2868,
@@ -48,7 +48,13 @@ function release(over: Partial<Release> = {}): Release {
     createdAt: 1_700_000_000_000,
     watermarked: false,
     files: [releaseFile()],
-    snapshot: { name: 'Cadence', screens: [], layoutLayers: [], globals: DEFAULT_GLOBALS },
+    snapshot: {
+      name: 'Cadence',
+      profileId: 'iphone-6.9',
+      screens: [],
+      layoutLayers: [],
+      globals: DEFAULT_GLOBALS,
+    },
     ...over,
   }
 }
@@ -96,7 +102,9 @@ describe('arborescence', () => {
 
   it('aplatit le nom de fichier et n’y laisse aucun séparateur', () => {
     expect(bundleFileName(releaseFile())).toBe('01_accueil.png')
-    expect(bundleFileName(releaseFile({ path: '6.9/02_Écran Pro.png' }))).toBe('02__cran_pro.png')
+    expect(bundleFileName(releaseFile({ path: 'ipad-13/02_Écran Pro.png' }))).toBe(
+      '02__cran_pro.png',
+    )
     expect(bundleFileName(releaseFile({ path: '../../evil.png' }))).toBe('evil.png')
   })
 })
@@ -134,6 +142,25 @@ describe('manifeste', () => {
     expect(manifest.command).toContain('--version-localization')
     const body = JSON.stringify(manifest)
     expect(body).not.toMatch(/p8|privateKey|issuer|apiKey/i)
+  })
+
+  it('nomme exactement les destinations officielles iPad et Apple Watch', () => {
+    const ipad = release({
+      snapshot: { ...release().snapshot, profileId: 'ipad-13' },
+    })
+    const watch = release({
+      snapshot: { ...release().snapshot, profileId: 'watch-series-10' },
+    })
+
+    const ipadManifest = buildManifest(ipad, TARGET, [], 'f'.repeat(64))
+    const watchManifest = buildManifest(watch, TARGET, [], 'f'.repeat(64))
+
+    expect(ipadManifest.target.deviceType).toBe('APP_IPAD_PRO_3GEN_129')
+    expect(ipadManifest.directory).toBe('fr-FR/APP_IPAD_PRO_3GEN_129')
+    expect(ipadManifest.command).toContain('APP_IPAD_PRO_3GEN_129')
+    expect(watchManifest.target.deviceType).toBe('APP_WATCH_SERIES_10')
+    expect(watchManifest.directory).toBe('fr-FR/APP_WATCH_SERIES_10')
+    expect(watchManifest.command).toContain('APP_WATCH_SERIES_10')
   })
 
   /* La commande du ZIP est celle que la page affiche : c'est le même appel de
@@ -216,6 +243,26 @@ describe('preflight', () => {
   it('laisse passer un lot conforme', () => {
     expect(preflight(release(), TARGET, [manifestFile()])).toEqual([])
     expect(blocking([])).toBe(false)
+  })
+
+  it('accepte les dimensions portrait exactes iPad et Watch, jamais leur inverse', () => {
+    const ipad = release({
+      snapshot: { ...release().snapshot, profileId: 'ipad-13' },
+    })
+    const watch = release({
+      snapshot: { ...release().snapshot, profileId: 'watch-series-10' },
+    })
+    const ipadFile = manifestFile({ width: 2064, height: 2752 })
+    const watchFile = manifestFile({ width: 416, height: 496 })
+
+    expect(preflight(ipad, TARGET, [ipadFile])).toEqual([])
+    expect(preflight(watch, TARGET, [watchFile])).toEqual([])
+    expect(blocking(preflight(ipad, TARGET, [{ ...ipadFile, width: 2752, height: 2064 }]))).toBe(
+      true,
+    )
+    expect(blocking(preflight(watch, TARGET, [{ ...watchFile, width: 496, height: 416 }]))).toBe(
+      true,
+    )
   })
 
   it('refuse un lot filigrané, quoi qu’il contienne d’autre', () => {

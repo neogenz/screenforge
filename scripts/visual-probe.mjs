@@ -38,7 +38,7 @@ for (const theme of ['dark', 'light']) {
     await page.waitForTimeout(1200)
 
     if (state === 'peuple') {
-      await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+      await page.click('button[aria-label="Ajouter un appareil"]')
       await page.click('[role="menu"] [role="menuitem"] >> nth=0')
       await page.waitForTimeout(500)
       await page.click('button[aria-label="Ajouter Texte"]')

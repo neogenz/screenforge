@@ -32,7 +32,9 @@ flowchart LR
 - `project.store` alone owns the project graph, active screen and layers. `canvas.store` owns selection plus interaction/history commands and always reads domain data from the project at call time.
 - `src/hooks/use-canvas.ts` owns the Fabric instance and granular project synchronization. Flat installers under `src/lib/canvas/install-*` own interactions, viewport and cancellable thumbnail work; Fabric objects are never a second domain store.
 - Binary payloads live in `src/lib/assets.ts`, not layers, keeping history snapshots and sync diffs small.
-- Apple output dimensions come only from `src/lib/dimensions.ts`; export correctness takes priority over configurable formats.
+- The closed App Store profile catalogue lives in `packages/project-format/src/dimensions.ts`. A project persists one immutable `profileId`; board geometry, compatible device/template catalogues, snapshots, release metadata, App Store Connect delivery type, validation, and export all derive from it. Legacy projects migrate to `iphone-6.9` without coordinate changes.
+- Device model identifiers are catalogued by platform in `packages/project-format/src/catalog-ids.ts`. The web editor, MCP and AI schemas use that same catalogue, so incompatible frames are rejected rather than merely hidden in the UI.
+- Built-in iPad and Watch frames are original vector silhouettes. Apple Design Resources remain a user-supplied local asset path; no Apple file is fetched, bundled, transformed, hosted, or redistributed.
 - Canvas objects disable caching and use render-time clipping rather than Fabric `clipPath` to avoid double-antialiased export edges.
 
 ## Gotchas
@@ -41,6 +43,7 @@ flowchart LR
 - Every Fabric/DOM/store listener belongs to an installer cleanup so React StrictMode cannot duplicate gestures.
 - Any change that re-enables object caching or Fabric clip paths can soften both editor and exported edges.
 - Imported assets must be persisted atomically with their owning project; layer references alone are not durable.
+- A template may only be applied to a project with the same platform. Custom templates preserve the source project's profile and MCP/template lists filter against the active platform.
 - The cloud gate is `requireCloud` in `apps/backend/convex/authz.ts`, and it is the wall rather than a door beside one: no client can reach data except through a function. Reads and deletes stay open when the subscription ends, so an expired period never holds someone's files hostage.
 - There is no key that bypasses authorization any more. Privileged work lives in `internalMutation`s, which no client can address — a boundary declared in the code and checked by the compiler, not a secret to keep.
 - Account deletion has no cascade behind it: `TABLES_OWNED_BY_USER` in `convex/accountDeletion.ts` is the list, and `accountDeletion.test.ts` enumerates the schema so a new table carrying `userId` fails the suite until it is classified.

@@ -1,4 +1,4 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
@@ -13,6 +13,7 @@ import {
   type ShapeId,
 } from '@/lib/vector-catalog'
 import { Path } from 'fabric'
+import { useProjectStore } from '@/stores/project.store'
 import type {
   DeviceFrameLayer,
   DeviceModel,
@@ -29,6 +30,10 @@ import type {
 
 /** Nom d'usine d'un calque de texte, avant que l'utilisateur ne le renomme. */
 const DEFAULT_TEXT_NAME = 'Texte'
+
+function activeCanvasSize() {
+  return canvasSize(useProjectStore.getState().project?.profileId)
+}
 
 /**
  * Nom affiché d'un calque.
@@ -50,11 +55,12 @@ export function layerDisplayName(layer: { type: string; name: string; content?: 
 }
 
 export function createTextLayer(zIndex: number): TextLayer {
+  const { width } = activeCanvasSize()
   return {
     id: crypto.randomUUID(),
     type: 'text',
     name: DEFAULT_TEXT_NAME,
-    x: (SCREEN_WIDTH - 320) / 2,
+    x: (width - 320) / 2,
     y: 160,
     width: 300,
     height: 80,
@@ -76,12 +82,13 @@ export function createTextLayer(zIndex: number): TextLayer {
 }
 
 export function createShapeLayer(zIndex: number, shapeType: ShapeId = 'rectangle'): ShapeLayer {
+  const size = activeCanvasSize()
   return {
     id: crypto.randomUUID(),
     type: 'shape',
     name: shapeEntry(shapeType)?.label ?? 'Forme',
-    x: (SCREEN_WIDTH - 200) / 2,
-    y: (SCREEN_HEIGHT - 200) / 2,
+    x: (size.width - 200) / 2,
+    y: (size.height - 200) / 2,
     width: 200,
     height: 200,
     rotation: 0,
@@ -105,6 +112,7 @@ const ICON_SIZE = 120
  * sert de règle et est jeté.
  */
 export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID): IconLayer {
+  const size = activeCanvasSize()
   const entry = iconEntry(iconId) ?? iconEntry(DEFAULT_ICON_ID)!
   const probe = new Path(entry.path)
   const ratio = probe.width > 0 && probe.height > 0 ? probe.width / probe.height : 1
@@ -114,8 +122,8 @@ export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID
     id: crypto.randomUUID(),
     type: 'icon',
     name: entry.label,
-    x: (SCREEN_WIDTH - width) / 2,
-    y: (SCREEN_HEIGHT - height) / 2,
+    x: (size.width - width) / 2,
+    y: (size.height - height) / 2,
     width,
     height,
     rotation: 0,
@@ -130,14 +138,16 @@ export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID
 }
 
 export function createDeviceLayer(model: DeviceModel, zIndex: number): DeviceFrameLayer {
+  const size = activeCanvasSize()
   const config = getDeviceFrame(model)
   const { width, height } = getDefaultDeviceSize(model)
   return {
     id: crypto.randomUUID(),
     type: 'device-frame' as const,
-    name: 'iPhone',
-    x: (SCREEN_WIDTH - width) / 2,
-    y: SCREEN_HEIGHT - height - 120,
+    name:
+      config.platform === 'ipad' ? 'Tablette' : config.platform === 'watch' ? 'Montre' : 'iPhone',
+    x: (size.width - width) / 2,
+    y: Math.max(20, size.height - height - Math.min(120, size.height * 0.12)),
     width,
     height,
     rotation: 0,
@@ -164,6 +174,7 @@ export async function createImageLayerFromFile(
   zIndex: number,
 ): Promise<ImageImportResult> {
   try {
+    const size = activeCanvasSize()
     const image = await importImageFile(file)
     const assetId = registerAsset(image.dataUrl)
     const scale = Math.min(600 / image.width, 600 / image.height, 1)
@@ -175,8 +186,8 @@ export async function createImageLayerFromFile(
         id: crypto.randomUUID(),
         type: 'image',
         name: file.name.replace(/\.[^.]+$/, '') || 'Image',
-        x: Math.max(0, (SCREEN_WIDTH - width) / 2),
-        y: Math.max(0, (SCREEN_HEIGHT - height) / 2),
+        x: Math.max(0, (size.width - width) / 2),
+        y: Math.max(0, (size.height - height) / 2),
         width,
         height,
         rotation: 0,

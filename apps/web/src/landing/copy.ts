@@ -16,7 +16,7 @@ const en = {
   meta: {
     title: 'ScreenForge — App Store screenshots, pixel-exact',
     description:
-      'Compose your iPhone App Store screenshot set once, export pixel-exact PNGs at 1320×2868, refresh in one click. Free, local, no account. Cloud sync optional, $39/year.',
+      'Compose App Store screenshots for iPhone 6.9″, iPad 13″ and Apple Watch, then export pixel-exact PNGs. Free, local, no account. Cloud sync optional, $39/year.',
   },
   nav: {
     features: 'The editor',
@@ -31,7 +31,7 @@ const en = {
   },
   hero: {
     headline: 'App Store screenshots, down to the pixel.',
-    sub: 'For people who ship iPhone apps: compose the set once in your browser, export at Apple’s exact sizes, re-shoot in one click at every release. Or tell Claude Code or Codex what the app does and let it compose all ten. Free, no account, local by default.',
+    sub: 'For people who ship iPhone, iPad or Apple Watch apps: compose the set once in your browser, export at Apple’s exact sizes, re-shoot in one click at every release. Or tell Claude Code or Codex what the app does and let it compose all ten. Free, no account, local by default.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
   },
@@ -152,12 +152,12 @@ const en = {
     export: {
       tab: 'Export',
       title: 'Exports that pass review',
-      body: 'Rendered at native 1320×2868 on your machine, never upscaled. App Store Connect derives every smaller iPhone size from this one set.',
+      body: 'Rendered at the selected native size on your machine, never upscaled: iPhone 6.9″ at 1320×2868, iPad 13″ at 2064×2752, or any of six official Apple Watch formats.',
       points: [
-        'Native 6.9″ resolution, portrait or landscape',
+        'Native iPhone 6.9″, iPad 13″ portrait, or Apple Watch export',
+        'Six official portrait Apple Watch formats',
         'PNG-24, sRGB, within the size limits',
         'One ZIP, grouped by dimension',
-        'Dimensions checked before download',
       ],
       zipLabel: 'What lands in your Downloads folder',
       zipName: 'screenshots.zip',
@@ -168,7 +168,7 @@ const en = {
       zipFiles: ['01_home.png', '02_tracking.png', '03_stats.png', '04_settings.png'],
       zipMore: 'up to six more screens',
       specRows: [
-        { key: 'Dimensions', value: '1320 × 2868 px' },
+        { key: 'Dimensions', value: '1320 × 2868 · 2064 × 2752 · 6 Watch formats' },
         { key: 'Format', value: 'PNG-24, 8-bit RGBA' },
         { key: 'Color space', value: 'sRGB' },
         { key: 'Scaling', value: 'None, rendered at target size' },
@@ -286,7 +286,7 @@ const en = {
       },
       {
         q: 'Will the exports pass App Store Connect?',
-        a: 'Yes, on everything a file can be rejected for: 1320×2868, opaque PNG, sRGB, under the size limit, all checked before download. Apple derives every smaller iPhone size from that one set. Your content is Apple’s review, not the file’s.',
+        a: 'Yes, on everything a file can be rejected for: the selected iPhone 6.9″, iPad 13″ or Apple Watch dimensions, opaque PNG, sRGB and the size limit are checked before download. Your content is Apple’s review, not the file’s.',
       },
       {
         q: 'What are the Cloud storage limits?',
@@ -309,8 +309,8 @@ const en = {
         a: 'No key is needed: the default generator is a local builder, and an agent over MCP uses your existing login. To have a model write the headlines from inside the editor, use Claude Code on your machine, an Anthropic key, or an OpenRouter key with the model you pick. Keys are encrypted at rest on this computer.',
       },
       {
-        q: 'Which iPhones can I frame?',
-        a: 'Every current model, from iPhone 16e to iPhone 17 Pro Max, iPhone Air included, in Apple’s own colours. Frames are vector, so they stay sharp at 1320×2868.',
+        q: 'Which devices can I frame?',
+        a: 'ScreenForge includes original vector frames for current iPhone, iPad and Apple Watch layouts. Apple product bezels are not bundled or redistributed: download them from Apple Design Resources under Apple’s licence, then import the PNG locally.',
       },
       {
         q: 'Can I use my own screenshots?',
@@ -326,7 +326,7 @@ const en = {
       },
       {
         q: 'Which dimensions does it export?',
-        a: 'Native 6.9″ (1320×2868), portrait or landscape, the largest size App Store Connect accepts. Apple derives every smaller iPhone size from it, so one set covers every iPhone.',
+        a: 'iPhone 6.9″ exports at 1320×2868 portrait or its landscape inverse. iPad 13″ exports at 2064×2752 in portrait. Apple Watch exports in six official portrait formats: 422×514, 410×502, 416×496, 396×484, 368×448 and 312×390.',
       },
       {
         q: 'Where are my projects stored?',
@@ -370,7 +370,7 @@ const fr: Copy = {
   meta: {
     title: 'ScreenForge — des captures App Store au pixel près',
     description:
-      'Composez vos captures App Store iPhone une fois, exportez des PNG exacts en 1320×2868, mettez-les à jour en un clic. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
+      'Composez vos captures App Store pour iPhone 6,9″, iPad 13″ et Apple Watch, puis exportez des PNG au pixel près. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
   },
   nav: {
     features: 'L’éditeur',
@@ -385,7 +385,7 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures App Store, au pixel près.',
-    sub: 'Pour ceux qui sortent des apps iPhone : composez vos dix captures une fois dans le navigateur, exportez-les aux tailles exactes d’Apple, remplacez-les en un clic à chaque version. Ou dites à Claude Code ou Codex ce que fait l’app, et laissez-le composer les dix. Gratuit, sans compte, tout reste sur votre machine.',
+    sub: 'Pour ceux qui sortent des apps iPhone, iPad ou Apple Watch : composez vos dix captures une fois dans le navigateur, exportez-les aux tailles exactes d’Apple, remplacez-les en un clic à chaque version. Ou dites à Claude Code ou Codex ce que fait l’app, et laissez-le composer les dix. Gratuit, sans compte, tout reste sur votre machine.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
   },
@@ -485,19 +485,19 @@ const fr: Copy = {
     export: {
       tab: 'Exporter',
       title: 'Des exports qui passent la validation',
-      body: 'Rendus en 1320×2868 natif sur votre machine, jamais redimensionnés. App Store Connect en dérive lui-même toutes les tailles iPhone plus petites.',
+      body: 'Rendus à la taille native choisie sur votre machine, jamais redimensionnés : iPhone 6,9″ en 1320×2868, iPad 13″ en 2064×2752 ou l’un des six formats Apple Watch officiels.',
       points: [
-        'Résolution native 6,9″, portrait ou paysage',
+        'Export natif iPhone 6,9″, iPad 13″ portrait ou Apple Watch',
+        'Six formats Apple Watch portrait officiels',
         'PNG-24, sRGB, dans les limites de poids',
         'Un seul ZIP, groupé par dimension',
-        'Dimensions contrôlées avant téléchargement',
       ],
       zipLabel: 'Ce qui arrive dans votre dossier Téléchargements',
       zipName: 'screenshots.zip',
       zipFiles: ['01_accueil.png', '02_suivi.png', '03_statistiques.png', '04_reglages.png'],
       zipMore: 'jusqu’à six écrans de plus',
       specRows: [
-        { key: 'Dimensions', value: '1320 × 2868 px' },
+        { key: 'Dimensions', value: '1320 × 2868 · 2064 × 2752 · 6 formats Watch' },
         { key: 'Format', value: 'PNG-24, 8 bits RGBA' },
         { key: 'Colorimétrie', value: 'sRGB' },
         { key: 'Échelle', value: 'Aucune, taille cible' },
@@ -613,7 +613,7 @@ const fr: Copy = {
       },
       {
         q: 'Les exports passent-ils App Store Connect ?',
-        a: 'Oui, sur tout ce qui peut faire rejeter un fichier : 1320×2868, PNG opaque, sRGB, sous la limite de poids, le tout vérifié avant le téléchargement. Apple en dérive lui-même toutes les tailles iPhone plus petites. Reste le contenu, et là c’est la revue d’Apple qui juge, pas le fichier.',
+        a: 'Oui, sur tout ce qui peut faire rejeter un fichier : les dimensions iPhone 6,9″, iPad 13″ ou Apple Watch choisies, le PNG opaque, le sRGB et la limite de poids sont vérifiés avant le téléchargement. Reste le contenu, et là c’est la revue d’Apple qui juge, pas le fichier.',
       },
       {
         q: 'Quelles sont les limites de stockage Cloud ?',
@@ -636,8 +636,8 @@ const fr: Copy = {
         a: 'Aucune clé n’est nécessaire : le générateur par défaut est local, et un agent par MCP utilise le compte que vous avez déjà. Pour qu’un modèle écrive les accroches depuis l’éditeur, utilisez Claude Code sur votre machine, une clé Anthropic, ou une clé OpenRouter avec le modèle de votre choix. Les clés sont chiffrées sur cet ordinateur.',
       },
       {
-        q: 'Quels cadres iPhone sont proposés ?',
-        a: 'Tous les modèles courants, de l’iPhone 16e à l’iPhone 17 Pro Max, iPhone Air compris, dans les coloris d’Apple. Les cadres sont vectoriels : ils restent nets en 1320×2868.',
+        q: 'Quels appareils puis-je encadrer ?',
+        a: 'ScreenForge inclut des cadres vectoriels originaux pour les mises en page iPhone, iPad et Apple Watch courantes. Les bezels Apple ne sont ni inclus ni redistribués : téléchargez-les depuis Apple Design Resources sous licence Apple, puis importez le PNG localement.',
       },
       {
         q: 'Puis-je utiliser mes propres captures ?',
@@ -653,7 +653,7 @@ const fr: Copy = {
       },
       {
         q: 'Quelles dimensions sont exportées ?',
-        a: 'Le 6,9″ natif (1320×2868), portrait ou paysage, la plus grande taille acceptée par App Store Connect. Apple en dérive toutes les tailles iPhone plus petites : un seul export couvre tous les iPhone.',
+        a: 'L’iPhone 6,9″ sort en 1320×2868 portrait ou dans son inverse paysage. L’iPad 13″ sort en 2064×2752, uniquement en portrait. L’Apple Watch propose six formats portrait officiels : 422×514, 410×502, 416×496, 396×484, 368×448 et 312×390.',
       },
       {
         q: 'Où sont stockés mes projets ?',

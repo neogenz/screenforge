@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { CornerUpLeft, Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
-import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
+import { canvasSize, clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
+import { useProjectStore } from '@/stores/project.store'
 import { Button } from '@/components/ui/button'
 import { AngleControl } from '@/components/ui/angle-control'
 import { IconButton } from '@/components/ui/icon-button'
@@ -17,6 +18,8 @@ interface TransformSectionProps {
 
 export function TransformSection({ layer }: TransformSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
+  const profileId = useProjectStore((state) => state.project?.profileId)
+  const size = canvasSize(profileId)
   const isDevice = layer.type === 'device-frame'
   const isOfficialBezel = isDevice && Boolean(layer.importedBezel)
   const isText = layer.type === 'text'
@@ -117,10 +120,10 @@ export function TransformSection({ layer }: TransformSectionProps) {
    * fantôme depuis la scène vide. Le panneau garde cette issue directe pour un
    * calque parti hors du champ ou difficile à viser.
    */
-  const outOfReach = layerOutOfReach(layer)
+  const outOfReach = layerOutOfReach(layer, size)
 
   function bringBack() {
-    update(clampLayerToBoard(layer))
+    update(clampLayerToBoard(layer, size))
   }
 
   return (

@@ -15,9 +15,9 @@ import {
   THUMBNAIL_HEIGHT,
   THUMBNAIL_LABEL_ROW,
   THUMBNAIL_LIFT,
-  THUMBNAIL_SLOT,
-  THUMBNAIL_WIDTH,
   filmstripHeight,
+  thumbnailSlot,
+  thumbnailWidth,
 } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import type { Background } from '@/types'
@@ -30,22 +30,29 @@ import type { Background } from '@/types'
  * qui le porte. Le décalage libère toujours l'emplacement sous le curseur, donc
  * `dragover` ne peut pas rebondir entre deux tuiles.
  */
-function slotShift(index: number, drag: { from: number; over: number } | null): number {
+function slotShift(
+  index: number,
+  drag: { from: number; over: number } | null,
+  slot: number,
+): number {
   if (!drag || drag.from === drag.over || index === drag.from) return 0
-  if (drag.from < drag.over && index > drag.from && index <= drag.over) return -THUMBNAIL_SLOT
-  if (drag.from > drag.over && index < drag.from && index >= drag.over) return THUMBNAIL_SLOT
+  if (drag.from < drag.over && index > drag.from && index <= drag.over) return -slot
+  if (drag.from > drag.over && index < drag.from && index >= drag.over) return slot
   return 0
 }
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const { screens, activeScreenId } = useProjectStore(
+  const { screens, activeScreenId, profileId } = useProjectStore(
     useShallow((state) => ({
       screens: state.project?.screens,
       activeScreenId: state.project?.activeScreenId ?? '',
+      profileId: state.project?.profileId ?? 'iphone-6.9',
     })),
   )
   const list = screens ?? []
+  const previewWidth = thumbnailWidth(profileId)
+  const previewSlot = thumbnailSlot(profileId)
   const atCapacity = list.length >= MAX_PROJECT_SCREENS
   const dragSourceIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
@@ -281,20 +288,23 @@ export function ScreensBar() {
    * depuis les tuiles — c'est aussi lui qui accepte le lâcher, le curseur
    * survolant le vide au moment du relâchement et non une tuile.
    */
-  const handleStripDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    if (dragSourceIndex.current === null) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    const count = useProjectStore.getState().project?.screens.length ?? 0
-    if (count === 0) return
-    const strip = event.currentTarget
-    const x =
-      event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft - FILMSTRIP_PADDING
-    const index = clampNumber(Math.floor(x / THUMBNAIL_SLOT), 0, count - 1)
-    if (dragOverIndex.current === index) return
-    dragOverIndex.current = index
-    setDrag((current) => (current ? { ...current, over: index } : current))
-  }, [])
+  const handleStripDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (dragSourceIndex.current === null) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      const count = useProjectStore.getState().project?.screens.length ?? 0
+      if (count === 0) return
+      const strip = event.currentTarget
+      const x =
+        event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft - FILMSTRIP_PADDING
+      const index = clampNumber(Math.floor(x / previewSlot), 0, count - 1)
+      if (dragOverIndex.current === index) return
+      dragOverIndex.current = index
+      setDrag((current) => (current ? { ...current, over: index } : current))
+    },
+    [previewSlot],
+  )
 
   const handleDragEnd = useCallback(() => {
     dragSourceIndex.current = null
@@ -381,7 +391,7 @@ export function ScreensBar() {
         <span
           aria-hidden
           style={{
-            left: FILMSTRIP_PADDING + drag.over * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5,
+            left: FILMSTRIP_PADDING + drag.over * previewSlot + previewWidth / 2 - 1.5,
             // La rangée du rang s'intercale entre le haut de la bande et
             // l'aperçu : la barre se pose sur les aperçus, pas sur la colonne.
             top: FILMSTRIP_PADDING + THUMBNAIL_LIFT + THUMBNAIL_LABEL_ROW,
@@ -407,7 +417,7 @@ export function ScreensBar() {
           // dessus — à 40% d'opacité, deux aperçus se superposaient en bouillie
           // dès qu'on remontait la bande. C'est le navigateur qui la montre,
           // sous le curseur, pendant tout le geste.
-          style={{ translate: `${slotShift(index, drag)}px` }}
+          style={{ translate: `${slotShift(index, drag, previewSlot)}px` }}
           className={cn(
             'transition-[translate,opacity] duration-200 ease-out motion-reduce:transition-none',
             drag?.from === index && 'opacity-0',
@@ -426,6 +436,7 @@ export function ScreensBar() {
             onRename={handleRename}
             onDuplicate={handleDuplicate}
             canPasteSettings={copiedSettings !== null}
+            thumbnailWidth={previewWidth}
             onCopySettings={handleCopySettings}
             onPasteSettings={handlePasteSettings}
             onDelete={handleDelete}

@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
@@ -29,6 +30,10 @@ import { ADD_IMAGE_SCHEMA } from './tools/add-image.ts'
 const TOOLS_DOC = fileURLToPath(
   new URL('../skills/screenforge-mcp/references/tools.md', import.meta.url),
 )
+const KEEP_ACTION = fileURLToPath(
+  new URL('../skills/screenforge-mcp/actions/04-keep.md', import.meta.url),
+)
+const SKILL_DIR = fileURLToPath(new URL('../skills/screenforge-mcp', import.meta.url))
 
 const { AI_TOOLS, validateToolCall } = createAiTools({
   deviceModels: DEVICE_MODEL_IDS,
@@ -47,6 +52,18 @@ const DAEMON_ONLY = [
 ] as const
 
 describe('documentation du skill agent', () => {
+  it('dérive la planche de l’état du projet', async () => {
+    const files = (await readdir(SKILL_DIR, { recursive: true })).filter((file) =>
+      file.endsWith('.md'),
+    )
+    const doc = (
+      await Promise.all(files.map((file) => readFile(join(SKILL_DIR, file), 'utf8')))
+    ).join('\n')
+    expect(doc).not.toMatch(/440\s*(?:by|[×x])\s*956/i)
+    expect(doc).toContain('screenforge_get_project_state.canvas.width')
+    expect(doc).toContain('screenforge_get_project_state.canvas.height')
+  })
+
   it('nomme chaque outil publié', async () => {
     const doc = await readFile(TOOLS_DOC, 'utf8')
     const published = [...AI_TOOLS.map((tool) => tool.name), ...DAEMON_ONLY]
@@ -66,6 +83,16 @@ describe('documentation du skill agent', () => {
     const catalog = [...DEVICE_MODEL_IDS, ...SHAPE_IDS, ...ICON_IDS, ...CONTENT_FONTS]
     const missing = catalog.filter((value) => !doc.includes(`\`${value}\``))
     expect(missing).toEqual([])
+  })
+
+  it('borne les gabarits à la plateforme active', async () => {
+    const [tools, keep] = (
+      await Promise.all([readFile(TOOLS_DOC, 'utf8'), readFile(KEEP_ACTION, 'utf8')])
+    ).map((doc) => doc.replace(/\s+/g, ' '))
+    expect(tools).toContain('`list_templates` hides templates from other platforms')
+    expect(tools).toContain('any project on the same platform')
+    expect(keep).toContain('any project on the same platform')
+    expect(keep).not.toContain('any project on this browser')
   })
 
   /* Un exemple faux est pire qu'un exemple absent : l'agent le suit à la lettre

@@ -25,6 +25,7 @@ import { useHistoryStore } from '@/stores/history.store'
 import { DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
 import type { CampaignBrief } from '@/lib/ai/plan'
 import type { DeviceFrameLayer, Layer, Project, Screen, TextLayer } from '@/types'
+import { createPlatformAiTools } from '@screenforge/project-format'
 
 function textLayer(id: string, content = 'Titre'): TextLayer {
   return {
@@ -81,6 +82,7 @@ function project(screens: Screen[] = [screen('s1')]): Project {
   return {
     id: 'p1',
     name: 'Projet',
+    profileId: 'iphone-6.9',
     screens,
     activeScreenId: screens[0].id,
     globals: structuredClone(DEFAULT_GLOBALS),
@@ -135,6 +137,21 @@ describe('les schémas d’outils', () => {
   it('tiennent la lecture hors de l’exécuteur', () => {
     expect(validateToolCall({ tool: 'get_project_state', args: {} })).toMatch(/lecture seule/)
   })
+
+  it('ferment le catalogue d’appareils sur la plateforme du projet', () => {
+    const ipad = createPlatformAiTools('ipad')
+    const watch = createPlatformAiTools('watch')
+
+    expect(
+      ipad.validateToolCall({ tool: 'add_device', args: { deviceModel: 'tablet-slate' } }),
+    ).toBeNull()
+    expect(
+      ipad.validateToolCall({ tool: 'add_device', args: { deviceModel: 'iphone-17-pro-max' } }),
+    ).toMatch(/catalogue/)
+    expect(
+      watch.validateToolCall({ tool: 'add_device', args: { deviceModel: 'watch-halo' } }),
+    ).toBeNull()
+  })
 })
 
 describe('le constructeur', () => {
@@ -154,6 +171,21 @@ describe('le constructeur', () => {
     // Le rôle est normalisé, pas recopié : c'est lui qui appariera la release.
     expect((created.layers[1] as DeviceFrameLayer).slot).toBe('mon-budget')
     expect(created.layers.map((layer) => layer.zIndex)).toEqual([0, 1])
+  })
+
+  it('refuse un appareil d’une autre plateforme avant toute écriture', () => {
+    const draft = { ...project(), profileId: 'ipad-13' as const }
+    const refused = applyToolCalls(draft, [
+      { tool: 'add_device', args: { deviceModel: 'iphone-17-pro-max' } },
+    ])
+    expect(refused.error).toMatch(/catalogue/)
+    expect(draft.screens[0].layers).toEqual([])
+
+    const accepted = applyToolCalls(draft, [
+      { tool: 'add_device', args: { deviceModel: 'tablet-slate' } },
+    ])
+    expect(accepted.error).toBeUndefined()
+    expect((draft.screens[0].layers[0] as DeviceFrameLayer).deviceModel).toBe('tablet-slate')
   })
 
   it('n’accepte d’un patch que ce que le type du calque connaît', () => {
@@ -639,5 +671,7 @@ describe('l’état montré au modèle', () => {
     expect(JSON.stringify(view)).not.toContain(device.screenshotAssetId)
     expect(view.screens[0].layers[1].hasScreenshot).toBe(true)
     expect(view.canvas).toEqual({ width: 440, height: 956 })
+    expect(view.profile).toMatchObject({ id: 'iphone-6.9', platform: 'iphone' })
+    expect(view.deviceModels).not.toContain('tablet-slate')
   })
 })

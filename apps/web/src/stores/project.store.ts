@@ -1,7 +1,12 @@
 import { create } from 'zustand'
-import { getDeviceFrame } from '@/assets/device-frames'
+import { currentDeviceFramesFor, getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import {
+  DEFAULT_APP_STORE_PROFILE_ID,
+  getAppStoreProfile,
+  MAX_PROJECT_SCREENS,
+  type AppStoreProfileId,
+} from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import { defaultScreenName } from '@/lib/screens'
@@ -22,12 +27,46 @@ export const DEFAULT_GLOBALS: GlobalSettings = {
   deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
 }
 
+export function createDefaultGlobals(
+  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+): GlobalSettings {
+  const profile = getAppStoreProfile(profileId)
+  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
+  const defaultDevice = currentDeviceFramesFor(profile.platform)[0]
+  if (!defaultDevice) throw new Error(`No device frame for platform: ${profile.platform}`)
+  return {
+    ...structuredClone(DEFAULT_GLOBALS),
+    deviceModel: defaultDevice.model,
+    deviceColor: defaultDevice.colors[0].name,
+  }
+}
+
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {
   return {
     id: crypto.randomUUID(),
     name,
     layers: [],
     background: structuredClone(globals.background),
+  }
+}
+
+export function createProjectDocument(
+  name: string,
+  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+): Project {
+  const now = Date.now()
+  const globals = createDefaultGlobals(profileId)
+  const screen = createDefaultScreen(defaultScreenName(0), globals)
+  return {
+    id: crypto.randomUUID(),
+    name,
+    profileId,
+    screens: [screen],
+    activeScreenId: screen.id,
+    globals,
+    layoutLayers: [],
+    createdAt: now,
+    updatedAt: now,
   }
 }
 
@@ -53,7 +92,7 @@ export function getProjectLayers(project: Project | null): Layer[] {
 interface ProjectState {
   project: Project | null
 
-  createProject: (name: string) => void
+  createProject: (name: string, profileId?: AppStoreProfileId) => void
   loadProject: (project: Project) => void
   setActiveScreenId: (id: string) => void
   updateProjectName: (name: string) => void
@@ -81,22 +120,8 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: null,
 
-  createProject: (name) => {
-    const now = Date.now()
-    const globals = structuredClone(DEFAULT_GLOBALS)
-    const screen = createDefaultScreen(defaultScreenName(0), globals)
-    set({
-      project: {
-        id: crypto.randomUUID(),
-        name,
-        screens: [screen],
-        activeScreenId: screen.id,
-        globals,
-        layoutLayers: [],
-        createdAt: now,
-        updatedAt: now,
-      },
-    })
+  createProject: (name, profileId = DEFAULT_APP_STORE_PROFILE_ID) => {
+    set({ project: createProjectDocument(name, profileId) })
   },
 
   loadProject: (project) => set({ project }),

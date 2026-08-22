@@ -1,4 +1,11 @@
 import { MAX_PROJECT_SCREENS } from './dimensions.ts'
+import {
+  CONTENT_FONTS,
+  deviceModelIdsForPlatform,
+  ICON_IDS,
+  SHAPE_IDS,
+  type DevicePlatform,
+} from './catalog-ids.ts'
 import type { LayerType } from './types.ts'
 
 /**
@@ -23,11 +30,10 @@ import type { LayerType } from './types.ts'
  */
 
 /*
-   Les bornes de coordonnées s'expriment dans l'unité de la planche de
-   l'éditeur — 440 × 956, les `SCREEN_WIDTH` / `SCREEN_HEIGHT` de
-   `apps/web/src/lib/canvas/canvas-utils`. Elles sont dérivées ici plutôt
-   qu'importées : ce module ne doit rien devoir au canevas Fabric, et un
-   changement de planche y ferait de toute façon sauter les tests d'export.
+   Les bornes de schéma couvrent la planche logique la plus haute. La planche
+   active dépend du profil et vient de `get_project_state.canvas`; ce module ne
+   doit rien devoir au canevas Fabric, et conserve donc ici seulement le plafond
+   commun accepté par les outils.
 */
 const ARTBOARD_WIDTH = 440
 const ARTBOARD_HEIGHT = 956
@@ -305,7 +311,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
     },
     {
       name: 'add_device',
-      description: 'Pose un cadre iPhone, avec son rôle et sa capture si elle est fournie.',
+      description: 'Pose un cadre compatible avec le projet, avec son rôle et sa capture.',
       parameters: object({
         screenId,
         deviceModel: { type: 'string', enum: catalogs.deviceModels },
@@ -400,6 +406,16 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
   }
 
   return { AI_TOOLS, toolSchema, validateToolCall }
+}
+
+/** Construit le même contrat, fermé sur les seuls appareils de la plateforme. */
+export function createPlatformAiTools(platform: DevicePlatform): AiTooling {
+  return createAiTools({
+    deviceModels: deviceModelIdsForPlatform(platform),
+    shapeIds: SHAPE_IDS,
+    iconIds: ICON_IDS,
+    fonts: CONTENT_FONTS,
+  })
 }
 
 /**

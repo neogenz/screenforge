@@ -1,11 +1,13 @@
 import type { Canvas } from 'fabric'
 import { type RenderedObject } from '@/lib/canvas/canvas-utils'
-import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
+import { THUMBNAIL_HEIGHT, thumbnailWidth } from '@/lib/stage'
+import type { AppStoreProfileId } from '@/lib/dimensions'
 import type { Screen } from '@/types'
 
 interface ThumbnailInstallerOptions {
   currentCanvas: () => Canvas | null
   onGenerated: (thumbnails: Readonly<Record<string, string>>) => void
+  getProfileId: () => AppStoreProfileId
 }
 
 export interface ThumbnailScheduler {
@@ -16,6 +18,7 @@ export interface ThumbnailScheduler {
 export function installThumbnails({
   currentCanvas,
   onGenerated,
+  getProfileId,
 }: ThumbnailInstallerOptions): ThumbnailScheduler {
   let timer: ReturnType<typeof setTimeout> | null = null
   let cancelIdle: (() => void) | null = null
@@ -76,7 +79,7 @@ export function installThumbnails({
       // physiques : l'aperçu était agrandi, donc mou. Le rapport de la tuile
       // n'est pas exactement celui de la planche (arrondi au pixel entier), et
       // c'est ce rapport-là qui prime — sinon `object-cover` en rogne l'écart.
-      const thumbnailWidth = THUMBNAIL_WIDTH * 2
+      const targetWidth = thumbnailWidth(getProfileId()) * 2
       const thumbnailHeight = THUMBNAIL_HEIGHT * 2
 
       for (const screen of screens) {
@@ -87,7 +90,7 @@ export function installThumbnails({
         if (!background) continue
         const { tl, br } = background.aCoords
         const crop = document.createElement('canvas')
-        crop.width = thumbnailWidth
+        crop.width = targetWidth
         crop.height = thumbnailHeight
         const context = crop.getContext('2d')
         if (!context) continue
@@ -99,7 +102,7 @@ export function installThumbnails({
           (br.y - tl.y) * fitZoom * retinaScale,
           0,
           0,
-          thumbnailWidth,
+          targetWidth,
           thumbnailHeight,
         )
         thumbnails[screen.id] = crop.toDataURL('image/png')

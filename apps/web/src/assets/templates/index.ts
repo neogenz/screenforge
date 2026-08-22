@@ -1,6 +1,12 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { POPULAR_FONTS } from '@/lib/fonts'
-import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
+import type {
+  DeviceFrameLayer,
+  DeviceModel,
+  ShapeLayer,
+  TemplateDefinition,
+  TextLayer,
+} from '@/types'
 
 const W = 440
 const H = 956
@@ -50,6 +56,7 @@ function deviceLayer(
   name: string,
   geometry: Pick<DeviceFrameLayer, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex'>,
   color: DeviceFrameLayer['deviceColor'] = 'white-titanium',
+  model: DeviceModel = 'iphone-16-pro-max',
 ): DeviceFrameLayer {
   return {
     id,
@@ -58,7 +65,7 @@ function deviceLayer(
     opacity: 1,
     locked: false,
     visible: true,
-    deviceModel: 'iphone-16-pro-max',
+    deviceModel: model,
     deviceColor: color,
     orientation: 'portrait',
     shadowEnabled: true,
@@ -97,6 +104,7 @@ const overlay: ShapeLayer = {
 export const TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
+    profileId: 'iphone-6.9',
     name: 'Hero',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
@@ -139,6 +147,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'feature',
+    profileId: 'iphone-6.9',
     name: 'Feature',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
@@ -181,6 +190,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'side-by-side',
+    profileId: 'iphone-6.9',
     name: 'Side by Side',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
@@ -225,6 +235,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'full-bleed',
+    profileId: 'iphone-6.9',
     name: 'Full Bleed',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
@@ -268,6 +279,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'minimal',
+    profileId: 'iphone-6.9',
     name: 'Minimal',
     description: 'Composition éditoriale simple, texte à gauche et appareil à droite.',
     background: { type: 'solid', color: '#ffffff' },
@@ -315,6 +327,73 @@ export const TEMPLATES: TemplateDefinition[] = [
         rotation: 4,
         zIndex: 2,
       }),
+    ],
+  },
+  {
+    id: 'ipad-editorial',
+    profileId: 'ipad-13',
+    name: 'Éditorial iPad',
+    description: 'Titre compact et grande tablette, entièrement contenus dans la planche iPad.',
+    background: {
+      type: 'linear-gradient',
+      angle: 155,
+      stops: [
+        { offset: 0, color: '#f7f7f3' },
+        { offset: 1, color: '#dfe3dc' },
+      ],
+    },
+    layers: [
+      textLayer(
+        'ipad-editorial-title',
+        'Title',
+        'Votre app, en grand.',
+        { x: 28, y: 34, width: 384, height: 82, zIndex: 0 },
+        { fontSize: 40, color: '#171816', textAlign: 'left' },
+      ),
+      textLayer(
+        'ipad-editorial-subtitle',
+        'Subtitle',
+        'Une interface lisible au premier regard.',
+        { x: 30, y: 122, width: 360, height: 42, zIndex: 1 },
+        { fontSize: 17, fontWeight: 500, color: '#5a5d57', textAlign: 'left' },
+      ),
+      deviceLayer(
+        'ipad-editorial-device',
+        'Tablette',
+        { x: 78, y: 190, width: 284, height: 378, rotation: 0, zIndex: 2 },
+        'white',
+        'tablet-slate',
+      ),
+    ],
+  },
+  {
+    id: 'watch-focus',
+    profileId: 'watch-series-10',
+    name: 'Focus Watch',
+    description: 'Message bref et montre centrale, compatible avec les six profils Watch.',
+    background: { type: 'solid', color: '#eef0ea' },
+    layers: [
+      textLayer(
+        'watch-focus-title',
+        'Title',
+        'L’essentiel, au poignet.',
+        { x: 24, y: 28, width: 392, height: 78, zIndex: 0 },
+        { fontSize: 36, color: '#171816' },
+      ),
+      textLayer(
+        'watch-focus-subtitle',
+        'Subtitle',
+        'Un geste suffit.',
+        { x: 56, y: 112, width: 328, height: 38, zIndex: 1 },
+        { fontSize: 17, fontWeight: 500, color: '#5a5d57' },
+      ),
+      deviceLayer(
+        'watch-focus-device',
+        'Montre',
+        { x: 92, y: 175, width: 256, height: 303, rotation: 0, zIndex: 2 },
+        'white',
+        'watch-halo',
+      ),
     ],
   },
 ]

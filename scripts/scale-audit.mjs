@@ -106,7 +106,7 @@ await page.waitForTimeout(1200)
 
 // Un écran vide ne rend ni panneau Propriétés ni liste de calques : c'est
 // précisément là que vivent les contrôles à mesurer.
-await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+await page.click('button[aria-label="Ajouter un appareil"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(500)
 await page.click('button[aria-label="Ajouter Texte"]')

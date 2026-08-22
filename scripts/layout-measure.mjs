@@ -25,7 +25,7 @@ await page.waitForTimeout(600)
 // Back to screen 1, add a device layer
 await page.locator('button[aria-label^="Activer"]').first().click()
 await page.waitForTimeout(600)
-await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+await page.click('button[aria-label="Ajouter un appareil"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(800)
 

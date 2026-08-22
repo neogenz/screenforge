@@ -116,9 +116,9 @@ export function getCommands(): Command[] {
     },
     {
       id: 'add-device',
-      title: 'Ajouter un cadre iPhone',
+      title: 'Ajouter un appareil',
       section: 'Calques',
-      keywords: ['iphone', 'device', 'mockup', 'cadre'],
+      keywords: ['iphone', 'ipad', 'watch', 'appareil', 'mockup', 'cadre'],
       run: () => {
         const model = project().project?.globals.deviceModel ?? 'iphone-17-pro-max'
         canvas().addLayer(createDeviceLayer(model, layerCount()))

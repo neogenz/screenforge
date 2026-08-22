@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
-import type { DisplayClass, Layer, Screen } from '@/types'
+import type { AppStoreProfile } from '@/lib/dimensions'
+import type { Layer, Screen } from '@/types'
 
 interface ExportProgress {
   current: number
@@ -33,7 +34,7 @@ interface ExportJob {
   screen: Screen
   screenIndex: number
   index: number
-  dimension: DisplayClass
+  profile: AppStoreProfile
 }
 
 /** Never release export UI while another Fabric worker is still active. */
@@ -56,18 +57,18 @@ export function useExport() {
       projectName: string,
       screens: ExportScreen[],
       layoutLayers: Layer[],
-      dimensions: DisplayClass[],
+      profiles: readonly AppStoreProfile[],
     ) => {
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
 
-      const jobs: ExportJob[] = dimensions.flatMap((dimension) =>
+      const jobs: ExportJob[] = profiles.flatMap((profile) =>
         screens.map(({ screen, screenIndex }, index) => ({
           screen,
           screenIndex,
           index,
-          dimension,
+          profile,
         })),
       )
       const total = jobs.length
@@ -90,19 +91,21 @@ export function useExport() {
             blob = await exportScreenToBlob(
               job.screen,
               layoutLayers,
-              job.dimension.portrait.width,
-              job.dimension.portrait.height,
+              job.profile.portrait.width,
+              job.profile.portrait.height,
               job.screenIndex,
+              job.profile.logical.width,
+              job.profile.logical.height,
             )
           } catch (cause) {
             throw new Error(`${job.screen.name} : ${errorMessage(cause)}`)
           }
 
           const name = slugify(job.screen.name)
-          const dimensionName = job.dimension.size.replace('"', '')
-          const path = `${dimensionName}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
+          const folder = job.profile.folder
+          const path = `${folder}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
           const metadata = await inspectPng(blob)
-          entries.push({ dimension: dimensionName, index: job.index + 1, name, blob })
+          entries.push({ dimension: folder, index: job.index + 1, name, blob })
           summaries.push({ path, size: metadata.byteLength })
           completed += 1
           setProgress({ current: completed, total, label: `${completed}/${total} rendus` })

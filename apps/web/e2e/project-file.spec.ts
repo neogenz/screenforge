@@ -69,6 +69,7 @@ async function portableFixture(page: Page): Promise<PortableFixture> {
     const project = {
       id: 'portable-project',
       name: 'Projet portable',
+      profileId: 'iphone-6.9' as const,
       activeScreenId: 'screen-1',
       screens: [
         {

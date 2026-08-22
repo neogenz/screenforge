@@ -1,8 +1,10 @@
 import { screenshotFrame, type Rect } from '@/lib/screenshot-placement'
+import type { AppStorePlatform } from '@/lib/dimensions'
 import type { DeviceModel, DeviceColor, ScreenshotPlacement, ScreenshotSize } from '@/types'
 
 export interface DeviceFrameConfig {
   model: DeviceModel
+  platform: AppStorePlatform
   modelName: string
   /** Apple screen diagonal, shown in pickers (e.g. '6.9"') */
   screenSize: string
@@ -89,10 +91,17 @@ function frameConfig(
   height: number,
   insets: FrameInsets,
   colors: DeviceFrameConfig['colors'],
-  options: { current?: boolean; notch?: boolean } = {},
+  options: {
+    current?: boolean
+    notch?: boolean
+    dynamicIsland?: boolean
+    platform?: AppStorePlatform
+    cornerRadius?: number
+  } = {},
 ): DeviceFrameConfig {
   return {
     model,
+    platform: options.platform ?? 'iphone',
     modelName,
     screenSize,
     current: options.current ?? true,
@@ -102,8 +111,8 @@ function frameConfig(
     screenY: insets.y,
     screenWidth: width - insets.x * 2,
     screenHeight: height - insets.y * 2,
-    cornerRadius: Math.round(width * 0.155),
-    dynamicIsland: !options.notch,
+    cornerRadius: options.cornerRadius ?? Math.round(width * 0.155),
+    dynamicIsland: options.dynamicIsland ?? !options.notch,
     ...(options.notch ? { notch: true } : {}),
     colors,
   }
@@ -165,9 +174,75 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
     TITANIUM_16_COLORS,
     { current: false },
   ),
+  frameConfig(
+    'tablet-slate',
+    'Tablette — Ardoise',
+    '13"',
+    320,
+    426,
+    { x: 8, y: 8 },
+    [
+      { name: 'white', label: 'Craie', frame: '#ffffff' },
+      { name: 'black', label: 'Graphite', frame: '#242424' },
+    ],
+    { platform: 'ipad', dynamicIsland: false, cornerRadius: 17 },
+  ),
+  frameConfig(
+    'tablet-studio',
+    'Tablette — Studio',
+    '13"',
+    326,
+    434,
+    { x: 10, y: 10 },
+    [
+      { name: 'white', label: 'Porcelaine', frame: '#ffffff' },
+      { name: 'silver', label: 'Étain', frame: '#8A8A88' },
+    ],
+    { platform: 'ipad', dynamicIsland: false, cornerRadius: 15 },
+  ),
+  frameConfig(
+    'watch-halo',
+    'Montre — Halo',
+    'grand boîtier',
+    338,
+    400,
+    { x: 22, y: 28 },
+    [
+      { name: 'white', label: 'Clair', frame: '#ffffff' },
+      { name: 'black', label: 'Sombre', frame: '#202020' },
+    ],
+    { platform: 'watch', dynamicIsland: false, cornerRadius: 58 },
+  ),
+  frameConfig(
+    'watch-compact',
+    'Montre — Compacte',
+    'petit boîtier',
+    320,
+    390,
+    { x: 18, y: 24 },
+    [
+      { name: 'white', label: 'Clair', frame: '#ffffff' },
+      { name: 'silver', label: 'Acier', frame: '#858583' },
+    ],
+    { platform: 'watch', dynamicIsland: false, cornerRadius: 52 },
+  ),
 ]
 
 export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.current)
+
+export function currentDeviceFramesFor(platform: AppStorePlatform): DeviceFrameConfig[] {
+  return CURRENT_DEVICE_FRAMES.filter((frame) => frame.platform === platform)
+}
+
+/** Current choices for a profile, plus its selected same-platform legacy frame. */
+export function deviceFrameOptionsFor(
+  model: DeviceModel,
+  platform: AppStorePlatform,
+): DeviceFrameConfig[] {
+  const current = currentDeviceFramesFor(platform)
+  const selected = getDeviceFrame(model)
+  return selected.platform === platform && !selected.current ? [selected, ...current] : current
+}
 
 /* Chaque modèle du contrat partagé a son gabarit, et réciproquement. Un modèle
    en trop casse ici à la compilation (`DeviceFrameConfig.model`, dont
@@ -321,8 +396,9 @@ export function getDeviceRenderSize(config: DeviceFrameConfig): { width: number;
 
 /** Canonical layer size for a model — official aspect, never user-distorted. */
 export function getDefaultDeviceSize(model: DeviceModel): { width: number; height: number } {
-  const rendered = getDeviceRenderSize(getDeviceFrame(model))
-  const height = 507
+  const config = getDeviceFrame(model)
+  const rendered = getDeviceRenderSize(config)
+  const height = config.platform === 'watch' ? 430 : config.platform === 'ipad' ? 480 : 507
   return { width: Math.round(height * (rendered.width / rendered.height)), height }
 }
 
@@ -402,11 +478,11 @@ export function generateDeviceFrameSVG(
     l'app, et la capture ne porte donc aucun noir à cet endroit.
   -->
   ${
-    !dynamicIsland
+    config.notch
       ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
-      : screenshotUrl
-        ? ''
-        : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
+      : dynamicIsland && !screenshotUrl
+        ? `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
+        : ''
   }
 </svg>`
 }
