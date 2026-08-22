@@ -35,6 +35,7 @@ import {
   type RemoteProject,
 } from '@/lib/cloud'
 import { cloudConfigured } from '@/lib/convex'
+import { captureAnalytics, captureDiagnosticLog } from '@/lib/analytics'
 import { projectWithoutThumbnails } from '@/lib/project-file'
 import {
   normalizeProject,
@@ -71,6 +72,7 @@ import { CLOUD_OFFER, MEBIBYTE } from '@screenforge/project-format'
 const PROJECT_DOWNLOAD_CONCURRENCY = 2
 const ASSET_UPLOAD_CONCURRENCY = 4
 const ASSET_DOWNLOAD_CONCURRENCY = 4
+let cycleStartedAt = 0
 
 function setStatus(status: SyncStatus): void {
   useUIStore.getState().setSyncStatus(status)
@@ -774,6 +776,7 @@ async function cycle(): Promise<void> {
   if (!syncAllowed()) return setStatus('off')
   const userId = currentUserId()
   if (!userId) return setStatus('off')
+  cycleStartedAt = performance.now()
   await ensureConsentBarrier(userId)
   if (!stillSyncing(userId)) return setStatus('off')
   if (offline()) return setStatus('offline')
@@ -830,7 +833,15 @@ async function cycle(): Promise<void> {
     }
   }
   if (!stillSyncing(userId)) return setStatus('off')
-  setStatus(pullIncomplete ? 'error' : 'synced')
+  const duration_ms = Math.round(performance.now() - cycleStartedAt)
+  if (pullIncomplete) {
+    setStatus('error')
+    captureAnalytics('screenforge_sync_failed', { duration_ms, issue: 'cloud-partial' })
+    captureDiagnosticLog('sync_failed', { issue: 'cloud-partial' })
+  } else {
+    setStatus('synced')
+    captureAnalytics('screenforge_sync_succeeded', { duration_ms })
+  }
 }
 
 function fail(error: unknown): void {
@@ -838,6 +849,9 @@ function fail(error: unknown): void {
   console.error('Cloud sync failed.', error)
   if (offline()) return setStatus('offline')
   setStatus('error')
+  const duration_ms = Math.round(performance.now() - cycleStartedAt)
+  captureAnalytics('screenforge_sync_failed', { duration_ms, issue: 'cloud' })
+  captureDiagnosticLog('sync_failed', { issue: 'cloud' })
   const quota = error instanceof CloudUploadError ? cloudQuotaMessage(error.outcome) : undefined
   toast(
     quota ?? 'Synchronisation impossible. Vos modifications restent enregistrées ici.',

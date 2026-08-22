@@ -35,6 +35,7 @@ interface UIState {
   showLocaleDialog: boolean
   showPublishDialog: boolean
   showMcpDialog: boolean
+  showPrivacyDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
   theme: Theme
@@ -63,6 +64,7 @@ interface UIState {
   setShowLocaleDialog: (show: boolean) => void
   setShowPublishDialog: (show: boolean) => void
   setShowMcpDialog: (show: boolean) => void
+  setShowPrivacyDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
   toggleTheme: () => void
@@ -96,6 +98,7 @@ const MODALS = [
   'showLocaleDialog',
   'showPublishDialog',
   'showMcpDialog',
+  'showPrivacyDialog',
   'showShortcuts',
 ] as const
 
@@ -135,6 +138,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showLocaleDialog: false,
   showPublishDialog: false,
   showMcpDialog: false,
+  showPrivacyDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
   theme: readBootTheme(),
@@ -204,6 +208,8 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowPublishDialog: (show) => set(onlyModal('showPublishDialog', show)),
 
   setShowMcpDialog: (show) => set(onlyModal('showMcpDialog', show)),
+
+  setShowPrivacyDialog: (show) => set(onlyModal('showPrivacyDialog', show)),
 
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
 

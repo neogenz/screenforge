@@ -18,6 +18,9 @@ const REQUIRED_VARIABLES = [
   'POLAR_ACCESS_TOKEN',
   'POLAR_CLOUD_PRODUCT_ID',
   'POLAR_WEBHOOK_SECRET',
+  'POSTHOG_HOST',
+  'POSTHOG_PERSON_API_KEY',
+  'POSTHOG_PROJECT_ID',
   'SITE_URL',
 ] as const
 
@@ -93,6 +96,13 @@ export function evaluatePreflight(target: PreflightTarget, configuration: Prefli
 
   if (configuration.VERCEL_PREVIEW_HOST_SUFFIX?.trim()) {
     inconsistent.push('VERCEL_PREVIEW_HOST_SUFFIX_FORBIDDEN')
+  }
+
+  if (configuration.POSTHOG_HOST?.trim() !== 'https://eu.posthog.com') {
+    inconsistent.push('POSTHOG_REQUIRES_EU_MANAGEMENT_HOST')
+  }
+  if (!/^\d+$/.test(configuration.POSTHOG_PROJECT_ID?.trim() ?? '')) {
+    inconsistent.push('POSTHOG_PROJECT_ID_INVALID')
   }
 
   if (target === 'preproduction') {
