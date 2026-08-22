@@ -19,8 +19,13 @@ test('keeps an editable memory project when IndexedDB is unavailable', async ({ 
   await expect(
     page.getByRole('status').filter({ hasText: 'Échec de l’enregistrement' }),
   ).toBeVisible()
-  const warning = page.getByRole('alert').filter({ hasText: 'Stockage local indisponible' })
+  // NoticeStrip : `role="status"`, jamais `alert` — elle tient tant que la
+  // panne dure, elle n'a rien à couper à un lecteur d'écran déjà en page.
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: 'Le stockage local est indisponible.' })
   await expect(warning).toBeVisible()
+  await expect(warning.getByRole('button', { name: 'Réessayer' })).toBeVisible()
 
   await addTextLayer(page)
   await page.clock.fastForward(5_000)

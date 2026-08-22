@@ -75,6 +75,7 @@ export const LayerItem = memo(function LayerItem({
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
   const [entered, setEntered] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
 
@@ -191,8 +192,15 @@ export const LayerItem = memo(function LayerItem({
         draggable
         onFocus={() => onFocusRow(layer)}
         onDragStart={(event) => onDragStart(layer, event)}
-        onDragOver={onDragOver}
-        onDrop={(event) => onDrop(layer, event)}
+        onDragOver={(event) => {
+          onDragOver(event)
+          setDragOver(true)
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(event) => {
+          setDragOver(false)
+          onDrop(layer, event)
+        }}
         onClick={(event) => onSelect(layer, event)}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -206,7 +214,7 @@ export const LayerItem = memo(function LayerItem({
           // redémarre ses animations CSS, et la ligne rejouait son entrée à
           // chaque déplacement.
           !entered && 'animate-enter',
-          'group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+          'group relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2',
           'transition-colors duration-100 ease-out',
           // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
           // L'aplat pesait autant que le contenu du panneau et ne disait pas
@@ -216,6 +224,15 @@ export const LayerItem = memo(function LayerItem({
             : 'text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
       >
+        {/* Comme la barre d'insertion du filmstrip : la place que le lâcher
+            prendrait, pas un survol générique. */}
+        {dragOver && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-2 -top-px h-[3px] rounded-full bg-marker"
+          />
+        )}
+
         <GripVertical
           size={11}
           strokeWidth={1.5}
@@ -260,10 +277,13 @@ export const LayerItem = memo(function LayerItem({
                 actions.setVisibility(layer, !layer.visible)
               }}
             >
+              {/* Icônes de types distincts (React les démonte/remonte au
+                  bascule) : `animate-mark` rejoue donc à chaque changement
+                  d'état sans clé à gérer à la main. */}
               {layer.visible ? (
-                <Eye strokeWidth={1.5} aria-hidden />
+                <Eye strokeWidth={1.5} aria-hidden className="animate-mark" />
               ) : (
-                <EyeOff strokeWidth={1.5} aria-hidden />
+                <EyeOff strokeWidth={1.5} aria-hidden className="animate-mark" />
               )}
             </Button>
           </Hint>

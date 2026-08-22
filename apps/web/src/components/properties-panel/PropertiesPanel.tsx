@@ -8,6 +8,7 @@ import type { SegmentedOption } from '@/components/patterns/segmented'
 import { PanelSection } from '@/components/patterns/panel-section'
 import { DrawerBody, DrawerIsland } from '@/components/patterns/drawer-island'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { copy } from '@/lib/copy'
 import { TransformSection } from './TransformSection'
 import { TextSection } from './TextSection'
 import { DeviceSection } from './DeviceSection'
@@ -69,10 +70,8 @@ export function PropertiesPanel() {
                 <EmptyMedia variant="icon">
                   <MousePointer size={18} strokeWidth={1.5} aria-hidden />
                 </EmptyMedia>
-                <EmptyTitle>Sélectionnez un calque</EmptyTitle>
-                <EmptyDescription>
-                  Cliquez sur la planche ou dans la liste des calques
-                </EmptyDescription>
+                <EmptyTitle>{copy.empty.selectionTitle}</EmptyTitle>
+                <EmptyDescription>{copy.empty.selectionDescription}</EmptyDescription>
               </EmptyHeader>
             </Empty>
           )}

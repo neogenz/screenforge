@@ -8,6 +8,7 @@ import {
   ComboboxList,
   ComboboxPopup,
 } from '@/components/ui/combobox'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 export interface FontPickerProps {
@@ -77,9 +78,18 @@ function FontOption({ family, selected }: { family: string; selected: boolean })
       ref={itemRef}
       value={family}
       className={cn(selected && 'bg-secondary text-foreground')}
-      style={fontLoaded ? { fontFamily: `"${family}", system-ui` } : undefined}
     >
-      <span className="truncate">{family}</span>
+      {fontLoaded ? (
+        // Rendu dans sa propre police pour de bon : un aperçu en police de
+        // repli ne prévisualise rien, il ment sur ce que la police rendra.
+        // `oa-arrive` se joue une fois, à la création de ce `<span>` — il
+        // n'existe pas tant que le squelette ci-dessous est affiché.
+        <span className="oa-arrive truncate" style={{ fontFamily: `"${family}", system-ui` }}>
+          {family}
+        </span>
+      ) : (
+        <Skeleton className="h-3.5 w-24" />
+      )}
     </ComboboxItem>
   )
 }

@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
 import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
+import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
 import type { TemplateDefinition } from '@/types'
 
@@ -104,7 +105,7 @@ function TemplatePickerContent() {
             />
           ) : (
             <Empty className="min-h-24 gap-1 px-4 py-4">
-              <EmptyTitle className="font-normal text-sm">Aucun gabarit enregistré</EmptyTitle>
+              <EmptyTitle className="font-normal text-sm">{copy.empty.templatesTitle}</EmptyTitle>
               <EmptyDescription>
                 Enregistrez une mise en page depuis le menu d’un écran, ou laissez l’agent en poser
                 un.

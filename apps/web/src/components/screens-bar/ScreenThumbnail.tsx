@@ -13,6 +13,7 @@ import {
 import { ContextMenu } from '@/components/patterns/action-menu'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import { Hint } from '@/components/patterns/hint'
 import { cn } from '@/lib/utils'
@@ -267,9 +268,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             de large, et le liseré, rectangulaire, se faisait couper aux quatre
             coins par l'écrêtage arrondi — d'où un aperçu qui paraissait rogné. */}
           {screen.thumbnail ? (
-            <img src={screen.thumbnail} alt="" className="h-full w-full object-cover" />
+            // `oa-arrive` sans état ni effet : l'`<img>` n'existe pas tant que
+            // `thumbnail` est absent (branche squelette ci-dessous), donc son
+            // premier rendu EST sa création dans le DOM — l'arrivée par la
+            // netteté se joue à l'insertion, une fois, et un re-rendu sur le
+            // même thumbnail (sélection, survol) touche `src` à l'identique,
+            // jamais la classe : rien ne rejoue.
+            <img src={screen.thumbnail} alt="" className="oa-arrive h-full w-full object-cover" />
           ) : (
-            <span className="block h-full w-full bg-secondary" />
+            <Skeleton className="h-full w-full rounded-none" />
           )}
         </button>
       </Hint>

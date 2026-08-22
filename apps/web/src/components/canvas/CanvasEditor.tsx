@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
 import { ContextMenu } from '@/components/patterns/action-menu'
 import { ConfirmAction } from '@/components/patterns/confirm-action'
+import { EmptyStage } from '@/components/patterns/empty-stage'
 import { buildLayerMenuItems } from '@/components/layers-panel/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'
@@ -17,6 +18,7 @@ export default function CanvasEditor() {
   const { canvasRef, containerRef, getLayerIdAtPoint, selectionFrame } = useCanvas()
   const actions = useLayerActions()
   const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
+  const hasScreens = useProjectStore((state) => (state.project?.screens.length ?? 0) > 0)
   const [menu, setMenu] = useState<{ left: number; top: number; layerId: string } | null>(null)
   const [dropping, setDropping] = useState(false)
   // Les ids sont capturés à la demande, pas relus depuis la sélection en
@@ -84,6 +86,7 @@ export default function CanvasEditor() {
       onDrop={handleDrop}
     >
       <canvas ref={canvasRef} />
+      {!hasScreens && <EmptyStage />}
       <SelectionToolbar frame={selectionFrame} />
       {menu && menuLayer && (
         <ContextMenu

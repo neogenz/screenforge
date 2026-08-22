@@ -12,6 +12,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
 import { SCREENSHOT_IMAGE_ACCEPT } from '@/lib/image'
+import { copy } from '@/lib/copy'
 import { useUIStore } from '@/stores/ui.store'
 import type { Layer } from '@/types'
 
@@ -281,7 +282,7 @@ export function LayersPanel() {
 
       {layers.length > 0 && layerGroups.length === 0 && (
         <Empty role="status" className="min-h-32 gap-0 px-6 py-6">
-          <EmptyTitle className="font-normal text-sm">Aucun calque ne correspond</EmptyTitle>
+          <EmptyTitle className="font-normal text-sm">{copy.empty.layersTitle}</EmptyTitle>
         </Empty>
       )}
 

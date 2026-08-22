@@ -51,6 +51,38 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(fonts.inter).toBe(true)
 })
 
+/**
+ * Le bouton Exporter ne saute pas quand React remplace le squelette.
+ *
+ * `.boot-export` est un rectangle sans texte — le boot n'a encore ni Inter ni
+ * le CSS de l'app pour mesurer « Exporter » lui-même — mais ses quatre bords
+ * recopient le rendu réel à la largeur de fenêtre par défaut des tests. Les
+ * deux mesures viennent de deux pages séparées : la première n'exécute jamais
+ * `main.tsx` (le script est intercepté), donc le squelette reste seul à
+ * l'écran le temps de la lire.
+ */
+test('le bouton Exporter garde sa position entre le squelette et l’hydratation', async ({
+  page,
+  browser,
+}) => {
+  await page.route('**/src/main.tsx*', (route) => route.abort())
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  const before = await page.locator('.boot-export').boundingBox()
+  expect(before).not.toBeNull()
+
+  const hydrated = await browser.newPage()
+  await waitForApp(hydrated)
+  const after = await hydrated.locator('button[aria-label="Ouvrir l’export"]').boundingBox()
+  await hydrated.close()
+  expect(after).not.toBeNull()
+
+  if (!before || !after) return
+  expect(Math.abs(before.x - after.x)).toBeLessThan(1)
+  expect(Math.abs(before.y - after.y)).toBeLessThan(1)
+  expect(Math.abs(before.width - after.width)).toBeLessThan(1)
+  expect(Math.abs(before.height - after.height)).toBeLessThan(1)
+})
+
 test('déclare la même icône servie en local sur la landing et l’éditeur', async ({ request }) => {
   const [app, landing, icon] = await Promise.all([
     request.get('/'),

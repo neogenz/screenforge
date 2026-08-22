@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
 import { Dialog, DialogHeader, DialogPanel, DialogPopup } from '@/components/ui/dialog'
+import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
@@ -156,11 +157,11 @@ export default function App() {
         clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
         useUIStore.getState().setSaveStatus('error')
-        toast(
-          'Stockage local indisponible. Ce projet restera en mémoire et sera perdu à la fermeture.',
-          'error',
-          { duration: Infinity },
-        )
+        // La condition tient sous la barre (NoticeStrip dans TopBar) tant que
+        // le stockage reste indisponible : un toast à durée infinie disait la
+        // même chose une fois puis se laissait fermer sans que la panne, elle,
+        // ne soit finie.
+        useUIStore.getState().setStorageUnavailable(true)
       }
     }
 
@@ -287,19 +288,28 @@ export default function App() {
             {
               zIndex: 'var(--z-toast)',
               fontFamily: 'var(--font-sans)',
-              '--normal-bg': 'var(--color-secondary)',
+              // Popover, pas secondary : un toast est une surface flottante,
+              // pas un bouton — c'est le nom que coss réserve aux surfaces.
+              '--normal-bg': 'var(--color-popover)',
               '--normal-border': 'var(--color-border)',
-              '--normal-text': 'var(--color-foreground)',
-              '--border-radius': 'var(--radius-md)',
+              '--normal-text': 'var(--color-popover-foreground)',
+              '--border-radius': 'var(--radius-lg)',
             } as CSSProperties
           }
           toastOptions={{
             classNames: {
               title: '!leading-5',
               description: '!leading-5',
-              /* 20px chez Sonner : une troisième hauteur de contrôle, hors
-                 échelle fermée (32/36) — c'est l'audit de scale qui l'a vue. */
-              closeButton: '!size-8',
+              /* Bouton coss (`icon-xs`/`ghost`), pas le cercle par défaut de
+                 Sonner : `!important` reprend chaque propriété que la règle
+                 `[data-close-button]` de Sonner pose elle-même (fond, bordure,
+                 rayon, taille) — la même nécessité qui forçait déjà `!size-8`
+                 ici, affinée sur l'échelle icône plutôt que sur la hauteur de
+                 contrôle des panneaux. */
+              closeButton: cn(
+                buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
+                '!size-7 sm:!size-6 !rounded-md !border-transparent !bg-transparent !text-muted-foreground hover:!bg-accent hover:!text-foreground',
+              ),
             },
             style: {
               boxShadow: 'var(--shadow-lg), var(--hairline-top)',

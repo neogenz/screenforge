@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 import {
-  Check,
   ChevronDown,
   Cloud,
   CloudOff,
@@ -35,11 +34,13 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
+import { useUIStore, type SyncStatus } from '@/stores/ui.store'
 import { MCP_LABELS, useMcpStore, type McpStatus } from '@/stores/mcp.store'
 import { ProjectSwitcher } from '@/components/project-switcher/ProjectSwitcher'
 import { Hint } from '@/components/patterns/hint'
 import { StatusChip, StatusDot, type StatusTone } from '@/components/patterns/status-chip'
+import { SaveStatusChip } from '@/components/patterns/save-status'
+import { NoticeStrip } from '@/components/patterns/notice-strip'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { Toolbar, ToolbarButton, ToolbarGroup, ToolbarSeparator } from '@/components/ui/toolbar'
@@ -52,6 +53,8 @@ import { cn } from '@/lib/utils'
 import { billingConfigured } from '@/lib/account'
 import { planName } from '@/lib/plans'
 import { cloudConfigured } from '@/lib/convex'
+import { copy } from '@/lib/copy'
+import { retryStorage } from '@/lib/storage'
 import {
   createDeviceLayer,
   createIconLayer,
@@ -64,13 +67,6 @@ import type { DeviceModel, Layer } from '@/types'
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
 const PROJECT_NAME_INPUT_ID = 'sf-project-name-input'
 
-const SAVE_LABELS: Record<SaveStatus, string> = {
-  idle: 'Modifications non enregistrées',
-  saving: 'Enregistrement…',
-  saved: 'Enregistré',
-  error: 'Échec de l’enregistrement',
-}
-
 const SYNC_LABELS: Record<Exclude<SyncStatus, 'off'>, string> = {
   syncing: 'Synchronisation…',
   synced: 'Synchronisé',
@@ -78,18 +74,6 @@ const SYNC_LABELS: Record<Exclude<SyncStatus, 'off'>, string> = {
   error: 'Échec de la synchronisation',
 }
 
-const SAVE_TONE: Record<SaveStatus, StatusTone> = {
-  idle: 'neutral',
-  saving: 'pulse',
-  saved: 'success',
-  error: 'warning',
-}
-const SAVE_ICON: Record<SaveStatus, ReactNode> = {
-  idle: undefined,
-  saving: <LoaderCircle size={11} className="animate-spin" aria-hidden />,
-  saved: <Check size={11} className="text-success" aria-hidden />,
-  error: <TriangleAlert size={11} aria-hidden />,
-}
 const SYNC_TONE: Record<Exclude<SyncStatus, 'off'>, StatusTone> = {
   syncing: 'pulse',
   synced: 'success',
@@ -200,29 +184,50 @@ export function TopBar() {
   // habitable — voir `TOP_BAR_TOOLS_WIDTH`.
   const compactActions = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
   const compactTools = useMediaQuery(belowWidth(TOP_BAR_TOOLS_WIDTH))
+  const storageUnavailable = useUIStore((s) => s.storageUnavailable)
 
+  // La colonne du projet plancher à `0` et non à `min-content` : un champ en
+  // `field-sizing-content` déclare son contenu comme min-content, donc
+  // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
+  // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
+  // le champ qui absorbe, pas la grille.
+  //
+  // `Island` fournit l'unique surface (coque, bord, ombre) ; `Toolbar` lui
+  // prête le rôle et la navigation aux flèches, sans surface en plus — les
+  // classes d'`Island` se posent après celles de `Toolbar` dans la chaîne de
+  // fusion, donc son cadre l'emporte déjà sur celui, par défaut, du
+  // `Toolbar` : aucune classe de coque à répéter ici, seulement la grille.
   return (
-    // La colonne du projet plancher à `0` et non à `min-content` : un champ en
-    // `field-sizing-content` déclare son contenu comme min-content, donc
-    // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
-    // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
-    // le champ qui absorbe, pas la grille.
-    //
-    // `Island` fournit l'unique surface (coque, bord, ombre) ; `Toolbar` lui
-    // prête le rôle et la navigation aux flèches, sans surface en plus — les
-    // classes d'`Island` se posent après celles de `Toolbar` dans la chaîne de
-    // fusion, donc son cadre l'emporte déjà sur celui, par défaut, du
-    // `Toolbar` : aucune classe de coque à répéter ici, seulement la grille.
-    <Island
-      render={<Toolbar />}
-      className="grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2"
-    >
-      <ProjectSegment compactTools={compactTools} />
-      {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
+    <>
+      <Island
+        render={<Toolbar />}
+        className="grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2"
+      >
+        <ProjectSegment compactTools={compactTools} />
+        {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
           garde le groupe central au milieu quand il revient. */}
-      {compactTools ? <span /> : <ToolsSegment />}
-      <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
-    </Island>
+        {compactTools ? <span /> : <ToolsSegment />}
+        <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
+      </Island>
+      {/* Sous la barre, jamais dedans : la grille de l'îlot est mesurée au pixel
+        près (`lib/stage.ts`), une bannière n'y a pas de colonne. Tient tant
+        que le stockage reste indisponible — aucune fermeture, voir NoticeStrip. */}
+      {storageUnavailable && (
+        <NoticeStrip
+          className="mt-2"
+          title={copy.notice.storageTitle}
+          description={copy.notice.storageDescription}
+          action={{
+            label: copy.notice.storageAction,
+            onClick: () => {
+              void retryStorage().then((ok) => {
+                if (ok) useUIStore.getState().setStorageUnavailable(false)
+              })
+            },
+          }}
+        />
+      )}
+    </>
   )
 }
 
@@ -288,23 +293,7 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
         pleine y aurait ajouté ce que ces seuils n'attendent pas. Le vocabulaire
         de teinte reste le même que partout ailleurs (`StatusTone`).
       */}
-        <StatusChip
-          role="status"
-          aria-live="polite"
-          /* Replié, le témoin n'est plus qu'une pastille de couleur : le
-             lecteur d'écran garde le libellé `sr-only`, et le `title` le rend
-             à la souris. Un état qui ne tient qu'à une couleur n'est pas un
-             état, c'est une décoration. */
-          title={written ? undefined : SAVE_LABELS[saveStatus]}
-          tone={SAVE_TONE[saveStatus]}
-          icon={SAVE_ICON[saveStatus]}
-          className={cn(
-            'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-2xs',
-            saveStatus === 'error' && 'text-destructive',
-          )}
-        >
-          <span className={statusLabelClass(written)}>{SAVE_LABELS[saveStatus]}</span>
-        </StatusChip>
+        <SaveStatusChip status={saveStatus} written={written} />
         <SyncIndicator written={written} />
       </div>
       {!compactTools && <HistoryControls />}

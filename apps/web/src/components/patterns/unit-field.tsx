@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   NumberField,
   NumberFieldGroup,
@@ -55,6 +55,15 @@ export function UnitField({
     setPrev(value)
     setDraft(value)
   }
+  /* La borne tapée : Base UI clampe déjà `onValueChange` en continu (pas
+     seulement au blur), donc la valeur validée ne dit jamais elle-même
+     qu'elle a été ramenée — seul le texte brut du champ le sait encore.
+     ponytail : lue sur `raw === bound` plutôt que sur un delta avant/après,
+     donc taper exactement la borne l'affiche aussi ; distinguer les deux
+     demanderait la valeur non clampée que Base UI ne remonte pas. */
+  const [bound, setBound] = useState<number | null>(null)
+  const boundTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(boundTimer.current), [])
   return (
     <NumberField
       id={id}
@@ -71,7 +80,7 @@ export function UnitField({
       format={{ maximumFractionDigits: precision, useGrouping: false }}
       disabled={disabled}
       data-slot="unit-field"
-      className={cn('min-w-0 flex-1 flex-row items-center gap-1.5', className)}
+      className={cn('relative min-w-0 flex-1 flex-row items-center gap-1.5', className)}
     >
       {label && (
         <NumberFieldScrubArea
@@ -84,6 +93,16 @@ export function UnitField({
         <NumberFieldInput
           aria-label={ariaLabel}
           className="text-start"
+          onChange={(event) => {
+            const raw = Number(event.currentTarget.value)
+            if (!Number.isFinite(raw)) return
+            const hit =
+              min !== undefined && raw < min ? min : max !== undefined && raw > max ? max : null
+            if (hit === null) return
+            setBound(hit)
+            window.clearTimeout(boundTimer.current)
+            boundTimer.current = window.setTimeout(() => setBound(null), 1000)
+          }}
           onBlur={() => {
             if (draft === null) setDraft(value)
           }}
@@ -97,6 +116,13 @@ export function UnitField({
           </span>
         )}
       </NumberFieldGroup>
+      {bound !== null && (
+        <p className="absolute inset-x-0 top-full z-10 mt-1 truncate text-2xs text-muted-foreground">
+          {bound === min ? 'Min. ' : 'Max. '}
+          {bound}
+          {unit}
+        </p>
+      )}
     </NumberField>
   )
 }

@@ -9,6 +9,7 @@ interface LayerEntryProbe {
 type MotionProbeWindow = Window & {
   __sfLayerEntryProbe?: LayerEntryProbe
   __sfExitProbe?: LayerEntryProbe
+  __sfToastAnims?: { name: string }[]
 }
 
 async function armLayerEntryProbe(page: Page): Promise<void> {
@@ -56,6 +57,64 @@ function readLayerEntryProbe(page: Page): Promise<LayerEntryProbe | null> {
   return page.evaluate(
     () => (window as MotionProbeWindow).__sfLayerEntryProbe ?? null,
   ) as Promise<LayerEntryProbe | null>
+}
+
+/**
+ * Chaque toast monte un nœud neuf (Sonner ne réutilise le sien qu'à `id`
+ * identique, jamais fourni ici) : c'est le nom du `@keyframes` qui prouve
+ * l'alternance odd/even, pas une inspection de classe.
+ */
+async function armToastAnimProbe(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const root = window as MotionProbeWindow
+    root.__sfToastAnims = []
+    document.addEventListener('animationstart', (event) => {
+      if (!(event.target instanceof HTMLElement)) return
+      if (!event.target.closest('[data-sonner-toast]')) return
+      if (!event.animationName.startsWith('toast-')) return
+      root.__sfToastAnims!.push({ name: event.animationName })
+    })
+  })
+}
+
+function readToastAnims(page: Page): Promise<{ name: string }[]> {
+  return page.evaluate(() => (window as MotionProbeWindow).__sfToastAnims ?? [])
+}
+
+/**
+ * Le texte du `@keyframes` nommé déclare-t-il cette propriété — plutôt que
+ * deviner sur une valeur mi-vol d'une animation de 320 ms, ce qui serait
+ * hasardeux à relire par un aller-retour Playwright.
+ */
+function keyframeAnimates(page: Page, name: string, property: string): Promise<boolean> {
+  return page.evaluate(
+    ({ name, property }) => {
+      function* walk(rules: Iterable<CSSRule>): Generator<CSSRule> {
+        for (const rule of rules) {
+          yield rule
+          if ('cssRules' in rule) yield* walk((rule as CSSGroupingRule).cssRules)
+        }
+      }
+      for (const sheet of document.styleSheets) {
+        let rules: CSSRuleList
+        try {
+          rules = sheet.cssRules
+        } catch {
+          continue
+        }
+        for (const rule of walk(rules)) {
+          if (rule instanceof CSSKeyframesRule && rule.name === name) {
+            return [...rule.cssRules].some(
+              (frame) =>
+                frame instanceof CSSKeyframeRule && frame.style.getPropertyValue(property) !== '',
+            )
+          }
+        }
+      }
+      return false
+    },
+    { name, property },
+  )
 }
 
 /**
@@ -188,5 +247,156 @@ test.describe('micro-interactions', () => {
     await expect
       .poll(() => check.evaluate((element) => getComputedStyle(element).strokeDashoffset))
       .toBe('0px')
+  })
+
+  /* Deux signatures physiques, pas deux goûts : le succès confirme (`scale`),
+     l'erreur alerte (`translate`) — la propriété que joue chaque keyframe le
+     dit, indépendamment de ce que Sonner nomme sa classe. */
+  test('le toast de succès porte une animation scale, celui d’erreur une translate', async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    await armToastAnimProbe(page)
+    await page.evaluate(async () => {
+      const toastPath = '/src/stores/toast.store.ts'
+      const { toast } = (await import(toastPath)) as typeof import('../src/stores/toast.store')
+      toast('Exporté', 'success')
+      toast('Le rendu a échoué.', 'error')
+    })
+
+    await expect.poll(async () => (await readToastAnims(page)).length).toBeGreaterThanOrEqual(2)
+    const anims = await readToastAnims(page)
+    const success = anims.find((anim) => anim.name.startsWith('toast-success-'))
+    const error = anims.find((anim) => anim.name.startsWith('toast-error-'))
+    expect(success, 'animation de succès absente').toBeTruthy()
+    expect(error, 'animation d’erreur absente').toBeTruthy()
+    expect(await keyframeAnimates(page, success!.name, 'scale')).toBe(true)
+    expect(await keyframeAnimates(page, error!.name, 'translate')).toBe(true)
+  })
+
+  /* Sonner monte un nœud par appel, jamais le même : la classe qui alterne
+     est ce qui garantit qu'un `animationstart` reparte bel et bien de zéro
+     pour le second toast, identique au premier, plutôt que de dépendre d'un
+     navigateur qui déciderait de fusionner deux animations au nom égal. */
+  test('deux toasts de succès identiques d’affilée rejouent : les classes odd/even alternent', async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    await armToastAnimProbe(page)
+    await page.evaluate(async () => {
+      const toastPath = '/src/stores/toast.store.ts'
+      const { toast } = (await import(toastPath)) as typeof import('../src/stores/toast.store')
+      toast('Enregistré', 'success')
+      toast('Enregistré', 'success')
+    })
+
+    await expect.poll(async () => (await readToastAnims(page)).length).toBeGreaterThanOrEqual(2)
+    const [first, second] = await readToastAnims(page)
+    expect(first?.name).toBe('toast-success-odd')
+    expect(second?.name).toBe('toast-success-even')
+  })
+
+  test('reduced motion efface les animations de toast', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await waitForApp(page)
+    await page.evaluate(async () => {
+      const toastPath = '/src/stores/toast.store.ts'
+      const { toast } = (await import(toastPath)) as typeof import('../src/stores/toast.store')
+      toast('Exporté', 'success')
+    })
+
+    const toastEl = page.locator('[data-sonner-toast]').first()
+    await expect(toastEl).toBeVisible()
+    await expect
+      .poll(() => toastEl.evaluate((element) => getComputedStyle(element).animationName))
+      .toBe('none')
+  })
+
+  /* L'aperçu d'une vignette arrive par la netteté quand l'écran neuf reçoit
+     son premier rendu — armé avant `waitForApp` pour ne pas manquer une
+     arrivée automatique, plus rapide que l'aller-retour Playwright. Le
+     `<img>` n'existe pas tant que `screen.thumbnail` est absent (squelette à
+     sa place) : son premier rendu EST sa création dans le DOM, donc
+     l'animation joue à l'insertion, une fois, jamais au re-rendu suivant. */
+  test('la vignette d’un écran s’anime une fois à l’arrivée de son aperçu', async ({ page }) => {
+    await page.addInitScript(() => {
+      const root = window as MotionProbeWindow & {
+        __sfThumbnailProbe?: { count: number } & LayerEntryProbe
+      }
+      root.__sfThumbnailProbe = { count: 0, name: '', duration: '' }
+      document.addEventListener('animationstart', (event) => {
+        if (!(event.target instanceof HTMLImageElement)) return
+        if (!event.target.closest('[data-thumbnail-preview]')) return
+        const style = getComputedStyle(event.target)
+        root.__sfThumbnailProbe!.count += 1
+        root.__sfThumbnailProbe!.name = event.animationName
+        root.__sfThumbnailProbe!.duration = style.animationDuration
+      })
+    })
+    await waitForApp(page)
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as MotionProbeWindow & { __sfThumbnailProbe?: { count: number } })
+              .__sfThumbnailProbe?.count ?? 0,
+        ),
+      )
+      .toBeGreaterThan(0)
+    const probe = await page.evaluate(
+      () =>
+        (window as MotionProbeWindow & { __sfThumbnailProbe?: { count: number } & LayerEntryProbe })
+          .__sfThumbnailProbe,
+    )
+    expect(probe?.name).toBe('oa-arrive')
+    expect(probe?.count).toBe(1)
+
+    // Un re-rendu sans nouveau thumbnail (ouvrir un tiroir) ne rejoue rien.
+    await page.evaluate(() => window.__sfStores?.useUIStore.getState().toggleLayers())
+    await page.waitForTimeout(400)
+    const after = await page.evaluate(
+      () =>
+        (window as MotionProbeWindow & { __sfThumbnailProbe?: { count: number } })
+          .__sfThumbnailProbe?.count,
+    )
+    expect(after).toBe(1)
+  })
+
+  test('reduced motion retombe sur un fondu pour l’arrivée d’une vignette', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.addInitScript(() => {
+      const root = window as MotionProbeWindow & {
+        __sfThumbnailProbe?: { count: number } & LayerEntryProbe
+      }
+      root.__sfThumbnailProbe = { count: 0, name: '', duration: '' }
+      document.addEventListener('animationstart', (event) => {
+        if (!(event.target instanceof HTMLImageElement)) return
+        if (!event.target.closest('[data-thumbnail-preview]')) return
+        const style = getComputedStyle(event.target)
+        root.__sfThumbnailProbe!.count += 1
+        root.__sfThumbnailProbe!.name = event.animationName
+        root.__sfThumbnailProbe!.duration = style.animationDuration
+      })
+    })
+    await waitForApp(page)
+
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as MotionProbeWindow & { __sfThumbnailProbe?: { count: number } })
+              .__sfThumbnailProbe?.count ?? 0,
+        ),
+      )
+      .toBeGreaterThan(0)
+    const probe = await page.evaluate(
+      () =>
+        (window as MotionProbeWindow & { __sfThumbnailProbe?: { count: number } & LayerEntryProbe })
+          .__sfThumbnailProbe,
+    )
+    // Absent au sens du nom : `oa-arrive` ne joue jamais, `motion.css` le
+    // retombe sur `fade-in` sous `prefers-reduced-motion`.
+    expect(probe?.name).toBe('fade-in')
   })
 })

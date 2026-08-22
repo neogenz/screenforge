@@ -49,6 +49,13 @@ interface UIState {
   theme: Theme
   saveStatus: SaveStatus
   syncStatus: SyncStatus
+  /**
+   * IndexedDB a échoué au démarrage. Distinct de `saveStatus === 'error'`,
+   * qui couvre aussi un échec d'écriture ponctuel en cours de session — celui-
+   * là a déjà son propre toast (`lib/storage.ts`). Ce drapeau-ci ne tient que
+   * l'échec initial, qui prive l'autosave même de démarrer.
+   */
+  storageUnavailable: boolean
 
   setZoom: (zoom: number) => void
   zoomIn: () => void
@@ -82,6 +89,7 @@ interface UIState {
   setThemeFromSync: (theme: Theme) => void
   setSaveStatus: (status: SaveStatus) => void
   setSyncStatus: (status: SyncStatus) => void
+  setStorageUnavailable: (unavailable: boolean) => void
 }
 
 /**
@@ -154,6 +162,7 @@ export const useUIStore = create<UIState>()((set, get) => ({
   theme: readBootTheme(),
   saveStatus: 'idle',
   syncStatus: 'off',
+  storageUnavailable: false,
 
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
 
@@ -245,4 +254,6 @@ export const useUIStore = create<UIState>()((set, get) => ({
   setSaveStatus: (saveStatus) => set({ saveStatus }),
 
   setSyncStatus: (syncStatus) => set({ syncStatus }),
+
+  setStorageUnavailable: (storageUnavailable) => set({ storageUnavailable }),
 }))

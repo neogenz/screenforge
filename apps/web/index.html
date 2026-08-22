@@ -81,6 +81,79 @@
           animation: none;
         }
       }
+
+      /* Le chrome flottant, posé à sa géométrie finale avant tout CSS de
+         l'app : la barre haute, la pellicule et le HUD de zoom montent au
+         même endroit que leurs vraies vignettes, donc rien ne saute au
+         montage. `lib/stage.ts` reste la source des marges et hauteurs — sauf
+         `--boot-topbar-height`, mesurée ici à 46px (le bouton `size="default"`
+         rend en `sm:h-8` à cette largeur, padding d'îlot 4px, filet 1px) :
+         `TOP_BAR_HEIGHT` y vaut 50 (36 + 2×6 + 2×1), un compte qui suppose un
+         bouton `h-9` et un îlot à 6px de retrait — ni l'un ni l'autre ne
+         correspond plus à ce que le navigateur pose aujourd'hui. Une vraie
+         planche à ce chiffre décalait le bouton Exporter de 4px à
+         l'hydratation ; la valeur ci-dessous est mesurée sur le rendu, pas
+         recopiée de la constante. */
+      :root {
+        --boot-margin: 12px;
+        --boot-topbar-height: 46px;
+        --boot-topbar-radius: 18px;
+        --boot-export-width: 101.28125px;
+        --boot-export-height: 32px;
+        --boot-export-radius: 10px;
+        --boot-filmstrip-height: 184px;
+        --boot-filmstrip-width: 69px;
+        --boot-hud-width: 134px;
+        --boot-hud-height: 38px;
+      }
+      .boot-topbar {
+        position: fixed;
+        top: var(--boot-margin);
+        left: var(--boot-margin);
+        right: var(--boot-margin);
+        height: var(--boot-topbar-height);
+        box-sizing: border-box;
+        border: 1px solid var(--boot-track);
+        border-radius: var(--boot-topbar-radius);
+        padding: 4px;
+      }
+      /* Le bouton Exporter ne se replie jamais (règle du chrome flottant) :
+         sa largeur rendue est donc stable dès 640px de fenêtre, et c'est elle
+         qui est recopiée ici plutôt que devinée depuis le texte — le boot n'a
+         encore ni la police Inter ni le CSS de l'app pour la mesurer lui-même. */
+      .boot-export {
+        position: absolute;
+        /* Le carré de positionnement absolu se compte depuis le bord interne
+           du filet (la boîte de remplissage), pas depuis le bord du contenu :
+           il faut donc recompter le retrait de 4px du padding en plus des 2px
+           de centrage vertical (36px de rangée pour un bouton de 32px). */
+        top: 6px;
+        right: 4px;
+        width: var(--boot-export-width);
+        height: var(--boot-export-height);
+        border-radius: var(--boot-export-radius);
+        background: var(--boot-track);
+      }
+      .boot-filmstrip {
+        position: fixed;
+        bottom: var(--boot-margin);
+        left: 50%;
+        translate: -50% 0;
+        width: var(--boot-filmstrip-width);
+        height: var(--boot-filmstrip-height);
+        border-radius: 9px;
+        background: var(--boot-track);
+      }
+      .boot-hud {
+        position: fixed;
+        bottom: var(--boot-margin);
+        right: var(--boot-margin);
+        width: var(--boot-hud-width);
+        height: var(--boot-hud-height);
+        border: 1px solid var(--boot-track);
+        border-radius: 18px;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -95,6 +168,11 @@
         <span class="boot-wordmark" aria-hidden="true"></span>
         <span class="boot-bar"><span></span></span>
       </div>
+      <div class="boot-topbar" aria-hidden="true">
+        <span class="boot-export"></span>
+      </div>
+      <div class="boot-filmstrip" aria-hidden="true"></div>
+      <div class="boot-hud" aria-hidden="true"></div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,5 +1,7 @@
+import { useRef, useState } from 'react'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Slider } from '@/components/ui/slider'
+import { Tooltip, TooltipPopup } from '@/components/ui/tooltip'
 import { clampNumber } from '@/lib/number'
 import { cn } from '@/lib/utils'
 
@@ -37,20 +39,38 @@ export function SliderField({
 }: SliderFieldProps) {
   const current = clampNumber(value, min, max)
   const readout = formatValue ? formatValue(current) : String(current)
+  /* Pas de lecture de `[data-dragging]` : coss ne l'expose que sur le curseur
+     lui-même (`ui/slider.tsx`, jamais retouché), pointeur pressé/relâché en
+     donne le même instant sans y toucher — la capture du pointeur par le
+     curseur laisse `pointerup` remonter jusqu'ici. */
+  const [dragging, setDragging] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
   const track = (
     <div
       data-slot="slider-field"
       className={cn('flex h-8 items-center gap-2', !label && className)}
     >
-      <Slider
-        value={current}
-        onValueChange={(next) => onChange(typeof next === 'number' ? next : (next[0] ?? current))}
-        min={min}
-        max={max}
-        step={step}
-        disabled={disabled}
-        className="min-w-0 flex-1"
-      />
+      <div
+        ref={anchorRef}
+        className="relative min-w-0 flex-1"
+        onPointerDown={() => setDragging(true)}
+        onPointerUp={() => setDragging(false)}
+        onPointerCancel={() => setDragging(false)}
+      >
+        <Slider
+          value={current}
+          onValueChange={(next) => onChange(typeof next === 'number' ? next : (next[0] ?? current))}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+        />
+        <Tooltip open={dragging}>
+          <TooltipPopup anchor={anchorRef} side="top">
+            {readout}
+          </TooltipPopup>
+        </Tooltip>
+      </div>
       <span className="min-w-11 shrink-0 text-end text-xs tabular-nums text-muted-foreground">
         {readout}
       </span>
