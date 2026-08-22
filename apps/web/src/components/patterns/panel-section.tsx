@@ -59,7 +59,8 @@ export function PanelSection({
       </div>
       {children && (
         <CollapsiblePanel>
-          <div className="grid gap-2 pb-1">{children}</div>
+          {/* Sans `minmax(0,…)` un enfant à texte insécable élargit la piste au-delà du tiroir. */}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 pb-1 *:min-w-0">{children}</div>
         </CollapsiblePanel>
       )}
     </Collapsible>

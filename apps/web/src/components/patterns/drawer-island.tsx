@@ -61,7 +61,15 @@ export function DrawerIsland({
 /** Le corps défilant d'un tiroir, à fondu aux deux bouts. */
 export function DrawerBody({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <ScrollArea scrollFade className={cn('px-3 pb-3', className)}>
+    // Le tiroir n'a pas de hauteur fixe, seulement un plafond : le `h-full`
+    // du viewport coss ne se résout pas. On le fait flex et on borne l'enfant.
+    <ScrollArea
+      scrollFade
+      className={cn(
+        'flex min-h-0 flex-col px-3 pb-3 *:data-[slot=scroll-area-viewport]:min-h-0 *:data-[slot=scroll-area-viewport]:flex-1',
+        className,
+      )}
+    >
       {children}
     </ScrollArea>
   )

@@ -344,7 +344,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               'flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border',
-              'text-xs text-muted-foreground transition-colors duration-150 ease-out hover:bg-transparent',
+              'whitespace-normal text-xs text-muted-foreground transition-colors duration-150 ease-out hover:bg-transparent',
               'hover:border-input hover:text-foreground',
             )}
           >
