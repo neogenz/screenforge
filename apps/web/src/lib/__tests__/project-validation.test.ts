@@ -7,7 +7,27 @@ import {
   migrateProject,
 } from '@/lib/project-validation'
 import { APP_STORE_PROFILES } from '@/lib/dimensions'
-import type { Layer, Project } from '@/types'
+import type { DeviceFrameLayer, Layer, Project, Release } from '@/types'
+
+function deviceLayer(deviceModel: DeviceFrameLayer['deviceModel']): DeviceFrameLayer {
+  return {
+    id: 'device',
+    type: 'device-frame',
+    name: 'Device',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 200,
+    rotation: 0,
+    opacity: 1,
+    locked: false,
+    visible: true,
+    zIndex: 0,
+    deviceModel,
+    deviceColor: 'silver',
+    orientation: 'portrait',
+  }
+}
 
 function project(): Project {
   return {
@@ -86,6 +106,60 @@ describe('project validation', () => {
 
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
+  })
+
+  it('rejects unknown and cross-platform models at the shared import/sync boundary', () => {
+    const unknown = project()
+    unknown.globals.deviceModel = 'unknown' as never
+    expect(isProject(unknown)).toBe(false)
+
+    const ipad = project()
+    ipad.profileId = 'ipad-13'
+    ipad.globals.deviceModel = 'tablet-slate'
+    ipad.screens[0].layers = [deviceLayer('tablet-studio')]
+    expect(isProject(ipad)).toBe(true)
+
+    const crossPlatformGlobal = structuredClone(ipad)
+    crossPlatformGlobal.globals.deviceModel = 'iphone-17-pro-max'
+    expect(isProject(crossPlatformGlobal)).toBe(false)
+
+    const crossPlatformLayer = structuredClone(ipad)
+    crossPlatformLayer.screens[0].layers = [deviceLayer('watch-halo')]
+    expect(isProject(crossPlatformLayer)).toBe(false)
+
+    const legacyIphone = project()
+    legacyIphone.globals.deviceModel = 'iphone-16-pro-max'
+    legacyIphone.screens[0].layers = [deviceLayer('iphone-16-pro')]
+    expect(isProject(legacyIphone)).toBe(true)
+  })
+
+  it('validates release snapshot models against the snapshot profile', () => {
+    const candidate = project()
+    candidate.releases = [
+      {
+        id: 'release',
+        name: 'Release',
+        createdAt: 1,
+        watermarked: false,
+        files: [],
+        snapshot: {
+          name: 'iPad release',
+          profileId: 'ipad-13',
+          globals: { ...candidate.globals, deviceModel: 'tablet-slate' },
+          screens: [
+            {
+              ...candidate.screens[0],
+              layers: [deviceLayer('iphone-17-pro-max')],
+            },
+          ],
+          layoutLayers: [],
+        },
+      } satisfies Release,
+    ]
+
+    expect(isProject(candidate)).toBe(false)
+    candidate.releases[0].snapshot.screens[0].layers = [deviceLayer('tablet-studio')]
+    expect(isProject(candidate)).toBe(true)
   })
 
   it.each([

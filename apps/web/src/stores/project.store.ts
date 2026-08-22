@@ -27,6 +27,20 @@ export const DEFAULT_GLOBALS: GlobalSettings = {
   deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
 }
 
+export function createDefaultGlobals(
+  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+): GlobalSettings {
+  const profile = getAppStoreProfile(profileId)
+  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
+  const defaultDevice = currentDeviceFramesFor(profile.platform)[0]
+  if (!defaultDevice) throw new Error(`No device frame for platform: ${profile.platform}`)
+  return {
+    ...structuredClone(DEFAULT_GLOBALS),
+    deviceModel: defaultDevice.model,
+    deviceColor: defaultDevice.colors[0].name,
+  }
+}
+
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {
   return {
     id: crypto.randomUUID(),
@@ -40,14 +54,8 @@ export function createProjectDocument(
   name: string,
   profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
 ): Project {
-  const profile = getAppStoreProfile(profileId)
-  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
   const now = Date.now()
-  const globals = structuredClone(DEFAULT_GLOBALS)
-  const defaultDevice = currentDeviceFramesFor(profile.platform)[0]
-  if (!defaultDevice) throw new Error(`No device frame for platform: ${profile.platform}`)
-  globals.deviceModel = defaultDevice.model
-  globals.deviceColor = defaultDevice.colors[0].name
+  const globals = createDefaultGlobals(profileId)
   const screen = createDefaultScreen(defaultScreenName(0), globals)
   return {
     id: crypto.randomUUID(),

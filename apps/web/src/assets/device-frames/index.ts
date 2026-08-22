@@ -234,6 +234,16 @@ export function currentDeviceFramesFor(platform: AppStorePlatform): DeviceFrameC
   return CURRENT_DEVICE_FRAMES.filter((frame) => frame.platform === platform)
 }
 
+/** Current choices for a profile, plus its selected same-platform legacy frame. */
+export function deviceFrameOptionsFor(
+  model: DeviceModel,
+  platform: AppStorePlatform,
+): DeviceFrameConfig[] {
+  const current = currentDeviceFramesFor(platform)
+  const selected = getDeviceFrame(model)
+  return selected.platform === platform && !selected.current ? [selected, ...current] : current
+}
+
 /* Chaque modèle du contrat partagé a son gabarit, et réciproquement. Un modèle
    en trop casse ici à la compilation (`DeviceFrameConfig.model`, dont
    `DeviceModel` est la liste `DEVICE_MODEL_IDS` du contrat) ; un modèle

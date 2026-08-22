@@ -58,6 +58,12 @@ export const DEVICE_MODEL_IDS = [
 
 export type DeviceModelId = (typeof DEVICE_MODEL_IDS)[number]
 
+const DEVICE_MODEL_ID_SET: ReadonlySet<string> = new Set(DEVICE_MODEL_IDS)
+
+export function isDeviceModelId(value: unknown): value is DeviceModelId {
+  return typeof value === 'string' && DEVICE_MODEL_ID_SET.has(value)
+}
+
 export function deviceModelIdsForPlatform(platform: DevicePlatform): readonly DeviceModelId[] {
   return DEVICE_MODEL_IDS_BY_PLATFORM[platform]
 }

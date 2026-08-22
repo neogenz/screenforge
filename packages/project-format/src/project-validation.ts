@@ -1,12 +1,20 @@
 import {
   DEFAULT_APP_STORE_PROFILE_ID,
+  getAppStoreProfile,
   isAppStoreProfileId,
   MAX_PROJECT_SCREENS,
 } from './dimensions.ts'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement.ts'
 import { SAFE_SLOT } from './slots.ts'
 import { isTextCharStyles } from './text-char-styles.ts'
-import { ICON_BOX, isIconId, isShapeId } from './catalog-ids.ts'
+import {
+  deviceModelPlatform,
+  ICON_BOX,
+  isDeviceModelId,
+  isIconId,
+  isShapeId,
+  type DevicePlatform,
+} from './catalog-ids.ts'
 import type { Layer, Project, ScriptId } from './types.ts'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
@@ -127,7 +135,11 @@ function isImportedBezel(value: unknown): boolean {
   )
 }
 
-function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
+function isLayer(
+  value: unknown,
+  scope: 'screen' | 'layout',
+  platform: DevicePlatform,
+): value is Layer {
   if (!isRecord(value) || !isBaseLayer(value)) return false
   if (scope === 'layout' ? value.scope !== 'layout' : value.scope !== undefined) return false
 
@@ -140,7 +152,8 @@ function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
     )
   }
   if (value.type === 'device-frame') {
-    if (typeof value.deviceModel !== 'string' || !value.deviceModel) return false
+    if (!isDeviceModelId(value.deviceModel) || deviceModelPlatform(value.deviceModel) !== platform)
+      return false
     if (typeof value.deviceColor !== 'string' || !value.deviceColor) return false
     if (!['portrait', 'landscape'].includes(String(value.orientation))) return false
     if (
@@ -231,7 +244,7 @@ export const SCRIPT_IDS = [
 
 const SHA256_HEX = /^[a-f0-9]{64}$/
 
-function isGlobals(value: unknown): boolean {
+function isGlobals(value: unknown, platform: DevicePlatform): boolean {
   return (
     isRecord(value) &&
     isBoundedString(value.fontFamily) &&
@@ -239,8 +252,8 @@ function isGlobals(value: unknown): boolean {
     isFiniteNumber(value.fontSize, 1) &&
     isStyleString(value.fontColor) &&
     isBackground(value.background) &&
-    typeof value.deviceModel === 'string' &&
-    Boolean(value.deviceModel) &&
+    isDeviceModelId(value.deviceModel) &&
+    deviceModelPlatform(value.deviceModel) === platform &&
     typeof value.deviceColor === 'string' &&
     Boolean(value.deviceColor)
   )
@@ -254,7 +267,11 @@ function isGlobals(value: unknown): boolean {
  * elle qu'on rejouera pour vérifier le lot. Rend les identifiants d'écran,
  * dont l'appelant a besoin pour valider `activeScreenId`.
  */
-function sceneScreenIds(screens: unknown, layoutLayers: unknown): Set<string> | null {
+function sceneScreenIds(
+  screens: unknown,
+  layoutLayers: unknown,
+  platform: DevicePlatform,
+): Set<string> | null {
   if (!Array.isArray(screens) || !Array.isArray(layoutLayers)) return null
   if (screens.length < 1 || screens.length > MAX_PROJECT_SCREENS) return null
 
@@ -268,14 +285,14 @@ function sceneScreenIds(screens: unknown, layoutLayers: unknown): Set<string> | 
     if (screen.thumbnail !== undefined && typeof screen.thumbnail !== 'string') return null
     screenIds.add(screen.id)
     for (const layer of screen.layers) {
-      if (!isLayer(layer, 'screen') || layerIds.has(layer.id)) return null
+      if (!isLayer(layer, 'screen', platform) || layerIds.has(layer.id)) return null
       layerIds.add(layer.id)
       if (layerIds.size > MAX_PROJECT_LAYERS) return null
     }
   }
   if (layoutLayers.length > MAX_PROJECT_LAYERS) return null
   for (const layer of layoutLayers) {
-    if (!isLayer(layer, 'layout') || layerIds.has(layer.id)) return null
+    if (!isLayer(layer, 'layout', platform) || layerIds.has(layer.id)) return null
     layerIds.add(layer.id)
     if (layerIds.size > MAX_PROJECT_LAYERS) return null
   }
@@ -311,8 +328,9 @@ function isRelease(value: unknown): boolean {
   const snapshot = value.snapshot
   if (!isRecord(snapshot) || typeof snapshot.name !== 'string') return false
   if (!isAppStoreProfileId(snapshot.profileId)) return false
-  if (!isGlobals(snapshot.globals)) return false
-  return sceneScreenIds(snapshot.screens, snapshot.layoutLayers) !== null
+  const platform = getAppStoreProfile(snapshot.profileId).platform
+  if (!isGlobals(snapshot.globals, platform)) return false
+  return sceneScreenIds(snapshot.screens, snapshot.layoutLayers, platform) !== null
 }
 
 /**
@@ -343,10 +361,11 @@ export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || !isBoundedString(value.id, 128)) return false
   if (!isBoundedString(value.name) || !isBoundedString(value.activeScreenId, 128)) return false
   if (!isAppStoreProfileId(value.profileId)) return false
-  if (!isGlobals(value.globals)) return false
+  const platform = getAppStoreProfile(value.profileId).platform
+  if (!isGlobals(value.globals, platform)) return false
   if (!isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) return false
 
-  const screenIds = sceneScreenIds(value.screens, value.layoutLayers)
+  const screenIds = sceneScreenIds(value.screens, value.layoutLayers, platform)
   if (!screenIds) return false
 
   if (value.releases !== undefined) {

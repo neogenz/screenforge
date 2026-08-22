@@ -7,7 +7,7 @@ import {
   isAppStoreProfileId,
   type AppStoreProfileId,
 } from '@/lib/dimensions'
-import { DEFAULT_GLOBALS } from '@/stores/project.store'
+import { createDefaultGlobals } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
 
 /**
@@ -82,7 +82,7 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     name: record.name,
     profileId: record.profileId,
     activeScreenId: 'screen',
-    globals: DEFAULT_GLOBALS,
+    globals: createDefaultGlobals(record.profileId),
     createdAt: record.createdAt,
     updatedAt: record.createdAt,
     layoutLayers: [],

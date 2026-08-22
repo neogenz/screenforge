@@ -4,21 +4,30 @@ Five recipes. Each is a call order, not a template to copy verbatim.
 
 ## Compositions that hold
 
-These six are the layouts ScreenForge's own generator lays down, in board units
-on the 440 by 956 artboard. They are asserted in the repo, so a set built from
-them cannot leave a bare band, decapitate a device, or repeat itself.
+These six are the layouts ScreenForge's own generator lays down. Read
+`canvas.width` as `W` and `canvas.height` as `H` from the current
+`get_project_state`; set `S = W / 440` and the text gutter `G = 0.073W`. The
+ratios below therefore hold on iPhone, iPad and Watch instead of carrying one
+profile's coordinates into another.
 
-| Archetype          | Headline                                             | Device                              | Reads as                                   |
-| ------------------ | ---------------------------------------------------- | ----------------------------------- | ------------------------------------------ |
-| plein-cadre        | y 105, size 44, centred, 3 lines                     | x 88, y 296, w 264, h 574, no tilt  | device whole, centred                      |
-| bord-coupe         | y 105, size 42, left                                 | x 35, y 306, w 260, h 566, tilt 2   | device offset, whole                       |
-| carte              | y 105, size 42, centred                              | x 90, y 296, w 260, h 566, no tilt  | device resting, headline above             |
-| bas-ancre          | y 631, size 50, centred                              | x 44, y -191, w 352, h 766, no tilt | device cut by the top, words at the bottom |
-| texte-sur-appareil | y 48, size 52, weight 800, centred                   | x 40, y 153, w 361, h 786, tilt 4   | headline over the device, on a pill        |
-| mur                | y 287, size 64, weight 800, left, width 297, 4 lines | none                                | words alone, full bleed                    |
+| Archetype          | Headline                                            | Device target                                             | Reads as                                   |
+| ------------------ | --------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| plein-cadre        | y `0.11H`, size `44S`, centred, 3 lines             | centred, top `0.31H`, width up to `0.60W`, no tilt        | device whole, centred                      |
+| bord-coupe         | y `0.11H`, size `42S`, left, 3 lines                | centre `0.375W`, top `0.32H`, width up to `0.59W`, tilt 2 | device offset, whole                       |
+| carte              | y `0.11H`, size `42S`, centred, 3 lines             | centred, top `0.31H`, width up to `0.59W`, no tilt        | device resting, headline above             |
+| bas-ancre          | y `0.66H`, size `50S`, centred, 3 lines             | centred, top `-0.20H`, width up to `0.80W`, no tilt       | device cut by the top, words at the bottom |
+| texte-sur-appareil | y `0.05H`, size `52S`, weight 800, centred, 3 lines | centred, top `0.16H`, width up to `0.82W`, tilt 4         | headline over the device, on a pill        |
+| mur                | y `0.30H`, size `64S`, weight 800, left, 4 lines    | none                                                      | words alone, full bleed                    |
 
-Headline `x` is 32 and `width` is 376 unless the row says otherwise. Height is
-derived, never declared: `lines × fontSize × 1.2`.
+Headline `x` is `G` and `width` is `W - 2G`; on `mur`, use `0.82W - 2G`.
+Height is derived, never declared: `lines × fontSize × 1.2`.
+
+Device targets are maxima, not permission to stretch a frame. Insert the
+profile-compatible default without `width` or `height`, read its resulting
+dimensions from `get_project_state`, then scale both by the same factor during
+verification. Cap that factor until stacked text and device no longer collide
+and at least `0.075H` remains below a whole frame. Recompute a centred `x` as
+`(W - width) / 2`; the offset recipe uses `0.375W - width / 2`.
 
 Rank 0 takes plein-cadre, the only visual most people will ever see. From four
 screens up the last takes mur. The rest cycle through plein-cadre, carte and
@@ -33,7 +42,7 @@ The user describes the app and has no captures ready.
 2. Decide the count with the user, then fix one palette for the whole set.
 3. Per screen, one `apply` carrying `add_screen`, `set_background`, `add_text`,
    the accent shapes, then `add_device`.
-4. Leave the iPhone frames empty and say so. Batch refresh fills them in the app
+4. Leave the device frames empty and say so. Batch refresh fills them in the app
    when the captures exist, and an empty frame is honest where an invented
    screenshot is not.
 5. `get_thumbnail` per screen, correct, then save what worked.
@@ -45,7 +54,8 @@ The user points at a screenshot they like and wants theirs to look like it.
 1. Read the reference and name what it is made of: the background, where the
    headline sits, how much of the device is on the board, what the accents do.
    Structure, not pixels.
-2. Match it to the closest row of the table above and start from those numbers.
+2. Match it to the closest row of the table above and calculate it from the
+   current `W` and `H`.
    A recipe that already holds beats a measurement guessed off an image.
 3. `add_image` per file the user gave, before the batch.
 4. `apply` the screen, `get_thumbnail`, and compare against the reference by

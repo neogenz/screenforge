@@ -66,11 +66,12 @@ agent that goes wrong can at worst put a text in the wrong place.
 
 ## Board units, not export pixels
 
-Every coordinate is on an artboard 440 units wide. Its height derives from the
-active profile's exact export ratio; `get_project_state` reports both the
-profile and logical board dimensions. Export pixels are derived at render time.
-A headline placed in export pixels therefore lands in the wrong part of every
-board.
+Every coordinate is on the logical artboard reported by
+`get_project_state.canvas`. Read its `width` and `height` before composing and
+derive positions from their proportions; the active profile decides their
+ratio. Export pixels live separately in `profile.width` and `profile.height`
+and are derived at render time. A headline placed in export pixels therefore
+lands in the wrong part of every board.
 
 ## Structure, not pixels
 

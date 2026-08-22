@@ -1,10 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
-import {
-  currentDeviceFramesFor,
-  getDefaultDeviceSize,
-  getDeviceFrame,
-} from '@/assets/device-frames'
+import { deviceFrameOptionsFor, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
@@ -67,11 +63,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
-  const compatibleFrames = currentDeviceFramesFor(platform)
-  const modelOptions =
-    config.current && config.platform === platform
-      ? compatibleFrames
-      : [config, ...compatibleFrames]
+  const modelOptions = deviceFrameOptionsFor(deviceModel, platform)
 
   async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]

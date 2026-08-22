@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
-import { currentDeviceFramesFor, getDeviceFrame } from '@/assets/device-frames'
+import { deviceFrameOptionsFor, getDeviceFrame } from '@/assets/device-frames'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -39,11 +39,7 @@ function GlobalsEditorContent({
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
 
   const frame = getDeviceFrame(draft.deviceModel)
-  const compatibleFrames = currentDeviceFramesFor(profile.platform)
-  const modelOptions =
-    frame.current && frame.platform === profile.platform
-      ? compatibleFrames
-      : [frame, ...compatibleFrames]
+  const modelOptions = deviceFrameOptionsFor(draft.deviceModel, profile.platform)
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))

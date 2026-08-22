@@ -3,6 +3,7 @@ import {
   DEVICE_FRAMES,
   CURRENT_DEVICE_FRAMES,
   currentDeviceFramesFor,
+  deviceFrameOptionsFor,
   generateDeviceFrameSVG,
   getDeviceFrame,
   getDeviceRenderSize,
@@ -56,5 +57,15 @@ describe('generated device frame SVG', () => {
       expect(svg, config.model).not.toMatch(/data-part="island"|data-part="notch"/)
       expect(svg, config.model).not.toMatch(/<image|href=|<text|data-part="logo"/i)
     }
+  })
+
+  it('keeps picker options on-profile while retaining same-platform legacy frames', () => {
+    expect(deviceFrameOptionsFor('tablet-slate', 'iphone').map(({ model }) => model)).not.toContain(
+      'tablet-slate',
+    )
+    expect(deviceFrameOptionsFor('iphone-16-pro-max', 'iphone')[0]?.model).toBe('iphone-16-pro-max')
+    expect(
+      deviceFrameOptionsFor('iphone-16-pro-max', 'ipad').map(({ platform }) => platform),
+    ).toEqual(['ipad', 'ipad'])
   })
 })

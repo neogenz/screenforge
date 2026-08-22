@@ -12,7 +12,8 @@ The current project state, or a stop naming why no editor answered.
 
 ## Process
 
-1. **Read.** Call `screenforge_get_project_state`, which returns the project name, the artboard size, the globals, and every screen with its layers.
+1. **Read.** Call `screenforge_get_project_state`, which returns the project name, the profile, its compatible device models, the artboard size, the globals, and every screen with its layers.
+   - Record `canvas.width` as `W` and `canvas.height` as `H`. Every coordinate in compose is derived from these two values; do not carry dimensions from another project or profile.
    - Refused with no editor connected: tell the user to open ScreenForge and turn on "Connexion MCP" in the top bar, then stop. Nothing downstream works until a tab answers.
    - Refused with the editor connected but nothing pushed yet: wait a moment and read once more.
    - Refused for any other cause: read it against [pitfalls.md](../references/pitfalls.md) before retrying.
@@ -24,8 +25,8 @@ The current project state, or a stop naming why no editor answered.
 
 ## Test
 
-| Case                                                 | Pass                                                                    |
-| ---------------------------------------------------- | ----------------------------------------------------------------------- |
-| `screenforge_get_project_state` with a tab connected | it returns `screens` with at least one entry and `canvas` of 440 by 956 |
-| The same call with no tab connected                  | it errors naming "Connexion MCP" and the run stops instead of composing |
-| A project already holding 10 screens                 | the run composes on the existing screens and adds none                  |
+| Case                                                 | Pass                                                                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `screenforge_get_project_state` with a tab connected | it returns `screens` with at least one entry, a `profile`, and positive `canvas.width` and `canvas.height` |
+| The same call with no tab connected                  | it errors naming "Connexion MCP" and the run stops instead of composing                                    |
+| A project already holding 10 screens                 | the run composes on the existing screens and adds none                                                     |
