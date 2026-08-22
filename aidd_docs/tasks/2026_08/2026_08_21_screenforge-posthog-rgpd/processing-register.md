@@ -21,7 +21,7 @@ utilisateur.
 
 | Catégorie | État |
 | --- | --- |
-| Événements, personnes et erreurs | La politique ScreenForge est fixée à 13 mois. Le plan Pay-as-you-go annonce toutefois 7 ans et n’expose pas de réduction par projet : la politique n’est donc pas encore appliquée. Obtenir avant lancement un accord PostHog qui active cette durée, ou choisir une solution offrant réellement cette rétention. |
+| Événements, personnes et erreurs | La politique ScreenForge est fixée à 13 mois. Le plan Pay-as-you-go annonce toutefois 7 ans et n’expose pas de réduction par projet : la politique n’est donc pas encore appliquée. Une demande privée d’activation a été envoyée à PostHog le 22 août 2026 ; attendre leur confirmation avant lancement ou choisir une solution offrant réellement cette rétention. |
 | Session replay | 30 jours, échantillonnage 20 %, texte et images entièrement masqués ; canvas, console et réseau désactivés |
 | Logs | 30 jours pour les nouveaux logs ; expurgation PII activée ; capture automatique de la console désactivée |
 | IP | Rejet de l’adresse IP activé au niveau du projet |
