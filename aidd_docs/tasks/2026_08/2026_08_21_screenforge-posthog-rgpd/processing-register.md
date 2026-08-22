@@ -66,4 +66,6 @@ point manque, la politique publique ne donne pas de durée chiffrée.
 
 Les deux clés personnelles sont séparées et limitées au projet ScreenForge : source maps dans
 GitHub Actions (`error_tracking:write`) et effacement dans Convex préproduction et production
-(`person:write`, niveau qui couvre la lecture préalable dans le sélecteur d’accès PostHog).
+(`person:write`, niveau qui couvre la lecture préalable dans le sélecteur d’accès PostHog). La clé
+d’effacement a été roulée le 22 août 2026 ; seule sa nouvelle valeur est configurée dans les deux
+déploiements Convex.
