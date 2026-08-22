@@ -48,6 +48,12 @@ test('« Partir d’un modèle » depuis la planche vide ouvre les modèles', as
 })
 
 test('importer 3 captures depuis la planche vide crée 3 écrans', async ({ page }) => {
+  const duplicateKeyWarnings: string[] = []
+  page.on('console', (message) => {
+    if (message.text().includes('children with the same key')) {
+      duplicateKeyWarnings.push(message.text())
+    }
+  })
   await emptyProject(page)
 
   // Pas de `getByLabel` : l'input masqué ne porte aucun nom accessible (voir
@@ -72,6 +78,7 @@ test('importer 3 captures depuis la planche vide crée 3 écrans', async ({ page
       ),
     )
     .toBe(3)
+  expect(duplicateKeyWarnings).toEqual([])
 })
 
 test('les panneaux affichent leur état vide sur une planche sans écran', async ({ page }) => {

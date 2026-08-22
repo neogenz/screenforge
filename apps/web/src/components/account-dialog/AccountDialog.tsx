@@ -273,7 +273,7 @@ function AccountDialogContent() {
         open={confirmingDelete}
         onOpenChange={setConfirmingDelete}
         title="Supprimer votre compte ?"
-        description="Le compte, les droits achetés et les projets synchronisés seront effacés définitivement. Les projets de cette machine sont conservés."
+        description="Le compte, les droits achetés, les projets synchronisés et l’historique PostHog identifié seront effacés définitivement. Les projets de cette machine sont conservés. Certaines pièces Polar peuvent rester conservées pour les obligations comptables."
         confirmLabel="Supprimer mon compte"
         onConfirm={() => void confirmDelete()}
       />

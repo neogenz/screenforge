@@ -8,12 +8,19 @@ export type PreflightConfiguration = Readonly<Record<string, string | undefined>
 const REQUIRED_VARIABLES = [
   'ABUSE_KEY_SECRET',
   'AUTH_EMAIL_FROM',
+  'AUTH_GITHUB_ID',
+  'AUTH_GITHUB_SECRET',
+  'AUTH_GOOGLE_ID',
+  'AUTH_GOOGLE_SECRET',
   'AUTH_RESEND_KEY',
   'CHECKOUT_SUCCESS_URL',
   'CORS_ALLOWED_ORIGINS',
   'POLAR_ACCESS_TOKEN',
   'POLAR_CLOUD_PRODUCT_ID',
   'POLAR_WEBHOOK_SECRET',
+  'POSTHOG_HOST',
+  'POSTHOG_PERSON_API_KEY',
+  'POSTHOG_PROJECT_ID',
   'SITE_URL',
 ] as const
 
@@ -89,6 +96,13 @@ export function evaluatePreflight(target: PreflightTarget, configuration: Prefli
 
   if (configuration.VERCEL_PREVIEW_HOST_SUFFIX?.trim()) {
     inconsistent.push('VERCEL_PREVIEW_HOST_SUFFIX_FORBIDDEN')
+  }
+
+  if (configuration.POSTHOG_HOST?.trim() !== 'https://eu.posthog.com') {
+    inconsistent.push('POSTHOG_REQUIRES_EU_MANAGEMENT_HOST')
+  }
+  if (!/^\d+$/.test(configuration.POSTHOG_PROJECT_ID?.trim() ?? '')) {
+    inconsistent.push('POSTHOG_PROJECT_ID_INVALID')
   }
 
   if (target === 'preproduction') {

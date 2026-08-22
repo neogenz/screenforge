@@ -4,12 +4,19 @@ import { evaluatePreflight } from './preflight'
 const complete = {
   ABUSE_KEY_SECRET: 'anti-abuse-test-value',
   AUTH_EMAIL_FROM: 'ScreenForge <onboarding@resend.dev>',
+  AUTH_GITHUB_ID: 'github-client-test-value',
+  AUTH_GITHUB_SECRET: 'github-secret-test-value',
+  AUTH_GOOGLE_ID: 'google-client-test-value',
+  AUTH_GOOGLE_SECRET: 'google-secret-test-value',
   AUTH_RESEND_KEY: 'resend-test-value',
   CHECKOUT_SUCCESS_URL: 'https://preprod.screenforge.example/?checkout=success',
   CORS_ALLOWED_ORIGINS: 'https://preprod.screenforge.example',
   POLAR_ACCESS_TOKEN: 'polar-test-value',
   POLAR_CLOUD_PRODUCT_ID: 'cloud-product-test-value',
   POLAR_WEBHOOK_SECRET: 'webhook-test-value',
+  POSTHOG_HOST: 'https://eu.posthog.com',
+  POSTHOG_PERSON_API_KEY: 'posthog-test-value',
+  POSTHOG_PROJECT_ID: '123456',
   SITE_URL: 'https://preprod.screenforge.example',
 } as const
 
@@ -36,11 +43,41 @@ describe('preflight Cloud expurgé', () => {
     expect(result).toEqual({ ready: false, missing: ['AUTH_RESEND_KEY'], inconsistent: [] })
   })
 
+  test.each([
+    'AUTH_GITHUB_ID',
+    'AUTH_GITHUB_SECRET',
+    'AUTH_GOOGLE_ID',
+    'AUTH_GOOGLE_SECRET',
+  ] as const)('refuse une porte OAuth incomplète : %s', (name) => {
+    const result = evaluatePreflight('preproduction', { ...complete, [name]: undefined })
+
+    expect(result).toEqual({ ready: false, missing: [name], inconsistent: [] })
+  })
+
   test('exige la pseudonymisation anti-abus sans retourner sa valeur', () => {
     const result = evaluatePreflight('preproduction', { ...complete, ABUSE_KEY_SECRET: undefined })
 
     expect(result).toEqual({ ready: false, missing: ['ABUSE_KEY_SECRET'], inconsistent: [] })
     expect(JSON.stringify(result)).not.toContain(complete.ABUSE_KEY_SECRET)
+  })
+
+  test('exige la clé de suppression PostHog sans la retourner', () => {
+    const result = evaluatePreflight('preproduction', {
+      ...complete,
+      POSTHOG_PERSON_API_KEY: undefined,
+    })
+
+    expect(result.missing).toEqual(['POSTHOG_PERSON_API_KEY'])
+    expect(JSON.stringify(result)).not.toContain(complete.POSTHOG_PERSON_API_KEY)
+  })
+
+  test.each([
+    ['POSTHOG_REQUIRES_EU_MANAGEMENT_HOST', { POSTHOG_HOST: 'https://us.posthog.com' }],
+    ['POSTHOG_PROJECT_ID_INVALID', { POSTHOG_PROJECT_ID: '../other' }],
+  ])('refuse la configuration PostHog : %s', (rule, override) => {
+    const result = evaluatePreflight('preproduction', { ...complete, ...override })
+    expect(result.inconsistent).toContain(rule)
+    for (const value of Object.values(override)) expect(JSON.stringify(result)).not.toContain(value)
   })
 
   test('refuse le mot de passe de test hors loopback', () => {

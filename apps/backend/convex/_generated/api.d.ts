@@ -26,6 +26,7 @@ import type * as media from "../media.js";
 import type * as mirror from "../mirror.js";
 import type * as origins from "../origins.js";
 import type * as polar from "../polar.js";
+import type * as posthog from "../posthog.js";
 import type * as preflight from "../preflight.js";
 import type * as preflight_evaluation from "../preflight_evaluation.js";
 import type * as projects from "../projects.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   mirror: typeof mirror;
   origins: typeof origins;
   polar: typeof polar;
+  posthog: typeof posthog;
   preflight: typeof preflight;
   preflight_evaluation: typeof preflight_evaluation;
   projects: typeof projects;

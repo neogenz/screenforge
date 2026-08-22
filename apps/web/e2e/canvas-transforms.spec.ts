@@ -152,6 +152,13 @@ test.describe('canvas transforms', () => {
       x: scrubBox.x + scrubBox.width / 2,
       y: scrubBox.y + scrubBox.height / 2,
     }
+    // Ce test couvre notre round-trip store/canvas, pas le pointer-lock de Base UI.
+    // Son chemin de repli garde les mouvements Playwright déterministes en CI.
+    await page.evaluate(() => {
+      document.body.requestPointerLock = () => {
+        throw new DOMException('Pointer lock disabled by E2E', 'NotAllowedError')
+      }
+    })
     await page.mouse.move(start.x, start.y)
     await page.mouse.down()
     await page.mouse.move(start.x + 24, start.y, { steps: 6 })

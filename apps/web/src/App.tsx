@@ -4,6 +4,8 @@ import { buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
+import { PrivacyConsent } from '@/components/privacy/PrivacyConsent'
+import { PRIVACY_COPY } from '@/components/privacy/privacy-copy'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
@@ -22,10 +24,11 @@ import { resumeMcp } from '@/lib/mcp/client'
 import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
+import { setAnalyticsUser } from '@/lib/analytics'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
+import { consumeCheckoutReturn, initAuth, useAuthStore } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -210,10 +213,15 @@ export default function App() {
    */
   useEffect(() => {
     const stopAuth = initAuth()
+    setAnalyticsUser(useAuthStore.getState().user)
+    const stopAnalyticsIdentity = useAuthStore.subscribe((state) => setAnalyticsUser(state.user))
     // Après la session, pas avant : l'attente relit les droits, qui demandent
     // un jeton.
     consumeCheckoutReturn()
-    return stopAuth
+    return () => {
+      stopAnalyticsIdentity()
+      stopAuth()
+    }
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
@@ -338,6 +346,7 @@ function Overlays() {
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
   const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return (
     <>
@@ -365,6 +374,12 @@ function Overlays() {
         {showPublishDialog && <PublishDialog />}
         {showMcpDialog && <McpDialog />}
       </Suspense>
+
+      <PrivacyConsent
+        copy={PRIVACY_COPY.fr}
+        open={showPrivacyDialog}
+        onOpenChange={(open) => useUIStore.getState().setShowPrivacyDialog(open)}
+      />
 
       {/* Le pont vers Convex : il ne rend rien, il tient la session. Monté ici
           plutôt qu'autour de l'arbre parce qu'un fournisseur qui enveloppe `App`

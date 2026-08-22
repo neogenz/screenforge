@@ -94,7 +94,7 @@
         --boot-margin: 12px;
         --boot-topbar-height: 46px;
         --boot-topbar-radius: 18px;
-        --boot-export-width: 101.28125px;
+        --boot-export-width: 102px;
         --boot-export-height: 32px;
         --boot-export-radius: 10px;
         --boot-filmstrip-height: 184px;
@@ -114,9 +114,8 @@
         padding: 4px;
       }
       /* Le bouton Exporter ne se replie jamais (règle du chrome flottant) :
-         sa largeur rendue est donc stable dès 640px de fenêtre, et c'est elle
-         qui est recopiée ici plutôt que devinée depuis le texte — le boot n'a
-         encore ni la police Inter ni le CSS de l'app pour la mesurer lui-même. */
+         sa largeur entière est partagée avec le bouton hydraté pour rester
+         identique quel que soit le moteur de rendu de la police. */
       .boot-export {
         position: absolute;
         /* Le carré de positionnement absolu se compte depuis le bord interne

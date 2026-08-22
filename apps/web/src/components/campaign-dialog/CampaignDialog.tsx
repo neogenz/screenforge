@@ -721,7 +721,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       </summary>
                       <div className="mt-3 grid gap-3">
                         {shots.map((shot, index) => (
-                          <Field key={shot.assetId} className="gap-1.5">
+                          <Field key={`${shot.assetId}-${index}`} className="gap-1.5">
                             <FieldLabel htmlFor={`sf-campaign-shot-${index}`}>
                               {`${index + 1}. ${shot.label}`}
                             </FieldLabel>

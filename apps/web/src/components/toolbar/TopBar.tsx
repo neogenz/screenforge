@@ -21,6 +21,7 @@ import {
   Redo2,
   RefreshCw,
   Settings,
+  ShieldCheck,
   Smartphone,
   Square,
   Star,
@@ -51,6 +52,7 @@ import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import { billingConfigured } from '@/lib/account'
+import { analyticsConfigured } from '@/lib/analytics'
 import { planName } from '@/lib/plans'
 import { cloudConfigured } from '@/lib/convex'
 import { copy } from '@/lib/copy'
@@ -718,6 +720,7 @@ function useComposeActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return [
     {
@@ -736,6 +739,18 @@ function useComposeActions(): SecondaryAction[] {
       expanded: showGlobalsEditor,
       onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
     },
+    ...(analyticsConfigured
+      ? [
+          {
+            id: 'privacy',
+            label: 'Préférences de confidentialité',
+            hint: 'Choisir les analytics et le diagnostic',
+            icon: <ShieldCheck size={16} strokeWidth={1.75} />,
+            expanded: showPrivacyDialog,
+            onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
+          },
+        ]
+      : []),
     {
       id: 'campaign',
       label: 'Générer les visuels App Store',
@@ -970,7 +985,7 @@ function ActionsSegment({
         size="default"
         aria-label="Ouvrir l’export"
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
-        className="ml-2.5"
+        className="ml-2.5 w-[102px]"
       >
         <Download size={13} strokeWidth={2} aria-hidden />
         Exporter

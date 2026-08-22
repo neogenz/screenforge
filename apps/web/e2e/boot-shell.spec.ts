@@ -180,7 +180,7 @@ test('garde le boot sombre si le stockage est indisponible', async ({ page }) =>
  * ferait juste télécharger le SDK à quelqu'un qui n'aura jamais de compte, et
  * personne ne s'en apercevrait avant la prochaine mesure de poids.
  */
-test('sans instance cloud, rien du SDK n’est demandé au réseau', async ({ page }) => {
+test('sans services configurés, aucun SDK distant n’est demandé au réseau', async ({ page }) => {
   const requested: string[] = []
   page.on('request', (request) => requested.push(request.url()))
 
@@ -201,6 +201,9 @@ test('sans instance cloud, rien du SDK n’est demandé au réseau', async ({ pa
     'node_modules/convex/',
     'node_modules/@convex-dev/',
     'deps/convex',
+    'posthog-js',
+    '/posthog/',
   ]
   expect(requested.filter((url) => sdk.some((marker) => url.includes(marker)))).toEqual([])
+  await expect(page.getByRole('button', { name: 'Préférences de confidentialité' })).toHaveCount(0)
 })

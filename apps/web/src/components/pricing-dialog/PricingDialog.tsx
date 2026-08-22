@@ -109,6 +109,28 @@ function PricingDialogContent() {
           ))}
         </div>
 
+        <p className="text-2xs leading-4 text-muted-foreground">
+          En continuant vers le paiement, vous acceptez les{' '}
+          <a
+            className="text-foreground underline underline-offset-4"
+            href="/terms.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Conditions ScreenForge
+          </a>{' '}
+          et les{' '}
+          <a
+            className="text-foreground underline underline-offset-4"
+            href="https://polar.sh/legal/checkout-buyer-terms"
+            target="_blank"
+            rel="noreferrer"
+          >
+            conditions acheteur Polar
+          </a>
+          . Polar affiche le prix total, les taxes et le renouvellement avant confirmation.
+        </p>
+
         {!billingConfigured ? (
           <p className="text-xs text-muted-foreground">
             Cloud n’est pas configuré dans ce build local. Local reste entièrement disponible, sans
