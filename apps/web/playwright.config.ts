@@ -21,9 +21,15 @@ import { localConvex } from '../backend/tests/stack'
 const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
 const WORKSPACE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-const LOCAL_FIRST_PORT = 5199
-const CLOUD_PORT = 5198
-const PRIVACY_PORT = 5197
+/* Les ports sont fixes par défaut et surchargeables par l'environnement.
+   `reuseExistingServer` réutilise ce qui écoute déjà, sans regarder d'où il
+   sert : deux copies du dépôt ouvertes en même temps — un worktree, une
+   revue — et la seconde exécution mesure le code de la première, en vert et
+   en silence. La surcharge est la seule façon d'isoler une exécution sans
+   arrêter le serveur du voisin. */
+const LOCAL_FIRST_PORT = Number(process.env.SCREENFORGE_E2E_PORT ?? 5199)
+const CLOUD_PORT = Number(process.env.SCREENFORGE_E2E_CLOUD_PORT ?? 5198)
+const PRIVACY_PORT = Number(process.env.SCREENFORGE_E2E_PRIVACY_PORT ?? 5197)
 const CLOUD_SPEC = '**/sync.spec.ts'
 const PRIVACY_SPEC = '**/{privacy-consent,posthog-observability}.spec.ts'
 const configuredConvex = localConvex()

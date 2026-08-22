@@ -1,0 +1,140 @@
+/*
+ * L'extension ScreenForge au-dessus de coss ui — la seule couche du projet.
+ *
+ * Tout ce que coss nomme (`background`, `card`, `muted`, `primary`…) vient de
+ * `@coss/colors-neutral`, installé par le CLI dans `index.css`, et n'est jamais
+ * re-thémé ici. Ce fichier ne porte que ce que l'outil exige et que coss n'a
+ * pas de mot pour dire :
+ *
+ * - `stage` : le fond derrière les planches. L'outil juge des couleurs, le
+ *   chrome n'en porte aucune (chroma 0 partout) et la scène est toujours plus
+ *   sombre que les planches — pas noire, un entourage noir maximise le
+ *   contraste simultané et fausse le jugement. `stage-dot` est son grain,
+ *   décoratif, hors matrice de contraste.
+ * - `marker` : le citron « vous êtes ici » — écran courant, calque sélectionné,
+ *   focus. Jamais sur une action : l'action primaire est `primary` coss. Il ne
+ *   s'appelle pas `accent` parce que coss réserve ce nom au lavis de survol.
+ *   `marker-ink` est l'encre posée dessus (12:1), `marker-soft` le voile,
+ *   `marker-line` le liseré et l'anneau de focus.
+ * - `artboard-*`, `selection-soft`, `guide*` : le chrome d'artboard, lu par
+ *   Fabric au runtime. Rien de chromatique ne touche la planche.
+ * - `shadow-handle*` : l'ombre de contact d'une poignée (slider, arrêt de
+ *   dégradé) et son halo sous le clavier — une poignée se détache, elle ne
+ *   plane pas sur l'échelle `shadow-md/lg` des îlots.
+ * - `z-*` : six niveaux d'empilement nommés, rien d'autre.
+ * - durées et courbes : celles de mandat-tan, plus `ease-settle`, le seul
+ *   ressort du produit (6 % de dépassement, `linear()` natif).
+ */
+
+:root {
+  /* Scène : deux niveaux, pas cinq — scène 0.965, cartes blanches, l'ombre sépare. */
+  --stage: oklch(0.965 0 0);
+  /* Le point s'assombrit sur fond clair, s'éclaircit sur fond sombre. */
+  --stage-dot: oklch(0 0 0 / 0.09);
+
+  /* Marque d'état. En clair le voile monte à 0.16 : 0.11 d'un citron très
+     lumineux disparaît sur blanc ; 0.28 virait au surligneur. */
+  --marker: oklch(0.85 0.2 124);
+  --marker-hover: oklch(0.8 0.2 124);
+  --marker-ink: oklch(0.24 0.05 124);
+  --marker-soft: oklch(0.8 0.2 124 / 0.16);
+  --marker-line: oklch(0.72 0.18 124 / 0.9);
+
+  /* Chrome d'artboard. Un seul liseré, structurel, jamais d'état : l'écran
+     courant se signale par l'ombre que Fabric compose depuis cette couleur. */
+  --artboard-ring: oklch(0 0 0 / 0.1);
+  --artboard-shadow: oklch(0 0 0 / 0.16);
+  --selection-soft: oklch(0.18 0 0 / 0.1);
+  /* Un trait clair sur halo sombre reste lisible sur un contenu de n'importe
+     quelle couleur ; un trait seul disparaît sur une planche blanche. */
+  --guide: oklch(0.18 0 0 / 0.85);
+  --guide-halo: oklch(1 0 0 / 0.55);
+
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.18);
+  --shadow-handle-focus: 0 0 0 4px color-mix(in oklch, var(--foreground) 16%, transparent);
+  /* Le reflet du haut d'une surface élevée (planche du gabarit) : coss n'a pas
+     de mot pour ce liseré, composé avec la propre ombre de l'élément. */
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
+
+  /* Le voile passe devant le canvas et derrière le chrome. */
+  --z-stage-veil: 10;
+  --z-chrome: 20;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-popover: 70;
+  --z-toast: 80;
+
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-settle: linear(
+    0,
+    0.394 7.6%,
+    0.677 16.6%,
+    0.865 26.4%,
+    0.971 36.6%,
+    1.024 47%,
+    1.042 57.7%,
+    1.036 68.5%,
+    1.016 79.4%,
+    1
+  );
+}
+
+.dark {
+  --stage: oklch(0.145 0 0);
+  --stage-dot: oklch(1 0 0 / 0.055);
+
+  --marker: oklch(0.87 0.2 124);
+  --marker-hover: oklch(0.92 0.2 124);
+  --marker-ink: oklch(0.24 0.05 124);
+  --marker-soft: oklch(0.87 0.2 124 / 0.11);
+  --marker-line: oklch(0.87 0.2 124 / 0.55);
+
+  --artboard-ring: oklch(1 0 0 / 0.1);
+  --artboard-shadow: oklch(0 0 0 / 0.5);
+  --selection-soft: oklch(0.97 0 0 / 0.14);
+  --guide: oklch(0.97 0 0 / 0.85);
+  --guide-halo: oklch(0 0 0 / 0.4);
+
+  --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.4);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
+}
+
+/* La seule valeur coss corrigée, et par une règle plus spécifique que
+   `.dark` plutôt qu'en retouchant la palette installée : `muted-foreground`
+   coss sombre (neutral-500 à 90 % vers le blanc) mesure 4.42:1 sur `card` et
+   4.22:1 sur `muted`, sous le plancher que `audit:contrast` tient. À 80 % elle
+   tient 4.9:1 sur le lavis et reste un gris neutre. */
+:root.dark {
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-white));
+}
+
+@theme inline {
+  --color-stage: var(--stage);
+  --color-stage-dot: var(--stage-dot);
+  --color-marker: var(--marker);
+  --color-marker-hover: var(--marker-hover);
+  --color-marker-ink: var(--marker-ink);
+  --color-marker-soft: var(--marker-soft);
+  --color-marker-line: var(--marker-line);
+  --color-artboard-ring: var(--artboard-ring);
+  --color-artboard-shadow: var(--artboard-shadow);
+  --color-selection-soft: var(--selection-soft);
+  --color-guide: var(--guide);
+  --color-guide-halo: var(--guide-halo);
+
+  --shadow-handle: var(--shadow-handle);
+  --shadow-handle-focus: var(--shadow-handle-focus);
+
+  --z-stage-veil: var(--z-stage-veil);
+  --z-chrome: var(--z-chrome);
+  --z-overlay: var(--z-overlay);
+  --z-modal: var(--z-modal);
+  --z-popover: var(--z-popover);
+  --z-toast: var(--z-toast);
+
+  --ease-out: var(--ease-out);
+  --ease-settle: var(--ease-settle);
+}

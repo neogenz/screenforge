@@ -41,16 +41,22 @@ export function CtaPrimary({
   href,
   size = 'md',
   className,
+  ariaLabel,
   children,
 }: {
   href: string
   size?: 'sm' | 'md'
   className?: string
+  /* Le nom accessible quand le libellé visible ne suffit pas : deux cartes de
+     tarif portent « Ouvrir l'éditeur » et « Choisir Cloud » sans dire de quel
+     plan il s'agit. */
+  ariaLabel?: string
   children: ReactNode
 }) {
   return (
     <a
       href={href}
+      aria-label={ariaLabel}
       onClick={() => trackDestination(href)}
       className={cn(
         base,
@@ -67,15 +73,18 @@ export function CtaPrimary({
 export function CtaGhost({
   href,
   className,
+  ariaLabel,
   children,
 }: {
   href: string
   className?: string
+  ariaLabel?: string
   children: ReactNode
 }) {
   return (
     <a
       href={href}
+      aria-label={ariaLabel}
       onClick={() => trackDestination(href)}
       className={cn(
         base,

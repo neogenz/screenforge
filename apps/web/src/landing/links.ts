@@ -9,4 +9,5 @@ export function offerHref(_lang: Lang, plan: 'local' | 'cloud') {
 export const LINKS = {
   app: '/',
   source: 'https://github.com/neogenz/screenforge',
+  contact: 'https://github.com/neogenz/screenforge/issues',
 } as const

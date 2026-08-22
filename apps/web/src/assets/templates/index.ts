@@ -97,7 +97,7 @@ const overlay: ShapeLayer = {
 export const TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
-    name: 'Hero',
+    name: 'Plein cadre',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
     layers: [
@@ -139,7 +139,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'feature',
-    name: 'Feature',
+    name: 'Fonctionnalité',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
     layers: [
@@ -181,7 +181,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'side-by-side',
-    name: 'Side by Side',
+    name: 'Côte à côte',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
       type: 'linear-gradient',
@@ -225,7 +225,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'full-bleed',
-    name: 'Full Bleed',
+    name: 'Image pleine',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
     layers: [

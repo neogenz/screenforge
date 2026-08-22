@@ -64,6 +64,9 @@ test.describe('layers panel', () => {
 
     await layerRows(page).nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
+    // Deux calques ciblés : la suppression passe par une confirmation nommant
+    // sa portée, plutôt que de s'exécuter tout de suite.
+    await page.getByRole('button', { name: 'Supprimer 2 calques', exact: true }).click()
     await expect(layerRows(page)).toHaveCount(0)
     expect(
       await page.evaluate(
@@ -94,9 +97,10 @@ test.describe('layers panel', () => {
     const trigger = page.getByRole('button', { name: /iPhone 17 Pro Max/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toBeVisible()
+    // Base UI nomme le menu par son déclencheur, comme le veut le motif ARIA.
+    await expect(page.getByRole('menu', { name: /iPhone 17 Pro Max/ })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toHaveCount(0)
+    await expect(page.getByRole('menu', { name: /iPhone 17 Pro Max/ })).toHaveCount(0)
     await expect(trigger).toBeFocused()
   })
 

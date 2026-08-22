@@ -38,9 +38,25 @@ interface UIState {
   showPrivacyDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
+  /**
+   * Les captures déposées, en attente que la boîte qui sait les lire s'ouvre.
+   *
+   * Une passation, pas un second import : le dépôt sur la scène et le bouton de
+   * l'écran vide n'assemblent rien eux-mêmes, ils remplissent l'entrée de
+   * « Générer les visuels », qui est déjà le seul chemin qui transforme N
+   * captures en N planches complètes.
+   */
+  pendingCaptures: File[]
   theme: Theme
   saveStatus: SaveStatus
   syncStatus: SyncStatus
+  /**
+   * IndexedDB a échoué au démarrage. Distinct de `saveStatus === 'error'`,
+   * qui couvre aussi un échec d'écriture ponctuel en cours de session — celui-
+   * là a déjà son propre toast (`lib/storage.ts`). Ce drapeau-ci ne tient que
+   * l'échec initial, qui prive l'autosave même de démarrer.
+   */
+  storageUnavailable: boolean
 
   setZoom: (zoom: number) => void
   zoomIn: () => void
@@ -67,10 +83,15 @@ interface UIState {
   setShowPrivacyDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
+  /** Pose les captures puis ouvre la boîte qui les consommera. */
+  openCampaignWithCaptures: (files: File[]) => void
+  /** Vidées dès que la boîte les a prises : elles ne sont pas un état du projet. */
+  takePendingCaptures: () => File[]
   toggleTheme: () => void
   setThemeFromSync: (theme: Theme) => void
   setSaveStatus: (status: SaveStatus) => void
   setSyncStatus: (status: SyncStatus) => void
+  setStorageUnavailable: (unavailable: boolean) => void
 }
 
 /**
@@ -118,7 +139,7 @@ function clampZoom(zoom: number) {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom))
 }
 
-export const useUIStore = create<UIState>()((set) => ({
+export const useUIStore = create<UIState>()((set, get) => ({
   zoom: 1,
   viewportResetKey: 0,
   layersOpen: true,
@@ -141,9 +162,11 @@ export const useUIStore = create<UIState>()((set) => ({
   showPrivacyDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
+  pendingCaptures: [],
   theme: readBootTheme(),
   saveStatus: 'idle',
   syncStatus: 'off',
+  storageUnavailable: false,
 
   setZoom: (zoom) => set({ zoom: clampZoom(zoom) }),
 
@@ -203,6 +226,15 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setShowCampaignDialog: (show) => set(onlyModal('showCampaignDialog', show)),
 
+  openCampaignWithCaptures: (files) =>
+    set({ ...onlyModal('showCampaignDialog', true), pendingCaptures: files }),
+
+  takePendingCaptures: () => {
+    const files = get().pendingCaptures
+    if (files.length > 0) set({ pendingCaptures: [] })
+    return files
+  },
+
   setShowLocaleDialog: (show) => set(onlyModal('showLocaleDialog', show)),
 
   setShowPublishDialog: (show) => set(onlyModal('showPublishDialog', show)),
@@ -228,4 +260,6 @@ export const useUIStore = create<UIState>()((set) => ({
   setSaveStatus: (saveStatus) => set({ saveStatus }),
 
   setSyncStatus: (syncStatus) => set({ syncStatus }),
+
+  setStorageUnavailable: (storageUnavailable) => set({ storageUnavailable }),
 }))

@@ -401,9 +401,16 @@ export function blocking(findings: readonly AscFinding[]): boolean {
   return findings.some((finding) => finding.level === 'error')
 }
 
-/** Le préambule du manifeste : le même que celui de la page, pour la vérité. */
-export function targetSummary(target: AscTarget): string {
-  return `${target.bundleId || '<app>'} ${target.appVersion || '<version>'} · ${target.locale || '<langue>'} · ${ASC_DISPLAY_TYPE}`
+/**
+ * Le préambule du manifeste : le même que celui de la page, pour la vérité.
+ *
+ * `null` tant que la cible est incomplète. Les chevrons `<app>` `<version>`
+ * qu'il posait à la place composaient une phrase de succès sur des champs
+ * jamais saisis — un résumé qui ne résume rien n'a pas à s'écrire.
+ */
+export function targetSummary(target: AscTarget): string | null {
+  if (!target.bundleId || !target.appVersion || !target.locale) return null
+  return `${target.bundleId} ${target.appVersion} · ${target.locale} · ${ASC_DISPLAY_TYPE}`
 }
 
 /**

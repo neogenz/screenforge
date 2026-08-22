@@ -11,6 +11,7 @@ import {
   intersectsScreen,
   layerToFabricObject,
   needsFabricObjectRecreation,
+  screenLabelGeometry,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
 import {
@@ -238,13 +239,15 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
       background.setCoords()
 
       const labelId = `label:${screen.id}`
+      // Le nom de la planche se mesure en pixels écran : `screenLabelGeometry`
+      // est la seule origine des deux nombres, ici comme au changement de zoom.
+      const labelGeometry = screenLabelGeometry(canvas.getZoom())
       let label = objectsById.get(labelId)
       if (!label) {
         label = new Textbox('', {
           originX: 'left',
           originY: 'top',
           width: SCREEN_WIDTH,
-          fontSize: 12,
           fontFamily: 'Inter, system-ui, sans-serif',
           selectable: false,
           evented: false,
@@ -257,7 +260,12 @@ export async function syncCanvas(project: Project, runtime: CanvasSyncRuntime): 
         canvas.add(label)
         objectsById.set(labelId, label)
       }
-      label.set({ left: offset, top: -26, text: screen.name, fill: artboard.labelFill })
+      label.set({
+        left: offset,
+        ...labelGeometry,
+        text: screen.name,
+        fill: artboard.labelFill,
+      })
       label.setCoords()
 
       for (const layer of screen.layers) {

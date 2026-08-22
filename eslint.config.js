@@ -35,6 +35,12 @@ export default tseslint.config(
     },
   },
   {
+    // `ui/` est écrit par le CLI coss et jamais retouché : ses fichiers
+    // exportent des variantes CVA et des contextes à côté des composants.
+    files: ['apps/web/src/components/ui/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['apps/*/e2e/**/*.ts'],
     languageOptions: {

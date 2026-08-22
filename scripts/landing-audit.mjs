@@ -5,57 +5,22 @@
  * `contrast-audit.mjs` ; ce script ajoute les couples que seule la landing
  * emploie (CTA plein, badge en relief) et refuse les motifs bannis — texte en
  * dégradé, liseré latéral, glassmorphism décorative, emoji en guise d'icône.
- * Aucun navigateur : la source fait foi.
+ * Les interdits se lisent dans la source ; le contraste, dans le navigateur.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { contrast, ensureServer, over, resolveThemeTokens } from './lib/theme-tokens.mjs'
 
 const root = fileURLToPath(new URL('../apps/web/', import.meta.url))
 const failures = []
 
-/* ── Contraste : les couples propres à la landing, thème sombre ── */
+/* ── Contraste : les couples propres à la landing, thème sombre ──
+   Les jetons sont lus résolus par le navigateur (`lib/theme-tokens.mjs`) :
+   la palette coss s'écrit en `--alpha()` et `color-mix()`, illisibles par
+   regex. La vitrine est sombre uniquement. */
 
-/**
- * @param {number} lightness
- * @param {number} chroma
- * @param {number} hueDegrees
- * @returns {number[]}
- */
-function oklchToRgb(lightness, chroma, hueDegrees) {
-  const hue = (hueDegrees * Math.PI) / 180
-  const a = chroma * Math.cos(hue)
-  const b = chroma * Math.sin(hue)
-  const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
-  const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
-  const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3
-  return [
-    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
-  ].map((channel) => Math.min(1, Math.max(0, channel)))
-}
-
-/** @param {number[]} color */
-function luminance([r, g, b]) {
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-/** @param {number[]} first @param {number[]} second */
-function contrast(first, second) {
-  const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a)
-  return (high + 0.05) / (low + 0.05)
-}
-
-const theme = readFileSync(join(root, 'src/index.css'), 'utf8')
-const darkBlock = theme.slice(theme.indexOf('@theme static {'), theme.indexOf('@custom-variant'))
-const tokens = new Map()
-for (const match of darkBlock.matchAll(
-  /--color-([a-z0-9-]+):\s*oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)\s*;/g,
-)) {
-  tokens.set(match[1], oklchToRgb(Number(match[2]), Number(match[3]), Number(match[4])))
-}
-
+const baseURL = process.env.BASE_URL ?? 'http://localhost:5199'
 const LANDING_PAIRS = [
   ['primary-foreground', 'primary'],
   ['secondary-foreground', 'secondary'],
@@ -63,8 +28,29 @@ const LANDING_PAIRS = [
   ['marker', 'stage'],
   ['marker', 'background'],
 ]
+const stopServer = await ensureServer(baseURL)
+let tokens
+try {
+  tokens = (
+    await resolveThemeTokens({
+      baseURL,
+      path: '/landing.html',
+      names: [...new Set([...LANDING_PAIRS.flat(), 'background'])],
+      themes: ['dark'],
+    })
+  ).dark
+} finally {
+  stopServer()
+}
+/** @param {string} name */
+const token = (name) => {
+  const value = tokens.get(name)
+  if (!value) throw new Error(`jeton --${name} absent`)
+  return value
+}
 for (const [ink, surface] of LANDING_PAIRS) {
-  const ratio = contrast(tokens.get(ink), tokens.get(surface))
+  const ground = over(token(surface), token('background'))
+  const ratio = contrast(over(token(ink), ground), ground)
   if (ratio < 4.5) {
     failures.push(`contraste ${ink} sur ${surface} : ${ratio.toFixed(2)}:1 (< 4.5:1)`)
   }
@@ -129,6 +115,20 @@ for (const file of ['dist/landing.html', 'dist/landing-fr.html']) {
   if (!/<h1[^>]*>[^<]/.test(doc)) failures.push(`${file} : pas de <h1> pré-rendu`)
   if (/class="[^"]*\bopacity-0\b/.test(doc)) {
     failures.push(`${file} : contenu pré-rendu masqué (opacity-0), invisible sans JS`)
+  }
+  /* La démo est servie composée, jamais vide. Le premier écran sous le pli
+     montrait un éditeur sans rien dessus — l'image qui ne vend rien — et un
+     lecteur sans JS n'en voyait jamais d'autre, puisque la construction est
+     précisément ce que le script fait. Dix vignettes pleines et l'appareil
+     dans la liste des calques : c'est l'état final de la séquence. */
+  const filledTiles = doc.match(/data-demo-tile="filled"/g)?.length ?? 0
+  if (filledTiles !== 10) {
+    failures.push(
+      `${file} : démo pré-rendue à ${String(filledTiles)} vignettes pleines, attendu 10`,
+    )
+  }
+  if (!doc.includes('data-cursor-target="layer-row-device"')) {
+    failures.push(`${file} : démo pré-rendue sans calque d'appareil`)
   }
 }
 

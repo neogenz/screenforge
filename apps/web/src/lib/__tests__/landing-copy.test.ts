@@ -35,3 +35,17 @@ test.each(['en', 'fr'] as const)('la section IA %s cite la vraie commande MCP', 
   expect(agent.setupSteps.join('\n')).toContain(MCP_COMMAND)
   expect(copy[lang].faq.items.map((item) => item.a).join('\n')).toContain(MCP_COMMAND)
 })
+
+/* Le hero dit une chose. Quatre lignes de sous-titre ne se lisent pas, et la
+   limite est ici plutôt que dans une revue : c'est la seule mesure qui survit
+   à une réécriture de la copie. */
+test.each(['en', 'fr'] as const)('le sous-titre du hero %s tient en deux phrases', (lang) => {
+  expect(copy[lang].hero.sub.length).toBeLessThanOrEqual(160)
+})
+
+/* La langue de l'éditeur ne change l'expérience que du visiteur anglophone :
+   la page française n'a rien à annoncer. */
+test('la note de langue est anglaise seulement', () => {
+  expect(copy.en.hero.langNote).toBeTruthy()
+  expect(copy.fr.hero.langNote).toBeUndefined()
+})

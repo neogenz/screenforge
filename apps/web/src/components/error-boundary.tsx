@@ -94,14 +94,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
               ref={this.reloadButton}
-              variant="primary"
+              variant="default"
               size="lg"
               onClick={() => void this.reload()}
             >
               Recharger l’application
             </Button>
             <Button
-              variant="danger"
+              variant="destructive-outline"
               size="lg"
               loading={this.state.resetting}
               onClick={() => void this.resetProject()}

@@ -179,6 +179,48 @@ export function getScreenOffset(index: number): number {
   return index * (SCREEN_WIDTH + SCREEN_GAP)
 }
 
+/**
+ * Le nom d'une planche se lit à l'écran, pas dans la scène.
+ *
+ * Il n'appartient pas à la composition : il désigne la planche, comme le
+ * ferait une étiquette posée à côté. Rendu en unités de scène il suivait le
+ * zoom — à 65 %, douze unités font 7,8 px, illisible ; à 400 %, 48 px, un
+ * titre qui domine le visuel qu'il nomme. Les deux valeurs sont donc divisées
+ * par le zoom pour rendre 12 px de texte à 26 px au-dessus du bord, quel que
+ * soit le facteur.
+ */
+export const SCREEN_LABEL_FONT_SIZE = 12
+export const SCREEN_LABEL_OFFSET = 26
+
+/** @param zoom facteur du viewport Fabric */
+export function screenLabelGeometry(zoom: number): { fontSize: number; top: number } {
+  const factor = zoom > 0 ? zoom : 1
+  return { fontSize: SCREEN_LABEL_FONT_SIZE / factor, top: -SCREEN_LABEL_OFFSET / factor }
+}
+
+/**
+ * Remet les étiquettes de planche à leur taille écran.
+ *
+ * Rien dans Fabric ne dit « cet objet ignore le viewport » : la taille est
+ * recalculée à chaque changement de zoom. Rend `true` si quelque chose a
+ * bougé, pour que l'appelant sache s'il doit redessiner.
+ */
+export function scaleScreenLabels(
+  canvas: { getObjects: () => FabricObject[] },
+  zoom: number,
+): boolean {
+  const { fontSize, top } = screenLabelGeometry(zoom)
+  let changed = false
+  for (const object of canvas.getObjects() as RenderedObject[]) {
+    if (object.data?.rendererType !== 'label') continue
+    if (object.get('fontSize') === fontSize && object.top === top) continue
+    object.set({ fontSize, top })
+    object.setCoords()
+    changed = true
+  }
+  return changed
+}
+
 // ─── Hors planche : ce qui est sorti du cadre, et ce qu'il en reste ──────────
 
 /**

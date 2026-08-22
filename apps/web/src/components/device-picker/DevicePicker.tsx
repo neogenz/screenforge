@@ -3,14 +3,15 @@ import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
 import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
-import { Dropdown } from '@/components/ui/dropdown'
+import { Input } from '@/components/ui/input'
+import { Dropdown } from '@/components/patterns/action-menu'
 import { ScreenshotFraming } from '@/components/device-picker/ScreenshotFraming'
-import { Field } from '@/components/ui/field'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
-import { SwatchButton } from '@/components/ui/swatch-button'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { IconButton } from '@/components/patterns/icon-button'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
+import { SwatchButton } from '@/components/patterns/swatch-button'
 import { Switch } from '@/components/ui/switch'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR } from '@/lib/content-defaults'
@@ -154,7 +155,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Source">
+      <Field className="gap-1.5">
+        <FieldLabel>Source</FieldLabel>
         <Segmented
           options={SOURCE_OPTIONS}
           value={layer.importedBezel ? 'apple' : 'generated'}
@@ -166,7 +168,9 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           disabled={bezelLoading}
         />
       </Field>
-      <input
+      <Input
+        unstyled
+        nativeInput
         ref={bezelInputRef}
         type="file"
         accept="image/png"
@@ -177,7 +181,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       />
 
       {layer.importedBezel ? (
-        <Field label="Bezel Apple">
+        <Field className="gap-1.5">
+          <FieldLabel>Bezel Apple</FieldLabel>
           <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             {bezelUrl && (
               <img src={bezelUrl} alt="Bezel importé" className="h-8 w-8 shrink-0 object-contain" />
@@ -208,7 +213,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       ) : (
         <div className="flex flex-col gap-1.5">
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             loading={bezelLoading}
             onClick={() => bezelInputRef.current?.click()}
@@ -220,24 +225,25 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             href="https://developer.apple.com/design/resources/#product-bezels"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-2xs text-muted-foreground underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-2xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Extraire le DMG, puis choisir un PNG transparent.
           </span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-2xs text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {bezelError}
         </p>
       )}
 
       {!layer.importedBezel && (
-        <Field label="Modèle">
+        <Field className="gap-1.5">
+          <FieldLabel>Modèle</FieldLabel>
           <Dropdown
             open={modelOpen}
             onOpenChange={setModelOpen}
@@ -247,10 +253,10 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                  vocale qui lit l'étiquette à voix haute le nomme exactement
                  (WCAG 2.5.3). « Modèle d'appareil » ne recouvrait pas ce que
                  l'écran affiche. */
-              <Button variant="default" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between">
                 <span className="truncate">{config.modelName}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  <span className="tabular text-2xs text-muted-foreground">
+                  <span className="tabular-nums text-xs text-muted-foreground">
                     {config.screenSize}
                   </span>
                   <ChevronDown
@@ -277,7 +283,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       )}
 
       {!layer.importedBezel && (
-        <Field label="Couleur">
+        <Field className="gap-1.5">
+          <FieldLabel>Couleur</FieldLabel>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Couleur de l’appareil">
             {config.colors.map((color) => (
               <SwatchButton
@@ -294,7 +301,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       )}
 
       {!layer.importedBezel && (
-        <Field label="Orientation">
+        <Field className="gap-1.5">
+          <FieldLabel>Orientation</FieldLabel>
           <Segmented
             options={ORIENTATION_OPTIONS}
             value={orientation}
@@ -304,7 +312,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         </Field>
       )}
 
-      <Field label="Capture d’écran">
+      <Field className="gap-1.5">
+        <FieldLabel>Capture d’écran</FieldLabel>
         {screenshotUrl ? (
           <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             <img
@@ -330,19 +339,21 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             </IconButton>
           </div>
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              'flex min-h-11 items-center justify-center gap-2 rounded-md border border-dashed border-border',
-              'field-label transition-colors duration-150 ease-out',
+              'flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border',
+              'whitespace-normal text-xs text-muted-foreground transition-colors duration-150 ease-out hover:bg-transparent',
               'hover:border-input hover:text-foreground',
             )}
           >
             Aucune capture · importer un PNG/JPEG
-          </button>
+          </Button>
         )}
-        <input
+        <Input
+          unstyled
+          nativeInput
           ref={fileInputRef}
           type="file"
           accept={SCREENSHOT_IMAGE_ACCEPT}
@@ -351,7 +362,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-2xs text-destructive">
+          <p role="alert" className="mt-1.5 text-xs text-destructive">
             {screenshotError}
           </p>
         )}
@@ -360,23 +371,23 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <ScreenshotFraming layer={layer} onUpdate={onUpdate} />
 
       {layer.importedBezel ? (
-        <p className="text-2xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h3 className="section-title">Ombre</h3>
+            <h3 className="text-sm font-medium">Ombre</h3>
             <Switch
               checked={shadowEnabled}
-              ariaLabel="Activer l’ombre de l’appareil"
-              onChange={(checked) => onUpdate({ shadowEnabled: checked })}
+              aria-label="Activer l’ombre de l’appareil"
+              onCheckedChange={(checked) => onUpdate({ shadowEnabled: checked })}
             />
           </div>
 
           {shadowEnabled && (
             <div className="flex flex-col gap-2">
-              <NumberField
+              <UnitField
                 label="Flou"
                 ariaLabel="Flou de l’ombre"
                 value={shadowBlur}
@@ -387,7 +398,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 max={100}
               />
               <div className="grid grid-cols-2 gap-2">
-                <NumberField
+                <UnitField
                   label="X"
                   ariaLabel="Décalage X de l’ombre"
                   value={shadowOffsetX}
@@ -397,7 +408,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                   min={-500}
                   max={500}
                 />
-                <NumberField
+                <UnitField
                   label="Y"
                   ariaLabel="Décalage Y de l’ombre"
                   value={shadowOffsetY}
@@ -409,7 +420,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="field-label">Couleur</span>
+                <span className="text-xs text-muted-foreground">Couleur</span>
                 <ColorPicker
                   value={shadowColor}
                   showOpacity

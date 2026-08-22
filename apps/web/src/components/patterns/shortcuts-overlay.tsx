@@ -1,4 +1,4 @@
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Kbd } from '@/components/ui/kbd'
 
 const SHORTCUT_GROUPS: { title: string; entries: { keys: string; label: string }[] }[] = [
@@ -42,11 +42,11 @@ const SHORTCUT_GROUPS: { title: string; entries: { keys: string; label: string }
 
 export function ShortcutsOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onClose={onClose} title="Raccourcis clavier" size="sm">
+    <DialogShell open={open} onClose={onClose} title="Raccourcis clavier" size="sm">
       <div className="flex flex-col gap-4">
         {SHORTCUT_GROUPS.map((group) => (
           <section key={group.title}>
-            <h3 className="field-label pb-2">{group.title}</h3>
+            <h3 className="pb-2 text-xs text-muted-foreground">{group.title}</h3>
             <ul className="flex flex-col gap-1.5">
               {group.entries.map((entry) => (
                 <li key={entry.keys} className="flex items-center justify-between gap-4">
@@ -58,6 +58,6 @@ export function ShortcutsOverlay({ open, onClose }: { open: boolean; onClose: ()
           </section>
         ))}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

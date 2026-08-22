@@ -1,8 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ShieldCheck } from 'lucide-react'
-import { Provider as TooltipProvider } from '@radix-ui/react-tooltip'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Switch } from '@/components/ui/switch'
 import type { PrivacyCopy } from '@/components/privacy/privacy-copy'
 import {
@@ -47,11 +46,11 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
   }
 
   return (
-    <TooltipProvider>
+    <>
       {!choice && !open && (
         <aside
           aria-labelledby="privacy-banner-title"
-          className="surface-modal fixed bottom-16 left-1/2 z-(--z-overlay) w-[min(720px,calc(100%-2rem))] -translate-x-1/2 p-4 motion-reduce:transition-none"
+          className="fixed bottom-16 left-1/2 z-(--z-overlay) w-[min(720px,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border bg-popover p-4 text-popover-foreground shadow-lg motion-reduce:transition-none"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
@@ -68,7 +67,7 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
               </a>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => commit(EMPTY_PRIVACY_CHOICE)}>
+              <Button size="sm" variant="outline" onClick={() => commit(EMPTY_PRIVACY_CHOICE)}>
                 {copy.rejectAll}
               </Button>
               <Button size="sm" onClick={() => onOpenChange(true)}>
@@ -76,7 +75,6 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
               </Button>
               <Button
                 size="sm"
-                variant="primary"
                 onClick={() => commit({ version: 1, analytics: true, diagnostic: true })}
               >
                 {copy.acceptAll}
@@ -94,7 +92,7 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
           onCommit={commit}
         />
       )}
-    </TooltipProvider>
+    </>
   )
 }
 
@@ -117,18 +115,17 @@ function PrivacyDialog({
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={onClose}
       title={copy.title}
-      closeLabel={copy.close}
       size="sm"
       footer={
         <>
-          <Button size="sm" onClick={() => save(EMPTY_PRIVACY_CHOICE)}>
+          <Button size="sm" variant="outline" onClick={() => save(EMPTY_PRIVACY_CHOICE)}>
             {copy.rejectAll}
           </Button>
-          <Button size="sm" variant="primary" onClick={() => save(draft)}>
+          <Button size="sm" onClick={() => save(draft)}>
             {copy.save}
           </Button>
         </>
@@ -157,7 +154,7 @@ function PrivacyDialog({
           {copy.policy}
         </a>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -173,12 +170,12 @@ function PurposeRow({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <div className="surface-inner flex items-start gap-4 p-4">
+    <div className="flex items-start gap-4 rounded-lg border bg-muted/40 p-4">
       <div className="min-w-0 flex-1">
         <h3 className="section-title">{title}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{body}</p>
       </div>
-      <Switch checked={checked} onChange={onChange} ariaLabel={title} />
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
     </div>
   )
 }

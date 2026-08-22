@@ -21,16 +21,15 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   expect(html).toContain('Chargement de ScreenForge')
   expect(html).toMatch(/<div id="root">\s*<div class="boot"/)
 
-  // La feuille de polices sort du chemin critique et y revient au chargement.
-  expect(html).toMatch(/rel="stylesheet"[\s\S]*?media="print"[\s\S]*?data-screenforge-font/)
-  expect(html).toContain('rel="preload"')
+  // Inter est auto-hébergée : aucune feuille tierce, donc rien à sortir du
+  // chemin critique.
+  expect(html).not.toContain('fonts.googleapis.com')
   expect(html).not.toMatch(/\son[a-z]+\s*=/i)
 
-  // Le thème et le retour de la fonte vivent dans le même script same-origin,
-  // avant les styles du boot : aucune permission `unsafe-inline` n'est requise.
+  // Le thème vit dans un script same-origin, avant les styles du boot : aucune
+  // permission `unsafe-inline` n'est requise.
   const boot = await (await request.get('/boot.js')).text()
   expect(boot).toContain("localStorage.getItem('screenforge-theme')")
-  expect(boot).toContain("querySelectorAll('link[data-screenforge-font]')")
   expect(html.indexOf('<script src="/boot.js"></script>')).toBeLessThan(html.indexOf('<style>'))
 
   // Une fois monté, React a vidé le conteneur : rien à retirer à la main.
@@ -38,16 +37,50 @@ test('peint un squelette nommé avant le montage, sans feuille bloquante', async
   await expect(page.locator('.boot')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'ScreenForge', level: 1 })).toBeAttached()
 
-  // `renderBlockingStatus` est plus récent que la lib DOM de TypeScript : c'est
-  // le navigateur qui répond, et c'est lui qui faisait autorité sur le constat.
-  const blocking = await page.evaluate(() =>
-    performance
-      .getEntriesByType('resource')
-      .filter((entry) => entry.name.includes('fonts.googleapis.com'))
-      .map((entry) => (entry as { renderBlockingStatus?: string }).renderBlockingStatus),
-  )
-  expect(blocking.length).toBeGreaterThan(0)
-  expect(blocking).not.toContain('blocking')
+  // Aucune requête vers Google Fonts, et la fonte locale est bien celle qui rend.
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready
+    return {
+      remote: performance
+        .getEntriesByType('resource')
+        .filter((entry) => /fonts\.g(oogleapis|static)\.com/.test(entry.name)).length,
+      inter: document.fonts.check('14px "Inter Variable"'),
+    }
+  })
+  expect(fonts.remote).toBe(0)
+  expect(fonts.inter).toBe(true)
+})
+
+/**
+ * Le bouton Exporter ne saute pas quand React remplace le squelette.
+ *
+ * `.boot-export` est un rectangle sans texte — le boot n'a encore ni Inter ni
+ * le CSS de l'app pour mesurer « Exporter » lui-même — mais ses quatre bords
+ * recopient le rendu réel à la largeur de fenêtre par défaut des tests. Les
+ * deux mesures viennent de deux pages séparées : la première n'exécute jamais
+ * `main.tsx` (le script est intercepté), donc le squelette reste seul à
+ * l'écran le temps de la lire.
+ */
+test('le bouton Exporter garde sa position entre le squelette et l’hydratation', async ({
+  page,
+  browser,
+}) => {
+  await page.route('**/src/main.tsx*', (route) => route.abort())
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  const before = await page.locator('.boot-export').boundingBox()
+  expect(before).not.toBeNull()
+
+  const hydrated = await browser.newPage()
+  await waitForApp(hydrated)
+  const after = await hydrated.locator('button[aria-label="Ouvrir l’export"]').boundingBox()
+  await hydrated.close()
+  expect(after).not.toBeNull()
+
+  if (!before || !after) return
+  expect(Math.abs(before.x - after.x)).toBeLessThan(1)
+  expect(Math.abs(before.y - after.y)).toBeLessThan(1)
+  expect(Math.abs(before.width - after.width)).toBeLessThan(1)
+  expect(Math.abs(before.height - after.height)).toBeLessThan(1)
 })
 
 test('déclare la même icône servie en local sur la landing et l’éditeur', async ({ request }) => {
@@ -97,19 +130,17 @@ async function expectBootTheme(
     const root = getComputedStyle(document.documentElement)
     const boot = getComputedStyle(document.querySelector('.boot')!)
     return {
-      light: document.documentElement.classList.contains('light'),
+      light: !document.documentElement.classList.contains('dark'),
       background: root.backgroundColor,
       ink: boot.color,
       /* Les deux valeurs recopient `--color-background`, pas `--color-stage` :
          le boot peint ce que le chrome peindra en premier au montage, sinon un
          boot plus sombre que l'application se lit comme un double flash. */
       expectedBackground: resolveColor(
-        document.documentElement.classList.contains('light')
-          ? 'oklch(0.965 0 0)'
-          : 'oklch(0.175 0 0)',
+        document.documentElement.classList.contains('dark') ? '#161616' : '#fff',
       ),
       expectedInk: resolveColor(
-        document.documentElement.classList.contains('light') ? 'oklch(0.4 0 0)' : 'oklch(0.78 0 0)',
+        document.documentElement.classList.contains('dark') ? '#818181' : '#686868',
       ),
     }
   })

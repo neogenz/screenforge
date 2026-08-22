@@ -3,6 +3,11 @@ import { LINKS } from '../links'
 import { BrandWordmark } from './BrandWordmark'
 import { LangLink } from './LangLink'
 
+/*
+ * Contact via les issues : ne dépend pas du domaine vérifié. Le libellé dit ce
+ * que le lien fait (« Signaler un problème ») plutôt que de promettre une
+ * adresse que personne ne possède encore.
+ */
 export function Footer({ onPrivacyPreferences }: { onPrivacyPreferences: () => void }) {
   const { t, lang } = useLang()
   return (
@@ -16,6 +21,12 @@ export function Footer({ onPrivacyPreferences }: { onPrivacyPreferences: () => v
           href={LINKS.source}
         >
           {t.footer.source}
+        </a>
+        <a
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href={LINKS.contact}
+        >
+          {t.footer.contact}
         </a>
         <a
           className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

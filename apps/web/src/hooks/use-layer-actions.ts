@@ -33,11 +33,32 @@ export function useLayerActions() {
         : [layer.id]
     }
 
-    function remove(layer: Layer) {
+    /**
+     * Supprime des calques par id explicite — utilisé quand la suppression
+     * est confirmée après coup (`ConfirmAction`) : entre la demande et la
+     * confirmation, un clic peut retomber sur la ligne que le menu vient de
+     * quitter (le menu se ferme avant que le clic ne se résolve, et la ligne
+     * — pas encore retirée puisqu'on attend la confirmation — le reçoit) et
+     * réduire la sélection à une seule ligne. Relire la sélection à ce
+     * moment-là supprimerait la mauvaise portée ; les ids captés à la demande
+     * restent la seule source sûre.
+     */
+    function removeIds(ids: string[]) {
       const { setLayers, clearSelection } = store()
-      const ids = targetIds(layer)
-      setLayers(layers().filter((candidate) => !ids.includes(candidate.id)))
+      // L'ordre compte : `setLayers` déclenche une resynchro Fabric asynchrone
+      // qui tient `syncing` levé le temps de retirer les objets. Vider la
+      // sélection après coup tombait dans cette même fenêtre — son
+      // application au canevas était avalée par la garde, laissant Fabric sur
+      // une sélection active qui vient de perdre un membre. Un événement
+      // Fabric différé la républiait alors dans le store, calque déjà
+      // supprimé. Vider d'abord évite la collision : il ne reste plus rien à
+      // désélectionner pendant le retrait.
       clearSelection()
+      setLayers(layers().filter((candidate) => !ids.includes(candidate.id)))
+    }
+
+    function remove(layer: Layer) {
+      removeIds(targetIds(layer))
     }
 
     function duplicate(layer: Layer) {
@@ -125,6 +146,7 @@ export function useLayerActions() {
 
     return {
       remove,
+      removeIds,
       duplicate,
       setVisibility,
       setLocked,
@@ -133,6 +155,9 @@ export function useLayerActions() {
       moveForward,
       moveBackward,
       rename,
+      // Exposé pour que le menu nomme sa portée (« Supprimer 3 calques ») et
+      // décide s'il doit confirmer, sans dupliquer la règle de sélection.
+      targetIds,
     }
   }, [])
 }

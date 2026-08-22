@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { openUtility, waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
 
 const PNG_8x4 =
@@ -40,7 +40,7 @@ test.describe('connexion MCP', () => {
         localStorage.setItem('screenforge-mcp-port', String(port))
       }, relay.port)
       await waitForApp(page)
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       const code = dialog.getByLabel('Code à 6 chiffres affiché par le démon')
       const pair = dialog.getByRole('button', { name: 'Appairer' })
@@ -58,7 +58,9 @@ test.describe('connexion MCP', () => {
       const disable = dialog.getByRole('button', { name: 'Désactiver' })
       await expect(disable).toBeFocused()
       await page.keyboard.press('Enter')
-      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Inactive',
+      )
       await expect(code).toBeFocused()
     } finally {
       await relay.stop()
@@ -75,7 +77,9 @@ test.describe('connexion MCP', () => {
       relay.dropStream()
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(2)
       await expect(
-        page.getByRole('dialog', { name: 'Connexion MCP' }).getByRole('status'),
+        page
+          .getByRole('dialog', { name: 'Connexion MCP' })
+          .getByRole('status', { name: 'État de la connexion' }),
       ).toHaveText('Connectée')
     } finally {
       await relay.stop()
@@ -152,7 +156,7 @@ test.describe('connexion MCP', () => {
       // L'état est repoussé après l'écriture : l'agent voit ce qu'il a fait.
       await expect.poll(() => relay.states.length).toBeGreaterThan(1)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const reopened = page.getByRole('dialog', { name: 'Connexion MCP' })
       await reopened.getByText('Détails de connexion').click()
       await expect(reopened.getByText('1 lot · 3 appels')).toBeVisible()
@@ -200,10 +204,12 @@ test.describe('connexion MCP', () => {
       await expect(dialog).toBeHidden()
       expect(relay.live()).toBe(1)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByRole('button', { name: 'Désactiver' }).click()
-      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Inactive',
+      )
 
       // Coupé, et qui le reste : le client réessaie tout seul quand un flux
       // tombe, et un « Désactiver » qui laisserait ce ressort armé rouvrirait
@@ -260,7 +266,9 @@ test.describe('connexion MCP', () => {
       await dialog.getByRole('button', { name: 'Désactiver' }).click()
       releaseAsset()
 
-      await expect(dialog.getByRole('status')).toHaveText('Inactive')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Inactive',
+      )
       await expect.poll(() => relay.live(), { timeout: 10_000 }).toBe(0)
       await page.waitForTimeout(500)
       expect(await layerTypes(page)).toEqual(before)
@@ -287,22 +295,26 @@ test.describe('connexion MCP', () => {
       await page.waitForTimeout(1500)
       expect(relay.opened()).toBe(0)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
       await dialog.getByRole('button', { name: 'Appairer' }).click()
-      await expect(dialog.getByRole('status')).toHaveText('Connectée')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Connectée',
+      )
       expect(relay.opened()).toBe(1)
 
       // Le choix est mémorisé, le jeton non : la reprise exige le nouveau code.
       await page.reload({ waitUntil: 'networkidle' })
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(1)
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const resumed = page.getByRole('dialog', { name: 'Connexion MCP' })
       await expect(resumed.getByRole('alert')).toContainText(/code affiché/i)
       await resumed.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
       await resumed.getByRole('button', { name: 'Appairer' }).click()
-      await expect(resumed.getByRole('status')).toHaveText('Connectée')
+      await expect(resumed.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Connectée',
+      )
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(2)
       await expect
         .poll(() => page.evaluate(() => localStorage.getItem('screenforge-mcp')))
@@ -333,11 +345,13 @@ test.describe('connexion MCP', () => {
       }, port)
       await waitForApp(page)
 
-      await page.getByRole('button', { name: 'Connexion MCP' }).click()
+      await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill('123456')
       await dialog.getByRole('button', { name: 'Appairer' }).click()
-      await expect(dialog.getByRole('status')).toHaveText('Injoignable')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Injoignable',
+      )
       await expectConnectionFlow(dialog, 0)
       await expect(dialog.getByRole('alert')).toContainText(/pnpm --filter mcp run start/)
       await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
@@ -354,7 +368,9 @@ test.describe('connexion MCP', () => {
 
       recovered = await startRelay(port)
       await dialog.getByRole('button', { name: 'Réessayer' }).click()
-      await expect(dialog.getByRole('status')).toHaveText('Connectée')
+      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Connectée',
+      )
       await expectConnectionFlow(dialog, 4)
     } finally {
       await recovered?.stop()

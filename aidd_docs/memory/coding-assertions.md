@@ -12,4 +12,4 @@
 | Order | Command | Checks |
 | ----- | ------- | ------ |
 | 1 | `node_modules/.bin/gitleaks git --redact=100 --no-banner` | Full-history secret scan. |
-| 2 | `pnpm run test:release` | Format, publication, unit, type, lint, one production build, strict Cloud Chromium E2E and audits. |
+| 2 | `pnpm run test:release` | Format, publication, unit, type, lint, one production build, strict Cloud Chromium E2E and audits — contrast, scale, `audit:ui` (every `components/ui/` file still matches the `@coss` registry it was installed from), and landing. |
