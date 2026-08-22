@@ -14,7 +14,7 @@ utilisateur.
 | Données exclues | Noms et contenu de projet, images, canvas, champs saisis, console brute, corps et en-têtes réseau |
 | Base | Consentement révocable sur l’appareil ; le service reste complet sans télémétrie |
 | Destinataires | Unique owner de l’organisation au jour du contrôle ; aucune invitation en attente |
-| Transferts et garanties | Projet EU ; DPA PostHog envoyé au signataire le 22 août 2026 et en attente de signature |
+| Transferts et garanties | Projet EU ; DPA PostHog signé le 22 août 2026 |
 | Sous-traitants ultérieurs | Liste maintenue dans le [PostHog Trust Center](https://trust.posthog.com/) |
 
 ## Rétention réellement appliquée
@@ -62,7 +62,6 @@ point manque, la politique publique ne donne pas de durée chiffrée.
 ## Blocages avant lancement
 
 - choisir une solution réelle pour ramener événements/personnes/erreurs à 13 mois ou moins ;
-- signer le DPA PostHog envoyé par email ;
 - activer la 2FA du seul owner avant toute règle d’organisation qui pourrait le verrouiller dehors ;
 
 Les deux clés personnelles sont séparées et limitées au projet ScreenForge : source maps dans
