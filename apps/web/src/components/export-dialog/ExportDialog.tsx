@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Download, FileCheck2, Loader } from 'lucide-react'
+import { AlertTriangle, Check, Download, FileCheck2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
@@ -7,6 +7,9 @@ import { useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
+import { ProcessingPanel, type ProcessingStep } from '@/components/patterns/processing-panel'
+import { StatusChip } from '@/components/patterns/status-chip'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { SelectField } from '@/components/patterns/select-field'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
@@ -64,6 +67,10 @@ function ExportDialogContent({ project }: { project: Project }) {
     [exportedScreens, selectedScreenIds],
   )
   const allScreensSelected = selectedScreenIds.length === project.screens.length
+  const totalCompletedBytes = useMemo(
+    () => completedFiles.reduce((sum, file) => sum + file.size, 0),
+    [completedFiles],
+  )
 
   const handleClose = useCallback(() => {
     if (!isExporting) setShowExportDialog(false)
@@ -108,6 +115,46 @@ function ExportDialogContent({ project }: { project: Project }) {
     }
   }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
 
+  /* Deux étapes, pas un pourcentage simulé : le rendu (une entrée par écran,
+     `useExport` en tient le compte) puis l'archive, dont `useExport` ne dit
+     que le début (« Validation et création du ZIP »). */
+  const zipPhase = progress?.label.startsWith('Validation') ?? completedFiles.length > 0
+  const renderStatus: ProcessingStep['status'] = error
+    ? zipPhase
+      ? 'done'
+      : 'error'
+    : zipPhase
+      ? 'done'
+      : progress
+        ? 'running'
+        : 'pending'
+  const zipStatus: ProcessingStep['status'] = error
+    ? zipPhase
+      ? 'error'
+      : 'pending'
+    : completedFiles.length > 0
+      ? 'done'
+      : zipPhase
+        ? 'running'
+        : 'pending'
+  const exportSteps: ProcessingStep[] = [
+    {
+      key: 'render',
+      label:
+        progress && !zipPhase
+          ? progress.label
+          : `Rendu ${selectedScreens.length} écran${selectedScreens.length > 1 ? 's' : ''}`,
+      status: renderStatus,
+      error: renderStatus === 'error' ? (error ?? undefined) : undefined,
+    },
+    {
+      key: 'zip',
+      label: 'Archive ZIP',
+      status: zipStatus,
+      error: zipStatus === 'error' ? (error ?? undefined) : undefined,
+    },
+  ]
+
   return (
     <DialogShell
       open={showExportDialog}
@@ -122,6 +169,10 @@ function ExportDialogContent({ project }: { project: Project }) {
           <Button variant="outline" onClick={handleClose} disabled={isExporting}>
             Annuler
           </Button>
+          {/* Le libellé ne change pas avec l'état : `loading` masque le texte et
+              pose le Spinner par-dessus (bouton coss), l'icône seule dit le
+              succès — le nom accessible du bouton reste stable pour qui l'exporte
+              au clavier ou par script pendant le rendu. */}
           <Button
             variant="default"
             onClick={() => void handleExport()}
@@ -131,9 +182,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             {justExported ? (
               <Check size={12} aria-hidden className="animate-check-in" />
             ) : (
-              !isExporting && <Download size={12} aria-hidden />
+              <Download size={12} aria-hidden />
             )}
-            {justExported ? 'Exporté' : isExporting ? 'Export en cours…' : 'Exporter le ZIP'}
+            Exporter le ZIP
           </Button>
         </>
       }
@@ -180,7 +231,31 @@ function ExportDialogContent({ project }: { project: Project }) {
                   fichier{selectedScreens.length > 1 ? 's' : ''}
                   {' sous '}
                   <span className="font-mono">6.9/</span>
+                  {/* Le poids exact, pas une estimation : un PNG App Store varie
+                      trop selon le contenu pour qu'un chiffre avancé avant le
+                      rendu dise vrai. Il apparaît une fois connu. */}
+                  {!isExporting && !error && completedFiles.length > 0 && (
+                    <> · {formatMegabytes(totalCompletedBytes)}</>
+                  )}
                 </p>
+                <StatusChip
+                  className="mt-2"
+                  tone={
+                    isExporting
+                      ? 'pulse'
+                      : selectedScreens.length === 0 || localeRefused
+                        ? 'warning'
+                        : 'success'
+                  }
+                >
+                  {isExporting
+                    ? 'Export en cours'
+                    : selectedScreens.length === 0
+                      ? 'Aucun écran'
+                      : localeRefused
+                        ? 'Bloqué'
+                        : 'Prêt'}
+                </StatusChip>
               </div>
 
               <div className="surface-inner p-4">
@@ -203,12 +278,15 @@ function ExportDialogContent({ project }: { project: Project }) {
                     combien de lignes la retiennent — refuser sans compter
                     laisserait l'utilisateur chercher. */}
                 {localeRefused && (
-                  <p role="alert" className="mt-2 text-2xs text-destructive">
-                    {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
-                    {localeFindings.length > 1 ? 'nt' : ''} ou manque
-                    {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
-                    d’exporter cette variante.
-                  </p>
+                  <Alert variant="error" className="mt-2 py-2">
+                    <AlertTriangle aria-hidden />
+                    <AlertDescription className="text-2xs">
+                      {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
+                      {localeFindings.length > 1 ? 'nt' : ''} ou manque
+                      {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
+                      d’exporter cette variante.
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             </>
@@ -246,52 +324,35 @@ function ExportDialogContent({ project }: { project: Project }) {
           </div>
         </DialogColumns>
 
-        {(progress || error || completedFiles.length > 0) && (
+        {(progress || error) && (
+          <div className="border-t border-border px-6 py-4">
+            <ProcessingPanel
+              title="Export du lot"
+              steps={exportSteps}
+              onRetry={error ? () => void handleExport() : undefined}
+              retryPending={isExporting}
+            />
+          </div>
+        )}
+        {!isExporting && !error && completedFiles.length > 0 && (
           <div className="border-t border-border px-6 py-4" aria-live="polite">
-            {progress && (
-              <div>
-                <div className="mb-2 flex items-center gap-2">
-                  <Loader size={13} className="animate-spin text-foreground" aria-hidden />
-                  <span className="text-2xs text-foreground">{progress.label}</span>
-                  <span className="tabular ml-auto text-2xs text-muted-foreground">
-                    {progress.current}/{progress.total}
+            <div className="flex items-center gap-2 text-2xs text-foreground">
+              <FileCheck2 size={13} aria-hidden />
+              ZIP validé et téléchargé · {completedFiles.length} fichier
+              {completedFiles.length > 1 ? 's' : ''}
+            </div>
+            <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
+              {completedFiles.map((file) => (
+                <li key={file.path} className="flex items-baseline justify-between gap-3">
+                  <span className="tabular min-w-0 truncate text-2xs text-muted-foreground">
+                    {file.path}
                   </span>
-                </div>
-                <div className="h-0.5 overflow-hidden bg-border">
-                  <div
-                    className="h-full bg-foreground transition-[width] duration-300 ease-out"
-                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
-            {error && (
-              <div role="alert" className="flex items-start gap-2 text-2xs text-destructive">
-                <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-                <span>{error}</span>
-              </div>
-            )}
-            {!isExporting && !error && completedFiles.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 text-2xs text-foreground">
-                  <FileCheck2 size={13} aria-hidden />
-                  ZIP validé et téléchargé · {completedFiles.length} fichier
-                  {completedFiles.length > 1 ? 's' : ''}
-                </div>
-                <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
-                  {completedFiles.map((file) => (
-                    <li key={file.path} className="flex items-baseline justify-between gap-3">
-                      <span className="tabular min-w-0 truncate text-2xs text-muted-foreground">
-                        {file.path}
-                      </span>
-                      <span className="tabular shrink-0 text-2xs text-muted-foreground">
-                        {formatMegabytes(file.size)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                  <span className="tabular shrink-0 text-2xs text-muted-foreground">
+                    {formatMegabytes(file.size)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

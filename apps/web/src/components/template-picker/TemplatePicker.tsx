@@ -7,7 +7,10 @@ import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
 import { DialogShell } from '@/components/patterns/dialog-shell'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
 import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
 import { cn } from '@/lib/utils'
@@ -87,20 +90,31 @@ function TemplatePickerContent() {
           écarts de l'échelle, dans leur emploi respectif. */}
       <div className="flex flex-col gap-2">
         {/* Les siens d'abord : le catalogue livré ne change jamais, sa
-            bibliothèque oui, et c'est elle qu'on vient rouvrir. */}
-        {custom.length > 0 && (
-          <section className="flex flex-col gap-1.5">
-            <h3 className="section-title">Mes gabarits</h3>
+            bibliothèque oui, et c'est elle qu'on vient rouvrir. Le titre reste
+            même vide — sans lui, rien ne dit que la bibliothèque personnelle
+            existe avant qu'on y ait posé quoi que ce soit. */}
+        <section className="flex flex-col gap-1.5">
+          <h3 className="section-title">Mes gabarits</h3>
+          {custom.length > 0 ? (
             <Gallery
               templates={custom}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onRemove={handleRemove}
             />
-          </section>
-        )}
+          ) : (
+            <Empty className="min-h-24 gap-1 px-4 py-4">
+              <EmptyTitle className="font-normal text-sm">Aucun gabarit enregistré</EmptyTitle>
+              <EmptyDescription>
+                Enregistrez une mise en page depuis le menu d’un écran, ou laissez l’agent en poser
+                un.
+              </EmptyDescription>
+            </Empty>
+          )}
+        </section>
+        <div className="hairline" />
         <section className="flex flex-col gap-1.5">
-          {custom.length > 0 && <h3 className="section-title">Catalogue</h3>}
+          <h3 className="section-title">Catalogue</h3>
           <Gallery templates={TEMPLATES} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
       </div>
@@ -131,13 +145,17 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
         const isSelected = selectedId === template.id
         return (
           <div key={template.id} className="group/tile relative self-start">
-            <Button
-              variant="ghost"
-              onClick={() => onSelect(template.id)}
-              aria-pressed={isSelected}
-              aria-label={`Sélectionner le modèle ${template.name}`}
+            <Card
+              render={
+                <button
+                  type="button"
+                  onClick={() => onSelect(template.id)}
+                  aria-pressed={isSelected}
+                  aria-label={`Sélectionner le modèle ${template.name}`}
+                />
+              }
               className={cn(
-                'h-auto w-full flex-col items-stretch gap-2 rounded-lg border p-2 text-left font-normal',
+                'w-full cursor-pointer gap-2 rounded-lg p-2 text-left shadow-none',
                 isSelected
                   ? 'border-foreground bg-muted'
                   : 'border-border hover:border-input hover:bg-accent',
@@ -149,14 +167,20 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
               <div className="flex min-w-0 items-center gap-1 px-0.5">
                 <p className="truncate text-2xs font-medium text-foreground">{template.name}</p>
                 {/* Neutre, et seulement quand c'est vrai : « IA » dit d'où vient
-                    la mise en page, il ne la recommande pas. */}
+                    la mise en page, il ne la recommande pas ; « Vide » dit ce
+                    que la vignette ne peut pas montrer à cette échelle. */}
                 {saved?.source === 'ai' && (
-                  <span className="shrink-0 rounded-sm bg-secondary px-1 text-2xs text-muted-foreground">
+                  <Badge variant="secondary" size="sm" className="shrink-0 font-normal">
                     IA
-                  </span>
+                  </Badge>
+                )}
+                {template.layers.length === 0 && (
+                  <Badge variant="outline" size="sm" className="shrink-0 font-normal">
+                    Vide
+                  </Badge>
                 )}
               </div>
-            </Button>
+            </Card>
             {saved && onRemove && (
               <IconButton
                 size="sm"

@@ -35,6 +35,23 @@
   animation: oa-arrive 0.3s var(--ease-out) both;
 }
 
+/* Une étape de StepDialog glisse de 12px dans le sens de la navigation :
+   `--step-from` est posé par le parent (+12px en avant, -12px en arrière). */
+@utility animate-step {
+  animation: step var(--duration-base) var(--ease-out) both;
+}
+
+@keyframes step {
+  from {
+    opacity: 0;
+    translate: var(--step-from, 12px) 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
 @keyframes mark {
   from {
     opacity: 0;
@@ -90,6 +107,7 @@
   .animate-enter,
   .animate-enter-delayed,
   .animate-enter-quick,
+  .animate-step,
   .animate-mark,
   .oa-arrive {
     animation-name: fade-in;

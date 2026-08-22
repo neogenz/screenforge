@@ -30,7 +30,11 @@ import { MAX_PROJECT_RELEASES, MAX_RELEASE_NAME_LENGTH } from '@/lib/project-val
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import { saveCurrentProject } from '@/lib/storage'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { AsyncPanel, type AsyncState } from '@/components/patterns/async-panel'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -90,10 +94,28 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   const [running, setRunning] = useState<'freeze' | 'verify' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [checks, setChecks] = useState<{ releaseId: string; results: ReleaseCheck[] } | null>(null)
+  /* Le rapport de vérification est la seule chose de cette boîte qui se
+     calcule vraiment (un rendu réseau-bound) : lui seul porte un état
+     d'échec distinct, retentable sans perdre le reste de la boîte. */
+  const [verifyError, setVerifyError] = useState<string | null>(null)
 
   const selected =
     releases.find((release) => release.id === selectedId) ?? releases[releases.length - 1]
   const busy = progress !== null
+
+  /* Dérivé de son propre lot, pas vérifié par un rendu : un diff structurel
+     est une comparaison pure entre deux instantanés déjà en mémoire, donc
+     calculable pour chaque lot de la liste sans coût réseau — à la différence
+     du bouton « Vérifier », qui rejoue vraiment le rendu. */
+  const releaseDiffs = useMemo(() => {
+    const current = snapshotOf(project)
+    return new Map(
+      (project.releases ?? []).map((release) => [
+        release.id,
+        diffSnapshots(release.snapshot, current),
+      ]),
+    )
+  }, [project])
 
   /* Ce que la dernière vérification a dit de CE lot-ci, ou rien.
      Le verdict vit aussi longtemps que le rapport qu'il résume : changer de
@@ -106,12 +128,16 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         : 'drift'
       : null
 
-  /* Recalculé au rendu : le diff est une lecture de deux valeurs immuables,
-     et un état dérivé aurait demandé un effet pour suivre le projet. */
-  const diff = useMemo<StructuralDiff | null>(
-    () => (selected ? diffSnapshots(selected.snapshot, snapshotOf(project)) : null),
-    [selected, project],
-  )
+  const verifyState: AsyncState =
+    running === 'verify'
+      ? 'pending'
+      : verifyError
+        ? 'failed'
+        : checks && selected && checks.releaseId === selected.id
+          ? 'ready'
+          : 'idle'
+
+  const diff: StructuralDiff | null = selected ? (releaseDiffs.get(selected.id) ?? null) : null
 
   async function freeze() {
     if (busy) return
@@ -169,11 +195,14 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   async function verify(release: Release) {
     if (busy) return
     setError(null)
+    setVerifyError(null)
     setChecks(null)
     setRunning('verify')
     try {
       const results = await verifyRelease(release, setProgress)
       setChecks({ releaseId: release.id, results })
+    } catch (cause) {
+      setVerifyError(cause instanceof Error ? cause.message : 'La vérification a échoué.')
     } finally {
       setProgress(null)
       setRunning(null)
@@ -280,28 +309,44 @@ function ReleaseDialogContent({ project }: { project: Project }) {
             {releases.length === 0 ? (
               <p className="text-2xs text-muted-foreground">Aucune release figée pour l’instant.</p>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {[...releases].reverse().map((release) => (
-                  <li key={release.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSelectedId(release.id)}
-                      aria-current={release.id === selected?.id}
-                      className={cn(
-                        'h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
-                        release.id === selected?.id
-                          ? 'border-foreground bg-muted'
-                          : 'border-border hover:border-input',
-                      )}
-                    >
-                      <span className="truncate text-sm text-foreground">{release.name}</span>
-                      <span className="tabular text-2xs text-muted-foreground">
-                        {formatDate(release.createdAt)} · {release.files.length} écrans
-                        {release.locale ? ` · ${release.locale}` : ''}
-                      </span>
-                    </Button>
-                  </li>
-                ))}
+              <ul className="flex flex-col gap-1.5">
+                {[...releases].reverse().map((release) => {
+                  const current = release.id === selected?.id
+                  const identical = releaseDiffs.get(release.id)?.identical ?? false
+                  return (
+                    <li key={release.id}>
+                      <Card
+                        render={
+                          <button
+                            type="button"
+                            onClick={() => setSelectedId(release.id)}
+                            aria-current={current}
+                          />
+                        }
+                        className={cn(
+                          'w-full gap-1 p-3 text-start shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          current ? 'border-foreground bg-muted' : 'hover:border-input',
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate text-sm text-foreground">
+                            {release.name}
+                          </span>
+                          {/* Dérivé du projet vivant, jamais du rendu propre à la
+                              release — c'est un diff structurel, pas ce que
+                              « Vérifier » répond. */}
+                          <Badge variant={identical ? 'success' : 'outline'} size="sm">
+                            {identical ? 'à jour' : 'dérivé'}
+                          </Badge>
+                        </div>
+                        <span className="tabular text-2xs text-muted-foreground">
+                          {formatDate(release.createdAt)} · {release.files.length} écrans
+                          {release.locale ? ` · ${release.locale}` : ''}
+                        </span>
+                      </Card>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </>
@@ -326,10 +371,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         )}
 
         {error && (
-          <p role="alert" className="mb-4 flex items-start gap-2 text-2xs text-destructive">
-            <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-            {error}
-          </p>
+          <Alert variant="error" className="mb-4">
+            <AlertCircle aria-hidden />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {!selected ? (
@@ -418,9 +463,19 @@ function ReleaseDialogContent({ project }: { project: Project }) {
               release qui a dérivé — vérifier sert à l’apprendre avant.
             </p>
 
-            {checks && checks.releaseId === selected.id && (
-              <VerifyReport results={checks.results} />
-            )}
+            {/* `idle` : personne n'a encore cliqué « Vérifier » sur ce lot — rien
+                à montrer, le bouton au-dessus porte déjà l'explication. */}
+            <AsyncPanel
+              state={verifyState}
+              failedTitle="La vérification n’a pas pu se rejouer."
+              failedMessage={verifyError ?? undefined}
+              onRetry={() => void verify(selected)}
+              retryLabel="Reprendre la vérification"
+            >
+              {checks && checks.releaseId === selected.id && (
+                <VerifyReport results={checks.results} />
+              )}
+            </AsyncPanel>
             {diff && <DiffReport diff={diff} />}
           </div>
         )}

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { Dialog, DialogHeader, DialogPanel, DialogPopup } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
@@ -374,18 +375,24 @@ function Overlays() {
 }
 
 function LazyDialogFallback() {
+  /* La coque coss de la boîte à venir, avec un squelette à sa forme : le
+     chargement a déjà la place que la boîte prendra. `role=status` annonce
+     « Chargement… » en `sr-only`. */
   return (
-    <>
-      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
-      <div
-        role="status"
-        aria-live="polite"
-        aria-label="Chargement de la fenêtre"
-        className="surface-modal fixed left-1/2 top-1/2 z-(--z-modal) flex -translate-x-1/2 -translate-y-1/2 animate-slide-up items-center gap-2.5 px-5 py-4 text-sm text-foreground motion-reduce:animate-none"
-      >
-        <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />
-        Chargement…
-      </div>
-    </>
+    <Dialog open>
+      <DialogPopup showCloseButton={false} className="max-w-lg">
+        <div role="status" aria-live="polite" aria-label="Chargement de la fenêtre">
+          <DialogHeader>
+            <Skeleton className="h-5 w-1/2" />
+            <span className="sr-only">Chargement…</span>
+          </DialogHeader>
+          <DialogPanel className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-2/3" />
+          </DialogPanel>
+        </div>
+      </DialogPopup>
+    </Dialog>
   )
 }

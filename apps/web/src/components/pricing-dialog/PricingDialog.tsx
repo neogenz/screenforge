@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardPanel,
+  CardTitle,
+} from '@/components/ui/card'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { billingConfigured, createCheckout, createPortalSession } from '@/lib/account'
 import type { Entitlements } from '@/lib/entitlements'
@@ -150,60 +160,62 @@ interface PlanCardProps {
  */
 function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCardProps) {
   return (
-    <div
+    <Card
       className={cn(
-        'flex flex-col gap-3 rounded-lg border p-4',
         /* Marker et non la recette « sélectionné » (`border-foreground
            bg-muted`) : la carte « owned » n'est pas un choix à refaire, c'est
            « vous êtes ici » — l'état que le citron réserve. Seule carte de
            dialogue à le porter, à dessein. */
-        owned ? 'border-marker-line bg-marker-soft' : 'border-border bg-card',
+        owned && 'border-marker-line bg-marker-soft',
       )}
     >
-      <div className="flex min-h-5 items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">{plan.name}</h3>
+      <CardHeader>
+        <CardTitle className="text-sm">{plan.name}</CardTitle>
+        <CardDescription className="flex items-baseline gap-1.5 text-foreground">
+          <span className="text-base font-semibold tabular-nums">{plan.price}</span>
+          {plan.period && <span className="text-2xs text-muted-foreground">{plan.period}</span>}
+        </CardDescription>
         {owned ? (
-          <span className="rounded-xs bg-marker px-1.5 py-0.5 text-2xs font-semibold text-marker-ink">
-            Actif
-          </span>
+          <CardAction>
+            <Badge className="border-marker-line bg-marker text-marker-ink">Actuel</Badge>
+          </CardAction>
         ) : plan.badge ? (
-          <span className="text-2xs text-muted-foreground">{plan.badge}</span>
+          <CardAction>
+            <Badge variant="outline">{plan.badge}</Badge>
+          </CardAction>
         ) : null}
-      </div>
+      </CardHeader>
 
-      <p className="flex items-baseline gap-1.5">
-        <span className="text-base font-semibold tabular-nums">{plan.price}</span>
-        {plan.period && <span className="text-2xs text-muted-foreground">{plan.period}</span>}
-      </p>
+      <CardPanel className="flex flex-col gap-3">
+        <p className="text-2xs leading-4 text-muted-foreground">{plan.tagline}</p>
 
-      <p className="text-2xs leading-4 text-muted-foreground">{plan.tagline}</p>
+        {/* Une coche par point, et l'icône de stockage nulle part : posée sur les
+            chaque ligne elle mettait un disque dur à côté de bénéfices qui ne
+            projet », qui n'est pas une histoire de stockage. La carte dit déjà où
+            vivent les projets par sa dernière puce. */}
+        <ul className="flex flex-col gap-1.5">
+          {plan.points.map((point) => (
+            <li key={point} className="flex items-start gap-1.5 text-2xs leading-4">
+              <Check
+                aria-hidden
+                size={12}
+                strokeWidth={2}
+                className="mt-0.5 shrink-0 text-muted-foreground"
+              />
+              {point}
+            </li>
+          ))}
+        </ul>
+      </CardPanel>
 
-      {/* Une coche par point, et l'icône de stockage nulle part : posée sur les
-          chaque ligne elle mettait un disque dur à côté de bénéfices qui ne
-          projet », qui n'est pas une histoire de stockage. La carte dit déjà où
-          vivent les projets par sa dernière puce. */}
-      <ul className="flex flex-col gap-1.5">
-        {plan.points.map((point) => (
-          <li key={point} className="flex items-start gap-1.5 text-2xs leading-4">
-            <Check
-              aria-hidden
-              size={12}
-              strokeWidth={2}
-              className="mt-0.5 shrink-0 text-muted-foreground"
-            />
-            {point}
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-auto flex flex-col gap-1.5 pt-1">
-        {/* Rien à presser sur un palier déjà détenu : le bouton désactivé qui
-              tenait cette place répétait le badge « Actif » et rendait, grisé
-              sur le fond citron, le contrôle le plus pâle de la boîte. Le
-              gabarit est conservé — `min-h-8`, la hauteur du bouton d'en
-              face — pour que les deux cartes payantes gardent leur ligne. */}
+      {/* Rien à presser sur un palier déjà détenu : le bouton désactivé qui
+          tenait cette place répétait le badge « Actuel » et rendait, grisé
+          sur le fond citron, le contrôle le plus pâle de la boîte. Le
+          gabarit est conservé — `min-h-8`, la hauteur du bouton d'en
+          face — pour que les deux cartes payantes gardent leur ligne. */}
+      <CardFooter>
         {owned ? (
-          <p className="flex min-h-8 items-center justify-center gap-1.5 text-center text-2xs leading-4 font-medium text-foreground">
+          <p className="flex min-h-8 w-full items-center justify-center gap-1.5 text-center text-2xs leading-4 font-medium text-foreground">
             <Check size={12} strokeWidth={2} aria-hidden className="shrink-0" />
             {ownedNote ?? 'Actif'}
           </p>
@@ -219,7 +231,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
             Acheter {plan.name}
           </Button>
         ) : null}
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   )
 }

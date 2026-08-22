@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   PenLine,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/patterns/icon-button'
@@ -18,6 +19,7 @@ import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { StatusChip, type StatusTone } from '@/components/patterns/status-chip'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import {
   createProjectFile,
   PROJECT_FILE_EXTENSION,
@@ -30,7 +32,12 @@ import {
   type ProjectAvailability,
   type ProjectCatalogueEntry,
 } from '@/lib/sync'
-import { importPortableProject, openStoredProject, saveCurrentProject } from '@/lib/storage'
+import {
+  deleteProject,
+  importPortableProject,
+  openStoredProject,
+  saveCurrentProject,
+} from '@/lib/storage'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
@@ -74,6 +81,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState('')
   const [catalogue, setCatalogue] = useState<ProjectCatalogueEntry[]>([])
+  const [pendingDelete, setPendingDelete] = useState<ProjectCatalogueEntry | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -150,6 +158,22 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
     } catch (error) {
       console.error('Could not open the local project.', error)
       toast('Ouverture du projet impossible.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /* Réservée à « Autres projets » : le projet courant se ferme, se renomme ou
+     se télécharge depuis sa carte, jamais depuis lui-même se supprimer. */
+  async function deleteProjectRow(project: ProjectCatalogueEntry) {
+    setBusy(true)
+    try {
+      await deleteProject(project.id)
+      await refresh()
+      toast(`« ${project.name} » supprimé.`, 'success')
+    } catch (error) {
+      console.error('Could not delete the local project.', error)
+      toast('Suppression du projet impossible.', 'error')
     } finally {
       setBusy(false)
     }
@@ -284,7 +308,10 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     const availabilityId = `project-${project.id}-availability`
                     const dateId = `project-${project.id}-date`
                     return (
-                      <li key={project.id}>
+                      <li
+                        key={project.id}
+                        className="flex items-center gap-1 border-b border-border last:border-b-0"
+                      >
                         <Button
                           variant="ghost"
                           disabled={busy}
@@ -296,7 +323,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             event.preventDefault()
                             void openProject(project.id)
                           }}
-                          className="h-auto min-h-11 w-full justify-start gap-2 rounded-none border-x-0 border-t-0 border-b border-border px-1 text-left font-normal last:border-b-0 focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                          className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-none border-0 px-1 text-left font-normal focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
                         >
                           <FileText
                             size={14}
@@ -320,6 +347,16 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             {date}
                           </time>
                         </Button>
+                        <IconButton
+                          size="sm"
+                          aria-label={`Supprimer « ${project.name} »`}
+                          tooltip="Supprimer le projet"
+                          disabled={busy}
+                          className="mr-1 shrink-0 hover:text-destructive"
+                          onClick={() => setPendingDelete(project)}
+                        >
+                          <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                        </IconButton>
                       </li>
                     )
                   })}
@@ -362,6 +399,22 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           if (file) void importProject(file)
         }}
       />
+
+      {pendingDelete && (
+        <ConfirmAction
+          open
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setPendingDelete(null)
+          }}
+          title={`Supprimer « ${pendingDelete.name} » ?`}
+          description="Le projet et ses images locales sont supprimés de cet appareil. Une copie Cloud, si elle existe, n’est pas touchée."
+          confirmLabel="Supprimer le projet"
+          onConfirm={() => {
+            void deleteProjectRow(pendingDelete)
+            setPendingDelete(null)
+          }}
+        />
+      )}
     </>
   )
 }

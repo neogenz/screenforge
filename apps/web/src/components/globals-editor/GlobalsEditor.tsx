@@ -8,6 +8,7 @@ import { CURRENT_DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
+import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
 import { SelectField } from '@/components/patterns/select-field'
 import { SwatchButton } from '@/components/patterns/swatch-button'
@@ -58,8 +59,13 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
           <Button variant="outline" onClick={handleClose}>
             Annuler
           </Button>
+          {/* « Enregistrer », pas « Appliquer à N écrans » : les réglages
+              globaux n'écrivent que les défauts des calques à venir
+              (`canvas.store.ts` les lit à la création) — les N écrans déjà
+              composés n'en sont pas retouchés, et le dire changerait
+              promettrait un geste que le bouton ne fait pas. */}
           <Button variant="default" onClick={handleSave}>
-            Enregistrer
+            Enregistrer les réglages par défaut
           </Button>
         </>
       }
@@ -68,6 +74,8 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
         {/* Typographie */}
         <section>
           <h3 className="section-title mb-2">Typographie</h3>
+          {/* Contrôles d'une ligne, libellé en ligne (grammaire du panneau) :
+              seul le composite — la pastille de couleur — passe par `PropertyRow`. */}
           <div className="flex flex-col gap-2">
             <FontPicker
               label="Police"
@@ -78,9 +86,9 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
               <div className="flex-1">
                 <SelectField
                   label="Graisse"
+                  aria-label="Graisse de police par défaut"
                   value={String(draft.fontWeight)}
                   onValueChange={(next) => update({ fontWeight: parseInt(next, 10) })}
-                  aria-label="Graisse de police par défaut"
                   items={FONT_WEIGHT_OPTIONS.map((weight) => ({
                     value: String(weight.value),
                     label: weight.label,
@@ -98,13 +106,12 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                 />
               </div>
             </div>
-            <Field className="gap-1.5">
-              <FieldLabel>Couleur</FieldLabel>
+            <PropertyRow label="Couleur" stacked>
               <ColorPicker
                 value={draft.fontColor}
                 onChange={(fontColor) => update({ fontColor })}
               />
-            </Field>
+            </PropertyRow>
           </div>
         </section>
 
@@ -127,9 +134,9 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
           <div className="flex flex-col gap-2">
             <SelectField<DeviceModel>
               label="Modèle"
+              aria-label="Modèle d’appareil par défaut"
               value={draft.deviceModel}
               onValueChange={handleModelChange}
-              aria-label="Modèle d’appareil par défaut"
               items={modelOptions.map((option) => ({
                 value: option.model,
                 label: `${option.modelName} · ${option.screenSize}`,

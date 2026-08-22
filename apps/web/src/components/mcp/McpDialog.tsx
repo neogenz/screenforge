@@ -4,9 +4,18 @@ import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/patterns/setup-flow'
+import { StatusChip, type StatusTone } from '@/components/patterns/status-chip'
 import { disableMcp, enableMcp, MCP_COMMAND, mcpRelayAddress } from '@/lib/mcp/client'
-import { MCP_LABELS, projectMcpSteps, useMcpStore } from '@/stores/mcp.store'
+import { MCP_LABELS, projectMcpSteps, useMcpStore, type McpStatus } from '@/stores/mcp.store'
 import { useUIStore } from '@/stores/ui.store'
+
+/** off patiente, connecting progresse, live confirme, error alerte — même palette que `ProjectSwitcher`. */
+const MCP_STATUS_TONE: Record<McpStatus, StatusTone> = {
+  off: 'neutral',
+  connecting: 'pulse',
+  live: 'success',
+  error: 'warning',
+}
 
 /** La porte locale vers le projet ouvert, décrite par ses seuls jalons observables. */
 export function McpDialog() {
@@ -78,9 +87,9 @@ export function McpDialog() {
             role="status"
             aria-live="polite"
             aria-label="État de la connexion"
-            className="shrink-0 text-2xs text-foreground"
+            className="shrink-0"
           >
-            {MCP_LABELS[status]}
+            <StatusChip tone={MCP_STATUS_TONE[status]}>{MCP_LABELS[status]}</StatusChip>
           </p>
         </div>
 

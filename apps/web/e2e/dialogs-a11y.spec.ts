@@ -118,7 +118,9 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
     const dialog = await openWithKeyboard(page, label, title, via)
 
     // Le focus entre dans la boîte, il ne reste pas sur la page en dessous.
-    expect(await activeInsideDialog(page), `${title} : focus resté dehors`).toBe(true)
+    await expect
+      .poll(() => activeInsideDialog(page), { message: `${title} : focus resté dehors` })
+      .toBe(true)
 
     if (title === 'Connexion MCP') {
       await expect(dialog.locator('[data-slot="setup-step"]')).toHaveCount(4)
@@ -164,6 +166,9 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   // Le bouton cliqué disparaît avec la vue : Base UI rapatrie le focus dans
   // la boîte à la frame suivante, et l'attendre évite qu'il vole la sentinelle.
   await expect.poll(() => activeInsideDialog(page)).toBe(true)
+  // L'étape glisse en entrant ; une sentinelle posée pendant l'animation se
+  // fait doubler par le rapatriement du focus.
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
   await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
   await closeDialog(page, dialog)
 
@@ -186,6 +191,9 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Publier chez Apple').click()
   dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
+  // Un lot existe : la boîte s'ouvre sur l'envoi, le choix du lot est l'étape d'avant.
+  await dialog.getByRole('button', { name: 'Retour' }).click()
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
   await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
@@ -237,7 +245,9 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
             if (élément.getAttribute('aria-hidden') === 'true' && style.clipPath !== 'none')
               continue
             const rect = élément.getBoundingClientRect()
-            if (rect.width === 0) continue
+            // Un pixel de sonde (le `span` de mesure de Progress) n'est pas
+            // une mise en page qui déborde.
+            if (rect.width <= 1) continue
             if (rect.left < box.left - 0.5 || rect.right > box.right + 0.5) {
               dehors.push(
                 `${élément.tagName.toLowerCase()}.${élément.className.toString().slice(0, 40)}`,
