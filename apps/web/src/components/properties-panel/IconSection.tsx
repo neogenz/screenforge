@@ -1,7 +1,7 @@
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { PropertyRow } from '@/components/patterns/property-row'
 import { SliderField } from '@/components/patterns/slider-field'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
 import { ICON_CATALOG, ICON_STROKE, iconEntry, type IconId } from '@/lib/vector-catalog'
@@ -41,14 +41,13 @@ export function IconSection({ layer }: IconSectionProps) {
         searchPlaceholder="Rechercher une icône…"
       />
 
-      <Field className="gap-1.5">
-        <FieldLabel>Couleur</FieldLabel>
+      <PropertyRow label="Couleur" stacked>
         <ColorPicker
           value={layer.color}
           onChange={(color) => update({ color }, { coalesceKey: `layer:${layer.id}:color` })}
           showOpacity
         />
-      </Field>
+      </PropertyRow>
 
       <SliderField
         label="Épaisseur du trait"
@@ -63,8 +62,7 @@ export function IconSection({ layer }: IconSectionProps) {
         }
       />
 
-      <div className="hairline" />
-
+      {/* La bordure du panneau "Ombre" fait déjà le trait : pas de hairline en double. */}
       <ShadowEditor
         shadow={layer.shadow}
         onChange={(shadow, options) => update({ shadow }, options)}

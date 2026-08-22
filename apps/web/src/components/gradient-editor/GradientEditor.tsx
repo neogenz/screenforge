@@ -152,25 +152,37 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
         </div>
 
         <div className="flex flex-col gap-2">
-          {sortedStops.map((stop) => (
+          {sortedStops.map((stop, displayIndex) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-muted p-2"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-muted p-2"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color }, 'color')}
                 showOpacity
               />
-              <IconButton
-                size="sm"
-                onClick={() => removeStop(stop.originalIndex)}
-                disabled={value.stops.length <= 2}
-                aria-label="Supprimer le stop"
-                className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
-              >
-                <Trash2 size={13} strokeWidth={1.5} aria-hidden />
-              </IconButton>
+              <div className="flex items-center gap-2">
+                <UnitField
+                  label="Position"
+                  ariaLabel={`Position de l’arrêt ${displayIndex + 1}`}
+                  unit="%"
+                  min={0}
+                  max={100}
+                  value={Math.round(stop.offset * 100)}
+                  onChange={(v) => updateStop(stop.originalIndex, { offset: v / 100 }, 'offset')}
+                  className="flex-1"
+                />
+                <IconButton
+                  size="sm"
+                  onClick={() => removeStop(stop.originalIndex)}
+                  disabled={value.stops.length <= 2}
+                  aria-label="Supprimer le stop"
+                  className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
+                >
+                  <Trash2 size={13} strokeWidth={1.5} aria-hidden />
+                </IconButton>
+              </div>
             </div>
           ))}
         </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
 import { ContextMenu } from '@/components/patterns/action-menu'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { buildLayerMenuItems } from '@/components/layers-panel/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'
@@ -18,6 +19,10 @@ export default function CanvasEditor() {
   const layers = useProjectStore(useShallow((state) => getProjectLayers(state.project)))
   const [menu, setMenu] = useState<{ left: number; top: number; layerId: string } | null>(null)
   const [dropping, setDropping] = useState(false)
+  // Les ids sont capturés à la demande, pas relus depuis la sélection en
+  // direct : le menu se ferme avant que la confirmation ne soit tranchée, et
+  // un clic peut retomber sur la ligne qu'il vient de quitter entre-temps.
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null)
 
   function handleContextMenu(event: React.MouseEvent) {
     event.preventDefault()
@@ -85,7 +90,19 @@ export default function CanvasEditor() {
           position={{ left: menu.left, top: menu.top }}
           label={`Actions de ${layerDisplayName(menuLayer)}`}
           onClose={() => setMenu(null)}
-          items={buildLayerMenuItems(menuLayer, actions)}
+          items={buildLayerMenuItems(menuLayer, actions, { onRequestDelete: setPendingDeleteIds })}
+        />
+      )}
+
+      {pendingDeleteIds && (
+        <ConfirmAction
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDeleteIds(null)
+          }}
+          title={`Supprimer ${pendingDeleteIds.length} calques ?`}
+          confirmLabel={`Supprimer ${pendingDeleteIds.length} calques`}
+          onConfirm={() => actions.removeIds(pendingDeleteIds)}
         />
       )}
     </div>

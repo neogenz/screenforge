@@ -3,7 +3,8 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { PanelSection } from '@/components/patterns/panel-section'
+import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
 import { Segmented } from '@/components/patterns/segmented'
 import type { SegmentedOption } from '@/components/patterns/segmented'
@@ -83,8 +84,7 @@ export function TextEditor({ layer }: TextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Field className="gap-1.5">
-        <FieldLabel>Contenu</FieldLabel>
+      <PropertyRow label="Contenu" stacked>
         <Textarea
           value={layer.content}
           onChange={(event) =>
@@ -93,7 +93,7 @@ export function TextEditor({ layer }: TextEditorProps) {
           className="h-20 resize-y"
           aria-label="Contenu du texte"
         />
-      </Field>
+      </PropertyRow>
 
       <FontPicker
         label="Police"
@@ -122,8 +122,16 @@ export function TextEditor({ layer }: TextEditorProps) {
           que lui. Deux champs côte à côte auraient demandé à l'utilisateur de
           choisir la portée *avant* la couleur, alors que sa sélection l'a déjà
           dite — et le second serait resté grisé les neuf dixièmes du temps. */}
-      <Field className="gap-1.5">
-        <FieldLabel>{range ? 'Couleur du passage' : 'Couleur'}</FieldLabel>
+      {/* Le `description` de `PropertyRow` porte la même note : il vit dans le
+          `Field`, au même écart que celui qui lie déjà l'étiquette à son
+          contrôle — pas une marge négative posée après coup. */}
+      <PropertyRow
+        label={range ? 'Couleur du passage' : 'Couleur'}
+        stacked
+        description={
+          range ? 'Repeindre le passage avec la couleur du calque le rend à celui-ci.' : undefined
+        }
+      >
         <ColorPicker
           value={textColorValue(layer, range)}
           onChange={(color) => {
@@ -132,27 +140,16 @@ export function TextEditor({ layer }: TextEditorProps) {
           }}
           showOpacity
         />
-        {/* Dans le `Field` et non après lui : l'écart qui lie une étiquette à
-            son contrôle est celui qui doit lier cette note au sien. Posée
-            dehors, elle prenait l'écart de section et se rattrapait par une
-            marge négative — une cinquième valeur dans une échelle qui en
-            compte deux. */}
-        {range && (
-          <p className="field-label leading-4">
-            Repeindre le passage avec la couleur du calque le rend à celui-ci.
-          </p>
-        )}
-      </Field>
+      </PropertyRow>
 
-      <Field className="gap-1.5">
-        <FieldLabel>Alignement</FieldLabel>
+      <PropertyRow label="Alignement" stacked>
         <Segmented
           ariaLabel="Alignement"
           options={ALIGN_OPTIONS}
           value={layer.textAlign}
           onChange={(textAlign) => update({ textAlign })}
         />
-      </Field>
+      </PropertyRow>
 
       <div className="grid grid-cols-2 gap-2">
         <UnitField
@@ -179,18 +176,16 @@ export function TextEditor({ layer }: TextEditorProps) {
         />
       </div>
 
-      <Field className="gap-1.5">
-        <FieldLabel>Casse</FieldLabel>
+      <PropertyRow label="Casse" stacked>
         <Segmented
           ariaLabel="Casse"
           options={CASING_OPTIONS}
           value={layer.textTransform}
           onChange={(textTransform) => update({ textTransform })}
         />
-      </Field>
+      </PropertyRow>
 
-      <div className="hairline my-1" />
-
+      {/* La bordure du panneau qui suit fait déjà le trait : pas de hairline en double. */}
       <ShadowEditor
         shadow={layer.shadow}
         onChange={(shadow, options) => update({ shadow }, options)}
@@ -198,11 +193,9 @@ export function TextEditor({ layer }: TextEditorProps) {
         coalesceKey={`layer:${layer.id}:shadow`}
       />
 
-      <div className="hairline my-1" />
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title">Dégradé</h3>
+      <PanelSection
+        title="Dégradé"
+        headerExtra={
           <Switch
             aria-label="Activer le dégradé du texte"
             checked={!!layer.gradientFill}
@@ -217,7 +210,8 @@ export function TextEditor({ layer }: TextEditorProps) {
               })
             }
           />
-        </div>
+        }
+      >
         {layer.gradientFill && (
           <GradientEditor
             value={layer.gradientFill}
@@ -231,7 +225,7 @@ export function TextEditor({ layer }: TextEditorProps) {
             }
           />
         )}
-      </div>
+      </PanelSection>
     </div>
   )
 }

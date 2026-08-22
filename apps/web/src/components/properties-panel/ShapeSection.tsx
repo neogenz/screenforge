@@ -2,7 +2,8 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { PanelSection } from '@/components/patterns/panel-section'
+import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
 import { Switch } from '@/components/ui/switch'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
@@ -56,9 +57,9 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       />
 
       {/* Fill */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title">Remplissage</h3>
+      <PanelSection
+        title="Remplissage"
+        headerExtra={
           <div className="flex items-center gap-2">
             <span className="field-label">Dégradé</span>
             <Switch
@@ -67,7 +68,8 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
               onCheckedChange={handleGradientToggle}
             />
           </div>
-        </div>
+        }
+      >
         {fillIsGradient ? (
           <GradientEditor
             value={layer.fill as GradientFill}
@@ -85,7 +87,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
             showOpacity
           />
         )}
-      </div>
+      </PanelSection>
 
       {/* Border radius — rounded-rect only */}
       {layer.shapeType === 'rounded-rect' && (
@@ -108,13 +110,12 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Stroke */}
       <div className="flex flex-col gap-2">
         <h3 className="section-title">Contour</h3>
-        <Field className="gap-1.5">
-          <FieldLabel>Couleur</FieldLabel>
+        <PropertyRow label="Couleur" stacked>
           <ColorPicker
             value={layer.stroke ?? DEFAULT_STROKE_COLOR}
             onChange={(stroke) => update({ stroke }, { coalesceKey: `layer:${layer.id}:stroke` })}
           />
-        </Field>
+        </PropertyRow>
         <UnitField
           label="Épaisseur"
           ariaLabel="Épaisseur du contour"
@@ -127,8 +128,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         />
       </div>
 
-      <div className="hairline" />
-
+      {/* La bordure du panneau "Ombre" fait déjà le trait : pas de hairline en double. */}
       <ShadowEditor
         shadow={layer.shadow}
         onChange={(shadow, options) => update({ shadow }, options)}

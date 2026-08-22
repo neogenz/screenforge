@@ -3,7 +3,9 @@ import { ImageUp, Search, Smartphone } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DrawerIsland } from '@/components/patterns/drawer-island'
 import { useCanvasStore } from '@/stores/canvas.store'
@@ -222,21 +224,18 @@ export function LayersPanel() {
         <span className="tabular text-2xs text-muted-foreground">{String(layers.length)}</span>
       }
       headerBelow={
-        <div className="relative mt-2">
-          <Search
-            size={13}
-            strokeWidth={1.5}
-            aria-hidden
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
+        <InputGroup className="mt-2">
+          <InputGroupAddon>
+            <Search className="size-3.5" strokeWidth={1.5} aria-hidden />
+          </InputGroupAddon>
+          <InputGroupInput
+            size="sm"
             value={query}
             onChange={handleQueryChange}
             placeholder="Filtrer…"
             aria-label="Filtrer les calques"
-            className="pl-8"
           />
-        </div>
+        </InputGroup>
       }
       onClose={toggleLayers}
       closeLabel="Fermer le panneau Calques"
@@ -281,9 +280,9 @@ export function LayersPanel() {
       )}
 
       {layers.length > 0 && layerGroups.length === 0 && (
-        <p className="px-2 py-6 text-center text-2xs text-muted-foreground">
-          Aucun calque pour « {query.trim()} »
-        </p>
+        <Empty role="status" className="min-h-32 gap-0 px-6 py-6">
+          <EmptyTitle className="font-normal text-sm">Aucun calque ne correspond</EmptyTitle>
+        </Empty>
       )}
 
       {layerGroups.length > 0 && (
@@ -311,7 +310,7 @@ export function LayersPanel() {
                       role="presentation"
                       aria-hidden
                       inert
-                      className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
+                      className="animate-exit pointer-events-none flex h-8 items-center gap-2 rounded-md px-2 text-muted-foreground"
                     >
                       <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
                     </div>

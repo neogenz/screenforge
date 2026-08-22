@@ -79,9 +79,11 @@ test('le cadrage et le rôle survivent au remplacement de la capture', async ({ 
   const zoom = page.getByRole('slider', { name: 'Zoom de la capture' })
   await zoom.focus()
   for (let step = 0; step < 4; step += 1) await zoom.press('ArrowRight')
-  const focus = page.getByRole('slider', { name: 'Point focal vertical' })
+  // ponytail: le point focal est passé de Slider à UnitField (coss) — le champ
+  // numérique décrémente au clavier avec ArrowDown, pas ArrowLeft (qui déplace le curseur texte).
+  const focus = page.getByLabel('Point focal vertical')
   await focus.focus()
-  for (let step = 0; step < 5; step += 1) await focus.press('ArrowLeft')
+  for (let step = 0; step < 5; step += 1) await focus.press('ArrowDown')
 
   const framed = await deviceLayer(page)
   expect(framed.placement?.mode).toBe('contain')

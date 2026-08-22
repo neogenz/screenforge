@@ -4,11 +4,11 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { AngleControl } from '@/components/patterns/angle-control'
 import { IconButton } from '@/components/patterns/icon-button'
-import { UnitField } from '@/components/patterns/unit-field'
-import { SliderField } from '@/components/patterns/slider-field'
-import { formatPercent } from '@/lib/number'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField, UnitFieldPair } from '@/components/patterns/unit-field'
 import type { Layer } from '@/types'
 
 interface TransformSectionProps {
@@ -138,29 +138,35 @@ export function TransformSection({ layer }: TransformSectionProps) {
       )}
 
       {/* X / Y */}
-      <div className="grid grid-cols-2 gap-2">
-        <UnitField
-          label="X"
-          ariaLabel="Position X"
-          value={Math.round(layer.x)}
-          onChange={handleX}
-        />
-        <UnitField
-          label="Y"
-          ariaLabel="Position Y"
-          value={Math.round(layer.y)}
-          onChange={handleY}
-        />
-      </div>
+      <UnitFieldPair
+        fields={[
+          { label: 'X', ariaLabel: 'Position X', value: Math.round(layer.x), onChange: handleX },
+          { label: 'Y', ariaLabel: 'Position Y', value: Math.round(layer.y), onChange: handleY },
+        ]}
+      />
 
-      {/* W / Lock / H */}
+      {/* L / Lock / H — le verrou s'intercale entre les deux champs de la
+          paire, `UnitFieldPair` ne réserve donc que la grille, pas le bouton. */}
       <div className="flex items-center gap-1.5">
-        <UnitField
-          label="L"
-          ariaLabel="Largeur"
-          min={1}
-          value={Math.round(layer.width)}
-          onChange={handleWidth}
+        <UnitFieldPair
+          className="flex-1"
+          fields={[
+            {
+              label: 'L',
+              ariaLabel: 'Largeur',
+              min: 1,
+              value: Math.round(layer.width),
+              onChange: handleWidth,
+            },
+            {
+              label: 'H',
+              ariaLabel: 'Hauteur',
+              min: 1,
+              value: Math.round(layer.height),
+              onChange: handleHeight,
+              disabled: isText,
+            },
+          ]}
         />
         <IconButton
           size="sm"
@@ -177,14 +183,6 @@ export function TransformSection({ layer }: TransformSectionProps) {
             <Unlink size={12} strokeWidth={1.5} aria-hidden />
           )}
         </IconButton>
-        <UnitField
-          label="H"
-          ariaLabel="Hauteur"
-          min={1}
-          value={Math.round(layer.height)}
-          onChange={handleHeight}
-          disabled={isText}
-        />
       </div>
 
       {/* Rotation */}
@@ -196,18 +194,32 @@ export function TransformSection({ layer }: TransformSectionProps) {
         disabled={isOfficialBezel}
       />
 
-      {/* Opacity */}
-      <SliderField
-        label="Opacité"
-        ariaLabel="Opacité"
-        min={0}
-        max={100}
-        step={1}
-        value={Math.round(layer.opacity * 100)}
-        onChange={handleOpacity}
-        disabled={isOfficialBezel}
-        formatValue={formatPercent}
-      />
+      {/* Opacity — glisse ou saisie, le champ reste éditable au clavier. */}
+      <PropertyRow label="Opacité" stacked>
+        <div className="flex h-8 items-center gap-2">
+          <Slider
+            value={Math.round(layer.opacity * 100)}
+            onValueChange={(next) =>
+              handleOpacity(typeof next === 'number' ? next : (next[0] ?? 0))
+            }
+            min={0}
+            max={100}
+            step={1}
+            disabled={isOfficialBezel}
+            className="min-w-0 flex-1"
+          />
+          <UnitField
+            ariaLabel="Opacité"
+            value={Math.round(layer.opacity * 100)}
+            onChange={handleOpacity}
+            min={0}
+            max={100}
+            unit="%"
+            disabled={isOfficialBezel}
+            className="w-24 shrink-0"
+          />
+        </div>
+      </PropertyRow>
 
       {(isDevice || layer.type === 'image') && (
         <Button variant="ghost" size="sm" onClick={resetSize} className="self-start">

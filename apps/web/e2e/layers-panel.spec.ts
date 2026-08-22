@@ -64,6 +64,9 @@ test.describe('layers panel', () => {
 
     await layerRows(page).nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
+    // Deux calques ciblés : la suppression passe par une confirmation nommant
+    // sa portée, plutôt que de s'exécuter tout de suite.
+    await page.getByRole('button', { name: 'Supprimer 2 calques', exact: true }).click()
     await expect(layerRows(page)).toHaveCount(0)
     expect(
       await page.evaluate(

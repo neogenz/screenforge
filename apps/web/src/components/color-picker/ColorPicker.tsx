@@ -1,6 +1,12 @@
 import { useId, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Input } from '@/components/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from '@/components/ui/input-group'
 import { SliderField } from '@/components/patterns/slider-field'
 import { Button } from '@/components/ui/button'
 import { formatPercent } from '@/lib/number'
@@ -123,10 +129,12 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     emitColor(h, opacityInput / 100)
   }
 
+  // ponytail: le « # » est l'addon de l'InputGroup — le champ ne porte que les
+  // chiffres, on retire un éventuel # tapé quand même (ex. un `fill('#ff0000')` de test).
   function handleHexInput(e: ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value
-    setHexInput(raw)
-    const normalized = raw.startsWith('#') ? raw : '#' + raw
+    const digits = e.target.value.replace(/^#+/, '')
+    const normalized = '#' + digits
+    setHexInput(normalized)
     if (isValidHex(normalized)) {
       setColorError(null)
       emitColor(normalized, opacityInput / 100)
@@ -190,19 +198,24 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         />
         {/* `nativeInput` : hors du câblage du `Field` parent, dont le libellé
             (« Couleur », « Ombre »…) écraserait le nom propre de ce champ. */}
-        <Input
-          nativeInput
-          value={hexInput}
-          onChange={handleHexInput}
-          onBlur={handleHexBlur}
-          placeholder="#000000"
-          spellCheck={false}
-          autoComplete="off"
-          aria-label="Couleur hexadécimale"
-          aria-invalid={Boolean(colorError)}
-          aria-describedby={colorError ? errorId : undefined}
-          className="min-w-0 flex-1 tabular-nums"
-        />
+        <InputGroup className="min-w-0 flex-1">
+          <InputGroupAddon className="text-muted-foreground">
+            <InputGroupText>#</InputGroupText>
+          </InputGroupAddon>
+          <InputGroupInput
+            nativeInput
+            value={hexInput.replace(/^#/, '')}
+            onChange={handleHexInput}
+            onBlur={handleHexBlur}
+            placeholder="000000"
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="Couleur hexadécimale"
+            aria-invalid={Boolean(colorError)}
+            aria-describedby={colorError ? errorId : undefined}
+            className="tabular-nums"
+          />
+        </InputGroup>
         {showOpacity && (
           <SliderField
             ariaLabel="Opacité de la couleur"
@@ -230,14 +243,21 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
               <Button
                 key={color}
                 variant="ghost"
-                className="h-5 w-5 rounded-xs border border-border px-0 transition-[border-color] duration-150 ease-out hover:border-input hover:bg-transparent focus-visible:border-muted-foreground"
-                style={{ backgroundColor: color }}
+                size="icon-xs"
+                className="p-[3px] ring-inset ring-1 ring-transparent hover:bg-transparent hover:ring-input"
                 onClick={() => {
                   addRecentColor(color)
                   onChange(color)
                 }}
                 aria-label={`Couleur récente ${color}`}
-              />
+              >
+                <span aria-hidden className="checkerboard block size-full rounded-sm">
+                  <span
+                    className="block size-full rounded-sm ring-1 ring-inset ring-input"
+                    style={{ backgroundColor: color }}
+                  />
+                </span>
+              </Button>
             ))}
           </div>
         </div>

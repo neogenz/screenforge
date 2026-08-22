@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Segmented, type SegmentedOption } from '@/components/patterns/segmented'
 import { SliderField } from '@/components/patterns/slider-field'
+import { UnitFieldPair } from '@/components/patterns/unit-field'
 import { Button } from '@/components/ui/button'
 import {
   DEFAULT_SCREENSHOT_PLACEMENT,
@@ -91,25 +92,27 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
             formatValue={(value: number) => `${Math.round(value * 100)} %`}
             onChange={(zoom) => setPlacement({ zoom }, 'placement-zoom')}
           />
-          <SliderField
-            label="Point focal horizontal"
-            ariaLabel="Point focal horizontal"
-            value={placement.focusX}
-            min={0}
-            max={1}
-            step={0.01}
-            formatValue={(value: number) => `${Math.round(value * 100)} %`}
-            onChange={(focusX) => setPlacement({ focusX }, 'placement-focus-x')}
-          />
-          <SliderField
-            label="Point focal vertical"
-            ariaLabel="Point focal vertical"
-            value={placement.focusY}
-            min={0}
-            max={1}
-            step={0.01}
-            formatValue={(value: number) => `${Math.round(value * 100)} %`}
-            onChange={(focusY) => setPlacement({ focusY }, 'placement-focus-y')}
+          <UnitFieldPair
+            fields={[
+              {
+                label: 'X',
+                ariaLabel: 'Point focal horizontal',
+                unit: '%',
+                min: 0,
+                max: 100,
+                value: Math.round(placement.focusX * 100),
+                onChange: (v) => setPlacement({ focusX: v / 100 }, 'placement-focus-x'),
+              },
+              {
+                label: 'Y',
+                ariaLabel: 'Point focal vertical',
+                unit: '%',
+                min: 0,
+                max: 100,
+                value: Math.round(placement.focusY * 100),
+                onChange: (v) => setPlacement({ focusY: v / 100 }, 'placement-focus-y'),
+              },
+            ]}
           />
 
           <Button

@@ -100,3 +100,23 @@ export function UnitField({
     </NumberField>
   )
 }
+
+/**
+ * Deux champs sur une ligne — X/Y, L/H. Une grille à deux colonnes et non un
+ * `InputGroup` partagé : chaque champ garde son scrub et son unité.
+ */
+// ponytail: grille de deux UnitField ; un InputGroup commun si la ligne manque de place.
+export function UnitFieldPair({
+  fields,
+  className,
+}: {
+  fields: [UnitFieldProps, UnitFieldProps]
+  className?: string
+}) {
+  return (
+    <div data-slot="unit-field-pair" className={cn('grid grid-cols-2 gap-2', className)}>
+      <UnitField {...fields[0]} />
+      <UnitField {...fields[1]} />
+    </div>
+  )
+}

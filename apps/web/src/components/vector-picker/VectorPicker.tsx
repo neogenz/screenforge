@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import { Hint } from '@/components/patterns/hint'
 import { groupsOf, ICON_BOX, ICON_STROKE, SHAPE_BOX } from '@/lib/vector-catalog'
@@ -127,22 +127,27 @@ export function VectorPicker({
         className="w-56"
       >
         <div className="border-b border-border p-1.5">
-          <Input
-            ref={searchRef}
-            type="search"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              setActiveId('')
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== 'ArrowDown' || !active) return
-              event.preventDefault()
-              focusOption(active.id)
-            }}
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
-          />
+          <InputGroup>
+            <InputGroupAddon>
+              <Search size={13} strokeWidth={1.5} aria-hidden />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={searchRef}
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setActiveId('')
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowDown' || !active) return
+                event.preventDefault()
+                focusOption(active.id)
+              }}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+            />
+          </InputGroup>
         </div>
 
         <div
