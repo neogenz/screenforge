@@ -139,7 +139,7 @@ describe('project validation', () => {
     expect(isProject(legacyIphone)).toBe(true)
   })
 
-  it('validates release snapshot models against the snapshot profile', () => {
+  it('requires release snapshots to use the parent project profile', () => {
     const candidate = project()
     candidate.releases = [
       {
@@ -149,9 +149,9 @@ describe('project validation', () => {
         watermarked: false,
         files: [],
         snapshot: {
-          name: 'iPad release',
-          profileId: 'ipad-13',
-          globals: { ...candidate.globals, deviceModel: 'tablet-slate' },
+          name: 'iPhone release',
+          profileId: 'iphone-6.9',
+          globals: structuredClone(candidate.globals),
           screens: [
             {
               ...candidate.screens[0],
@@ -163,9 +163,11 @@ describe('project validation', () => {
       } satisfies Release,
     ]
 
-    expect(isProject(candidate)).toBe(false)
-    candidate.releases[0].snapshot.screens[0].layers = [deviceLayer('tablet-studio')]
     expect(isProject(candidate)).toBe(true)
+    candidate.releases[0].snapshot.profileId = 'ipad-13'
+    candidate.releases[0].snapshot.globals.deviceModel = 'tablet-slate'
+    candidate.releases[0].snapshot.screens[0].layers = [deviceLayer('tablet-studio')]
+    expect(isProject(candidate)).toBe(false)
   })
 
   it.each([

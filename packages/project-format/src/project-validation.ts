@@ -313,7 +313,7 @@ function isReleaseFile(value: unknown): boolean {
   )
 }
 
-function isRelease(value: unknown): boolean {
+function isRelease(value: unknown, profileId: Project['profileId']): boolean {
   if (!isRecord(value)) return false
   if (typeof value.id !== 'string' || !value.id) return false
   if (typeof value.name !== 'string' || value.name.length > MAX_RELEASE_NAME_LENGTH) return false
@@ -327,8 +327,8 @@ function isRelease(value: unknown): boolean {
 
   const snapshot = value.snapshot
   if (!isRecord(snapshot) || typeof snapshot.name !== 'string') return false
-  if (!isAppStoreProfileId(snapshot.profileId)) return false
-  const platform = getAppStoreProfile(snapshot.profileId).platform
+  if (snapshot.profileId !== profileId) return false
+  const platform = getAppStoreProfile(profileId).platform
   if (!isGlobals(snapshot.globals, platform)) return false
   return sceneScreenIds(snapshot.screens, snapshot.layoutLayers, platform) !== null
 }
@@ -361,7 +361,8 @@ export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || !isBoundedString(value.id, 128)) return false
   if (!isBoundedString(value.name) || !isBoundedString(value.activeScreenId, 128)) return false
   if (!isAppStoreProfileId(value.profileId)) return false
-  const platform = getAppStoreProfile(value.profileId).platform
+  const profileId = value.profileId
+  const platform = getAppStoreProfile(profileId).platform
   if (!isGlobals(value.globals, platform)) return false
   if (!isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) return false
 
@@ -370,7 +371,7 @@ export function isProject(value: unknown): value is Project {
 
   if (value.releases !== undefined) {
     if (!Array.isArray(value.releases) || value.releases.length > MAX_PROJECT_RELEASES) return false
-    if (!value.releases.every(isRelease)) return false
+    if (!value.releases.every((release) => isRelease(release, profileId))) return false
   }
 
   if (value.locales !== undefined) {

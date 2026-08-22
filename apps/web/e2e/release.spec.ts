@@ -29,23 +29,25 @@ async function openReleaseDialog(page: Page) {
   await expect(page.getByRole('dialog', { name: 'Releases' })).toBeVisible()
 }
 
-async function switchProfile(page: Page, profileId: Project['profileId']): Promise<void> {
-  await page.evaluate((id) => {
-    const store = window.__sfStores?.useProjectStore
-    const project = store?.getState().project
-    if (!store || !project) throw new Error('project store unavailable')
-    store.setState({ project: { ...project, profileId: id } })
-  }, profileId)
+async function createIpadProject(page: Page): Promise<void> {
+  await page.getByLabel('Ouvrir le sélecteur de projets').click()
+  await page.getByRole('button', { name: 'Nouveau projet…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Nouveau projet' })
+  await dialog.getByLabel('Nom du nouveau projet').fill('Release iPad')
+  await dialog.getByLabel('Format App Store').click()
+  await page.getByRole('option', { name: /iPad 13 pouces.*2064×2752/ }).click()
+  await dialog.getByRole('button', { name: 'Créer' }).click()
+  await expect(dialog).toBeHidden()
   await expect
     .poll(() =>
       page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.profileId),
     )
-    .toBe(profileId)
+    .toBe('ipad-13')
 }
 
 test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', async ({ page }) => {
   await waitForApp(page)
-  await switchProfile(page, 'ipad-13')
+  await createIpadProject(page)
   await addTextLayer(page)
 
   await openReleaseDialog(page)
@@ -71,10 +73,6 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Releases' })).toBeHidden()
 
-  /* Le projet vivant passe même sur une autre famille d'appareil. Rejouer le
-     lot doit pourtant conserver le ratio iPad de son instantané. */
-  await switchProfile(page, 'watch-series-10')
-
   /* Le projet continue de vivre : le texte se déplace. La release, elle, ne
      doit rien en savoir. */
   const before = JSON.stringify(frozen.snapshot)
@@ -90,8 +88,8 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await expect(page.getByText(/changement.? structurel/)).toBeVisible()
   await expect(page.getByText(/position X/)).toBeVisible()
 
-  // Rejouée après la modification et le passage sur Watch, la release se
-  // vérifie toujours : son instantané iPad dicte son propre rendu.
+  // Rejouée après la modification, la release se vérifie toujours : son
+  // instantané iPad dicte son propre rendu.
   await page.getByRole('button', { name: 'Vérifier' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })
