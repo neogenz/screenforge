@@ -34,7 +34,7 @@ function workflowStep(source, name) {
 }
 
 /** @param {Record<string, string>} workflows @param {unknown} vercel */
-export function auditDeploymentConfig(workflows, vercel) {
+export function auditDeploymentConfig(workflows, vercel, vite = '') {
   const findings = []
   for (const [name, source] of Object.entries(workflows)) {
     if (/\bpull_request_target\s*:/.test(source)) findings.push(`${name}:pull-request-target`)
@@ -44,10 +44,14 @@ export function auditDeploymentConfig(workflows, vercel) {
     if (/\bpull_request\s*:/.test(source) && /secrets\.POSTHOG_PERSONAL_API_KEY/.test(source)) {
       findings.push(`${name}:posthog-secret-in-pr`)
     }
-    if (/VITE_[A-Z0-9_]*POSTHOG_PERSONAL_API_KEY/.test(source)) {
+    if (/VITE_[A-Z0-9_]*POSTHOG_(?:PERSONAL|PERSON)_API_KEY/.test(source)) {
       findings.push(`${name}:posthog-secret-public`)
     }
+    if (/secrets\.POSTHOG_PERSON_API_KEY/.test(source)) {
+      findings.push(`${name}:posthog-person-key-in-workflow`)
+    }
   }
+  if (/POSTHOG_PERSON_API_KEY/.test(vite)) findings.push('vite:posthog-person-key-public')
 
   const quality = workflows['quality.yml'] ?? ''
   const preproduction = quality.split('\n  deploy-preproduction:')[1] ?? ''
@@ -282,10 +286,20 @@ function selfTest() {
         'POLAR_CLOUD_PRODUCT_ID=secret',
         'POLAR_SERVER=production',
         'POLAR_WEBHOOK_SECRET=secret',
+        'POSTHOG_HOST=https://eu.posthog.com',
+        'POSTHOG_PERSON_API_KEY=secret',
+        'POSTHOG_PROJECT_ID=254685',
         'SITE_URL=https://screenforge.example',
       ].join('\n'),
     ),
     'Convex preflight passed.',
+  )
+  assert.ok(
+    auditDeploymentConfig(
+      { 'deploy-production.yml': valid, 'quality.yml': quality },
+      { git: { deploymentEnabled: false } },
+      'const key = process.env.POSTHOG_PERSON_API_KEY',
+    ).includes('vite:posthog-person-key-public'),
   )
   for (const [finding, changed] of [
     ['push-trigger', quality.replace('main, preprod', 'main')],
@@ -336,7 +350,8 @@ async function main() {
     ),
   )
   const vercel = JSON.parse(await readFile(resolve(ROOT, 'vercel.json'), 'utf8'))
-  const findings = auditDeploymentConfig(workflows, vercel)
+  const vite = await readFile(resolve(ROOT, 'apps/web/vite.config.ts'), 'utf8')
+  const findings = auditDeploymentConfig(workflows, vercel, vite)
   if (findings.length)
     throw new Error(`Deployment configuration audit failed: ${findings.join(', ')}`)
   console.log('Deployment configuration audit passed.')

@@ -23,6 +23,9 @@ const app = defineApp({
     POLAR_CLOUD_PRODUCT_ID: v.optional(v.string()),
     POLAR_SERVER: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
+    POSTHOG_HOST: v.optional(v.string()),
+    POSTHOG_PERSON_API_KEY: v.optional(v.string()),
+    POSTHOG_PROJECT_ID: v.optional(v.string()),
     SITE_URL: v.optional(v.string()),
   },
 })

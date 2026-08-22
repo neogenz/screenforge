@@ -286,7 +286,9 @@ function AccountDialogContent() {
           {confirmingDelete && (
             <p role="alert" className="text-2xs leading-4 text-muted-foreground">
               Le compte, les droits achetés et les projets synchronisés seront effacés
-              définitivement. Les projets de cette machine sont conservés.
+              définitivement, ainsi que l’historique PostHog identifié. Les projets de cette machine
+              sont conservés. Certaines pièces Polar peuvent rester conservées pour les obligations
+              comptables.
             </p>
           )}
         </div>

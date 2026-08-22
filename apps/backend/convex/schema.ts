@@ -157,7 +157,7 @@ export default defineSchema({
    */
   accountDeletionJobs: defineTable({
     userId: v.string(),
-    status: v.union(v.literal('prepared'), v.literal('cleanup')),
+    status: v.union(v.literal('prepared'), v.literal('cleanup'), v.literal('telemetry')),
     attempts: v.number(),
     lastError: v.union(v.string(), v.null()),
   }).index('by_user', ['userId']),

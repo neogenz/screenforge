@@ -147,6 +147,7 @@ function PrivacyDialog({
           checked={draft.diagnostic}
           onChange={(diagnostic) => setDraft((current) => ({ ...current, diagnostic }))}
         />
+        <p className="text-xs leading-5 text-muted-foreground">{copy.rightsBody}</p>
         {error && (
           <p role="alert" className="text-xs text-destructive">
             {copy.storageError}

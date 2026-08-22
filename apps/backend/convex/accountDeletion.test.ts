@@ -1,5 +1,5 @@
 import { authTables } from '@convex-dev/auth/server'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GenericValidator } from 'convex/values'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
@@ -131,6 +131,21 @@ function remove(t: Stack, userId: string | null) {
   return caller.mutation(api.accountDeletion.requestAccountDeletion, {})
 }
 
+function enablePosthog() {
+  vi.stubEnv('POSTHOG_HOST', 'https://eu.posthog.com')
+  vi.stubEnv('POSTHOG_PERSON_API_KEY', 'test-person-key')
+  vi.stubEnv('POSTHOG_PROJECT_ID', '254685')
+}
+
+function posthogPerson(userId: string): Response {
+  return new Response(
+    JSON.stringify({ results: [{ uuid: 'person-uuid', distinct_ids: [userId] }] }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    },
+  )
+}
+
 /**
  * Ce qu'il reste du compte, compté et non supposé — critère 2.
  *
@@ -222,7 +237,15 @@ async function drain(t: Stack, rounds = 4) {
 let t: Stack
 
 beforeEach(() => {
+  vi.stubEnv('POSTHOG_HOST', '')
+  vi.stubEnv('POSTHOG_PERSON_API_KEY', '')
+  vi.stubEnv('POSTHOG_PROJECT_ID', '')
   t = testConvex()
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
 })
 
 /**
@@ -485,6 +508,75 @@ describe('requestAccountDeletion', () => {
     }
 
     await expect(request()).rejects.toSatisfy(rateLimited)
+  })
+})
+
+describe('la reprise PostHog', () => {
+  it('garde le job après la purge Convex jusqu’à l’acceptation PostHog', async () => {
+    enablePosthog()
+    const userId = await populated(t)
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(posthogPerson(userId))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+    vi.stubGlobal('fetch', request)
+
+    await expect(remove(t, userId)).resolves.toBe('cleanup-pending')
+    await expect(leftovers(t, userId)).resolves.toMatchObject({
+      users: 0,
+      assets: 0,
+      projects: 0,
+      jobs: 1,
+      files: 0,
+    })
+    await expect(job(t, userId)).resolves.toMatchObject({ status: 'telemetry', attempts: 0 })
+
+    await drain(t)
+
+    await expect(job(t, userId)).resolves.toBeNull()
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('termine aussi quand la personne PostHog est déjà absente', async () => {
+    enablePosthog()
+    const userId = await populated(t, { assets: 0 })
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', request)
+
+    await expect(remove(t, userId)).resolves.toBe('cleanup-pending')
+    await drain(t)
+
+    await expect(job(t, userId)).resolves.toBeNull()
+    expect(request).toHaveBeenCalledOnce()
+  })
+
+  it('conserve un 429 puis finit lors de la reprise suivante', async () => {
+    enablePosthog()
+    const userId = await populated(t, { assets: 0 })
+    const request = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, { status: 429 }))
+    vi.stubGlobal('fetch', request)
+
+    await expect(remove(t, userId)).resolves.toBe('cleanup-pending')
+    await drain(t)
+    await expect(job(t, userId)).resolves.toMatchObject({
+      status: 'telemetry',
+      attempts: 1,
+      lastError: 'posthog:rate-limited',
+    })
+
+    request
+      .mockResolvedValueOnce(posthogPerson(userId))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+    await expect(t.mutation(internal.accountDeletion.resume, { userId })).resolves.toBe(
+      'cleanup-pending',
+    )
+    await drain(t)
+
+    await expect(job(t, userId)).resolves.toBeNull()
   })
 })
 

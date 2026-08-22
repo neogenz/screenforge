@@ -10,6 +10,7 @@ export interface PrivacyCopy {
   analyticsBody: string
   diagnosticTitle: string
   diagnosticBody: string
+  rightsBody: string
   save: string
   close: string
   storageError: string
@@ -27,10 +28,12 @@ export const PRIVACY_COPY = {
     title: 'Privacy settings',
     analyticsTitle: 'Product analytics',
     analyticsBody:
-      'Explicit usage events, without project names, images or canvas content. 13 months.',
+      'Explicit usage events, without project names, images or canvas content. The current PostHog plan retains events for up to 7 years.',
     diagnosticTitle: 'Diagnostics',
     diagnosticBody:
-      'Masked session replay, errors and structured logs. No canvas, input, text, console or network body. 30 days.',
+      'Masked replay and structured logs: 30 days. Errors follow event retention. No canvas, input, text, console or network body.',
+    rightsBody:
+      'Changing these settings stops future capture on this device. Deleting your Cloud account also requests deletion of its identified PostHog history. For access or manual deletion, email bonjour@screenforge.app.',
     save: 'Save choices',
     close: 'Close',
     storageError: 'These choices could not be saved. Tracking remains disabled.',
@@ -46,10 +49,12 @@ export const PRIVACY_COPY = {
     title: 'Préférences de confidentialité',
     analyticsTitle: 'Analytics produit',
     analyticsBody:
-      'Événements d’usage explicites, sans nom de projet, image ni contenu du canvas. 13 mois.',
+      'Événements d’usage explicites, sans nom de projet, image ni contenu du canvas. Le plan PostHog actuel conserve les événements jusqu’à 7 ans.',
     diagnosticTitle: 'Diagnostic',
     diagnosticBody:
-      'Replay masqué, erreurs et logs structurés. Aucun canvas, champ, texte, console ni corps réseau. 30 jours.',
+      'Replay masqué et logs structurés : 30 jours. Les erreurs suivent la durée des événements. Aucun canvas, champ, texte, console ni corps réseau.',
+    rightsBody:
+      'Modifier ces choix arrête les futures captures sur cet appareil. Supprimer votre compte Cloud demande aussi l’effacement de son historique PostHog identifié. Pour un accès ou un effacement manuel : bonjour@screenforge.app.',
     save: 'Enregistrer les choix',
     close: 'Fermer',
     storageError: 'Ces choix n’ont pas pu être enregistrés. Le suivi reste désactivé.',
