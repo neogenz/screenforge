@@ -46,10 +46,7 @@ export function SliderField({
   const [dragging, setDragging] = useState(false)
   const anchorRef = useRef<HTMLDivElement>(null)
   const track = (
-    <div
-      data-slot="slider-field"
-      className={cn('flex h-8 items-center gap-2', !label && className)}
-    >
+    <div data-slot="slider-field" className="flex h-8 w-full items-center gap-2">
       <div
         ref={anchorRef}
         className="relative min-w-0 flex-1"
@@ -64,6 +61,9 @@ export function SliderField({
           max={max}
           step={step}
           disabled={disabled}
+          // Le `Control` coss impose `min-w-44` : dans une rangée étroite il
+          // passe sous le champ voisin au lieu de rétrécir.
+          className="*:data-[slot=slider-control]:min-w-0"
         />
         <Tooltip open={dragging}>
           <TooltipPopup anchor={anchorRef} side="top">
@@ -78,7 +78,9 @@ export function SliderField({
   )
 
   return (
-    <Field className={cn('gap-1.5', label && className)}>
+    // Le `className` vise l'enveloppe : un `flex-1` posé plus bas laisserait le
+    // `Field` à sa largeur de contenu, et le curseur à deux pixels.
+    <Field className={cn('items-stretch gap-1.5', className)}>
       {/* `aria-label` sur le libellé : `aria-labelledby` le lit avant le texte,
           donc le curseur s'annonce « Zoom de la capture » sous un « Zoom » visible. */}
       <FieldLabel className={cn(!label && 'sr-only')} aria-label={ariaLabel}>

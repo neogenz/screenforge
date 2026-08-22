@@ -206,7 +206,8 @@ export function TransformSection({ layer }: TransformSectionProps) {
             max={100}
             step={1}
             disabled={isOfficialBezel}
-            className="min-w-0 flex-1"
+            // Voir `SliderField` : sans ça le curseur passe sous le champ.
+            className="min-w-0 flex-1 *:data-[slot=slider-control]:min-w-0"
           />
           <UnitField
             ariaLabel="Opacité"
@@ -216,7 +217,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
             max={100}
             unit="%"
             disabled={isOfficialBezel}
-            className="w-24 shrink-0"
+            className="w-24 flex-none"
           />
         </div>
       </PropertyRow>

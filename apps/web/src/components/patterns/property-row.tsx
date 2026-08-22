@@ -30,7 +30,11 @@ export function PropertyRow({
     <Field
       data-slot="property-row"
       className={cn(
-        stacked ? 'gap-1.5' : 'grid grid-cols-[88px_minmax(0,1fr)] items-center gap-2',
+        // `items-stretch` : le `Field` coss aligne au départ, un curseur empilé
+        // n'aurait alors que sa largeur de contenu.
+        stacked
+          ? 'items-stretch gap-1.5'
+          : 'grid grid-cols-[88px_minmax(0,1fr)] items-center gap-2',
         className,
       )}
     >

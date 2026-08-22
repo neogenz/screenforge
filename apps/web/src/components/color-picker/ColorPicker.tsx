@@ -198,7 +198,8 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         />
         {/* `nativeInput` : hors du câblage du `Field` parent, dont le libellé
             (« Couleur », « Ombre »…) écraserait le nom propre de ce champ. */}
-        <InputGroup className="min-w-0 flex-1">
+        {/* Six chiffres, largeur connue : le curseur d'opacité prend le reste. */}
+        <InputGroup className="w-24 shrink-0">
           <InputGroupAddon className="text-muted-foreground">
             <InputGroupText>#</InputGroupText>
           </InputGroupAddon>
