@@ -1,6 +1,6 @@
 ---
 objective: "L’éditeur ne montre jamais un état faux (succès vert sans lot, nom d’app inventé, compteur codé), sa barre haute hiérarchise ses actions par poids, son écran vide commence par le geste de la cible (ses captures), et ses détails de motion suivent la grille du projet."
-status: in-progress
+status: implemented
 ---
 
 # Plan: corrections UX/UI de l’éditeur issues de l’audit du 21/08/2026
