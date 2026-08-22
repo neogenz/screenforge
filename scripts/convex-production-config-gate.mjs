@@ -35,6 +35,10 @@ function selfTest() {
   const valid = [
     'ABUSE_KEY_SECRET=private-value',
     'AUTH_EMAIL_FROM=ScreenForge <hello@screenforge.example>',
+    'AUTH_GITHUB_ID=github-client-test',
+    'AUTH_GITHUB_SECRET=github-secret-test',
+    'AUTH_GOOGLE_ID=google-client-test',
+    'AUTH_GOOGLE_SECRET=google-secret-test',
     'AUTH_RESEND_KEY=private-value=with-equals',
     'CHECKOUT_SUCCESS_URL=https://screenforge.example/?checkout=success',
     'CORS_ALLOWED_ORIGINS=https://screenforge.example',

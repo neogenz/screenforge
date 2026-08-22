@@ -8,6 +8,10 @@ export type PreflightConfiguration = Readonly<Record<string, string | undefined>
 const REQUIRED_VARIABLES = [
   'ABUSE_KEY_SECRET',
   'AUTH_EMAIL_FROM',
+  'AUTH_GITHUB_ID',
+  'AUTH_GITHUB_SECRET',
+  'AUTH_GOOGLE_ID',
+  'AUTH_GOOGLE_SECRET',
   'AUTH_RESEND_KEY',
   'CHECKOUT_SUCCESS_URL',
   'CORS_ALLOWED_ORIGINS',
