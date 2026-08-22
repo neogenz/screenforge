@@ -169,7 +169,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
 
         {targets.length === 0 ? (
           <p className="text-2xs text-muted-foreground">
-            Aucun appareil dans ce projet : ajoutez un cadre iPhone avant d’actualiser un lot.
+            Aucun appareil dans ce projet : ajoutez un cadre avant d’actualiser un lot.
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">

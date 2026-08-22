@@ -25,10 +25,12 @@ import {
   Square,
   Star,
   Sun,
+  Tablet,
   TriangleAlert,
   Type,
   Undo2,
   UserRound,
+  Watch as WatchIcon,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
@@ -54,7 +56,8 @@ import {
   createShapeLayer,
   createTextLayer,
 } from '@/lib/layer-factories'
-import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
+import { currentDeviceFramesFor, CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
+import { getAppStoreProfile, type AppStorePlatform } from '@/lib/dimensions'
 import type { DeviceModel, Layer } from '@/types'
 
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
@@ -469,8 +472,8 @@ function useToolActions(): SecondaryAction[] {
     },
     {
       id: 'add-device',
-      label: 'Ajouter un cadre iPhone',
-      hint: 'Ajouter : cadre iPhone',
+      label: 'Ajouter un appareil',
+      hint: 'Ajouter : appareil',
       icon: <Smartphone size={16} strokeWidth={1.75} />,
       onSelect: () =>
         addLayer((index) =>
@@ -834,8 +837,10 @@ function ActionsSegment({
 function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void }) {
   const [open, setOpen] = useState(false)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
+  const profileId = useProjectStore((s) => s.project?.profileId ?? 'iphone-6.9')
+  const platform = getAppStoreProfile(profileId)!.platform
 
-  const models = [...CURRENT_DEVICE_FRAMES].sort(
+  const models = [...currentDeviceFramesFor(platform)].sort(
     (a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel),
   )
 
@@ -845,16 +850,16 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       onOpenChange={setOpen}
       trigger={
         <IconButton
-          aria-label="Ajouter un cadre iPhone"
-          tooltip="Ajouter : cadre iPhone"
+          aria-label="Ajouter un appareil"
+          tooltip="Ajouter : appareil"
           active={open}
           aria-expanded={open}
         >
-          <Smartphone size={16} strokeWidth={1.75} />
+          <DeviceToolIcon platform={platform} />
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
         </IconButton>
       }
-      ariaLabel="Modèle d’iPhone"
+      ariaLabel="Modèles d’appareil compatibles"
       items={models.map((frame) => ({
         id: frame.model,
         label: frame.modelName,
@@ -863,4 +868,9 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       }))}
     />
   )
+}
+
+function DeviceToolIcon({ platform }: { platform: AppStorePlatform }) {
+  const Icon = platform === 'ipad' ? Tablet : platform === 'watch' ? WatchIcon : Smartphone
+  return <Icon size={16} strokeWidth={1.75} />
 }

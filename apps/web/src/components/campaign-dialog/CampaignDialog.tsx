@@ -48,6 +48,7 @@ import {
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
@@ -212,6 +213,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       palette,
       screenCount,
       deviceModel: project.globals.deviceModel,
+      board: canvasSize(project.profileId),
       screenshots: shots,
       logo,
     }),
@@ -224,6 +226,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       palette,
       screenCount,
       project.globals.deviceModel,
+      project.profileId,
       project.name,
       shots,
       logo,

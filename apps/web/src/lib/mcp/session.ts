@@ -16,6 +16,7 @@ import type { ToolCall } from '@/lib/ai/tools'
 import { resolveRelayAssets, type AssetFetcher } from '@/lib/mcp/assets'
 import { renderScreenToBlob } from '@/lib/export'
 import { canvasSize } from '@/lib/canvas/canvas-utils'
+import { getAppStoreProfile } from '@/lib/dimensions'
 import { useProjectStore } from '@/stores/project.store'
 import { useMcpStore } from '@/stores/mcp.store'
 
@@ -242,9 +243,19 @@ const templateSaves = new Set<Promise<unknown>>()
 export async function listRelayTemplates(): Promise<RelayOutcome> {
   await useTemplatesStore.getState().hydrate()
   await Promise.all(templateSaves)
+  const project = useProjectStore.getState().project
+  if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
+  const platform = getAppStoreProfile(project.profileId)!.platform
   return {
     committed: true,
-    result: { templates: useTemplatesStore.getState().templates.map(summarize) },
+    result: {
+      templates: useTemplatesStore
+        .getState()
+        .templates.filter(
+          (template) => getAppStoreProfile(template.profileId)?.platform === platform,
+        )
+        .map(summarize),
+    },
   }
 }
 

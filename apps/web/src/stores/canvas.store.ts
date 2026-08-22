@@ -6,7 +6,7 @@ import {
   type ScreenHistorySnapshot,
 } from '@/stores/history.store'
 import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { getAppStoreProfile, MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { canvasSize } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
@@ -509,6 +509,9 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     applyTemplate: (template, mode) => {
       const project = useProjectStore.getState().project
       if (!project) return null
+      const projectPlatform = getAppStoreProfile(project.profileId)?.platform
+      const templatePlatform = getAppStoreProfile(template.profileId)?.platform
+      if (!projectPlatform || templatePlatform !== projectPlatform) return null
       const layers = template.layers.map((layer, index) => ({
         ...structuredClone(layer),
         id: crypto.randomUUID(),

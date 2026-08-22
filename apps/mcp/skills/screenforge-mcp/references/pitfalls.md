@@ -57,17 +57,20 @@ that arranges the screen around the image.
 
 ## The closed catalogue
 
-Device models, shapes, icons and fonts are enumerations. An unknown value is
-refused before it reaches the project, with the accepted values attached to the
-refusal. There is no free-form path, no SVG, no font URL and no Fabric JSON
-anywhere in the vocabulary, by design: an agent that goes wrong can at worst put
-a text in the wrong place.
+Device models, shapes, icons and fonts are enumerations. Device models are also
+filtered by the active project's immutable iPhone, iPad or Watch profile. An
+unknown or cross-platform value is refused before it reaches the project, with
+the accepted values attached to the refusal. There is no free-form path, no
+SVG, no font URL and no Fabric JSON anywhere in the vocabulary, by design: an
+agent that goes wrong can at worst put a text in the wrong place.
 
 ## Board units, not export pixels
 
-Every coordinate is on the 440 by 956 artboard. The export is 1320 by 2868 and
-is derived at render time. A headline placed at y 300 thinking in export pixels
-lands a third of the way down a board it should have crossed at the top.
+Every coordinate is on an artboard 440 units wide. Its height derives from the
+active profile's exact export ratio; `get_project_state` reports both the
+profile and logical board dimensions. Export pixels are derived at render time.
+A headline placed in export pixels therefore lands in the wrong part of every
+board.
 
 ## Structure, not pixels
 

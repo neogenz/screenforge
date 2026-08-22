@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
 import { cn } from '@/lib/utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
+import { getAppStoreProfile, type AppStoreProfileId } from '@/lib/dimensions'
+import { useProjectStore } from '@/stores/project.store'
 import type { TemplateDefinition } from '@/types'
 
 type ApplyMode = 'current' | 'new'
@@ -25,14 +28,22 @@ export function TemplatePicker() {
 function TemplatePickerContent() {
   const setShowTemplatesPicker = useUIStore((s) => s.setShowTemplatesPicker)
   const custom = useTemplatesStore((s) => s.templates)
+  const profileId = useProjectStore((state) => state.project?.profileId ?? 'iphone-6.9')
+  const platform = getAppStoreProfile(profileId)!.platform
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const compatibleCustom = custom.filter(
+    (template) => getAppStoreProfile(template.profileId)?.platform === platform,
+  )
+  const compatibleCatalog = TEMPLATES.filter(
+    (template) => getAppStoreProfile(template.profileId)?.platform === platform,
+  )
 
   /* Le choix est gardé par identifiant et relu à chaque rendu : supprimer le
      gabarit sélectionné doit vider le pied de page, pas y laisser un bouton
      « Appliquer » qui pointe sur ce qui n'existe plus. */
-  const saved = custom.find((template) => template.id === selectedId) ?? null
+  const saved = compatibleCustom.find((template) => template.id === selectedId) ?? null
   const selected: TemplateDefinition | null =
-    saved ?? TEMPLATES.find((template) => template.id === selectedId) ?? null
+    saved ?? compatibleCatalog.find((template) => template.id === selectedId) ?? null
 
   function handleClose() {
     setShowTemplatesPicker(false)
@@ -88,11 +99,12 @@ function TemplatePickerContent() {
       <div className="flex flex-col gap-2">
         {/* Les siens d'abord : le catalogue livré ne change jamais, sa
             bibliothèque oui, et c'est elle qu'on vient rouvrir. */}
-        {custom.length > 0 && (
+        {compatibleCustom.length > 0 && (
           <section className="flex flex-col gap-1.5">
             <h3 className="section-title">Mes gabarits</h3>
             <Gallery
-              templates={custom}
+              templates={compatibleCustom}
+              profileId={profileId}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onRemove={handleRemove}
@@ -100,8 +112,13 @@ function TemplatePickerContent() {
           </section>
         )}
         <section className="flex flex-col gap-1.5">
-          {custom.length > 0 && <h3 className="section-title">Catalogue</h3>}
-          <Gallery templates={TEMPLATES} selectedId={selectedId} onSelect={setSelectedId} />
+          {compatibleCustom.length > 0 && <h3 className="section-title">Catalogue</h3>}
+          <Gallery
+            templates={compatibleCatalog}
+            profileId={profileId}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         </section>
       </div>
     </Dialog>
@@ -110,6 +127,7 @@ function TemplatePickerContent() {
 
 interface GalleryProps {
   templates: readonly TemplateDefinition[]
+  profileId: AppStoreProfileId
   selectedId: string | null
   onSelect: (id: string) => void
   onRemove?: (template: CustomTemplate) => void
@@ -120,7 +138,8 @@ function savedOf(template: TemplateDefinition): CustomTemplate | null {
   return 'source' in template ? (template as CustomTemplate) : null
 }
 
-function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
+function Gallery({ templates, profileId, selectedId, onSelect, onRemove }: GalleryProps) {
+  const size = canvasSize(profileId)
   return (
     /* Les vignettes portent le format de la planche (440×956) : à l'ancienne
        boîte carrée, l'aperçu flottait au centre de deux bandes vides plus
@@ -145,8 +164,11 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                   : 'border-border hover:border-input hover:bg-accent',
               )}
             >
-              <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">
-                <TemplatePreview template={template} assets={saved?.assets} />
+              <div
+                className="w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)"
+                style={{ aspectRatio: `${size.width} / ${size.height}` }}
+              >
+                <TemplatePreview template={template} profileId={profileId} assets={saved?.assets} />
               </div>
               <div className="flex min-w-0 items-center gap-1 px-0.5">
                 <p className="truncate text-2xs font-medium text-foreground">{template.name}</p>

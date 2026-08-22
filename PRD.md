@@ -1,6 +1,6 @@
 # PRD — ScreenForge
 
-> Local-first web app for designing and exporting iPhone App Store screenshots.
+> Local-first web app for designing and exporting iPhone, iPad, and Apple Watch App Store screenshots.
 > Local is free; the operated Cloud sync and storage service is paid.
 
 ---
@@ -17,7 +17,7 @@ None respect indie devs' time or budget.
 
 ## Solution
 
-A **local-first web app** (Vite + React + Fabric.js) running in the browser. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
+A **local-first web app** (Vite + React + Fabric.js) running in the browser. ScreenForge exports App Store-ready portrait PNGs for one immutable iPhone, iPad, or Apple Watch profile per project.
 
 ## Product model
 
@@ -29,23 +29,32 @@ A **local-first web app** (Vite + React + Fabric.js) running in the browser. Scr
 
 ## Scope
 
-**iPhone only.** No iPad, Apple Watch, Mac, or Apple TV.
+**iPhone, iPad, and Apple Watch portrait screenshots.** No landscape iPad, Mac, Apple TV, or Vision Pro output.
 
 ---
 
-## Apple App Store Screenshot Specifications (iPhone)
+## Apple App Store Screenshot Specifications
 
-### Key Rule (since September 2024)
+### iPhone and iPad primary targets
 
-Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9" class), and Apple auto-scales to all smaller iPhone display classes. No need to upload separate sets per device.
+ScreenForge produces the largest portrait target selected for iPhone or iPad and relies on App Store Connect for the supported smaller-size scaling paths. Optional and historical iPad targets are intentionally omitted.
 
-### Production profile
+### Production profiles
 
-| Display Class   | Orientation  | Dimensions         | Project limit      |
-| --------------- | ------------ | ------------------ | ------------------ |
-| **iPhone 6.9"** | **Portrait** | **1320 × 2868 px** | **10 screenshots** |
+| ScreenForge profile   | Platform                 |     Dimensions | App Store Connect type  |
+| --------------------- | ------------------------ | -------------: | ----------------------- |
+| `iphone-6.9`          | iPhone 6.9-inch portrait | 1320 × 2868 px | `APP_IPHONE_69`         |
+| `ipad-13`             | iPad 13-inch portrait    | 2064 × 2752 px | `APP_IPAD_PRO_3GEN_129` |
+| `watch-ultra-422x514` | Apple Watch Ultra        |   422 × 514 px | `APP_WATCH_ULTRA`       |
+| `watch-ultra-410x502` | Apple Watch Ultra        |   410 × 502 px | `APP_WATCH_ULTRA`       |
+| `watch-series-10`     | Apple Watch Series 10    |   416 × 496 px | `APP_WATCH_SERIES_10`   |
+| `watch-series-7`      | Apple Watch Series 7     |   396 × 484 px | `APP_WATCH_SERIES_7`    |
+| `watch-series-4`      | Apple Watch Series 4     |   368 × 448 px | `APP_WATCH_SERIES_4`    |
+| `watch-series-3`      | Apple Watch Series 3     |   312 × 390 px | `APP_WATCH_SERIES_3`    |
 
-ScreenForge deliberately omits smaller and legacy output choices. App Store Connect accepts the highest-resolution 6.9" set and scales it for smaller iPhone display classes.
+All profiles are portrait and allow 1–10 screenshots. A project chooses exactly one profile at creation; every screen, template, release snapshot, validation result, and export in that project keeps it. Projects created before the profile field existed migrate to `iphone-6.9` without changing layer coordinates.
+
+Sources: [Apple screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/) and [upload/scaling guidance](https://developer.apple.com/help/app-store-connect/manage-app-information/upload-app-previews-and-screenshots/).
 
 ### File Requirements
 
@@ -91,13 +100,13 @@ ScreenForge deliberately omits smaller and legacy output choices. App Store Conn
 
 Layer-based design surface:
 
-| Layer Type       | Capabilities                                                                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Text**         | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill                                                 |
-| **Device Frame** | iPhone mockup with screenshot inside. Generated frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
-| **Image**        | Import PNG/JPEG/SVG, crop, resize, opacity, shadow                                                                                              |
-| **Shape**        | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow                                                                                |
-| **Background**   | Solid color, linear/radial gradient, image fill                                                                                                 |
+| Layer Type       | Capabilities                                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Text**         | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill                                                                      |
+| **Device Frame** | Platform-compatible mockup with screenshot inside. Original built-in frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
+| **Image**        | Import PNG/JPEG/SVG, crop, resize, opacity, shadow                                                                                                                   |
+| **Shape**        | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow                                                                                                     |
+| **Background**   | Solid color, linear/radial gradient, image fill                                                                                                                      |
 
 **Interactions:**
 
@@ -133,21 +142,17 @@ Layer-based design surface:
 - **Preset gradients** — curated collection (20+) for quick start
 - **Image background** — import + opacity/blur/fit
 
-### 4. Device Frames (iPhone only)
+### 4. Device Frames
 
-Built-in mockups:
+Built-in mockups are filtered by the project's immutable platform:
 
-| Device            | Status |
-| ----------------- | ------ |
-| iPhone 16 Pro Max | MVP    |
-| iPhone 16 Pro     | MVP    |
-| iPhone 16         | MVP    |
-| iPhone 15 Pro     | v2     |
-| iPhone 15         | v2     |
+| Platform    | Built-in catalogue                                                  |
+| ----------- | ------------------------------------------------------------------- |
+| iPhone      | Current generated iPhone catalogue plus legacy render compatibility |
+| iPad        | Two original, neutral tablet silhouettes: Ardoise and Studio        |
+| Apple Watch | Two original, neutral watch silhouettes: Halo and Compacte          |
 
-Apple Product Bezels are optional user-provided PNG overlays. The user downloads
-and extracts them from Apple's DMG; ScreenForge stores them only in the current
-project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
+[Apple Design Resources](https://developer.apple.com/design/resources/) and Product Bezels are optional user-provided files. The user obtains them directly from Apple and accepts the [Apple Design Resources License](https://developer.apple.com/support/downloads/terms/apple-design-resources/Apple-Design-Resources-License-20230621-English.pdf) before local import. ScreenForge stores them only in the current project's local IndexedDB assets. No Apple PNG, PSD, DMG, UI kit, or derived asset is downloaded, bundled, hosted, or redistributed by ScreenForge.
 
 **Controls:**
 
@@ -174,7 +179,7 @@ Fully editable after applying.
 
 ### 6. Project Management
 
-- **Project** = one app. Contains up to 10 screens (App Store max).
+- **Project** = one app and one immutable App Store profile. Contains up to 10 screens (App Store max).
 - **Screens** = ordered list, thumbnails at bottom
 - **Duplicate screen** — copy as starting point
 - **Globals** — shared settings across all screens:
@@ -187,19 +192,19 @@ Fully editable after applying.
 
 **Single export:**
 
-- Current screen as an opaque portrait PNG at 1320 × 2868
+- Current screen as an opaque portrait PNG at the project's exact profile dimensions
 
 **Batch export (the killer feature):**
 
 - Select screens (checkboxes, default: all)
-- Fixed target: **iPhone 6.9" portrait (1320 × 2868)**
+- Fixed target: the project's immutable iPhone, iPad, or Apple Watch portrait profile
 - Format: PNG (default)
 - Output: ZIP with organized folders
 
 **Output structure:**
 
 ```
-iphone-6.9-portrait/
+watch-series-10/
   01_hero.png
   02_feature_budget.png
   03_feature_year.png
@@ -271,11 +276,11 @@ src/
     use-export.ts        # Export + batch logic
     use-fonts.ts         # Google Fonts loader
   assets/
-    device-frames/       # Generated iPhone SVG fallbacks (per model + color)
+    device-frames/       # Original generated frames, catalogued by platform
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
-    dimensions.ts        # Single iPhone 6.9" App Store target
+    dimensions.ts        # Closed App Store profile catalogue and exact targets
     storage.ts           # IndexedDB read/write
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation
@@ -316,9 +321,9 @@ src/
 - Canvas editor with text, device frame, image, shape, background layers
 - Full text styling (Google Fonts, size, weight, color, shadow, gradient)
 - Background designer (solid + gradients + presets)
-- Generated iPhone frames with color variants + local import of Apple Product Bezel PNGs
-- 5 pre-built templates
-- Batch export at 1320 × 2868 (opaque PNG, ZIP)
+- Generated platform-compatible frames, including two original iPad and two original Watch designs, plus local import of user-provided Apple Product Bezel PNGs
+- Platform-compatible pre-built templates, including one iPad and one Apple Watch composition
+- Batch export at the selected profile's exact dimensions (opaque PNG, ZIP)
 - Project autosave/load (IndexedDB) + portable `.screenforge.zip` backup/import
 - Globals (shared font, background, device across screens)
 - Undo/redo + keyboard shortcuts
@@ -338,7 +343,7 @@ src/
 
 1. Reproduce the 5 Pulpe App Store screenshots in < 30 minutes
 2. Exported PNGs pass App Store Connect upload without rejection
-3. Dimensions are pixel-exact (1320 x 2868 for 6.9", etc.)
+3. Dimensions are pixel-exact for every supported iPhone, iPad, and Apple Watch profile
 4. Text rendering matches AppScreens.com quality
 5. Local works with zero Convex calls and retains every editor/export capability
 6. Projects persist across browser sessions and reopen from a portable local backup

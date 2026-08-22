@@ -144,7 +144,8 @@ export function createDeviceLayer(model: DeviceModel, zIndex: number): DeviceFra
   return {
     id: crypto.randomUUID(),
     type: 'device-frame' as const,
-    name: 'iPhone',
+    name:
+      config.platform === 'ipad' ? 'Tablette' : config.platform === 'watch' ? 'Montre' : 'iPhone',
     x: (size.width - width) / 2,
     y: Math.max(20, size.height - height - Math.min(120, size.height * 0.12)),
     width,

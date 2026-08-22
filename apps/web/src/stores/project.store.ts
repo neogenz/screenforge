@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getDeviceFrame } from '@/assets/device-frames'
+import { currentDeviceFramesFor, getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
 import {
   DEFAULT_APP_STORE_PROFILE_ID,
@@ -40,9 +40,14 @@ export function createProjectDocument(
   name: string,
   profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
 ): Project {
-  if (!getAppStoreProfile(profileId)) throw new Error(`Unknown App Store profile: ${profileId}`)
+  const profile = getAppStoreProfile(profileId)
+  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
   const now = Date.now()
   const globals = structuredClone(DEFAULT_GLOBALS)
+  const defaultDevice = currentDeviceFramesFor(profile.platform)[0]
+  if (!defaultDevice) throw new Error(`No device frame for platform: ${profile.platform}`)
+  globals.deviceModel = defaultDevice.model
+  globals.deviceColor = defaultDevice.colors[0].name
   const screen = createDefaultScreen(defaultScreenName(0), globals)
   return {
     id: crypto.randomUUID(),

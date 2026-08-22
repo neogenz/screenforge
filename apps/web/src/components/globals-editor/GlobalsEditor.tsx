@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
-import { CURRENT_DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
+import { currentDeviceFramesFor, getDeviceFrame } from '@/assets/device-frames'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -12,22 +12,38 @@ import { NumberField } from '@/components/ui/number-field'
 import { Select } from '@/components/ui/select'
 import { SwatchButton } from '@/components/ui/swatch-button'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
+import { getAppStoreProfile, type AppStoreProfile } from '@/lib/dimensions'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
 export function GlobalsEditor() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
-  const globals = useProjectStore((s) => s.project?.globals)
+  const project = useProjectStore((s) => s.project)
 
-  if (!showGlobalsEditor || !globals) return null
-  return <GlobalsEditorContent globals={globals} />
+  if (!showGlobalsEditor || !project) return null
+  return (
+    <GlobalsEditorContent
+      globals={project.globals}
+      profile={getAppStoreProfile(project.profileId)!}
+    />
+  )
 }
 
-function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
+function GlobalsEditorContent({
+  globals,
+  profile,
+}: {
+  globals: GlobalSettings
+  profile: AppStoreProfile
+}) {
   const setShowGlobalsEditor = useUIStore((s) => s.setShowGlobalsEditor)
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
 
   const frame = getDeviceFrame(draft.deviceModel)
-  const modelOptions = frame.current ? CURRENT_DEVICE_FRAMES : [frame, ...CURRENT_DEVICE_FRAMES]
+  const compatibleFrames = currentDeviceFramesFor(profile.platform)
+  const modelOptions =
+    frame.current && frame.platform === profile.platform
+      ? compatibleFrames
+      : [frame, ...compatibleFrames]
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))
@@ -65,6 +81,21 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
       }
     >
       <div className="flex flex-col gap-6">
+        <section>
+          <h3 className="section-title mb-2">Profil du projet</h3>
+          <div className="surface-inner p-3">
+            <p className="text-sm font-medium text-foreground">{profile.name}</p>
+            <p className="mt-1 text-2xs text-muted-foreground tabular-nums">
+              {profile.portrait.width}×{profile.portrait.height} px · {profile.appStoreConnectType}
+            </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              Immuable pour préserver les coordonnées et les releases de ce projet.
+            </p>
+          </div>
+        </section>
+
+        <div className="hairline" />
+
         {/* Typographie */}
         <section>
           <h3 className="section-title mb-2">Typographie</h3>

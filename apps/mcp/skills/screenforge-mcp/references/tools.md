@@ -203,9 +203,13 @@ A stop is `{ "offset": 0 to 1, "color": "#rrggbb" }`.
 
 `iphone-17-pro-max`, `iphone-17-pro`, `iphone-17`, `iphone-air`,
 `iphone-16-plus`, `iphone-16`, `iphone-16e`, `iphone-16-pro-max`,
-`iphone-16-pro`.
+`iphone-16-pro`, `tablet-slate`, `tablet-studio`, `watch-halo`,
+`watch-compact`.
 
-Widest first. The last two are legacy, kept so older projects still render.
+The active project's immutable profile filters this catalogue: iPhone tools
+accept the iPhone identifiers, iPad accepts the two `tablet-*` identifiers, and
+Watch accepts the two `watch-*` identifiers. The two `iphone-16-pro*` entries
+are legacy, kept so older projects still render.
 
 ## Shapes
 

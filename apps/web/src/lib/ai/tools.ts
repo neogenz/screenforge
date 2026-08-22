@@ -13,12 +13,14 @@ import {
   AI_LIMITS,
   CONTENT_FONTS,
   createAiTools,
+  createPlatformAiTools,
   DEVICE_MODEL_IDS,
   ICON_IDS,
   PATCHABLE_PROPS,
   SHAPE_IDS,
   validateAgainst,
 } from '@screenforge/project-format'
+import { getAppStoreProfile } from '@/lib/dimensions'
 import type {
   ExecutionOutcome,
   ParamSchema,
@@ -134,6 +136,9 @@ export function applyToolCalls(
   }
 
   let cursor = context.screenId ?? draft.activeScreenId
+  const profile = getAppStoreProfile(draft.profileId)
+  if (!profile) return { results, error: `Profil App Store inconnu : ${draft.profileId}` }
+  const platformTools = createPlatformAiTools(profile.platform)
 
   const targetScreen = (args: Record<string, unknown>): Screen | string => {
     const asked = typeof args.screenId === 'string' ? args.screenId : undefined
@@ -155,7 +160,7 @@ export function applyToolCalls(
   }
 
   for (const call of calls) {
-    const invalid = validateToolCall(call)
+    const invalid = platformTools.validateToolCall(call)
     if (invalid) return { results, error: invalid }
     const args = call.args ?? {}
 

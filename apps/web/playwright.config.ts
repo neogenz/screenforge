@@ -21,7 +21,11 @@ import { localConvex } from '../backend/tests/stack'
 const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
 const WORKSPACE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-const LOCAL_FIRST_PORT = 5199
+const askedLocalPort = Number(process.env.SCREENFORGE_E2E_PORT)
+const LOCAL_FIRST_PORT =
+  Number.isInteger(askedLocalPort) && askedLocalPort > 0 && askedLocalPort < 65_536
+    ? askedLocalPort
+    : 5199
 const CLOUD_PORT = 5198
 const CLOUD_SPEC = '**/sync.spec.ts'
 const configuredConvex = localConvex()

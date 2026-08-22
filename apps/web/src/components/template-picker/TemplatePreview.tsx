@@ -1,14 +1,13 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { ICON_BOX, ICON_STROKE, iconEntry, shapeEntry, SHAPE_BOX } from '@/lib/vector-catalog'
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from '@/lib/canvas/canvas-utils'
+import { canvasSize } from '@/lib/canvas/canvas-utils'
+import type { AppStoreProfileId } from '@/lib/dimensions'
 import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
-
-const WIDTH = SCREEN_WIDTH
-const HEIGHT = SCREEN_HEIGHT
 
 interface TemplatePreviewProps {
   template: TemplateDefinition
+  profileId?: AppStoreProfileId
   /**
    * Les images d'un gabarit enregistré, qui ne sont pas dans le registre.
    *
@@ -19,13 +18,14 @@ interface TemplatePreviewProps {
   assets?: Readonly<Record<string, string>>
 }
 
-export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
+export function TemplatePreview({ template, profileId, assets }: TemplatePreviewProps) {
+  const { width, height } = canvasSize(profileId ?? template.profileId)
   const backgroundId = `${template.id}-background`
   const sortedLayers = [...template.layers].sort((first, second) => first.zIndex - second.zIndex)
 
   return (
     <svg
-      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      viewBox={`0 0 ${width} ${height}`}
       className="block h-full w-full"
       role="img"
       aria-label={`Aperçu du modèle ${template.name}`}
@@ -36,7 +36,7 @@ export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
             texte plus large que la planche déborde sur la vignette et l'aperçu
             passe pour cassé. */}
         <clipPath id={`${template.id}-clip`}>
-          <rect width={WIDTH} height={HEIGHT} />
+          <rect width={width} height={height} />
         </clipPath>
         {gradientDefinition(backgroundId, backgroundGradient(template.background))}
         {sortedLayers.map((layer) =>
@@ -47,12 +47,18 @@ export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
       </defs>
       <g clipPath={`url(#${template.id}-clip)`}>
         <rect
-          width={WIDTH}
-          height={HEIGHT}
+          width={width}
+          height={height}
           fill={paintForBackground(template.background, backgroundId)}
         />
         {sortedLayers.map((layer) => (
-          <TemplateLayer key={layer.id} templateId={template.id} layer={layer} assets={assets} />
+          <TemplateLayer
+            key={layer.id}
+            templateId={template.id}
+            layer={layer}
+            canvasHeight={height}
+            assets={assets}
+          />
         ))}
       </g>
     </svg>
@@ -62,10 +68,12 @@ export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
 function TemplateLayer({
   templateId,
   layer,
+  canvasHeight,
   assets,
 }: {
   templateId: string
   layer: Layer
+  canvasHeight: number
   assets?: Readonly<Record<string, string>>
 }) {
   if (!layer.visible) return null
@@ -84,7 +92,7 @@ function TemplateLayer({
         x={layer.x}
         y={layer.y}
         width={layer.width}
-        height={HEIGHT - layer.y}
+        height={canvasHeight - layer.y}
       >
         <div
           style={{

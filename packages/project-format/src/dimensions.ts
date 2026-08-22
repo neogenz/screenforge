@@ -1,9 +1,10 @@
 import type { DisplayClass } from './types.ts'
+import type { DevicePlatform } from './catalog-ids.ts'
 
 export const MAX_PROJECT_SCREENS = 10
 export const LOGICAL_CANVAS_WIDTH = 440
 
-export type AppStorePlatform = 'iphone' | 'ipad' | 'watch'
+export type AppStorePlatform = DevicePlatform
 
 export interface AppStoreProfile extends DisplayClass {
   id: string

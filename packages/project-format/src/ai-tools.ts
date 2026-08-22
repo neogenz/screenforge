@@ -1,4 +1,11 @@
 import { MAX_PROJECT_SCREENS } from './dimensions.ts'
+import {
+  CONTENT_FONTS,
+  deviceModelIdsForPlatform,
+  ICON_IDS,
+  SHAPE_IDS,
+  type DevicePlatform,
+} from './catalog-ids.ts'
 import type { LayerType } from './types.ts'
 
 /**
@@ -305,7 +312,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
     },
     {
       name: 'add_device',
-      description: 'Pose un cadre iPhone, avec son rôle et sa capture si elle est fournie.',
+      description: 'Pose un cadre compatible avec le projet, avec son rôle et sa capture.',
       parameters: object({
         screenId,
         deviceModel: { type: 'string', enum: catalogs.deviceModels },
@@ -400,6 +407,16 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
   }
 
   return { AI_TOOLS, toolSchema, validateToolCall }
+}
+
+/** Construit le même contrat, fermé sur les seuls appareils de la plateforme. */
+export function createPlatformAiTools(platform: DevicePlatform): AiTooling {
+  return createAiTools({
+    deviceModels: deviceModelIdsForPlatform(platform),
+    shapeIds: SHAPE_IDS,
+    iconIds: ICON_IDS,
+    fonts: CONTENT_FONTS,
+  })
 }
 
 /**

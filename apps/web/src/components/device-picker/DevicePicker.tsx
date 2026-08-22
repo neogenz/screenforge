@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react'
 import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
-import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
+import {
+  currentDeviceFramesFor,
+  getDefaultDeviceSize,
+  getDeviceFrame,
+} from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
@@ -22,6 +26,8 @@ import {
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { getAppStoreProfile } from '@/lib/dimensions'
+import { useProjectStore } from '@/stores/project.store'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
 interface DevicePickerProps {
@@ -40,6 +46,8 @@ const SOURCE_OPTIONS: SegmentedOption<'generated' | 'apple'>[] = [
 ]
 
 export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
+  const profileId = useProjectStore((state) => state.project?.profileId ?? 'iphone-6.9')
+  const platform = getAppStoreProfile(profileId)!.platform
   const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
   const shadowEnabled = layer.shadowEnabled ?? false
   const shadowBlur = layer.shadowBlur ?? 0
@@ -59,7 +67,11 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
-  const modelOptions = config.current ? CURRENT_DEVICE_FRAMES : [config, ...CURRENT_DEVICE_FRAMES]
+  const compatibleFrames = currentDeviceFramesFor(platform)
+  const modelOptions =
+    config.current && config.platform === platform
+      ? compatibleFrames
+      : [config, ...compatibleFrames]
 
   async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -226,7 +238,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
           <span className="text-2xs text-muted-foreground">
-            Extraire le DMG, puis choisir un PNG transparent.
+            Fichier fourni localement par l’utilisateur sous licence Apple. ScreenForge ne le
+            télécharge ni ne le redistribue.
           </span>
         </div>
       )}

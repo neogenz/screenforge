@@ -114,6 +114,7 @@ export const useTemplatesStore = create<TemplatesState>()((set, get) => ({
         name,
         description: input.description,
         source: input.source ?? 'user',
+        profileId: project.profileId,
       })
     } catch (error) {
       return {

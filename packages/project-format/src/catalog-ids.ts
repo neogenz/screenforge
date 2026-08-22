@@ -23,21 +23,50 @@ export const ICON_BOX = 24
 /** Épaisseur du trait d'une icône, dans son repère de 24. */
 export const ICON_STROKE = 2
 
-/** La gamme Apple, la plus large d'abord ; les modèles legacy restent rendables. */
+export type DevicePlatform = 'iphone' | 'ipad' | 'watch'
+
+/**
+ * Modèles originaux disponibles par famille de projet.
+ *
+ * Les identifiants iPhone historiques restent rendables. Les silhouettes
+ * tablette et montre sont volontairement génériques : elles ne nomment aucun
+ * produit Apple et ne persistent aucun asset sous licence.
+ */
+export const DEVICE_MODEL_IDS_BY_PLATFORM = {
+  iphone: [
+    'iphone-17-pro-max',
+    'iphone-17-pro',
+    'iphone-17',
+    'iphone-air',
+    'iphone-16-plus',
+    'iphone-16',
+    'iphone-16e',
+    // Legacy — kept so older projects still render
+    'iphone-16-pro-max',
+    'iphone-16-pro',
+  ],
+  ipad: ['tablet-slate', 'tablet-studio'],
+  watch: ['watch-halo', 'watch-compact'],
+} as const
+
+/** Catalogue plat pour le format persistant et les migrations. */
 export const DEVICE_MODEL_IDS = [
-  'iphone-17-pro-max',
-  'iphone-17-pro',
-  'iphone-17',
-  'iphone-air',
-  'iphone-16-plus',
-  'iphone-16',
-  'iphone-16e',
-  // Legacy — kept so older projects still render
-  'iphone-16-pro-max',
-  'iphone-16-pro',
+  ...DEVICE_MODEL_IDS_BY_PLATFORM.iphone,
+  ...DEVICE_MODEL_IDS_BY_PLATFORM.ipad,
+  ...DEVICE_MODEL_IDS_BY_PLATFORM.watch,
 ] as const
 
 export type DeviceModelId = (typeof DEVICE_MODEL_IDS)[number]
+
+export function deviceModelIdsForPlatform(platform: DevicePlatform): readonly DeviceModelId[] {
+  return DEVICE_MODEL_IDS_BY_PLATFORM[platform]
+}
+
+export function deviceModelPlatform(model: DeviceModelId): DevicePlatform {
+  if ((DEVICE_MODEL_IDS_BY_PLATFORM.ipad as readonly string[]).includes(model)) return 'ipad'
+  if ((DEVICE_MODEL_IDS_BY_PLATFORM.watch as readonly string[]).includes(model)) return 'watch'
+  return 'iphone'
+}
 
 export const SHAPE_IDS = [
   'rectangle',

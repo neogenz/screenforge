@@ -60,6 +60,8 @@ export interface CampaignBrief {
    */
   screenCount: number
   deviceModel: DeviceModel
+  /** Repère logique du profil du projet ; absent vaut l'ancien repère iPhone. */
+  board?: { width: number; height: number }
   screenshots: BriefScreenshot[]
   /** Le logo de l'application, posé sur le premier visuel s'il est fourni. */
   logo?: { assetId: string; size: ScreenshotSize }
@@ -475,14 +477,15 @@ export interface PlanScreenLayout extends ArchetypeLayout {
  */
 function logoBox(brief: CampaignBrief, archetype: ArchetypeId): PlanBox | null {
   if (!brief.logo) return null
+  const board = brief.board ?? PLAN_CANVAS
   const width = Math.max(
     1,
     Math.round((brief.logo.size.width / brief.logo.size.height) * LOGO_HEIGHT),
   )
-  const x = Math.round((SCREEN_WIDTH - width) / 2)
+  const x = Math.round((board.width - width) / 2)
   /* Sur le mur, l'accroche occupe le centre : le logo descend en pied plutôt
      que de venir la coiffer là où il n'y a pas la place. */
-  const y = archetype === 'mur' ? Math.round(SCREEN_HEIGHT * 0.86) : LOGO_TOP
+  const y = archetype === 'mur' ? Math.round(board.height * 0.86) : LOGO_TOP
   return { x, y, width, height: LOGO_HEIGHT }
 }
 
@@ -514,6 +517,7 @@ export function planScreenLayout(
     headline: screen.headline,
     deviceAspect: frame.width / frame.height,
     index,
+    board: brief.board,
   })
 
   const carriesLogo = Boolean(brief.logo) && (index === 0 || archetype === 'mur')

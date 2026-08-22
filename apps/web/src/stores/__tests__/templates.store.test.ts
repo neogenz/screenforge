@@ -41,6 +41,29 @@ beforeEach(() => {
 })
 
 describe('hydratation de la bibliothèque de gabarits', () => {
+  it('enregistre le profil du projet source et ne liste que sa plateforme', async () => {
+    storage.read.mockResolvedValue([])
+    useProjectStore.getState().createProject('iPad', 'ipad-13')
+    const saved = await saveRelayTemplate({ name: 'Tablette' })
+    expect(saved.committed).toBe(true)
+    expect(storage.write).toHaveBeenCalledWith(
+      expect.objectContaining({ profileId: 'ipad-13' }),
+      undefined,
+    )
+
+    const iphone = templateFromScreen(useProjectStore.getState().project!.screens[0], {
+      name: 'Téléphone',
+      source: 'user',
+      profileId: 'iphone-6.9',
+    })
+    useTemplatesStore.setState((state) => ({ templates: [...state.templates, iphone] }))
+
+    await expect(listRelayTemplates()).resolves.toMatchObject({
+      committed: true,
+      result: { templates: [{ name: 'Tablette' }] },
+    })
+  })
+
   it('abandonne réellement l’écriture IndexedDB avant son commit', async () => {
     const { readCustomTemplates, writeCustomTemplate } =
       await vi.importActual<typeof import('@/lib/custom-templates')>('@/lib/custom-templates')

@@ -9,12 +9,16 @@ import {
   HardDrive,
   LoaderCircle,
   PenLine,
+  Plus,
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog } from '@/components/ui/dialog'
+import { Field } from '@/components/ui/field'
 import { IconButton } from '@/components/ui/icon-button'
 import { Input } from '@/components/ui/input'
 import { Popover } from '@/components/ui/popover'
+import { Select } from '@/components/ui/select'
 import {
   createProjectFile,
   PROJECT_FILE_EXTENSION,
@@ -27,7 +31,19 @@ import {
   type ProjectAvailability,
   type ProjectCatalogueEntry,
 } from '@/lib/sync'
-import { importPortableProject, openStoredProject, saveCurrentProject } from '@/lib/storage'
+import {
+  createStoredProject,
+  importPortableProject,
+  openStoredProject,
+  saveCurrentProject,
+} from '@/lib/storage'
+import {
+  APP_STORE_PROFILES,
+  DEFAULT_APP_STORE_PROFILE_ID,
+  getAppStoreProfile,
+  type AppStorePlatform,
+  type AppStoreProfileId,
+} from '@/lib/dimensions'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
@@ -37,6 +53,11 @@ interface ProjectSwitcherProps {
 }
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' })
+const PLATFORM_LABELS: Record<AppStorePlatform, string> = {
+  iphone: 'iPhone',
+  ipad: 'iPad',
+  watch: 'Apple Watch',
+}
 
 const AVAILABILITY_ICONS: Record<ProjectAvailability, typeof HardDrive> = {
   'device-only': HardDrive,
@@ -59,6 +80,10 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newProfileId, setNewProfileId] = useState<AppStoreProfileId>(DEFAULT_APP_STORE_PROFILE_ID)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [catalogue, setCatalogue] = useState<ProjectCatalogueEntry[]>([])
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -66,6 +91,8 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const currentProjectId = useProjectStore((state) => state.project?.id ?? null)
   const currentProjectName = useProjectStore((state) => state.project?.name ?? '')
+  const currentProfileId = useProjectStore((state) => state.project?.profileId)
+  const currentProfile = currentProfileId ? getAppStoreProfile(currentProfileId) : undefined
   const current = catalogue.find((project) => project.id === currentProjectId)
   const needle = filter.trim().toLocaleLowerCase('fr-FR')
   const others = catalogue.filter(
@@ -97,6 +124,41 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   function closeAndFocusTrigger() {
     setOpen(false)
     requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  function openCreateDialog() {
+    setOpen(false)
+    setNewName('')
+    setNewProfileId(DEFAULT_APP_STORE_PROFILE_ID)
+    setCreateError(null)
+    setCreateOpen(true)
+  }
+
+  function closeCreateDialog() {
+    if (busy) return
+    setCreateOpen(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  async function createProject() {
+    const name = newName.trim()
+    if (!name) {
+      setCreateError('Donnez un nom au nouveau projet.')
+      return
+    }
+    setBusy(true)
+    setCreateError(null)
+    try {
+      const project = await createStoredProject(name, newProfileId)
+      setCreateOpen(false)
+      toast(`Projet « ${project.name} » créé.`, 'success')
+      requestAnimationFrame(() => triggerRef.current?.focus())
+    } catch (error) {
+      console.error('Could not create the local project.', error)
+      setCreateError('Création impossible. Le projet courant reste ouvert.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   function renameCurrent() {
@@ -203,6 +265,12 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               </span>
               {current && <Availability value={current.availability} />}
             </div>
+            {currentProfile && (
+              <p className="mt-1 pl-[23px] text-2xs text-muted-foreground tabular-nums">
+                {PLATFORM_LABELS[currentProfile.platform]} · {currentProfile.name} ·{' '}
+                {currentProfile.portrait.width}×{currentProfile.portrait.height}
+              </p>
+            )}
             <div className="mt-2 flex gap-1">
               <Button size="sm" variant="ghost" onClick={renameCurrent}>
                 <PenLine size={13} strokeWidth={1.75} aria-hidden />
@@ -313,6 +381,16 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           <footer className="border-t border-border p-2">
             <Button
               size="sm"
+              variant="default"
+              className="mb-1 w-full justify-start"
+              disabled={busy}
+              onClick={openCreateDialog}
+            >
+              <Plus size={13} strokeWidth={1.75} aria-hidden />
+              Nouveau projet…
+            </Button>
+            <Button
+              size="sm"
               variant="ghost"
               className="w-full justify-start"
               disabled={busy}
@@ -328,6 +406,73 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           </footer>
         </div>
       </Popover>
+
+      {createOpen && (
+        <Dialog
+          open
+          onClose={closeCreateDialog}
+          title="Nouveau projet"
+          size="sm"
+          footerNote="Le profil reste unique pour toutes les planches de ce projet."
+          footer={
+            <>
+              <Button variant="default" disabled={busy} onClick={closeCreateDialog}>
+                Annuler
+              </Button>
+              <Button
+                variant="primary"
+                loading={busy}
+                disabled={!newName.trim()}
+                onClick={() => void createProject()}
+              >
+                Créer
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <Field label="Nom">
+              <Input
+                data-autofocus
+                font="sans"
+                value={newName}
+                maxLength={120}
+                aria-label="Nom du nouveau projet"
+                aria-invalid={Boolean(createError)}
+                onChange={(event) => {
+                  setNewName(event.target.value)
+                  if (createError) setCreateError(null)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && newName.trim() && !busy) void createProject()
+                }}
+              />
+            </Field>
+            <Select
+              label="Format App Store"
+              value={newProfileId}
+              aria-label="Format App Store"
+              disabled={busy}
+              onChange={(event) => setNewProfileId(event.target.value as AppStoreProfileId)}
+            >
+              {APP_STORE_PROFILES.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name} · {profile.portrait.width}×{profile.portrait.height}
+                </option>
+              ))}
+            </Select>
+            <p className="text-2xs text-muted-foreground">
+              Pour changer de cible plus tard, créez un autre projet : les coordonnées restent ainsi
+              exactes.
+            </p>
+            {createError && (
+              <p role="alert" className="text-2xs text-destructive">
+                {createError}
+              </p>
+            )}
+          </div>
+        </Dialog>
+      )}
 
       <input
         ref={fileRef}
