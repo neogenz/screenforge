@@ -2,7 +2,7 @@
 status: pending
 ---
 
-# Instruction: Unifier les contrats Android et Apple
+# Instruction: Poser Android comme contrat multi-store générique
 
 ## Architecture projection
 
@@ -11,31 +11,35 @@ status: pending
 ```txt
 .
 ├── packages/project-format/src/
-│   ├── types.ts                                             ✏️ garder le seul champ projet target
-│   ├── dimensions.ts                                        ✏️ enregistrer Google Play et tous les profils App Store
-│   ├── catalog-ids.ts                                       ✏️ distinguer store et famille d’appareil
-│   ├── project-validation.ts                                ✏️ migrer et vérifier projets, snapshots et releases
-│   └── ai-tools.ts                                          ✏️ exposer le même catalogue aux agents
+│   ├── types.ts                                             ✏️ persister une cible de store immuable
+│   ├── dimensions.ts                                        ✏️ garder le registre StoreTargetProfile générique
+│   ├── catalog-ids.ts                                       ✏️ cataloguer appareils Apple et Android
+│   └── project-validation.ts                                ✏️ valider et migrer la cible sans perte
 ├── apps/web/src/
-│   ├── lib/storage.ts                                       ✏️ persister et rouvrir chaque cible
-│   ├── lib/project-file.ts                                  ✏️ importer les archives selon le contrat unifié
-│   ├── lib/release.ts                                       ✏️ figer et restaurer la cible exacte
-│   ├── lib/sync.ts                                          ✏️ conserver la cible entre appareils
-│   └── stores/project.store.ts                              ✏️ faire du projet la source de vérité
-├── apps/backend/convex/                                     ✏️ accepter le format projet unifié sans élargir les droits
-└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner la matrice de migrations
+│   ├── App.tsx                                              ✏️ cumuler identité analytics et cible active
+│   ├── hooks/use-export.ts                                  ✏️ cumuler métriques expurgées et export ciblé
+│   ├── lib/{storage,export,release,asc}.ts                   ✏️ dériver persistance et livraison de la cible
+│   ├── lib/canvas/                                          ✏️ dériver la géométrie de la planche
+│   ├── assets/{device-frames,templates}/                    ✏️ ajouter les ressources Android originales
+│   └── components/                                          ✏️ création, filtres, export et publication ciblés
+├── apps/{bridge,mcp}/                                       ✏️ transmettre et refuser les cibles incompatibles
+├── scripts/{validate-export,visual-probe,export-probe}.mjs  ✏️ valider les deux stores
+├── vercel.json                                              ✏️ conserver la CSP PostHog fusionnée
+└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner merge #22
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Main contient Android] --> B[Recalculer les conflits de #24]
-  B --> C[Conserver target comme clé persistée]
-  C --> D[Ajouter les profils iPad et Watch au registre]
-  D --> E[Migrer projets et releases historiques]
-  E --> F[Valider stockage sync et archives]
-  F --> G[Socle prêt pour les surfaces UI]
+  A[Main contient #23 et #26] --> B[Mettre #22 à jour]
+  B --> C[Résoudre App analytics plus cible]
+  B --> D[Résoudre export analytics plus profil]
+  B --> E[Recalculer CSP]
+  C --> F[Gate release complet]
+  D --> F
+  E --> F
+  F --> G[Revue puis squash merge #22]
 ```
 
 ## Test Scope
@@ -46,55 +50,56 @@ title: Test scope
 ---
 journey
   section Setup
-    Partir du main vert après #22 => inventaire des conflits #24 recalculé sans résolution globale: 5: cli
+    Mettre #22 sur le main coss contenant #23 et #26 => les 48 fichiers partagés observés sont reclassifiés sur le diff courant: 5: cli
   section Happy path
-    Charger un projet historique sans cible => cible App Store iPhone ajoutée sans dérive géométrique: 5: api
-    Sauvegarder chaque profil Apple et Android => target identique après archive sync snapshot et restauration: 5: api
-  section Edge case - contrat concurrent
-    Rencontrer profileId ou une cible inconnue => migration explicitement décidée ou refus sans double source de vérité: 1: api
+    Créer un projet Google Play => cible 1080x1920 persistée et planche 9:16 affichée: 5: browser
+    Exporter puis rouvrir le projet => PNG opaque exact ZIP phone et cible inchangée: 5: browser
+    Utiliser un projet Apple historique => migration iPhone idempotente et export historique inchangé: 5: browser
+  section Edge case - analytics refusée
+    Exporter sans consentement => export complet et aucun événement PostHog: 1: browser
 ```
 
 ## Tasks to do
 
-### `1)` Recalculer et classer les conflits #24
+### `1)` Réaligner #22 après #23 et #26
 
-> Utiliser l’état réel après #22, pas l’inventaire historique comme vérité immuable.
+> Résoudre uniquement contre le `main` effectivement mergé.
 
-1. Simuler le merge et lister chaque conflit restant.
-2. Classer contrat/persistance dans cette phase et UI/export/MCP dans la phase 5.
-3. Interdire `ours`, `theirs`, rebase automatique ou suppression de masse comme stratégie globale.
+1. Recalculer les fichiers partagés et les conflits avant toute édition.
+2. Porter les surfaces Android sur les primitives coss et les compositions `patterns/`, sans réintroduire les composants supprimés par #26.
+3. Dans `App.tsx`, conserver initialisation d’identité consentie et sélection de cible; dans `use-export.ts`, conserver instrumentation expurgée et types `StoreTargetProfile`.
+4. Dans `vercel.json`, recalculer les hashes et conserver PostHog EU plus toutes les origines Convex exactes.
 
-### `2)` Définir le registre cible unique
+### `2)` Valider le socle multi-store
 
-> Enrichir le modèle générique au lieu de juxtaposer deux schémas.
+> Faire de la cible persistée l’unique source de géométrie et de limites.
 
-1. Garder `target: StoreTargetId` sur les objets persistés; ne pas ajouter `profileId`.
-2. Garder `app-store-iphone` et `google-play-phone`, puis ajouter des identifiants App Store explicites pour iPad 13 et les six classes Watch.
-3. Séparer store, famille d’appareil, planche logique, sortie, dossier, plafond, modèles compatibles et type App Store Connect.
-4. Rendre les champs de publication Apple inaccessibles aux cibles Google Play par le type et la validation.
+1. Conserver `target: StoreTargetId` sur projet, snapshot et release.
+2. Dériver planche, dimensions, plafond d’écrans, dossier ZIP, appareils et gabarits depuis `StoreTargetProfile`.
+3. Migrer les projets sans cible vers App Store iPhone sans déplacer leurs calques.
+4. Refuser toute combinaison appareil, template, release ou publication incompatible.
 
-### `3)` Réconcilier migrations et invariants
+### `3)` Rejouer les preuves Android et historiques
 
-> Préserver les projets réels et toutes les releases figées.
+> Ne pas accepter un Android vert qui régresse Apple, Cloud ou la confidentialité.
 
-1. Migrer l’ancien format sans cible vers `app-store-iphone` de façon idempotente.
-2. Vérifier que projet, snapshot et release portent la même cible et refuser toute divergence.
-3. Conserver coordonnées iPhone historiques et ratios exacts des nouvelles cibles.
-4. Propager la cible dans stockage, archives, sync et restauration sans double champ transitoire durable.
+1. Exécuter les unités contrat, stockage, canvas, export, release, MCP et bridge.
+2. Exécuter les E2E Android et Apple, puis `pnpm run test:release`.
+3. Vérifier Gitleaks, publication, dimensions, opacité, poids et CSP.
 
-### `4)` Verrouiller le contrat par les tests
+### `4)` Revoir puis merger #22
 
-> Faire échouer le socle avant que l’UI masque une incohérence.
+> Squash-merger seulement le contrat générique réconcilié.
 
-1. Couvrir unicité des IDs/dossiers, dimensions, limites et types de publication.
-2. Couvrir migrations répétées, cible inconnue, release divergente et appareil incompatible.
-3. Couvrir round-trip stockage, archive, sync et release pour une cible Android et chaque famille Apple.
+1. Faire une revue code, fonctionnelle et pertinence sur le diff contre le nouveau `main`.
+2. Passer la PR hors draft uniquement sans finding bloquant.
+3. Squash-merger et attendre le run push `main` vert avant de commencer #24.
 
 ## Test acceptance criteria
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | Chaque conflit #24 courant appartient explicitement à la phase 4 ou 5; aucun marqueur ou choix global ne subsiste. |
-| 2 | Un seul registre et un seul champ `target` décrivent toutes les cibles Google Play et App Store. |
-| 3 | Les projets historiques migrent sans déplacement et chaque snapshot/release conserve exactement sa cible. |
-| 4 | Les tests refusent IDs, dossiers, dimensions, appareils et releases incompatibles avant toute UI. |
+| 1 | Les trois conflits attendus conservent simultanément analytics consentie, export multi-store et CSP minimale. |
+| 2 | Projet, snapshot, release, canvas, MCP et export dérivent tous de la même cible persistée. |
+| 3 | Google Play 1080×1920 et App Store iPhone 1320×2868 passent le gate release sans émission PostHog non consentie. |
+| 4 | #22 est squash-mergée sur un `main` vert et son contrat devient la base exclusive de l’intégration Apple suivante. |

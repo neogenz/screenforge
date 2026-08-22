@@ -2,7 +2,7 @@
 status: pending
 ---
 
-# Instruction: Promouvoir et qualifier le candidat combiné
+# Instruction: Porter les surfaces iPad et Apple Watch sur le contrat unifié
 
 ## Architecture projection
 
@@ -10,20 +10,40 @@ status: pending
 
 ```txt
 .
-└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/
-    └── verification.md                                      ✏️ consigner promotion, SHA et matrice hébergée expurgée
+├── apps/web/src/
+│   ├── lib/canvas/                                          ✏️ rendre planche, clip, viewport et vignettes target-aware
+│   ├── lib/{export,release,asc,stage}.ts                     ✏️ livrer dimensions, ZIP et publication exactes
+│   ├── assets/device-frames/                                ✏️ intégrer les silhouettes originales compatibles
+│   ├── assets/templates/                                    ✏️ filtrer les compositions par famille
+│   ├── components/{project-switcher,device-picker}/         ✏️ créer et éditer la cible choisie
+│   ├── components/{export-dialog,publish-dialog}/           ✏️ exposer le contrat de livraison exact
+│   ├── components/{screens-bar,template-picker}/            ✏️ refléter le ratio actif
+│   ├── hooks/{use-canvas,use-export}.ts                      ✏️ conserver géométrie et analytics expurgée
+│   └── lib/ai/                                              ✏️ composer dans la planche active
+├── apps/mcp/
+│   ├── src/tools/                                           ✏️ appliquer le registre unifié
+│   └── skills/screenforge-mcp/                              ✏️ documenter les cibles sans contrat concurrent
+├── scripts/
+│   ├── validate-export.mjs                                  ✏️ valider Android, iPhone, iPad et Watch
+│   ├── export-probe.mjs                                     ✏️ sonder les dimensions exactes
+│   ├── visual-probe.mjs                                     ✏️ capturer les ratios représentatifs
+│   └── scale-audit.mjs                                      ✏️ vérifier le chrome sur les nouvelles planches
+├── PRD.md                                                   ✏️ décrire le périmètre multi-store final
+├── AGENTS.md                                                ✏️ fixer les sources de vérité finales
+├── aidd_docs/memory/                                        ✏️ aligner architecture, design et tests
+└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner revue et merge #24
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Main vert après #23 #22 #24] --> B[PR main vers preprod]
-  B --> C[Checks stricts]
-  C --> D[Merge commit]
-  D --> E[Convex et Vercel même candidat]
-  E --> F[QA locale Cloud privacy et toutes cibles]
-  F --> G[Candidat préproduction accepté]
+  A[Contrat unifié vert] --> B[Porter géométrie et export Apple]
+  B --> C[Porter cadres, templates et création]
+  C --> D[Porter ASC, AI et MCP]
+  D --> E[Rejouer toutes les cibles]
+  E --> F[Revue indépendante du diff intégré]
+  F --> G[Squash merge #24]
 ```
 
 ## Test Scope
@@ -34,48 +54,56 @@ title: Test scope
 ---
 journey
   section Setup
-    Identifier le HEAD main vert => nouvelle PR de promotion porte exactement cet arbre: 5: cli
+    Ouvrir le diff #24 réconcilié sur le contrat unifié => aucune ancienne API profileId restante: 5: cli
   section Happy path
-    Merger la promotion => Convex preflight et alias Vercel verts sur le même SHA: 5: system
-    Créer synchroniser et rouvrir les cibles représentatives => cible géométrie assets et droits conservés entre deux navigateurs: 5: browser
-    Refuser la télémétrie => aucun trafic PostHog et produit complet: 5: browser
-  section Edge case - déploiements désalignés
-    Convex ou Vercel échoue => candidat non accepté et récupération documentée sans rollback de données aveugle: 1: system
-  section Teardown
-    Supprimer les fixtures QA => préproduction revenue sans projet ni donnée analytique de test: 5: system
+    Créer iPhone iPad Watch et Android => chaque UI propose seulement appareils et templates compatibles: 5: browser
+    Exporter chaque famille => PNG opaque exact dossier correct et release restaurable: 5: browser
+    Composer via MCP => planche cible respectée et appareil incompatible refusé sans mutation partielle: 5: browser
+  section Edge case - ressource Apple
+    Importer un bezel Apple local => fichier reste local licencié et aucun asset Apple n’est publié par ScreenForge: 1: browser
 ```
 
 ## Tasks to do
 
-### `1)` Créer la promotion finale du lot
+### `1)` Porter la géométrie et l’export
 
-> Ne jamais pousser directement `preprod`.
+> Utiliser exclusivement le registre cible validé en phase 5 et les compositions coss intégrées en phase 3.
 
-1. Ouvrir une nouvelle PR `main` vers `preprod` après le dernier push `main` vert.
-2. Vérifier que le tree attendu reste identique jusqu’au merge.
-3. Merger par merge commit et suivre Quality plus Vercel.
+1. Adapter canvas, clips, sélection, alignement, zoom, filmstrip et miniatures au ratio actif.
+2. Conserver les coordonnées historiques iPhone et le rendu pixel-exact sans cache ni `clipPath` Fabric.
+3. Adapter export, ZIP, release, restauration, validateur et publication ASC à la cible.
+4. Conserver analytics d’export expurgée et entièrement consentie.
 
-### `2)` Rejouer la matrice hébergée
+### `2)` Porter les surfaces de création
 
-> Prouver les interactions que la suite locale ne couvre pas complètement.
+> Préserver le travail #24 sans réintroduire son schéma concurrent.
 
-1. Vérifier Local sans backend et Cloud avec Google, GitHub et lien magique.
-2. Créer, modifier, synchroniser et rouvrir au moins Android, iPhone, iPad et une cible Watch depuis deux navigateurs.
-3. Vérifier export, ZIP, release, limites, entitlement et conservation locale.
-4. Vérifier refus et consentements PostHog; ne pas activer PostHog si le gate de rétention reste ouvert.
+1. Adapter création de projet, globals, appareils, templates et limites d’écrans à `target`.
+2. Conserver les cadres iPad/Watch originaux et l’import local des Product Bezels sous licence.
+3. Filtrer toute ressource incompatible côté UI et côté store, pas seulement visuellement.
 
-### `3)` Nettoyer et conclure
+### `3)` Aligner AI, MCP et documentation
 
-> Laisser la préproduction prête pour le prochain cycle.
+> Faire consommer le même catalogue à tous les producteurs de projets.
 
-1. Supprimer projets, assets, sessions et personnes analytiques de fixture selon les runbooks.
-2. Consigner uniquement SHA, résultats, dates et blockers restants.
-3. Ne déclarer le candidat accepté que si les deux fournisseurs et la matrice produit sont verts.
+1. Adapter outils AI/MCP, schémas et documentation au registre unifié.
+2. Mettre à jour PRD, AGENTS et mémoire avec Android plus les huit profils Apple finaux.
+3. Retirer les formulations et APIs propres aux branches devenues obsolètes, sans supprimer leurs capacités.
+
+### `4)` Refaire une preuve complète avant merge
+
+> La revue antérieure de #24 ne couvre pas le diff réconcilié.
+
+1. Exécuter unités, probes, typecheck, lint, build, Gitleaks et publication.
+2. Exécuter `pnpm run test:e2e:release`, contrast, scale et landing.
+3. Revoir les trois axes sur le nouveau diff; ne pas réutiliser l’approbation de l’ancienne base.
+4. Passer #24 hors draft, squash-merger, puis attendre le push `main` vert.
 
 ## Test acceptance criteria
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | `preprod` contient par merge commit exactement le tree du `main` vert et déploie Convex/Vercel sur le même candidat. |
-| 2 | Local, Cloud, consentement et les quatre familles de cibles fonctionnent sur l’origine hébergée sans perte de cible ni donnée privée. |
-| 3 | Toutes les fixtures sont nettoyées et les seules limites restantes sont explicitement documentées. |
+| 1 | Canvas, export, ZIP, releases et ASC dérivent de `target` pour Android, iPhone, iPad et six classes Watch. |
+| 2 | L’UI et les stores refusent appareils/templates incompatibles et aucune ressource Apple sous licence n’entre dans le dépôt. |
+| 3 | AI, MCP, PRD et mémoire décrivent le même registre sans `profileId` concurrent. |
+| 4 | #24 est squash-mergée seulement après un nouveau gate release et une nouvelle revue approuvée sur la base combinée. |

@@ -2,7 +2,7 @@
 status: pending
 ---
 
-# Instruction: Porter les surfaces iPad et Apple Watch sur le contrat unifié
+# Instruction: Unifier les contrats Android et Apple
 
 ## Architecture projection
 
@@ -10,40 +10,32 @@ status: pending
 
 ```txt
 .
+├── packages/project-format/src/
+│   ├── types.ts                                             ✏️ garder le seul champ projet target
+│   ├── dimensions.ts                                        ✏️ enregistrer Google Play et tous les profils App Store
+│   ├── catalog-ids.ts                                       ✏️ distinguer store et famille d’appareil
+│   ├── project-validation.ts                                ✏️ migrer et vérifier projets, snapshots et releases
+│   └── ai-tools.ts                                          ✏️ exposer le même catalogue aux agents
 ├── apps/web/src/
-│   ├── lib/canvas/                                          ✏️ rendre planche, clip, viewport et vignettes target-aware
-│   ├── lib/{export,release,asc,stage}.ts                     ✏️ livrer dimensions, ZIP et publication exactes
-│   ├── assets/device-frames/                                ✏️ intégrer les silhouettes originales compatibles
-│   ├── assets/templates/                                    ✏️ filtrer les compositions par famille
-│   ├── components/{project-switcher,device-picker}/         ✏️ créer et éditer la cible choisie
-│   ├── components/{export-dialog,publish-dialog}/           ✏️ exposer le contrat de livraison exact
-│   ├── components/{screens-bar,template-picker}/            ✏️ refléter le ratio actif
-│   ├── hooks/{use-canvas,use-export}.ts                      ✏️ conserver géométrie et analytics expurgée
-│   └── lib/ai/                                              ✏️ composer dans la planche active
-├── apps/mcp/
-│   ├── src/tools/                                           ✏️ appliquer le registre unifié
-│   └── skills/screenforge-mcp/                              ✏️ documenter les cibles sans contrat concurrent
-├── scripts/
-│   ├── validate-export.mjs                                  ✏️ valider Android, iPhone, iPad et Watch
-│   ├── export-probe.mjs                                     ✏️ sonder les dimensions exactes
-│   ├── visual-probe.mjs                                     ✏️ capturer les ratios représentatifs
-│   └── scale-audit.mjs                                      ✏️ vérifier le chrome sur les nouvelles planches
-├── PRD.md                                                   ✏️ décrire le périmètre multi-store final
-├── AGENTS.md                                                ✏️ fixer les sources de vérité finales
-├── aidd_docs/memory/                                        ✏️ aligner architecture, design et tests
-└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner revue et merge #24
+│   ├── lib/storage.ts                                       ✏️ persister et rouvrir chaque cible
+│   ├── lib/project-file.ts                                  ✏️ importer les archives selon le contrat unifié
+│   ├── lib/release.ts                                       ✏️ figer et restaurer la cible exacte
+│   ├── lib/sync.ts                                          ✏️ conserver la cible entre appareils
+│   └── stores/project.store.ts                              ✏️ faire du projet la source de vérité
+├── apps/backend/convex/                                     ✏️ accepter le format projet unifié sans élargir les droits
+└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner la matrice de migrations
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Contrat unifié vert] --> B[Porter géométrie et export Apple]
-  B --> C[Porter cadres, templates et création]
-  C --> D[Porter ASC, AI et MCP]
-  D --> E[Rejouer toutes les cibles]
-  E --> F[Revue indépendante du diff intégré]
-  F --> G[Squash merge #24]
+  A[Main contient Android] --> B[Recalculer les conflits de #24]
+  B --> C[Conserver target comme clé persistée]
+  C --> D[Ajouter les profils iPad et Watch au registre]
+  D --> E[Migrer projets et releases historiques]
+  E --> F[Valider stockage sync et archives]
+  F --> G[Socle prêt pour les surfaces UI]
 ```
 
 ## Test Scope
@@ -54,56 +46,55 @@ title: Test scope
 ---
 journey
   section Setup
-    Ouvrir le diff #24 réconcilié sur le contrat unifié => aucune ancienne API profileId restante: 5: cli
+    Partir du main vert après #22 => inventaire des conflits #24 recalculé sans résolution globale: 5: cli
   section Happy path
-    Créer iPhone iPad Watch et Android => chaque UI propose seulement appareils et templates compatibles: 5: browser
-    Exporter chaque famille => PNG opaque exact dossier correct et release restaurable: 5: browser
-    Composer via MCP => planche cible respectée et appareil incompatible refusé sans mutation partielle: 5: browser
-  section Edge case - ressource Apple
-    Importer un bezel Apple local => fichier reste local licencié et aucun asset Apple n’est publié par ScreenForge: 1: browser
+    Charger un projet historique sans cible => cible App Store iPhone ajoutée sans dérive géométrique: 5: api
+    Sauvegarder chaque profil Apple et Android => target identique après archive sync snapshot et restauration: 5: api
+  section Edge case - contrat concurrent
+    Rencontrer profileId ou une cible inconnue => migration explicitement décidée ou refus sans double source de vérité: 1: api
 ```
 
 ## Tasks to do
 
-### `1)` Porter la géométrie et l’export
+### `1)` Recalculer et classer les conflits #24
 
-> Utiliser exclusivement le registre cible validé en phase 4.
+> Utiliser l’état réel après #22, pas l’inventaire historique comme vérité immuable.
 
-1. Adapter canvas, clips, sélection, alignement, zoom, filmstrip et miniatures au ratio actif.
-2. Conserver les coordonnées historiques iPhone et le rendu pixel-exact sans cache ni `clipPath` Fabric.
-3. Adapter export, ZIP, release, restauration, validateur et publication ASC à la cible.
-4. Conserver analytics d’export expurgée et entièrement consentie.
+1. Simuler le merge et lister chaque conflit restant.
+2. Classer contrat/persistance dans cette phase et UI/export/MCP dans la phase 6.
+3. Interdire `ours`, `theirs`, rebase automatique ou suppression de masse comme stratégie globale.
 
-### `2)` Porter les surfaces de création
+### `2)` Définir le registre cible unique
 
-> Préserver le travail #24 sans réintroduire son schéma concurrent.
+> Enrichir le modèle générique au lieu de juxtaposer deux schémas.
 
-1. Adapter création de projet, globals, appareils, templates et limites d’écrans à `target`.
-2. Conserver les cadres iPad/Watch originaux et l’import local des Product Bezels sous licence.
-3. Filtrer toute ressource incompatible côté UI et côté store, pas seulement visuellement.
+1. Garder `target: StoreTargetId` sur les objets persistés; ne pas ajouter `profileId`.
+2. Garder `app-store-iphone` et `google-play-phone`, puis ajouter des identifiants App Store explicites pour iPad 13 et les six classes Watch.
+3. Séparer store, famille d’appareil, planche logique, sortie, dossier, plafond, modèles compatibles et type App Store Connect.
+4. Rendre les champs de publication Apple inaccessibles aux cibles Google Play par le type et la validation.
 
-### `3)` Aligner AI, MCP et documentation
+### `3)` Réconcilier migrations et invariants
 
-> Faire consommer le même catalogue à tous les producteurs de projets.
+> Préserver les projets réels et toutes les releases figées.
 
-1. Adapter outils AI/MCP, schémas et documentation au registre unifié.
-2. Mettre à jour PRD, AGENTS et mémoire avec Android plus les huit profils Apple finaux.
-3. Retirer les formulations et APIs propres aux branches devenues obsolètes, sans supprimer leurs capacités.
+1. Migrer l’ancien format sans cible vers `app-store-iphone` de façon idempotente.
+2. Vérifier que projet, snapshot et release portent la même cible et refuser toute divergence.
+3. Conserver coordonnées iPhone historiques et ratios exacts des nouvelles cibles.
+4. Propager la cible dans stockage, archives, sync et restauration sans double champ transitoire durable.
 
-### `4)` Refaire une preuve complète avant merge
+### `4)` Verrouiller le contrat par les tests
 
-> La revue antérieure de #24 ne couvre pas le diff réconcilié.
+> Faire échouer le socle avant que l’UI masque une incohérence.
 
-1. Exécuter unités, probes, typecheck, lint, build, Gitleaks et publication.
-2. Exécuter `pnpm run test:e2e:release`, contrast, scale et landing.
-3. Revoir les trois axes sur le nouveau diff; ne pas réutiliser l’approbation de l’ancienne base.
-4. Passer #24 hors draft, squash-merger, puis attendre le push `main` vert.
+1. Couvrir unicité des IDs/dossiers, dimensions, limites et types de publication.
+2. Couvrir migrations répétées, cible inconnue, release divergente et appareil incompatible.
+3. Couvrir round-trip stockage, archive, sync et release pour une cible Android et chaque famille Apple.
 
 ## Test acceptance criteria
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | Canvas, export, ZIP, releases et ASC dérivent de `target` pour Android, iPhone, iPad et six classes Watch. |
-| 2 | L’UI et les stores refusent appareils/templates incompatibles et aucune ressource Apple sous licence n’entre dans le dépôt. |
-| 3 | AI, MCP, PRD et mémoire décrivent le même registre sans `profileId` concurrent. |
-| 4 | #24 est squash-mergée seulement après un nouveau gate release et une nouvelle revue approuvée sur la base combinée. |
+| 1 | Chaque conflit #24 courant appartient explicitement à la phase 5 ou 6; aucun marqueur ou choix global ne subsiste. |
+| 2 | Un seul registre et un seul champ `target` décrivent toutes les cibles Google Play et App Store. |
+| 3 | Les projets historiques migrent sans déplacement et chaque snapshot/release conserve exactement sa cible. |
+| 4 | Les tests refusent IDs, dossiers, dimensions, appareils et releases incompatibles avant toute UI. |

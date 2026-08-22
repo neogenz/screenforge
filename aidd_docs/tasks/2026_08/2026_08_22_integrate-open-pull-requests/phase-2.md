@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Intégrer PostHog et les pages légales sans activer un traitement incomplet

@@ -2,7 +2,7 @@
 status: pending
 ---
 
-# Instruction: Rafraîchir la release sans contourner le gate production
+# Instruction: Promouvoir et qualifier le candidat combiné
 
 ## Architecture projection
 
@@ -10,26 +10,20 @@ status: pending
 
 ```txt
 .
-├── .prettierignore                                          ✏️ exclure le manifeste Release Please généré du formatage manuel
-├── .release-please-manifest.json                            ✏️ laisser le bot porter la version publiée
-├── CHANGELOG.md                                             ✏️ laisser le bot regrouper les features réellement mergées
-├── package.json                                             ✏️ laisser le bot aligner la version racine
-├── release-please-config.json                               ✏️ conserver la politique de release unique
-├── RELEASING.md                                             ✏️ conserver les gates domaine et production
-└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/verification.md ✏️ consigner READY ou BLOCKED pour #6
+└── aidd_docs/tasks/2026_08/2026_08_22_integrate-open-pull-requests/
+    └── verification.md                                      ✏️ consigner promotion, SHA et matrice hébergée expurgée
 ```
 
 ## User Journey
 
 ```mermaid
 flowchart TD
-  A[Candidat préproduction accepté] --> B[Release Please actualise #6]
-  B --> C[Corriger le conflit format du manifeste généré]
-  C --> D{Production réellement prête ?}
-  D -->|Non| E[#6 reste draft et bloquée avec raisons exactes]
-  D -->|Oui| F[CI verte et approbation production]
-  F --> G[Merge #6 par le chemin Release Please]
-  G --> H[Tag immuable et déploiement production]
+  A[Main vert après #23 #26 #22 #24] --> B[PR main vers preprod]
+  B --> C[Checks stricts]
+  C --> D[Merge commit]
+  D --> E[Convex et Vercel même candidat]
+  E --> F[QA locale Cloud privacy et toutes cibles]
+  F --> G[Candidat préproduction accepté]
 ```
 
 ## Test Scope
@@ -40,45 +34,48 @@ title: Test scope
 ---
 journey
   section Setup
-    Laisser Release Please recalculer #6 depuis le HEAD main accepté => changelog et version représentent tout le lot: 5: system
+    Identifier le HEAD main vert => nouvelle PR de promotion porte exactement cet arbre: 5: cli
   section Happy path
-    Vérifier la PR générée => format CI provenance et changelog verts sans édition de version manuelle: 5: cli
-    Satisfaire les gates production => bot crée le tag canonique et le workflow déploie ce SHA exact: 5: system
-  section Edge case - production absente
-    Domaine email Polar ou configuration finale manque => #6 reste draft aucun tag ni déploiement production: 1: system
+    Merger la promotion => Convex preflight et alias Vercel verts sur le même SHA: 5: system
+    Créer synchroniser et rouvrir les cibles représentatives => cible géométrie assets et droits conservés entre deux navigateurs: 5: browser
+    Refuser la télémétrie => aucun trafic PostHog et produit complet: 5: browser
+  section Edge case - déploiements désalignés
+    Convex ou Vercel échoue => candidat non accepté et récupération documentée sans rollback de données aveugle: 1: system
+  section Teardown
+    Supprimer les fixtures QA => préproduction revenue sans projet ni donnée analytique de test: 5: system
 ```
 
 ## Tasks to do
 
-### `1)` Laisser le bot reconstruire #6
+### `1)` Créer la promotion finale du lot
 
-> Ne pas merger une release calculée avant les features.
+> Ne jamais pousser directement `preprod`.
 
-1. Attendre l’actualisation Release Please après le dernier merge `main`.
-2. Vérifier version, changelog, titres et absence de wording commercial obsolète.
-3. Ne modifier ni tag ni manifeste de version manuellement.
+1. Ouvrir une nouvelle PR `main` vers `preprod` après le dernier push `main` vert.
+2. Vérifier que le tree attendu reste identique jusqu’au merge.
+3. Merger par merge commit et suivre Quality plus Vercel.
 
-### `2)` Corriger le gate format à sa source
+### `2)` Rejouer la matrice hébergée
 
-> Éviter que chaque écriture standard du bot recrée la même CI rouge.
+> Prouver les interactions que la suite locale ne couvre pas complètement.
 
-1. Confirmer que seul `.release-please-manifest.json` généré échoue sous Prettier.
-2. L’ajouter à `.prettierignore` plutôt que reformater après chaque run du bot.
-3. Vérifier que les autres JSON restent contrôlés et que la CI #6 repasse verte.
+1. Vérifier Local sans backend et Cloud avec Google, GitHub et lien magique.
+2. Créer, modifier, synchroniser et rouvrir au moins Android, iPhone, iPad et une cible Watch depuis deux navigateurs.
+3. Vérifier export, ZIP, release, limites, entitlement et conservation locale.
+4. Vérifier refus et consentements PostHog; ne pas activer PostHog si le gate de rétention reste ouvert.
 
-### `3)` Appliquer le vrai gate production
+### `3)` Nettoyer et conclure
 
-> Une PR verte n’autorise pas seule une production non configurée.
+> Laisser la préproduction prête pour le prochain cycle.
 
-1. Vérifier domaine HTTPS canonique, pages légales, Resend, Polar production, Convex production, Vercel et approbation Environment.
-2. Vérifier que le gate PostHog est soit satisfait, soit que PostHog reste absent de production avec documentation cohérente.
-3. Tant qu’un prérequis manque, garder #6 draft et consigner `BLOCKED` sans créer de tag.
-4. Une fois tout satisfait, merger par Release Please et suivre le tag plus le déploiement immuable.
+1. Supprimer projets, assets, sessions et personnes analytiques de fixture selon les runbooks.
+2. Consigner uniquement SHA, résultats, dates et blockers restants.
+3. Ne déclarer le candidat accepté que si les deux fournisseurs et la matrice produit sont verts.
 
 ## Test acceptance criteria
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | #6 représente le dernier `main` accepté et contient toutes les features intégrées, sans version ou tag manuel. |
-| 2 | Le manifeste généré ne rend plus la CI rouge et les autres fichiers restent soumis au formatage. |
-| 3 | Sans tous les prérequis, aucun tag n’est créé; avec eux, la release et la production utilisent exactement le SHA validé en préproduction. |
+| 1 | `preprod` contient par merge commit exactement le tree du `main` vert et déploie Convex/Vercel sur le même candidat. |
+| 2 | Local, Cloud, consentement et les quatre familles de cibles fonctionnent sur l’origine hébergée sans perte de cible ni donnée privée. |
+| 3 | Toutes les fixtures sont nettoyées et les seules limites restantes sont explicitement documentées. |
