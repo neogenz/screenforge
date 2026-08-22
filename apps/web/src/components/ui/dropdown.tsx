@@ -52,6 +52,7 @@ export function Dropdown({
           onEscapeKeyDown={(event) => event.stopPropagation()}
           className={cn(
             'menu-shadow z-(--z-popover) min-w-44 animate-menu-in origin-top overflow-hidden rounded-lg border border-border bg-popover p-1',
+            'data-[state=closed]:animate-exit-fast',
             className,
           )}
         >

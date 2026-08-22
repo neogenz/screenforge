@@ -9,7 +9,20 @@ const buttonVariants = cva(
   [
     'inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap',
     'font-sans text-sm font-medium',
-    'transition-[background,color,border-color] duration-150 ease-out',
+    /* Le retour de pression, et pourquoi la transition est écrite en toutes
+       lettres plutôt qu'en `transition-transform duration-[120ms]`.
+
+       Un bouton qui ne bouge pas sous le doigt paraît sourd : le `scale` est
+       la seule confirmation que le clic a été reçu avant que l'action
+       n'aboutisse, et il doit revenir plus vite que la couleur — un retour
+       tardif n'en est plus un. Deux durées, donc deux utilitaires
+       `transition-*`, que `cn` (tailwind-merge) réduit au dernier : ajouter
+       `transition-transform` faisait taire la transition de couleur, en
+       silence. Une déclaration unique porte les quatre propriétés et leurs
+       deux durées. Nommées, jamais `all` : c'est ce qui garde les transitions
+       hors des propriétés de mise en page. */
+    '[transition:background_150ms_var(--ease-out),color_150ms_var(--ease-out),border-color_150ms_var(--ease-out),scale_120ms_var(--ease-out)]',
+    'active:scale-[0.97]',
     'disabled:pointer-events-none disabled:opacity-40',
   ],
   {

@@ -36,6 +36,11 @@ export function Tooltip({
           collisionPadding={8}
           className={cn(
             'menu-shadow z-(--z-toast) animate-menu-in rounded-md border border-border bg-popover px-2 py-1',
+            /* Le premier tooltip attend 300ms ; ceux qui le suivent dans cette
+               fenêtre doivent simplement être là. Radix pose `instant-open`
+               exactement dans ce cas, et rejouer l'entrée y ferait clignoter
+               le survol d'une icône à sa voisine. */
+            'data-[state=instant-open]:animate-none',
             'text-2xs text-foreground',
             className,
           )}

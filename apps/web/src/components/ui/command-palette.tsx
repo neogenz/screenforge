@@ -71,10 +71,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       }}
       label="Palette de commandes"
       loop
-      overlayClassName="fixed inset-0 z-(--z-popover) animate-fade-in bg-black/50"
+      overlayClassName="fixed inset-0 z-(--z-popover) bg-black/50"
       contentClassName={cn(
         'surface-modal fixed left-1/2 top-[16vh] z-(--z-popover) w-[min(560px,92vw)]',
-        '-translate-x-1/2 animate-palette-in overflow-hidden outline-none',
+        /* Ni entrée ni sortie : ⌘K est tapé des dizaines de fois par jour, et
+           une action clavier répétée ne se regarde pas arriver. Le fondu du
+           voile partait avec — il annonçait la même chose, en 140ms. */
+        '-translate-x-1/2 overflow-hidden outline-none',
       )}
     >
       <div className="flex items-center gap-2 border-b border-border px-3">

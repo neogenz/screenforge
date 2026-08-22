@@ -7,6 +7,10 @@ import { Tooltip } from '@/components/ui/tooltip'
 const iconButtonVariants = cva(
   [
     'border border-transparent bg-transparent text-muted-foreground',
+    /* Plus franc que sur `Button` : un carré de 32px se réduit de moins d'un
+       pixel à 0,97, ce qui ne se voit pas. La transition vient de `Button`,
+       dont ce composant hérite la base. */
+    'active:scale-[0.96]',
     'hover:bg-accent hover:text-foreground',
     'focus-visible:border-input',
     'disabled:opacity-35',
