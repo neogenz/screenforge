@@ -953,10 +953,18 @@ export function initSync(): () => void {
     schedule()
   })
 
-  const onOnline = () => schedule()
+  const refreshRemote = () => {
+    if (document.hidden || !syncAllowed()) return
+    pulled = false
+    settingsPulled = false
+    schedule()
+  }
+  const onOnline = () => refreshRemote()
   const onOffline = () => {
     if (syncAllowed()) setStatus('offline')
   }
+  window.addEventListener('focus', refreshRemote)
+  document.addEventListener('visibilitychange', refreshRemote)
   window.addEventListener('online', onOnline)
   window.addEventListener('offline', onOffline)
 
@@ -970,6 +978,8 @@ export function initSync(): () => void {
     stopAuth()
     stopSettings()
     stopPrompt()
+    window.removeEventListener('focus', refreshRemote)
+    document.removeEventListener('visibilitychange', refreshRemote)
     window.removeEventListener('online', onOnline)
     window.removeEventListener('offline', onOffline)
     resetConsentBarrier(null)

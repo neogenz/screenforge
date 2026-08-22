@@ -512,6 +512,22 @@ test.describe('Sync cloud', () => {
       )
       .toEqual({ fontSize: 64, locale: 'fr', release: 'Release de preuve', layout: 'shape' })
 
+    const renamed = `${marker} renommé`
+    await a.bringToFront()
+    await projectName(a).fill(renamed)
+    await projectName(a).press('Enter')
+    await expect
+      .poll(async () => Boolean(await remoteRow(session, renamed)), { timeout: 10_000 })
+      .toBe(true)
+
+    await b.bringToFront()
+    /* Deux contextes Playwright restent tous deux « visibles » en headless et
+       `bringToFront` n'émet donc pas le focus qu'un vrai changement de fenêtre
+       produit. Déclencher cet événement teste précisément le point d'entrée
+       navigateur sans exposer une fonction de debug dans le produit. */
+    await b.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(projectName(b)).toHaveValue(renamed, { timeout: 30_000 })
+
     await a.context().close()
     await b.context().close()
   })
