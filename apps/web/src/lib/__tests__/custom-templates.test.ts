@@ -10,6 +10,7 @@ import {
   writeCustomTemplate,
   type CustomTemplate,
 } from '@/lib/custom-templates'
+import { getDB } from '@/lib/storage'
 import type { DeviceFrameLayer, ImageLayer, Screen, TextLayer } from '@/types'
 
 /**
@@ -107,8 +108,9 @@ function screen(layers: Screen['layers']): Screen {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   clearAssets()
+  await (await getDB()).clear('templates')
 })
 
 describe('gabarit figé depuis un écran', () => {
@@ -184,6 +186,15 @@ describe('validation', () => {
     }
     expect(isCustomTemplate(broken)).toBe(false)
     expect(isCustomTemplate({ ...template, source: 'humain' })).toBe(false)
+    expect(isCustomTemplate({ ...template, profileId: 'unknown' })).toBe(false)
+  })
+
+  it('migre un ancien enregistrement vers iPhone à la lecture', async () => {
+    const legacy = templateFromScreen(screen([textLayer()]), { name: 'Ancien', source: 'user' })
+    delete (legacy as Partial<CustomTemplate>).profileId
+    await (await getDB()).put('templates', legacy)
+
+    await expect(readCustomTemplates()).resolves.toMatchObject([{ profileId: 'iphone-6.9' }])
   })
 
   it('ignore un enregistrement illisible sans perdre les autres', async () => {

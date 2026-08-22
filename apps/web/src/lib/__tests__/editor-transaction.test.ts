@@ -54,6 +54,7 @@ function project(screens: Screen[] = [screen('s1')], layoutLayers: Layer[] = [])
   return {
     id: 'p1',
     name: 'Projet',
+    profileId: 'iphone-6.9',
     screens,
     activeScreenId: screens[0].id,
     globals: structuredClone(DEFAULT_GLOBALS),

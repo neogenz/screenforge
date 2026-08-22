@@ -393,6 +393,7 @@ test.describe('Sync cloud', () => {
       const globals = { ...structuredClone(project.globals), fontSize: 64 }
       const snapshot = {
         name: project.name,
+        profileId: project.profileId,
         screens: structuredClone(screens),
         layoutLayers: [structuredClone(layoutLayer)],
         globals: structuredClone(globals),

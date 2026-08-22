@@ -121,6 +121,7 @@ describe('le constat d’une planche', () => {
     const draft: Project = {
       id: 'p1',
       name: 'Projet',
+      profileId: 'iphone-6.9',
       screens: [],
       activeScreenId: '',
       globals: structuredClone(DEFAULT_GLOBALS),

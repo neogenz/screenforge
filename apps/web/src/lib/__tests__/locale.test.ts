@@ -73,6 +73,7 @@ function project(layers: TextLayer[]): Project {
   return {
     id: 'projet',
     name: 'Cadence',
+    profileId: 'iphone-6.9',
     screens: [screen('s1', layers)],
     activeScreenId: 's1',
     globals: DEFAULT_GLOBALS,

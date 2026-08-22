@@ -6,12 +6,14 @@ import {
   MAX_PROJECT_LAYERS,
   migrateProject,
 } from '@/lib/project-validation'
+import { APP_STORE_PROFILES } from '@/lib/dimensions'
 import type { Layer, Project } from '@/types'
 
 function project(): Project {
   return {
     id: 'project',
     name: 'Project',
+    profileId: 'iphone-6.9',
     activeScreenId: 'screen',
     screens: [
       {
@@ -54,6 +56,34 @@ function project(): Project {
 }
 
 describe('project validation', () => {
+  it('keeps the eight official profiles unique and at their exact logical ratio', () => {
+    expect(APP_STORE_PROFILES).toHaveLength(8)
+    expect(new Set(APP_STORE_PROFILES.map(({ id }) => id)).size).toBe(8)
+    expect(new Set(APP_STORE_PROFILES.map(({ folder }) => folder)).size).toBe(8)
+    for (const profile of APP_STORE_PROFILES) {
+      expect(profile.logical.width / profile.logical.height).toBeCloseTo(
+        profile.portrait.width / profile.portrait.height,
+        14,
+      )
+    }
+    expect(
+      APP_STORE_PROFILES.map(({ portrait, appStoreConnectType }) => [
+        portrait.width,
+        portrait.height,
+        appStoreConnectType,
+      ]),
+    ).toEqual([
+      [1320, 2868, 'APP_IPHONE_69'],
+      [2064, 2752, 'APP_IPAD_PRO_3GEN_129'],
+      [422, 514, 'APP_WATCH_ULTRA'],
+      [410, 502, 'APP_WATCH_ULTRA'],
+      [416, 496, 'APP_WATCH_SERIES_10'],
+      [396, 484, 'APP_WATCH_SERIES_7'],
+      [368, 448, 'APP_WATCH_SERIES_4'],
+      [312, 390, 'APP_WATCH_SERIES_3'],
+    ])
+  })
+
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
   })
@@ -158,5 +188,32 @@ describe('project validation', () => {
     expect(isProject(migrated)).toBe(true)
     expect((migrated as Project).screens[0].layers[0]).not.toHaveProperty('gradientFill')
     expect((migrated as Project).screens[0].layers[0]).toHaveProperty('fill.type', 'linear')
+  })
+
+  it('migrates legacy project and release profiles idempotently and rejects unknown ones', () => {
+    const legacy = structuredClone(project()) as unknown as Record<string, unknown>
+    delete legacy.profileId
+    legacy.releases = [
+      {
+        id: 'release',
+        name: 'Release',
+        createdAt: 1,
+        watermarked: false,
+        files: [],
+        snapshot: {
+          name: 'Project',
+          screens: structuredClone(project().screens),
+          layoutLayers: [],
+          globals: structuredClone(project().globals),
+        },
+      },
+    ]
+
+    const migrated = migrateProject(legacy) as Project
+    expect(migrated.profileId).toBe('iphone-6.9')
+    expect(migrated.releases?.[0].snapshot.profileId).toBe('iphone-6.9')
+    expect(migrateProject(migrated)).toEqual(migrated)
+    expect(isProject(migrated)).toBe(true)
+    expect(isProject({ ...migrated, profileId: 'unknown' })).toBe(false)
   })
 })

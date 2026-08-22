@@ -7,9 +7,14 @@ import {
   sweepAssets,
 } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
+import {
+  DEFAULT_APP_STORE_PROFILE_ID,
+  getAppStoreProfile,
+  type AppStoreProfileId,
+} from '@/lib/dimensions'
 import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
 import { isProject, migrateProject } from '@/lib/project-validation'
-import { useProjectStore } from '@/stores/project.store'
+import { createProjectDocument, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { toast } from '@/stores/toast.store'
@@ -455,6 +460,19 @@ function activateProject(project: Project, assets: readonly AssetRecord[]): Proj
   useHistoryStore.getState().clear()
   useUIStore.getState().setSaveStatus('saved')
   return project
+}
+
+/** Saves the active document, durably creates a targeted one, then activates it. */
+export async function createStoredProject(
+  name: string,
+  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+): Promise<Project> {
+  if (!getAppStoreProfile(profileId)) throw new Error(`Unknown App Store profile: ${profileId}`)
+  await saveCurrentProject()
+  const project = createProjectDocument(name, profileId)
+  await saveProject(project)
+  sweepAssets(new Set())
+  return activateProject(project, [])
 }
 
 /** Persists a project and its binaries in one transaction, then opens it. */

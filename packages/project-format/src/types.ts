@@ -1,4 +1,5 @@
 import type { DeviceModelId, IconId, ShapeId } from './catalog-ids.ts'
+import type { AppStoreProfileId } from './dimensions.ts'
 
 // ─── Layer Types ────────────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ export interface GlobalSettings {
 export interface Project {
   id: string
   name: string
+  profileId: AppStoreProfileId
   screens: Screen[]
   activeScreenId: string
   globals: GlobalSettings
@@ -275,6 +277,7 @@ export interface LocaleVariant {
  */
 export interface ProjectSnapshot {
   name: string
+  profileId: AppStoreProfileId
   screens: Screen[]
   layoutLayers: Layer[]
   globals: GlobalSettings
@@ -373,6 +376,7 @@ export interface TemplateDefinition {
   id: string
   name: string
   description: string
+  profileId: AppStoreProfileId
   thumbnail?: string
   layers: Layer[]
   background: Background

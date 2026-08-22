@@ -48,7 +48,13 @@ function release(over: Partial<Release> = {}): Release {
     createdAt: 1_700_000_000_000,
     watermarked: false,
     files: [releaseFile()],
-    snapshot: { name: 'Cadence', screens: [], layoutLayers: [], globals: DEFAULT_GLOBALS },
+    snapshot: {
+      name: 'Cadence',
+      profileId: 'iphone-6.9',
+      screens: [],
+      layoutLayers: [],
+      globals: DEFAULT_GLOBALS,
+    },
     ...over,
   }
 }

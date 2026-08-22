@@ -97,6 +97,7 @@ const overlay: ShapeLayer = {
 export const TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
+    profileId: 'iphone-6.9',
     name: 'Hero',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
@@ -139,6 +140,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'feature',
+    profileId: 'iphone-6.9',
     name: 'Feature',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
@@ -181,6 +183,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'side-by-side',
+    profileId: 'iphone-6.9',
     name: 'Side by Side',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
@@ -225,6 +228,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'full-bleed',
+    profileId: 'iphone-6.9',
     name: 'Full Bleed',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
@@ -268,6 +272,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'minimal',
+    profileId: 'iphone-6.9',
     name: 'Minimal',
     description: 'Composition éditoriale simple, texte à gauche et appareil à droite.',
     background: { type: 'solid', color: '#ffffff' },

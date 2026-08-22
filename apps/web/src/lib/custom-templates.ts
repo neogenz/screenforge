@@ -2,6 +2,11 @@ import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
 import { getDB } from '@/lib/storage'
+import {
+  DEFAULT_APP_STORE_PROFILE_ID,
+  isAppStoreProfileId,
+  type AppStoreProfileId,
+} from '@/lib/dimensions'
 import { DEFAULT_GLOBALS } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
 
@@ -63,6 +68,7 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     return false
   }
   if (record.source !== 'ai' && record.source !== 'user') return false
+  if (!isAppStoreProfileId(record.profileId)) return false
   if (typeof record.createdAt !== 'number' || !Number.isFinite(record.createdAt)) return false
   if (!record.assets || typeof record.assets !== 'object' || Array.isArray(record.assets)) {
     return false
@@ -74,6 +80,7 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
   return isProject({
     id: 'template',
     name: record.name,
+    profileId: record.profileId,
     activeScreenId: 'screen',
     globals: DEFAULT_GLOBALS,
     createdAt: record.createdAt,
@@ -111,7 +118,12 @@ export class TemplateRefusedError extends Error {
  */
 export function templateFromScreen(
   screen: Screen,
-  meta: { name: string; description?: string; source: CustomTemplate['source'] },
+  meta: {
+    name: string
+    description?: string
+    source: CustomTemplate['source']
+    profileId?: AppStoreProfileId
+  },
 ): CustomTemplate {
   const layers = screen.layers.map(keepable)
   const ids = new Set<string>()
@@ -131,6 +143,7 @@ export function templateFromScreen(
   return {
     id: crypto.randomUUID(),
     name: meta.name,
+    profileId: meta.profileId ?? DEFAULT_APP_STORE_PROFILE_ID,
     description: meta.description ?? `D’après « ${screen.name} ».`,
     background: structuredClone(screen.background),
     layers,
@@ -167,6 +180,7 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
   return {
     id: template.id,
     name: template.name,
+    profileId: template.profileId,
     description: template.description,
     background: structuredClone(template.background),
     layers,
@@ -177,7 +191,14 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
 export async function readCustomTemplates(): Promise<CustomTemplate[]> {
   const db = await getDB()
   const records = await db.getAll('templates')
-  return records.filter(isCustomTemplate).sort((a, b) => b.createdAt - a.createdAt)
+  return records
+    .map((record) =>
+      record && typeof record === 'object' && !('profileId' in record)
+        ? { ...record, profileId: DEFAULT_APP_STORE_PROFILE_ID }
+        : record,
+    )
+    .filter(isCustomTemplate)
+    .sort((a, b) => b.createdAt - a.createdAt)
 }
 
 export async function writeCustomTemplate(

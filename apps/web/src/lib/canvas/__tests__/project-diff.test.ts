@@ -29,6 +29,7 @@ function project(screens: Screen[], layoutLayers: Layer[] = []): Project {
   return {
     id: 'project',
     name: 'Project',
+    profileId: 'iphone-6.9',
     screens,
     activeScreenId: screens[0].id,
     globals: {

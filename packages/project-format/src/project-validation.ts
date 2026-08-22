@@ -1,4 +1,8 @@
-import { MAX_PROJECT_SCREENS } from './dimensions.ts'
+import {
+  DEFAULT_APP_STORE_PROFILE_ID,
+  isAppStoreProfileId,
+  MAX_PROJECT_SCREENS,
+} from './dimensions.ts'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement.ts'
 import { SAFE_SLOT } from './slots.ts'
 import { isTextCharStyles } from './text-char-styles.ts'
@@ -306,6 +310,7 @@ function isRelease(value: unknown): boolean {
 
   const snapshot = value.snapshot
   if (!isRecord(snapshot) || typeof snapshot.name !== 'string') return false
+  if (!isAppStoreProfileId(snapshot.profileId)) return false
   if (!isGlobals(snapshot.globals)) return false
   return sceneScreenIds(snapshot.screens, snapshot.layoutLayers) !== null
 }
@@ -337,6 +342,7 @@ function isLocaleVariant(value: unknown): boolean {
 export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || !isBoundedString(value.id, 128)) return false
   if (!isBoundedString(value.name) || !isBoundedString(value.activeScreenId, 128)) return false
+  if (!isAppStoreProfileId(value.profileId)) return false
   if (!isGlobals(value.globals)) return false
   if (!isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) return false
 
@@ -362,6 +368,14 @@ export function isProject(value: unknown): value is Project {
 export function migrateProject(value: unknown): unknown {
   const project = structuredClone(value)
   if (!isRecord(project)) return project
+  project.profileId ??= DEFAULT_APP_STORE_PROFILE_ID
+  if (Array.isArray(project.releases)) {
+    for (const release of project.releases) {
+      if (isRecord(release) && isRecord(release.snapshot)) {
+        release.snapshot.profileId ??= DEFAULT_APP_STORE_PROFILE_ID
+      }
+    }
+  }
   const collections = [
     ...(Array.isArray(project.screens)
       ? project.screens.flatMap((screen) =>

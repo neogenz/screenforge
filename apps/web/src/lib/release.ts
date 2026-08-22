@@ -49,6 +49,7 @@ import type {
 export function snapshotOf(project: Project | ProjectSnapshot): ProjectSnapshot {
   const snapshot = structuredClone({
     name: project.name,
+    profileId: project.profileId,
     screens: project.screens,
     layoutLayers: project.layoutLayers,
     globals: project.globals,
@@ -198,6 +199,7 @@ export function restoreRelease(release: Release): TransactionOutcome<number> {
     const snapshot = structuredClone(release.snapshot)
     if (snapshot.screens.length === 0) return ABORT
     draft.name = snapshot.name
+    draft.profileId = snapshot.profileId
     draft.screens = snapshot.screens
     draft.layoutLayers = snapshot.layoutLayers
     draft.globals = snapshot.globals
