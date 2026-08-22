@@ -162,6 +162,7 @@ export function auditDeploymentConfig(workflows, vercel, vite = '') {
     !productionBuild.includes(
       'POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}',
     ) ||
+    !productionBuild.includes('POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}') ||
     !productionBuild.includes('VITE_APP_VERSION: ${{ github.ref_name }}') ||
     !productionBuild.includes('VITE_GIT_SHA: ${{ github.sha }}')
   ) {
@@ -194,10 +195,16 @@ function selfTest() {
   const preflight = `pnpm --filter backend exec convex run preflight:check '{"target":"production"}' | node scripts/convex-preflight-gate.mjs`
   const canaryPreflight = `pnpm --filter backend exec convex run preflight:check '{"target":"preproduction"}' | node scripts/convex-preflight-gate.mjs`
   const valid = `on:\n  push:\n    tags:\n      - 'v*'\njobs:\n  validate:\n    steps:\n      - run: test "$GITHUB_SHA" = "$(git rev-parse origin/main)"\n  deploy:\n    steps:\n      - name: Check current Convex production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: ${preflight}\n      - name: Build immutable production candidate\n        env:\n          POSTHOG_PERSONAL_API_KEY: \${{ secrets.POSTHOG_PERSONAL_API_KEY }}\n          VITE_APP_VERSION: \${{ github.ref_name }}\n          VITE_GIT_SHA: \${{ github.sha }}\n      - name: Deploy staged production candidate\n        env:\n          VERCEL_TOKEN: \${{ secrets.VERCEL_TOKEN }}\n        run: vercel --skip-domain\n      - name: Deploy candidate Convex backend to preproduction\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: pnpm run deploy:ci --message "$GITHUB_SHA-canary"\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_PREPROD_DEPLOY_KEY }}\n        run: ${canaryPreflight}\n      - name: Gate candidate against production configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n        run: |\n          set -o pipefail\n          pnpm --filter backend exec convex env list | node --experimental-strip-types scripts/convex-production-config-gate.mjs\n      - name: Deploy Convex production backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex production configuration\n        run: ${preflight}\n      - name: Smoke test staged candidate\n      - name: Promote tested candidate\n`
+  /** @param {string} source */
+  const withPosthogProject = (source) =>
+    source.replace(
+      '          VITE_APP_VERSION: ${{ github.ref_name }}',
+      '          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}\n          VITE_APP_VERSION: ${{ github.ref_name }}',
+    )
   const quality = `on:\n  push:\n    branches: [main, preprod]\n  pull_request:\njobs:\n  deploy-preproduction:\n    needs: [actionlint, security, backend, web, e2e]\n    if: github.event_name == 'push' && github.ref == 'refs/heads/preprod'\n    environment: preproduction\n    steps:\n      - name: Require the current main tree\n        run: test "$(git rev-parse "$GITHUB_SHA^{tree}")" = "$(git rev-parse 'origin/main^{tree}')"\n      - name: Check current Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Deploy Convex preproduction backend\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n      - name: Check candidate Convex preproduction configuration\n        env:\n          CONVEX_DEPLOY_KEY: \${{ secrets.CONVEX_DEPLOY_KEY }}\n`
   assert.deepEqual(
     auditDeploymentConfig(
-      { 'deploy-production.yml': valid, 'quality.yml': quality },
+      { 'deploy-production.yml': withPosthogProject(valid), 'quality.yml': quality },
       { git: { deploymentEnabled: false } },
     ),
     [],
@@ -230,6 +237,13 @@ function selfTest() {
     [
       'posthog-source-maps-scope',
       valid.replace('secrets.POSTHOG_PERSONAL_API_KEY', 'secrets.OTHER_KEY'),
+    ],
+    [
+      'posthog-source-maps-scope',
+      withPosthogProject(valid).replace(
+        '          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}\n',
+        '',
+      ),
     ],
   ])
     assert.ok(
@@ -292,7 +306,7 @@ function selfTest() {
         'POLAR_WEBHOOK_SECRET=secret',
         'POSTHOG_HOST=https://eu.posthog.com',
         'POSTHOG_PERSON_API_KEY=secret',
-        'POSTHOG_PROJECT_ID=254685',
+        'POSTHOG_PROJECT_ID=123456',
         'SITE_URL=https://screenforge.example',
       ].join('\n'),
     ),

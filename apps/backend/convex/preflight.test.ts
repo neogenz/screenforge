@@ -16,7 +16,7 @@ const complete = {
   POLAR_WEBHOOK_SECRET: 'webhook-test-value',
   POSTHOG_HOST: 'https://eu.posthog.com',
   POSTHOG_PERSON_API_KEY: 'posthog-test-value',
-  POSTHOG_PROJECT_ID: '254685',
+  POSTHOG_PROJECT_ID: '123456',
   SITE_URL: 'https://preprod.screenforge.example',
 } as const
 

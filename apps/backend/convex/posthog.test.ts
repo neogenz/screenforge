@@ -4,7 +4,7 @@ import { deletePosthogPerson } from './posthog'
 const configuration = {
   POSTHOG_HOST: 'https://eu.posthog.com',
   POSTHOG_PERSON_API_KEY: 'test-person-key',
-  POSTHOG_PROJECT_ID: '254685',
+  POSTHOG_PROJECT_ID: '123456',
 }
 
 function json(body: unknown, status = 200): Response {
@@ -33,12 +33,12 @@ describe('suppression de personne PostHog', () => {
 
     const [lookup, lookupInit] = request.mock.calls[0]!
     expect(String(lookup)).toBe(
-      'https://eu.posthog.com/api/projects/254685/persons/?search=user-1&limit=100',
+      'https://eu.posthog.com/api/projects/123456/persons/?search=user-1&limit=100',
     )
     expect(new Headers(lookupInit?.headers).get('Authorization')).toBe('Bearer test-person-key')
 
     const [deletion, deletionInit] = request.mock.calls[1]!
-    expect(String(deletion)).toBe('https://eu.posthog.com/api/projects/254685/persons/bulk_delete/')
+    expect(String(deletion)).toBe('https://eu.posthog.com/api/projects/123456/persons/bulk_delete/')
     expect(JSON.parse(String(deletionInit?.body))).toEqual({
       ids: ['exact-match'],
       delete_events: true,

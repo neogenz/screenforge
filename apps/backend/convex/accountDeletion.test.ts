@@ -134,7 +134,7 @@ function remove(t: Stack, userId: string | null) {
 function enablePosthog() {
   vi.stubEnv('POSTHOG_HOST', 'https://eu.posthog.com')
   vi.stubEnv('POSTHOG_PERSON_API_KEY', 'test-person-key')
-  vi.stubEnv('POSTHOG_PROJECT_ID', '254685')
+  vi.stubEnv('POSTHOG_PROJECT_ID', '123456')
 }
 
 function posthogPerson(userId: string): Response {

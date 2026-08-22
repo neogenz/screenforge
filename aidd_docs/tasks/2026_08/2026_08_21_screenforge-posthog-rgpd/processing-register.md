@@ -8,7 +8,7 @@ utilisateur.
 | Champ | Décision ou état vérifié |
 | --- | --- |
 | Responsable | ScreenForge, opéré par neogenz |
-| Sous-traitant | PostHog Cloud EU, projet ScreenForge `254685`, données hébergées en région EU |
+| Sous-traitant | PostHog Cloud EU, projet ScreenForge dédié, données hébergées en région EU |
 | Finalités | Analytics produit et diagnostic technique, facultatifs et séparément consentis |
 | Données | Événements fermés, performance, profil identifié par ID Convex avec propriété email, erreurs expurgées, logs structurés, replay masqué |
 | Données exclues | Noms et contenu de projet, images, canvas, champs saisis, console brute, corps et en-têtes réseau |

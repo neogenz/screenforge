@@ -48,7 +48,7 @@ function selfTest() {
     'POLAR_WEBHOOK_SECRET=private-value',
     'POSTHOG_HOST=https://eu.posthog.com',
     'POSTHOG_PERSON_API_KEY=private-value',
-    'POSTHOG_PROJECT_ID=254685',
+    'POSTHOG_PROJECT_ID=123456',
     'SITE_URL=https://screenforge.example',
   ].join('\n')
 
