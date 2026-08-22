@@ -268,6 +268,21 @@ function CampaignDialogContent({ project }: { project: Project }) {
     }
   }
 
+  /* Les captures déposées ailleurs arrivent ici, une fois, à l'ouverture.
+     Le composant est monté à chaque ouverture de la boîte, donc `[]` suffit —
+     et le store est vidé dans la foulée : une capture en attente n'est pas un
+     état du projet, c'est un geste qui n'a pas encore trouvé sa boîte.
+
+     Différé d'un tick, et pas par superstition : `loadShots` lève `busy` dès sa
+     première ligne, et un `setState` synchrone dans un effet est une passe de
+     rendu de plus sur une boîte qui vient d'ouvrir. Même forme que la reprise
+     de l'appairage plus haut — le travail est asynchrone, l'état suit. */
+  useEffect(() => {
+    const dropped = useUIStore.getState().takePendingCaptures()
+    if (dropped.length === 0) return
+    void Promise.resolve().then(() => loadShots(dropped))
+  }, [])
+
   async function loadLogo(file: File | undefined) {
     if (!file) return
     setBusy(true)

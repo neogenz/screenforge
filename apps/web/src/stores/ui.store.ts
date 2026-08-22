@@ -37,6 +37,15 @@ interface UIState {
   showMcpDialog: boolean
   showCommandPalette: boolean
   showShortcuts: boolean
+  /**
+   * Les captures déposées, en attente que la boîte qui sait les lire s'ouvre.
+   *
+   * Une passation, pas un second import : le dépôt sur la scène et le bouton de
+   * l'écran vide n'assemblent rien eux-mêmes, ils remplissent l'entrée de
+   * « Générer les visuels », qui est déjà le seul chemin qui transforme N
+   * captures en N planches complètes.
+   */
+  pendingCaptures: File[]
   theme: Theme
   saveStatus: SaveStatus
   syncStatus: SyncStatus
@@ -65,6 +74,10 @@ interface UIState {
   setShowMcpDialog: (show: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowShortcuts: (show: boolean) => void
+  /** Pose les captures puis ouvre la boîte qui les consommera. */
+  openCampaignWithCaptures: (files: File[]) => void
+  /** Vidées dès que la boîte les a prises : elles ne sont pas un état du projet. */
+  takePendingCaptures: () => File[]
   toggleTheme: () => void
   setThemeFromSync: (theme: Theme) => void
   setSaveStatus: (status: SaveStatus) => void
@@ -115,7 +128,7 @@ function clampZoom(zoom: number) {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom))
 }
 
-export const useUIStore = create<UIState>()((set) => ({
+export const useUIStore = create<UIState>()((set, get) => ({
   zoom: 1,
   viewportResetKey: 0,
   layersOpen: true,
@@ -137,6 +150,7 @@ export const useUIStore = create<UIState>()((set) => ({
   showMcpDialog: false,
   showCommandPalette: false,
   showShortcuts: false,
+  pendingCaptures: [],
   theme: readBootTheme(),
   saveStatus: 'idle',
   syncStatus: 'off',
@@ -198,6 +212,15 @@ export const useUIStore = create<UIState>()((set) => ({
   setShowReleaseDialog: (show) => set(onlyModal('showReleaseDialog', show)),
 
   setShowCampaignDialog: (show) => set(onlyModal('showCampaignDialog', show)),
+
+  openCampaignWithCaptures: (files) =>
+    set({ ...onlyModal('showCampaignDialog', true), pendingCaptures: files }),
+
+  takePendingCaptures: () => {
+    const files = get().pendingCaptures
+    if (files.length > 0) set({ pendingCaptures: [] })
+    return files
+  },
 
   setShowLocaleDialog: (show) => set(onlyModal('showLocaleDialog', show)),
 

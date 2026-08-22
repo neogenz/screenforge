@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Smartphone } from 'lucide-react'
+import { ImageUp, Search, Smartphone } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
+import { SCREENSHOT_IMAGE_ACCEPT } from '@/lib/image'
+import { useUIStore } from '@/stores/ui.store'
 import type { Layer } from '@/types'
 
 type LayerRow = { layer: Layer; ghost: boolean }
@@ -192,6 +194,12 @@ export function LayersPanel() {
     setQuery(event.target.value)
   }, [])
 
+  /* L'entrée du produit, et pas son deuxième geste : la cible arrive avec ses
+     captures de simulateur, pas avec l'envie de poser un cadre vide. Le bouton
+     ne compose rien — il remplit « Générer les visuels », qui sait déjà
+     transformer N captures en N planches complètes. */
+  const capturesInput = useRef<HTMLInputElement>(null)
+
   const handleAddDevice = useCallback(() => {
     if (!defaultDeviceModel) return
     const { addLayer } = useCanvasStore.getState()
@@ -241,9 +249,30 @@ export function LayersPanel() {
           <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">Écran vide.</p>
           <p className="max-w-[190px] text-2xs text-muted-foreground">
-            Ajoutez un cadre iPhone, un texte ou une image depuis la barre d'outils.
+            Partez de vos captures de simulateur, ou composez à la main.
           </p>
-          <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
+          <input
+            ref={capturesInput}
+            type="file"
+            multiple
+            accept={SCREENSHOT_IMAGE_ACCEPT}
+            className="hidden"
+            onChange={(event) => {
+              const chosen = [...(event.target.files ?? [])]
+              event.target.value = ''
+              if (chosen.length > 0) useUIStore.getState().openCampaignWithCaptures(chosen)
+            }}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            className="mt-2"
+            onClick={() => capturesInput.current?.click()}
+          >
+            <ImageUp size={12} aria-hidden />
+            Partir de mes captures…
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleAddDevice}>
             Ajouter un cadre iPhone
           </Button>
         </div>
