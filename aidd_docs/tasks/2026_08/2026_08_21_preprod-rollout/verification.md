@@ -56,6 +56,9 @@ verified_at: 2026-08-22
 - A fresh magic link from this candidate was delivered to the owner and its
   successful delivery is visible in Resend. No address, token or signed URL is
   retained in this document.
+- The hosted Cloud reset reduced both managed usage counters to zero while the
+  account and Cloud grant stayed active. Device-only projects remained
+  available and were not uploaded again without an explicit sync action.
 
 ### Convex usage limits
 
@@ -72,8 +75,8 @@ verified_at: 2026-08-22
 The following checks still require another client, a destructive-action
 confirmation or a provider capability:
 
-1. Complete the two-client sync, quota, Cloud reset, consent and local-data
-   preservation journey.
+1. Complete the independent two-client sync, quota, consent and isolation
+   journey; reset and local-data preservation are already proven on one client.
 2. Enable measured Convex warnings once the provider exposes warning controls
    for this deployment; do not substitute a disable threshold.
 3. Confirm the owner of the existing Vercel automation bypass, then retain it
