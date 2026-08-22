@@ -21,7 +21,7 @@ utilisateur.
 
 | Catégorie | État |
 | --- | --- |
-| Événements, personnes et erreurs | Le plan Pay-as-you-go annonce 7 ans et n’expose pas de réduction par projet. L’objectif ScreenForge de 13 mois n’est donc pas appliqué. Décider avant lancement entre une organisation dédiée à rétention plus courte ou un accord PostHog spécifique. |
+| Événements, personnes et erreurs | La politique ScreenForge est fixée à 13 mois. Le plan Pay-as-you-go annonce toutefois 7 ans et n’expose pas de réduction par projet : la politique n’est donc pas encore appliquée. Obtenir avant lancement un accord PostHog qui active cette durée, ou choisir une solution offrant réellement cette rétention. |
 | Session replay | 30 jours, échantillonnage 20 %, texte et images entièrement masqués ; canvas, console et réseau désactivés |
 | Logs | 30 jours pour les nouveaux logs ; expurgation PII activée ; capture automatique de la console désactivée |
 | IP | Rejet de l’adresse IP activé au niveau du projet |
@@ -61,7 +61,7 @@ point manque, la politique publique ne donne pas de durée chiffrée.
 
 ## Blocages avant lancement
 
-- choisir une solution réelle pour ramener événements/personnes/erreurs à 13 mois ou moins ;
+- faire appliquer par PostHog la rétention décidée de 13 mois, ou choisir une solution qui l’applique réellement ;
 - activer la 2FA du seul owner avant toute règle d’organisation qui pourrait le verrouiller dehors ;
 
 Les deux clés personnelles sont séparées et limitées au projet ScreenForge : source maps dans
