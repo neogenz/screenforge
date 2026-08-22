@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   isProject,
   MAX_GRADIENT_STOPS,
@@ -7,6 +7,7 @@ import {
   migrateProject,
 } from '@/lib/project-validation'
 import { APP_STORE_PROFILES } from '@/lib/dimensions'
+import type { AppStoreProfileId } from '@/lib/dimensions'
 import type { DeviceFrameLayer, Layer, Project, Release } from '@/types'
 
 function deviceLayer(deviceModel: DeviceFrameLayer['deviceModel']): DeviceFrameLayer {
@@ -102,6 +103,11 @@ describe('project validation', () => {
       [368, 448, 'APP_WATCH_SERIES_4'],
       [312, 390, 'APP_WATCH_SERIES_3'],
     ])
+  })
+
+  it('keeps profile ids as a closed catalogue', () => {
+    expectTypeOf<'ipad-13'>().toMatchTypeOf<AppStoreProfileId>()
+    expectTypeOf<'outside-catalogue'>().not.toMatchTypeOf<AppStoreProfileId>()
   })
 
   it('accepts a complete current project', () => {

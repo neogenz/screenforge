@@ -14,9 +14,11 @@ export interface AppStoreProfile extends DisplayClass {
   logical: { width: number; height: number }
 }
 
-function profile(
-  value: Omit<AppStoreProfile, 'landscape' | 'logical' | 'isPrimary' | 'isLegacy'>,
-): AppStoreProfile {
+function profile<const Id extends string>(
+  value: Omit<AppStoreProfile, 'id' | 'landscape' | 'logical' | 'isPrimary' | 'isLegacy'> & {
+    id: Id
+  },
+): AppStoreProfile & { id: Id } {
   return {
     ...value,
     landscape: { width: value.portrait.height, height: value.portrait.width },
@@ -118,15 +120,17 @@ export type AppStoreProfileId = (typeof APP_STORE_PROFILES)[number]['id']
 export const DEFAULT_APP_STORE_PROFILE_ID: AppStoreProfileId = 'iphone-6.9'
 export const APP_STORE_TARGET = APP_STORE_PROFILES[0]
 
-const PROFILE_BY_ID = new Map(APP_STORE_PROFILES.map((item) => [item.id, item]))
+const PROFILE_BY_ID: ReadonlyMap<string, (typeof APP_STORE_PROFILES)[number]> = new Map(
+  APP_STORE_PROFILES.map((item) => [item.id, item]),
+)
 
 export function isAppStoreProfileId(value: unknown): value is AppStoreProfileId {
   return typeof value === 'string' && PROFILE_BY_ID.has(value)
 }
 
-export function getAppStoreProfile(id: AppStoreProfileId): AppStoreProfile
-export function getAppStoreProfile(id: string): AppStoreProfile | undefined
-export function getAppStoreProfile(id: string): AppStoreProfile | undefined {
+export function getAppStoreProfile(id: AppStoreProfileId): (typeof APP_STORE_PROFILES)[number]
+export function getAppStoreProfile(id: string): (typeof APP_STORE_PROFILES)[number] | undefined
+export function getAppStoreProfile(id: string) {
   return PROFILE_BY_ID.get(id)
 }
 

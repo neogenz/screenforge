@@ -30,6 +30,9 @@ import { ADD_IMAGE_SCHEMA } from './tools/add-image.ts'
 const TOOLS_DOC = fileURLToPath(
   new URL('../skills/screenforge-mcp/references/tools.md', import.meta.url),
 )
+const KEEP_ACTION = fileURLToPath(
+  new URL('../skills/screenforge-mcp/actions/04-keep.md', import.meta.url),
+)
 const SKILL_DIR = fileURLToPath(new URL('../skills/screenforge-mcp', import.meta.url))
 
 const { AI_TOOLS, validateToolCall } = createAiTools({
@@ -80,6 +83,16 @@ describe('documentation du skill agent', () => {
     const catalog = [...DEVICE_MODEL_IDS, ...SHAPE_IDS, ...ICON_IDS, ...CONTENT_FONTS]
     const missing = catalog.filter((value) => !doc.includes(`\`${value}\``))
     expect(missing).toEqual([])
+  })
+
+  it('borne les gabarits à la plateforme active', async () => {
+    const [tools, keep] = (
+      await Promise.all([readFile(TOOLS_DOC, 'utf8'), readFile(KEEP_ACTION, 'utf8')])
+    ).map((doc) => doc.replace(/\s+/g, ' '))
+    expect(tools).toContain('`list_templates` hides templates from other platforms')
+    expect(tools).toContain('any project on the same platform')
+    expect(keep).toContain('any project on the same platform')
+    expect(keep).not.toContain('any project on this browser')
   })
 
   /* Un exemple faux est pire qu'un exemple absent : l'agent le suit à la lettre

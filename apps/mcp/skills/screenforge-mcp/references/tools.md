@@ -36,7 +36,7 @@ tools of all its servers flat.
 | `get_project_state` | none                                                     | name, profile, compatible device models, canvas, globals, every screen with its layers, layout layers |
 | `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                                                      |
 | `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                                                             |
-| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template                               |
+| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template on the active platform        |
 
 A layer read back carries `id`, `type`, `name`, `x`, `y`, `width`, `height`,
 `visible`, `locked`, plus `content` on a text and `slot` with `hasScreenshot` on
@@ -125,9 +125,9 @@ JPEG, or more than 40 captures. Frames with no `slot` are never matched; give
 them one with `assign_screenshot_slot` first.
 
 `save_template` freezes a screen's layout in the browser library, images
-included and device screenshot excluded, for reuse in any project from the
-template picker. A name already taken is refused, not suffixed. The library
-holds 30.
+included and device screenshot excluded, for reuse in any project on the same
+platform from the template picker. `list_templates` hides templates from other
+platforms. A name already taken is refused, not suffixed. The library holds 30.
 
 ## Patchable properties
 
