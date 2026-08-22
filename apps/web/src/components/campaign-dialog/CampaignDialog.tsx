@@ -48,13 +48,15 @@ import {
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { StepDialog } from '@/components/patterns/step-dialog'
+import { AsyncPanel } from '@/components/patterns/async-panel'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SelectField } from '@/components/patterns/select-field'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Hint } from '@/components/patterns/hint'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -108,7 +110,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const shotsInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
 
-  const [appName, setAppName] = useState(project.name)
+  /* Vide, jamais `project.name` : le nom du projet est « Projet sans titre »
+     tant que personne ne l'a changé, et le constructeur le recopiait tel quel
+     dans chaque accroche. Un nom d'app se saisit, il ne se devine pas. */
+  const [appName, setAppName] = useState('')
   const [pitch, setPitch] = useState('')
   const [landingUrl, setLandingUrl] = useState('')
   const [productContext, setProductContext] = useState('')
@@ -131,6 +136,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const [regenerating, setRegenerating] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /* L'étape « plan » se montre dès que la génération part, pas seulement une
+     fois le plan arrivé : c'est ce qui laisse l'`AsyncPanel` porter le
+     squelette pendant l'attente et l'échec nommé si le fournisseur lâche. */
+  const [composing, setComposing] = useState(false)
+  const [composeFailed, setComposeFailed] = useState(false)
   /*
      L'appairage est repris de la session, pas reconstruit à chaque ouverture.
 
@@ -203,11 +213,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const room = Math.max(0, profile.maxScreens - project.screens.length)
   const full = room === 0
   const screenCount = Math.max(1, Math.min(chosenCount, room))
+  const named = appName.trim().length > 0
 
   const brief: CampaignBrief = useMemo(
     () => ({
       target: project.target,
-      appName: appName.trim() || project.name,
+      appName: appName.trim(),
       pitch,
       landingUrl: landingUrl.trim() || undefined,
       productContext: productContext.trim() || undefined,
@@ -228,7 +239,6 @@ function CampaignDialogContent({ project }: { project: Project }) {
       project.target,
       screenCount,
       project.globals.deviceModel,
-      project.name,
       shots,
       logo,
     ],
@@ -268,6 +278,21 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setBusy(false)
     }
   }
+
+  /* Les captures déposées ailleurs arrivent ici, une fois, à l'ouverture.
+     Le composant est monté à chaque ouverture de la boîte, donc `[]` suffit —
+     et le store est vidé dans la foulée : une capture en attente n'est pas un
+     état du projet, c'est un geste qui n'a pas encore trouvé sa boîte.
+
+     Différé d'un tick, et pas par superstition : `loadShots` lève `busy` dès sa
+     première ligne, et un `setState` synchrone dans un effet est une passe de
+     rendu de plus sur une boîte qui vient d'ouvrir. Même forme que la reprise
+     de l'appairage plus haut — le travail est asynchrone, l'état suit. */
+  useEffect(() => {
+    const dropped = useUIStore.getState().takePendingCaptures()
+    if (dropped.length === 0) return
+    void Promise.resolve().then(() => loadShots(dropped))
+  }, [])
 
   async function loadLogo(file: File | undefined) {
     if (!file) return
@@ -377,6 +402,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
   async function compose() {
     setBusy(true)
+    setComposing(true)
+    setComposeFailed(false)
     setError(null)
     try {
       const proposal = await planCampaign(brief, {
@@ -388,6 +415,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       // il viendra d'ailleurs, et la boîte ne le saura pas.
       if (!isCampaignPlan(proposal)) {
         setError('La proposition est invalide : rien n’a été posé.')
+        setComposeFailed(true)
         return
       }
       setPlan(proposal)
@@ -400,8 +428,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
          pourquoi ; la boîte reste ouverte et la génération sans modèle reste à
          un clic — un échec de génération ne coûte pas le brief. */
       setError(cause instanceof Error ? cause.message : 'La proposition a échoué.')
+      setComposeFailed(true)
     } finally {
       setBusy(false)
+      setComposing(false)
     }
   }
 
@@ -537,23 +567,64 @@ function CampaignDialogContent({ project }: { project: Project }) {
     close()
   }
 
+  /* Le plan (posé ou en cours) est atteint depuis le brief comme depuis le
+     fournisseur : un simple `step - 1` ne saurait pas d'où l'on vient. Le
+     `onStep` du pied ignore donc l'index qu'il reçoit et défait la vue
+     réellement affichée. */
+  const onPlanStep = plan !== null || composing || composeFailed
+  const step = onPlanStep ? 2 : assistantOpen ? 1 : 0
+  const backLabel = onPlanStep ? 'Modifier le brief' : assistantOpen ? 'Retour au brief' : undefined
+  function goBack() {
+    if (onPlanStep) {
+      setPlan(null)
+      setComposing(false)
+      setComposeFailed(false)
+    } else if (assistantOpen) {
+      setAssistantOpen(false)
+    }
+  }
+
+  const errorBanner = error && !composeFailed && (
+    <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
+      <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+      {error}
+    </p>
+  )
+
+  const primaryAction = plan ? (
+    <Button variant="default" onClick={accept} disabled={busy}>
+      <Check size={12} aria-hidden />
+      Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
+    </Button>
+  ) : (
+    <>
+      <Button variant="outline" onClick={close} disabled={busy}>
+        Annuler
+      </Button>
+      <Button
+        variant="default"
+        onClick={() => void compose()}
+        loading={busy}
+        disabled={full || !named}
+      >
+        <Megaphone size={12} aria-hidden />
+        Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
+      </Button>
+    </>
+  )
+
   return (
-    <Dialog
+    <StepDialog
       open
       onClose={busy ? () => undefined : close}
       title={`Générer les visuels · ${profile.label}`}
       size="lg"
-      flush
-      /* Le retour d'une sous-vue vit en haut à gauche, où on le cherche. Le
-         pied ne porte que ce qui avance : il logeait « Retour au brief » seul
-         en bas à droite, à la place exacte de l'action de validation. */
-      back={
-        plan
-          ? { label: 'Modifier le brief', onBack: () => setPlan(null), disabled: busy }
-          : assistantOpen
-            ? { label: 'Retour au brief', onBack: () => setAssistantOpen(false), disabled: busy }
-            : undefined
-      }
+      minHeight={420}
+      step={step}
+      onStep={goBack}
+      backDisabled={busy}
+      backLabel={backLabel}
+      showStepTitle={false}
       footerNote={
         plan
           ? 'Rien n’est encore ajouté au projet.'
@@ -563,376 +634,404 @@ function CampaignDialogContent({ project }: { project: Project }) {
               ? 'Les images restent sur votre appareil.'
               : 'Le brief part vers le modèle ; les images restent ici.'
       }
-      footer={
-        plan ? (
-          <Button variant="primary" onClick={accept} disabled={busy}>
-            <Check size={12} aria-hidden />
-            Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
-          </Button>
-        ) : (
-          <>
-            <Button variant="default" onClick={close} disabled={busy}>
-              Annuler
-            </Button>
-            <Button variant="primary" onClick={() => void compose()} loading={busy} disabled={full}>
-              <Megaphone size={12} aria-hidden />
-              Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
-            </Button>
-          </>
-        )
-      }
-    >
-      <div className="flex max-h-[60dvh] flex-col overflow-y-auto px-6 py-4">
-        <p className="mb-3 text-2xs text-muted-foreground">
-          {profile.output.portrait.width}×{profile.output.portrait.height} · portrait ·{' '}
-          {profile.maxScreens} captures maximum pour cette destination.
-        </p>
-        {error && (
-          <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
-            <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-            {error}
-          </p>
-        )}
+      action={primaryAction}
+      steps={[
+        {
+          id: 'brief',
+          title: 'Brief',
+          content: (
+            <>
+              {errorBanner}
+              <p className="mb-3 text-xs text-muted-foreground">
+                {profile.output.portrait.width}×{profile.output.portrait.height} · portrait ·{' '}
+                {profile.maxScreens} captures maximum pour cette destination.
+              </p>
+              <CampaignSection title="Contenu">
+                <div className="grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor={NAME_FIELD_ID}>Nom de l’app</FieldLabel>
+                      <Input
+                        id={NAME_FIELD_ID}
+                        value={appName}
+                        maxLength={60}
+                        placeholder="Ex. : Sleep Tracker"
+                        disabled={busy}
+                        onChange={(event) => {
+                          setAppName(event.target.value)
+                          setPlan(null)
+                        }}
+                      />
+                      {!named && (
+                        <p className="text-xs text-muted-foreground">
+                          Les accroches le citent : sans lui, rien n’est proposé.
+                        </p>
+                      )}
+                    </Field>
+                    <Field className="gap-1.5">
+                      <FieldLabel htmlFor={PITCH_FIELD_ID}>
+                        Ce que fait l’app, en une phrase
+                      </FieldLabel>
+                      <Input
+                        id={PITCH_FIELD_ID}
+                        value={pitch}
+                        maxLength={AI_LIMITS.maxCampaignHeadlineLength}
+                        placeholder="Suivez votre budget chaque mois"
+                        disabled={busy}
+                        onChange={(event) => setPitch(event.target.value)}
+                      />
+                    </Field>
+                  </div>
 
-        {plan ? (
-          <PlanReview
-            plan={plan}
-            brief={brief}
-            focus={Math.min(focus, plan.screens.length - 1)}
-            onFocus={setFocus}
-            onHeadline={editScreen}
-            onLayout={editLayout}
-            onDrop={dropScreen}
-            onRegenerate={connected ? (index) => void regenerate(index) : undefined}
-            regenerating={regenerating}
-            busy={busy}
-          />
-        ) : assistantOpen ? (
-          <div className="grid gap-3">
-            <h3 className="section-title">Qui écrit les accroches</h3>
-            <AssistantSetup
-              providerId={providerId}
-              onProvider={(next) => {
-                pickProvider(next)
-                setPlan(null)
-              }}
-              secret={secret}
-              onSecret={setSecret}
-              connection={connection}
-              onConnect={() => void connect()}
-              onForget={forgetSecret}
-              model={model}
-              onModel={setModel}
-              busy={busy}
-            />
-            {/* La matière du rédacteur vit avec lui : ces champs n'existent que
-                pour un modèle branché, et posés dans le brief ils en faisaient
-                l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
-            {aiProvider(providerId).transport !== 'in-process' && (
-              <div className="grid gap-3 border-t border-border pt-3">
-                <Field id={URL_FIELD_ID} label="Page produit (provenance)">
-                  <Input
-                    id={URL_FIELD_ID}
-                    font="sans"
-                    type="url"
-                    inputMode="url"
-                    value={landingUrl}
-                    maxLength={2048}
-                    placeholder="https://monapp.com"
-                    disabled={busy}
-                    onChange={(event) => {
-                      setLandingUrl(event.target.value)
-                      setPlan(null)
-                    }}
-                  />
-                </Field>
-                <Field id={CONTEXT_FIELD_ID} label="Accroches produit vérifiées (une par ligne)">
-                  <Textarea
-                    id={CONTEXT_FIELD_ID}
-                    value={productContext}
-                    maxLength={AI_LIMITS.maxProductContextLength}
-                    rows={4}
-                    placeholder={
-                      'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
-                    }
-                    disabled={busy}
-                    onChange={(event) => {
-                      setProductContext(event.target.value)
-                      setPlan(null)
-                    }}
-                  />
-                </Field>
-                <p className="text-2xs text-muted-foreground">
-                  Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum, prêtes à
-                  publier. L’IA les sélectionne et les ordonne ; vous pourrez les réécrire dans la
-                  revue. ScreenForge ne charge aucune URL arbitraire.
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <CampaignSection title="Contenu">
-              <div className="grid gap-3">
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                  <Field id={NAME_FIELD_ID} label="Nom de l’app">
-                    <Input
-                      id={NAME_FIELD_ID}
-                      font="sans"
-                      value={appName}
-                      maxLength={60}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => shotsInput.current?.click()}
                       disabled={busy}
-                      onChange={(event) => setAppName(event.target.value)}
-                    />
-                  </Field>
-                  <Field id={PITCH_FIELD_ID} label="Accroche générale vérifiée (3 à 7 mots)">
-                    <Input
-                      id={PITCH_FIELD_ID}
-                      font="sans"
-                      value={pitch}
-                      maxLength={AI_LIMITS.maxCampaignHeadlineLength}
-                      placeholder="Suivez votre budget chaque mois"
-                      disabled={busy}
-                      onChange={(event) => setPitch(event.target.value)}
-                    />
-                  </Field>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="default"
-                    onClick={() => shotsInput.current?.click()}
-                    disabled={busy}
-                  >
-                    <ImageUp size={12} aria-hidden />
-                    {shots.length > 0
-                      ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
-                      : 'Ajouter les captures…'}
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => logoInput.current?.click()}
-                    disabled={busy}
-                  >
-                    <ImageUp size={12} aria-hidden />
-                    {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
-                  </Button>
-                  {!full && (
-                    <Select
-                      id={COUNT_FIELD_ID}
-                      aria-label="Combien de visuels"
-                      label="Visuels"
-                      className="w-36"
-                      value={String(screenCount)}
-                      disabled={busy}
-                      onChange={(event) => {
-                        setChosenCount(Number(event.target.value))
-                        setPlan(null)
-                      }}
                     >
-                      {Array.from({ length: room }, (_unused, index) => index + 1).map((count) => (
-                        <option key={count} value={count}>
-                          {count}
-                        </option>
-                      ))}
-                    </Select>
+                      <ImageUp size={12} aria-hidden />
+                      {shots.length > 0
+                        ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
+                        : 'Ajouter les captures…'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => logoInput.current?.click()}
+                      disabled={busy}
+                    >
+                      <ImageUp size={12} aria-hidden />
+                      {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
+                    </Button>
+                    {!full && (
+                      <SelectField
+                        id={COUNT_FIELD_ID}
+                        aria-label="Combien de visuels"
+                        label="Visuels"
+                        className="w-36"
+                        value={String(screenCount)}
+                        disabled={busy}
+                        onValueChange={(next) => {
+                          setChosenCount(Number(next))
+                          setPlan(null)
+                        }}
+                        items={Array.from({ length: room }, (_unused, index) => ({
+                          value: String(index + 1),
+                          label: index + 1,
+                        }))}
+                      />
+                    )}
+                  </div>
+
+                  {shots.length > 0 && (
+                    <details className="rounded-md border border-border px-3 py-2">
+                      <summary className="cursor-pointer text-xs font-medium text-foreground">
+                        Accroches liées aux captures (3 à 7 mots)
+                      </summary>
+                      <div className="mt-3 grid gap-3">
+                        {shots.map((shot, index) => (
+                          <Field key={`${shot.assetId}-${index}`} className="gap-1.5">
+                            <FieldLabel htmlFor={`sf-campaign-shot-${index}`}>
+                              {`${index + 1}. ${shot.label}`}
+                            </FieldLabel>
+                            <Input
+                              id={`sf-campaign-shot-${index}`}
+                              value={shot.description ?? ''}
+                              maxLength={AI_LIMITS.maxCampaignHeadlineLength}
+                              placeholder="Gardez vos priorités toujours visibles"
+                              disabled={busy}
+                              onChange={(event) => describeShot(index, event.target.value)}
+                            />
+                          </Field>
+                        ))}
+                      </div>
+                    </details>
                   )}
-                </div>
 
-                {shots.length > 0 && (
-                  <details className="rounded-md border border-border px-3 py-2">
-                    <summary className="cursor-pointer text-xs font-medium text-foreground">
-                      Accroches liées aux captures (3 à 7 mots)
-                    </summary>
-                    <div className="mt-3 grid gap-3">
-                      {shots.map((shot, index) => (
-                        <Field
-                          key={shot.assetId}
-                          id={`sf-campaign-shot-${index}`}
-                          label={`${index + 1}. ${shot.label}`}
-                        >
-                          <Input
-                            id={`sf-campaign-shot-${index}`}
-                            font="sans"
-                            value={shot.description ?? ''}
-                            maxLength={AI_LIMITS.maxCampaignHeadlineLength}
-                            placeholder="Gardez vos priorités toujours visibles"
-                            disabled={busy}
-                            onChange={(event) => describeShot(index, event.target.value)}
-                          />
-                        </Field>
-                      ))}
-                    </div>
-                  </details>
-                )}
+                  {full ? (
+                    <p role="status" className="text-xs text-muted-foreground">
+                      Le projet contient déjà {profile.maxScreens} écrans. Supprimez-en un pour
+                      créer un nouveau lot.
+                    </p>
+                  ) : shots.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Sans capture, les appareils resteront vides.
+                    </p>
+                  ) : null}
 
-                {full ? (
-                  <p role="status" className="text-xs text-muted-foreground">
-                    Le projet contient déjà {profile.maxScreens} écrans. Supprimez-en un pour créer
-                    un nouveau lot.
-                  </p>
-                ) : shots.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Sans capture, les appareils resteront vides.
-                  </p>
-                ) : null}
-
-                <input
-                  ref={shotsInput}
-                  type="file"
-                  multiple
-                  accept={SCREENSHOT_IMAGE_ACCEPT}
-                  aria-label="Captures de l’application"
-                  className="sr-only"
-                  tabIndex={-1}
-                  onChange={(event) => {
-                    const chosen = [...(event.target.files ?? [])]
-                    event.target.value = ''
-                    void loadShots(chosen)
-                  }}
-                />
-                <input
-                  ref={logoInput}
-                  type="file"
-                  accept={IMAGE_ACCEPT}
-                  aria-label="Logo de l’application"
-                  className="sr-only"
-                  tabIndex={-1}
-                  onChange={(event) => {
-                    const chosen = event.target.files?.[0]
-                    event.target.value = ''
-                    void loadLogo(chosen)
-                  }}
-                />
-              </div>
-            </CampaignSection>
-
-            <CampaignSection title="Direction">
-              <div
-                className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
-                role="radiogroup"
-                aria-label="Style des visuels"
-              >
-                {DIRECTIONS.map((entry) => (
-                  <StyleChip
-                    key={entry.id}
-                    label={entry.label}
-                    swatch={entry.background}
-                    selected={!useShotPalette && entry.id === direction}
-                    disabled={busy}
-                    onSelect={() => {
-                      setDirection(entry.id)
-                      setUseShotPalette(false)
-                      setPlan(null)
+                  <Input
+                    unstyled
+                    nativeInput
+                    ref={shotsInput}
+                    type="file"
+                    multiple
+                    accept={SCREENSHOT_IMAGE_ACCEPT}
+                    aria-label="Captures de l’application"
+                    className="sr-only"
+                    tabIndex={-1}
+                    onChange={(event) => {
+                      const chosen = [...(event.target.files ?? [])]
+                      event.target.value = ''
+                      void loadShots(chosen)
                     }}
                   />
-                ))}
-                <StyleChip
-                  label="Mes captures"
-                  ariaLabel="D’après mes captures"
-                  swatch={shotPalette?.background ?? 'var(--color-muted)'}
-                  selected={useShotPalette}
-                  disabled={busy || !shotPalette}
-                  title={
-                    shotPalette
-                      ? 'Les couleurs dominantes lues dans vos captures.'
-                      : 'Ajoutez des captures pour utiliser leurs couleurs.'
-                  }
-                  onSelect={() => {
-                    setUseShotPalette(true)
+                  <Input
+                    unstyled
+                    nativeInput
+                    ref={logoInput}
+                    type="file"
+                    accept={IMAGE_ACCEPT}
+                    aria-label="Logo de l’application"
+                    className="sr-only"
+                    tabIndex={-1}
+                    onChange={(event) => {
+                      const chosen = event.target.files?.[0]
+                      event.target.value = ''
+                      void loadLogo(chosen)
+                    }}
+                  />
+                </div>
+              </CampaignSection>
+
+              <CampaignSection title="Direction">
+                <RadioGroup
+                  className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
+                  aria-label="Style des visuels"
+                  value={useShotPalette ? SHOT_PALETTE_CHOICE : direction}
+                  onValueChange={(next) => {
+                    if (next === SHOT_PALETTE_CHOICE) setUseShotPalette(true)
+                    else if (typeof next === 'string') {
+                      setDirection(next as DirectionId)
+                      setUseShotPalette(false)
+                    }
                     setPlan(null)
                   }}
-                />
-              </div>
-              {activeScreen && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={harmonize}
                   disabled={busy}
                 >
-                  <Paintbrush size={12} aria-hidden />
-                  Appliquer à « {activeScreen.name} »
-                </Button>
-              )}
-            </CampaignSection>
+                  {DIRECTIONS.map((entry) => (
+                    <StyleChip
+                      key={entry.id}
+                      value={entry.id}
+                      label={entry.label}
+                      swatch={entry.background}
+                      selected={!useShotPalette && entry.id === direction}
+                    />
+                  ))}
+                  <StyleChip
+                    value={SHOT_PALETTE_CHOICE}
+                    label="Mes captures"
+                    ariaLabel="D’après mes captures"
+                    swatch={shotPalette?.background ?? 'var(--color-muted)'}
+                    selected={useShotPalette}
+                    disabled={!shotPalette}
+                    title={
+                      shotPalette
+                        ? 'Les couleurs dominantes lues dans vos captures.'
+                        : 'Ajoutez des captures pour utiliser leurs couleurs.'
+                    }
+                  />
+                </RadioGroup>
+              </CampaignSection>
 
-            <CampaignSection title="Accroches">
-              <AssistantRow
-                providerLabel={aiProvider(providerId).label}
-                status={
-                  aiProvider(providerId).auth === 'none'
-                    ? undefined
-                    : connected
-                      ? 'Connecté'
-                      : 'À connecter'
-                }
-                onOpen={() => setAssistantOpen(true)}
+              {/* Repeindre l'écran courant n'est pas un style de plus : c'est
+                l'autre moitié de la boîte, et elle ne se choisit pas dans le
+                groupe radio qu'elle consomme. */}
+              {activeScreen && (
+                <CampaignSection title="Repeindre l’écran courant">
+                  <div className="grid gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="justify-self-start"
+                      onClick={harmonize}
+                      disabled={busy}
+                    >
+                      <Paintbrush size={12} aria-hidden />
+                      Appliquer à « {activeScreen.name} »
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Repeint « {activeScreen.name} » avec le style ci-dessus, sans ajouter d’écran.
+                    </p>
+                  </div>
+                </CampaignSection>
+              )}
+
+              <CampaignSection title="Accroches">
+                <AssistantRow
+                  providerLabel={aiProvider(providerId).label}
+                  status={
+                    aiProvider(providerId).auth === 'none'
+                      ? undefined
+                      : connected
+                        ? 'Connecté'
+                        : 'À connecter'
+                  }
+                  onOpen={() => setAssistantOpen(true)}
+                />
+              </CampaignSection>
+            </>
+          ),
+        },
+        {
+          id: 'fournisseur',
+          title: 'Fournisseur',
+          content: (
+            <div className="grid gap-3">
+              <h3 className="text-sm font-medium">Qui écrit les accroches</h3>
+              <AssistantSetup
+                providerId={providerId}
+                onProvider={(next) => {
+                  pickProvider(next)
+                  setPlan(null)
+                }}
+                secret={secret}
+                onSecret={setSecret}
+                connection={connection}
+                onConnect={() => void connect()}
+                onForget={forgetSecret}
+                model={model}
+                onModel={setModel}
+                busy={busy}
               />
-            </CampaignSection>
-          </>
-        )}
-      </div>
-    </Dialog>
+              {/* La matière du rédacteur vit avec lui : ces champs n'existent que
+                  pour un modèle branché, et posés dans le brief ils en faisaient
+                  l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
+              {aiProvider(providerId).transport !== 'in-process' && (
+                <div className="grid gap-3 border-t border-border pt-3">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={URL_FIELD_ID}>Page produit (provenance)</FieldLabel>
+                    <Input
+                      id={URL_FIELD_ID}
+                      type="url"
+                      inputMode="url"
+                      value={landingUrl}
+                      maxLength={2048}
+                      placeholder="https://monapp.com"
+                      disabled={busy}
+                      onChange={(event) => {
+                        setLandingUrl(event.target.value)
+                        setPlan(null)
+                      }}
+                    />
+                  </Field>
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={CONTEXT_FIELD_ID}>
+                      Arguments à reprendre (un par ligne, facultatif)
+                    </FieldLabel>
+                    <Textarea
+                      id={CONTEXT_FIELD_ID}
+                      value={productContext}
+                      maxLength={AI_LIMITS.maxProductContextLength}
+                      rows={4}
+                      placeholder={
+                        'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
+                      }
+                      disabled={busy}
+                      onChange={(event) => {
+                        setProductContext(event.target.value)
+                        setPlan(null)
+                      }}
+                    />
+                  </Field>
+                  <p className="text-xs text-muted-foreground">
+                    Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum, prêtes
+                    à publier. L’IA les sélectionne et les ordonne ; vous pourrez les réécrire dans
+                    la revue. ScreenForge ne charge aucune URL arbitraire.
+                  </p>
+                </div>
+              )}
+            </div>
+          ),
+        },
+        {
+          id: 'plan',
+          title: 'Plan',
+          content: (
+            <>
+              {errorBanner}
+              <AsyncPanel
+                state={composing ? 'pending' : plan ? 'ready' : composeFailed ? 'failed' : 'idle'}
+                failedTitle="La proposition a échoué"
+                failedMessage={error ?? undefined}
+                onRetry={() => void compose()}
+                retryLabel="Réessayer"
+              >
+                {plan && (
+                  <PlanReview
+                    plan={plan}
+                    brief={brief}
+                    focus={Math.min(focus, plan.screens.length - 1)}
+                    onFocus={setFocus}
+                    onHeadline={editScreen}
+                    onLayout={editLayout}
+                    onDrop={dropScreen}
+                    onRegenerate={connected ? (index) => void regenerate(index) : undefined}
+                    regenerating={regenerating}
+                    busy={busy}
+                  />
+                )}
+              </AsyncPanel>
+            </>
+          ),
+        },
+      ]}
+    />
   )
 }
 
 function CampaignSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
-      <h3 className="section-title">{title}</h3>
+      <h3 className="text-sm font-medium">{title}</h3>
       <div className="min-w-0">{children}</div>
     </section>
   )
 }
 
+/** Valeur du groupe « Style » qui n'est pas une direction : la palette lue dans les captures. */
+const SHOT_PALETTE_CHOICE = 'shots'
+
 function StyleChip({
+  value,
   label,
   ariaLabel,
   swatch,
   selected,
   disabled,
   title,
-  onSelect,
 }: {
+  value: string
   label: string
   ariaLabel?: string
   swatch: string
   selected: boolean
   disabled?: boolean
   title?: string
-  onSelect: () => void
 }) {
   const card = (
-    <label
+    /* La carte est le bouton radio : Base UI porte l'état, le focus tombe sur
+       l'élément lui-même. */
+    <RadioPrimitive.Root
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
       className={cn(
-        'relative flex w-full cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-        'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
-        disabled && 'cursor-not-allowed opacity-50',
+        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors outline-none',
+        'focus-visible:ring-1 focus-visible:ring-ring',
+        'data-disabled:cursor-not-allowed data-disabled:opacity-50',
         selected
           ? 'border-foreground bg-muted text-foreground'
           : 'border-border text-muted-foreground hover:border-input',
       )}
     >
-      <input
-        type="radio"
-        name="screenforge-campaign-style"
-        aria-label={ariaLabel}
-        checked={selected}
-        disabled={disabled}
-        onChange={onSelect}
-        className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
-      />
       <span
         aria-hidden
         className="size-4 rounded-sm border border-border"
         style={{ background: swatch }}
       />
       {label}
-    </label>
+    </RadioPrimitive.Root>
   )
-  return title ? <Tooltip content={title}>{card}</Tooltip> : card
+  return title ? <Hint content={title}>{card}</Hint> : card
 }
 
 /**
@@ -954,17 +1053,17 @@ function AssistantRow({
   onOpen: () => void
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
       aria-label={`Qui écrit les accroches : ${providerLabel}`}
       onClick={onOpen}
-      className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="h-9 w-full justify-start gap-2 px-3 text-start font-normal"
     >
-      <span className="field-label">Rédaction</span>
+      <span className="text-xs text-muted-foreground">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
-      {status && <span className="shrink-0 text-2xs text-muted-foreground">{status}</span>}
+      {status && <span className="shrink-0 text-xs text-muted-foreground">{status}</span>}
       <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
-    </button>
+    </Button>
   )
 }
 
@@ -1012,7 +1111,7 @@ function PlanReview({
 
   return (
     <div>
-      <h3 className="section-title flex items-center gap-2">
+      <h3 className="text-sm font-medium flex items-center gap-2">
         Vérifiez la proposition
         <span className="ml-auto flex items-center gap-1" aria-hidden>
           {[plan.palette.background, plan.palette.ink, plan.palette.accent].map((color) => (
@@ -1039,10 +1138,10 @@ function PlanReview({
         aria-orientation="horizontal"
       >
         {plan.screens.map((screen, index) => (
-          <button
+          <Button
             key={`${screen.name}-${index}`}
             id={`campaign-plan-tab-${index}`}
-            type="button"
+            variant="ghost"
             role="tab"
             aria-selected={index === focus}
             aria-controls={`campaign-plan-panel-${index}`}
@@ -1065,21 +1164,20 @@ function PlanReview({
                 [next]?.focus()
             }}
             className={cn(
-              'flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
               index === focus ? 'bg-muted' : 'hover:bg-muted/60',
             )}
           >
             <PlanPreview plan={plan} brief={brief} index={index} size="thumb" />
             <span
               className={cn(
-                'tabular text-2xs',
+                'tabular-nums text-xs',
                 index === focus ? 'font-semibold text-foreground' : 'text-muted-foreground',
               )}
             >
               {index + 1}
             </span>
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -1093,39 +1191,36 @@ function PlanReview({
         >
           <PlanPreview plan={plan} brief={brief} index={focus} size="full" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Field id={HEADLINE_FIELD_ID} label={`Accroche du visuel ${focus + 1}`}>
+            <Field className="gap-1.5">
+              <FieldLabel
+                htmlFor={HEADLINE_FIELD_ID}
+              >{`Accroche du visuel ${focus + 1}`}</FieldLabel>
               <Input
                 id={HEADLINE_FIELD_ID}
-                font="sans"
                 value={current.headline}
                 maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                 disabled={busy || regenerating !== null}
                 onChange={(event) => onHeadline(focus, event.target.value)}
               />
             </Field>
-            <Select
+            <SelectField<ArchetypeId>
               aria-label="Mise en page du visuel"
               label="Mise en page"
               value={current.layout}
               disabled={busy || regenerating !== null}
-              onChange={(event) => onLayout(focus, event.target.value as ArchetypeId)}
-            >
-              {[
+              onValueChange={(next) => onLayout(focus, next)}
+              items={[
                 ...SAFE_ARCHETYPE_IDS,
                 ...(current.screenshotIndex === undefined ? (['mur'] as const) : []),
-              ].map((id) => (
-                <option key={id} value={id}>
-                  {archetypeSpec(id).label}
-                </option>
-              ))}
-            </Select>
+              ].map((id) => ({ value: id, label: archetypeSpec(id).label }))}
+            />
             {/* La composition est nommée parce qu'elle est choisie : à 132px,
                 deux mises en page voisines se distinguent mal, et l'utilisateur
                 qui vient de voir dix visuels identiques a besoin de lire que
                 celui-ci n'est pas celui d'à côté. La capture n'est annoncée que
                 là où un appareil la portera — le libellé de l'archétype dit
                 déjà, sur le visuel de clôture, qu'il n'y en a pas. */}
-            <p className="text-2xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {layout ? `${archetypeSpec(layout.archetype).label}.` : ''}
               {layout?.device
                 ? current.screenshotIndex === undefined
@@ -1134,7 +1229,7 @@ function PlanReview({
                 : ''}
             </p>
             {current.evidence && (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Source factuelle : « {current.evidence} »
               </p>
             )}
@@ -1144,7 +1239,7 @@ function PlanReview({
             <div className="flex flex-wrap gap-2">
               {onRegenerate && (
                 <Button
-                  variant="default"
+                  variant="outline"
                   onClick={() => onRegenerate(focus)}
                   loading={regenerating === focus}
                   disabled={busy || regenerating !== null}
@@ -1153,15 +1248,23 @@ function PlanReview({
                   Réécrire
                 </Button>
               )}
-              <Button
-                variant="default"
-                onClick={() => onDrop(focus)}
-                disabled={busy || only || regenerating !== null}
-                tooltip={only ? 'Il faut au moins un visuel : utilisez « Annuler ».' : undefined}
-              >
-                <Trash2 size={12} aria-hidden />
-                Retirer
-              </Button>
+              {only ? (
+                <Hint content="Il faut au moins un visuel : utilisez « Annuler »." side="top">
+                  <Button variant="outline" disabled>
+                    <Trash2 size={12} aria-hidden />
+                    Retirer
+                  </Button>
+                </Hint>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => onDrop(focus)}
+                  disabled={busy || regenerating !== null}
+                >
+                  <Trash2 size={12} aria-hidden />
+                  Retirer
+                </Button>
+              )}
             </div>
           </div>
         </div>

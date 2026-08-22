@@ -10,10 +10,12 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { ContextMenu } from '@/components/ui/ContextMenu'
+import { ContextMenu } from '@/components/patterns/action-menu'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Popover } from '@/components/ui/popover'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Skeleton } from '@/components/ui/skeleton'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { Hint } from '@/components/patterns/hint'
 import { cn } from '@/lib/utils'
 import { defaultScreenName } from '@/lib/screens'
 import { useTemplatesStore } from '@/stores/templates.store'
@@ -180,34 +182,38 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
           `aria-hidden` : le bouton annonce déjà le nom complet, et le rang se
           lit dans l'ordre du parcours. */}
-      <span
+      <Badge
         aria-hidden
+        variant="outline"
+        size="sm"
         style={{
           height: THUMBNAIL_LABEL_HEIGHT,
           minWidth: THUMBNAIL_BADGE_SIZE,
           marginBottom: THUMBNAIL_LABEL_GAP,
         }}
         className={cn(
-          'tabular flex w-fit items-center justify-center rounded-sm px-1 text-2xs',
+          'tabular-nums w-fit px-1 text-xs',
           'transition-colors duration-150 ease-out',
           // Trois états, un seul repère. Le citron reste ce qui dit « vous êtes
           // ici » et ne se pose que sur l'écran courant ; un écran seulement
           // retenu par la sélection prend une pastille neutre — assez pour se
           // détacher de la rangée, pas assez pour se disputer le repère.
-          isActive && 'marker-fill font-semibold',
-          !isActive && isSelected && 'bg-secondary font-medium text-foreground',
-          !isActive && !isSelected && 'font-medium text-muted-foreground',
+          isActive && 'marker-fill border-transparent font-semibold',
+          !isActive && isSelected && 'border-transparent bg-secondary font-medium text-foreground',
+          !isActive &&
+            !isSelected &&
+            'border-transparent bg-transparent font-medium text-muted-foreground',
         )}
       >
         {index + 1}
-      </span>
+      </Badge>
 
       {/* Une tuile, un bouton, une cible. L'aperçu et le numéro vivaient dans
           deux boutons dont le second n'existait que pour doubler le premier au
           pointeur — `aria-hidden`, `tabIndex={-1}` et une zone de clic étendue à
           la main. Le rang est sorti de l'aperçu mais reste hors du parcours :
           il n'y a toujours qu'une boîte cliquable par écran. */}
-      <Tooltip content={`${screen.name} — double-clic pour renommer`}>
+      <Hint content={`${screen.name} — double-clic pour renommer`}>
         <button
           ref={previewRef}
           type="button"
@@ -263,12 +269,18 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             de large, et le liseré, rectangulaire, se faisait couper aux quatre
             coins par l'écrêtage arrondi — d'où un aperçu qui paraissait rogné. */}
           {screen.thumbnail ? (
-            <img src={screen.thumbnail} alt="" className="h-full w-full object-cover" />
+            // `oa-arrive` sans état ni effet : l'`<img>` n'existe pas tant que
+            // `thumbnail` est absent (branche squelette ci-dessous), donc son
+            // premier rendu EST sa création dans le DOM — l'arrivée par la
+            // netteté se joue à l'insertion, une fois, et un re-rendu sur le
+            // même thumbnail (sélection, survol) touche `src` à l'identique,
+            // jamais la classe : rien ne rejoue.
+            <img src={screen.thumbnail} alt="" className="oa-arrive h-full w-full object-cover" />
           ) : (
-            <span className="block h-full w-full bg-secondary" />
+            <Skeleton className="h-full w-full rounded-none" />
           )}
         </button>
-      </Tooltip>
+      </Hint>
 
       {/* Le nom, toujours — son rang à défaut. La rangée n'apparaissait qu'au
           premier renommage, et seuls les écrans nommés y écrivaient : une file
@@ -286,7 +298,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-hidden
         style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
         className={cn(
-          'block truncate text-center text-2xs',
+          'block truncate text-center text-xs',
           isActive || isSelected ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -304,7 +316,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           prend la largeur d'un nom au lieu de celle d'une vignette. Il éclot du
           bord haut de la tuile, aligné sur son bord gauche — c'est ce qui dit
           quel écran est renommé, sans qu'aucune tuile ait à changer d'état. */}
-      <Popover
+      <AnchoredPopover
         open={editing}
         anchor={previewRef}
         onClose={() => finishRename(false)}
@@ -323,7 +335,6 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       >
         <Input
           ref={inputRef}
-          font="sans"
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           onKeyDown={(event) => {
@@ -335,8 +346,8 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         />
         {/* Une ligne, pas deux : « Laissé vide, il garde son rang pour nom. »
             débordait et laissait « nom. » orphelin sous un champ de 224. */}
-        <p className="field-label mt-1.5 leading-4">Vide, il garde son rang.</p>
-      </Popover>
+        <p className="text-xs text-muted-foreground mt-1.5 leading-4">Vide, il garde son rang.</p>
+      </AnchoredPopover>
 
       <button
         ref={actionsRef}

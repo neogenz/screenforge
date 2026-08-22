@@ -4,7 +4,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
-import { IconButton } from '@/components/ui/icon-button'
+import { Button } from '@/components/ui/button'
+import { Hint } from '@/components/patterns/hint'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
@@ -178,6 +180,12 @@ export function ScreensBar() {
     },
     [targetIds],
   )
+
+  /* La suppression se confirme : elle s'annule, mais un écran est une
+     composition, et un clic de trop dans un menu ne doit pas en coûter trois.
+     Le bouton nomme la quantité, le menu l'a déjà annoncée. */
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const pendingCount = pendingDelete ? targetIds(pendingDelete).length : 0
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -381,7 +389,7 @@ export function ScreensBar() {
       // des surfaces. Une carte autour d'eux empilait plateau, tuile et aperçu à
       // trois clartés voisines, et prenait 26px de hauteur au canevas pour
       // encadrer du vide. Ce sont les vignettes qui flottent.
-      className="filmstrip-scroll relative flex animate-slide-up items-start"
+      className="filmstrip-scroll relative flex animate-enter-quick items-start"
       onDragOver={handleStripDragOver}
       onDrop={handleDrop}
     >
@@ -451,7 +459,7 @@ export function ScreensBar() {
             canPasteSettings={copiedSettings !== null}
             onCopySettings={handleCopySettings}
             onPasteSettings={handlePasteSettings}
-            onDelete={handleDelete}
+            onDelete={setPendingDelete}
             onMove={handleMove}
           />
         </div>
@@ -467,20 +475,17 @@ export function ScreensBar() {
         style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
         className="flex shrink-0 items-center"
       >
-        <IconButton
-          size="sm"
-          tooltip={atCapacity ? `Maximum ${maxScreens} écrans` : 'Ajouter un écran'}
-          aria-label="Ajouter un écran"
-          onClick={handleAdd}
-          disabled={atCapacity}
-          // Rond, comme le « + » d'une palette d'outils : la bande aligne des
-          // objets rectangulaires, une action y prend la forme qu'aucun n'a.
-          // Sur la carte, parce qu'il est posé à même la scène et non dans un
-          // îlot : `bg-secondary` ne s'en détachait pas en thème clair.
-          className="rounded-full border-border bg-card shadow-(--shadow-handle) hover:border-input"
-        >
-          <Plus size={16} strokeWidth={1.75} />
-        </IconButton>
+        <Hint content={atCapacity ? `Maximum ${maxScreens} écrans` : 'Ajouter un écran'}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Ajouter un écran"
+            onClick={handleAdd}
+            disabled={atCapacity}
+          >
+            <Plus size={16} strokeWidth={1.75} />
+          </Button>
+        </Hint>
       </div>
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
@@ -488,11 +493,24 @@ export function ScreensBar() {
       {list.length >= maxScreens - 1 && (
         <span
           style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
-          className="tabular flex shrink-0 items-center px-1 text-2xs text-muted-foreground"
+          className="tabular-nums flex shrink-0 items-center px-1 text-xs text-muted-foreground"
         >
           {list.length}/{maxScreens}
         </span>
       )}
+      <ConfirmAction
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+        title={pendingCount > 1 ? `Supprimer ${pendingCount} écrans ?` : 'Supprimer cet écran ?'}
+        description="Les calques de l’écran partent avec lui. ⌘Z le ramène."
+        confirmLabel={pendingCount > 1 ? `Supprimer ${pendingCount} écrans` : 'Supprimer l’écran'}
+        onConfirm={() => {
+          if (pendingDelete) handleDelete(pendingDelete)
+          setPendingDelete(null)
+        }}
+      />
     </div>
   )
 }

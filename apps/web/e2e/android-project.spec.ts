@@ -38,7 +38,7 @@ test('creates, composes and reopens a Google Play phone project', async ({ page 
 
   await page.getByRole('button', { name: 'Ouvrir les modèles' }).click()
   const templates = page.getByRole('dialog', { name: 'Modèles de mise en page' })
-  await templates.getByRole('button', { name: 'Sélectionner le modèle Hero' }).click()
+  await templates.getByRole('button', { name: 'Sélectionner le modèle Plein cadre' }).click()
   await templates.getByRole('button', { name: 'Appliquer à l’écran actuel' }).click()
   await expect
     .poll(() =>

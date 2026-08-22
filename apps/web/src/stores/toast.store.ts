@@ -32,6 +32,22 @@ function CheckDrawn() {
   )
 }
 
+/**
+ * Deux toasts identiques d'affilée rejouent : sonner monte un nouveau nœud à
+ * chaque appel, mais partant toujours de la même classe `animate-toast-*` un
+ * navigateur pourrait fusionner les deux animations si jamais un id venait à
+ * se répéter. Le compteur alterne `-odd`/`-even` par ton, deux classes aux
+ * mêmes images mais nommées différemment, pour que `animationstart` reparte
+ * de zéro à coup sûr.
+ */
+const replayCounters: Record<'success' | 'error', number> = { success: 0, error: 0 }
+
+function replayClassName(tone: ToastTone): string | undefined {
+  if (tone === 'info') return undefined
+  const count = ++replayCounters[tone]
+  return `animate-toast-${tone}-${count % 2 === 0 ? 'even' : 'odd'}`
+}
+
 interface ToastOptions {
   duration?: number
   /**
@@ -54,7 +70,9 @@ export function toast(message: string, tone: ToastTone = 'info', options?: Toast
      ni à tabber jusqu'au bouton. */
   const resolved =
     options?.action && options.duration === undefined ? { ...options, duration: Infinity } : options
-  if (tone === 'success') sonner.success(content, { icon: createElement(CheckDrawn), ...resolved })
-  else if (tone === 'error') sonner.error(content, resolved)
+  const className = replayClassName(tone)
+  if (tone === 'success')
+    sonner.success(content, { icon: createElement(CheckDrawn), className, ...resolved })
+  else if (tone === 'error') sonner.error(content, { className, ...resolved })
   else sonner.info(content, resolved)
 }

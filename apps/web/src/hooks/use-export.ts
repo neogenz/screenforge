@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
 import { getStoreTargetProfile } from '@/lib/dimensions'
+import { captureAnalytics, captureDiagnosticLog } from '@/lib/analytics'
 import type { Layer, Screen, StoreTargetId } from '@/types'
 
 interface ExportProgress {
@@ -58,11 +59,13 @@ export function useExport() {
       screens: ExportScreen[],
       layoutLayers: Layer[],
     ) => {
+      const startedAt = performance.now()
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
 
       const profile = getStoreTargetProfile(target)
+      const dimension = profile.output.size
       const jobs: ExportJob[] = screens.map(({ screen, screenIndex }, index) => ({
         screen,
         screenIndex,
@@ -127,8 +130,20 @@ export function useExport() {
           `${slugify(projectName)}-${profile.platform === 'android' ? 'google-play' : 'app-store'}.zip`,
         )
         setCompletedFiles(summaries)
+        captureAnalytics('screenforge_export_succeeded', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+        })
       } catch (cause) {
         setError(errorMessage(cause))
+        captureAnalytics('screenforge_export_failed', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+          issue: 'export',
+        })
+        captureDiagnosticLog('export_failed', { issue: 'export' })
         throw cause
       } finally {
         setIsExporting(false)

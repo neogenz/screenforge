@@ -1,7 +1,7 @@
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { expect, type Page } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { openUtility, waitForApp } from './helpers'
 
 /**
  * Le relais du démon, tenu par le test, en vrai HTTP.
@@ -217,13 +217,15 @@ export async function connect(page: Page, relay: Relay): Promise<void> {
   }, relay.port)
   await waitForApp(page)
 
-  await page.getByRole('button', { name: 'Connexion MCP' }).click()
+  await openUtility(page, 'Connexion MCP')
   const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
   await expect(dialog).toBeVisible()
   // Le mode est éteint tant que personne ne l'a demandé : c'est « Activer »
   // qui s'offre, pas « Désactiver ».
   await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
   await dialog.getByRole('button', { name: 'Appairer' }).click()
-  await expect(dialog.getByRole('status')).toHaveText('Connectée')
+  // Le bouton en cours porte lui aussi un `role=status` (Spinner coss) : on
+  // vise la ligne d'état, pas le premier statut venu.
+  await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText('Connectée')
   await relay.waitForStream()
 }

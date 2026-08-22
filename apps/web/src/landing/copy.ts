@@ -1,4 +1,5 @@
 import { CLOUD_OFFER, cloudOfferSummary } from '@screenforge/project-format'
+import { PRIVACY_COPY } from '@/components/privacy/privacy-copy'
 
 const CLOUD_PRICE = `$${CLOUD_OFFER.price.amount}`
 const CLOUD_LIMITS_EN = cloudOfferSummary('en')
@@ -31,9 +32,16 @@ const en = {
   },
   hero: {
     headline: 'Store screenshots, down to the pixel.',
-    sub: 'For people who ship iPhone and Android apps: choose App Store or Google Play phone, compose the set once in your browser, then refresh it in one click at every release. Or let Claude Code or Codex compose it. Free, no account, local by default.',
+    /* Une idée, puis le prix. La phrase sur Claude Code / Codex est partie
+       dans `#agent`, qui existe pour elle : cinq propositions en quatre lignes
+       ne se lisent pas. `landing-copy.test.ts` tient la longueur sous 160. */
+    sub: 'Compose once, export at exact App Store or Google Play phone sizes, re-shoot in one click at every release. Free, no account, local by default.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
+    /* La seule information qui change ce que le visiteur anglophone va vivre
+       au clic, et elle n'a rien à dire en français — d'où le `undefined` côté
+       `fr`, que `Hero` lit pour ne rien rendre. La FAQ la reprend en détail. */
+    langNote: 'The editor is in French for now.' as string | undefined,
   },
   demo: {
     frame: 'iPhone frame',
@@ -118,7 +126,7 @@ const en = {
   features: {
     heading: 'Compose once. Refresh at every release. Export to the pixel.',
     editor: {
-      tab: 'Compose',
+      eyebrow: 'Compose',
       title: 'A real editor, not a form',
       body: 'Layers, accurate iPhone frames, a generic Android phone frame, gradients, Google Fonts on demand. Design one screen, then push it across the set. Background, type, frame and position travel together.',
       points: [
@@ -133,7 +141,7 @@ const en = {
       diagramCarries: 'background · type · frame · position',
     },
     refresh: {
-      tab: 'Refresh',
+      eyebrow: 'Refresh',
       title: 'New build, new screenshots, same set',
       body: 'Ship a version, re-shoot the app, drop the folder on ScreenForge. Each capture lands on its device, and the layout, headlines, backgrounds and frames stay exactly where you put them. The whole set updates in one step, one undo if you change your mind.',
       points: [
@@ -150,7 +158,7 @@ const en = {
       figureLabel: 'One folder in, the layout stays where you left it',
     },
     export: {
-      tab: 'Export',
+      eyebrow: 'Export',
       title: 'Exports that pass review',
       body: 'Rendered on your machine at native 1320×2868 for App Store or 1080×1920 for Google Play phone, never upscaled.',
       points: [
@@ -207,6 +215,9 @@ const en = {
       },
     ],
     setupTitle: 'Connect an agent',
+    /* Ce que le repli contient, dit avant de l'ouvrir : sans cela le
+       `summary` demande un clic pour savoir ce qu'il y a derrière. */
+    setupSummary: 'Three steps, one command.',
     setupSteps: [
       'Clone the repo, run pnpm --filter mcp run start',
       'Add it as a stdio server to your agent (Claude Code reads the repo’s .mcp.json)',
@@ -375,8 +386,13 @@ const en = {
   },
   footer: {
     source: 'Source',
+    contact: 'Report a problem',
+    privacy: 'Privacy',
+    terms: 'Terms',
+    preferences: 'Privacy settings',
     copyright: '© 2026 ScreenForge',
   },
+  privacy: PRIVACY_COPY.en,
 }
 
 export type Copy = typeof en
@@ -400,9 +416,10 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures de store, au pixel près.',
-    sub: 'Pour ceux qui sortent des apps iPhone et Android : choisissez App Store ou Google Play téléphone, composez la série une fois dans le navigateur, puis actualisez-la en un clic à chaque version. Ou laissez Claude Code ou Codex la composer. Gratuit, sans compte, tout reste sur votre machine.',
+    sub: 'Composez une fois, exportez aux tailles App Store ou Google Play téléphone, puis actualisez à chaque version. Gratuit, sans compte, tout en local.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
+    langNote: undefined,
   },
   demo: {
     frame: 'Cadre iPhone',
@@ -464,7 +481,7 @@ const fr: Copy = {
   features: {
     heading: 'Composez une fois. Actualisez à chaque version. Exportez au pixel près.',
     editor: {
-      tab: 'Composer',
+      eyebrow: 'Composer',
       title: 'Un vrai éditeur, pas un formulaire',
       body: 'Calques, cadres iPhone fidèles, cadre Android générique, dégradés, Google Fonts à la demande. Dessinez un écran, appliquez-le à toute la série : fond, typo, cadre et position passent d’un coup.',
       points: [
@@ -479,7 +496,7 @@ const fr: Copy = {
       diagramCarries: 'fond · typographie · cadre · position',
     },
     refresh: {
-      tab: 'Actualiser',
+      eyebrow: 'Actualiser',
       title: 'Nouvelle version, nouvelles captures, rien à recomposer',
       body: 'Vous sortez une version, vous refaites vos captures, vous glissez le dossier dans ScreenForge. Chaque capture retrouve son appareil ; la mise en page, les accroches, les fonds et les cadres ne bougent pas. Toute la série se met à jour d’un coup, et un ⌘Z suffit si vous changez d’avis.',
       points: [
@@ -496,7 +513,7 @@ const fr: Copy = {
       figureLabel: 'Vous donnez un dossier, la mise en page ne bouge pas',
     },
     export: {
-      tab: 'Exporter',
+      eyebrow: 'Exporter',
       title: 'Des exports qui passent la validation',
       body: 'Rendus sur votre machine en 1320×2868 natif pour App Store ou 1080×1920 pour Google Play téléphone, jamais redimensionnés.',
       points: [
@@ -549,6 +566,7 @@ const fr: Copy = {
       },
     ],
     setupTitle: 'Brancher un agent',
+    setupSummary: 'Trois étapes, une commande.',
     setupSteps: [
       'Clonez le dépôt, lancez pnpm --filter mcp run start',
       'Ajoutez-le comme serveur stdio à votre agent (Claude Code lit le .mcp.json du dépôt)',
@@ -711,8 +729,13 @@ const fr: Copy = {
   },
   footer: {
     source: 'Code source',
+    contact: 'Signaler un problème',
+    privacy: 'Confidentialité',
+    terms: 'Conditions',
+    preferences: 'Préférences de confidentialité',
     copyright: '© 2026 ScreenForge',
   },
+  privacy: PRIVACY_COPY.fr,
 }
 
 export const copy = { en, fr } as const

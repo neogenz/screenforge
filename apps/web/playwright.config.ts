@@ -21,9 +21,17 @@ import { localConvex } from '../backend/tests/stack'
 const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
 const WORKSPACE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-const LOCAL_FIRST_PORT = 5199
-const CLOUD_PORT = 5198
+/* Les ports sont fixes par défaut et surchargeables par l'environnement.
+   `reuseExistingServer` réutilise ce qui écoute déjà, sans regarder d'où il
+   sert : deux copies du dépôt ouvertes en même temps — un worktree, une
+   revue — et la seconde exécution mesure le code de la première, en vert et
+   en silence. La surcharge est la seule façon d'isoler une exécution sans
+   arrêter le serveur du voisin. */
+const LOCAL_FIRST_PORT = Number(process.env.SCREENFORGE_E2E_PORT ?? 5199)
+const CLOUD_PORT = Number(process.env.SCREENFORGE_E2E_CLOUD_PORT ?? 5198)
+const PRIVACY_PORT = Number(process.env.SCREENFORGE_E2E_PRIVACY_PORT ?? 5197)
 const CLOUD_SPEC = '**/sync.spec.ts'
+const PRIVACY_SPEC = '**/{privacy-consent,posthog-observability}.spec.ts'
 const configuredConvex = localConvex()
 const convex = REQUIRE_CLOUD
   ? {
@@ -74,8 +82,16 @@ export default defineConfig({
         ]
       : []),
     {
+      name: 'privacy',
+      testMatch: PRIVACY_SPEC,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: `http://localhost:${String(PRIVACY_PORT)}`,
+      },
+    },
+    {
       name: 'local-first',
-      testIgnore: CLOUD_SPEC,
+      testIgnore: [CLOUD_SPEC, PRIVACY_SPEC],
       use: {
         ...devices['Desktop Chrome'],
         baseURL: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
@@ -106,6 +122,12 @@ export default defineConfig({
          reste faux, et l'élagage a lieu comme sans la variable. */
       command: `VITE_CONVEX_URL= pnpm run dev --port ${String(LOCAL_FIRST_PORT)}`,
       url: `http://localhost:${String(LOCAL_FIRST_PORT)}`,
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      command: `VITE_CONVEX_URL= VITE_POSTHOG_KEY=phc_screenforge_test VITE_POSTHOG_HOST=http://localhost:${String(PRIVACY_PORT)}/posthog pnpm run dev --port ${String(PRIVACY_PORT)}`,
+      url: `http://localhost:${String(PRIVACY_PORT)}`,
       reuseExistingServer: true,
       timeout: 30_000,
     },

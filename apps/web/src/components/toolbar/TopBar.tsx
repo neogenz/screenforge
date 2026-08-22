@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import {
-  Check,
   ChevronDown,
   Cloud,
   CloudOff,
@@ -21,6 +21,7 @@ import {
   Redo2,
   RefreshCw,
   Settings,
+  ShieldCheck,
   Smartphone,
   Square,
   Star,
@@ -34,20 +35,28 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
-import { MCP_LABELS, useMcpStore } from '@/stores/mcp.store'
-import { McpStatusDot } from '@/components/mcp/McpStatusDot'
+import { useUIStore, type SyncStatus } from '@/stores/ui.store'
+import { MCP_LABELS, useMcpStore, type McpStatus } from '@/stores/mcp.store'
 import { ProjectSwitcher } from '@/components/project-switcher/ProjectSwitcher'
-import { IconButton } from '@/components/ui/icon-button'
+import { Hint } from '@/components/patterns/hint'
+import { StatusChip, StatusDot, type StatusTone } from '@/components/patterns/status-chip'
+import { SaveStatusChip } from '@/components/patterns/save-status'
+import { NoticeStrip } from '@/components/patterns/notice-strip'
 import { Button } from '@/components/ui/button'
-import { Dropdown } from '@/components/ui/dropdown'
 import { Kbd } from '@/components/ui/kbd'
+import { Toolbar, ToolbarButton, ToolbarGroup, ToolbarSeparator } from '@/components/ui/toolbar'
+import { Island } from '@/components/patterns/island'
+import { InputPrimitive } from '@/components/ui/input'
+import { Dropdown } from '@/components/patterns/action-menu'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import { billingConfigured } from '@/lib/account'
+import { analyticsConfigured } from '@/lib/analytics'
 import { planName } from '@/lib/plans'
 import { cloudConfigured } from '@/lib/convex'
+import { copy } from '@/lib/copy'
+import { retryStorage } from '@/lib/storage'
 import {
   createDeviceLayer,
   createIconLayer,
@@ -61,13 +70,6 @@ import type { DeviceModel, Layer } from '@/types'
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
 const PROJECT_NAME_INPUT_ID = 'sf-project-name-input'
 
-const SAVE_LABELS: Record<SaveStatus, string> = {
-  idle: 'Modifications non enregistrées',
-  saving: 'Enregistrement…',
-  saved: 'Enregistré',
-  error: 'Échec de l’enregistrement',
-}
-
 const SYNC_LABELS: Record<Exclude<SyncStatus, 'off'>, string> = {
   syncing: 'Synchronisation…',
   synced: 'Synchronisé',
@@ -75,13 +77,93 @@ const SYNC_LABELS: Record<Exclude<SyncStatus, 'off'>, string> = {
   error: 'Échec de la synchronisation',
 }
 
+const SYNC_TONE: Record<Exclude<SyncStatus, 'off'>, StatusTone> = {
+  syncing: 'pulse',
+  synced: 'success',
+  offline: 'neutral',
+  error: 'warning',
+}
+const SYNC_ICON: Record<Exclude<SyncStatus, 'off'>, ReactNode> = {
+  syncing: <LoaderCircle size={11} className="animate-spin" aria-hidden />,
+  synced: <Cloud size={11} className="text-success" aria-hidden />,
+  offline: <CloudOff size={11} aria-hidden />,
+  error: <TriangleAlert size={11} aria-hidden />,
+}
+/** Le point de la connexion MCP repliée dans « … », sur le vocabulaire commun des teintes. */
+const MCP_TONE: Record<McpStatus, StatusTone> = {
+  off: 'neutral',
+  connecting: 'pulse',
+  live: 'brand',
+  error: 'warning',
+}
+
 /**
  * Filet séparateur : plus court que les boutons, pour séparer sans découper.
  * L'écart de part et d'autre porte davantage que le trait lui-même — c'est lui
  * qui fait lire un groupe, d'où `mx-1.5` contre `gap-0.5` en intra-groupe.
+ * `ToolbarSeparator` porte le rôle coss ; sa classe de hauteur propre neutralise
+ * son propre `self-stretch` (la classe cible `not-[[class^='h-']]`).
  */
 function Divider() {
-  return <div aria-hidden className="mx-1.5 h-3.5 w-px shrink-0 bg-input" />
+  return (
+    <ToolbarSeparator orientation="vertical" className="mx-1.5 my-0 h-3.5 w-px shrink-0 bg-input" />
+  )
+}
+
+/**
+ * Sépare « Libellé (⌘Z) » en libellé + `Kbd` : la seule forme que prennent les
+ * infobulles de cette barre qui portent un raccourci. Les autres retombent en
+ * texte simple, inchangées.
+ */
+function hintWithShortcut(hint: string): ReactNode {
+  const match = /^(.*) \(([^()]+)\)$/.exec(hint)
+  if (!match) return hint
+  const [, label, shortcut] = match
+  return (
+    <span className="flex items-center gap-1.5">
+      {label}
+      <Kbd>{shortcut}</Kbd>
+    </span>
+  )
+}
+
+interface ToolbarToolProps extends Omit<ComponentProps<typeof ToolbarButton>, 'render'> {
+  'aria-label': string
+  tooltip?: string
+  /** « Ce panneau est ouvert » — neutre, jamais le citron, réservé à l'édité. */
+  active?: boolean
+}
+
+/**
+ * Outil de la Toolbar coss : `ToolbarButton` porte la navigation aux flèches
+ * du groupe, `Button` ghost/icon en est le rendu — même façade qu'`IconButton`
+ * ailleurs, composée ici pour la sémantique `Toolbar`.
+ *
+ * `aria-disabled:` et non `disabled:` pour l'estompage : `ToolbarButton`
+ * désactive au sens ARIA pour rester focusable au clavier (les flèches du
+ * groupe doivent encore l'atteindre), donc l'attribut natif `disabled` que
+ * `Button` pose lui-même — et sur lequel vit sa classe `disabled:opacity-64` —
+ * n'apparaît jamais ici.
+ */
+function ToolbarTool({ tooltip, active, className, ...props }: ToolbarToolProps) {
+  const button = (
+    <ToolbarButton
+      data-active={active || undefined}
+      render={
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            'text-muted-foreground hover:text-foreground aria-disabled:pointer-events-none aria-disabled:opacity-64',
+            'data-[active=true]:border-input data-[active=true]:bg-secondary data-[active=true]:text-foreground',
+            className,
+          )}
+        />
+      }
+      {...props}
+    />
+  )
+  return tooltip ? <Hint content={hintWithShortcut(tooltip)}>{button}</Hint> : button
 }
 
 /**
@@ -105,20 +187,50 @@ export function TopBar() {
   // habitable — voir `TOP_BAR_TOOLS_WIDTH`.
   const compactActions = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
   const compactTools = useMediaQuery(belowWidth(TOP_BAR_TOOLS_WIDTH))
+  const storageUnavailable = useUIStore((s) => s.storageUnavailable)
 
+  // La colonne du projet plancher à `0` et non à `min-content` : un champ en
+  // `field-sizing-content` déclare son contenu comme min-content, donc
+  // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
+  // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
+  // le champ qui absorbe, pas la grille.
+  //
+  // `Island` fournit l'unique surface (coque, bord, ombre) ; `Toolbar` lui
+  // prête le rôle et la navigation aux flèches, sans surface en plus — les
+  // classes d'`Island` se posent après celles de `Toolbar` dans la chaîne de
+  // fusion, donc son cadre l'emporte déjà sur celui, par défaut, du
+  // `Toolbar` : aucune classe de coque à répéter ici, seulement la grille.
   return (
-    // La colonne du projet plancher à `0` et non à `min-content` : un champ en
-    // `field-sizing-content` déclare son contenu comme min-content, donc
-    // `minmax(min-content,1fr)` la figeait à 315px et faisait déborder l'îlot
-    // entier de 93px — mesuré, « Exporter » repartait hors de la fenêtre. C'est
-    // le champ qui absorbe, pas la grille.
-    <div className="island grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2">
-      <ProjectSegment compactTools={compactTools} />
-      {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
+    <>
+      <Island
+        render={<Toolbar />}
+        className="grid grid-cols-[minmax(0,1fr)_auto_1fr] items-center gap-2"
+      >
+        <ProjectSegment compactTools={compactTools} />
+        {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
           garde le groupe central au milieu quand il revient. */}
-      {compactTools ? <span /> : <ToolsSegment />}
-      <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
-    </div>
+        {compactTools ? <span /> : <ToolsSegment />}
+        <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
+      </Island>
+      {/* Sous la barre, jamais dedans : la grille de l'îlot est mesurée au pixel
+        près (`lib/stage.ts`), une bannière n'y a pas de colonne. Tient tant
+        que le stockage reste indisponible — aucune fermeture, voir NoticeStrip. */}
+      {storageUnavailable && (
+        <NoticeStrip
+          className="mt-2"
+          title={copy.notice.storageTitle}
+          description={copy.notice.storageDescription}
+          action={{
+            label: copy.notice.storageAction,
+            onClick: () => {
+              void retryStorage().then((ok) => {
+                if (ok) useUIStore.getState().setStorageUnavailable(false)
+              })
+            },
+          }}
+        />
+      )}
+    </>
   )
 }
 
@@ -163,7 +275,7 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
     // qu'ailleurs dans la barre (4px de gouttière + 6px de `mx-1.5` de chaque
     // côté). Posé directement dans un parent en `gap-2`, il aurait rendu 14px
     // d'un côté et 10 de l'autre.
-    <div className="flex min-w-0 items-center gap-1">
+    <ToolbarGroup className="min-w-0 gap-1">
       <div className="flex min-w-0 items-center gap-2">
         <ProjectName />
         <ProjectSwitcher projectNameInputId={PROJECT_NAME_INPUT_ID} />
@@ -178,29 +290,17 @@ function ProjectSegment({ compactTools }: { compactTools: boolean }) {
         toujours, ce qu'un `display:none` empêchait à toute largeur. La pastille
         décorative qui occupait la place du témoin de document modifié a
         disparu ; c'est ce témoin-ci qui la tient désormais.
+
+        `StatusChip` sans coque (bord et fond transparents, pas de rembourrage) :
+        la barre haute est mesurée au pixel près (`lib/stage.ts`), et une puce
+        pleine y aurait ajouté ce que ces seuils n'attendent pas. Le vocabulaire
+        de teinte reste le même que partout ailleurs (`StatusTone`).
       */}
-        <span
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 text-2xs',
-            saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
-          )}
-        >
-          {saveStatus === 'idle' && (
-            <span aria-hidden className="size-2 shrink-0 rounded-xs bg-muted-foreground" />
-          )}
-          {saveStatus === 'saving' && (
-            <LoaderCircle size={11} className="animate-spin" aria-hidden />
-          )}
-          {saveStatus === 'saved' && <Check size={11} className="text-success" aria-hidden />}
-          {saveStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
-          <span className={statusLabelClass(written)}>{SAVE_LABELS[saveStatus]}</span>
-        </span>
+        <SaveStatusChip status={saveStatus} written={written} />
         <SyncIndicator written={written} />
       </div>
       {!compactTools && <HistoryControls />}
-    </div>
+    </ToolbarGroup>
   )
 }
 
@@ -216,7 +316,7 @@ function HistoryControls() {
       <Divider />
       {/* Ces deux-là ne cèdent pas : c'est le nom du projet, à leur gauche, qui
           se tronque quand la colonne se resserre. */}
-      <IconButton
+      <ToolbarTool
         className="shrink-0"
         aria-label="Annuler"
         tooltip="Annuler (⌘Z)"
@@ -224,8 +324,8 @@ function HistoryControls() {
         onClick={() => undo()}
       >
         <Undo2 size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
+      </ToolbarTool>
+      <ToolbarTool
         className="shrink-0"
         aria-label="Rétablir"
         tooltip="Rétablir (⌘⇧Z)"
@@ -233,7 +333,7 @@ function HistoryControls() {
         onClick={() => redo()}
       >
         <Redo2 size={16} strokeWidth={1.75} />
-      </IconButton>
+      </ToolbarTool>
     </>
   )
 }
@@ -256,20 +356,19 @@ function SyncIndicator({ written }: { written: boolean }) {
 
   const label = SYNC_LABELS[syncStatus]
   return (
-    <span
+    <StatusChip
       role="status"
       aria-live="polite"
+      title={written ? undefined : label}
+      tone={SYNC_TONE[syncStatus]}
+      icon={SYNC_ICON[syncStatus]}
       className={cn(
-        'flex shrink-0 items-center gap-1.5 text-2xs',
-        syncStatus === 'error' ? 'text-destructive' : 'text-muted-foreground',
+        'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-xs',
+        syncStatus === 'error' && 'text-destructive',
       )}
     >
-      {syncStatus === 'syncing' && <LoaderCircle size={11} className="animate-spin" aria-hidden />}
-      {syncStatus === 'synced' && <Cloud size={11} className="text-success" aria-hidden />}
-      {syncStatus === 'offline' && <CloudOff size={11} aria-hidden />}
-      {syncStatus === 'error' && <TriangleAlert size={11} aria-hidden />}
       <span className={statusLabelClass(written)}>{label}</span>
-    </span>
+    </StatusChip>
   )
 }
 
@@ -292,8 +391,10 @@ function ProjectName() {
     setEditing(false)
   }
 
+  // Le primitif Base UI nu, pas l'`Input` coss : un titre sans cadre, dimensionné
+  // sur son contenu, que l'enveloppe à bordure du champ ne sait pas rendre.
   return (
-    <input
+    <InputPrimitive
       ref={inputRef}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
@@ -350,6 +451,10 @@ function ProjectName() {
 function ToolsSegment() {
   function addLayer(layer: Layer) {
     useCanvasStore.getState().addLayer(layer)
+    // Le calque posé, l'attention va à la planche : un outil qui garde le
+    // focus dans la `Toolbar` coss donne les flèches à sa navigation, et la
+    // première pression ne déplace plus le calque qu'on vient d'ajouter.
+    ;(document.activeElement as HTMLElement | null)?.blur()
   }
 
   function layerCount() {
@@ -362,7 +467,7 @@ function ToolsSegment() {
   }
 
   return (
-    <div className="flex items-center gap-1 justify-self-center">
+    <ToolbarGroup className="justify-self-center">
       {/*
         Le rail en creux qui les portait reproduisait mot pour mot le conteneur
         de `ToggleGroup`, lequel veut dire « choisis-en un, un est allumé » dans
@@ -371,38 +476,38 @@ function ToolsSegment() {
         en sombre, donc le groupement qu'il justifiait était invisible, et ses
         40px de haut débordaient du retrait d'îlot.
       */}
-      <IconButton
+      <ToolbarTool
         aria-label="Ajouter Texte"
         tooltip="Ajouter : texte"
         onClick={() => addLayer(createTextLayer(layerCount(), board()))}
       >
         <Type size={16} strokeWidth={1.75} />
-      </IconButton>
+      </ToolbarTool>
       <DeviceAddTool
         onSelect={(model) => addLayer(createDeviceLayer(model, layerCount(), board()))}
       />
-      <IconButton
+      <ToolbarTool
         aria-label="Ajouter Image"
         tooltip="Ajouter : image…"
         onClick={() => document.getElementById('sf-image-import-input')?.click()}
       >
         <ImageIcon size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
+      </ToolbarTool>
+      <ToolbarTool
         aria-label="Ajouter Forme"
         tooltip="Ajouter : forme"
         onClick={() => addLayer(createShapeLayer(layerCount(), 'rectangle', board()))}
       >
         <Square size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
+      </ToolbarTool>
+      <ToolbarTool
         aria-label="Ajouter Icône"
         tooltip="Ajouter : icône"
         onClick={() => addLayer(createIconLayer(layerCount(), undefined, board()))}
       >
         <Star size={16} strokeWidth={1.75} />
-      </IconButton>
-    </div>
+      </ToolbarTool>
+    </ToolbarGroup>
   )
 }
 
@@ -607,7 +712,7 @@ function usePlanAction(): SecondaryAction | null {
  */
 function BadgeIcon({ children }: { children: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-2xs font-medium">
+    <span className="flex items-center gap-1.5 text-xs font-medium">
       {children !== 'Essai' && (
         <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
       )}
@@ -616,89 +721,23 @@ function BadgeIcon({ children }: { children: string }) {
   )
 }
 
-function useSecondaryActions(): SecondaryAction[] {
-  const account = useAccountAction()
-  const plan = usePlanAction()
+/**
+ * Trois rangs, et non une liste.
+ *
+ * Onze pictogrammes alignés sans respiration se lisaient comme un tiroir : rien
+ * ne disait que « Publier chez Apple » et « Changer de thème » n'ont pas le même
+ * poids. Les libellés ne réglaient pas ça — neuf mots ne tiennent pas sous
+ * 1280px et doubleraient les infobulles — mais l'ordre et les filets, si.
+ *
+ * Composer : ce qui pose des calques sur la planche.
+ */
+function useComposeActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
-  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
-  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
-  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
-  const showPublishDialog = useUIStore((s) => s.showPublishDialog)
-  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
-  const mcpStatus = useMcpStore((s) => s.status)
-  const theme = useUIStore((s) => s.theme)
-  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
-  const isApple = getStoreTargetProfile(target).platform === 'apple'
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return [
-    ...(plan ? [plan] : []),
-    ...(account ? [account] : []),
-    {
-      id: 'refresh',
-      label: 'Actualiser les captures',
-      hint: 'Remplacer le lot de captures',
-      icon: <RefreshCw size={16} strokeWidth={1.75} />,
-      expanded: showRefreshDialog,
-      onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
-    },
-    {
-      id: 'releases',
-      label: 'Ouvrir les releases',
-      hint: 'Lots figés et comparaison',
-      icon: <Package size={16} strokeWidth={1.75} />,
-      expanded: showReleaseDialog,
-      onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
-    },
-    {
-      id: 'campaign',
-      label: 'Générer les visuels de la fiche',
-      hint: 'Captures, brief et style vers des calques éditables',
-      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
-         du marketing, et la génération n'est intelligente que si l'utilisateur
-         a branché un modèle — une baguette la promettait dans tous les cas et
-         se lisait par ailleurs comme une retouche par IA du calque courant. */
-      icon: <Megaphone size={16} strokeWidth={1.75} />,
-      expanded: showCampaignDialog,
-      onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
-    },
-    {
-      id: 'locales',
-      label: 'Ouvrir les langues',
-      hint: 'Variantes de langue et débordements',
-      icon: <Languages size={16} strokeWidth={1.75} />,
-      expanded: showLocaleDialog,
-      onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
-    },
-    ...(isApple
-      ? [
-          {
-            id: 'publish',
-            label: 'Publier chez Apple',
-            hint: 'Preflight, manifeste et commande asc',
-            icon: <CloudUpload size={16} strokeWidth={1.75} />,
-            expanded: showPublishDialog,
-            onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
-          },
-        ]
-      : []),
-    {
-      id: 'mcp',
-      label: 'Connexion MCP',
-      hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
-      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
-         menu, l'icône retombe dans une fente que le menu dimensionne, et une
-         pastille en absolu y déborderait sur le libellé. */
-      icon: (
-        <span className="inline-flex items-center gap-1">
-          <Plug2 size={16} strokeWidth={1.75} />
-          <McpStatusDot status={mcpStatus} />
-        </span>
-      ),
-      expanded: showMcpDialog,
-      onSelect: () => useUIStore.getState().setShowMcpDialog(!showMcpDialog),
-    },
     {
       id: 'templates',
       label: 'Ouvrir les modèles',
@@ -714,6 +753,114 @@ function useSecondaryActions(): SecondaryAction[] {
       icon: <Settings size={16} strokeWidth={1.75} />,
       expanded: showGlobalsEditor,
       onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
+    },
+    ...(analyticsConfigured
+      ? [
+          {
+            id: 'privacy',
+            label: 'Préférences de confidentialité',
+            hint: 'Choisir les analytics et le diagnostic',
+            icon: <ShieldCheck size={16} strokeWidth={1.75} />,
+            expanded: showPrivacyDialog,
+            onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
+          },
+        ]
+      : []),
+    {
+      id: 'campaign',
+      label: 'Générer les visuels de la fiche',
+      hint: 'Captures, brief et style vers des calques éditables',
+      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
+         du marketing, et la génération n'est intelligente que si l'utilisateur
+         a branché un modèle — une baguette la promettait dans tous les cas et
+         se lisait par ailleurs comme une retouche par IA du calque courant. */
+      icon: <Megaphone size={16} strokeWidth={1.75} />,
+      expanded: showCampaignDialog,
+      onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
+    },
+  ]
+}
+
+/** Livrer : ce qui mène un projet relu jusqu'à la fiche du magasin. */
+function useDeliverActions(): SecondaryAction[] {
+  const showRefreshDialog = useUIStore((s) => s.showRefreshDialog)
+  const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
+  const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
+  const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const isApple = getStoreTargetProfile(target).platform === 'apple'
+
+  return [
+    {
+      id: 'refresh',
+      label: 'Actualiser les captures',
+      hint: 'Remplacer le lot de captures',
+      icon: <RefreshCw size={16} strokeWidth={1.75} />,
+      expanded: showRefreshDialog,
+      onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
+    },
+    {
+      id: 'locales',
+      label: 'Ouvrir les langues',
+      hint: 'Variantes de langue et débordements',
+      icon: <Languages size={16} strokeWidth={1.75} />,
+      expanded: showLocaleDialog,
+      onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
+    },
+    {
+      id: 'releases',
+      label: 'Ouvrir les releases',
+      hint: 'Releases figées et comparaison',
+      icon: <Package size={16} strokeWidth={1.75} />,
+      expanded: showReleaseDialog,
+      onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
+    },
+    ...(isApple
+      ? [
+          {
+            id: 'publish',
+            label: 'Publier chez Apple',
+            hint: 'Preflight, manifeste et commande asc',
+            icon: <CloudUpload size={16} strokeWidth={1.75} />,
+            expanded: showPublishDialog,
+            onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+          },
+        ]
+      : []),
+  ]
+}
+
+/**
+ * Utilitaires : ce qu'on ouvre une fois, ou une fois par mois.
+ *
+ * Ils vivent dans le menu « … » à toute largeur. Un thème qu'on choisit une
+ * fois n'a pas à occuper en permanence la place d'une action de livraison.
+ */
+function useUtilityActions(): SecondaryAction[] {
+  const account = useAccountAction()
+  const plan = usePlanAction()
+  const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const mcpStatus = useMcpStore((s) => s.status)
+  const theme = useUIStore((s) => s.theme)
+
+  return [
+    ...(plan ? [plan] : []),
+    ...(account ? [account] : []),
+    {
+      id: 'mcp',
+      label: 'Connexion MCP',
+      hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
+      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
+         menu, l'icône retombe dans une fente que le menu dimensionne, et une
+         pastille en absolu y déborderait sur le libellé. */
+      icon: (
+        <span className="inline-flex items-center gap-1">
+          <Plug2 size={16} strokeWidth={1.75} />
+          <StatusDot tone={MCP_TONE[mcpStatus]} />
+        </span>
+      ),
+      expanded: showMcpDialog,
+      onSelect: () => useUIStore.getState().setShowMcpDialog(!showMcpDialog),
     },
     {
       id: 'theme',
@@ -737,32 +884,59 @@ function useSecondaryActions(): SecondaryAction[] {
   ]
 }
 
-function SecondaryActionsMenu({ actions }: { actions: SecondaryAction[] }) {
+/**
+ * Le menu « … », et les rangs qu'il porte encore repliés.
+ *
+ * Il reçoit des groupes, pas une liste : les filets qui séparent composer de
+ * livrer sur la rangée doivent survivre au repli, sinon le repli défait
+ * précisément la hiérarchie qu'il est censé préserver.
+ */
+function SecondaryActionsMenu({ groups }: { groups: SecondaryAction[][] }) {
   const [open, setOpen] = useState(false)
+  const filled = groups.filter((group) => group.length > 0)
 
   return (
     <Dropdown
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <IconButton
+        <ToolbarTool
           aria-label="Ouvrir les autres actions"
           tooltip="Autres actions"
           active={open}
           aria-expanded={open}
         >
           <MoreHorizontal size={16} strokeWidth={1.75} />
-        </IconButton>
+        </ToolbarTool>
       }
       ariaLabel="Autres actions"
-      items={actions.map((action) => ({
-        id: action.id,
-        label: action.label,
-        icon: action.icon,
-        disabled: action.disabled,
-        onSelect: action.onSelect,
-      }))}
+      items={filled.flatMap((group, index) => [
+        ...(index > 0 ? (['separator'] as const) : []),
+        ...group.map((action) => ({
+          id: action.id,
+          label: action.label,
+          icon: action.icon,
+          disabled: action.disabled,
+          onSelect: action.onSelect,
+        })),
+      ])}
     />
+  )
+}
+
+function RowAction({ action }: { action: SecondaryAction }) {
+  return (
+    <ToolbarTool
+      aria-label={action.label}
+      tooltip={action.hint}
+      active={action.expanded}
+      aria-expanded={action.expanded}
+      aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
+      onClick={action.onSelect}
+      className={action.className}
+    >
+      {action.icon}
+    </ToolbarTool>
   )
 }
 
@@ -775,19 +949,23 @@ function ActionsSegment({
 }) {
   const layersOpen = useUIStore((s) => s.layersOpen)
   const propsOpen = useUIStore((s) => s.propsOpen)
-  const secondary = useSecondaryActions()
+  const compose = useComposeActions()
+  const deliver = useDeliverActions()
+  const utilities = useUtilityActions()
   const tools = useToolActions()
   // Le CTA principal reste, ce sont ses voisins qui cèdent — et les outils
   // repliés arrivent en tête du menu, dans l'ordre de la rangée qu'ils quittent.
   const compact = compactActions || compactTools
-  const actions = compactTools ? [...tools, ...secondary] : secondary
+  const folded = compact
+    ? [...(compactTools ? [tools] : []), compose, deliver, utilities]
+    : [utilities]
 
   return (
-    <div className="flex items-center gap-1 justify-self-end">
+    <ToolbarGroup className="justify-self-end">
       {/* `aria-pressed` sur ce qui bascule, `aria-expanded` sur ce qui ouvre :
           `data-active` ne peint que pour l'œil, il ne dit rien à un lecteur
           d'écran, qui annonçait donc le même bouton dans les deux états. */}
-      <IconButton
+      <ToolbarTool
         aria-label="Basculer le panneau Calques"
         tooltip="Panneau Calques (⌘⇧L)"
         active={layersOpen}
@@ -795,8 +973,8 @@ function ActionsSegment({
         onClick={() => useUIStore.getState().toggleLayers()}
       >
         <PanelLeft size={16} strokeWidth={1.75} />
-      </IconButton>
-      <IconButton
+      </ToolbarTool>
+      <ToolbarTool
         aria-label="Basculer le panneau Propriétés"
         tooltip="Panneau Propriétés (⌘⇧P)"
         active={propsOpen}
@@ -804,51 +982,36 @@ function ActionsSegment({
         onClick={() => useUIStore.getState().toggleProps()}
       >
         <PanelRight size={16} strokeWidth={1.75} />
-      </IconButton>
+      </ToolbarTool>
 
       <Divider />
 
-      {compact ? (
-        <SecondaryActionsMenu actions={actions} />
-      ) : (
-        actions.map((action) =>
-          action.id === 'palette' ? (
-            <IconButton
-              key={action.id}
-              aria-label={action.label}
-              tooltip={action.hint}
-              onClick={action.onSelect}
-            >
-              <Kbd>⌘K</Kbd>
-            </IconButton>
-          ) : (
-            <IconButton
-              key={action.id}
-              aria-label={action.label}
-              tooltip={action.hint}
-              active={action.expanded}
-              aria-expanded={action.expanded}
-              aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
-              onClick={action.onSelect}
-              className={action.className}
-            >
-              {action.icon}
-            </IconButton>
-          ),
-        )
+      {!compact && (
+        <>
+          {compose.map((action) => (
+            <RowAction key={action.id} action={action} />
+          ))}
+          <Divider />
+          {deliver.map((action) => (
+            <RowAction key={action.id} action={action} />
+          ))}
+          <Divider />
+        </>
       )}
 
+      <SecondaryActionsMenu groups={folded} />
+
       <Button
-        variant="primary"
-        size="md"
+        variant="default"
+        size="default"
         aria-label="Ouvrir l’export"
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
-        className="ml-2.5"
+        className="ml-2.5 w-[102px]"
       >
         <Download size={13} strokeWidth={2} aria-hidden />
         Exporter
       </Button>
-    </div>
+    </ToolbarGroup>
   )
 }
 
@@ -867,7 +1030,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <IconButton
+        <ToolbarTool
           aria-label="Ajouter un cadre de téléphone"
           tooltip="Ajouter : cadre de téléphone"
           active={open}
@@ -875,7 +1038,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
         >
           <Smartphone size={16} strokeWidth={1.75} />
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
-        </IconButton>
+        </ToolbarTool>
       }
       ariaLabel="Modèle de téléphone"
       items={models.map((frame) => ({

@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Smartphone } from 'lucide-react'
+import { ImageUp, Search, Smartphone } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { LayerItem } from './LayerItem'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DrawerIsland } from '@/components/patterns/drawer-island'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
 import { createDeviceLayer, layerDisplayName } from '@/lib/layer-factories'
 import { getStoreTargetProfile } from '@/lib/dimensions'
+import { SCREENSHOT_IMAGE_ACCEPT } from '@/lib/image'
+import { copy } from '@/lib/copy'
+import { useUIStore } from '@/stores/ui.store'
 import type { Layer } from '@/types'
 
 type LayerRow = { layer: Layer; ghost: boolean }
@@ -194,6 +200,14 @@ export function LayersPanel() {
     setQuery(event.target.value)
   }, [])
 
+  /* L'entrée du produit, et pas son deuxième geste : la cible arrive avec ses
+     captures de simulateur, pas avec l'envie de poser un cadre vide. Le bouton
+     ne compose rien — il remplit « Générer les visuels », qui sait déjà
+     transformer N captures en N planches complètes. */
+  const capturesInput = useRef<HTMLInputElement>(null)
+
+  const toggleLayers = useUIStore((s) => s.toggleLayers)
+
   const handleAddDevice = useCallback(() => {
     if (!defaultDeviceModel) return
     const { addLayer } = useCanvasStore.getState()
@@ -208,37 +222,29 @@ export function LayersPanel() {
     // défile qu'une fois le plafond du drawer atteint.
     // `aside` et non `div` : c'est un repère de navigation, et le panneau n'en
     // était aucun — la carte du document s'arrêtait à « principal ».
-    <aside
-      aria-labelledby="sf-layers-panel-title"
-      className="island island-flush flex max-h-full min-h-0 flex-col overflow-hidden"
-    >
-      <div className="shrink-0 px-3 pb-2 pt-3">
-        <div className="flex items-center justify-between">
-          <h2 id="sf-layers-panel-title" className="panel-title">
-            Calques
-          </h2>
-          <span className="tabular text-2xs text-muted-foreground">
-            {String(layers.length).padStart(2, '0')}
-          </span>
-        </div>
-        <div className="relative mt-2">
-          <Search
-            size={13}
-            strokeWidth={1.5}
-            aria-hidden
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            font="sans"
+    <DrawerIsland
+      titleId="sf-layers-panel-title"
+      title="Calques"
+      headerExtra={
+        <span className="tabular-nums text-xs text-muted-foreground">{String(layers.length)}</span>
+      }
+      headerBelow={
+        <InputGroup className="mt-2">
+          <InputGroupAddon>
+            <Search className="size-3.5" strokeWidth={1.5} aria-hidden />
+          </InputGroupAddon>
+          <InputGroupInput
+            size="sm"
             value={query}
             onChange={handleQueryChange}
             placeholder="Filtrer…"
             aria-label="Filtrer les calques"
-            className="pl-8"
           />
-        </div>
-      </div>
-
+        </InputGroup>
+      }
+      onClose={toggleLayers}
+      closeLabel="Fermer le panneau Calques"
+    >
       {/* Les états vides vivent hors de la listbox : une listbox n'a que des
           options (et des groupes) pour enfants exposés, pas un paragraphe et
           un bouton d'appel. */}
@@ -246,19 +252,42 @@ export function LayersPanel() {
         <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 pb-2 text-center">
           <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">Écran vide.</p>
-          <p className="max-w-[190px] text-2xs text-muted-foreground">
-            Ajoutez un cadre de téléphone, un texte ou une image depuis la barre d'outils.
+          <p className="max-w-[190px] text-xs text-muted-foreground">
+            Partez de vos captures de simulateur, ou composez à la main.
           </p>
-          <Button variant="default" size="sm" className="mt-2" onClick={handleAddDevice}>
+          <Input
+            unstyled
+            nativeInput
+            ref={capturesInput}
+            type="file"
+            multiple
+            accept={SCREENSHOT_IMAGE_ACCEPT}
+            className="hidden"
+            onChange={(event) => {
+              const chosen = [...(event.target.files ?? [])]
+              event.target.value = ''
+              if (chosen.length > 0) useUIStore.getState().openCampaignWithCaptures(chosen)
+            }}
+          />
+          <Button
+            variant="default"
+            size="sm"
+            className="mt-2"
+            onClick={() => capturesInput.current?.click()}
+          >
+            <ImageUp size={12} aria-hidden />
+            Partir de mes captures…
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleAddDevice}>
             Ajouter un cadre de téléphone
           </Button>
         </div>
       )}
 
       {layers.length > 0 && layerGroups.length === 0 && (
-        <p className="px-2 py-6 text-center text-2xs text-muted-foreground">
-          Aucun calque pour « {query.trim()} »
-        </p>
+        <Empty role="status" className="min-h-32 gap-0 px-6 py-6">
+          <EmptyTitle className="font-normal text-sm">{copy.empty.layersTitle}</EmptyTitle>
+        </Empty>
       )}
 
       {layerGroups.length > 0 && (
@@ -267,51 +296,50 @@ export function LayersPanel() {
           // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
           // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
           className="px-2 pb-2"
-          role="listbox"
-          aria-label="Calques"
-          aria-multiselectable
         >
-          {layerGroups.map((group) => (
-            <div key={group.label} role="group" aria-label={group.label}>
-              {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
+          <div role="listbox" aria-label="Calques" aria-multiselectable>
+            {layerGroups.map((group) => (
+              <div key={group.label} role="group" aria-label={group.label}>
+                {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
                   et un paragraphe n'est pas un enfant de listbox. */}
-              <p aria-hidden className="field-label px-2 pb-2 pt-4">
-                {group.label}
-              </p>
-              {group.rows.map(({ layer, ghost }) =>
-                ghost ? (
-                  /* Fantôme de sortie : hors de l'arbre a11y (`presentation`),
+                <p aria-hidden className="text-xs text-muted-foreground px-2 pb-2 pt-4">
+                  {group.label}
+                </p>
+                {group.rows.map(({ layer, ghost }) =>
+                  ghost ? (
+                    /* Fantôme de sortie : hors de l'arbre a11y (`presentation`),
                      inerte — il ne doit ni se lire, ni se focaliser, ni se
                      tirer. Il sort à la place que la ligne occupait. */
-                  <div
-                    key={`ghost-${layer.id}`}
-                    role="presentation"
-                    aria-hidden
-                    inert
-                    className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
-                  >
-                    <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
-                  </div>
-                ) : (
-                  <LayerItem
-                    key={layer.id}
-                    layer={layer}
-                    isSelected={selectedIds.has(layer.id)}
-                    tabIndex={layer.id === activeFocusId ? 0 : -1}
-                    onSelect={handleSelect}
-                    onSelectExclusive={handleSelectExclusive}
-                    onNavigate={handleNavigate}
-                    onFocusRow={handleFocusRow}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                  />
-                ),
-              )}
-            </div>
-          ))}
+                    <div
+                      key={`ghost-${layer.id}`}
+                      role="presentation"
+                      aria-hidden
+                      inert
+                      className="animate-exit pointer-events-none flex h-8 items-center gap-2 rounded-md px-2 text-muted-foreground"
+                    >
+                      <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
+                    </div>
+                  ) : (
+                    <LayerItem
+                      key={layer.id}
+                      layer={layer}
+                      isSelected={selectedIds.has(layer.id)}
+                      tabIndex={layer.id === activeFocusId ? 0 : -1}
+                      onSelect={handleSelect}
+                      onSelectExclusive={handleSelectExclusive}
+                      onNavigate={handleNavigate}
+                      onFocusRow={handleFocusRow}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                    />
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
         </ScrollArea>
       )}
-    </aside>
+    </DrawerIsland>
   )
 }

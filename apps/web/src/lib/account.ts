@@ -1,5 +1,6 @@
 import { connect } from '@/lib/cloud'
 import { cloudConfigured, errorCode } from '@/lib/convex'
+import { captureAnalytics } from '@/lib/analytics'
 
 /**
  * Les trois gestes qui engagent le compte : acheter, gérer son abonnement,
@@ -46,6 +47,7 @@ export async function createCheckout(product: 'cloud'): Promise<CheckoutOutcome>
   try {
     const { client, api } = await connected
     const { url } = await client.action(api.polar.createCheckout, { product })
+    captureAnalytics('screenforge_checkout_started', { provider: 'polar' })
     return { ok: true, url }
   } catch (error) {
     return CHECKOUT_REFUSALS[errorCode(error) ?? ''] ?? { ok: false, reason: 'failed' }

@@ -47,7 +47,7 @@ import {
 } from '../../backend/tests/stack'
 import { JWT_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '../src/lib/session-keys'
 import { makeSolidPng } from './device-bezel-fixture'
-import { waitForApp } from './helpers'
+import { openUtility, utilitiesTrigger, waitForApp } from './helpers'
 
 const REQUIRE_CLOUD = process.env.SCREENFORGE_REQUIRE_CLOUD === '1'
 const stack = localConvex()
@@ -151,15 +151,21 @@ const DURABILITY_WARNING = 'n’a pas garanti de les conserver'
  * rend zéro et fait sauter le test au lieu de l'exécuter. Un saut est
  * silencieux — c'est exactement la panne qu'on ne verrait pas.
  */
-function accountEntryPresent(page: Page): Promise<boolean> {
-  return page
-    .getByRole('button', { name: accountButton })
+async function accountEntryPresent(page: Page): Promise<boolean> {
+  /* L'entrée de compte est descendue dans le menu « … » avec les autres
+     utilitaires : fermée, elle n'est pas dans le DOM, et la chercher sur la
+     rangée conclurait « pas de Cloud configuré » sur une build qui en a un. */
+  await utilitiesTrigger(page).click()
+  const present = await page
+    .getByRole('menuitem', { name: accountButton })
     .first()
     .waitFor({ state: 'attached', timeout: 10_000 })
     .then(
       () => true,
       () => false,
     )
+  await page.keyboard.press('Escape')
+  return present
 }
 
 async function requireAccountEntry(page: Page): Promise<void> {
@@ -266,8 +272,10 @@ test.describe('Sync cloud', () => {
     page,
   }) => {
     await waitForApp(page)
-    const opener = page.getByRole('button', { name: 'Se connecter' })
-    await opener.click()
+    /* L'appelant est le bouton « … » : l'entrée qu'on a cliquée disparaît avec
+       le menu, donc c'est à lui que la boîte doit rendre le focus. */
+    const opener = utilitiesTrigger(page)
+    await openUtility(page, 'Se connecter')
 
     const dialog = page.getByRole('dialog', { name: 'Connexion à ScreenForge' })
     await expect(dialog.getByRole('button', { name: 'Continuer avec Google' })).toBeVisible()
@@ -512,6 +520,22 @@ test.describe('Sync cloud', () => {
         }),
       )
       .toEqual({ fontSize: 64, locale: 'fr', release: 'Release de preuve', layout: 'shape' })
+
+    const renamed = `${marker} renommé`
+    await a.bringToFront()
+    await projectName(a).fill(renamed)
+    await projectName(a).press('Enter')
+    await expect
+      .poll(async () => Boolean(await remoteRow(session, renamed)), { timeout: 10_000 })
+      .toBe(true)
+
+    await b.bringToFront()
+    /* Deux contextes Playwright restent tous deux « visibles » en headless et
+       `bringToFront` n'émet donc pas le focus qu'un vrai changement de fenêtre
+       produit. Déclencher cet événement teste précisément le point d'entrée
+       navigateur sans exposer une fonction de debug dans le produit. */
+    await b.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(projectName(b)).toHaveValue(renamed, { timeout: 30_000 })
 
     await a.context().close()
     await b.context().close()
@@ -1210,7 +1234,7 @@ test.describe('Porte Cloud côté client', () => {
       .poll(() => page.evaluate(() => window.__sfStores?.useAuthStore.getState().entitlements))
       .toMatchObject({ cloud: true })
 
-    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await openUtility(page, 'Mon compte')
     const dialog = page.getByRole('dialog', { name: 'Compte' })
     await expect(dialog.getByText('Cloud', { exact: true })).toBeVisible()
     await expect(dialog.getByText(/synchronisation et stockage managés/)).toBeVisible()
@@ -1239,7 +1263,7 @@ test.describe('Porte Cloud côté client', () => {
     await projectName(page).press('Enter')
     await expect.poll(async () => Boolean(await remoteRow(own, marker))).toBe(true)
 
-    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await openUtility(page, 'Mon compte')
     const account = page.getByRole('dialog', { name: 'Compte' })
     await expect(account.getByText('Utilisation Cloud')).toBeVisible()
     await expect(account.getByText(/1\/100/)).toBeVisible()
@@ -1296,7 +1320,7 @@ test.describe('Porte Cloud côté client', () => {
     await projectName(page).press('Enter')
     await expect.poll(async () => Boolean(await remoteRow(own, marker))).toBe(true)
 
-    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await openUtility(page, 'Mon compte')
     const account = page.getByRole('dialog', { name: 'Compte' })
     await expect(account.getByText('Cloud', { exact: true })).toBeVisible()
     await expect(account.getByRole('button', { name: 'Factures et paiement' })).toHaveCount(0)
@@ -1355,7 +1379,7 @@ test.describe('Porte Cloud côté client', () => {
     const durable = await page.evaluate(() => navigator.storage.persist())
     expect(durable, 'Chromium a accordé la durabilité à un profil neuf').toBe(false)
 
-    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await openUtility(page, 'Mon compte')
     const dialog = page.getByRole('dialog', { name: 'Compte' })
     await expect(dialog.getByText('Local', { exact: true })).toBeVisible()
     await expect(dialog.getByText(/Gratuit · exports propres et ZIP illimités/)).toBeVisible()
@@ -1380,12 +1404,14 @@ test.describe('Porte Cloud côté client', () => {
       .poll(async () => Boolean(await remoteRow(own, marker)), { timeout: 15_000 })
       .toBe(true)
 
-    await page.getByRole('button', { name: 'Mon compte' }).first().click()
+    await openUtility(page, 'Mon compte')
     /* Le Cloud garde une copie ailleurs : il n'y a rien à signaler, quoi que le
        navigateur ait répondu sur sa propre durabilité. */
     await expect(page.getByText(DURABILITY_WARNING)).toBeHidden()
     await page.getByRole('button', { name: 'Se déconnecter' }).click()
-    await expect(page.getByRole('button', { name: 'Se connecter' }).first()).toBeVisible()
+    await utilitiesTrigger(page).click()
+    await expect(page.getByRole('menuitem', { name: 'Se connecter' })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     /* Enregistrées après la déconnexion seulement : ce qui est promis porte sur
        la suite, pas sur le cycle qui vient de se terminer. */

@@ -19,8 +19,13 @@ test('keeps an editable memory project when IndexedDB is unavailable', async ({ 
   await expect(
     page.getByRole('status').filter({ hasText: 'Échec de l’enregistrement' }),
   ).toBeVisible()
-  const warning = page.getByRole('alert').filter({ hasText: 'Stockage local indisponible' })
+  // NoticeStrip : `role="status"`, jamais `alert` — elle tient tant que la
+  // panne dure, elle n'a rien à couper à un lecteur d'écran déjà en page.
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: 'Le stockage local est indisponible.' })
   await expect(warning).toBeVisible()
+  await expect(warning.getByRole('button', { name: 'Réessayer' })).toBeVisible()
 
   await addTextLayer(page)
   await page.clock.fastForward(5_000)
@@ -52,5 +57,8 @@ test('announces a delayed lazy dialog before replacing it with the focused dialo
   release()
   const dialog = page.getByRole('dialog', { name: 'Export officiel' })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toBeFocused()
+  // Base UI pose le focus sur le premier contrôle de la boîte, pas sur elle.
+  await expect
+    .poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))))
+    .toBe(true)
 })

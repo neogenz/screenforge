@@ -17,7 +17,7 @@ Cette checklist ne contient volontairement ni valeur d’environnement, ni ident
 - [ ] Acheter le domaine retenu, vérifier sa propriété et choisir une origine HTTPS canonique unique.
 - [ ] Attacher le domaine au projet Vercel, configurer les redirections canoniques et vérifier les headers de sécurité sur l’origine finale.
 - [ ] Vérifier le domaine Resend avec SPF et DKIM, publier DMARC, choisir l’adresse d’envoi finale et tester délivrabilité, alignement et rebonds.
-- [ ] Configurer les callbacks GitHub et Google exclusivement vers le déploiement Convex production et l’origine finale.
+- [ ] Créer les clients GitHub et Google de production, configurer exclusivement leurs callbacks Convex production et l’origine finale, puis publier Google après ajout des pages légales sur le domaine vérifié.
 - [ ] Configurer Convex production avec les valeurs exactes de site, CORS, checkout, Auth, Resend, Polar et anti-abus; laisser absents le mot de passe de test et la règle Preview.
 - [ ] Programmer les sauvegardes Convex, poser des limites d’usage/coût et vérifier la procédure documentée de restauration et de révocation des clés.
 - [ ] Terminer KYC et compte bancaire Polar, puis créer un unique produit Cloud production distinct du Sandbox avec son token et son webhook signé.

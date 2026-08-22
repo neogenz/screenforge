@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   addDeviceLayer,
   addScreen,
@@ -13,6 +13,7 @@ import {
   THUMBNAIL_SLOT,
   THUMBNAIL_WIDTH,
 } from '../src/lib/stage'
+import { makeSolidPng } from './device-bezel-fixture'
 
 test.describe('smoke', () => {
   test('app loads and project name is editable', async ({ page }) => {
@@ -51,6 +52,7 @@ test.describe('smoke', () => {
     // Delete the duplicate.
     await page.locator('button[aria-label^="Activer"]').nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer l’écran' }).click()
     await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(2)
   })
 
@@ -260,6 +262,74 @@ test.describe('smoke', () => {
     ).toHaveAttribute('aria-pressed', 'true')
   })
 
+  /**
+   * Le premier geste de la cible : ses captures, pas un cadre vide.
+   *
+   * Le parcours entier, du projet neuf aux planches composées, sans passer par
+   * la barre haute : l'écran vide ouvre le sélecteur, la boîte s'ouvre déjà
+   * remplie, et rien n'est écrit au projet avant « Ajouter ».
+   */
+  test('l’écran vide part des captures et compose la campagne', async ({ page }) => {
+    await waitForApp(page)
+    const before = await screenCount(page)
+
+    await page
+      .locator('aside input[type="file"]')
+      .setInputFiles([1, 2, 3].map((rank) => capture(`Écran ${String(rank)}`, rank)))
+
+    const dialog = page.getByRole('dialog', {
+      name: 'Générer les visuels · App Store · iPhone',
+    })
+    await expect(dialog).toBeVisible()
+    // Les trois captures sont déjà là, et le nombre de visuels les suit.
+    await expect(page.getByRole('button', { name: '3 captures' })).toBeVisible()
+    await expect(page.getByLabel('Combien de visuels')).toHaveText(/Visuels\s*3$/)
+
+    await page.getByLabel('Nom de l’app').fill('Cadence')
+    await page.getByRole('button', { name: 'Proposer 3 visuels' }).click()
+    await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
+    // Rien n'est encore au projet : le plan est libre jusqu'au dernier clic.
+    expect(await screenCount(page)).toBe(before)
+
+    await page.getByRole('button', { name: 'Ajouter 3 visuels' }).click()
+    await expect(dialog).toBeHidden()
+
+    // Trois planches de plus, chacune portant sa capture sur son appareil.
+    expect(await screenCount(page)).toBe(before + 3)
+    expect(await capturedDevices(page)).toBe(3)
+
+    // Et le lot entier vaut un seul pas d'annulation.
+    await page.keyboard.press('Meta+z')
+    await expect.poll(() => screenCount(page)).toBe(before)
+  })
+
+  /**
+   * Le même dépôt, mais lâché sur la scène.
+   *
+   * Ce que ça doit prouver tient en deux choses : l'onglet ne navigue jamais
+   * vers le PNG, et un fichier qui n'est pas une capture ne déclenche rien.
+   */
+  test('déposer des captures sur la scène ouvre la même boîte, un .txt non', async ({ page }) => {
+    await waitForApp(page)
+    const stage = page.locator('.stage-grain')
+    const png = (rank: number) => [...makeSolidPng(300, 600, [34 + rank * 60, 197, 94, 255])]
+    const dialog = page.getByRole('dialog', {
+      name: 'Générer les visuels · App Store · iPhone',
+    })
+
+    await dropFiles(page, [{ name: 'notes.txt', type: 'text/plain', bytes: [110, 111] }])
+    await expect(dialog).toBeHidden()
+
+    await dropFiles(page, [
+      { name: 'Accueil.png', type: 'image/png', bytes: png(1) },
+      { name: 'Réglages.png', type: 'image/png', bytes: png(2) },
+    ])
+    await expect(dialog).toBeVisible()
+    await expect(page.getByRole('button', { name: '2 captures' })).toBeVisible()
+    await expect(stage).toBeVisible()
+    expect(new URL(page.url()).pathname).toBe('/')
+  })
+
   test('export dialog opens with App Store dimensions', async ({ page }) => {
     await waitForApp(page)
     await page.locator('button[aria-label="Ouvrir l’export"]').click()
@@ -267,3 +337,58 @@ test.describe('smoke', () => {
     await page.keyboard.press('Escape')
   })
 })
+
+/**
+ * Une capture de simulateur plausible : une couleur pleine, un nom de fichier.
+ *
+ * La teinte suit le rang, et ce n'est pas décoratif : le registre d'assets
+ * déduplique par empreinte, donc deux captures identiques n'en feraient qu'une
+ * — un lot de trois écrans distincts ne serait plus prouvé.
+ */
+function capture(name: string, rank: number) {
+  return {
+    name: `${name}.png`,
+    mimeType: 'image/png',
+    buffer: makeSolidPng(300, 600, [34 + rank * 60, 197, 94, 255]),
+  }
+}
+
+function screenCount(page: Page): Promise<number> {
+  return page.evaluate(
+    () => window.__sfStores?.useProjectStore.getState().project?.screens.length ?? 0,
+  )
+}
+
+/** Les appareils qui portent réellement une capture, et pas seulement un châssis. */
+function capturedDevices(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      (window.__sfStores?.useProjectStore.getState().project?.screens ?? []).filter((screen) =>
+        screen.layers.some(
+          (layer) =>
+            layer.type === 'device-frame' &&
+            typeof (layer as { screenshotAssetId?: string }).screenshotAssetId === 'string',
+        ),
+      ).length,
+  )
+}
+
+/**
+ * Un dépôt de fichiers sur la scène, monté dans la page.
+ *
+ * Playwright ne sait pas fabriquer de `DataTransfer` côté Node : il est
+ * construit dans le document, rempli, puis passé à l'événement.
+ */
+async function dropFiles(
+  page: Page,
+  files: { name: string; type: string; bytes: number[] }[],
+): Promise<void> {
+  const transfer = await page.evaluateHandle((entries) => {
+    const data = new DataTransfer()
+    for (const entry of entries) {
+      data.items.add(new File([new Uint8Array(entry.bytes)], entry.name, { type: entry.type }))
+    }
+    return data
+  }, files)
+  await page.dispatchEvent('.stage-grain', 'drop', { dataTransfer: transfer })
+}

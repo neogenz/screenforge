@@ -161,6 +161,14 @@ test.describe('filmstrip selection', () => {
     await expect(page.getByRole('menuitem', { name: 'Renommer' })).toBeVisible()
 
     await page.getByRole('menuitem', { name: 'Supprimer 2 écrans' }).click()
+    // La confirmation redit la quantité ; Annuler ne touche à rien.
+    const confirm = page.getByRole('alertdialog', { name: 'Supprimer 2 écrans ?' })
+    await confirm.getByRole('button', { name: 'Annuler' }).click()
+    await expect(confirm).toBeHidden()
+    expect(await screenNames(page)).toEqual(['Écran 1', 'Écran 2', 'Écran 3'])
+    await tile(page, 'Écran 3').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Supprimer 2 écrans' }).click()
+    await confirm.getByRole('button', { name: 'Supprimer 2 écrans' }).click()
     expect(await screenNames(page)).toEqual(['Écran 2'])
 
     // Un geste, un pas d'annulation — pas deux suppressions à défaire.

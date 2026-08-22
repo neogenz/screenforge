@@ -31,6 +31,7 @@ import {
   DEMO_TILES,
   EMPTY_SCENE,
   FINAL_SCENE,
+  NAV_HEIGHT,
   FRAME_COLORS,
   LEGIBLE_TEXT_COLOR,
   TEXT_COLORS,
@@ -212,7 +213,13 @@ export function DemoEditor() {
   const { t } = useLang()
   const typed = t.demo.typed
 
-  const [rawScene, setScene] = useState<DemoSceneState>(EMPTY_SCENE)
+  /* Le premier état est la planche finie, pas le plan de travail vide. Le HTML
+     prérendu sert donc la composition, et le visiteur qui arrive au-dessus de
+     la démo voit ce que le produit fabrique plutôt que l'image qui ne vend
+     rien. La construction depuis zéro reste l'histoire du produit : elle se
+     joue dès que la démo est réellement regardée, précédée d'un fondu. */
+  const [rawScene, setScene] = useState<DemoSceneState>(FINAL_SCENE)
+  const [resetting, setResetting] = useState(false)
   const [touched, setTouched] = useState(false)
   const [cursor, setCursor] = useState<CursorPose>({ x: 0, y: 0, down: false, ms: 0 })
   const [cursorOn, setCursorOn] = useState(false)
@@ -224,6 +231,14 @@ export function DemoEditor() {
   const cursorAt = useRef({ x: 0, y: 0 })
   const dragLayer = useRef<DemoLayerId | null>(null)
   const exportTimeout = useRef<number | undefined>(undefined)
+  /* La construction ne vaut qu'une fois par visite. Chaque retour dans le champ
+     rejouait `build()` depuis la planche vide : sortir de la section et y
+     revenir effaçait la composition qu'on venait de regarder se monter.
+     Trois états et pas un booléen, parce qu'une construction interrompue en
+     plein milieu laisse une planche à moitié montée — le retour la referme sur
+     son résultat plutôt que de reprendre les réglages sur un chantier. */
+  const buildState = useRef<'todo' | 'running' | 'done'>('todo')
+  const editStep = useRef(0)
 
   useEffect(
     () => () => {
@@ -248,12 +263,23 @@ export function DemoEditor() {
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    /* 0.7, pas 0.3 : sur un portable en 1440×900 le tiers haut de la démo
-       affleure sous le pli dès l'arrivée, et tout le premier cycle — le cadre
-       qui tombe, le texte qui se tape, l'export — se jouait hors écran. Le
-       visiteur rejoignait la performance en cours de route. */
+    /* La moitié, mesurée sous la barre et pas contre la fenêtre entière : un
+       seuil compté sur le viewport traite comme visibles les 72 px que la
+       barre fixe recouvre, donc il se déclenche pendant qu'on ne voit rien.
+       `rootMargin` les retranche.
+
+       0.7 sans marge obligeait à défiler bien après l'arrivée de la section.
+       Mesuré, position de défilement au premier mouvement du curseur et part
+       de la démo réellement sous la barre à cet instant : 1440×900, 360 px et
+       77 % contre 220 px et 57 % ; 1280×720, 540 px et 77 % contre 400 px et
+       58 % ; 390×844, 200 px et 80 % contre 120 px et 62 %.
+
+       Pas plus bas que 0.5 : l'état initial composé fait qu'une démo hors
+       champ ne montre plus une planche vide, mais le fondu de remise à zéro,
+       lui, ne doit pas se jouer pour personne. */
     const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
-      threshold: 0.7,
+      threshold: 0.5,
+      rootMargin: `-${String(NAV_HEIGHT)}px 0px 0px 0px`,
     })
     io.observe(el)
     return () => io.disconnect()
@@ -335,7 +361,15 @@ export function DemoEditor() {
     /* Premier tour : la planche se construit à partir de rien. C'est l'histoire
        du produit, et elle ne vaut qu'une fois. */
     const build = async () => {
+      /* Le fondu couvre le passage de la planche finie à la planche vide : sans
+         lui, la démo se met à jouer en effaçant d'un coup ce que le visiteur
+         venait de voir. 250 ms, coupé sous `prefers-reduced-motion` — où la
+         boucle ne joue de toute façon pas. */
+      setResetting(true)
+      await sleep(250)
+      if (cancelled) return
       setScene(EMPTY_SCENE)
+      setResetting(false)
       setCursorOn(true)
       await moveTo('stage')
       await sleep(500)
@@ -437,16 +471,23 @@ export function DemoEditor() {
     }
 
     const run = async () => {
-      await build()
-      let step = 0
+      if (buildState.current === 'todo') {
+        buildState.current = 'running'
+        await build()
+        if (cancelled) return
+        buildState.current = 'done'
+      } else if (buildState.current === 'running') {
+        setScene(FINAL_SCENE)
+        buildState.current = 'done'
+      }
       while (!cancelled) {
         /* Le temps de repos sur la planche finie. C'est l'image que la page
            doit laisser, donc c'est elle qui dure le plus longtemps. */
         await sleep(4200)
         if (cancelled) return
         setScene((s) => ({ ...s, exportState: 'idle' }))
-        await editPass(step)
-        step += 1
+        await editPass(editStep.current)
+        editStep.current += 1
       }
     }
     void run()
@@ -613,7 +654,8 @@ export function DemoEditor() {
           la rangée leur laisse cette ligne plutôt que de les recevoir sur les
           titres des voisines. */}
       <div
-        className="absolute inset-x-3 top-20 bottom-18 flex items-start justify-center gap-4 pb-7 md:inset-x-49 md:top-14 md:bottom-21"
+        className="demo-boards absolute inset-x-3 top-20 bottom-18 flex items-start justify-center gap-4 pb-7 md:inset-x-49 md:top-14 md:bottom-21"
+        data-resetting={resetting ? '' : undefined}
         style={{ containerType: 'size', '--demo-board-ratio': BOARD_RATIO } as CSSProperties}
       >
         <div className="demo-board relative shrink-0">
@@ -890,14 +932,22 @@ export function DemoEditor() {
               return
             }
             if (exportTimeout.current) window.clearTimeout(exportTimeout.current)
+            /* Rejouer reconstruit depuis zéro : c'est ce que le libellé promet.
+               La planche n'est pas vidée ici — `build()` s'en charge derrière
+               son fondu, sinon le fondu partirait d'un écran déjà noir. */
+            buildState.current = 'todo'
+            editStep.current = 0
             setTouched(false)
-            setScene(EMPTY_SCENE)
             setAutoplay(true)
           }}
-          className="flex h-6 items-center gap-1 rounded-sm bg-card px-2 text-[10px] text-muted-foreground shadow-md transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          /* 32 px et un corps de 12, avec la zone de frappe de 44 que le
+             reste de l'app se donne : c'est la seule commande de la démo, et
+             elle mesurait 24 px de haut pour 10 px de texte. Sous `md` les
+             tiroirs sont repliés, donc rien à recouvrir sur sa ligne. */
+          className="hit-44 flex h-8 items-center gap-1 rounded-sm bg-card px-3 text-xs text-muted-foreground shadow-md transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           {playing ? null : (
-            <RotateCcw aria-hidden className="size-3 shrink-0" strokeWidth={1.75} />
+            <RotateCcw aria-hidden className="size-3.5 shrink-0" strokeWidth={1.75} />
           )}
           {playing ? t.demo.hint : t.demo.replay}
         </button>

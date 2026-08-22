@@ -70,7 +70,7 @@ function publishDialog(page: Page) {
 
 async function freeze(page: Page, name: string) {
   await page.getByRole('button', { name: 'Ouvrir les releases' }).click()
-  await page.getByLabel('Nom du lot').fill(name)
+  await page.getByLabel('Nom de la release').fill(name)
   await page.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(new RegExp(`Release « ${name} » figée`))).toBeVisible({
     timeout: 30_000,

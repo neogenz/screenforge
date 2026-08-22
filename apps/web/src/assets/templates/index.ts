@@ -98,7 +98,7 @@ const IPHONE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
     target: 'app-store-iphone',
-    name: 'Hero',
+    name: 'Plein cadre',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
     layers: [
@@ -141,7 +141,7 @@ const IPHONE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'feature',
     target: 'app-store-iphone',
-    name: 'Feature',
+    name: 'Fonctionnalité',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
     layers: [
@@ -184,7 +184,7 @@ const IPHONE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'side-by-side',
     target: 'app-store-iphone',
-    name: 'Side by Side',
+    name: 'Côte à côte',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
       type: 'linear-gradient',
@@ -229,7 +229,7 @@ const IPHONE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'full-bleed',
     target: 'app-store-iphone',
-    name: 'Full Bleed',
+    name: 'Image pleine',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
     layers: [

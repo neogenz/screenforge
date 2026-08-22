@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
-import { Field } from '@/components/ui/field'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { signInWithEmail, signInWithProvider, type OAuthProvider } from '@/lib/auth'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -41,6 +42,8 @@ function AuthDialogContent() {
    */
   const [pending, setPending] = useState<OAuthProvider | 'email' | null>(null)
   const [sentTo, setSentTo] = useState<string | null>(null)
+  /** L'e-mail est le seul champ de l'app qui peut échouer — les autres clampent. */
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   function handleClose() {
     setShowAuthDialog(false)
@@ -61,24 +64,33 @@ function AuthDialogContent() {
     event.preventDefault()
     const address = email.trim()
     if (!address) return
+    setEmailError(null)
     setPending('email')
     const { error } = await signInWithEmail(address)
     setPending(null)
     if (error) {
-      toast(error.message, 'error')
+      setEmailError(error.message)
       return
     }
     setSentTo(address)
   }
 
   return (
-    <Dialog open onClose={handleClose} title="Connexion à ScreenForge" size="sm">
+    <DialogShell open onClose={handleClose} title="Connexion à ScreenForge" size="sm">
       <div className="flex flex-col gap-4">
+        {/* Ce que le compte ouvre, dit avant qu'on choisisse comment se
+            connecter : le produit promet « local est complet », et la boîte qui
+            demande un compte est précisément l'endroit où cette promesse se
+            vérifie ou se perd. */}
+        <p className="text-xs text-muted-foreground">
+          Un compte sert uniquement à Cloud : synchroniser vos projets sur plusieurs machines.
+          L’éditeur et l’export n’en ont pas besoin.
+        </p>
         <div className="flex flex-col gap-2">
           {PROVIDERS.map((provider, index) => (
             <Button
               key={provider.id}
-              variant="default"
+              variant="outline"
               className="w-full"
               data-autofocus={index === 0 || undefined}
               loading={pending === provider.id}
@@ -91,31 +103,34 @@ function AuthDialogContent() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div aria-hidden className="hairline flex-1" />
-          <span className="field-label">ou</span>
-          <div aria-hidden className="hairline flex-1" />
+          <Separator aria-hidden className="flex-1" />
+          <span className="text-xs text-muted-foreground">ou</span>
+          <Separator aria-hidden className="flex-1" />
         </div>
 
         {/* Un vrai `form` : la touche Entrée dans le champ doit envoyer le lien,
             et c'est le navigateur qui le fait gratuitement. */}
         <form className="flex flex-col gap-2" onSubmit={(event) => void handleEmail(event)}>
-          <Field id={EMAIL_FIELD_ID} label="Adresse e-mail">
+          <Field className="gap-1.5" invalid={Boolean(emailError)}>
+            <FieldLabel htmlFor={EMAIL_FIELD_ID}>Adresse e-mail</FieldLabel>
             <Input
               id={EMAIL_FIELD_ID}
               type="email"
-              font="sans"
               autoComplete="email"
               placeholder="vous@exemple.com"
               value={email}
+              aria-invalid={Boolean(emailError)}
               onChange={(event) => {
                 setEmail(event.target.value)
                 setSentTo(null)
+                setEmailError(null)
               }}
             />
+            {emailError && <FieldError match>{emailError}</FieldError>}
           </Field>
           <Button
             type="submit"
-            variant="primary"
+            variant="default"
             className="w-full"
             loading={pending === 'email'}
             disabled={pending !== null || email.trim().length === 0}
@@ -125,15 +140,17 @@ function AuthDialogContent() {
         </form>
 
         {sentTo && (
-          <p role="status" className="field-label text-foreground">
+          <p role="status" className="text-xs text-muted-foreground text-foreground">
             Lien envoyé à {sentTo}. Ouvre-le depuis ce navigateur pour terminer la connexion.
           </p>
         )}
 
         {/* Le compte est optionnel, et cette phrase est la seule chose qui le
             dit à qui vient d'ouvrir la dialog par curiosité. */}
-        <p className="field-label">Sans compte, tout reste local à ce navigateur.</p>
+        <p className="text-xs text-muted-foreground">
+          Sans compte, tout reste local à ce navigateur.
+        </p>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

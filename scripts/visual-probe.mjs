@@ -1,9 +1,10 @@
 /**
  * Sonde visuelle : les états Apple et Android qui se jugent à l'œil.
  *
- * Vide et peuplé, sombre et clair, en densité 2. Chaque état repart d'un
- * contexte neuf : sans quoi la passe « vide » hérite du projet de la passe
- * précédente et ne montre plus rien de ce qu'elle est censée montrer.
+ * Vide, peuplé, dialog Export ouvert, menu ouvert, planche sans écran —
+ * sombre et clair, en densité 2. Chaque état repart d'un contexte neuf : sans
+ * quoi la passe « vide » hérite du projet de la passe précédente et ne montre
+ * plus rien de ce qu'elle est censée montrer.
  */
 import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
@@ -12,16 +13,68 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:5173'
 const outputDir = process.env.OUT_DIR ?? '/tmp/screenforge-probe'
 mkdirSync(outputDir, { recursive: true })
 
-const browser = await chromium.launch()
-const states = [
-  { id: 'vide', target: 'app-store-iphone', populated: false },
-  { id: 'peuple', target: 'app-store-iphone', populated: true },
-  { id: 'android-vide', target: 'google-play-phone', populated: false },
-  { id: 'android-peuple', target: 'google-play-phone', populated: true },
+/**
+ * Un cadre de téléphone + un texte : le décor commun à peuplé et export.
+ * @param {import('@playwright/test').Page} page
+ */
+async function populate(page) {
+  await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
+  await page.click('[role="menu"] [role="menuitem"] >> nth=0')
+  await page.waitForTimeout(500)
+  await page.click('button[aria-label="Ajouter Texte"]')
+  await page.waitForTimeout(900)
+}
+
+/**
+ * @type {{ name: string; target: 'app-store-iphone' | 'google-play-phone'; setup: (page: import('@playwright/test').Page) => Promise<void> }[]}
+ */
+const STATES = [
+  { name: 'vide', target: 'app-store-iphone', setup: async () => {} },
+  { name: 'peuple', target: 'app-store-iphone', setup: populate },
+  {
+    name: 'export',
+    target: 'app-store-iphone',
+    setup: async (page) => {
+      await populate(page)
+      await page.click('button[aria-label="Ouvrir l’export"]')
+      await page.waitForSelector('[role="dialog"]')
+      await page.waitForTimeout(500)
+    },
+  },
+  {
+    name: 'menu',
+    target: 'app-store-iphone',
+    setup: async (page) => {
+      // Ouvert, sans sélectionner d'item : c'est le popup lui-même qu'on juge.
+      await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
+      await page.waitForSelector('[role="menu"]')
+      await page.waitForTimeout(300)
+    },
+  },
+  {
+    name: 'planche-vide',
+    target: 'app-store-iphone',
+    setup: async (page) => {
+      // `screens.length === 0` n'arrive jamais par l'UI (`removeScreen` le
+      // refuse) — forcé via le store de debug, comme `empty-state.spec.ts`.
+      await page.evaluate(() => {
+        const store = window.__sfStores?.useProjectStore
+        const project = store?.getState().project
+        if (!project) throw new Error('Aucun projet à vider')
+        store.setState({ project: { ...project, screens: [], activeScreenId: '' } })
+      })
+      await page.waitForSelector('[role="status"]')
+      await page.waitForTimeout(300)
+    },
+  },
+  { name: 'android-vide', target: 'google-play-phone', setup: async () => {} },
+  { name: 'android-peuple', target: 'google-play-phone', setup: populate },
 ]
 
+const browser = await chromium.launch()
+
 for (const theme of ['dark', 'light']) {
-  for (const state of states) {
+  for (const { name, target, setup } of STATES) {
     // Contexte neuf à chaque capture : localStorage et IndexedDB repartent à zéro.
     const context = await browser.newContext({
       viewport: { width: 1600, height: 1000 },
@@ -56,7 +109,7 @@ for (const theme of ['dark', 'light']) {
       )
     })
 
-    if (state.target === 'google-play-phone') {
+    if (target === 'google-play-phone') {
       await page.evaluate(() =>
         window.__sfStores?.useProjectStore
           .getState()
@@ -75,20 +128,9 @@ for (const theme of ['dark', 'light']) {
       })
     }
 
-    if (state.populated) {
-      await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
-      await page.click('[role="menu"] [role="menuitem"] >> nth=0')
-      await page.waitForTimeout(500)
-      await page.click('button[aria-label="Ajouter Texte"]')
-      await page.waitForFunction(() => {
-        const objects = /** @type {Array<{data?: {layerId?: string}}>} */ (
-          window.__sfCanvas?.getObjects() ?? []
-        )
-        return objects.filter((object) => object.data?.layerId).length === 2
-      })
-    }
+    await setup(page)
 
-    const path = `${outputDir}/${theme}-${state.id}.png`
+    const path = `${outputDir}/${theme}-${name}.png`
     await page.screenshot({ path })
     console.log(path)
     await context.close()

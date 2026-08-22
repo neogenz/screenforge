@@ -4,12 +4,11 @@ import { BrandWordmark } from './BrandWordmark'
 import { LangLink } from './LangLink'
 
 /*
- * Ni « Confidentialité » ni « Conditions » ici : ces deux entrées étaient des
- * `<span>` inertes, c'est-à-dire des liens morts déguisés. Elles reviendront en
- * même temps que le paiement, avec de vraies pages derrière. Le contact revient
- * avec le domaine vérifié : annoncer une adresse non possédée serait trompeur.
+ * Contact via les issues : ne dépend pas du domaine vérifié. Le libellé dit ce
+ * que le lien fait (« Signaler un problème ») plutôt que de promettre une
+ * adresse que personne ne possède encore.
  */
-export function Footer() {
+export function Footer({ onPrivacyPreferences }: { onPrivacyPreferences: () => void }) {
   const { t, lang } = useLang()
   return (
     <footer className="px-5 py-10 md:px-10">
@@ -23,6 +22,31 @@ export function Footer() {
         >
           {t.footer.source}
         </a>
+        <a
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href={LINKS.contact}
+        >
+          {t.footer.contact}
+        </a>
+        <a
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href="/privacy.html"
+        >
+          {t.footer.privacy}
+        </a>
+        <a
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href="/terms.html"
+        >
+          {t.footer.terms}
+        </a>
+        <button
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          type="button"
+          onClick={onPrivacyPreferences}
+        >
+          {t.footer.preferences}
+        </button>
         <LangLink code={lang === 'en' ? 'fr' : 'en'} />
         <span className="ml-auto text-xs">{t.footer.copyright}</span>
       </div>

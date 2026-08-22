@@ -1,5 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTextLayer, layerRows, waitForApp } from './helpers'
+import {
+  addTextLayer,
+  expectOneFocusRing,
+  layerRows,
+  openMenu,
+  openUtility,
+  utilitiesTrigger,
+  waitForApp,
+} from './helpers'
 
 /**
  * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
@@ -17,15 +25,18 @@ import { addTextLayer, layerRows, waitForApp } from './helpers'
 
 import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
 
-/** Libellé du bouton d'ouverture, puis nom accessible de la boîte. */
+/**
+ * Libellé de l'entrée d'ouverture, nom accessible de la boîte, et par où on y
+ * entre : la rangée, ou le menu « … » qui porte les utilitaires.
+ */
 const DIALOGS = [
-  ['Actualiser les captures', 'Actualiser les captures'],
-  ['Ouvrir les releases', 'Releases'],
-  ['Générer les visuels de la fiche', 'Générer les visuels · App Store · iPhone'],
-  ['Ouvrir les langues', 'Langues'],
-  ['Publier chez Apple', 'Publier chez Apple'],
-  ['Connexion MCP', 'Connexion MCP'],
-  ['Ouvrir l’export', 'Export officiel'],
+  ['Actualiser les captures', 'Actualiser les captures', 'rangée'],
+  ['Ouvrir les releases', 'Releases', 'rangée'],
+  ['Générer les visuels de la fiche', 'Générer les visuels · App Store · iPhone', 'rangée'],
+  ['Ouvrir les langues', 'Langues', 'rangée'],
+  ['Publier chez Apple', 'Publier chez Apple', 'rangée'],
+  ['Connexion MCP', 'Connexion MCP', 'menu'],
+  ['Ouvrir l’export', 'Export officiel', 'rangée'],
 ] as const
 
 function activeInsideDialog(page: Page): Promise<boolean> {
@@ -35,8 +46,20 @@ function activeInsideDialog(page: Page): Promise<boolean> {
   })
 }
 
-async function openWithKeyboard(page: Page, opener: Locator, title: string): Promise<Locator> {
-  await opener.focus()
+async function openWithKeyboard(
+  page: Page,
+  label: string,
+  title: string,
+  via: 'rangée' | 'menu',
+): Promise<Locator> {
+  if (via === 'menu') {
+    /* L'entrée est dans le menu « … » : deux activations au clavier, et c'est
+       le déclencheur du menu qui reste l'appelant, l'entrée disparaissant avec
+       lui. */
+    await openMenu(page, utilitiesTrigger(page), label)
+  } else {
+    await page.getByLabel(label).focus()
+  }
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', { name: title })
   await expect(dialog).toBeVisible()
@@ -62,46 +85,18 @@ async function closeDialog(page: Page, dialog: Locator): Promise<void> {
   await expect(dialog).toBeHidden()
 }
 
-async function expectRingToken(page: Page, control: Locator): Promise<void> {
-  await control.evaluate((element) => {
-    const host =
-      element instanceof HTMLInputElement && element.type === 'radio'
-        ? element.closest('label')
-        : element
-    const sentinel = document.createElement('button')
-    sentinel.type = 'button'
-    sentinel.dataset.focusSentinel = ''
-    sentinel.className = 'sr-only'
-    host?.before(sentinel)
-    sentinel.focus()
-  })
-  await page.keyboard.press('Tab')
-  await expect(control).toBeFocused()
-  expect(
-    await control.evaluate((element) => {
-      const host =
-        element instanceof HTMLInputElement && element.type === 'radio'
-          ? element.closest('label')
-          : element
-      return String(host?.className).includes('ring-ring')
-    }),
-  ).toBe(true)
-  await expect
-    .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
-    .toBe(true)
-  await control.evaluate(() => document.querySelector('[data-focus-sentinel]')?.remove())
-}
-
 test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ page }) => {
   await waitForApp(page)
   await page.setViewportSize({ width: 1440, height: 900 })
 
-  for (const [label, title] of DIALOGS) {
-    const opener = page.getByLabel(label)
-    const dialog = await openWithKeyboard(page, opener, title)
+  for (const [label, title, via] of DIALOGS) {
+    const opener = via === 'menu' ? utilitiesTrigger(page) : page.getByLabel(label)
+    const dialog = await openWithKeyboard(page, label, title, via)
 
     // Le focus entre dans la boîte, il ne reste pas sur la page en dessous.
-    expect(await activeInsideDialog(page), `${title} : focus resté dehors`).toBe(true)
+    await expect
+      .poll(() => activeInsideDialog(page), { message: `${title} : focus resté dehors` })
+      .toBe(true)
 
     if (title === 'Connexion MCP') {
       await expect(dialog.locator('[data-slot="setup-step"]')).toHaveCount(4)
@@ -119,7 +114,13 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
        d'adresse ou vers la barre supérieure. */
     for (let step = 0; step < 25; step += 1) {
       await page.keyboard.press('Tab')
-      expect(await activeInsideDialog(page), `${title} : focus échappé au tour ${step}`).toBe(true)
+      // Le garde de Base UI rapatrie le focus à la frame suivante, pas dans
+      // le keydown : on laisse cette frame passer avant de juger.
+      await expect
+        .poll(() => activeInsideDialog(page), {
+          message: `${title} : focus échappé au tour ${step}`,
+        })
+        .toBe(true)
     }
 
     await closeDialog(page, dialog)
@@ -134,11 +135,17 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Générer les visuels de la fiche').click()
   let dialog = page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' })
-  await expectRingToken(page, dialog.getByRole('radio', { name: 'Sobre' }))
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: 'Sobre' }))
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
-  await expectRingToken(page, assistance)
+  await expectOneFocusRing(page, assistance)
   await assistance.click()
-  await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
+  // Le bouton cliqué disparaît avec la vue : Base UI rapatrie le focus dans
+  // la boîte à la frame suivante, et l'attendre évite qu'il vole la sentinelle.
+  await expect.poll(() => activeInsideDialog(page)).toBe(true)
+  // L'étape glisse en entrant ; une sentinelle posée pendant l'animation se
+  // fait doubler par le rapatriement du focus.
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les langues').click()
@@ -146,26 +153,29 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await dialog.getByLabel('Code').fill('de')
   await dialog.getByLabel('Nom').fill('Allemand')
   await dialog.getByRole('button', { name: 'Ajouter' }).click()
-  await expectRingToken(page, dialog.getByRole('radio', { name: /de Allemand/ }))
-  await expectRingToken(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /de Allemand/ }))
+  await expectOneFocusRing(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les releases').click()
   dialog = page.getByRole('dialog', { name: 'Releases' })
-  await dialog.getByLabel('Nom du lot').fill('1.0.0')
+  await dialog.getByLabel('Nom de la release').fill('1.0.0')
   await dialog.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
-  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Publier chez Apple').click()
   dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
-  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  // Un lot existe : la boîte s'ouvre sur l'envoi, le choix du lot est l'étape d'avant.
+  await dialog.getByRole('button', { name: 'Retour' }).click()
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
+  await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir l’export').click()
   dialog = page.getByRole('dialog', { name: 'Export officiel' })
-  await expectRingToken(page, dialog.getByRole('checkbox').first())
+  await expectOneFocusRing(page, dialog.getByRole('checkbox').first())
   await expect(dialog.locator('[class~="focus-visible:ring-foreground"]')).toHaveCount(0)
   await closeDialog(page, dialog)
 })
@@ -178,14 +188,15 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
   // Un lot figé : sans lui, deux des boîtes n'affichent que leur état vide, et
   // c'est justement leur colonne de contenu qui est à l'étroit.
   await page.getByLabel('Ouvrir les releases').click()
-  await page.getByLabel('Nom du lot').fill('1.0.0')
+  await page.getByLabel('Nom de la release').fill('1.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await page.keyboard.press('Escape')
 
-  for (const [label, title] of DIALOGS) {
+  for (const [label, title, via] of DIALOGS) {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByLabel(label).click()
+    if (via === 'menu') await openUtility(page, label)
+    else await page.getByLabel(label).click()
     const dialog = page.getByRole('dialog', { name: title })
     await expect(dialog).toBeVisible()
 
@@ -205,8 +216,14 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
             // débordements : elles annoncent elles-mêmes qu'elles coupent.
             if (style.textOverflow === 'ellipsis') continue
             if (style.overflowX === 'auto' || style.overflowX === 'scroll') continue
+            // Les champs cachés de Base UI (Select, Checkbox) sont un pixel
+            // rogné à `clip-path`, posé à -1px par construction : rien à voir.
+            if (élément.getAttribute('aria-hidden') === 'true' && style.clipPath !== 'none')
+              continue
             const rect = élément.getBoundingClientRect()
-            if (rect.width === 0) continue
+            // Un pixel de sonde (le `span` de mesure de Progress) n'est pas
+            // une mise en page qui déborde.
+            if (rect.width <= 1) continue
             if (rect.left < box.left - 0.5 || rect.right > box.right + 0.5) {
               dehors.push(
                 `${élément.tagName.toLowerCase()}.${élément.className.toString().slice(0, 40)}`,
@@ -280,7 +297,7 @@ test('un drawer fermé est inerte et démonté', async ({ page }) => {
 
   /* Inerte tout de suite : Tab ne peut plus atteindre un contrôle d'un panneau
      traduit hors de l'écran mais encore monté. */
-  const drawer = page.locator('div[aria-hidden="true"][class*="transition-transform"]').first()
+  const drawer = page.locator('div[aria-hidden="true"][class*="transition-ui"]').first()
   await expect(drawer).toHaveAttribute('inert', '')
   /* Démonté une fois la transition de sortie jouée : un scrub du canvas ne
      re-rend plus un panneau que personne ne voit. */

@@ -3,11 +3,12 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
-import { Select } from '@/components/ui/select'
+import { PanelSection } from '@/components/patterns/panel-section'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
+import { SelectField } from '@/components/patterns/select-field'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
@@ -83,7 +84,7 @@ export function TextEditor({ layer }: TextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Field label="Contenu">
+      <PropertyRow label="Contenu" stacked>
         <Textarea
           value={layer.content}
           onChange={(event) =>
@@ -92,7 +93,7 @@ export function TextEditor({ layer }: TextEditorProps) {
           className="h-20 resize-y"
           aria-label="Contenu du texte"
         />
-      </Field>
+      </PropertyRow>
 
       <FontPicker
         label="Police"
@@ -100,7 +101,7 @@ export function TextEditor({ layer }: TextEditorProps) {
         onChange={(fontFamily) => update({ fontFamily })}
       />
 
-      <NumberField
+      <UnitField
         label="Taille"
         ariaLabel="Taille de la police"
         value={layer.fontSize}
@@ -108,25 +109,29 @@ export function TextEditor({ layer }: TextEditorProps) {
         min={1}
       />
 
-      <Select
+      <SelectField
         label="Graisse"
-        value={layer.fontWeight}
-        onChange={(event) => update({ fontWeight: Number(event.target.value) })}
+        value={String(layer.fontWeight)}
+        onValueChange={(next) => update({ fontWeight: Number(next) })}
         aria-label="Graisse de la police"
-      >
-        {weights.map((weight) => (
-          <option key={weight.value} value={weight.value}>
-            {weight.label}
-          </option>
-        ))}
-      </Select>
+        items={weights.map((weight) => ({ value: String(weight.value), label: weight.label }))}
+      />
 
       {/* Un seul contrôle pour deux portées : tant que rien n'est surligné sur
           la planche, il peint le calque ; dès qu'un passage l'est, il ne peint
           que lui. Deux champs côte à côte auraient demandé à l'utilisateur de
           choisir la portée *avant* la couleur, alors que sa sélection l'a déjà
           dite — et le second serait resté grisé les neuf dixièmes du temps. */}
-      <Field label={range ? 'Couleur du passage' : 'Couleur'}>
+      {/* Le `description` de `PropertyRow` porte la même note : il vit dans le
+          `Field`, au même écart que celui qui lie déjà l'étiquette à son
+          contrôle — pas une marge négative posée après coup. */}
+      <PropertyRow
+        label={range ? 'Couleur du passage' : 'Couleur'}
+        stacked
+        description={
+          range ? 'Repeindre le passage avec la couleur du calque le rend à celui-ci.' : undefined
+        }
+      >
         <ColorPicker
           value={textColorValue(layer, range)}
           onChange={(color) => {
@@ -135,29 +140,19 @@ export function TextEditor({ layer }: TextEditorProps) {
           }}
           showOpacity
         />
-        {/* Dans le `Field` et non après lui : l'écart qui lie une étiquette à
-            son contrôle est celui qui doit lier cette note au sien. Posée
-            dehors, elle prenait l'écart de section et se rattrapait par une
-            marge négative — une cinquième valeur dans une échelle qui en
-            compte deux. */}
-        {range && (
-          <p className="field-label leading-4">
-            Repeindre le passage avec la couleur du calque le rend à celui-ci.
-          </p>
-        )}
-      </Field>
+      </PropertyRow>
 
-      <Field label="Alignement">
+      <PropertyRow label="Alignement" stacked>
         <Segmented
           ariaLabel="Alignement"
           options={ALIGN_OPTIONS}
           value={layer.textAlign}
           onChange={(textAlign) => update({ textAlign })}
         />
-      </Field>
+      </PropertyRow>
 
       <div className="grid grid-cols-2 gap-2">
-        <NumberField
+        <UnitField
           label="Interligne"
           ariaLabel="Interligne"
           value={layer.lineHeight}
@@ -169,7 +164,7 @@ export function TextEditor({ layer }: TextEditorProps) {
           min={0.5}
           max={3}
         />
-        <NumberField
+        <UnitField
           label="Espacement"
           ariaLabel="Espacement des lettres"
           value={layer.letterSpacing}
@@ -181,17 +176,16 @@ export function TextEditor({ layer }: TextEditorProps) {
         />
       </div>
 
-      <Field label="Casse">
+      <PropertyRow label="Casse" stacked>
         <Segmented
           ariaLabel="Casse"
           options={CASING_OPTIONS}
           value={layer.textTransform}
           onChange={(textTransform) => update({ textTransform })}
         />
-      </Field>
+      </PropertyRow>
 
-      <div className="hairline my-1" />
-
+      {/* La bordure du panneau qui suit fait déjà le trait : pas de hairline en double. */}
       <ShadowEditor
         shadow={layer.shadow}
         onChange={(shadow, options) => update({ shadow }, options)}
@@ -199,15 +193,13 @@ export function TextEditor({ layer }: TextEditorProps) {
         coalesceKey={`layer:${layer.id}:shadow`}
       />
 
-      <div className="hairline my-1" />
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title">Dégradé</h3>
+      <PanelSection
+        title="Dégradé"
+        headerExtra={
           <Switch
-            ariaLabel="Activer le dégradé du texte"
+            aria-label="Activer le dégradé du texte"
             checked={!!layer.gradientFill}
-            onChange={(checked) =>
+            onCheckedChange={(checked) =>
               update({
                 gradientFill: checked
                   ? {
@@ -218,7 +210,8 @@ export function TextEditor({ layer }: TextEditorProps) {
               })
             }
           />
-        </div>
+        }
+      >
         {layer.gradientFill && (
           <GradientEditor
             value={layer.gradientFill}
@@ -232,7 +225,7 @@ export function TextEditor({ layer }: TextEditorProps) {
             }
           />
         )}
-      </div>
+      </PanelSection>
     </div>
   )
 }

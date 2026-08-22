@@ -9,6 +9,12 @@ import { useProjectStore } from '@/stores/project.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { useUIStore } from '@/stores/ui.store'
 import * as assets from '@/lib/assets'
+import { readBootTheme } from '@/lib/user-settings'
+
+// Le sombre est la classe `.dark`, le clair son absence (convention coss et
+// Base UI). `boot.js` l'a déjà posée avant la feuille de styles ; la reposer
+// ici couvre le cas où le script de boot n'a pas tourné.
+document.documentElement.classList.toggle('dark', readBootTheme() === 'dark')
 
 if (import.meta.env.DEV) {
   // Dev-only debug handle for e2e state assertions (coalescing, history…).

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { captureAnalytics } from '@/lib/analytics'
 import type { ReactNode } from 'react'
 
 /*
@@ -29,20 +30,34 @@ import type { ReactNode } from 'react'
 const base =
   'inline-flex items-center justify-center border font-mono font-semibold uppercase transition-[color,background-color,border-color,scale] duration-150 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
 
+function trackDestination(href: string): void {
+  if (href.startsWith('#')) return
+  captureAnalytics('screenforge_landing_cta_clicked', {
+    provider: href.includes('offers=open') ? 'cloud' : 'editor',
+  })
+}
+
 export function CtaPrimary({
   href,
   size = 'md',
   className,
+  ariaLabel,
   children,
 }: {
   href: string
   size?: 'sm' | 'md'
   className?: string
+  /* Le nom accessible quand le libellé visible ne suffit pas : deux cartes de
+     tarif portent « Ouvrir l'éditeur » et « Choisir Cloud » sans dire de quel
+     plan il s'agit. */
+  ariaLabel?: string
   children: ReactNode
 }) {
   return (
     <a
       href={href}
+      aria-label={ariaLabel}
+      onClick={() => trackDestination(href)}
       className={cn(
         base,
         'border-marker bg-marker text-marker-ink hover:border-marker-hover hover:bg-marker-hover',
@@ -58,15 +73,19 @@ export function CtaPrimary({
 export function CtaGhost({
   href,
   className,
+  ariaLabel,
   children,
 }: {
   href: string
   className?: string
+  ariaLabel?: string
   children: ReactNode
 }) {
   return (
     <a
       href={href}
+      aria-label={ariaLabel}
+      onClick={() => trackDestination(href)}
       className={cn(
         base,
         'h-11 border-foreground px-5 text-[13px] text-foreground hover:bg-foreground hover:text-background',

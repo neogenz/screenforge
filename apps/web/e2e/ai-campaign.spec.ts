@@ -67,9 +67,7 @@ test('borne et compose une campagne Google Play dans le vrai ratio', async ({ pa
   const dialog = page.getByRole('dialog', { name: 'Générer les visuels · Google Play · téléphone' })
   await expect(dialog).toContainText('1080×1920 · portrait · 8 captures maximum')
   await dialog.getByLabel('Nom de l’app').fill('Cadence')
-  await dialog
-    .getByLabel('Accroche générale vérifiée (3 à 7 mots)')
-    .fill('Le budget dans une poche')
+  await dialog.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   await dialog.getByLabel('Combien de visuels').click()
   await expect(page.getByRole('option', { name: '8', exact: true })).toHaveCount(0)
   await page.getByRole('option', { name: '7', exact: true }).click()
@@ -92,7 +90,7 @@ test('génère des visuels en calques réels, défaisables d’un seul coup', as
 
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Cadence')
-  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
+  await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   const styles = page.getByRole('radiogroup', { name: 'Style des visuels' })
   const sober = styles.getByRole('radio', { name: 'Sobre' })
   const nocturnal = styles.getByRole('radio', { name: 'Nocturne' })
@@ -154,7 +152,7 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
 
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Cadence')
-  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
+  await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   await page.getByLabel('Captures de l’application').setInputFiles({
     name: 'Le budget dans une poche.png',
     mimeType: 'image/png',
@@ -238,7 +236,7 @@ test('bloque une accroche relue qui dépasse trois lignes jusqu’à sa correcti
   const before = await screens(page)
   await openCampaignDialog(page)
   await page.getByLabel('Nom de l’app').fill('Pulpe')
-  await page.getByLabel('Accroche générale vérifiée (3 à 7 mots)').fill('Le budget dans une poche')
+  await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
   await page.getByRole('option', { name: '1', exact: true }).click()
   await page.getByRole('button', { name: 'Proposer 1 visuel' }).click()

@@ -7,10 +7,15 @@ import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { IconButton } from '@/components/ui/icon-button'
+import { Card } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+import { Separator } from '@/components/ui/separator'
+import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
+import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
 import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { TemplateDefinition } from '@/types'
@@ -66,7 +71,7 @@ function TemplatePickerContent() {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={handleClose}
       title="Modèles de mise en page"
@@ -78,13 +83,13 @@ function TemplatePickerContent() {
                 modèle choisi, que sa description a la place d'être lue. */}
             <div className="flex min-w-0 flex-col">
               <p className="truncate text-sm font-medium text-foreground">{selected.name}</p>
-              <p className="truncate text-2xs text-muted-foreground">{selected.description}</p>
+              <p className="truncate text-xs text-muted-foreground">{selected.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Button variant="default" onClick={() => handleApply('current')}>
+              <Button variant="outline" onClick={() => handleApply('current')}>
                 Appliquer à l’écran actuel
               </Button>
-              <Button variant="primary" onClick={() => handleApply('new')}>
+              <Button variant="default" onClick={() => handleApply('new')}>
                 Nouvel écran
               </Button>
             </div>
@@ -96,24 +101,35 @@ function TemplatePickerContent() {
           écarts de l'échelle, dans leur emploi respectif. */}
       <div className="flex flex-col gap-2">
         {/* Les siens d'abord : le catalogue livré ne change jamais, sa
-            bibliothèque oui, et c'est elle qu'on vient rouvrir. */}
-        {savedTemplates.length > 0 && (
-          <section className="flex flex-col gap-1.5">
-            <h3 className="section-title">Mes gabarits</h3>
+            bibliothèque oui, et c'est elle qu'on vient rouvrir. Le titre reste
+            même vide — sans lui, rien ne dit que la bibliothèque personnelle
+            existe avant qu'on y ait posé quoi que ce soit. */}
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-sm font-medium">Mes gabarits</h3>
+          {savedTemplates.length > 0 ? (
             <Gallery
               templates={savedTemplates}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onRemove={handleRemove}
             />
-          </section>
-        )}
+          ) : (
+            <Empty className="min-h-24 gap-1 px-4 py-4">
+              <EmptyTitle className="font-normal text-sm">{copy.empty.templatesTitle}</EmptyTitle>
+              <EmptyDescription>
+                Enregistrez une mise en page depuis le menu d’un écran, ou laissez l’agent en poser
+                un.
+              </EmptyDescription>
+            </Empty>
+          )}
+        </section>
+        <Separator />
         <section className="flex flex-col gap-1.5">
-          {savedTemplates.length > 0 && <h3 className="section-title">Catalogue</h3>}
+          <h3 className="text-sm font-medium">Catalogue</h3>
           <Gallery templates={catalogue} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -141,15 +157,17 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
         const board = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
         return (
           <div key={template.id} className="group/tile relative self-start">
-            <button
-              type="button"
-              onClick={() => onSelect(template.id)}
-              aria-pressed={isSelected}
-              aria-label={`Sélectionner le modèle ${template.name}`}
+            <Card
+              render={
+                <button
+                  type="button"
+                  onClick={() => onSelect(template.id)}
+                  aria-pressed={isSelected}
+                  aria-label={`Sélectionner le modèle ${template.name}`}
+                />
+              }
               className={cn(
-                'flex w-full flex-col gap-2 rounded-lg border p-2 text-left',
-                'transition-[border-color,background] duration-150 ease-out',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'w-full cursor-pointer gap-2 rounded-lg p-2 text-left shadow-none',
                 isSelected
                   ? 'border-foreground bg-muted'
                   : 'border-border hover:border-input hover:bg-accent',
@@ -162,16 +180,22 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                 <TemplatePreview template={template} assets={saved?.assets} />
               </div>
               <div className="flex min-w-0 items-center gap-1 px-0.5">
-                <p className="truncate text-2xs font-medium text-foreground">{template.name}</p>
+                <p className="truncate text-xs font-medium text-foreground">{template.name}</p>
                 {/* Neutre, et seulement quand c'est vrai : « IA » dit d'où vient
-                    la mise en page, il ne la recommande pas. */}
+                    la mise en page, il ne la recommande pas ; « Vide » dit ce
+                    que la vignette ne peut pas montrer à cette échelle. */}
                 {saved?.source === 'ai' && (
-                  <span className="shrink-0 rounded-sm bg-secondary px-1 text-2xs text-muted-foreground">
+                  <Badge variant="secondary" size="sm" className="shrink-0 font-normal">
                     IA
-                  </span>
+                  </Badge>
+                )}
+                {template.layers.length === 0 && (
+                  <Badge variant="outline" size="sm" className="shrink-0 font-normal">
+                    Vide
+                  </Badge>
                 )}
               </div>
-            </button>
+            </Card>
             {saved && onRemove && (
               <IconButton
                 size="sm"

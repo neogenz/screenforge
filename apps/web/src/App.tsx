@@ -1,15 +1,19 @@
 import { lazy, Suspense, useEffect, type CSSProperties } from 'react'
-import { LoaderCircle } from 'lucide-react'
+import { Dialog, DialogHeader, DialogPanel, DialogPopup } from '@/components/ui/dialog'
+import { buttonVariants } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from 'sonner'
 import { TopBar } from '@/components/toolbar/TopBar'
+import { PrivacyConsent } from '@/components/privacy/PrivacyConsent'
+import { PRIVACY_COPY } from '@/components/privacy/privacy-copy'
 import { ZoomHud } from '@/components/toolbar/ZoomHud'
 import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
 import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
-import { CommandPalette } from '@/components/ui/command-palette'
-import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
-import { Provider as TooltipProvider } from '@radix-ui/react-tooltip'
+import { CommandPalette } from '@/components/patterns/command-palette'
+import { ShortcutsOverlay } from '@/components/patterns/shortcuts-overlay'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
@@ -21,10 +25,11 @@ import { clearAssets } from '@/lib/assets'
 import { cn } from '@/lib/utils'
 import { createImageLayerFromFile } from '@/lib/layer-factories'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
+import { setAnalyticsUser } from '@/lib/analytics'
 import { IMAGE_ACCEPT } from '@/lib/image'
 import { cloudConfigured } from '@/lib/convex'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { consumeCheckoutReturn, initAuth } from '@/stores/auth.store'
+import { consumeCheckoutReturn, initAuth, useAuthStore } from '@/stores/auth.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -121,9 +126,9 @@ export default function App() {
   // Le thème vit sur <html> : les portails (menus, dialogues, infobulles) montent
   // sur document.body et n'hériteraient pas d'une classe posée plus bas dans l'arbre.
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('light', theme === 'light')
-    root.classList.toggle('dark', theme === 'dark')
+    // Le sombre est la classe, le clair son absence : c'est la convention que
+    // Base UI et coss lisent, et `boot.js` pose la même avant le premier rendu.
+    document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
   useEffect(() => {
@@ -159,11 +164,11 @@ export default function App() {
         clearAssets()
         useProjectStore.getState().createProject('Projet sans titre')
         useUIStore.getState().setSaveStatus('error')
-        toast(
-          'Stockage local indisponible. Ce projet restera en mémoire et sera perdu à la fermeture.',
-          'error',
-          { duration: Infinity },
-        )
+        // La condition tient sous la barre (NoticeStrip dans TopBar) tant que
+        // le stockage reste indisponible : un toast à durée infinie disait la
+        // même chose une fois puis se laissait fermer sans que la panne, elle,
+        // ne soit finie.
+        useUIStore.getState().setStorageUnavailable(true)
       }
     }
 
@@ -212,10 +217,15 @@ export default function App() {
    */
   useEffect(() => {
     const stopAuth = initAuth()
+    setAnalyticsUser(useAuthStore.getState().user)
+    const stopAnalyticsIdentity = useAuthStore.subscribe((state) => setAnalyticsUser(state.user))
     // Après la session, pas avant : l'attente relit les droits, qui demandent
     // un jeton.
     consumeCheckoutReturn()
-    return stopAuth
+    return () => {
+      stopAnalyticsIdentity()
+      stopAuth()
+    }
   }, [])
 
   async function handleImageImport(event: React.ChangeEvent<HTMLInputElement>) {
@@ -234,7 +244,7 @@ export default function App() {
   }
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delay={300}>
       <div className="relative h-full w-full overflow-hidden bg-stage">
         {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
           niveau 2 et le saut de titre ne renvoyait rien depuis la racine. Le
@@ -292,19 +302,28 @@ export default function App() {
             {
               zIndex: 'var(--z-toast)',
               fontFamily: 'var(--font-sans)',
-              '--normal-bg': 'var(--color-secondary)',
+              // Popover, pas secondary : un toast est une surface flottante,
+              // pas un bouton — c'est le nom que coss réserve aux surfaces.
+              '--normal-bg': 'var(--color-popover)',
               '--normal-border': 'var(--color-border)',
-              '--normal-text': 'var(--color-foreground)',
-              '--border-radius': 'var(--radius-md)',
+              '--normal-text': 'var(--color-popover-foreground)',
+              '--border-radius': 'var(--radius-lg)',
             } as CSSProperties
           }
           toastOptions={{
             classNames: {
               title: '!leading-5',
               description: '!leading-5',
-              /* 20px chez Sonner : une troisième hauteur de contrôle, hors
-                 échelle fermée (32/36) — c'est l'audit de scale qui l'a vue. */
-              closeButton: '!size-8',
+              /* Bouton coss (`icon-xs`/`ghost`), pas le cercle par défaut de
+                 Sonner : `!important` reprend chaque propriété que la règle
+                 `[data-close-button]` de Sonner pose elle-même (fond, bordure,
+                 rayon, taille) — la même nécessité qui forçait déjà `!size-8`
+                 ici, affinée sur l'échelle icône plutôt que sur la hauteur de
+                 contrôle des panneaux. */
+              closeButton: cn(
+                buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
+                '!size-7 sm:!size-6 !rounded-md !border-transparent !bg-transparent !text-muted-foreground hover:!bg-accent hover:!text-foreground',
+              ),
             },
             style: {
               boxShadow: 'var(--shadow-lg), var(--hairline-top)',
@@ -333,6 +352,7 @@ function Overlays() {
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
   const showMcpDialog = useUIStore((s) => s.showMcpDialog)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return (
     <>
@@ -361,6 +381,12 @@ function Overlays() {
         {showMcpDialog && <McpDialog />}
       </Suspense>
 
+      <PrivacyConsent
+        copy={PRIVACY_COPY.fr}
+        open={showPrivacyDialog}
+        onOpenChange={(open) => useUIStore.getState().setShowPrivacyDialog(open)}
+      />
+
       {/* Le pont vers Convex : il ne rend rien, il tient la session. Monté ici
           plutôt qu'autour de l'arbre parce qu'un fournisseur qui enveloppe `App`
           remonterait le canvas au moment où le client arrive. `cloudConfigured`
@@ -380,18 +406,24 @@ function Overlays() {
 }
 
 function LazyDialogFallback() {
+  /* La coque coss de la boîte à venir, avec un squelette à sa forme : le
+     chargement a déjà la place que la boîte prendra. `role=status` annonce
+     « Chargement… » en `sr-only`. */
   return (
-    <>
-      <div aria-hidden className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
-      <div
-        role="status"
-        aria-live="polite"
-        aria-label="Chargement de la fenêtre"
-        className="surface-modal fixed left-1/2 top-1/2 z-(--z-modal) flex -translate-x-1/2 -translate-y-1/2 animate-slide-up items-center gap-2.5 px-5 py-4 text-sm text-foreground motion-reduce:animate-none"
-      >
-        <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />
-        Chargement…
-      </div>
-    </>
+    <Dialog open>
+      <DialogPopup showCloseButton={false} className="max-w-lg">
+        <div role="status" aria-live="polite" aria-label="Chargement de la fenêtre">
+          <DialogHeader>
+            <Skeleton className="h-5 w-1/2" />
+            <span className="sr-only">Chargement…</span>
+          </DialogHeader>
+          <DialogPanel className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-2/3" />
+          </DialogPanel>
+        </div>
+      </DialogPopup>
+    </Dialog>
   )
 }

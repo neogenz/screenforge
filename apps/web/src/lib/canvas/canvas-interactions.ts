@@ -15,18 +15,31 @@ export interface ChromeColors {
 }
 
 export function readChromeColors(): ChromeColors {
+  /* Résolu par un élément sonde et non lu par `getPropertyValue` : les jetons
+     coss sont des `color-mix()` et des alphas composés, que le canvas 2D ne
+     sait pas toujours analyser. `getComputedStyle(...).color` rend une
+     couleur absolue que Fabric accepte. */
+  const probe = document.createElement('span')
+  document.body.append(probe)
   const styles = getComputedStyle(document.documentElement)
-  const read = (token: string, fallback: string) =>
-    styles.getPropertyValue(token).trim() || fallback
-  return {
-    label: read('--color-muted-foreground', '#b8b8b8'),
-    labelActive: read('--color-foreground', '#f7f7f7'),
-    artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
-    artboardShadow: read('--color-artboard-shadow', 'rgba(0,0,0,0.5)'),
-    selection: read('--color-foreground', '#f7f7f7'),
-    selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
-    guide: read('--color-guide', 'rgba(255,255,255,0.85)'),
-    guideHalo: read('--color-guide-halo', 'rgba(0,0,0,0.4)'),
+  const read = (token: string, fallback: string) => {
+    if (!styles.getPropertyValue(token).trim()) return fallback
+    probe.style.color = `var(${token})`
+    return getComputedStyle(probe).color || fallback
+  }
+  try {
+    return {
+      label: read('--muted-foreground', '#b8b8b8'),
+      labelActive: read('--foreground', '#f7f7f7'),
+      artboardRing: read('--artboard-ring', 'rgba(255,255,255,0.12)'),
+      artboardShadow: read('--artboard-shadow', 'rgba(0,0,0,0.5)'),
+      selection: read('--foreground', '#f7f7f7'),
+      selectionSoft: read('--selection-soft', 'rgba(255,255,255,0.14)'),
+      guide: read('--guide', 'rgba(255,255,255,0.85)'),
+      guideHalo: read('--guide-halo', 'rgba(0,0,0,0.4)'),
+    }
+  } finally {
+    probe.remove()
   }
 }
 

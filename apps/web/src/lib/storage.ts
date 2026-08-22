@@ -596,6 +596,31 @@ export async function afterProjectSaved<T>(action: () => T | Promise<T>): Promis
   return await action()
 }
 
+let recoveryUnsubscribe: (() => void) | null = null
+
+/**
+ * Réessaie d'ouvrir IndexedDB après l'échec initial du démarrage.
+ *
+ * `getDB()` mémorise sa promesse, y compris rejetée : sans la vider, tout
+ * nouvel appel retomberait sur le même échec. Un succès démarre l'autosave,
+ * qui ne l'était pas — `App.tsx` échoue avant `initAutoSave()` — et pousse
+ * une fois le projet resté en mémoire, puisque l'autosave ne réagit qu'aux
+ * changements à venir.
+ */
+export async function retryStorage(): Promise<boolean> {
+  dbPromise = null
+  try {
+    await getDB()
+  } catch {
+    return false
+  }
+  // ponytail: pas de désabonnement au démontage de l'app (elle ne se
+  // démonte jamais en production) — voir `initAutoSave` pour la forme complète.
+  recoveryUnsubscribe ??= initAutoSave()
+  await saveCurrentProject()
+  return true
+}
+
 export function initAutoSave(): () => void {
   const unsubscribe = useProjectStore.subscribe((state, previous) => {
     if (

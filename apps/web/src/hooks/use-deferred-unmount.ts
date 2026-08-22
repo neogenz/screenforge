@@ -5,10 +5,12 @@ import { useEffect, useState } from 'react'
  *
  * Un drawer fermé mais monté reste abonné aux stores et focusable sous
  * `aria-hidden` : chaque scrub du canvas le re-rend pour rien et Tab peut
- * tomber dedans. La transition dure 200 ms (voir les drawers) — on laisse
- * 220 ms avant de couper.
+ * tomber dedans.
  */
-export function useDeferredUnmount(open: boolean, exitMs = 220): boolean {
+/** La sortie d'un tiroir dure `--duration-slow` (260 ms) : on coupe juste après. */
+export const DRAWER_EXIT_MS = 260
+
+export function useDeferredUnmount(open: boolean, exitMs = DRAWER_EXIT_MS): boolean {
   const [mounted, setMounted] = useState(open)
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {

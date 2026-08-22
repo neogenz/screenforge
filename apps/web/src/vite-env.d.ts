@@ -9,6 +9,12 @@ interface ImportMetaEnv {
    * non un `undefined` au runtime qui bascule silencieusement en mode local.
    */
   readonly VITE_CONVEX_URL?: string
+  /** Token public du projet ScreenForge et hôte d'ingestion PostHog Cloud EU. */
+  readonly VITE_POSTHOG_KEY?: string
+  readonly VITE_POSTHOG_HOST?: string
+  /** Release publique : SemVer et SHA du candidat immuable, jamais un secret. */
+  readonly VITE_APP_VERSION?: string
+  readonly VITE_GIT_SHA?: string
 }
 
 interface ImportMeta {

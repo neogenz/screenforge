@@ -1,6 +1,7 @@
 import { Component, createRef, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { afterProjectSaved, deleteProject } from '@/lib/storage'
+import { captureDiagnosticException, captureDiagnosticLog } from '@/lib/analytics'
 import { useProjectStore } from '@/stores/project.store'
 
 interface ErrorBoundaryProps {
@@ -29,6 +30,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('ScreenForge rendering failed.', error, info)
+    captureDiagnosticException(error, 'react-render')
+    captureDiagnosticLog('react_render_failed', { issue: 'react-render' }, 'fatal')
   }
 
   componentDidUpdate(_previousProps: ErrorBoundaryProps, previousState: ErrorBoundaryState): void {
@@ -91,14 +94,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
               ref={this.reloadButton}
-              variant="primary"
+              variant="default"
               size="lg"
               onClick={() => void this.reload()}
             >
               Recharger l’application
             </Button>
             <Button
-              variant="danger"
+              variant="destructive-outline"
               size="lg"
               loading={this.state.resetting}
               onClick={() => void this.resetProject()}

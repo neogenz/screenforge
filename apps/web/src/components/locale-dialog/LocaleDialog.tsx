@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Languages, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, Languages, Plus, Trash2 } from 'lucide-react'
 import {
   addLocale,
   applyTranslations,
@@ -23,12 +23,17 @@ import {
 import { bridgeEngine, bridgeToken, translateViaBridge } from '@/lib/bridge-client'
 import { loadGoogleFont } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
+import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { DialogColumns } from '@/components/patterns/dialog-columns'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
-import { Tooltip } from '@/components/ui/tooltip'
+import { SelectField } from '@/components/patterns/select-field'
+import { Hint } from '@/components/patterns/hint'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -36,6 +41,13 @@ import type { LocaleVariant, Project, ScriptId, TextLayer } from '@/types'
 
 const CODE_FIELD_ID = 'sf-locale-code'
 const NAME_FIELD_ID = 'sf-locale-name'
+
+/** Les trois défauts que `reviewLocale` sait nommer, tous bloquants à égalité. */
+const FINDING_LABELS: Record<LocaleFinding['kind'], string> = {
+  empty: 'Vide',
+  overflow: 'Débordement',
+  'off-canvas': 'Hors cadre',
+}
 
 /**
  * Les langues du projet, et ce qui les empêche de sortir.
@@ -176,7 +188,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const blocked = locale ? localeBlocked(findings) : false
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Langues"
@@ -192,183 +204,192 @@ function LocaleDialogContent({ project }: { project: Project }) {
           : undefined
       }
       footer={
-        <Button variant="default" onClick={close} disabled={busy}>
+        <Button variant="outline" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
     >
-      <div className="flex max-h-[60dvh] flex-col gap-4 overflow-y-auto px-6 py-4">
+      <div className="flex flex-col">
         {error && (
-          <p role="alert" className="flex items-start gap-2 text-2xs text-destructive">
-            <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
-            {error}
-          </p>
+          <Alert variant="error" className="mx-6 mt-4">
+            <AlertCircle aria-hidden />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        {/* Ce qu'ajouter une langue fait au projet, dit avant le formulaire.
-            Les deux craintes qu'on a devant ce bouton sont « est-ce que ça
-            duplique mes dix écrans ? » et « est-ce que ça touche ma mise en
-            page ? » : les deux réponses sont non, et aucune n'était écrite. */}
-        <p className="text-2xs text-muted-foreground">
-          Une langue ne duplique pas le projet. Elle ne stocke que le texte traduit de chaque calque
-          — la mise en page, les captures et les appareils restent les mêmes. Vous figez ensuite une
-          release dans la langue de votre choix.
-        </p>
-
-        <div className="flex flex-wrap items-end gap-2">
-          <Field id={CODE_FIELD_ID} label="Code" className="w-24">
-            <Input
-              id={CODE_FIELD_ID}
-              font="sans"
-              value={code}
-              maxLength={12}
-              placeholder="ja"
-              disabled={busy}
-              onChange={(event) => setCode(event.target.value)}
-            />
-          </Field>
-          <Field id={NAME_FIELD_ID} label="Nom" className="min-w-0 flex-1">
-            <Input
-              id={NAME_FIELD_ID}
-              font="sans"
-              value={name}
-              maxLength={MAX_LOCALE_NAME_LENGTH}
-              placeholder="Japonais"
-              disabled={busy}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Select
-            className="w-44"
-            label="Écriture"
-            aria-label="Écriture"
-            value={scriptId}
-            disabled={busy}
-            onChange={(event) => setScriptId(event.target.value as ScriptId)}
-          >
-            {SCRIPTS.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.label}
-              </option>
-            ))}
-          </Select>
-          <Button
-            variant="primary"
-            onClick={create}
-            disabled={busy || locales.length >= MAX_PROJECT_LOCALES}
-          >
-            <Plus size={12} aria-hidden />
-            Ajouter
-          </Button>
-        </div>
-        {/* « Écriture » ne décide rien de visible ici, mais tout du rendu : une
-            accroche japonaise composée dans une police latine se mesure juste
-            et s'exporte en carrés vides. */}
-        <p className="-mt-2 text-2xs text-muted-foreground">
-          L’écriture sert à proposer des polices capables d’afficher la langue. Le code suit l’App
-          Store : deux lettres, plus une région si besoin (<span className="tabular">pt-BR</span>
-          ).
-        </p>
-
-        {locales.length > 0 && (
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Langue">
-            {locales.map((entry) => (
-              <label
-                key={entry.code}
-                className={cn(
-                  'relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-                  'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
-                  busy && 'cursor-not-allowed opacity-50',
-                  entry.code === locale?.code
-                    ? 'border-foreground bg-muted text-foreground'
-                    : 'border-border text-muted-foreground hover:border-input',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="screenforge-locale"
-                  value={entry.code}
-                  checked={entry.code === locale?.code}
-                  disabled={busy}
-                  onChange={() => setSelectedCode(entry.code)}
-                  className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
-                />
-                <span className="tabular">{entry.code}</span>
-                {entry.name}
-              </label>
-            ))}
-          </div>
-        )}
-
-        {locale && (
-          <>
-            <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
-              <Select
-                className="w-56"
-                label="Police de cette langue"
-                aria-label="Police de cette langue"
-                value={locale.fontFamily ?? ''}
-                disabled={busy}
-                onChange={(event) => setLocaleFont(locale.code, event.target.value || undefined)}
-              >
-                <option value="">Garder celle de chaque calque</option>
-                {fontsForScript(locale.script).map((family) => (
-                  <option key={family} value={family}>
-                    {family}
-                  </option>
-                ))}
-              </Select>
-              <Button
-                variant="default"
-                onClick={() => void translate(locale, layers)}
-                loading={busy}
-                tooltip="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire."
-              >
-                <Languages size={12} aria-hidden />
-                Pré-remplir via le pont
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => {
-                  removeLocale(locale.code)
-                  setSelectedCode('')
-                }}
-                disabled={busy}
-              >
-                <Trash2 size={12} aria-hidden />
-                Supprimer
-              </Button>
-            </div>
-
-            {/* En-tête de colonnes. Sans elle, chaque ligne montrait deux textes
-                — le nom du calque à gauche, l'original en gris à droite, la
-                traduction dans le champ — et rien ne disait lequel était
-                lequel : on relit une traduction sans savoir ce qu'elle traduit. */}
-            <div className="flex items-baseline justify-between gap-2 border-t border-border pt-4">
-              <h3 className="section-title">Calque · texte d’origine</h3>
-              <span className="field-label">Traduction · relu</span>
-            </div>
-            {layers.length === 0 ? (
-              <p className="text-2xs text-muted-foreground">
-                Aucun texte dans ce projet. Ajoutez un calque de texte, il apparaîtra ici.
+        <DialogColumns
+          railLabel="Langues du projet"
+          contentLabel={locale ? `Textes · ${locale.name}` : undefined}
+          rail={
+            <>
+              {/* Ce qu'ajouter une langue fait au projet, dit avant le formulaire.
+                  Les deux craintes qu'on a devant ce bouton sont « est-ce que ça
+                  duplique mes dix écrans ? » et « est-ce que ça touche ma mise en
+                  page ? » : les deux réponses sont non, et aucune n'était écrite. */}
+              <p className="text-xs text-muted-foreground">
+                Une langue ne duplique pas le projet. Elle ne stocke que le texte traduit de chaque
+                calque — la mise en page, les captures et les appareils restent les mêmes.
               </p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {layers.map((layer) => (
-                  <TextRow
-                    key={layer.id}
-                    layer={layer}
-                    locale={locale}
-                    findings={findingsByLayer.get(layer.id) ?? []}
-                    disabled={busy}
-                  />
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Field className="w-20 gap-1.5">
+                    <FieldLabel htmlFor={CODE_FIELD_ID}>Code</FieldLabel>
+                    <Input
+                      id={CODE_FIELD_ID}
+                      value={code}
+                      maxLength={12}
+                      placeholder="ja"
+                      disabled={busy}
+                      onChange={(event) => setCode(event.target.value)}
+                    />
+                  </Field>
+                  <Field className="min-w-0 flex-1 gap-1.5">
+                    <FieldLabel htmlFor={NAME_FIELD_ID}>Nom</FieldLabel>
+                    <Input
+                      id={NAME_FIELD_ID}
+                      value={name}
+                      maxLength={MAX_LOCALE_NAME_LENGTH}
+                      placeholder="Japonais"
+                      disabled={busy}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                  </Field>
+                </div>
+                <SelectField<ScriptId>
+                  label="Écriture"
+                  aria-label="Écriture"
+                  value={scriptId}
+                  disabled={busy}
+                  onValueChange={setScriptId}
+                  items={SCRIPTS.map((entry) => ({ value: entry.id, label: entry.label }))}
+                />
+                <Button
+                  variant="default"
+                  onClick={create}
+                  disabled={busy || locales.length >= MAX_PROJECT_LOCALES}
+                >
+                  <Plus size={12} aria-hidden />
+                  Ajouter
+                </Button>
+                {/* « Écriture » ne décide rien de visible ici, mais tout du rendu :
+                    une accroche japonaise composée dans une police latine se mesure
+                    juste et s'exporte en carrés vides. */}
+                <p className="text-xs text-muted-foreground">
+                  Propose des polices capables d’afficher la langue. Le code suit l’App Store : deux
+                  lettres, plus une région si besoin (<span className="tabular-nums">pt-BR</span>).
+                </p>
+              </div>
+
+              {locales.length > 0 && (
+                <RadioGroup
+                  className="gap-1.5 border-t border-border pt-3"
+                  aria-label="Langue"
+                  value={locale?.code ?? null}
+                  onValueChange={(code) => {
+                    if (typeof code === 'string') setSelectedCode(code)
+                  }}
+                  disabled={busy}
+                >
+                  {locales.map((entry) => (
+                    /* La carte est le bouton radio : Base UI porte l'état, le focus
+                       tombe sur l'élément lui-même. */
+                    <RadioPrimitive.Root
+                      key={entry.code}
+                      value={entry.code}
+                      className={cn(
+                        'flex items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors outline-none',
+                        'focus-visible:ring-1 focus-visible:ring-ring',
+                        'data-disabled:cursor-not-allowed data-disabled:opacity-50',
+                        entry.code === locale?.code
+                          ? 'border-foreground bg-muted text-foreground'
+                          : 'border-border text-muted-foreground hover:border-input',
+                      )}
+                    >
+                      <span className="tabular-nums">{entry.code}</span>
+                      {entry.name}
+                    </RadioPrimitive.Root>
+                  ))}
+                </RadioGroup>
+              )}
+            </>
+          }
+        >
+          {locale ? (
+            <>
+              <div className="flex flex-wrap items-end gap-2">
+                <SelectField
+                  className="w-56"
+                  label="Police de cette langue"
+                  aria-label="Police de cette langue"
+                  value={locale.fontFamily ?? ''}
+                  disabled={busy}
+                  onValueChange={(next) => setLocaleFont(locale.code, next || undefined)}
+                  items={[
+                    { value: '', label: 'Garder celle de chaque calque' },
+                    ...fontsForScript(locale.script).map((family) => ({
+                      value: family,
+                      label: family,
+                    })),
+                  ]}
+                />
+                <Hint content="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire.">
+                  <Button
+                    variant="outline"
+                    onClick={() => void translate(locale, layers)}
+                    loading={busy}
+                  >
+                    <Languages size={12} aria-hidden />
+                    Pré-remplir via le pont
+                  </Button>
+                </Hint>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    removeLocale(locale.code)
+                    setSelectedCode('')
+                  }}
+                  disabled={busy}
+                >
+                  <Trash2 size={12} aria-hidden />
+                  Supprimer
+                </Button>
+              </div>
+
+              {/* En-tête de colonnes. Sans elle, chaque ligne montrait deux textes
+                  — le nom du calque à gauche, l'original en gris à droite, la
+                  traduction dans le champ — et rien ne disait lequel était
+                  lequel : on relit une traduction sans savoir ce qu'elle traduit. */}
+              <div className="flex items-baseline justify-between gap-2 border-t border-border pt-4">
+                <h3 className="text-sm font-medium">Calque · texte d’origine</h3>
+                <span className="text-xs text-muted-foreground">Traduction · relu</span>
+              </div>
+              {layers.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Aucun texte dans ce projet. Ajoutez un calque de texte, il apparaîtra ici.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {layers.map((layer) => (
+                    <TextRow
+                      key={layer.id}
+                      layer={layer}
+                      locale={locale}
+                      findings={findingsByLayer.get(layer.id) ?? []}
+                      disabled={busy}
+                    />
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Ajoutez une langue, ou choisissez-en une dans la liste, pour en relire les textes.
+            </p>
+          )}
+        </DialogColumns>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -401,15 +422,14 @@ function TextRow({
           situer. L'original ne descend jamais sous 4.5:1 — on ne relit pas une
           traduction contre une source en gris pâle. */}
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={fieldId} className="min-w-0 truncate text-2xs text-foreground">
+        <label htmlFor={fieldId} className="min-w-0 truncate text-xs text-foreground">
           {layer.content}
         </label>
-        <span className="field-label shrink-0">{layer.name}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{layer.name}</span>
       </div>
       <div className="flex items-center gap-2">
         <Input
           id={fieldId}
-          font="sans"
           value={variant?.value ?? ''}
           maxLength={MAX_LOCALE_TEXT_LENGTH}
           disabled={disabled}
@@ -424,43 +444,35 @@ function TextRow({
         />
         {/* Relu est un fait qu'on déclare, pas un état qu'on devine : une
             traduction reprise du pont arrive toujours non relue. */}
-        <Tooltip content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={variant?.reviewed ?? false}
-            aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
-            disabled={disabled}
-            onClick={() =>
-              setLocaleText(
-                locale.code,
-                layer.id,
-                variant?.value ?? '',
-                !(variant?.reviewed ?? false),
-              )
-            }
+        <Hint content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
+          <label
             className={cn(
-              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              variant?.reviewed
-                ? 'border-foreground bg-muted text-foreground'
-                : 'border-border text-muted-foreground hover:border-input',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs',
+              variant?.reviewed ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
-            <Check size={11} aria-hidden />
+            <Checkbox
+              checked={variant?.reviewed ?? false}
+              aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                setLocaleText(locale.code, layer.id, variant?.value ?? '', checked)
+              }
+            />
             Relu
-          </button>
-        </Tooltip>
+          </label>
+        </Hint>
       </div>
       {findings.map((finding) => (
-        <p
-          key={finding.kind}
-          role="alert"
-          className="flex items-start gap-1.5 text-2xs text-destructive"
-        >
-          <AlertCircle size={12} className="mt-px shrink-0" aria-hidden />
-          {finding.detail}
-        </p>
+        <Alert key={finding.kind} variant="error" className="py-1.5">
+          <AlertCircle aria-hidden />
+          <AlertDescription className="flex flex-wrap items-center gap-1.5 text-xs">
+            <Badge variant="error" size="sm">
+              {FINDING_LABELS[finding.kind]}
+            </Badge>
+            {finding.detail}
+          </AlertDescription>
+        </Alert>
       ))}
     </li>
   )
