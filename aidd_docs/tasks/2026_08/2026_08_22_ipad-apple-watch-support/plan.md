@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge compose, conserve, vérifie et publie des lots portrait iPhone, iPad 13 pouces et Apple Watch aux formats App Store officiels."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Support officiel iPad et Apple Watch
