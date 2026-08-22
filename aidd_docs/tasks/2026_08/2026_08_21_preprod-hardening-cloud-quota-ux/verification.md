@@ -10,8 +10,8 @@ fournisseur, ni consommation réelle, ni secret, ni URL de contournement.
 
 ## Candidat local
 
-- Base vérifiée : `origin/main` à `07f622212df447172fa7217b06879ed43e1860fd`.
-- Branche : `codex/preprod-security-ux-plan`.
+- Base vérifiée : `origin/main` à `1cd46bb237ce680c5a2c8428c8450db19197bc73`.
+- Branche : `codex/preprod-ci-automation`.
 - SHA candidat : à reporter depuis le commit poussé avant tout déploiement. Aucune
   preuve hébergée n'est attribuée au worktree non commité.
 - Runtime de validation : Node 24.19.0, conforme à la version majeure ciblée par
@@ -69,29 +69,36 @@ donc aucune preuve et ne bloque pas la validation locale proportionnée restante
   distingue bien sous-total, net, taxe et total. Aucun achat ni réglage n'a été
   créé ou modifié pendant cette vérification.
 - Vercel Authentication protège les previews et l'accès anonyme vérifié. Un
-  bypass d'automation borné existe au niveau projet; son propriétaire et son
-  consommateur doivent être confirmés avant toute révocation.
-- Aucun share link exposé n'a été observé dans la configuration projet filtrée;
-  la liste exhaustive des invités et exceptions reste à confirmer dans le
-  tableau de bord.
-- Aucun seuil Convex n'a été modifié : le worktree ne dispose ni de la clé du
-  déploiement préproduction ni d'une commande CLI exposant les Usage Limits.
-  Les warnings et le baseline de trois gates restent donc non prouvés; le hard
-  disable demeure volontairement inactif jusqu'au choix du budget utilisateur.
-- L'envoi réel Resend n'est pas encore déclaré conforme dans cette preuve.
+  bypass d'automation sans consommateur dans les workflows, scripts ou sources
+  versionnés a été révoqué avec l'accord du propriétaire; sa valeur n'a jamais
+  été révélée.
+- L'inventaire Vercel ne montre ni lien partageable, ni invité supplémentaire,
+  ni exception de protection. Les requêtes `OPTIONS` ne contournent pas la
+  protection. Un nouvel appel anonyme confirme la redirection d'authentification,
+  `no-store`, `noindex` et le refus de framing.
+- Trois exécutions du preflight de préproduction ont retourné `ready: true`, sans
+  variable manquante ni incohérence. Les pics quotidiens de function calls,
+  database I/O et data egress ont été relevés sans données utilisateur dans le
+  document; la fenêtre de limites est désormais quotidienne.
+- Convex impose un minimum fournisseur pour les limites de bande passante et le
+  dashboard de ce déploiement Development désactive les contrôles de warning.
+  Avec l'accord explicite du propriétaire, trois disables quotidiens calculés
+  au-dessus du baseline sont actifs et bornent désormais la préproduction. Ils
+  se réarment automatiquement à minuit UTC; les valeurs restent exclusivement
+  dans Convex. Les warnings souples demeurent indisponibles pour ce type de
+  déploiement et ne sont pas simulés dans la preuve.
+- Resend présente plusieurs liens de connexion ScreenForge livrés, dont un sur
+  le parcours de vérification courant. La preuve ne publie ni destinataire, ni
+  identifiant de message, ni contenu du lien.
 
 ## Parcours hébergé restant avant GO production
 
 1. Commiter et pousser, puis déployer exactement ce SHA par le chemin preprod.
-2. Vérifier Polar Sandbox à 39 USD/an, taxes affichées et résumé des quatre
-   quotas; nettoyer la fixture sans achat réel.
-3. Depuis deux navigateurs, prouver inscription, entitlement, sync, usage,
+2. Depuis deux navigateurs, prouver inscription, entitlement, sync, usage,
    remise à zéro, conservation locale et consentement de rattachement.
-4. Exécuter trois gates synthétiques, relever calls/I/O/egress dans Convex,
-   activer uniquement les warnings calculés par le runbook et vérifier la
-   notification; ne pas activer le disable.
-5. Confirmer invités, exceptions et consommateur du bypass Vercel, puis révoquer
-   seulement les accès démontrés inutiles.
+3. Vérifier History et la réactivation sans provoquer volontairement le seuil
+   dur; réévaluer les warnings si le type de déploiement ou le plan change.
+4. Nettoyer toutes les fixtures après le parcours hébergé final.
 
 Le candidat n'est « GO production » qu'après ces contrôles. Leur absence ne
 doit jamais être remplacée par une preuve simulée.
