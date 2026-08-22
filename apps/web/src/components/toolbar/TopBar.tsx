@@ -26,10 +26,12 @@ import {
   Square,
   Star,
   Sun,
+  Tablet,
   TriangleAlert,
   Type,
   Undo2,
   UserRound,
+  Watch as WatchIcon,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { useHistoryStore } from '@/stores/history.store'
@@ -63,9 +65,9 @@ import {
   createShapeLayer,
   createTextLayer,
 } from '@/lib/layer-factories'
-import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
+import { currentDeviceFramesFor } from '@/assets/device-frames'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
-import type { DeviceModel, Layer } from '@/types'
+import type { DeviceFamily, DeviceModel, Layer } from '@/types'
 
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
 const PROJECT_NAME_INPUT_ID = 'sf-project-name-input'
@@ -589,8 +591,8 @@ function useToolActions(): SecondaryAction[] {
     },
     {
       id: 'add-device',
-      label: 'Ajouter un cadre de téléphone',
-      hint: 'Ajouter : cadre de téléphone',
+      label: 'Ajouter un appareil',
+      hint: 'Ajouter : appareil',
       icon: <Smartphone size={16} strokeWidth={1.75} />,
       onSelect: () =>
         addLayer((index) =>
@@ -1021,9 +1023,9 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
   const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
   const profile = getStoreTargetProfile(target)
 
-  const models = CURRENT_DEVICE_FRAMES.filter((frame) =>
-    profile.deviceModels.includes(frame.model),
-  ).sort((a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel))
+  const models = [...currentDeviceFramesFor(profile.family)].sort(
+    (a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel),
+  )
 
   return (
     <Dropdown
@@ -1031,16 +1033,16 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       onOpenChange={setOpen}
       trigger={
         <ToolbarTool
-          aria-label="Ajouter un cadre de téléphone"
-          tooltip="Ajouter : cadre de téléphone"
+          aria-label="Ajouter un appareil"
+          tooltip="Ajouter : appareil"
           active={open}
           aria-expanded={open}
         >
-          <Smartphone size={16} strokeWidth={1.75} />
+          <DeviceToolIcon family={profile.family} />
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
         </ToolbarTool>
       }
-      ariaLabel="Modèle de téléphone"
+      ariaLabel="Modèles d’appareil compatibles"
       items={models.map((frame) => ({
         id: frame.model,
         label: frame.modelName,
@@ -1049,4 +1051,9 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       }))}
     />
   )
+}
+
+function DeviceToolIcon({ family }: { family: DeviceFamily }) {
+  const Icon = family === 'ipad' ? Tablet : family === 'watch' ? WatchIcon : Smartphone
+  return <Icon size={16} strokeWidth={1.75} />
 }

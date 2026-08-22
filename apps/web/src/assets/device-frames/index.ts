@@ -2,6 +2,7 @@ import { screenshotFrame, type Rect } from '@/lib/screenshot-placement'
 import type {
   DeviceModel,
   DeviceColor,
+  DeviceFamily,
   DevicePlatform,
   ScreenshotPlacement,
   ScreenshotSize,
@@ -9,8 +10,9 @@ import type {
 
 export interface DeviceFrameConfig {
   model: DeviceModel
-  modelName: string
   platform: DevicePlatform
+  family: DeviceFamily
+  modelName: string
   /** Screen diagonal or generic class, shown in pickers. */
   screenSize: string
   /** Sold by Apple today; legacy models stay renderable for old projects */
@@ -22,7 +24,7 @@ export interface DeviceFrameConfig {
   screenWidth: number
   screenHeight: number
   cornerRadius: number
-  cutout: 'island' | 'notch' | 'punch-hole'
+  cutout: 'island' | 'notch' | 'punch-hole' | 'none'
   colors: { name: DeviceColor; label: string; frame: string }[]
 }
 
@@ -96,14 +98,17 @@ function frameConfig(
   colors: DeviceFrameConfig['colors'],
   options: {
     current?: boolean
+    family?: DeviceFamily
+    cornerRadius?: number
     platform?: DevicePlatform
     cutout?: DeviceFrameConfig['cutout']
   } = {},
 ): DeviceFrameConfig {
   return {
     model,
-    modelName,
     platform: options.platform ?? 'apple',
+    family: options.family ?? 'iphone',
+    modelName,
     screenSize,
     current: options.current ?? true,
     width,
@@ -112,7 +117,7 @@ function frameConfig(
     screenY: insets.y,
     screenWidth: width - insets.x * 2,
     screenHeight: height - insets.y * 2,
-    cornerRadius: Math.round(width * 0.155),
+    cornerRadius: options.cornerRadius ?? Math.round(width * 0.155),
     cutout: options.cutout ?? 'island',
     colors,
   }
@@ -164,7 +169,7 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
       { name: 'black', label: 'Noir', frame: '#1c1c1c' },
       { name: 'silver', label: 'Argent', frame: '#d8d8d8' },
     ],
-    { platform: 'android', cutout: 'punch-hole' },
+    { platform: 'android', family: 'android-phone', cutout: 'punch-hole' },
   ),
   // Legacy — old projects only
   frameConfig(
@@ -187,9 +192,75 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
     TITANIUM_16_COLORS,
     { current: false },
   ),
+  frameConfig(
+    'tablet-slate',
+    'Tablette — Ardoise',
+    '13"',
+    320,
+    426,
+    { x: 8, y: 8 },
+    [
+      { name: 'white', label: 'Craie', frame: '#ffffff' },
+      { name: 'black', label: 'Graphite', frame: '#242424' },
+    ],
+    { family: 'ipad', cutout: 'none', cornerRadius: 17 },
+  ),
+  frameConfig(
+    'tablet-studio',
+    'Tablette — Studio',
+    '13"',
+    326,
+    434,
+    { x: 10, y: 10 },
+    [
+      { name: 'white', label: 'Porcelaine', frame: '#ffffff' },
+      { name: 'silver', label: 'Étain', frame: '#8A8A88' },
+    ],
+    { family: 'ipad', cutout: 'none', cornerRadius: 15 },
+  ),
+  frameConfig(
+    'watch-halo',
+    'Montre — Halo',
+    'grand boîtier',
+    338,
+    400,
+    { x: 22, y: 28 },
+    [
+      { name: 'white', label: 'Clair', frame: '#ffffff' },
+      { name: 'black', label: 'Sombre', frame: '#202020' },
+    ],
+    { family: 'watch', cutout: 'none', cornerRadius: 58 },
+  ),
+  frameConfig(
+    'watch-compact',
+    'Montre — Compacte',
+    'petit boîtier',
+    320,
+    390,
+    { x: 18, y: 24 },
+    [
+      { name: 'white', label: 'Clair', frame: '#ffffff' },
+      { name: 'silver', label: 'Acier', frame: '#858583' },
+    ],
+    { family: 'watch', cutout: 'none', cornerRadius: 52 },
+  ),
 ]
 
 export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.current)
+
+export function currentDeviceFramesFor(family: DeviceFamily): DeviceFrameConfig[] {
+  return CURRENT_DEVICE_FRAMES.filter((frame) => frame.family === family)
+}
+
+/** Current choices for a profile, plus its selected same-platform legacy frame. */
+export function deviceFrameOptionsFor(
+  model: DeviceModel,
+  family: DeviceFamily,
+): DeviceFrameConfig[] {
+  const current = currentDeviceFramesFor(family)
+  const selected = getDeviceFrame(model)
+  return selected.family === family && !selected.current ? [selected, ...current] : current
+}
 
 /* Chaque modèle du contrat partagé a son gabarit, et réciproquement. Un modèle
    en trop casse ici à la compilation (`DeviceFrameConfig.model`, dont
@@ -343,8 +414,9 @@ export function getDeviceRenderSize(config: DeviceFrameConfig): { width: number;
 
 /** Canonical layer size for a model — official aspect, never user-distorted. */
 export function getDefaultDeviceSize(model: DeviceModel): { width: number; height: number } {
-  const rendered = getDeviceRenderSize(getDeviceFrame(model))
-  const height = 507
+  const config = getDeviceFrame(model)
+  const rendered = getDeviceRenderSize(config)
+  const height = config.family === 'watch' ? 430 : config.family === 'ipad' ? 480 : 507
   return { width: Math.round(height * (rendered.width / rendered.height)), height }
 }
 
@@ -419,13 +491,15 @@ export function generateDeviceFrameSVG(
     l'app, et la capture ne porte donc aucun noir à cet endroit.
   -->
   ${
-    cutout === 'notch'
-      ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
-      : cutout === 'punch-hole'
-        ? `<circle data-part="punch-hole" cx="${round(cameraX)}" cy="${round(cameraY)}" r="${round(cameraRadius)}" fill="#000000"/>`
-        : screenshotUrl
-          ? ''
-          : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
+    cutout === 'none'
+      ? ''
+      : cutout === 'notch'
+        ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
+        : cutout === 'punch-hole'
+          ? `<circle data-part="punch-hole" cx="${round(cameraX)}" cy="${round(cameraY)}" r="${round(cameraRadius)}" fill="#000000"/>`
+          : screenshotUrl
+            ? ''
+            : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
   }
 </svg>`
 }

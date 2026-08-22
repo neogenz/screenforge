@@ -21,7 +21,7 @@ import {
 import { resolveAsset } from '@/lib/assets'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
-import { APP_STORE_PROFILE } from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { ICON_STROKE, iconEntry, shapeEntry } from '@/lib/vector-catalog'
 import {
   GHOST_HALO,
@@ -39,6 +39,7 @@ import type {
   Layer,
   TextLayer,
   TextShadow,
+  StoreTargetId,
 } from '@/types'
 
 export type BoardSize = { width: number; height: number }
@@ -46,6 +47,15 @@ export type BoardSize = { width: number; height: number }
 export const SCREEN_WIDTH = APP_STORE_PROFILE.board.width
 export const SCREEN_HEIGHT = APP_STORE_PROFILE.board.height
 export const SCREEN_GAP = 40
+
+export interface CanvasSize {
+  width: number
+  height: number
+}
+
+export function canvasSize(target: StoreTargetId = APP_STORE_PROFILE.id): CanvasSize {
+  return getStoreTargetProfile(target).board
+}
 
 FabricObject.ownDefaults.originX = 'left'
 FabricObject.ownDefaults.originY = 'top'

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEVICE_FRAMES,
   CURRENT_DEVICE_FRAMES,
+  currentDeviceFramesFor,
+  deviceFrameOptionsFor,
   generateDeviceFrameSVG,
   getDeviceFrame,
   getDeviceRenderSize,
 } from '@/assets/device-frames'
+import { DEVICE_MODEL_IDS } from '@screenforge/project-format'
 
 describe('generated device frame SVG', () => {
   it('renders one flat white frame and a simple island when empty', () => {
@@ -43,6 +47,29 @@ describe('generated device frame SVG', () => {
     }
   })
 
+  it('covers the closed contract and offers two original frames per new platform', () => {
+    expect(DEVICE_FRAMES.map((config) => config.model).sort()).toEqual([...DEVICE_MODEL_IDS].sort())
+    expect(currentDeviceFramesFor('ipad')).toHaveLength(2)
+    expect(currentDeviceFramesFor('watch')).toHaveLength(2)
+
+    for (const config of [...currentDeviceFramesFor('ipad'), ...currentDeviceFramesFor('watch')]) {
+      const svg = generateDeviceFrameSVG(config, config.colors[0].name)
+      expect(svg, config.model).not.toMatch(/data-part="island"|data-part="notch"/)
+      expect(svg, config.model).not.toMatch(/<image|href=|<text|data-part="logo"/i)
+    }
+  })
+
+  it('keeps picker options on-profile while retaining same-platform legacy frames', () => {
+    expect(deviceFrameOptionsFor('tablet-slate', 'iphone').map(({ model }) => model)).not.toContain(
+      'tablet-slate',
+    )
+    expect(deviceFrameOptionsFor('iphone-16-pro-max', 'iphone')[0]?.model).toBe('iphone-16-pro-max')
+    expect(deviceFrameOptionsFor('iphone-16-pro-max', 'ipad').map(({ family }) => family)).toEqual([
+      'ipad',
+      'ipad',
+    ])
+  })
+
   it('renders the Android frame with a persistent punch-hole and two neutral colors', () => {
     const config = getDeviceFrame('android-phone')
     const svg = generateDeviceFrameSVG(config, config.colors[0].name, 'data:image/png;base64,a')
@@ -54,8 +81,7 @@ describe('generated device frame SVG', () => {
     expect(svg).not.toContain('data-part="island"')
   })
 
-  it('keeps every shared device model represented in the renderer catalogue', async () => {
-    const { DEVICE_MODEL_IDS } = await import('@screenforge/project-format/catalog-ids')
+  it('keeps every shared device model represented in the renderer catalogue', () => {
     expect(
       DEVICE_MODEL_IDS.every(
         (model) =>

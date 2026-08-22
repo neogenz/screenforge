@@ -41,6 +41,29 @@ beforeEach(() => {
 })
 
 describe('hydratation de la bibliothèque de gabarits', () => {
+  it('fige la cible du projet et ne liste que sa famille d’appareil', async () => {
+    storage.read.mockResolvedValue([])
+    useProjectStore.getState().createProject('iPad', 'app-store-ipad-13')
+    const saved = await saveRelayTemplate({ name: 'Tablette' })
+    expect(saved.committed).toBe(true)
+    expect(storage.write).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'app-store-ipad-13' }),
+      undefined,
+    )
+
+    const iphone = templateFromScreen(useProjectStore.getState().project!.screens[0], {
+      name: 'Téléphone',
+      source: 'user',
+      target: 'app-store-iphone',
+    })
+    useTemplatesStore.setState((state) => ({ templates: [...state.templates, iphone] }))
+
+    await expect(listRelayTemplates()).resolves.toMatchObject({
+      committed: true,
+      result: { templates: [{ name: 'Tablette' }] },
+    })
+  })
+
   it('fige la cible du projet avec le gabarit', async () => {
     storage.read.mockResolvedValue([])
     useProjectStore.getState().createProject('Android', 'google-play-phone')

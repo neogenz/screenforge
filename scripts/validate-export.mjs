@@ -90,7 +90,7 @@ function centralDirectoryNames(bytes) {
   return names
 }
 
-/** @typedef {'app-store-iphone' | 'google-play-phone'} TargetId */
+/** @typedef {keyof typeof STORE_TARGET_PROFILES} TargetId */
 
 /** @param {string[]} paths @param {string | undefined} targetId */
 function resolveProfile(paths, targetId) {
@@ -100,7 +100,7 @@ function resolveProfile(paths, targetId) {
     paths.some((path) => path.startsWith(`${profile.folder}/`)),
   )?.[0]
   const id = /** @type {TargetId | undefined} */ (targetId ?? inferred)
-  if (!id) throw new Error('cible indétectable : attendu un dossier 6.9/ ou phone/')
+  if (!id) throw new Error('cible indétectable : dossier d’export inconnu')
   return { id, ...PROFILES[id] }
 }
 
@@ -162,14 +162,13 @@ async function main() {
       !argument.startsWith('--target='),
   )
   if (!inputPath) {
-    throw new Error(
-      'usage: pnpm validate:export -- <screenforge.zip> [--target app-store-iphone|google-play-phone]',
-    )
+    throw new Error('usage: pnpm validate:export -- <screenforge.zip> [--target <cible>]')
   }
   const summaries = await validateExportZip(await readFile(inputPath), targetId)
   const totalBytes = summaries.reduce((total, file) => total + file.byteLength, 0)
+  const first = summaries[0]
   console.log(
-    `VALID ${summaries.length} PNG · ${summaries[0].width}×${summaries[0].height} · RGB opaque · ${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
+    `VALID ${summaries.length} PNG · ${first.width}×${first.height} · RGB opaque · ${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
   )
 }
 

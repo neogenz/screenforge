@@ -279,7 +279,7 @@ export function LayersPanel() {
             Partir de mes captures…
           </Button>
           <Button variant="ghost" size="sm" onClick={handleAddDevice}>
-            Ajouter un cadre de téléphone
+            Ajouter un appareil
           </Button>
         </div>
       )}

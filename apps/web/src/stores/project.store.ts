@@ -33,6 +33,26 @@ export function createDefaultScreen(name: string, globals: GlobalSettings): Scre
   }
 }
 
+export function createProjectDocument(
+  name: string,
+  target: StoreTargetId = APP_STORE_PROFILE.id,
+): Project {
+  const now = Date.now()
+  const globals = createDefaultGlobals(target)
+  const screen = createDefaultScreen(defaultScreenName(0), globals)
+  return {
+    id: crypto.randomUUID(),
+    name,
+    target,
+    screens: [screen],
+    activeScreenId: screen.id,
+    globals,
+    layoutLayers: [],
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
 function withTimestamp(project: Project, updates: Partial<Project>): Project {
   return {
     ...project,
@@ -84,22 +104,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: null,
 
   createProject: (name, target = APP_STORE_PROFILE.id) => {
-    const now = Date.now()
-    const globals = createDefaultGlobals(target)
-    const screen = createDefaultScreen(defaultScreenName(0), globals)
-    set({
-      project: {
-        id: crypto.randomUUID(),
-        name,
-        target,
-        screens: [screen],
-        activeScreenId: screen.id,
-        globals,
-        layoutLayers: [],
-        createdAt: now,
-        updatedAt: now,
-      },
-    })
+    set({ project: createProjectDocument(name, target) })
   },
 
   loadProject: (project) => set({ project }),

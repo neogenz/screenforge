@@ -79,6 +79,7 @@ export interface RenderProgress {
 export async function renderReleaseFiles(
   snapshot: ProjectSnapshot,
   onProgress?: (progress: RenderProgress) => void,
+
   /**
    * Les octets, pour qui en a besoin.
    *

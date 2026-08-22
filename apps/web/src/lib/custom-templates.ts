@@ -1,7 +1,7 @@
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
-import { getStoreTargetProfile } from '@/lib/dimensions'
+import { getStoreTargetProfile, legacyAppStoreTarget } from '@/lib/dimensions'
 import { getDB } from '@/lib/storage'
 import { createDefaultGlobals } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
@@ -189,7 +189,18 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
 export async function readCustomTemplates(): Promise<CustomTemplate[]> {
   const db = await getDB()
   const records = await db.getAll('templates')
-  return records.filter(isCustomTemplate).sort((a, b) => b.createdAt - a.createdAt)
+  return records
+    .map((record) => {
+      if (!record || typeof record !== 'object') return record
+      const { profileId, ...template } = record as Record<string, unknown>
+      if (template.target !== undefined) return template
+      return {
+        ...template,
+        target: profileId === undefined ? 'app-store-iphone' : legacyAppStoreTarget(profileId),
+      }
+    })
+    .filter(isCustomTemplate)
+    .sort((a, b) => b.createdAt - a.createdAt)
 }
 
 export async function writeCustomTemplate(

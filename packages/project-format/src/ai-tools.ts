@@ -1,5 +1,6 @@
-import { MAX_PROJECT_SCREENS, STORE_TARGET_PROFILES } from './dimensions.ts'
-import type { LayerType } from './types.ts'
+import { getStoreTargetProfile, MAX_PROJECT_SCREENS, STORE_TARGET_PROFILES } from './dimensions.ts'
+import { CONTENT_FONTS, ICON_IDS, SHAPE_IDS } from './catalog-ids.ts'
+import type { LayerType, StoreTargetId } from './types.ts'
 
 /**
  * Ce qu'un modèle peut faire au projet, et rien d'autre — la partie
@@ -304,7 +305,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
     },
     {
       name: 'add_device',
-      description: 'Pose un cadre de téléphone compatible avec le projet ouvert.',
+      description: 'Pose un cadre compatible avec le projet, avec son rôle et sa capture.',
       parameters: object({
         screenId,
         deviceModel: { type: 'string', enum: catalogs.deviceModels },
@@ -399,6 +400,16 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
   }
 
   return { AI_TOOLS, toolSchema, validateToolCall }
+}
+
+/** Construit le même contrat, fermé sur les seuls appareils de la cible. */
+export function createTargetAiTools(target: StoreTargetId): AiTooling {
+  return createAiTools({
+    deviceModels: getStoreTargetProfile(target).deviceModels,
+    shapeIds: SHAPE_IDS,
+    iconIds: ICON_IDS,
+    fonts: CONTENT_FONTS,
+  })
 }
 
 /**

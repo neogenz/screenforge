@@ -2,10 +2,18 @@ import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
 import { ICON_BOX, ICON_STROKE, iconEntry, shapeEntry, SHAPE_BOX } from '@/lib/vector-catalog'
 import { getStoreTargetProfile } from '@/lib/dimensions'
-import type { Background, GradientFill, Layer, TemplateDefinition, TextLayer } from '@/types'
+import type {
+  Background,
+  GradientFill,
+  Layer,
+  StoreTargetId,
+  TemplateDefinition,
+  TextLayer,
+} from '@/types'
 
 interface TemplatePreviewProps {
   template: TemplateDefinition
+  target?: StoreTargetId
   /**
    * Les images d'un gabarit enregistré, qui ne sont pas dans le registre.
    *
@@ -16,8 +24,10 @@ interface TemplatePreviewProps {
   assets?: Readonly<Record<string, string>>
 }
 
-export function TemplatePreview({ template, assets }: TemplatePreviewProps) {
-  const { width, height } = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
+export function TemplatePreview({ template, target, assets }: TemplatePreviewProps) {
+  const { width, height } = getStoreTargetProfile(
+    target ?? template.target ?? 'app-store-iphone',
+  ).board
   const backgroundId = `${template.id}-background`
   const sortedLayers = [...template.layers].sort((first, second) => first.zIndex - second.zIndex)
 

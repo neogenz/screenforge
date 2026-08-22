@@ -1,6 +1,6 @@
 import { layerDisplayName } from '@/lib/layer-factories'
 import { getStoreTargetProfile } from '@/lib/dimensions'
-import type { Layer, Project, Screen } from '@/types'
+import type { DeviceFamily, Layer, Project, Screen } from '@/types'
 
 /**
  * Ce qu'un modèle a le droit de voir du projet.
@@ -44,6 +44,8 @@ export interface ProjectView {
   name: string
   target: Project['target']
   platform: 'apple' | 'android'
+  family: DeviceFamily
+  deviceModels: readonly Project['globals']['deviceModel'][]
   canvas: { width: number; height: number }
   globals: Project['globals']
   screens: ScreenView[]
@@ -89,6 +91,8 @@ export function describeProject(project: Project): ProjectView {
     name: project.name,
     target: project.target,
     platform: profile.platform,
+    family: profile.family,
+    deviceModels: profile.deviceModels,
     canvas: { ...profile.board },
     globals: structuredClone(project.globals),
     screens: project.screens.map(screenView),

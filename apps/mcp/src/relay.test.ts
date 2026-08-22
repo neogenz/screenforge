@@ -384,6 +384,18 @@ describe('le catalogue publié', () => {
     expect(result.isError).toBe(true)
     expect(result.structuredContent).toBeUndefined()
   })
+
+  it('refuse un appareil qui n’appartient pas à la cible ouverte', async () => {
+    const state = createRelayState()
+    state.session.pushState({ target: 'app-store-ipad-13' })
+
+    const result = await catalogue(state)
+      .get('screenforge_add_device')!
+      .run({ deviceModel: 'iphone-17' })
+
+    expect(result.isError).toBe(true)
+    expect((result.content[0] as { text: string }).text).toMatch(/deviceModel.*hors catalogue/)
+  })
 })
 
 describe('un seul éditeur à la fois', () => {

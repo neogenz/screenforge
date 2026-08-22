@@ -11,7 +11,10 @@ describe('installThumbnails', () => {
     vi.useFakeTimers()
     const currentCanvas = vi.fn(() => null)
     const onGenerated = vi.fn()
-    const scheduler = installThumbnails({ currentCanvas, onGenerated })
+    const scheduler = installThumbnails({
+      currentCanvas,
+      onGenerated,
+    })
 
     scheduler.schedule([{ id: 'screen' } as Screen], { width: 540, height: 960 })
     scheduler.cleanup()

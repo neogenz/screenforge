@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { decode } from 'fast-png'
 import JSZip from 'jszip'
 import {
@@ -10,6 +10,18 @@ import {
   waitForApp,
 } from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
+import type { Project } from '../src/types'
+
+async function createTargetProject(page: Page, target: Project['target']): Promise<void> {
+  await page.evaluate((nextTarget) => {
+    const store = window.__sfStores?.useProjectStore
+    if (!store) throw new Error('project store unavailable')
+    store.getState().createProject('Export target', nextTarget)
+  }, target)
+  await expect
+    .poll(() => page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.target))
+    .toBe(target)
+}
 
 /**
  * Critical path: exported PNGs must be pixel-exact for App Store Connect.
@@ -29,6 +41,60 @@ test.describe('export', () => {
     expect(view.getUint8(24)).toBe(8) // bit depth
     expect(view.getUint8(25)).toBe(2) // color type RGB (opaque)
   })
+
+  const profileTargets = [
+    {
+      target: 'app-store-ipad-13' as const,
+      folder: 'ipad-13',
+      width: 2064,
+      height: 2752,
+      logicalHeight: 586.667,
+    },
+    {
+      target: 'app-store-watch-series-10' as const,
+      folder: 'watch-series-10',
+      width: 416,
+      height: 496,
+      logicalHeight: 524.615,
+    },
+  ] as const
+
+  for (const target of profileTargets) {
+    test(`exports ${target.target} from its real artboard to its exact App Store dimensions`, async ({
+      page,
+    }) => {
+      await waitForApp(page)
+      await createTargetProject(page, target.target)
+
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const background = window.__sfCanvas
+              ?.getObjects()
+              .find(
+                (object) =>
+                  (object as { data?: { rendererType?: string } }).data?.rendererType ===
+                  'background',
+              ) as { width?: number; height?: number } | undefined
+            return background
+              ? {
+                  width: Math.round((background.width ?? 0) * 1000) / 1000,
+                  height: Math.round((background.height ?? 0) * 1000) / 1000,
+                }
+              : null
+          }),
+        )
+        .toEqual({ width: 440, height: target.logicalHeight })
+
+      const { names, png } = await downloadFirstExportedPng(page)
+      expect(names).toEqual([expect.stringMatching(new RegExp(`^${target.folder}/\\d{2}_`))])
+      const decoded = decode(png)
+      expect(decoded.width).toBe(target.width)
+      expect(decoded.height).toBe(target.height)
+      expect(decoded.depth).toBe(8)
+      expect(decoded.channels).toBe(3)
+    })
+  }
 
   test('ZIP Google Play contient un PNG RGB opaque exact 1080×1920 sous phone/', async ({
     page,

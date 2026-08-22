@@ -21,10 +21,10 @@ test('creates, composes and reopens a Google Play phone project', async ({ page 
   await expect(projectTrigger).toBeFocused()
 
   await projectTrigger.click()
-  await expect(page.getByText('Google Play · téléphone', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Google Play · téléphone.*1080×1920/)).toBeVisible()
   await projectTrigger.click()
 
-  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
+  await page.getByRole('toolbar').getByRole('button', { name: 'Ajouter un appareil' }).click()
   await page.getByRole('menuitem', { name: /Téléphone Android/ }).click()
   await expect
     .poll(() =>

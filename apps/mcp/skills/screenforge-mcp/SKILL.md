@@ -30,5 +30,8 @@ Run the flow above. Read only the next action file.
 - Never invent an identifier. Device models, shapes, icons and fonts are closed lists, and a value outside them is refused before it reaches the project.
 - The project belongs to the user. Read it before writing, add rather than replace, and never delete a layer this run did not create.
 - Every call can be refused, and the refusal names its cause and the expected sub-schema. Correct the call from what it says instead of retrying it unchanged.
-- Read `target`, `canvas` and `globals.deviceModel` before composing. Coordinates are board units on that canvas: 440 by 956 for App Store, 540 by 960 for Google Play phone.
+- Before writing geometry, read `screenforge_get_project_state.canvas.width` and
+  `screenforge_get_project_state.canvas.height`. Use those board units and the
+  active ratio, never export pixels. Read `target` and `globals.deviceModel` too;
+  the active target decides the compatible device family.
 - Write the user's copy in the user's own language. The board is a real listing, not a demo.

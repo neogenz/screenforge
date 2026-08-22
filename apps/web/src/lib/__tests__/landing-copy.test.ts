@@ -27,9 +27,19 @@ test.each(['en', 'fr'] as const)('la landing %s publie le contrat Cloud appliqu�
 })
 
 test.each(['en', 'fr'] as const)(
-  'la landing %s publie exactement les deux profils téléphone',
+  'la landing %s annonce toutes les cibles sans redistribuer les bezels Apple',
   (lang) => {
-    const rendered = JSON.stringify(copy[lang])
+    const landing = copy[lang]
+    const rendered = JSON.stringify(landing)
+    const faq = landing.faq.items.map(({ q, a }) => `${q} ${a}`).join('\n')
+
+    expect(rendered).toMatch(/iPhone 6[,.]9″/)
+    expect(rendered).toContain('iPad 13″')
+    expect(rendered).toContain('2064×2752')
+    expect(rendered).toMatch(/six (?:Apple Watch formats|formats Apple Watch)/)
+    expect(faq).toMatch(/1320×2868/)
+    expect(faq).toMatch(/422×514.*410×502.*416×496.*396×484.*368×448.*312×390/s)
+    expect(faq).toMatch(/(?:not bundled or redistributed|ni inclus ni redistribués)/)
     for (const claim of ['App Store', 'Google Play', '1320×2868', '1080×1920', '6.9/', 'phone/']) {
       expect(rendered).toContain(claim)
     }

@@ -16,28 +16,28 @@ tools of all its servers flat.
 
 ## The board
 
-| Fact                   | Value                                                            |
-| ---------------------- | ---------------------------------------------------------------- |
-| App Store artboard     | 440 wide by 956 tall; export 1320 by 2868                        |
-| Google Play artboard   | 540 wide by 960 tall; export 1080 by 1920                        |
-| Active target          | read `target`, `canvas` and `globals.deviceModel` before writing |
-| Coordinates `x` `y`    | -540 to 1080; the active board still decides what is visible     |
-| Sizes `width` `height` | 4 to 1920                                                        |
-| `rotation`             | -360 to 360 degrees, around the layer centre                     |
-| `opacity`              | 0 to 1                                                           |
-| Colours                | `#rrggbb` exactly, six hex digits, no shorthand and no alpha     |
-| Screens per project    | 10 for App Store, 8 for Google Play phone                        |
-| Layers per screen      | 24                                                               |
-| Calls per batch        | 200                                                              |
+| Fact                   | Value                                                                      |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Artboard               | `get_project_state.canvas.width` by `.height`, in board units              |
+| Active target          | read `target`, `family`, `canvas` and `globals.deviceModel` before writing |
+| Export                 | derived from `target`, never addressed by a call                           |
+| Coordinates `x` `y`    | -540 to 1080; the active board decides what is visible                     |
+| Sizes `width` `height` | 4 to 1920                                                                  |
+| `rotation`             | -360 to 360 degrees, around the layer centre                               |
+| `opacity`              | 0 to 1                                                                     |
+| Colours                | `#rrggbb` exactly, six hex digits, no shorthand and no alpha               |
+| Screens per project    | 10 for App Store, 8 for Google Play phone                                  |
+| Layers per screen      | 24                                                                         |
+| Calls per batch        | 200                                                                        |
 
 ## Reading
 
-| Tool                | Arguments                                                | Returns                                                                 |
-| ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `get_project_state` | none                                                     | name, target, platform, canvas, globals, every screen and layout layers |
-| `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                        |
-| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                               |
-| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template |
+| Tool                | Arguments                                                | Returns                                                                                   |
+| ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `get_project_state` | none                                                     | name, target, platform, family, device models, canvas, globals, screens and layout layers |
+| `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                                          |
+| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                                                 |
+| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per compatible saved template        |
 
 A layer read back carries `id`, `type`, `name`, `x`, `y`, `width`, `height`,
 `visible`, `locked`, plus `content` on a text and `slot` with `hasScreenshot` on
@@ -100,7 +100,8 @@ to the active screen when the batch created none.
 takes an absolute path under a root granted by the MCP client (or
 `SCREENFORGE_MCP_ASSET_ROOTS`), reads the file on the machine running the daemon, and
 turns it into a call the project accepts. `role` is `image` for a logo or
-`screenshot` for a capture, which lands in a phone frame compatible with the active target. Give `layerId` to
+`screenshot` for a capture, which lands in a device frame compatible with the
+active target. Give `layerId` to
 fill a frame that already exists, keeping the crop the user set on it. Refused
 with its cause named: a relative path, an extension outside PNG, JPEG and SVG, a
 missing file, more than 16 MB, or an SVG offered as a screenshot.
@@ -125,9 +126,9 @@ JPEG, or more than 40 captures. Frames with no `slot` are never matched; give
 them one with `assign_screenshot_slot` first.
 
 `save_template` freezes a screen's layout in the browser library, images
-included and device screenshot excluded, for reuse in any project from the
-template picker. A name already taken is refused, not suffixed. The library
-holds 30.
+included and device screenshot excluded, for reuse in any project on the same
+platform from the template picker. `list_templates` hides templates from other
+platforms. A name already taken is refused, not suffixed. The library holds 30.
 
 ## Patchable properties
 
@@ -204,11 +205,13 @@ A stop is `{ "offset": 0 to 1, "color": "#rrggbb" }`.
 
 `iphone-17-pro-max`, `iphone-17-pro`, `iphone-17`, `iphone-air`,
 `iphone-16-plus`, `iphone-16`, `iphone-16e`, `iphone-16-pro-max`,
-`iphone-16-pro`, `android-phone`.
+`iphone-16-pro`, `tablet-slate`, `tablet-studio`, `watch-halo`,
+`watch-compact`, `android-phone`.
 
-Use only models compatible with the open project: the iPhone models belong to
-`app-store-iphone`; `android-phone` belongs to `google-play-phone`. The last two
-iPhone models are legacy, kept so older projects still render.
+The active project's immutable target filters this catalogue: iPhone tools
+accept the iPhone identifiers, iPad accepts the two `tablet-*` identifiers, and
+Watch accepts the two `watch-*` identifiers. Android accepts `android-phone`.
+The two `iphone-16-pro*` entries are legacy, kept so older projects still render.
 
 ## Shapes
 
@@ -241,6 +244,10 @@ Drawn as strokes in a box of 24, scaled to the layer.
 Loaded on demand by the tab. `Space Grotesk` is what a new text takes.
 
 ## A batch, in full
+
+This is a concrete `iphone-6.9` contract fixture, not reusable geometry. For an
+open project, calculate coordinates from its current `canvas.width` and
+`canvas.height` with [workflows.md](workflows.md).
 
 ```json
 {
@@ -312,17 +319,14 @@ contract carries.
   "path": "/Users/moi/captures/accueil.png",
   "role": "screenshot",
   "deviceModel": "iphone-17-pro",
-  "x": 88,
-  "y": 296,
-  "width": 264,
-  "height": 574,
   "slot": "accueil"
 }
 ```
 
 Give `width` and `height` together or neither. A frame sized on one axis alone
-stretches, since nothing recomputes the other from the model's aspect ratio,
-which is close to 0.46 across the whole range.
+stretches, since nothing recomputes the other from the model's aspect ratio.
+Across platforms, start from the profile-compatible default and scale its two
+dimensions by the same factor.
 
 Filling a frame already on the board, keeping its crop:
 
@@ -330,8 +334,8 @@ Filling a frame already on the board, keeping its crop:
 { "path": "/Users/moi/captures/accueil-v2.png", "role": "screenshot", "layerId": "layer-7f3a" }
 ```
 
-A logo, left to the size the mouse import would give it:
+A logo, left to the centred size the mouse import would give it:
 
 ```json
-{ "path": "/Users/moi/marque/logo.svg", "role": "image", "x": 32, "y": 32 }
+{ "path": "/Users/moi/marque/logo.svg", "role": "image" }
 ```

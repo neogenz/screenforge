@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChevronDown, ExternalLink, Upload, X } from 'lucide-react'
-import { CURRENT_DEVICE_FRAMES, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
+import { deviceFrameOptionsFor, getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,13 +60,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
-  const compatibleModels = CURRENT_DEVICE_FRAMES.filter((frame) =>
-    profile.deviceModels.includes(frame.model),
-  )
-  const modelOptions =
-    config.current && compatibleModels.includes(config)
-      ? compatibleModels
-      : [config, ...compatibleModels]
+  const modelOptions = deviceFrameOptionsFor(deviceModel, profile.family)
   const sourceOptions: SegmentedOption<'generated' | 'apple'>[] = [
     { value: 'generated', label: 'ScreenForge' },
     { value: 'apple', label: isApple ? 'Apple officiel' : 'PNG personnalisé' },
@@ -243,7 +237,8 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
               </a>
               <span className="text-xs text-muted-foreground">
-                Extraire le DMG, puis choisir un PNG transparent.
+                Fichier fourni localement sous licence Apple. ScreenForge ne le télécharge ni ne le
+                redistribue.
               </span>
             </>
           ) : (

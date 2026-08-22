@@ -17,6 +17,8 @@ import {
   storeRemoteProject,
 } from '@/lib/storage'
 import { useProjectStore } from '@/stores/project.store'
+import { useCanvasStore } from '@/stores/canvas.store'
+import { useHistoryStore } from '@/stores/history.store'
 import type { Layer, Project } from '@/types'
 
 function project(name = 'Project', layers: Layer[] = []): Project {
@@ -342,6 +344,41 @@ describe('storage', () => {
       db.close()
     })
     unsubscribe()
+  })
+
+  it('crée durablement puis active un projet ciblé sans perdre le courant', async () => {
+    const current = project('Courant')
+    useProjectStore.getState().loadProject(current)
+    useCanvasStore.setState({ selectedLayerIds: ['shape'] })
+    useHistoryStore.getState().record({
+      kind: 'screen',
+      screenId: current.activeScreenId,
+      layers: [],
+      background: current.screens[0].background,
+    })
+
+    const created = await createStoredProject('Tablette', 'app-store-ipad-13')
+
+    expect(created.target).toBe('app-store-ipad-13')
+    expect(useProjectStore.getState().project).toMatchObject({
+      id: created.id,
+      target: 'app-store-ipad-13',
+    })
+    expect(useCanvasStore.getState().selectedLayerIds).toEqual([])
+    expect(useHistoryStore.getState().past).toEqual([])
+    expect(await loadProject(current.id)).toMatchObject({ name: 'Courant' })
+    expect(await loadProject(created.id)).toMatchObject({ target: 'app-store-ipad-13' })
+  })
+
+  it('refuse un profil inconnu avant toute mutation', async () => {
+    const current = project('Courant')
+    useProjectStore.getState().loadProject(current)
+
+    await expect(createStoredProject('Invalide', 'unknown' as never)).rejects.toThrow(
+      'Unknown store target',
+    )
+    expect(useProjectStore.getState().project).toBe(current)
+    expect(await listProjects()).toEqual([])
   })
 
   it('conserve une édition concurrente avant d’ouvrir un autre projet', async () => {

@@ -7,9 +7,10 @@ import {
   sweepAssets,
 } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
 import { isProject, migrateProject } from '@/lib/project-validation'
-import { useProjectStore } from '@/stores/project.store'
+import { createProjectDocument, useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { toast } from '@/stores/toast.store'
@@ -462,6 +463,19 @@ function activateProject(project: Project, assets: readonly AssetRecord[]): Proj
   return project
 }
 
+/** Saves the active document, durably creates a targeted one, then activates it. */
+export async function createStoredProject(
+  name: string,
+  target: StoreTargetId = APP_STORE_PROFILE.id,
+): Promise<Project> {
+  if (!getStoreTargetProfile(target)) throw new Error(`Unknown store target: ${target}`)
+  await saveCurrentProject()
+  const project = createProjectDocument(name, target)
+  await saveProject(project)
+  sweepAssets(new Set())
+  return activateProject(project, [])
+}
+
 /** Persists a project and its binaries in one transaction, then opens it. */
 async function installProject(project: Project, assets: AssetRecord[]): Promise<Project> {
   if (!(await storeRemoteProject(project, assets))) {
@@ -576,18 +590,6 @@ export async function saveCurrentProject(): Promise<void> {
   if (!project) return
   pendingProject = project
   await flushPendingSave()
-}
-
-/** Saves the open document, creates and durably activates a complete new one. */
-export async function createStoredProject(name: string, target: StoreTargetId): Promise<Project> {
-  await saveCurrentProject()
-  useProjectStore.getState().createProject(name, target)
-  useCanvasStore.getState().clearSelection()
-  useHistoryStore.getState().clear()
-  await saveCurrentProject()
-  const project = useProjectStore.getState().project
-  if (!project) throw new Error('Project creation failed.')
-  return project
 }
 
 /** Termine l'autosave avant un geste contrôlé qui quitte le document. */

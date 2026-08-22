@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   isProject,
   MAX_GRADIENT_STOPS,
@@ -6,9 +6,28 @@ import {
   MAX_PROJECT_LAYERS,
   migrateProject,
 } from '@/lib/project-validation'
-import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
-import type { Layer, Project } from '@/types'
+import { APP_STORE_PROFILE, APP_STORE_PROFILES, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
+import type { DeviceFrameLayer, Layer, Project, Release, StoreTargetId } from '@/types'
 
+function deviceLayer(deviceModel: DeviceFrameLayer['deviceModel']): DeviceFrameLayer {
+  return {
+    id: 'device',
+    type: 'device-frame',
+    name: 'Device',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 200,
+    rotation: 0,
+    opacity: 1,
+    locked: false,
+    visible: true,
+    zIndex: 0,
+    deviceModel,
+    deviceColor: 'silver',
+    orientation: 'portrait',
+  }
+}
 function project(): Project {
   return {
     id: 'project',
@@ -56,6 +75,39 @@ function project(): Project {
 }
 
 describe('project validation', () => {
+  it('keeps the eight official profiles unique and at their exact logical ratio', () => {
+    expect(APP_STORE_PROFILES).toHaveLength(8)
+    expect(new Set(APP_STORE_PROFILES.map(({ id }) => id)).size).toBe(8)
+    expect(new Set(APP_STORE_PROFILES.map(({ zipFolder }) => zipFolder)).size).toBe(8)
+    for (const profile of APP_STORE_PROFILES) {
+      expect(profile.board.width / profile.board.height).toBeCloseTo(
+        profile.output.portrait.width / profile.output.portrait.height,
+        14,
+      )
+    }
+    expect(
+      APP_STORE_PROFILES.map(({ output, appStoreConnectType }) => [
+        output.portrait.width,
+        output.portrait.height,
+        appStoreConnectType,
+      ]),
+    ).toEqual([
+      [1320, 2868, 'APP_IPHONE_69'],
+      [2064, 2752, 'APP_IPAD_PRO_3GEN_129'],
+      [422, 514, 'APP_WATCH_ULTRA'],
+      [410, 502, 'APP_WATCH_ULTRA'],
+      [416, 496, 'APP_WATCH_SERIES_10'],
+      [396, 484, 'APP_WATCH_SERIES_7'],
+      [368, 448, 'APP_WATCH_SERIES_4'],
+      [312, 390, 'APP_WATCH_SERIES_3'],
+    ])
+  })
+
+  it('keeps target ids as a closed catalogue', () => {
+    expectTypeOf<'app-store-ipad-13'>().toMatchTypeOf<StoreTargetId>()
+    expectTypeOf<'outside-catalogue'>().not.toMatchTypeOf<StoreTargetId>()
+  })
+
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
     expect(APP_STORE_PROFILE).toMatchObject({
@@ -109,6 +161,62 @@ describe('project validation', () => {
     android.screens.push({ ...structuredClone(android.screens[0]), id: 'screen-8', layers: [] })
     expect(isProject(android)).toBe(false)
     expect(isProject({ ...project(), target: 'unknown-target' })).toBe(false)
+  })
+
+  it('rejects unknown and cross-platform models at the shared import/sync boundary', () => {
+    const unknown = project()
+    unknown.globals.deviceModel = 'unknown' as never
+    expect(isProject(unknown)).toBe(false)
+
+    const ipad = project()
+    ipad.target = 'app-store-ipad-13'
+    ipad.globals.deviceModel = 'tablet-slate'
+    ipad.screens[0].layers = [deviceLayer('tablet-studio')]
+    expect(isProject(ipad)).toBe(true)
+
+    const crossPlatformGlobal = structuredClone(ipad)
+    crossPlatformGlobal.globals.deviceModel = 'iphone-17-pro-max'
+    expect(isProject(crossPlatformGlobal)).toBe(false)
+
+    const crossPlatformLayer = structuredClone(ipad)
+    crossPlatformLayer.screens[0].layers = [deviceLayer('watch-halo')]
+    expect(isProject(crossPlatformLayer)).toBe(false)
+
+    const legacyIphone = project()
+    legacyIphone.globals.deviceModel = 'iphone-16-pro-max'
+    legacyIphone.screens[0].layers = [deviceLayer('iphone-16-pro')]
+    expect(isProject(legacyIphone)).toBe(true)
+  })
+
+  it('requires release snapshots to use the parent project target', () => {
+    const candidate = project()
+    candidate.releases = [
+      {
+        id: 'release',
+        name: 'Release',
+        createdAt: 1,
+        watermarked: false,
+        files: [],
+        snapshot: {
+          name: 'iPhone release',
+          target: 'app-store-iphone',
+          globals: structuredClone(candidate.globals),
+          screens: [
+            {
+              ...candidate.screens[0],
+              layers: [deviceLayer('iphone-17-pro-max')],
+            },
+          ],
+          layoutLayers: [],
+        },
+      } satisfies Release,
+    ]
+
+    expect(isProject(candidate)).toBe(true)
+    candidate.releases[0].snapshot.target = 'app-store-ipad-13'
+    candidate.releases[0].snapshot.globals.deviceModel = 'tablet-slate'
+    candidate.releases[0].snapshot.screens[0].layers = [deviceLayer('tablet-studio')]
+    expect(isProject(candidate)).toBe(false)
   })
 
   it.each([
@@ -211,5 +319,41 @@ describe('project validation', () => {
     expect(isProject(migrated)).toBe(true)
     expect((migrated as Project).screens[0].layers[0]).not.toHaveProperty('gradientFill')
     expect((migrated as Project).screens[0].layers[0]).toHaveProperty('fill.type', 'linear')
+  })
+
+  it('migrates legacy project and release profiles idempotently and rejects unknown ones', () => {
+    const legacy = structuredClone(project()) as unknown as Record<string, unknown>
+    delete legacy.target
+    legacy.profileId = 'ipad-13'
+    const ipadGlobals = structuredClone(project().globals)
+    ipadGlobals.deviceModel = 'tablet-slate'
+    legacy.releases = [
+      {
+        id: 'release',
+        name: 'Release',
+        createdAt: 1,
+        watermarked: false,
+        files: [],
+        snapshot: {
+          name: 'Project',
+          profileId: 'ipad-13',
+          screens: structuredClone(project().screens),
+          layoutLayers: [],
+          globals: ipadGlobals,
+        },
+      },
+    ]
+    legacy.globals = ipadGlobals
+
+    const migrated = migrateProject(legacy) as Project
+    expect(migrated.target).toBe('app-store-ipad-13')
+    expect(migrated.releases?.[0].snapshot.target).toBe('app-store-ipad-13')
+    expect(migrated).not.toHaveProperty('profileId')
+    expect(migrated.releases?.[0].snapshot).not.toHaveProperty('profileId')
+    expect(migrateProject(migrated)).toEqual(migrated)
+    expect(isProject(migrated)).toBe(true)
+
+    const unknown = { ...legacy, profileId: 'unknown' }
+    expect(isProject(migrateProject(unknown))).toBe(false)
   })
 })

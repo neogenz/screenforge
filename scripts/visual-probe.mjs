@@ -14,11 +14,11 @@ const outputDir = process.env.OUT_DIR ?? '/tmp/screenforge-probe'
 mkdirSync(outputDir, { recursive: true })
 
 /**
- * Un cadre de téléphone + un texte : le décor commun à peuplé et export.
+ * Un cadre d’appareil + un texte : le décor commun à peuplé et export.
  * @param {import('@playwright/test').Page} page
  */
 async function populate(page) {
-  await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
+  await page.click('button[aria-label="Ajouter un appareil"]')
   await page.click('[role="menu"] [role="menuitem"] >> nth=0')
   await page.waitForTimeout(500)
   await page.click('button[aria-label="Ajouter Texte"]')
@@ -46,7 +46,7 @@ const STATES = [
     target: 'app-store-iphone',
     setup: async (page) => {
       // Ouvert, sans sélectionner d'item : c'est le popup lui-même qu'on juge.
-      await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
+      await page.click('button[aria-label="Ajouter un appareil"]')
       await page.waitForSelector('[role="menu"]')
       await page.waitForTimeout(300)
     },

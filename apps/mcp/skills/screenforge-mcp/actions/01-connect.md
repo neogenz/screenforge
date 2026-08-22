@@ -12,7 +12,8 @@ The current project state, or a stop naming why no editor answered.
 
 ## Process
 
-1. **Read.** Call `screenforge_get_project_state`, which returns the project name, the artboard size, the globals, and every screen with its layers.
+1. **Read.** Call `screenforge_get_project_state`, which returns the project name, the profile, its compatible device models, the artboard size, the globals, and every screen with its layers.
+   - Record `canvas.width` as `W` and `canvas.height` as `H`. Every coordinate in compose is derived from these two values; do not carry dimensions from another project or profile.
    - Refused with no editor connected: tell the user to open ScreenForge and turn on "Connexion MCP" in the top bar, then stop. Nothing downstream works until a tab answers.
    - Refused with the editor connected but nothing pushed yet: wait a moment and read once more.
    - Refused for any other cause: read it against [pitfalls.md](../references/pitfalls.md) before retrying.

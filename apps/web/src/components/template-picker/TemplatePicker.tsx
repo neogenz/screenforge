@@ -18,7 +18,7 @@ import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates
 import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
 import { getStoreTargetProfile } from '@/lib/dimensions'
-import type { TemplateDefinition } from '@/types'
+import type { StoreTargetId, TemplateDefinition } from '@/types'
 
 type ApplyMode = 'current' | 'new'
 
@@ -33,11 +33,12 @@ function TemplatePickerContent() {
   const setShowTemplatesPicker = useUIStore((s) => s.setShowTemplatesPicker)
   const custom = useTemplatesStore((s) => s.templates)
   const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const family = getStoreTargetProfile(target).family
   const savedTemplates = custom.filter(
-    (template) => (template.target ?? 'app-store-iphone') === target,
+    (template) => getStoreTargetProfile(template.target ?? 'app-store-iphone').family === family,
   )
   const catalogue = TEMPLATES.filter(
-    (template) => (template.target ?? 'app-store-iphone') === target,
+    (template) => getStoreTargetProfile(template.target ?? 'app-store-iphone').family === family,
   )
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -109,6 +110,7 @@ function TemplatePickerContent() {
           {savedTemplates.length > 0 ? (
             <Gallery
               templates={savedTemplates}
+              target={target}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onRemove={handleRemove}
@@ -126,7 +128,12 @@ function TemplatePickerContent() {
         <Separator />
         <section className="flex flex-col gap-1.5">
           <h3 className="text-sm font-medium">Catalogue</h3>
-          <Gallery templates={catalogue} selectedId={selectedId} onSelect={setSelectedId} />
+          <Gallery
+            templates={catalogue}
+            target={target}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
         </section>
       </div>
     </DialogShell>
@@ -135,6 +142,7 @@ function TemplatePickerContent() {
 
 interface GalleryProps {
   templates: readonly TemplateDefinition[]
+  target: StoreTargetId
   selectedId: string | null
   onSelect: (id: string) => void
   onRemove?: (template: CustomTemplate) => void
@@ -145,7 +153,8 @@ function savedOf(template: TemplateDefinition): CustomTemplate | null {
   return 'source' in template ? (template as CustomTemplate) : null
 }
 
-function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
+function Gallery({ templates, target, selectedId, onSelect, onRemove }: GalleryProps) {
+  const board = getStoreTargetProfile(target).board
   return (
     /* Les vignettes portent le format de la planche (440×956) : à l'ancienne
        boîte carrée, l'aperçu flottait au centre de deux bandes vides plus
@@ -154,7 +163,6 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
       {templates.map((template) => {
         const saved = savedOf(template)
         const isSelected = selectedId === template.id
-        const board = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
         return (
           <div key={template.id} className="group/tile relative self-start">
             <Card
@@ -177,7 +185,7 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                 className="w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)"
                 style={{ aspectRatio: `${String(board.width)} / ${String(board.height)}` }}
               >
-                <TemplatePreview template={template} assets={saved?.assets} />
+                <TemplatePreview template={template} target={target} assets={saved?.assets} />
               </div>
               <div className="flex min-w-0 items-center gap-1 px-0.5">
                 <p className="truncate text-xs font-medium text-foreground">{template.name}</p>

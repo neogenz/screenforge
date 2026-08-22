@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { ToolCall } from '@screenforge/project-format'
+import type { StoreTargetId, ToolCall } from '@screenforge/project-format'
 
 /**
  * Le fil entre le démon et l'éditeur ouvert, et rien de plus.
@@ -163,7 +163,7 @@ export interface RelayTemplateSummary {
   name: string
   description: string
   source: 'ai' | 'user'
-  target: 'app-store-iphone' | 'google-play-phone'
+  target: StoreTargetId
   layerCount: number
   createdAt: number
 }

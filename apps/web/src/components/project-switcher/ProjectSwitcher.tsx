@@ -53,7 +53,6 @@ interface ProjectSwitcherProps {
 }
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' })
-
 const AVAILABILITY_ICONS: Record<ProjectAvailability, typeof HardDrive> = {
   'device-only': HardDrive,
   cloud: Cloud,
@@ -99,6 +98,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const currentProjectTarget = useProjectStore(
     (state) => state.project?.target ?? 'app-store-iphone',
   )
+  const currentProfile = getStoreTargetProfile(currentProjectTarget)
   const current = catalogue.find((project) => project.id === currentProjectId)
   const needle = filter.trim().toLocaleLowerCase('fr-FR')
   const others = catalogue.filter(
@@ -285,11 +285,12 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               >
                 {currentProjectName}
               </span>
-              <span className="shrink-0 text-2xs text-muted-foreground">
-                {getStoreTargetProfile(currentProjectTarget).label}
-              </span>
               {current && <Availability value={current.availability} />}
             </div>
+            <p className="mt-1 pl-[23px] text-2xs text-muted-foreground tabular-nums">
+              {currentProfile.label} · {currentProfile.output.portrait.width}×
+              {currentProfile.output.portrait.height}
+            </p>
             <div className="mt-2 flex gap-1">
               <Button size="sm" variant="ghost" onClick={renameCurrent}>
                 <PenLine size={13} strokeWidth={1.75} aria-hidden />

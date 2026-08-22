@@ -18,14 +18,15 @@ import {
   preflight,
   targetSummary,
   APP_STORE_LOCALES,
-  ASC_DISPLAY_TYPE,
-  ASC_SIZE_LABEL,
   EMPTY_TARGET,
   LOCALIZATION_HINT,
+  ascDeviceType,
   ascLocaleFor,
+  ascSizeLabel,
   type AscManifestFile,
   type AscTarget,
 } from '@/lib/asc'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import {
   ascBridgeStatus,
   publishSteps,
@@ -83,7 +84,7 @@ export function PublishDialog() {
   const project = useProjectStore((state) => state.project)
 
   if (!showPublishDialog || !project) return null
-  if (project.target !== 'app-store-iphone') return <PublishTargetRefusal />
+  if (getStoreTargetProfile(project.target).platform !== 'apple') return <PublishTargetRefusal />
   return <PublishDialogContent project={project} />
 }
 
@@ -232,7 +233,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           releaseId: release.id,
           bundleHash: bundle.bundleHash,
           versionLocalization: target.versionLocalization,
-          deviceType: ASC_DISPLAY_TYPE,
+          deviceType: ascDeviceType(release),
           files: await Promise.all(
             bundle.files.map(async (file) => ({
               name: file.name,
@@ -344,7 +345,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground">{ASC_SIZE_LABEL}</p>
+                <p className="text-xs text-muted-foreground">{ascSizeLabel(release)}</p>
               </div>
             ),
         },
@@ -438,7 +439,7 @@ function PublishDialogContent({ project }: { project: Project }) {
               {release && findings.length === 0 && (
                 <p className="flex items-center gap-2 text-xs text-success">
                   <ShieldCheck size={12} aria-hidden />
-                  Preflight sans réserve : {targetSummary(target)}
+                  Preflight sans réserve : {targetSummary(target, release)}
                 </p>
               )}
 

@@ -182,7 +182,7 @@ export async function exportScreenToBlob(
 ): Promise<Blob> {
   const scaleX = targetWidth / board.width
   const scaleY = targetHeight / board.height
-  if (Math.abs(scaleX - scaleY) > Number.EPSILON) {
+  if (Math.abs(scaleX - scaleY) > 1e-10) {
     throw new Error(
       `Le format ${targetWidth}×${targetHeight} ne respecte pas le ratio du document.`,
     )

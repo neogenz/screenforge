@@ -17,7 +17,7 @@ const en = {
   meta: {
     title: 'ScreenForge — App Store & Google Play screenshots',
     description:
-      'Compose App Store and Google Play phone screenshots, export pixel-exact PNGs at 1320×2868 or 1080×1920. Free, local, no account. Cloud sync optional, $39/year.',
+      'Compose App Store screenshots for iPhone, iPad and Apple Watch or Google Play phone screenshots, then export pixel-exact PNGs. Free, local, no account. Cloud sync optional, $39/year.',
   },
   nav: {
     features: 'The editor',
@@ -35,7 +35,7 @@ const en = {
     /* Une idée, puis le prix. La phrase sur Claude Code / Codex est partie
        dans `#agent`, qui existe pour elle : cinq propositions en quatre lignes
        ne se lisent pas. `landing-copy.test.ts` tient la longueur sous 160. */
-    sub: 'Compose once, export at exact App Store or Google Play phone sizes, re-shoot in one click at every release. Free, no account, local by default.',
+    sub: 'Compose once, export at exact App Store or Google Play sizes, re-shoot in one click at every release. Free, no account, local by default.',
     ctaPrimary: 'Open the editor for free',
     ctaSecondary: 'See pricing',
     /* La seule information qui change ce que le visiteur anglophone va vivre
@@ -160,9 +160,9 @@ const en = {
     export: {
       eyebrow: 'Export',
       title: 'Exports that pass review',
-      body: 'Rendered on your machine at native 1320×2868 for App Store or 1080×1920 for Google Play phone, never upscaled.',
+      body: 'Rendered at the selected native size on your machine, never upscaled: iPhone 6.9″, iPad 13″, six Apple Watch formats, or Google Play phone.',
       points: [
-        'App Store 6.9″ or Google Play phone portrait',
+        'Native iPhone, iPad, Apple Watch or Google Play phone export',
         'Opaque PNG-24, sRGB, within the size limits',
         'One ZIP, grouped by store profile',
         'Dimensions checked before download',
@@ -189,7 +189,10 @@ const en = {
         },
       ],
       specRows: [
-        { key: 'Dimensions', value: 'Apple 1320×2868 · Android 1080×1920' },
+        {
+          key: 'Dimensions',
+          value: 'iPhone 1320×2868 · iPad 2064×2752 · 6 Watch formats · Android 1080×1920',
+        },
         { key: 'Format', value: 'PNG-24, 8-bit RGB opaque' },
         { key: 'Color space', value: 'sRGB' },
         { key: 'Scaling', value: 'None, rendered at target size' },
@@ -312,7 +315,7 @@ const en = {
       },
       {
         q: 'Will the exports pass the store file checks?',
-        a: 'Yes, on the file contract: App Store 1320×2868 or Google Play phone 1080×1920, opaque PNG, sRGB and under the size target, all checked before download. Store content review remains yours.',
+        a: 'Yes, on the file contract: the selected iPhone, iPad, Apple Watch or Google Play phone dimensions, opaque PNG, sRGB and the size target are checked before download. Store content review remains yours.',
       },
       {
         q: 'What are the Cloud storage limits?',
@@ -335,8 +338,8 @@ const en = {
         a: 'No key is needed: the default generator is a local builder, and an agent over MCP uses your existing login. To have a model write the headlines from inside the editor, use Claude Code on your machine, an Anthropic key, or an OpenRouter key with the model you pick. Keys are encrypted at rest on this computer.',
       },
       {
-        q: 'Which phones can I frame?',
-        a: 'Current iPhones, from iPhone 16e to iPhone 17 Pro Max with iPhone Air, plus a generic vector Android phone. You can also import a bezel locally.',
+        q: 'Which devices can I frame?',
+        a: 'Current iPhones plus original vector frames for iPad, Apple Watch and a generic Android phone. Apple product bezels are not bundled or redistributed: download them from Apple Design Resources under Apple’s licence, then import the PNG locally.',
       },
       {
         q: 'Can I use my own screenshots?',
@@ -352,7 +355,7 @@ const en = {
       },
       {
         q: 'Which stores and dimensions does it export?',
-        a: 'App Store iPhone portrait at native 6.9″ (1320×2868), or Google Play phone portrait at 1080×1920. Android v1 does not include tablets, Wear OS, XR, landscape, feature graphics or direct Google Play publication.',
+        a: 'App Store iPhone 6.9″ at 1320×2868, iPad 13″ at 2064×2752, six Apple Watch portrait formats (422×514, 410×502, 416×496, 396×484, 368×448 and 312×390), or Google Play phone portrait at 1080×1920. Android v1 does not include tablets, Wear OS, XR, landscape, feature graphics or direct Google Play publication.',
       },
       {
         q: 'Where are my projects stored?',
@@ -401,7 +404,7 @@ const fr: Copy = {
   meta: {
     title: 'ScreenForge — captures App Store et Google Play',
     description:
-      'Composez vos captures App Store et Google Play téléphone, exportez des PNG exacts en 1320×2868 ou 1080×1920. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
+      'Composez vos captures App Store pour iPhone, iPad et Apple Watch ou Google Play téléphone, puis exportez des PNG au pixel près. Gratuit, local, sans compte. Cloud en option, 39 $/an.',
   },
   nav: {
     features: 'L’éditeur',
@@ -416,7 +419,7 @@ const fr: Copy = {
   },
   hero: {
     headline: 'Des captures de store, au pixel près.',
-    sub: 'Composez une fois, exportez aux tailles App Store ou Google Play téléphone, puis actualisez à chaque version. Gratuit, sans compte, tout en local.',
+    sub: 'Composez une fois, exportez aux tailles exactes App Store ou Google Play, puis actualisez à chaque version. Gratuit, sans compte, tout en local.',
     ctaPrimary: 'Ouvrir l’éditeur gratuitement',
     ctaSecondary: 'Voir les tarifs',
     langNote: undefined,
@@ -515,9 +518,9 @@ const fr: Copy = {
     export: {
       eyebrow: 'Exporter',
       title: 'Des exports qui passent la validation',
-      body: 'Rendus sur votre machine en 1320×2868 natif pour App Store ou 1080×1920 pour Google Play téléphone, jamais redimensionnés.',
+      body: 'Rendus à la taille native choisie sur votre machine, jamais redimensionnés : iPhone 6,9″, iPad 13″, six formats Apple Watch ou Google Play téléphone.',
       points: [
-        'App Store 6,9″ ou Google Play téléphone portrait',
+        'Export natif iPhone, iPad, Apple Watch ou Google Play téléphone',
         'PNG-24 opaque, sRGB, dans les limites de poids',
         'Un seul ZIP, groupé par profil de store',
         'Dimensions contrôlées avant téléchargement',
@@ -540,7 +543,10 @@ const fr: Copy = {
         },
       ],
       specRows: [
-        { key: 'Dimensions', value: 'Apple 1320×2868 · Android 1080×1920' },
+        {
+          key: 'Dimensions',
+          value: 'iPhone 1320×2868 · iPad 2064×2752 · 6 formats Watch · Android 1080×1920',
+        },
         { key: 'Format', value: 'PNG-24, RGB opaque 8 bits' },
         { key: 'Colorimétrie', value: 'sRGB' },
         { key: 'Échelle', value: 'Aucune, taille cible' },
@@ -658,7 +664,7 @@ const fr: Copy = {
       },
       {
         q: 'Les exports passent-ils les contrôles de fichier des stores ?',
-        a: 'Oui, pour le contrat du fichier : App Store 1320×2868 ou Google Play téléphone 1080×1920, PNG opaque, sRGB et sous la cible de poids, le tout vérifié avant téléchargement. La revue du contenu reste la vôtre.',
+        a: 'Oui, pour le contrat du fichier : dimensions iPhone, iPad, Apple Watch ou Google Play téléphone choisies, PNG opaque, sRGB et cible de poids, le tout vérifié avant téléchargement. La revue du contenu reste la vôtre.',
       },
       {
         q: 'Quelles sont les limites de stockage Cloud ?',
@@ -681,8 +687,8 @@ const fr: Copy = {
         a: 'Aucune clé n’est nécessaire : le générateur par défaut est local, et un agent par MCP utilise le compte que vous avez déjà. Pour qu’un modèle écrive les accroches depuis l’éditeur, utilisez Claude Code sur votre machine, une clé Anthropic, ou une clé OpenRouter avec le modèle de votre choix. Les clés sont chiffrées sur cet ordinateur.',
       },
       {
-        q: 'Quels cadres de téléphone sont proposés ?',
-        a: 'Les iPhone courants, de l’iPhone 16e à l’iPhone 17 Pro Max avec l’iPhone Air, plus un téléphone Android générique vectoriel. Vous pouvez aussi importer un bezel localement.',
+        q: 'Quels appareils puis-je encadrer ?',
+        a: 'Les iPhone courants, plus des cadres vectoriels originaux pour iPad, Apple Watch et un téléphone Android générique. Les bezels Apple ne sont ni inclus ni redistribués : téléchargez-les depuis Apple Design Resources sous licence Apple, puis importez le PNG localement.',
       },
       {
         q: 'Puis-je utiliser mes propres captures ?',
@@ -698,7 +704,7 @@ const fr: Copy = {
       },
       {
         q: 'Quels stores et dimensions sont exportés ?',
-        a: 'App Store iPhone portrait en 6,9″ natif (1320×2868), ou Google Play téléphone portrait en 1080×1920. Android v1 n’inclut ni tablettes, ni Wear OS, ni XR, ni paysage, ni feature graphic, ni publication directe sur Google Play.',
+        a: 'App Store iPhone 6,9″ en 1320×2868, iPad 13″ en 2064×2752, six formats Apple Watch portrait (422×514, 410×502, 416×496, 396×484, 368×448 et 312×390), ou Google Play téléphone portrait en 1080×1920. Android v1 n’inclut ni tablettes, ni Wear OS, ni XR, ni paysage, ni feature graphic, ni publication directe sur Google Play.',
       },
       {
         q: 'Où sont stockés mes projets ?',

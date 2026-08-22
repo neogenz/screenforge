@@ -61,6 +61,8 @@ export interface CampaignBrief {
    */
   screenCount: number
   deviceModel: DeviceModel
+  /** Repère logique du profil du projet ; absent vaut l'ancien repère iPhone. */
+  board?: { width: number; height: number }
   screenshots: BriefScreenshot[]
   /** Le logo de l'application, posé sur le premier visuel s'il est fourni. */
   logo?: { assetId: string; size: ScreenshotSize }

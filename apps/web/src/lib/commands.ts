@@ -122,9 +122,9 @@ export function getCommands(): Command[] {
     },
     {
       id: 'add-device',
-      title: 'Ajouter un cadre de téléphone',
+      title: 'Ajouter un appareil',
       section: 'Calques',
-      keywords: [profile.platform === 'apple' ? 'iphone' : 'android', 'device', 'mockup', 'cadre'],
+      keywords: [profile.family, profile.platform, 'appareil', 'device', 'mockup', 'cadre'],
       run: () => {
         const model = project().project?.globals.deviceModel ?? profile.defaultDeviceModel
         canvas().addLayer(createDeviceLayer(model, layerCount(), board()))

@@ -67,8 +67,8 @@ await page.reload()
 await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
 await page.waitForTimeout(1200)
 
-// Un écran soigné : cadre de téléphone + titre, sur un dégradé.
-await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
+// Un écran soigné : cadre d’appareil + titre, sur un dégradé.
+await page.click('button[aria-label="Ajouter un appareil"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(600)
 await page.click('button[aria-label="Ajouter Texte"]')

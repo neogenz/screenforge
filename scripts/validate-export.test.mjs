@@ -31,6 +31,8 @@ async function bundle(folder, count, width, height, colorType = 2) {
 
 test('accepte les contrats Apple et Google Play exacts', async () => {
   assert.equal((await validateExportZip(await bundle('6.9', 1, 1320, 2868))).length, 1)
+  assert.equal((await validateExportZip(await bundle('ipad-13', 1, 2064, 2752))).length, 1)
+  assert.equal((await validateExportZip(await bundle('watch-series-10', 1, 416, 496))).length, 1)
   assert.equal(
     (await validateExportZip(await bundle('phone', 4, 1080, 1920), 'google-play-phone')).length,
     4,
@@ -64,4 +66,15 @@ test('refuse deux entrées portant le même chemin', async () => {
     at = bytes.indexOf(from, at + from.length)
   }
   await assert.rejects(validateExportZip(bytes), /chemin en double/)
+})
+
+test('refuse le mauvais dossier et les dimensions inversées', async () => {
+  await assert.rejects(
+    validateExportZip(await bundle('ipad', 1, 2064, 2752)),
+    /dossier d’export inconnu/,
+  )
+  await assert.rejects(
+    validateExportZip(await bundle('ipad-13', 1, 2752, 2064)),
+    /attendu 2064×2752/,
+  )
 })

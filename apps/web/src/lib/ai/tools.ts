@@ -136,7 +136,6 @@ export function applyToolCalls(
   }
 
   let cursor = context.screenId ?? draft.activeScreenId
-
   const targetScreen = (args: Record<string, unknown>): Screen | string => {
     const asked = typeof args.screenId === 'string' ? args.screenId : undefined
     if (context.screenId && asked && asked !== context.screenId) {

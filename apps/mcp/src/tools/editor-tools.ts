@@ -9,11 +9,14 @@ import {
   AI_LIMITS,
   CONTENT_FONTS,
   createAiTools,
+  createTargetAiTools,
   DEVICE_MODEL_IDS,
+  getStoreTargetProfile,
   ICON_IDS,
   SHAPE_IDS,
   validateAgainst,
   type ParamSchema,
+  type StoreTargetId,
   type ToolCall,
 } from '@screenforge/project-format'
 import type { RelayState } from '../relay/server.ts'
@@ -74,7 +77,7 @@ const TOOL_TITLES: Record<string, string> = {
   add_text: 'Poser un texte',
   add_shape: 'Poser une forme',
   add_icon: 'Poser une icône',
-  add_device: 'Poser un téléphone',
+  add_device: 'Poser un appareil',
   add_image: 'Poser une image locale',
   update_layer: 'Modifier un calque',
   delete_layer: 'Retirer un calque',
@@ -156,13 +159,21 @@ const contractValidator: jsonSchemaValidator = {
 }
 
 /** Valide un lot entier avant d'en envoyer la moindre partie. */
-function reject(calls: readonly ToolCall[]): string | null {
+function relayTarget(state: unknown): StoreTargetId | undefined {
+  if (!state || typeof state !== 'object') return undefined
+  const target = (state as { target?: unknown }).target
+  return getStoreTargetProfile(target)?.id
+}
+
+function reject(calls: readonly ToolCall[], session: RelaySession): string | null {
   if (calls.length === 0) return 'Aucun appel : le lot est vide.'
   if (calls.length > AI_LIMITS.maxCalls) return `${AI_LIMITS.maxCalls} appels au plus par lot.`
+  const target = relayTarget(session.state)
+  const tooling = target ? createTargetAiTools(target) : { validateToolCall, toolSchema }
   for (const [index, call] of calls.entries()) {
-    const error = validateToolCall(call)
+    const error = tooling.validateToolCall(call)
     if (!error) continue
-    const schema = toolSchema(call.tool)
+    const schema = tooling.toolSchema(call.tool)
     return `Appel ${index + 1} (${call.tool}) refusé — ${schema ? explain(schema.parameters, error) : error}`
   }
   return null
@@ -173,7 +184,7 @@ async function relay(
   calls: ToolCall[],
   lease?: number,
 ): Promise<CallToolResult> {
-  const refusal = reject(calls)
+  const refusal = reject(calls, session)
   if (refusal) return refuse(refusal)
   try {
     return text(await session.dispatch({ calls }, lease))
@@ -295,7 +306,7 @@ export function registerEditorTools(server: McpServer, state: RelayState): void 
     {
       title: TOOL_TITLES.add_image,
       description:
-        'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre de téléphone compatible (role « screenshot »). Donnez un chemin absolu.',
+        'Pose une image locale de l’utilisateur : un logo (role « image ») ou une capture dans un cadre compatible (role « screenshot »). Donnez un chemin absolu.',
       inputSchema: fromJsonSchema<AddImageArgs>(ADD_IMAGE_SCHEMA, contractValidator),
       annotations: { readOnlyHint: false },
     },

@@ -412,10 +412,24 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
 
   let device: PlanDevice | undefined
   if (spec.deviceWidth !== undefined) {
-    const width = round(spec.deviceWidth * board.width)
+    const wantedWidth = round(spec.deviceWidth * board.width)
+    const wantedY = round((spec.deviceY ?? 0) * board.height)
+    /* Les profils tablette et montre sont beaucoup plus courts que l'iPhone à
+       largeur logique égale. La composition conserve son centre horizontal,
+       puis réduit seulement l'appareil si l'espace entre l'accroche et le pied
+       ne suffit pas. Sur le profil iPhone, ces bornes rendent exactement les
+       nombres historiques. */
+    const stacked = !spec.headline.overDevice && wantedY >= 0
+    const y = stacked ? Math.max(wantedY, headline.y + headline.height + 16) : wantedY
+    const footer = Math.min(72, board.height * 0.075)
+    const availableHeight = Math.max(1, board.height - footer - y)
+    const width = stacked
+      ? Math.min(wantedWidth, Math.floor(availableHeight * deviceAspect))
+      : wantedWidth
+    const wantedCenter = ((spec.deviceX ?? 0) + spec.deviceWidth / 2) * board.width
     device = {
-      x: round((spec.deviceX ?? 0) * board.width),
-      y: round((spec.deviceY ?? 0) * board.height),
+      x: round(wantedCenter - width / 2),
+      y,
       width,
       height: round(width / deviceAspect),
       rotation: tiltAt(spec.deviceTilt ?? 0, index),

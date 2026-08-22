@@ -10,6 +10,7 @@ import {
   writeCustomTemplate,
   type CustomTemplate,
 } from '@/lib/custom-templates'
+import { getDB } from '@/lib/storage'
 import type { DeviceFrameLayer, ImageLayer, Screen, TextLayer } from '@/types'
 
 /**
@@ -107,8 +108,9 @@ function screen(layers: Screen['layers']): Screen {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   clearAssets()
+  await (await getDB()).clear('templates')
 })
 
 describe('gabarit figé depuis un écran', () => {
@@ -184,6 +186,15 @@ describe('validation', () => {
     }
     expect(isCustomTemplate(broken)).toBe(false)
     expect(isCustomTemplate({ ...template, source: 'humain' })).toBe(false)
+  })
+
+  it('migre un ancien profil vers sa cible à la lecture', async () => {
+    const legacy = templateFromScreen(screen([textLayer()]), { name: 'Ancien', source: 'user' })
+    delete (legacy as { target?: string }).target
+    ;(legacy as unknown as { profileId: string }).profileId = 'ipad-13'
+    await (await getDB()).put('templates', legacy)
+
+    await expect(readCustomTemplates()).resolves.toMatchObject([{ target: 'app-store-ipad-13' }])
   })
 
   it('relit un ancien gabarit sans cible comme Apple et conserve une cible Android', () => {

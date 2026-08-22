@@ -2,6 +2,7 @@ import {
   APP_STORE_PROFILE,
   deviceModelSupportsTarget,
   getStoreTargetProfile,
+  legacyAppStoreTarget,
   type StoreTargetProfile,
 } from './dimensions.ts'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement.ts'
@@ -381,11 +382,23 @@ export function isProject(value: unknown): value is Project {
 export function migrateProject(value: unknown): unknown {
   const project = structuredClone(value)
   if (!isRecord(project)) return project
-  if (project.target === undefined) project.target = APP_STORE_PROFILE.id
+  if (project.target === undefined) {
+    project.target =
+      project.profileId === undefined
+        ? APP_STORE_PROFILE.id
+        : legacyAppStoreTarget(project.profileId)
+  }
+  delete project.profileId
   if (Array.isArray(project.releases)) {
     for (const release of project.releases) {
       if (!isRecord(release) || !isRecord(release.snapshot)) continue
-      if (release.snapshot.target === undefined) release.snapshot.target = APP_STORE_PROFILE.id
+      if (release.snapshot.target === undefined) {
+        release.snapshot.target =
+          release.snapshot.profileId === undefined
+            ? project.target
+            : legacyAppStoreTarget(release.snapshot.profileId)
+      }
+      delete release.snapshot.profileId
     }
   }
   const collections = [

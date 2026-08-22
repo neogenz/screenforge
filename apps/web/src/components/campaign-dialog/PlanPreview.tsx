@@ -118,6 +118,7 @@ function AccentShape({
 export function PlanPreview({ plan, brief, index, size, className }: PlanPreviewProps) {
   const layout = planScreenLayout(plan, brief, index)
   if (!layout) return null
+  const board = getStoreTargetProfile(plan.target).board
 
   const config = getDeviceFrame(plan.deviceModel)
   const deviceSvg = layout.device
@@ -133,7 +134,6 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(deviceSvg)}`
     : undefined
   const logo = resolveAsset(layout.logo?.assetId)
-  const board = getStoreTargetProfile(plan.target).board
   const width = size === 'thumb' ? 40 : 132
   const scale = width / board.width
 

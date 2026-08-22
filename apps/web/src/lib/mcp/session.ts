@@ -241,9 +241,20 @@ const templateSaves = new Set<Promise<unknown>>()
 export async function listRelayTemplates(): Promise<RelayOutcome> {
   await useTemplatesStore.getState().hydrate()
   await Promise.all(templateSaves)
+  const project = useProjectStore.getState().project
+  if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
+  const family = getStoreTargetProfile(project.target).family
   return {
     committed: true,
-    result: { templates: useTemplatesStore.getState().templates.map(summarize) },
+    result: {
+      templates: useTemplatesStore
+        .getState()
+        .templates.filter(
+          (template) =>
+            getStoreTargetProfile(template.target ?? 'app-store-iphone').family === family,
+        )
+        .map(summarize),
+    },
   }
 }
 

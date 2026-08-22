@@ -278,6 +278,11 @@ export function installViewport({
   resizeObserver.observe(container)
 
   const unsubscribeProject = subscribeProject((project, previous) => {
+    if (project?.target !== previous?.target) {
+      fitAll()
+      canvas.requestRenderAll()
+      return
+    }
     // Plus de recentrage au renommage : la pellicule réserve ses deux rangées
     // en permanence, donc sa hauteur ne dépend plus de ce que les écrans
     // s'appellent. C'est le renommage qui faisait auparavant passer la dernière

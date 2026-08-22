@@ -1,4 +1,8 @@
-import { APP_STORE_TARGET, MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import {
+  APP_STORE_PROFILE,
+  getStoreTargetProfile,
+  type AppStoreTargetProfile,
+} from '@/lib/dimensions'
 import { INTERNAL_PNG_SIZE_TARGET } from '@/lib/export'
 import { sha256OfText } from '@/lib/hash'
 import type { Release, ReleaseFile } from '@/types'
@@ -34,14 +38,19 @@ import type { Release, ReleaseFile } from '@/types'
 export const ASC_DISPLAY_TYPE = 'APP_IPHONE_69'
 
 /** Les dimensions qu'Apple accepte dans ce jeu, portrait et paysage. */
-export const ASC_ACCEPTED_SIZES: readonly (readonly [number, number])[] = [
-  [1260, 2736],
-  [1290, 2796],
-  [1320, 2868],
-  [2736, 1260],
-  [2796, 1290],
-  [2868, 1320],
-]
+export const ASC_ACCEPTED_SIZES: readonly (readonly [number, number])[] = [[1320, 2868]]
+
+function releaseProfile(release: Release): AppStoreTargetProfile {
+  const profile = getStoreTargetProfile(release.snapshot.target)
+  if (profile.platform !== 'apple') {
+    throw new Error(`La cible ${release.snapshot.target} n’est pas publiable sur l’App Store.`)
+  }
+  return profile
+}
+
+export function ascDeviceType(release: Release): string {
+  return releaseProfile(release).appStoreConnectType
+}
 
 /**
  * Les langues qu'App Store Connect connaît.
@@ -155,8 +164,8 @@ export function bundleFileName(file: ReleaseFile): string {
  * demande : `--path <dir>` pointe une feuille, et un jeu de captures est
  * l'intersection d'une localisation et d'un type d'appareil.
  */
-export function bundleDirectory(locale: string): string {
-  return `${locale || 'unknown'}/${ASC_DISPLAY_TYPE}`
+export function bundleDirectory(locale: string, deviceType = ASC_DISPLAY_TYPE): string {
+  return `${locale || 'unknown'}/${deviceType}`
 }
 
 /**
@@ -215,11 +224,12 @@ export function buildManifest(
   bundleHash: string,
   options: { replaceExisting?: boolean; dryRun?: boolean } = {},
 ): AscManifest {
-  const directory = bundleDirectory(target.locale)
+  const deviceType = releaseProfile(release).appStoreConnectType
+  const directory = bundleDirectory(target.locale, deviceType)
   return {
     manifest: ASC_MANIFEST_VERSION,
     release: { id: release.id, name: release.name, createdAt: release.createdAt },
-    target: { ...target, deviceType: ASC_DISPLAY_TYPE },
+    target: { ...target, deviceType },
     directory,
     bundleHash,
     files: [...files].sort((left, right) => (left.name < right.name ? -1 : 1)),
@@ -232,7 +242,7 @@ export function buildManifest(
        drapeau ne dépend d'aucun octet rendu, donc rien n'oblige à refaire le
        lot pour le suivre : la page recompose ce manifeste-ci à chaque changement
        de case, l'empreinte étant celle des planches seules. */
-    command: uploadCommand(target, `./${directory}`, options),
+    command: uploadCommand(target, `./${directory}`, { ...options, deviceType }),
   }
 }
 
@@ -256,7 +266,7 @@ export function buildManifest(
 export function uploadCommand(
   target: AscTarget,
   path: string,
-  options: { replaceExisting?: boolean; dryRun?: boolean } = {},
+  options: { replaceExisting?: boolean; dryRun?: boolean; deviceType?: string } = {},
 ): string[] {
   return [
     'asc',
@@ -265,7 +275,7 @@ export function uploadCommand(
     '--version-localization',
     target.versionLocalization || '<LOCALIZATION_ID>',
     '--device-type',
-    ASC_DISPLAY_TYPE,
+    options.deviceType ?? ASC_DISPLAY_TYPE,
     '--path',
     path,
     '--output',
@@ -342,6 +352,7 @@ export function preflight(
   target: AscTarget,
   files: readonly AscManifestFile[],
 ): AscFinding[] {
+  const profile = releaseProfile(release)
   const findings: AscFinding[] = []
   const error = (message: string) => findings.push({ level: 'error', message })
   const warn = (message: string) => findings.push({ level: 'warning', message })
@@ -374,17 +385,16 @@ export function preflight(
 
   if (files.length === 0) {
     error('Ce lot ne contient aucune planche.')
-  } else if (files.length > MAX_PROJECT_SCREENS) {
-    error(`App Store Connect accepte au plus ${MAX_PROJECT_SCREENS} captures par jeu.`)
+  } else if (files.length > profile.maxScreens) {
+    error(`App Store Connect accepte au plus ${profile.maxScreens} captures par jeu.`)
   }
 
   for (const file of files) {
-    const accepted = ASC_ACCEPTED_SIZES.some(
-      ([width, height]) => file.width === width && file.height === height,
-    )
+    const accepted =
+      file.width === profile.output.portrait.width && file.height === profile.output.portrait.height
     if (!accepted) {
       error(
-        `« ${file.name} » fait ${file.width}×${file.height}, que le jeu ${ASC_DISPLAY_TYPE} n’accepte pas.`,
+        `« ${file.name} » fait ${file.width}×${file.height}, que le jeu ${profile.appStoreConnectType} n’accepte pas.`,
       )
     }
     if (file.byteLength > INTERNAL_PNG_SIZE_TARGET) {
@@ -408,9 +418,10 @@ export function blocking(findings: readonly AscFinding[]): boolean {
  * qu'il posait à la place composaient une phrase de succès sur des champs
  * jamais saisis — un résumé qui ne résume rien n'a pas à s'écrire.
  */
-export function targetSummary(target: AscTarget): string | null {
+export function targetSummary(target: AscTarget, release?: Release): string | null {
   if (!target.bundleId || !target.appVersion || !target.locale) return null
-  return `${target.bundleId} ${target.appVersion} · ${target.locale} · ${ASC_DISPLAY_TYPE}`
+  const deviceType = release ? releaseProfile(release).appStoreConnectType : ASC_DISPLAY_TYPE
+  return `${target.bundleId} ${target.appVersion} · ${target.locale} · ${deviceType}`
 }
 
 /**
@@ -419,4 +430,9 @@ export function targetSummary(target: AscTarget): string | null {
  * `APP_STORE_TARGET` est lu ici pour que le libellé de taille affiché soit celui
  * des dimensions réellement rendues, et non une constante recopiée.
  */
-export const ASC_SIZE_LABEL = `${APP_STORE_TARGET.size} — ${APP_STORE_TARGET.portrait.width}×${APP_STORE_TARGET.portrait.height}`
+export const ASC_SIZE_LABEL = `${APP_STORE_PROFILE.output.size} — ${APP_STORE_PROFILE.output.portrait.width}×${APP_STORE_PROFILE.output.portrait.height}`
+
+export function ascSizeLabel(release: Release): string {
+  const profile = releaseProfile(release)
+  return `${profile.output.name} — ${profile.output.portrait.width}×${profile.output.portrait.height}`
+}

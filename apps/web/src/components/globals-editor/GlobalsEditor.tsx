@@ -4,9 +4,10 @@ import { useUIStore } from '@/stores/ui.store'
 import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
-import { CURRENT_DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
+import { deviceFrameOptionsFor, getDeviceFrame } from '@/assets/device-frames'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
@@ -15,30 +16,29 @@ import { SwatchButton } from '@/components/patterns/swatch-button'
 import { Separator } from '@/components/ui/separator'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import { getStoreTargetProfile } from '@/lib/dimensions'
-import type { GlobalSettings, DeviceModel } from '@/types'
+import type { GlobalSettings, DeviceModel, StoreTargetId } from '@/types'
 
 export function GlobalsEditor() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
-  const globals = useProjectStore((s) => s.project?.globals)
+  const project = useProjectStore((s) => s.project)
 
-  if (!showGlobalsEditor || !globals) return null
-  return <GlobalsEditorContent globals={globals} />
+  if (!showGlobalsEditor || !project) return null
+  return <GlobalsEditorContent globals={project.globals} target={project.target} />
 }
 
-function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
+function GlobalsEditorContent({
+  globals,
+  target,
+}: {
+  globals: GlobalSettings
+  target: StoreTargetId
+}) {
   const setShowGlobalsEditor = useUIStore((s) => s.setShowGlobalsEditor)
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
-  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
   const profile = getStoreTargetProfile(target)
 
+  const modelOptions = deviceFrameOptionsFor(draft.deviceModel, profile.family)
   const frame = getDeviceFrame(draft.deviceModel)
-  const compatibleModels = CURRENT_DEVICE_FRAMES.filter((candidate) =>
-    profile.deviceModels.includes(candidate.model),
-  )
-  const modelOptions =
-    frame.current && compatibleModels.includes(frame)
-      ? compatibleModels
-      : [frame, ...compatibleModels]
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))
@@ -81,6 +81,22 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
       }
     >
       <div className="flex flex-col gap-6">
+        <section>
+          <h3 className="section-title mb-2">Profil du projet</h3>
+          <Card className="p-3">
+            <p className="text-sm font-medium text-foreground">{profile.label}</p>
+            <p className="mt-1 text-2xs text-muted-foreground tabular-nums">
+              {profile.output.portrait.width}×{profile.output.portrait.height} px
+              {profile.platform === 'apple' ? ` · ${profile.appStoreConnectType}` : ''}
+            </p>
+            <p className="mt-1 text-2xs text-muted-foreground">
+              Immuable pour préserver les coordonnées et les releases de ce projet.
+            </p>
+          </Card>
+        </section>
+
+        <div className="hairline" />
+
         {/* Typographie */}
         <section>
           <h3 className="text-sm font-medium mb-2">Typographie</h3>
