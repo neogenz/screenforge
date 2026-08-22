@@ -1,4 +1,5 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { type BoardSize } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE } from '@/lib/dimensions'
 import { wrappedLineCount, type TextMeasure } from '@/lib/locale'
 import { mix, readableInk, shade, type Palette } from '@/lib/ai/palette'
 import type { Background } from '@/types'
@@ -45,10 +46,10 @@ import type { ShapeId } from '@/lib/vector-catalog'
  */
 
 /** La planche, en unités de projet. Tout le reste en est une fraction. */
-const BOARD = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } as const
+const APPLE_BOARD = APP_STORE_PROFILE.board
 
 /** Marge latérale du texte : 7,3 % de part et d'autre, comme l'ancienne mise. */
-const GUTTER = 32
+const APPLE_GUTTER = 32
 
 /**
  * L'interligne d'un calque de texte, tel que `layer-factories` le pose.
@@ -156,8 +157,7 @@ export interface ArchetypeContext {
   deviceAspect: number
   /** Le rang de la planche : il décide du sens des inclinaisons. */
   index: number
-  /** Repère du profil actif. Absent seulement pour les anciens appelants iPhone. */
-  board?: Pick<PlanBox, 'width' | 'height'>
+  board?: BoardSize
 }
 
 /**
@@ -387,17 +387,18 @@ function round(value: number): number {
 export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): ArchetypeLayout {
   const spec = archetypeSpec(id)
   const { palette, background, deviceAspect, index } = context
-  const board = context.board ?? BOARD
+  const board = context.board ?? APPLE_BOARD
+  const gutter = round((APPLE_GUTTER / APPLE_BOARD.width) * board.width)
   const ink = readableInk(backgroundColors(background), palette.ink)
 
-  const headlineWidth = round((spec.headline.width ?? 1) * board.width) - GUTTER * 2
+  const headlineWidth = round((spec.headline.width ?? 1) * board.width) - gutter * 2
   const headline: PlanText = {
     text: context.headline,
     color: ink,
     fontSize: spec.headline.fontSize,
     fontWeight: spec.headline.fontWeight,
     align: spec.headline.align,
-    x: GUTTER,
+    x: gutter,
     y: round(spec.headline.y * board.height),
     width: headlineWidth,
     /* Dérivée, jamais déclarée : c'est exactement ce que `measuredHeight` rend
@@ -469,7 +470,7 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
       color: palette.accent,
       opacity: 1,
       rotation: 0,
-      x: GUTTER,
+      x: gutter,
       y: round(board.height * 0.6),
       width: round(board.width * 0.2),
       height: 40,
@@ -529,10 +530,7 @@ export function backgroundFor(id: ArchetypeId, palette: Palette): Background {
 }
 
 /** La part de l'appareil qui reste dans le cadre. Le défaut ScreenForge exige 90 %. */
-export function onBoardRatio(
-  device: PlanBox,
-  board: Pick<PlanBox, 'width' | 'height'> = BOARD,
-): number {
+export function onBoardRatio(device: PlanBox, board: BoardSize = APPLE_BOARD): number {
   const visibleWidth = Math.max(
     0,
     Math.min(device.x + device.width, board.width) - Math.max(device.x, 0),
@@ -552,7 +550,7 @@ export function onBoardRatio(
  * Shotluma, où un modèle la juge sur une image rendue ; ici elle se calcule sur
  * les boîtes, ce qui la rend opposable au test plutôt qu'à l'œil.
  */
-export function tallestEmptyBand(layout: ArchetypeLayout, height: number = BOARD.height): number {
+export function tallestEmptyBand(layout: ArchetypeLayout, board: BoardSize = APPLE_BOARD): number {
   return tallestEmptyBandOf(
     [
       layout.headline,
@@ -560,7 +558,7 @@ export function tallestEmptyBand(layout: ArchetypeLayout, height: number = BOARD
       ...layout.accentsBehind,
       ...layout.accentsFront,
     ],
-    height,
+    board,
   )
 }
 
@@ -575,10 +573,10 @@ export function tallestEmptyBand(layout: ArchetypeLayout, height: number = BOARD
  */
 export function tallestEmptyBandOf(
   boxes: readonly PlanBox[],
-  height: number = BOARD.height,
+  board: BoardSize = APPLE_BOARD,
 ): number {
   const covered = boxes
-    .map((box) => [Math.max(0, box.y), Math.min(height, box.y + box.height)] as const)
+    .map((box) => [Math.max(0, box.y), Math.min(board.height, box.y + box.height)] as const)
     .filter(([top, bottom]) => bottom > top)
     .sort((left, right) => left[0] - right[0])
 
@@ -588,7 +586,7 @@ export function tallestEmptyBandOf(
     if (top > cursor) widest = Math.max(widest, top - cursor)
     cursor = Math.max(cursor, bottom)
   }
-  return Math.max(widest, height - cursor)
+  return Math.max(widest, board.height - cursor)
 }
 
-export const PLAN_BOARD = BOARD
+export const PLAN_BOARD = APPLE_BOARD

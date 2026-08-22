@@ -1,13 +1,7 @@
 import { forgetAssets } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
 import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
-import {
-  AI_LIMITS,
-  applyToolCalls,
-  type ToolCall,
-  type ToolContext,
-  type ToolResult,
-} from '@/lib/ai/tools'
+import { applyToolCalls, type ToolCall, type ToolContext, type ToolResult } from '@/lib/ai/tools'
 import {
   planFromBrief,
   validateBriefGroundingCapacity,
@@ -17,6 +11,7 @@ import {
 import { planViaApi } from '@/lib/ai/direct-api'
 import { planViaBridge } from '@/lib/bridge-client'
 import { aiProvider, type ProviderId } from '@/lib/ai/providers'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { useProjectStore } from '@/stores/project.store'
 
 /**
@@ -118,9 +113,10 @@ export async function planCampaign(
 ): Promise<CampaignPlan> {
   if (!source.token) return planFromBrief(brief)
 
+  const maxScreens = getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id).maxScreens
   const engine = aiProvider(source.provider).engine
   if (engine) {
-    const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+    const count = Math.max(1, Math.min(brief.screenCount, maxScreens))
     const failure = validateBriefGroundingCapacity(brief, count)
     if (failure) throw new Error(failure)
     return planViaBridge(brief, source.token, engine, source.model)
@@ -131,7 +127,7 @@ export async function planCampaign(
        de modèle par défaut, et en coder un en dur serait choisir à la place de
        l'utilisateur un tarif et une qualité. Sans lui, la voie locale. */
     if (!source.model) return planFromBrief(brief)
-    const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+    const count = Math.max(1, Math.min(brief.screenCount, maxScreens))
     const failure = validateBriefGroundingCapacity(brief, count)
     if (failure) throw new Error(failure)
     return planViaApi(source.provider, brief, source.token, source.model)

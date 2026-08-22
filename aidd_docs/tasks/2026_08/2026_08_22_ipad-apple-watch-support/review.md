@@ -1,17 +1,17 @@
 # Review: Support officiel iPad et Apple Watch
 
-- **Verdict**: approve
-- **Diff**: `origin/main...2033653`
+- **Verdict**: approve pending CI
+- **Diff**: `origin/main...codex/ipad-watch-support`
 - **Axes run**: code, functional, relevancy
-- **Date**: 2026_08_22
+- **Date**: 2026_08_23
 - **Findings**: 0 critical, 0 warning, 0 minor
 
 ## Phases
 
-### Phase 1 — Contrat de profils et compatibilité des projets
+### Phase 1 — Contrat de cibles et compatibilité des projets
 
 - [x] Les huit profils ont des identifiants et dossiers uniques, et chaque rapport logique correspond exactement à sa résolution officielle — `packages/project-format/src/dimensions.ts:34`, `apps/web/src/lib/__tests__/project-validation.test.ts:80`
-- [x] Un projet, une release et un gabarit legacy sans profil migrent vers iPhone de façon idempotente ; un profil inconnu ou une release dont `snapshot.profileId` diffère de `project.profileId` est refusé — `packages/project-format/src/project-validation.ts:316`, `packages/project-format/src/project-validation.ts:387`, `apps/web/src/lib/__tests__/project-validation.test.ts:142`, `apps/web/src/lib/__tests__/project-validation.test.ts:275`
+- [x] La migration legacy convertit `profileId` vers `target`, y compris dans les snapshots de release, puis supprime le champ obsolète de façon idempotente ; toute cible inconnue ou release incompatible est refusée — `packages/project-format/src/project-validation.ts`, `apps/web/src/lib/__tests__/project-validation.test.ts`
 - [x] Créer un projet ciblé sauvegarde d’abord l’actuel, persiste puis active le nouveau, et vide sélection et historique avant son rechargement avec le même profil — `apps/web/src/lib/storage.ts:456`, `apps/web/src/lib/storage.ts:465`, `apps/web/src/lib/__tests__/storage.test.ts:327`
 
 ### Phase 2 — Planche dynamique et cycle d’export officiel
@@ -35,7 +35,7 @@ None.
 
 | Metric        | Value |
 | ------------- | ----- |
-| Verified      | 100% (10/10) ; preuves fournies : ciblés 27/27, `pnpm test` vert (Bridge 59, Backend 193, MCP 45, Web 435, publication 4, validator 2, probe, types, lint), E2E release 3/3, diff-check et gitleaks verts, commit `2033653` poussé |
-| Files checked | Les 108 fichiers modifiés de `origin/main...2033653`, dont `packages/project-format/src/dimensions.ts`, `packages/project-format/src/project-validation.ts`, `packages/project-format/src/catalog-ids.ts`, `apps/web/src/lib/canvas/*`, `apps/web/src/lib/export.ts`, `apps/web/src/lib/release.ts`, `apps/web/src/lib/asc.ts`, `apps/web/src/lib/custom-templates.ts`, `apps/web/src/lib/storage.ts`, `apps/web/src/components/project-switcher/ProjectSwitcher.tsx`, `apps/web/src/components/device-picker/DevicePicker.tsx`, `apps/web/src/components/template-picker/*`, `apps/web/src/lib/ai/*`, `apps/web/src/lib/mcp/session.ts`, `apps/mcp/src/tools/*`, `apps/mcp/skills/screenforge-mcp/*`, `scripts/validate-export.mjs`, leurs tests, le PRD et la mémoire |
-| Unchecked     | none |
+| Verified      | Typecheck, lint, format, build, CSP, dépendances, publication, COSS, contraste, échelle, landing et probe MCP verts. Suites unitaires : Bridge 60, Backend 209, MCP 46, Web 473, publication 4, validateur export 5 et audit de déploiement. E2E release intégral : 226 verts, 5 défauts corrigés, 1 fixture Apple externe skippé ; les 12 scénarios affectés ont ensuite passé leurs reruns ciblés (export/release 9/9, Android/profils 3/3). |
+| Files checked | Les 85 fichiers du diff net contre `origin/main`, avec relecture des frontières migration/stockage, canvas/export/release/ASC, catalogues, IA/MCP, modèles, UI et documentation. |
+| Unchecked     | Un dernier rerun propre des 232 E2E est laissé à la CI de la PR ; le test de bezel Apple exige un fichier propriétaire local et reste volontairement hors CI. |
 | Unplanned     | none |

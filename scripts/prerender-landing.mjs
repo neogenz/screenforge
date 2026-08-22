@@ -47,7 +47,7 @@ for (const lang of /** @type {const} */ (['en', 'fr'])) {
   const content = render(lang)
 
   let doc = template.replace('<div id="root"></div>', `<div id="root">${content}</div>`)
-  doc = doc.replace(/<html lang="[^"]*">/, `<html lang="${lang}">`)
+  doc = doc.replace(/<html lang="[^"]*"/, `<html lang="${lang}"`)
   doc = doc.replace(/<title>[^<]*<\/title>/, `<title>${meta.title}</title>`)
   doc = doc.replace(/(<meta name="description" content=")[^"]*(")/, `$1${meta.description}$2`)
   /* Les balises Open Graph doivent suivre la langue du document : sinon un

@@ -1,5 +1,6 @@
 import { Canvas, Point } from 'fabric'
-import { canvasSize, getScreenOffset, getTotalWidth } from '@/lib/canvas/canvas-utils'
+import { getScreenOffset, getTotalWidth, scaleScreenLabels } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { stageInsets } from '@/lib/stage'
 import { ZOOM_MAX, ZOOM_MIN } from '@/stores/ui.store'
 import type { Project } from '@/types'
@@ -72,11 +73,6 @@ export function installViewport({
   let resizeTimer: ReturnType<typeof setTimeout> | null = null
   let spaceHeld = false
 
-  function projectSize() {
-    const project = getProject()
-    return canvasSize(project?.profileId)
-  }
-
   function availableStage() {
     const { layersOpen, propsOpen } = getUi()
     const insets = stageInsets({ layers: layersOpen, props: propsOpen })
@@ -88,10 +84,11 @@ export function installViewport({
   }
 
   function fitAll(): void {
-    const screenCount = getProject()?.screens.length ?? 1
-    const size = projectSize()
+    const project = getProject()
+    const screenCount = project?.screens.length ?? 1
+    const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
     const { insets, width, height } = availableStage()
-    const totalWidth = getTotalWidth(screenCount, size.width)
+    const totalWidth = getTotalWidth(screenCount, board)
     const padding = 48
     /* Borné aux clamps du store : un fit sous `ZOOM_MIN` mettait le canvas à
        15 % pendant que le store affichait 25 % — HUD faux, puis saut au premier
@@ -99,7 +96,7 @@ export function installViewport({
        donc une partie de la scène, panoramique à l'appui, mais un seul zoom. */
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / size.height, 1),
+      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / board.height, 1),
     )
     canvas.setViewportTransform([
       zoom,
@@ -107,7 +104,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - size.height * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
     setZoom(zoom)
   }
@@ -121,13 +118,14 @@ export function installViewport({
    * lorsque le contenu, au zoom courant, ne tient plus dans la zone libre.
    */
   function recenter(): void {
-    const screenCount = getProject()?.screens.length ?? 1
-    const size = projectSize()
+    const project = getProject()
+    const screenCount = project?.screens.length ?? 1
+    const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
     const { insets, width, height } = availableStage()
     const zoom = canvas.getZoom()
-    const totalWidth = getTotalWidth(screenCount, size.width)
+    const totalWidth = getTotalWidth(screenCount, board)
 
-    if (totalWidth * zoom > width || size.height * zoom > height) {
+    if (totalWidth * zoom > width || board.height * zoom > height) {
       fitAll()
       return
     }
@@ -138,7 +136,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - size.height * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
   }
 
@@ -150,6 +148,20 @@ export function installViewport({
    * seul le CSS lit. La clé évite les écritures identiques — `after:render` tire
    * aussi sur un simple survol d'objet, où rien n'a bougé.
    */
+  /* Les étiquettes se remettent à l'échelle avant le tracé, et non après.
+     Les corriger dans `after:render` demanderait un rendu de plus, donc une
+     image entière à l'ancienne taille pour chaque cran de molette. Ici la
+     passe qui les lit est celle qui vient de les écrire. Le zoom est comparé
+     pour ne rien faire quand seul le panoramique a bougé — un glisser tire
+     autant de rendus qu'un zoom. */
+  let labelZoom = 0
+  const disposeLabels = canvas.on('before:render', () => {
+    const zoom = canvas.getZoom()
+    if (zoom === labelZoom) return
+    labelZoom = zoom
+    scaleScreenLabels(canvas, zoom)
+  })
+
   let grainKey = ''
   const disposeGrain = canvas.on('after:render', () => {
     const [zoom, , , , panX, panY] = canvas.viewportTransform
@@ -266,7 +278,7 @@ export function installViewport({
   resizeObserver.observe(container)
 
   const unsubscribeProject = subscribeProject((project, previous) => {
-    if (project?.profileId !== previous?.profileId) {
+    if (project?.target !== previous?.target) {
       fitAll()
       canvas.requestRenderAll()
       return
@@ -283,22 +295,22 @@ export function installViewport({
     }
     const screenIndex = project.screens.findIndex((screen) => screen.id === activeScreenId)
     if (screenIndex === -1) return
+    const board = getStoreTargetProfile(project.target).board
     const { insets, width, height } = availableStage()
     const padding = 48
-    const size = canvasSize(project.profileId)
     // Même borne que `fitAll` : le canvas et le store doivent lire un seul zoom.
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / size.width, (height - padding * 2) / size.height, 1),
+      Math.min((width - padding * 2) / board.width, (height - padding * 2) / board.height, 1),
     )
-    const screenCenterX = getScreenOffset(screenIndex, size.width) + size.width / 2
+    const screenCenterX = getScreenOffset(screenIndex, board) + board.width / 2
     canvas.setViewportTransform([
       zoom,
       0,
       0,
       zoom,
       insets.left + width / 2 - screenCenterX * zoom,
-      insets.top + (height - size.height * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
     setZoom(zoom)
     canvas.requestRenderAll()
@@ -333,6 +345,7 @@ export function installViewport({
   })
 
   function cleanup(): void {
+    disposeLabels()
     disposeGrain()
     disposeWheel()
     disposeMouseDown()

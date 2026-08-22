@@ -1,33 +1,50 @@
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES } from '@/assets/templates'
-import { canvasSize } from '@/lib/canvas/canvas-utils'
-import { deviceModelPlatform } from '@screenforge/project-format'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import { deviceModelFamily } from '@screenforge/project-format'
 
-describe('platform templates', () => {
-  it('ships a contained editorial composition for iPad and Apple Watch', () => {
-    const targets = TEMPLATES.filter((template) =>
-      ['ipad-editorial', 'watch-focus'].includes(template.id),
-    )
-    expect(targets.map((template) => template.id)).toEqual(['ipad-editorial', 'watch-focus'])
+describe('built-in templates', () => {
+  it.each(['app-store-iphone', 'google-play-phone'] as const)(
+    'ships five compatible layouts for %s',
+    (target) => {
+      const board = getStoreTargetProfile(target).board
+      const templates = TEMPLATES.filter((template) => template.target === target)
+      expect(templates).toHaveLength(5)
 
-    for (const template of targets) {
-      const size = canvasSize(template.profileId)
-      for (const layer of template.layers) {
-        expect(layer.x, `${template.id}:${layer.id}:x`).toBeGreaterThanOrEqual(0)
-        expect(layer.y, `${template.id}:${layer.id}:y`).toBeGreaterThanOrEqual(0)
-        expect(layer.x + layer.width, `${template.id}:${layer.id}:width`).toBeLessThanOrEqual(
-          size.width,
-        )
-        expect(layer.y + layer.height, `${template.id}:${layer.id}:height`).toBeLessThanOrEqual(
-          size.height,
-        )
+      for (const template of templates) {
+        for (const layer of template.layers) {
+          expect(layer.x, `${template.id}/${layer.id} x`).toBeGreaterThanOrEqual(0)
+          expect(layer.y, `${template.id}/${layer.id} y`).toBeGreaterThanOrEqual(0)
+          expect(layer.x + layer.width, `${template.id}/${layer.id} width`).toBeLessThanOrEqual(
+            board.width,
+          )
+          expect(layer.y + layer.height, `${template.id}/${layer.id} height`).toBeLessThanOrEqual(
+            board.height,
+          )
+          if (target === 'google-play-phone' && layer.type === 'device-frame') {
+            expect(layer.deviceModel).toBe('android-phone')
+          }
+        }
       }
-      const device = template.layers.find((layer) => layer.type === 'device-frame')
-      expect(device?.type).toBe('device-frame')
-      if (device?.type !== 'device-frame') continue
-      expect(deviceModelPlatform(device.deviceModel)).toBe(
-        template.profileId === 'ipad-13' ? 'ipad' : 'watch',
-      )
-    }
-  })
+    },
+  )
+
+  it.each(['app-store-ipad-13', 'app-store-watch-series-10'] as const)(
+    'ships a contained device-family layout for %s',
+    (target) => {
+      const profile = getStoreTargetProfile(target)
+      const templates = TEMPLATES.filter((template) => template.target === target)
+      expect(templates).toHaveLength(1)
+
+      for (const layer of templates[0].layers) {
+        expect(layer.x).toBeGreaterThanOrEqual(0)
+        expect(layer.y).toBeGreaterThanOrEqual(0)
+        expect(layer.x + layer.width).toBeLessThanOrEqual(profile.board.width)
+        expect(layer.y + layer.height).toBeLessThanOrEqual(profile.board.height)
+        if (layer.type === 'device-frame') {
+          expect(deviceModelFamily(layer.deviceModel)).toBe(profile.family)
+        }
+      }
+    },
+  )
 })

@@ -451,6 +451,7 @@ function validateGeneratedPlan(plan: BridgePlan, brief: BridgeBrief): string | n
  */
 function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): string {
   const { brief } = request
+  const android = brief.target === 'google-play-phone'
   const count = brief.screenCount ?? Math.max(1, brief.screenshots.length)
   const shots = brief.screenshots
     .map(
@@ -459,7 +460,7 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     )
     .join('\n')
   return [
-    'Tu es directeur artistique de la fiche App Store d’une application iOS.',
+    `Tu es directeur artistique de la fiche ${android ? 'Google Play d’une application Android' : 'App Store d’une application iOS'}.`,
     'Tu écris les accroches des visuels de la fiche — ces images que l’utilisateur',
     'fait défiler avant de télécharger. Les trois premières décident du',
     'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
@@ -475,6 +476,16 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
     `Style visuel imposé : ${brief.direction}.`,
     `Appareil imposé : ${request.deviceModel}.`,
     `Nombre de visuels à proposer : exactement ${count}.`,
+    ...(android
+      ? [
+          'Règles Google Play :',
+          '— Les visuels reflètent l’expérience réelle de l’application.',
+          '— Le texte reste bref et secondaire face à l’interface.',
+          '— Aucun classement, prix, récompense ou bénéfice invérifiable.',
+        ]
+      : [
+          'Règles App Store : les visuels reflètent l’expérience réelle et tout bénéfice reste vérifiable.',
+        ]),
     shots
       ? `Captures décrites par l’utilisateur, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex. Les visuels au-delà de cette liste n’ont pas de capture : laisse screenshotIndex absent.`
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',

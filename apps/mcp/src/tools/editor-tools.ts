@@ -9,13 +9,14 @@ import {
   AI_LIMITS,
   CONTENT_FONTS,
   createAiTools,
-  createPlatformAiTools,
+  createTargetAiTools,
   DEVICE_MODEL_IDS,
+  getStoreTargetProfile,
   ICON_IDS,
   SHAPE_IDS,
   validateAgainst,
   type ParamSchema,
-  type DevicePlatform,
+  type StoreTargetId,
   type ToolCall,
 } from '@screenforge/project-format'
 import type { RelayState } from '../relay/server.ts'
@@ -56,7 +57,7 @@ const TOOL_PREFIX = 'screenforge_'
  *
  * Le nom est une adresse — préfixée, en anglais, avec des tirets bas — et un
  * client MCP l'affiche tel quel faute de mieux : « screenforge_add_device »
- * dans une liste de permissions à accorder ne dit pas qu'on va poser un iPhone
+ * dans une liste de permissions à accorder ne dit pas qu'on va poser un téléphone
  * sur une planche. La spec 2026-07-28 réserve `title` à cet affichage, le nom
  * restant l'identifiant.
  *
@@ -158,19 +159,17 @@ const contractValidator: jsonSchemaValidator = {
 }
 
 /** Valide un lot entier avant d'en envoyer la moindre partie. */
-function relayPlatform(state: unknown): DevicePlatform | undefined {
+function relayTarget(state: unknown): StoreTargetId | undefined {
   if (!state || typeof state !== 'object') return undefined
-  const profile = (state as { profile?: unknown }).profile
-  if (!profile || typeof profile !== 'object') return undefined
-  const platform = (profile as { platform?: unknown }).platform
-  return platform === 'iphone' || platform === 'ipad' || platform === 'watch' ? platform : undefined
+  const target = (state as { target?: unknown }).target
+  return getStoreTargetProfile(target)?.id
 }
 
 function reject(calls: readonly ToolCall[], session: RelaySession): string | null {
   if (calls.length === 0) return 'Aucun appel : le lot est vide.'
   if (calls.length > AI_LIMITS.maxCalls) return `${AI_LIMITS.maxCalls} appels au plus par lot.`
-  const platform = relayPlatform(session.state)
-  const tooling = platform ? createPlatformAiTools(platform) : { validateToolCall, toolSchema }
+  const target = relayTarget(session.state)
+  const tooling = target ? createTargetAiTools(target) : { validateToolCall, toolSchema }
   for (const [index, call] of calls.entries()) {
     const error = tooling.validateToolCall(call)
     if (!error) continue

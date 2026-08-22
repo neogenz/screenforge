@@ -1,11 +1,5 @@
 import { ActiveSelection, Canvas, FabricObject } from 'fabric'
-import {
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
-  getScreenOffset,
-  type CanvasSize,
-  type RenderedObject,
-} from '@/lib/canvas/canvas-utils'
+import { getScreenOffset, type BoardSize, type RenderedObject } from '@/lib/canvas/canvas-utils'
 import type { Box, Guide } from '@/lib/snapping'
 import type { Project, Screen } from '@/types'
 
@@ -21,18 +15,31 @@ export interface ChromeColors {
 }
 
 export function readChromeColors(): ChromeColors {
+  /* Résolu par un élément sonde et non lu par `getPropertyValue` : les jetons
+     coss sont des `color-mix()` et des alphas composés, que le canvas 2D ne
+     sait pas toujours analyser. `getComputedStyle(...).color` rend une
+     couleur absolue que Fabric accepte. */
+  const probe = document.createElement('span')
+  document.body.append(probe)
   const styles = getComputedStyle(document.documentElement)
-  const read = (token: string, fallback: string) =>
-    styles.getPropertyValue(token).trim() || fallback
-  return {
-    label: read('--color-muted-foreground', '#b8b8b8'),
-    labelActive: read('--color-foreground', '#f7f7f7'),
-    artboardRing: read('--color-artboard-ring', 'rgba(255,255,255,0.12)'),
-    artboardShadow: read('--color-artboard-shadow', 'rgba(0,0,0,0.5)'),
-    selection: read('--color-foreground', '#f7f7f7'),
-    selectionSoft: read('--color-selection-soft', 'rgba(255,255,255,0.14)'),
-    guide: read('--color-guide', 'rgba(255,255,255,0.85)'),
-    guideHalo: read('--color-guide-halo', 'rgba(0,0,0,0.4)'),
+  const read = (token: string, fallback: string) => {
+    if (!styles.getPropertyValue(token).trim()) return fallback
+    probe.style.color = `var(${token})`
+    return getComputedStyle(probe).color || fallback
+  }
+  try {
+    return {
+      label: read('--muted-foreground', '#b8b8b8'),
+      labelActive: read('--foreground', '#f7f7f7'),
+      artboardRing: read('--artboard-ring', 'rgba(255,255,255,0.12)'),
+      artboardShadow: read('--artboard-shadow', 'rgba(0,0,0,0.5)'),
+      selection: read('--foreground', '#f7f7f7'),
+      selectionSoft: read('--selection-soft', 'rgba(255,255,255,0.14)'),
+      guide: read('--guide', 'rgba(255,255,255,0.85)'),
+      guideHalo: read('--guide-halo', 'rgba(0,0,0,0.4)'),
+    }
+  } finally {
+    probe.remove()
   }
 }
 
@@ -85,11 +92,7 @@ export function boxOf(object: FabricObject): Box {
   return { left, top, width, height }
 }
 
-export function collectSnapTargets(
-  canvas: Canvas,
-  moving: FabricObject,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
-): Box[] {
+export function collectSnapTargets(canvas: Canvas, moving: FabricObject, board: BoardSize): Box[] {
   const members = new Set<FabricObject>(
     moving instanceof ActiveSelection ? moving.getObjects() : [moving],
   )
@@ -100,10 +103,10 @@ export function collectSnapTargets(
 
   const targets: Box[] = [
     {
-      left: getScreenOffset(screenIndex, size.width),
+      left: getScreenOffset(screenIndex, board),
       top: 0,
-      width: size.width,
-      height: size.height,
+      width: board.width,
+      height: board.height,
     },
   ]
   for (const object of canvas.getObjects() as RenderedObject[]) {
@@ -119,12 +122,12 @@ export function collectSnapTargets(
 export function screenIndexAtPoint(
   screens: Screen[],
   point: { x: number; y: number },
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize,
 ): number | null {
-  if (point.y < 0 || point.y > size.height) return null
+  if (point.y < 0 || point.y > board.height) return null
   const index = screens.findIndex((_, screenIndex) => {
-    const left = getScreenOffset(screenIndex, size.width)
-    return point.x >= left && point.x <= left + size.width
+    const left = getScreenOffset(screenIndex, board)
+    return point.x >= left && point.x <= left + board.width
   })
   return index === -1 ? null : index
 }
@@ -166,10 +169,7 @@ export interface SelectionFrame {
   stageHeight: number
 }
 
-export function readSelectionFrame(
-  canvas: Canvas,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
-): SelectionFrame | null {
+export function readSelectionFrame(canvas: Canvas, board: BoardSize): SelectionFrame | null {
   const active = canvas.getActiveObject() as RenderedObject | null
   if (!active) return null
   active.setCoords()
@@ -178,8 +178,8 @@ export function readSelectionFrame(
   let right = bounds.left + bounds.width
   const screenIndex = active.data?.screenIndex
   if (screenIndex !== undefined) {
-    left = Math.max(left, getScreenOffset(screenIndex, size.width))
-    right = Math.min(right, getScreenOffset(screenIndex, size.width) + size.width)
+    left = Math.max(left, getScreenOffset(screenIndex, board))
+    right = Math.min(right, getScreenOffset(screenIndex, board) + board.width)
   }
   if (right <= left) return null
   const [zoomX, , , zoomY, panX, panY] = canvas.viewportTransform

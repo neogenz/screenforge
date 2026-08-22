@@ -1,12 +1,19 @@
 import { screenshotFrame, type Rect } from '@/lib/screenshot-placement'
-import type { AppStorePlatform } from '@/lib/dimensions'
-import type { DeviceModel, DeviceColor, ScreenshotPlacement, ScreenshotSize } from '@/types'
+import type {
+  DeviceModel,
+  DeviceColor,
+  DeviceFamily,
+  DevicePlatform,
+  ScreenshotPlacement,
+  ScreenshotSize,
+} from '@/types'
 
 export interface DeviceFrameConfig {
   model: DeviceModel
-  platform: AppStorePlatform
+  platform: DevicePlatform
+  family: DeviceFamily
   modelName: string
-  /** Apple screen diagonal, shown in pickers (e.g. '6.9"') */
+  /** Screen diagonal or generic class, shown in pickers. */
   screenSize: string
   /** Sold by Apple today; legacy models stay renderable for old projects */
   current: boolean
@@ -17,9 +24,7 @@ export interface DeviceFrameConfig {
   screenWidth: number
   screenHeight: number
   cornerRadius: number
-  dynamicIsland: boolean
-  /** 16e-style top notch instead of the Dynamic Island */
-  notch?: boolean
+  cutout: 'island' | 'notch' | 'punch-hole' | 'none'
   colors: { name: DeviceColor; label: string; frame: string }[]
 }
 
@@ -93,15 +98,16 @@ function frameConfig(
   colors: DeviceFrameConfig['colors'],
   options: {
     current?: boolean
-    notch?: boolean
-    dynamicIsland?: boolean
-    platform?: AppStorePlatform
+    family?: DeviceFamily
     cornerRadius?: number
+    platform?: DevicePlatform
+    cutout?: DeviceFrameConfig['cutout']
   } = {},
 ): DeviceFrameConfig {
   return {
     model,
-    platform: options.platform ?? 'iphone',
+    platform: options.platform ?? 'apple',
+    family: options.family ?? 'iphone',
     modelName,
     screenSize,
     current: options.current ?? true,
@@ -112,8 +118,7 @@ function frameConfig(
     screenWidth: width - insets.x * 2,
     screenHeight: height - insets.y * 2,
     cornerRadius: options.cornerRadius ?? Math.round(width * 0.155),
-    dynamicIsland: options.dynamicIsland ?? !options.notch,
-    ...(options.notch ? { notch: true } : {}),
+    cutout: options.cutout ?? 'island',
     colors,
   }
 }
@@ -151,8 +156,21 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
   ),
   frameConfig('iphone-16', 'iPhone 16', '6.1"', 170, 350, { x: 7.7, y: 7.7 }, IPHONE_16_COLORS),
   frameConfig('iphone-16e', 'iPhone 16e', '6.1"', 170, 349, { x: 8.2, y: 8.2 }, IPHONE_16E_COLORS, {
-    notch: true,
+    cutout: 'notch',
   }),
+  frameConfig(
+    'android-phone',
+    'Téléphone Android',
+    '9:16',
+    180,
+    384,
+    { x: 5.5, y: 5.5 },
+    [
+      { name: 'black', label: 'Noir', frame: '#1c1c1c' },
+      { name: 'silver', label: 'Argent', frame: '#d8d8d8' },
+    ],
+    { platform: 'android', family: 'android-phone', cutout: 'punch-hole' },
+  ),
   // Legacy — old projects only
   frameConfig(
     'iphone-16-pro-max',
@@ -185,7 +203,7 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
       { name: 'white', label: 'Craie', frame: '#ffffff' },
       { name: 'black', label: 'Graphite', frame: '#242424' },
     ],
-    { platform: 'ipad', dynamicIsland: false, cornerRadius: 17 },
+    { family: 'ipad', cutout: 'none', cornerRadius: 17 },
   ),
   frameConfig(
     'tablet-studio',
@@ -198,7 +216,7 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
       { name: 'white', label: 'Porcelaine', frame: '#ffffff' },
       { name: 'silver', label: 'Étain', frame: '#8A8A88' },
     ],
-    { platform: 'ipad', dynamicIsland: false, cornerRadius: 15 },
+    { family: 'ipad', cutout: 'none', cornerRadius: 15 },
   ),
   frameConfig(
     'watch-halo',
@@ -211,7 +229,7 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
       { name: 'white', label: 'Clair', frame: '#ffffff' },
       { name: 'black', label: 'Sombre', frame: '#202020' },
     ],
-    { platform: 'watch', dynamicIsland: false, cornerRadius: 58 },
+    { family: 'watch', cutout: 'none', cornerRadius: 58 },
   ),
   frameConfig(
     'watch-compact',
@@ -224,24 +242,24 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
       { name: 'white', label: 'Clair', frame: '#ffffff' },
       { name: 'silver', label: 'Acier', frame: '#858583' },
     ],
-    { platform: 'watch', dynamicIsland: false, cornerRadius: 52 },
+    { family: 'watch', cutout: 'none', cornerRadius: 52 },
   ),
 ]
 
 export const CURRENT_DEVICE_FRAMES = DEVICE_FRAMES.filter((frame) => frame.current)
 
-export function currentDeviceFramesFor(platform: AppStorePlatform): DeviceFrameConfig[] {
-  return CURRENT_DEVICE_FRAMES.filter((frame) => frame.platform === platform)
+export function currentDeviceFramesFor(family: DeviceFamily): DeviceFrameConfig[] {
+  return CURRENT_DEVICE_FRAMES.filter((frame) => frame.family === family)
 }
 
 /** Current choices for a profile, plus its selected same-platform legacy frame. */
 export function deviceFrameOptionsFor(
   model: DeviceModel,
-  platform: AppStorePlatform,
+  family: DeviceFamily,
 ): DeviceFrameConfig[] {
-  const current = currentDeviceFramesFor(platform)
+  const current = currentDeviceFramesFor(family)
   const selected = getDeviceFrame(model)
-  return selected.platform === platform && !selected.current ? [selected, ...current] : current
+  return selected.family === family && !selected.current ? [selected, ...current] : current
 }
 
 /* Chaque modèle du contrat partagé a son gabarit, et réciproquement. Un modèle
@@ -398,7 +416,7 @@ export function getDeviceRenderSize(config: DeviceFrameConfig): { width: number;
 export function getDefaultDeviceSize(model: DeviceModel): { width: number; height: number } {
   const config = getDeviceFrame(model)
   const rendered = getDeviceRenderSize(config)
-  const height = config.platform === 'watch' ? 430 : config.platform === 'ipad' ? 480 : 507
+  const height = config.family === 'watch' ? 430 : config.family === 'ipad' ? 480 : 507
   return { width: Math.round(height * (rendered.width / rendered.height)), height }
 }
 
@@ -410,16 +428,8 @@ export function generateDeviceFrameSVG(
   screenshotSize?: ScreenshotSize,
 ): string {
   const color = config.colors.find((c) => c.name === colorName) ?? config.colors[0]
-  const {
-    width,
-    height,
-    screenX,
-    screenY,
-    screenWidth,
-    screenHeight,
-    cornerRadius,
-    dynamicIsland,
-  } = config
+  const { width, height, screenX, screenY, screenWidth, screenHeight, cornerRadius, cutout } =
+    config
 
   // Îlot dynamique, proportionné à la dalle et non au châssis : 125 pt de large
   // et 36,7 pt de haut sur une dalle de 402 pt, posé 11 pt sous son bord haut.
@@ -439,6 +449,9 @@ export function generateDeviceFrameSVG(
   const notchHeight = screenWidth * 0.082
   const notchX = (width - notchWidth) / 2
   const notchRadius = notchHeight / 2
+  const cameraRadius = screenWidth * 0.024
+  const cameraX = width / 2
+  const cameraY = screenY + screenWidth * 0.055
 
   const screenClipId = `screen-clip-${config.model}`
   const screenRadius = cornerRadius - screenX
@@ -478,11 +491,15 @@ export function generateDeviceFrameSVG(
     l'app, et la capture ne porte donc aucun noir à cet endroit.
   -->
   ${
-    config.notch
-      ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
-      : dynamicIsland && !screenshotUrl
-        ? `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
-        : ''
+    cutout === 'none'
+      ? ''
+      : cutout === 'notch'
+        ? `<path data-part="notch" d="M ${notchX} ${screenY - 1} h ${notchWidth} v ${notchHeight - notchRadius} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} ${notchRadius} h -${notchWidth - notchRadius * 2} a ${notchRadius} ${notchRadius} 0 0 1 -${notchRadius} -${notchRadius} z" fill="#000000"/>`
+        : cutout === 'punch-hole'
+          ? `<circle data-part="punch-hole" cx="${round(cameraX)}" cy="${round(cameraY)}" r="${round(cameraRadius)}" fill="#000000"/>`
+          : screenshotUrl
+            ? ''
+            : `<rect data-part="island" x="${round(pillX)}" y="${round(pillY)}" width="${round(pillWidth)}" height="${round(pillHeight)}" rx="${round(pillRadius)}" ry="${round(pillRadius)}" fill="#000000"/>`
   }
 </svg>`
 }

@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { createExportZip, downloadBlob, slugify, type ExportEntry } from '@/lib/zip'
-import type { AppStoreProfile } from '@/lib/dimensions'
-import type { Layer, Screen } from '@/types'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import { captureAnalytics, captureDiagnosticLog } from '@/lib/analytics'
+import type { Layer, Screen, StoreTargetId } from '@/types'
 
 interface ExportProgress {
   current: number
@@ -34,7 +35,6 @@ interface ExportJob {
   screen: Screen
   screenIndex: number
   index: number
-  profile: AppStoreProfile
 }
 
 /** Never release export UI while another Fabric worker is still active. */
@@ -55,22 +55,22 @@ export function useExport() {
   const exportBatch = useCallback(
     async (
       projectName: string,
+      target: StoreTargetId,
       screens: ExportScreen[],
       layoutLayers: Layer[],
-      profiles: readonly AppStoreProfile[],
     ) => {
+      const startedAt = performance.now()
       setIsExporting(true)
       setError(null)
       setCompletedFiles([])
 
-      const jobs: ExportJob[] = profiles.flatMap((profile) =>
-        screens.map(({ screen, screenIndex }, index) => ({
-          screen,
-          screenIndex,
-          index,
-          profile,
-        })),
-      )
+      const profile = getStoreTargetProfile(target)
+      const dimension = profile.output.size
+      const jobs: ExportJob[] = screens.map(({ screen, screenIndex }, index) => ({
+        screen,
+        screenIndex,
+        index,
+      }))
       const total = jobs.length
       const entries: ExportEntry[] = []
       const summaries: ExportedFileSummary[] = []
@@ -91,21 +91,19 @@ export function useExport() {
             blob = await exportScreenToBlob(
               job.screen,
               layoutLayers,
-              job.profile.portrait.width,
-              job.profile.portrait.height,
+              profile.output.portrait.width,
+              profile.output.portrait.height,
               job.screenIndex,
-              job.profile.logical.width,
-              job.profile.logical.height,
+              profile.board,
             )
           } catch (cause) {
             throw new Error(`${job.screen.name} : ${errorMessage(cause)}`)
           }
 
           const name = slugify(job.screen.name)
-          const folder = job.profile.folder
-          const path = `${folder}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
+          const path = `${profile.zipFolder}/${String(job.index + 1).padStart(2, '0')}_${name}.png`
           const metadata = await inspectPng(blob)
-          entries.push({ dimension: folder, index: job.index + 1, name, blob })
+          entries.push({ folder: profile.zipFolder, index: job.index + 1, name, blob })
           summaries.push({ path, size: metadata.byteLength })
           completed += 1
           setProgress({ current: completed, total, label: `${completed}/${total} rendus` })
@@ -123,14 +121,29 @@ export function useExport() {
           label: 'Validation et création du ZIP',
         })
         // Parallel workers finish out of order — restore a deterministic order.
-        entries.sort((a, b) => a.dimension.localeCompare(b.dimension) || a.index - b.index)
+        entries.sort((a, b) => a.folder.localeCompare(b.folder) || a.index - b.index)
         summaries.sort((a, b) => a.path.localeCompare(b.path))
 
         const zipBlob = await createExportZip(entries)
-        downloadBlob(zipBlob, `${slugify(projectName)}-app-store.zip`)
+        downloadBlob(
+          zipBlob,
+          `${slugify(projectName)}-${profile.platform === 'android' ? 'google-play' : 'app-store'}.zip`,
+        )
         setCompletedFiles(summaries)
+        captureAnalytics('screenforge_export_succeeded', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+        })
       } catch (cause) {
         setError(errorMessage(cause))
+        captureAnalytics('screenforge_export_failed', {
+          duration_ms: Math.round(performance.now() - startedAt),
+          dimension,
+          screen_count: screens.length,
+          issue: 'export',
+        })
+        captureDiagnosticLog('export_failed', { issue: 'export' })
         throw cause
       } finally {
         setIsExporting(false)

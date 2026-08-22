@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { test } from 'node:test'
 import JSZip from 'jszip'
 import { validateExportZip } from './validate-export.mjs'
 
 /** @param {number} width @param {number} height @param {number} colorType */
-function pngHeader(width, height, colorType = 2) {
+function png(width, height, colorType = 2) {
   const bytes = new Uint8Array(33)
   bytes.set([137, 80, 78, 71, 13, 10, 26, 10])
   const view = new DataView(bytes.buffer)
@@ -17,53 +17,64 @@ function pngHeader(width, height, colorType = 2) {
   return bytes
 }
 
-/** @param {readonly (readonly [string, Uint8Array])[]} files */
-async function archive(files) {
+/** @param {string} folder @param {number} count @param {number} width @param {number} height @param {number} colorType */
+async function bundle(folder, count, width, height, colorType = 2) {
   const zip = new JSZip()
-  for (const [path, bytes] of files) zip.file(path, bytes)
+  for (let index = 1; index <= count; index += 1) {
+    zip.file(
+      `${folder}/${String(index).padStart(2, '0')}_screen.png`,
+      png(width, height, colorType),
+    )
+  }
   return zip.generateAsync({ type: 'uint8array' })
 }
 
-describe('validateExportZip', () => {
-  it('accepts exact iPad and Apple Watch portrait exports', async () => {
-    const ipad = await validateExportZip(
-      await archive([['ipad-13/01_accueil.png', pngHeader(2064, 2752)]]),
-    )
-    const watch = await validateExportZip(
-      await archive([['watch-series-10/01_accueil.png', pngHeader(416, 496)]]),
-    )
+test('accepte les contrats Apple et Google Play exacts', async () => {
+  assert.equal((await validateExportZip(await bundle('6.9', 1, 1320, 2868))).length, 1)
+  assert.equal((await validateExportZip(await bundle('ipad-13', 1, 2064, 2752))).length, 1)
+  assert.equal((await validateExportZip(await bundle('watch-series-10', 1, 416, 496))).length, 1)
+  assert.equal(
+    (await validateExportZip(await bundle('phone', 4, 1080, 1920), 'google-play-phone')).length,
+    4,
+  )
+})
 
-    assert.deepEqual(
-      ipad.map(({ path, width, height }) => ({ path, width, height })),
-      [{ path: 'ipad-13/01_accueil.png', width: 2064, height: 2752 }],
-    )
-    assert.deepEqual(
-      watch.map(({ path, width, height }) => ({ path, width, height })),
-      [{ path: 'watch-series-10/01_accueil.png', width: 416, height: 496 }],
-    )
-  })
+test('refuse le neuvième PNG Android, les dimensions et l’alpha', async () => {
+  await assert.rejects(validateExportZip(await bundle('phone', 9, 1080, 1920)), /entre 1 et 8/)
+  await assert.rejects(validateExportZip(await bundle('phone', 1, 1081, 1920)), /attendu 1080×1920/)
+  await assert.rejects(validateExportZip(await bundle('phone', 1, 1080, 1920, 6)), /RGB opaque/)
+})
 
-  it('rejects an inverse size, alpha, an unknown folder and a mixed-profile ZIP', async () => {
-    await assert.rejects(
-      validateExportZip(await archive([['ipad-13/01_paysage.png', pngHeader(2752, 2064)]])),
-      /2752×2064, attendu 2064×2752/,
-    )
-    await assert.rejects(
-      validateExportZip(await archive([['watch-series-10/01_alpha.png', pngHeader(416, 496, 6)]])),
-      /RGB opaque/,
-    )
-    await assert.rejects(
-      validateExportZip(await archive([['ipad/01_inconnu.png', pngHeader(2064, 2752)]])),
-      /profil App Store inconnu/,
-    )
-    await assert.rejects(
-      validateExportZip(
-        await archive([
-          ['ipad-13/01_ipad.png', pngHeader(2064, 2752)],
-          ['watch-series-10/02_watch.png', pngHeader(416, 496)],
-        ]),
-      ),
-      /mélange plusieurs profils/,
-    )
-  })
+test('refuse un PNG qui dépasse la cible interne de 5 MB', async () => {
+  const zip = new JSZip()
+  const oversized = new Uint8Array(5 * 1024 * 1024 + 1)
+  oversized.set(png(1080, 1920))
+  zip.file('phone/01_screen.png', oversized)
+  await assert.rejects(
+    validateExportZip(await zip.generateAsync({ type: 'uint8array' })),
+    /cible interne maximale 5 MB/,
+  )
+})
+
+test('refuse deux entrées portant le même chemin', async () => {
+  const bytes = Buffer.from(await bundle('phone', 2, 1080, 1920))
+  const from = Buffer.from('phone/02_screen.png')
+  const to = Buffer.from('phone/01_screen.png')
+  let at = bytes.indexOf(from)
+  while (at >= 0) {
+    to.copy(bytes, at)
+    at = bytes.indexOf(from, at + from.length)
+  }
+  await assert.rejects(validateExportZip(bytes), /chemin en double/)
+})
+
+test('refuse le mauvais dossier et les dimensions inversées', async () => {
+  await assert.rejects(
+    validateExportZip(await bundle('ipad', 1, 2064, 2752)),
+    /dossier d’export inconnu/,
+  )
+  await assert.rejects(
+    validateExportZip(await bundle('ipad-13', 1, 2752, 2064)),
+    /attendu 2064×2752/,
+  )
 })

@@ -7,6 +7,7 @@ import {
   downloadFirstExportedPng,
   findObject,
   waitForApp,
+  fillNumber,
 } from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
@@ -210,10 +211,10 @@ test('keeps the natural ratio, locks official artwork and persists both assets',
   await uploadScreenshot(page)
   await selectDeviceLayer(page)
 
-  await page.getByLabel('Largeur').fill('190')
+  await fillNumber(page.getByLabel('Largeur'), '190')
   await expect.poll(async () => deviceLayer(page)).toMatchObject({ width: 190, height: 310 })
   await expect(page.getByRole('slider', { name: 'Rotation', exact: true })).toBeDisabled()
-  await expect(page.getByLabel('Opacité')).toBeDisabled()
+  await expect(page.getByRole('slider', { name: 'Opacité' })).toBeDisabled()
   await expect(page.getByLabel('Activer l’ombre de l’appareil')).toHaveCount(0)
   expect(
     await page.evaluate(() => window.__sfCanvas?.getActiveObject()?.isControlVisible('mtr')),

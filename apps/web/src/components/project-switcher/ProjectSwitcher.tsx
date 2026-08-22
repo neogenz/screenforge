@@ -11,14 +11,17 @@ import {
   PenLine,
   Plus,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
-import { IconButton } from '@/components/ui/icon-button'
+import { IconButton } from '@/components/patterns/icon-button'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Input } from '@/components/ui/input'
-import { Popover } from '@/components/ui/popover'
-import { Select } from '@/components/ui/select'
+import { Card } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { StatusChip, type StatusTone } from '@/components/patterns/status-chip'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import {
   createProjectFile,
   PROJECT_FILE_EXTENSION,
@@ -33,45 +36,46 @@ import {
 } from '@/lib/sync'
 import {
   createStoredProject,
+  deleteProject,
   importPortableProject,
   openStoredProject,
   saveCurrentProject,
 } from '@/lib/storage'
-import {
-  APP_STORE_PROFILES,
-  DEFAULT_APP_STORE_PROFILE_ID,
-  getAppStoreProfile,
-  type AppStorePlatform,
-  type AppStoreProfileId,
-} from '@/lib/dimensions'
+import { getStoreTargetProfile, STORE_TARGET_IDS } from '@/lib/dimensions'
+import { MAX_PROJECT_NAME_LENGTH } from '@/lib/project-validation'
 import { downloadBlob, slugify } from '@/lib/zip'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
+import type { StoreTargetId } from '@/types'
 
 interface ProjectSwitcherProps {
   projectNameInputId: string
 }
 
 const DATE = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' })
-const PLATFORM_LABELS: Record<AppStorePlatform, string> = {
-  iphone: 'iPhone',
-  ipad: 'iPad',
-  watch: 'Apple Watch',
-}
-
 const AVAILABILITY_ICONS: Record<ProjectAvailability, typeof HardDrive> = {
   'device-only': HardDrive,
   cloud: Cloud,
   pending: CloudUpload,
 }
 
+/** « Cet appareil » informe, « Cloud » confirme, « À synchroniser » patiente. */
+const AVAILABILITY_TONE: Record<ProjectAvailability, StatusTone> = {
+  'device-only': 'neutral',
+  cloud: 'success',
+  pending: 'pulse',
+}
+
 function Availability({ value }: { value: ProjectAvailability }) {
   const Icon = AVAILABILITY_ICONS[value]
   return (
-    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
-      <Icon size={11} strokeWidth={1.75} aria-hidden />
+    <StatusChip
+      tone={AVAILABILITY_TONE[value]}
+      size="sm"
+      icon={<Icon size={11} strokeWidth={1.75} aria-hidden />}
+    >
       {PROJECT_AVAILABILITY_LABELS[value]}
-    </span>
+    </StatusChip>
   )
 }
 
@@ -80,19 +84,21 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newProfileId, setNewProfileId] = useState<AppStoreProfileId>(DEFAULT_APP_STORE_PROFILE_ID)
-  const [createError, setCreateError] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [catalogue, setCatalogue] = useState<ProjectCatalogueEntry[]>([])
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('Nouveau projet')
+  const [newTarget, setNewTarget] = useState<StoreTargetId>('app-store-iphone')
+  const [pendingDelete, setPendingDelete] = useState<ProjectCatalogueEntry | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const currentProjectId = useProjectStore((state) => state.project?.id ?? null)
   const currentProjectName = useProjectStore((state) => state.project?.name ?? '')
-  const currentProfileId = useProjectStore((state) => state.project?.profileId)
-  const currentProfile = currentProfileId ? getAppStoreProfile(currentProfileId) : undefined
+  const currentProjectTarget = useProjectStore(
+    (state) => state.project?.target ?? 'app-store-iphone',
+  )
+  const currentProfile = getStoreTargetProfile(currentProjectTarget)
   const current = catalogue.find((project) => project.id === currentProjectId)
   const needle = filter.trim().toLocaleLowerCase('fr-FR')
   const others = catalogue.filter(
@@ -124,41 +130,6 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
   function closeAndFocusTrigger() {
     setOpen(false)
     requestAnimationFrame(() => triggerRef.current?.focus())
-  }
-
-  function openCreateDialog() {
-    setOpen(false)
-    setNewName('')
-    setNewProfileId(DEFAULT_APP_STORE_PROFILE_ID)
-    setCreateError(null)
-    setCreateOpen(true)
-  }
-
-  function closeCreateDialog() {
-    if (busy) return
-    setCreateOpen(false)
-    requestAnimationFrame(() => triggerRef.current?.focus())
-  }
-
-  async function createProject() {
-    const name = newName.trim()
-    if (!name) {
-      setCreateError('Donnez un nom au nouveau projet.')
-      return
-    }
-    setBusy(true)
-    setCreateError(null)
-    try {
-      const project = await createStoredProject(name, newProfileId)
-      setCreateOpen(false)
-      toast(`Projet « ${project.name} » créé.`, 'success')
-      requestAnimationFrame(() => triggerRef.current?.focus())
-    } catch (error) {
-      console.error('Could not create the local project.', error)
-      setCreateError('Création impossible. Le projet courant reste ouvert.')
-    } finally {
-      setBusy(false)
-    }
   }
 
   function renameCurrent() {
@@ -204,6 +175,22 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
     }
   }
 
+  /* Réservée à « Autres projets » : le projet courant se ferme, se renomme ou
+     se télécharge depuis sa carte, jamais depuis lui-même se supprimer. */
+  async function deleteProjectRow(project: ProjectCatalogueEntry) {
+    setBusy(true)
+    try {
+      await deleteProject(project.id)
+      await refresh()
+      toast(`« ${project.name} » supprimé.`, 'success')
+    } catch (error) {
+      console.error('Could not delete the local project.', error)
+      toast('Suppression du projet impossible.', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function importProject(file: File) {
     setBusy(true)
     try {
@@ -214,6 +201,35 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
     } finally {
       setBusy(false)
       requestAnimationFrame(() => triggerRef.current?.focus())
+    }
+  }
+
+  function startCreating() {
+    setOpen(false)
+    setNewName('Nouveau projet')
+    setNewTarget('app-store-iphone')
+    setCreating(true)
+  }
+
+  function closeCreating() {
+    setCreating(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  async function createProject() {
+    const name = newName.trim()
+    if (!name) return
+    setBusy(true)
+    try {
+      await createStoredProject(name, newTarget)
+      setCreating(false)
+      toast(`Projet « ${name} » créé.`, 'success')
+      requestAnimationFrame(() => triggerRef.current?.focus())
+    } catch (error) {
+      console.error('Could not create the project.', error)
+      toast('Création du projet impossible.', 'error')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -241,7 +257,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         )}
       </IconButton>
 
-      <Popover
+      <AnchoredPopover
         open={open}
         anchor={triggerRef}
         onClose={() => setOpen(false)}
@@ -250,9 +266,15 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         ariaLabel="Sélecteur de projets"
         className="w-[min(22rem,calc(100vw-1rem))]"
       >
-        <div className="max-h-[calc(100vh-1rem)] overflow-y-auto">
-          <section className="border-b border-border p-3" aria-labelledby="current-project-title">
-            <h2 id="current-project-title" className="section-title mb-2">
+        <ScrollArea scrollFade className="max-h-[calc(100vh-1rem)]">
+          {/* Carte plutôt que bande pleine largeur : le projet courant se
+              détache de la liste filtrable qui suit, la même distinction que
+              le tiroir Propriétés fait entre sa section et le reste. */}
+          <Card
+            render={<section aria-labelledby="current-project-title" />}
+            className="m-3 p-3 shadow-none"
+          >
+            <h2 id="current-project-title" className="text-sm font-medium mb-2">
               Projet courant
             </h2>
             <div aria-current="page" className="flex min-w-0 items-center gap-2">
@@ -265,12 +287,10 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               </span>
               {current && <Availability value={current.availability} />}
             </div>
-            {currentProfile && (
-              <p className="mt-1 pl-[23px] text-2xs text-muted-foreground tabular-nums">
-                {PLATFORM_LABELS[currentProfile.platform]} · {currentProfile.name} ·{' '}
-                {currentProfile.portrait.width}×{currentProfile.portrait.height}
-              </p>
-            )}
+            <p className="mt-1 pl-[23px] text-2xs text-muted-foreground tabular-nums">
+              {currentProfile.label} · {currentProfile.output.portrait.width}×
+              {currentProfile.output.portrait.height}
+            </p>
             <div className="mt-2 flex gap-1">
               <Button size="sm" variant="ghost" onClick={renameCurrent}>
                 <PenLine size={13} strokeWidth={1.75} aria-hidden />
@@ -286,20 +306,19 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 Télécharger une copie
               </Button>
             </div>
-          </section>
+          </Card>
 
           <section className="p-3" aria-labelledby="other-projects-title">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 id="other-projects-title" className="section-title">
+              <h3 id="other-projects-title" className="text-sm font-medium">
                 Autres projets
               </h3>
               {!loading && !loadError && (
-                <span className="text-2xs text-muted-foreground tabular-nums">{others.length}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{others.length}</span>
               )}
             </div>
             <Input
               ref={filterRef}
-              font="sans"
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filtrer par nom"
@@ -316,7 +335,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                   <p role="alert" className="text-xs text-destructive">
                     Catalogue local indisponible. Le projet courant reste ouvert.
                   </p>
-                  <Button size="sm" variant="default" onClick={() => void refresh()}>
+                  <Button size="sm" variant="outline" onClick={() => void refresh()}>
                     <RefreshCw size={13} strokeWidth={1.75} aria-hidden />
                     Réessayer
                   </Button>
@@ -334,9 +353,12 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     const availabilityId = `project-${project.id}-availability`
                     const dateId = `project-${project.id}-date`
                     return (
-                      <li key={project.id}>
-                        <button
-                          type="button"
+                      <li
+                        key={project.id}
+                        className="flex items-center gap-1 border-b border-border last:border-b-0"
+                      >
+                        <Button
+                          variant="ghost"
                           disabled={busy}
                           aria-label={`Ouvrir « ${project.name} »`}
                           aria-describedby={`${availabilityId} ${dateId}`}
@@ -346,7 +368,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             event.preventDefault()
                             void openProject(project.id)
                           }}
-                          className="flex min-h-11 w-full items-center gap-2 border-b border-border px-1 text-left last:border-b-0 hover:bg-accent focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                          className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-none border-0 px-1 text-left font-normal focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
                         >
                           <FileText
                             size={14}
@@ -357,6 +379,9 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             <span className="block truncate text-sm text-foreground">
                               {project.name}
                             </span>
+                            <span className="block text-2xs text-muted-foreground">
+                              {getStoreTargetProfile(project.target).label}
+                            </span>
                             <span id={availabilityId}>
                               <Availability value={project.availability} />
                             </span>
@@ -364,12 +389,22 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                           <time
                             id={dateId}
                             dateTime={new Date(project.updatedAt).toISOString()}
-                            className="shrink-0 text-2xs text-muted-foreground tabular-nums"
+                            className="shrink-0 text-xs text-muted-foreground tabular-nums"
                           >
                             <span className="sr-only">Modifié le </span>
                             {date}
                           </time>
-                        </button>
+                        </Button>
+                        <IconButton
+                          size="sm"
+                          aria-label={`Supprimer « ${project.name} »`}
+                          tooltip="Supprimer le projet"
+                          disabled={busy}
+                          className="mr-1 shrink-0 hover:text-destructive"
+                          onClick={() => setPendingDelete(project)}
+                        >
+                          <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                        </IconButton>
                       </li>
                     )
                   })}
@@ -381,10 +416,10 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           <footer className="border-t border-border p-2">
             <Button
               size="sm"
-              variant="default"
-              className="mb-1 w-full justify-start"
+              variant="ghost"
+              className="w-full justify-start"
               disabled={busy}
-              onClick={openCreateDialog}
+              onClick={startCreating}
             >
               <Plus size={13} strokeWidth={1.75} aria-hidden />
               Nouveau projet…
@@ -404,77 +439,74 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               Importer un fichier…
             </Button>
           </footer>
-        </div>
-      </Popover>
+        </ScrollArea>
+      </AnchoredPopover>
 
-      {createOpen && (
-        <Dialog
-          open
-          onClose={closeCreateDialog}
-          title="Nouveau projet"
-          size="sm"
-          footerNote="Le profil reste unique pour toutes les planches de ce projet."
-          footer={
-            <>
-              <Button variant="default" disabled={busy} onClick={closeCreateDialog}>
-                Annuler
-              </Button>
-              <Button
-                variant="primary"
-                loading={busy}
-                disabled={!newName.trim()}
-                onClick={() => void createProject()}
-              >
-                Créer
-              </Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field label="Nom">
-              <Input
-                data-autofocus
-                font="sans"
-                value={newName}
-                maxLength={120}
-                aria-label="Nom du nouveau projet"
-                aria-invalid={Boolean(createError)}
-                onChange={(event) => {
-                  setNewName(event.target.value)
-                  if (createError) setCreateError(null)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && newName.trim() && !busy) void createProject()
-                }}
-              />
-            </Field>
-            <Select
-              label="Format App Store"
-              value={newProfileId}
-              aria-label="Format App Store"
-              disabled={busy}
-              onChange={(event) => setNewProfileId(event.target.value as AppStoreProfileId)}
+      <DialogShell
+        open={creating}
+        onClose={closeCreating}
+        title="Nouveau projet"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" disabled={busy} onClick={closeCreating}>
+              Annuler
+            </Button>
+            <Button
+              variant="default"
+              loading={busy}
+              disabled={!newName.trim()}
+              onClick={() => void createProject()}
             >
-              {APP_STORE_PROFILES.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name} · {profile.portrait.width}×{profile.portrait.height}
-                </option>
-              ))}
-            </Select>
-            <p className="text-2xs text-muted-foreground">
-              Pour changer de cible plus tard, créez un autre projet : les coordonnées restent ainsi
-              exactes.
-            </p>
-            {createError && (
-              <p role="alert" className="text-2xs text-destructive">
-                {createError}
-              </p>
-            )}
-          </div>
-        </Dialog>
-      )}
+              Créer
+            </Button>
+          </>
+        }
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void createProject()
+          }}
+        >
+          <Input
+            data-autofocus
+            value={newName}
+            maxLength={MAX_PROJECT_NAME_LENGTH}
+            aria-label="Nom du nouveau projet"
+            onChange={(event) => setNewName(event.target.value)}
+          />
+          <fieldset className="flex flex-col gap-2">
+            <legend className="field-label mb-1">Destination</legend>
+            {STORE_TARGET_IDS.map((target) => {
+              const profile = getStoreTargetProfile(target)
+              return (
+                <Button
+                  key={target}
+                  type="button"
+                  variant={newTarget === target ? 'secondary' : 'outline'}
+                  aria-pressed={newTarget === target}
+                  className="h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
+                  onClick={() => setNewTarget(target)}
+                >
+                  <span className="flex flex-col items-start gap-0.5">
+                    <span>{profile.label}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {profile.output.portrait.width}×{profile.output.portrait.height} · portrait ·{' '}
+                      {profile.maxScreens} captures max.
+                    </span>
+                  </span>
+                </Button>
+              )
+            })}
+          </fieldset>
+        </form>
+      </DialogShell>
 
-      <input
+      <Input
+        unstyled
+        nativeInput
         ref={fileRef}
         type="file"
         accept={`${PROJECT_FILE_EXTENSION},${PROJECT_FILE_MIME}`}
@@ -487,6 +519,22 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
           if (file) void importProject(file)
         }}
       />
+
+      {pendingDelete && (
+        <ConfirmAction
+          open
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setPendingDelete(null)
+          }}
+          title={`Supprimer « ${pendingDelete.name} » ?`}
+          description="Le projet et ses images locales sont supprimés de cet appareil. Une copie Cloud, si elle existe, n’est pas touchée."
+          confirmLabel="Supprimer le projet"
+          onConfirm={() => {
+            void deleteProjectRow(pendingDelete)
+            setPendingDelete(null)
+          }}
+        />
+      )}
     </>
   )
 }

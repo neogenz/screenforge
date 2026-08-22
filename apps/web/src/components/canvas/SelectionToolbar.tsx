@@ -17,10 +17,13 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { FontPicker } from '@/components/text-editor/FontPicker'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Popover } from '@/components/ui/popover'
-import { SwatchButton } from '@/components/ui/swatch-button'
+import { IconButton } from '@/components/patterns/icon-button'
+import { Island } from '@/components/patterns/island'
+import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
+import { UnitField } from '@/components/patterns/unit-field'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { SwatchButton } from '@/components/patterns/swatch-button'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import {
@@ -42,7 +45,7 @@ import type { Layer, ScreenshotSize, TextLayer } from '@/types'
  * Hauteur fixe de la barre : évite de la mesurer pour décider du basculement.
  *
  * 46 = contrôles de 32 + le retrait d'îlot (2×6) + son filet (2×1). La barre ne
- * pose plus sa propre géométrie : elle prend celle que `.island` donne à toutes
+ * pose plus sa propre géométrie : elle prend celle que `Island` donne à toutes
  * les autres, et cette constante ne fait que la répéter au calcul de position.
  */
 const BAR_HEIGHT = 46
@@ -116,10 +119,12 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
   const top = flipped ? Math.max(EDGE, frame.top - OFFSET - BAR_HEIGHT) : below
 
   return (
-    <div
-      // `animate-enter` anime `translate`, une propriété indépendante de
+    <Island
+      // `animate-enter-quick` anime `translate`, une propriété indépendante de
       // `transform` : le settle ne touche pas le centrage en `translateX(-50%)`.
-      className="island animate-enter pointer-events-auto absolute z-(--z-chrome)
+      // La variante courte, pas `animate-enter` : cette barre s'ouvre et se
+      // referme à chaque changement de sélection, pas dix fois par session.
+      className="animate-enter-quick pointer-events-auto absolute z-(--z-chrome)
         flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
       // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
       // et des flèches entre contrôles, que cette barre n'a pas — chaque
@@ -190,7 +195,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
           </IconButton>
         </>
       )}
-    </div>
+    </Island>
   )
 }
 
@@ -200,12 +205,14 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
  * marge s'ajoutent aux 4 px du `gap` — 6 de chaque côté contre 4 entre voisins.
  */
 function Divider() {
-  return <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+  return <Separator orientation="vertical" className="mx-0.5 h-4" />
 }
 
 function MultiCount({ count }: { count: number }) {
   return (
-    <span className="field-label tabular shrink-0 whitespace-nowrap px-1.5">{count} calques</span>
+    <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap px-1.5">
+      {count} calques
+    </span>
   )
 }
 
@@ -235,7 +242,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
           />
         </div>
         <div className="w-[68px] shrink-0">
-          <NumberField
+          <UnitField
             ariaLabel="Taille du texte"
             value={layer.fontSize}
             min={8}
@@ -278,7 +285,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
     if (layer.importedBezel) {
       return (
         <>
-          <span className="field-label max-w-44 shrink truncate px-1">
+          <span className="text-xs text-muted-foreground max-w-44 shrink truncate px-1">
             {layer.importedBezel.fileName}
           </span>
           <ScreenshotButton
@@ -292,7 +299,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
     const colors = getDeviceFrame(layer.deviceModel).colors
     return (
       <>
-        <span className="field-label shrink-0 whitespace-nowrap px-1">
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap px-1">
           {getDeviceFrame(layer.deviceModel).modelName}
         </span>
         <ScreenshotButton
@@ -337,7 +344,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
         )}
         {layer.shapeType === 'rounded-rect' && (
           <div className="w-20 shrink-0">
-            <NumberField
+            <UnitField
               label="Rayon"
               ariaLabel="Rayon des angles"
               value={layer.borderRadius ?? 0}
@@ -355,7 +362,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
 
   return (
     <div className="w-20 shrink-0">
-      <NumberField
+      <UnitField
         label="Opac."
         ariaLabel="Opacité"
         value={Math.round(layer.opacity * 100)}
@@ -397,7 +404,9 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: Screensh
       >
         <ImagePlus size={14} strokeWidth={1.6} aria-hidden />
       </IconButton>
-      <input
+      <Input
+        unstyled
+        nativeInput
         ref={input}
         type="file"
         accept={SCREENSHOT_IMAGE_ACCEPT}
@@ -433,7 +442,7 @@ function ColorControl({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       />
-      <Popover
+      <AnchoredPopover
         open={open}
         anchor={anchor}
         onClose={() => setOpen(false)}
@@ -442,7 +451,7 @@ function ColorControl({
         ariaLabel={label}
       >
         <ColorPicker value={value} onChange={onChange} showOpacity />
-      </Popover>
+      </AnchoredPopover>
     </>
   )
 }

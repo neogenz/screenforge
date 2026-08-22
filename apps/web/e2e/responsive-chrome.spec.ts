@@ -30,10 +30,51 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
 }) => {
   await waitForApp(page)
 
-  // Large : la rangée complète, les deux tiroirs.
+  /* Large : la rangée complète, les deux tiroirs. Les deux rangs de la rangée
+     — composer, puis livrer — et le menu « … », qui n'est plus un état de repli
+     mais le troisième rang : les utilitaires y vivent à toute largeur. */
   await page.setViewportSize({ width: 1440, height: HEIGHT })
   await expect(page.getByLabel('Ouvrir les modèles')).toBeVisible()
-  await expect(page.getByLabel('Ouvrir les autres actions')).toHaveCount(0)
+  await expect(page.getByLabel('Publier chez Apple')).toBeVisible()
+  await expect(page.getByLabel('Ouvrir les autres actions')).toBeVisible()
+  // Le thème et la palette ne sont plus sur la rangée : ils sont dans « … ».
+  await expect(page.getByLabel('Changer de thème')).toHaveCount(0)
+
+  /* L'ordre des rangs se lit dans le DOM, pas seulement à l'œil : composer
+     avant livrer, et chacun derrière son filet. */
+  expect(
+    await page.evaluate(() => {
+      const actions = document.querySelector('header')?.firstElementChild?.children[2]
+      return [...(actions?.children ?? [])].map(
+        (child) => child.getAttribute('aria-label') ?? 'filet',
+      )
+    }),
+  ).toEqual([
+    'Basculer le panneau Calques',
+    'Basculer le panneau Propriétés',
+    'filet',
+    'Ouvrir les modèles',
+    'Ouvrir les réglages globaux',
+    'Générer les visuels de la fiche',
+    'filet',
+    'Actualiser les captures',
+    'Ouvrir les langues',
+    'Ouvrir les releases',
+    'Publier chez Apple',
+    'filet',
+    'Ouvrir les autres actions',
+    'Ouvrir l’export',
+  ])
+
+  // Et le menu porte les utilitaires, dans l'ordre annoncé.
+  await page.getByLabel('Ouvrir les autres actions').click()
+  const utilitaires = page.getByRole('menu', { name: 'Autres actions' })
+  await expect(utilitaires.getByRole('menuitem', { name: 'Connexion MCP' })).toBeVisible()
+  await expect(utilitaires.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
+  await expect(
+    utilitaires.getByRole('menuitem', { name: 'Ouvrir la palette de commandes' }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
 
   /* Au seuil exact : la largeur la plus étroite où la rangée est encore
      déployée, donc le seul endroit où un seuil calé sur un contenu périmé se
@@ -71,11 +112,12 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     )
     .toEqual({ layers: false, props: true })
 
-  // Sous le seuil de la barre : les actions secondaires passent au menu, le
-  // CTA principal reste sur la rangée et dans le viewport.
+  // Sous le seuil de la barre : les deux rangs rejoignent le menu, le CTA
+  // principal reste sur la rangée et dans le viewport.
   await page.setViewportSize({ width: TOP_BAR_COMPACT_WIDTH - 40, height: HEIGHT })
   await expect(page.getByLabel('Ouvrir les autres actions')).toBeVisible()
   await expect(page.getByLabel('Ouvrir les modèles')).toHaveCount(0)
+  await expect(page.getByLabel('Publier chez Apple')).toHaveCount(0)
 
   const exportButton = page.getByLabel('Ouvrir l’export')
   await expect(exportButton).toBeVisible()
@@ -83,9 +125,34 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   expect(box, 'le bouton Exporter n’a pas de boîte').not.toBeNull()
   expect(box!.x + box!.width).toBeLessThanOrEqual(TOP_BAR_COMPACT_WIDTH - 40)
 
-  // Les actions repliées restent atteignables, pas seulement présentes.
+  /* Les actions repliées restent atteignables, pas seulement présentes — et le
+     repli ne défait pas la hiérarchie qu'il replie : composer arrive avant
+     livrer, qui arrive avant les utilitaires, filets compris. */
   await page.getByLabel('Ouvrir les autres actions').click()
-  await expect(page.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
+  const replié = page.getByRole('menu', { name: 'Autres actions' })
+  await expect(replié.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
+  expect(
+    await replié.evaluate((menu) =>
+      // Par rôle et non par enfants directs : le popup coss pose une case de
+      // défilement entre lui et ses entrées, et l'ordre du DOM est le même.
+      [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')].map((child) =>
+        child.getAttribute('role') === 'separator' ? 'filet' : (child.textContent ?? '').trim(),
+      ),
+    ),
+  ).toEqual([
+    'Ouvrir les modèles',
+    'Ouvrir les réglages globaux',
+    'Générer les visuels de la fiche',
+    'filet',
+    'Actualiser les captures',
+    'Ouvrir les langues',
+    'Ouvrir les releases',
+    'Publier chez Apple',
+    'filet',
+    'Connexion MCP',
+    'Changer de thème',
+    'Ouvrir la palette de commandes',
+  ])
   await page.keyboard.press('Escape')
 
   /* Et au seuil du palier suivant : la largeur la plus étroite où les outils de
@@ -94,6 +161,8 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
      dit rien du bas de la bande qu'il ouvre. */
   await page.setViewportSize({ width: TOP_BAR_TOOLS_WIDTH, height: HEIGHT })
   await expect(page.getByLabel('Ajouter Texte')).toBeVisible()
+  /* Sous le palier suivant, les outils arrivent en tête du menu, avant
+     composer : l'ordre de la rangée qu'ils quittent. */
   await expect
     .poll(async () =>
       page.evaluate(() => {

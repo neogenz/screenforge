@@ -130,10 +130,10 @@ describe('catalogue cloud', () => {
 
 describe('disponibilité du catalogue local', () => {
   const projects = [
-    { id: 'device', name: 'Appareil', updatedAt: 10 },
-    { id: 'pending', name: 'Attente', updatedAt: 30 },
-    { id: 'cloud-b', name: 'Cloud B', updatedAt: 20 },
-    { id: 'cloud-a', name: 'Cloud A', updatedAt: 20 },
+    { id: 'device', name: 'Appareil', target: 'app-store-iphone', updatedAt: 10 },
+    { id: 'pending', name: 'Attente', target: 'app-store-iphone', updatedAt: 30 },
+    { id: 'cloud-b', name: 'Cloud B', target: 'app-store-iphone', updatedAt: 20 },
+    { id: 'cloud-a', name: 'Cloud A', target: 'app-store-iphone', updatedAt: 20 },
   ] as const
   const records = [
     { key: 'owner:pending', pushedUpdatedAt: 29, uploadedAssetIds: [] },

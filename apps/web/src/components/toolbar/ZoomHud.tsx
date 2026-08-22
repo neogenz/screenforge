@@ -1,12 +1,18 @@
 import { Minus, Plus } from 'lucide-react'
 import { useUIStore } from '@/stores/ui.store'
-import { IconButton } from '@/components/ui/icon-button'
-import { Tooltip } from '@/components/ui/tooltip'
+import { IconButton } from '@/components/patterns/icon-button'
+import { Toggle } from '@/components/ui/toggle'
+import { Hint } from '@/components/patterns/hint'
+import { Island } from '@/components/patterns/island'
 
 /**
  * Îlot de zoom, bas-droite. Îlot permanent au même titre que la barre et la
  * filmstrip : à ne s'afficher qu'au survol il était le seul élément du shell
  * à ne pas exister au repos.
+ *
+ * Seule la valeur centrale est un état à deux faces — « à l'ajustement » ou
+ * non — donc seule elle prend `Toggle` ; − et + restent des actions
+ * momentanées, jamais un état qui reste enfoncé.
  */
 export function ZoomHud() {
   const zoom = useUIStore((s) => s.zoom)
@@ -15,23 +21,24 @@ export function ZoomHud() {
   const resetZoom = useUIStore((s) => s.resetZoom)
 
   return (
-    <div className="island flex items-center gap-0.5">
+    <Island className="flex items-center gap-0.5">
       <IconButton size="sm" aria-label="Zoom arrière" tooltip="Zoom arrière (⌘−)" onClick={zoomOut}>
         <Minus size={14} strokeWidth={1.75} />
       </IconButton>
-      <Tooltip content="Ajuster aux écrans (⌘0)">
-        <button
-          type="button"
+      <Hint content="Ajuster aux écrans (⌘0)">
+        <Toggle
+          size="sm"
+          pressed={zoom === 1}
+          onPressedChange={() => resetZoom()}
           aria-label="Ajuster le zoom aux écrans"
-          onClick={resetZoom}
-          className="tabular h-8 min-w-13 rounded-md px-2 text-center text-2xs font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground"
+          className="tabular-nums min-w-13 border-transparent text-xs text-muted-foreground hover:text-foreground data-pressed:text-foreground"
         >
           {Math.round(zoom * 100)}%
-        </button>
-      </Tooltip>
+        </Toggle>
+      </Hint>
       <IconButton size="sm" aria-label="Zoom avant" tooltip="Zoom avant (⌘+)" onClick={zoomIn}>
         <Plus size={14} strokeWidth={1.75} />
       </IconButton>
-    </div>
+    </Island>
   )
 }

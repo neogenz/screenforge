@@ -102,6 +102,10 @@ jobs:
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          VITE_APP_VERSION: ${{ github.ref_name }}
+          VITE_GIT_SHA: ${{ github.sha }}
         run: pnpm exec vercel build --prod --token "$VERCEL_TOKEN"
       - name: Deploy staged production candidate
         id: staged

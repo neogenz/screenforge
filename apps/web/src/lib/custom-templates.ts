@@ -1,12 +1,8 @@
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
+import { getStoreTargetProfile, legacyAppStoreTarget } from '@/lib/dimensions'
 import { getDB } from '@/lib/storage'
-import {
-  DEFAULT_APP_STORE_PROFILE_ID,
-  isAppStoreProfileId,
-  type AppStoreProfileId,
-} from '@/lib/dimensions'
 import { createDefaultGlobals } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
 
@@ -68,7 +64,6 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     return false
   }
   if (record.source !== 'ai' && record.source !== 'user') return false
-  if (!isAppStoreProfileId(record.profileId)) return false
   if (typeof record.createdAt !== 'number' || !Number.isFinite(record.createdAt)) return false
   if (!record.assets || typeof record.assets !== 'object' || Array.isArray(record.assets)) {
     return false
@@ -77,12 +72,15 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     return false
   }
 
+  const target =
+    record.target === undefined ? 'app-store-iphone' : getStoreTargetProfile(record.target)?.id
+  if (!target) return false
   return isProject({
     id: 'template',
     name: record.name,
-    profileId: record.profileId,
+    target,
     activeScreenId: 'screen',
-    globals: createDefaultGlobals(record.profileId),
+    globals: createDefaultGlobals(target),
     createdAt: record.createdAt,
     updatedAt: record.createdAt,
     layoutLayers: [],
@@ -122,7 +120,7 @@ export function templateFromScreen(
     name: string
     description?: string
     source: CustomTemplate['source']
-    profileId?: AppStoreProfileId
+    target?: CustomTemplate['target']
   },
 ): CustomTemplate {
   const layers = screen.layers.map(keepable)
@@ -143,8 +141,8 @@ export function templateFromScreen(
   return {
     id: crypto.randomUUID(),
     name: meta.name,
-    profileId: meta.profileId ?? DEFAULT_APP_STORE_PROFILE_ID,
     description: meta.description ?? `D’après « ${screen.name} ».`,
+    target: meta.target ?? 'app-store-iphone',
     background: structuredClone(screen.background),
     layers,
     assets,
@@ -180,8 +178,8 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
   return {
     id: template.id,
     name: template.name,
-    profileId: template.profileId,
     description: template.description,
+    target: template.target ?? 'app-store-iphone',
     background: structuredClone(template.background),
     layers,
   }
@@ -192,11 +190,15 @@ export async function readCustomTemplates(): Promise<CustomTemplate[]> {
   const db = await getDB()
   const records = await db.getAll('templates')
   return records
-    .map((record) =>
-      record && typeof record === 'object' && !('profileId' in record)
-        ? { ...record, profileId: DEFAULT_APP_STORE_PROFILE_ID }
-        : record,
-    )
+    .map((record) => {
+      if (!record || typeof record !== 'object') return record
+      const { profileId, ...template } = record as Record<string, unknown>
+      if (template.target !== undefined) return template
+      return {
+        ...template,
+        target: profileId === undefined ? 'app-store-iphone' : legacyAppStoreTarget(profileId),
+      }
+    })
     .filter(isCustomTemplate)
     .sort((a, b) => b.createdAt - a.createdAt)
 }

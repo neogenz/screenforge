@@ -7,6 +7,7 @@ const DIST_DOCUMENTS = [
   'apps/web/dist/index.html',
   'apps/web/dist/landing.html',
   'apps/web/dist/landing-fr.html',
+  'apps/web/dist/privacy.html',
 ]
 const CONNECT_SOURCES = new Set([
   "'self'",
@@ -22,6 +23,7 @@ const CONNECT_SOURCES = new Set([
   'https://colorful-caterpillar-775.eu-west-1.convex.cloud',
   'wss://colorful-caterpillar-775.eu-west-1.convex.cloud',
   'https://colorful-caterpillar-775.eu-west-1.convex.site',
+  'https://eu.i.posthog.com',
 ])
 
 /**
@@ -75,6 +77,10 @@ function validatePolicy(policy) {
   invariant(!policy.includes('*'), 'CSP must not contain a wildcard.')
   invariant(!script.includes("'unsafe-inline'"), 'script-src must not allow unsafe-inline.')
   invariant(!script.includes("'unsafe-eval'"), 'script-src must not allow unsafe-eval.')
+  invariant(
+    parsed.get('worker-src')?.includes('blob:'),
+    'worker-src must allow the PostHog replay blob worker.',
+  )
   const connect = parsed.get('connect-src') ?? []
   invariant(connect.length > 0, 'connect-src must be explicit.')
   for (const source of connect) {

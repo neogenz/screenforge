@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { addScreen, waitForApp } from './helpers'
+import { addScreen, openAndroidProject, waitForApp } from './helpers'
 import { THUMBNAIL_WIDTH } from '../src/lib/stage'
 
 function tile(page: Page, name: string) {
@@ -25,6 +25,14 @@ async function screenNames(page: Page): Promise<string[]> {
  * existe », mais « le champ est plus large que la tuile ».
  */
 test.describe('filmstrip rename', () => {
+  test('renders Android thumbnails at the 9:16 board ratio', async ({ page }) => {
+    await waitForApp(page)
+    await openAndroidProject(page)
+    const preview = tile(page, 'Écran 1')
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.width ?? 0)).toBe(65)
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.height ?? 0)).toBe(116)
+  })
+
   test('names every screen, and never leaves one anonymous', async ({ page }) => {
     await waitForApp(page)
     const strip = page.getByRole('group', { name: 'Écrans' })
@@ -153,6 +161,14 @@ test.describe('filmstrip selection', () => {
     await expect(page.getByRole('menuitem', { name: 'Renommer' })).toBeVisible()
 
     await page.getByRole('menuitem', { name: 'Supprimer 2 écrans' }).click()
+    // La confirmation redit la quantité ; Annuler ne touche à rien.
+    const confirm = page.getByRole('alertdialog', { name: 'Supprimer 2 écrans ?' })
+    await confirm.getByRole('button', { name: 'Annuler' }).click()
+    await expect(confirm).toBeHidden()
+    expect(await screenNames(page)).toEqual(['Écran 1', 'Écran 2', 'Écran 3'])
+    await tile(page, 'Écran 3').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Supprimer 2 écrans' }).click()
+    await confirm.getByRole('button', { name: 'Supprimer 2 écrans' }).click()
     expect(await screenNames(page)).toEqual(['Écran 2'])
 
     // Un geste, un pas d'annulation — pas deux suppressions à défaire.

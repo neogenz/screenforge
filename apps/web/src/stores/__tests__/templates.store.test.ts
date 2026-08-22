@@ -41,20 +41,20 @@ beforeEach(() => {
 })
 
 describe('hydratation de la bibliothèque de gabarits', () => {
-  it('enregistre le profil du projet source et ne liste que sa plateforme', async () => {
+  it('fige la cible du projet et ne liste que sa famille d’appareil', async () => {
     storage.read.mockResolvedValue([])
-    useProjectStore.getState().createProject('iPad', 'ipad-13')
+    useProjectStore.getState().createProject('iPad', 'app-store-ipad-13')
     const saved = await saveRelayTemplate({ name: 'Tablette' })
     expect(saved.committed).toBe(true)
     expect(storage.write).toHaveBeenCalledWith(
-      expect.objectContaining({ profileId: 'ipad-13' }),
+      expect.objectContaining({ target: 'app-store-ipad-13' }),
       undefined,
     )
 
     const iphone = templateFromScreen(useProjectStore.getState().project!.screens[0], {
       name: 'Téléphone',
       source: 'user',
-      profileId: 'iphone-6.9',
+      target: 'app-store-iphone',
     })
     useTemplatesStore.setState((state) => ({ templates: [...state.templates, iphone] }))
 
@@ -62,6 +62,19 @@ describe('hydratation de la bibliothèque de gabarits', () => {
       committed: true,
       result: { templates: [{ name: 'Tablette' }] },
     })
+  })
+
+  it('fige la cible du projet avec le gabarit', async () => {
+    storage.read.mockResolvedValue([])
+    useProjectStore.getState().createProject('Android', 'google-play-phone')
+
+    const outcome = await useTemplatesStore.getState().save({ name: 'Android' })
+
+    expect(outcome).toMatchObject({ ok: true, template: { target: 'google-play-phone' } })
+    expect(storage.write).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'google-play-phone' }),
+      undefined,
+    )
   })
 
   it('abandonne réellement l’écriture IndexedDB avant son commit', async () => {

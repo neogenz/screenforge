@@ -1,35 +1,80 @@
-import type { ReactNode } from 'react'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
+"use client";
 
-export interface FieldProps {
-  /** Associates the visible label with the control via htmlFor. */
-  id?: string
-  label: string
-  children: ReactNode
-  className?: string
-  /** Render label + control on one row instead of stacked. */
-  inline?: boolean
+import { Field as FieldPrimitive } from "@base-ui/react/field";
+import type React from "react";
+import { cn } from "@/lib/utils";
+
+export function Field({
+  className,
+  ...props
+}: FieldPrimitive.Root.Props): React.ReactElement {
+  return (
+    <FieldPrimitive.Root
+      className={cn("flex flex-col items-start gap-2", className)}
+      data-slot="field"
+      {...props}
+    />
+  );
 }
 
-export function Field({ id, label, children, className, inline = false }: FieldProps) {
+export function FieldLabel({
+  className,
+  ...props
+}: FieldPrimitive.Label.Props): React.ReactElement {
   return (
-    <div
+    <FieldPrimitive.Label
       className={cn(
-        inline ? 'flex items-center justify-between gap-2' : 'flex flex-col gap-1.5',
+        "inline-flex items-center gap-2 font-medium text-base/4.5 text-foreground data-disabled:opacity-64 sm:text-sm/4",
         className,
       )}
-    >
-      {/* Sans `id`, un <label> sans `for` est un élément orphelin : il n'associe
-          rien et un validateur le relève. Le span garde la même typographie. */}
-      {id ? (
-        <Label htmlFor={id} className="field-label shrink-0">
-          {label}
-        </Label>
-      ) : (
-        <span className="field-label shrink-0">{label}</span>
-      )}
-      {children}
-    </div>
-  )
+      data-slot="field-label"
+      {...props}
+    />
+  );
 }
+
+export function FieldItem({
+  className,
+  ...props
+}: FieldPrimitive.Item.Props): React.ReactElement {
+  return (
+    <FieldPrimitive.Item
+      className={cn("flex", className)}
+      data-slot="field-item"
+      {...props}
+    />
+  );
+}
+
+export function FieldDescription({
+  className,
+  ...props
+}: FieldPrimitive.Description.Props): React.ReactElement {
+  return (
+    <FieldPrimitive.Description
+      className={cn("text-muted-foreground text-xs", className)}
+      data-slot="field-description"
+      {...props}
+    />
+  );
+}
+
+export function FieldError({
+  className,
+  ...props
+}: FieldPrimitive.Error.Props): React.ReactElement {
+  return (
+    <FieldPrimitive.Error
+      className={cn("text-destructive-foreground text-xs", className)}
+      data-slot="field-error"
+      {...props}
+    />
+  );
+}
+
+export const FieldControl: typeof FieldPrimitive.Control =
+  FieldPrimitive.Control;
+export const FieldValidity: typeof FieldPrimitive.Validity =
+  FieldPrimitive.Validity;
+
+export { FieldPrimitive };

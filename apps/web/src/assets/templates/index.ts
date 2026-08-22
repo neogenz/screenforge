@@ -1,4 +1,5 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import type {
   DeviceFrameLayer,
@@ -8,8 +9,7 @@ import type {
   TextLayer,
 } from '@/types'
 
-const W = 440
-const H = 956
+const { width: W, height: H } = APP_STORE_PROFILE.board
 
 function textLayer(
   id: string,
@@ -101,11 +101,11 @@ const overlay: ShapeLayer = {
   },
 }
 
-export const TEMPLATES: TemplateDefinition[] = [
+const APP_STORE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
-    profileId: 'iphone-6.9',
-    name: 'Hero',
+    target: 'app-store-iphone',
+    name: 'Plein cadre',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
     layers: [
@@ -147,8 +147,8 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'feature',
-    profileId: 'iphone-6.9',
-    name: 'Feature',
+    target: 'app-store-iphone',
+    name: 'Fonctionnalité',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
     layers: [
@@ -190,8 +190,8 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'side-by-side',
-    profileId: 'iphone-6.9',
-    name: 'Side by Side',
+    target: 'app-store-iphone',
+    name: 'Côte à côte',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
       type: 'linear-gradient',
@@ -235,8 +235,8 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'full-bleed',
-    profileId: 'iphone-6.9',
-    name: 'Full Bleed',
+    target: 'app-store-iphone',
+    name: 'Image pleine',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
     layers: [
@@ -279,7 +279,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'minimal',
-    profileId: 'iphone-6.9',
+    target: 'app-store-iphone',
     name: 'Minimal',
     description: 'Composition éditoriale simple, texte à gauche et appareil à droite.',
     background: { type: 'solid', color: '#ffffff' },
@@ -331,7 +331,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'ipad-editorial',
-    profileId: 'ipad-13',
+    target: 'app-store-ipad-13',
     name: 'Éditorial iPad',
     description: 'Titre compact et grande tablette, entièrement contenus dans la planche iPad.',
     background: {
@@ -368,7 +368,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'watch-focus',
-    profileId: 'watch-series-10',
+    target: 'app-store-watch-series-10',
     name: 'Focus Watch',
     description: 'Message bref et montre centrale, compatible avec les six profils Watch.',
     background: { type: 'solid', color: '#eef0ea' },
@@ -396,4 +396,40 @@ export const TEMPLATES: TemplateDefinition[] = [
       ),
     ],
   },
+]
+
+const { width: ANDROID_W, height: ANDROID_H } = GOOGLE_PLAY_PROFILE.board
+
+function androidVariant(template: TemplateDefinition): TemplateDefinition {
+  const scaleX = ANDROID_W / W
+  const scaleY = ANDROID_H / H
+  return {
+    ...structuredClone(template),
+    id: `android-${template.id}`,
+    target: 'google-play-phone',
+    layers: template.layers.map((source) => {
+      const layer = structuredClone(source)
+      const center = (layer.x + layer.width / 2) / W
+      layer.y = Math.round(layer.y * scaleY)
+      layer.height = Math.round(layer.height * scaleY)
+      if (layer.type === 'device-frame') {
+        layer.deviceModel = 'android-phone'
+        layer.deviceColor = 'black'
+        layer.name = 'Téléphone Android'
+        layer.width = Math.round(layer.height * (180 / 384))
+        layer.x = Math.round(center * ANDROID_W - layer.width / 2)
+      } else {
+        layer.x = Math.round(layer.x * scaleX)
+        layer.width = Math.round(layer.width * scaleX)
+      }
+      return layer
+    }),
+  }
+}
+
+export const TEMPLATES: TemplateDefinition[] = [
+  ...APP_STORE_TEMPLATES,
+  ...APP_STORE_TEMPLATES.filter((template) => template.target === 'app-store-iphone').map(
+    androidVariant,
+  ),
 ]

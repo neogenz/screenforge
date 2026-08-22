@@ -25,7 +25,7 @@ function project(name = 'Project', layers: Layer[] = []): Project {
   return {
     id: 'project',
     name,
-    profileId: 'iphone-6.9',
+    target: 'app-store-iphone',
     activeScreenId: 'screen',
     screens: [
       {
@@ -72,6 +72,28 @@ describe('storage', () => {
     vi.restoreAllMocks()
     vi.useRealTimers()
     await clearDatabase()
+  })
+
+  it('creates, persists and reopens a project for the selected target', async () => {
+    useProjectStore.getState().createProject('Apple')
+    await saveCurrentProject()
+
+    const android = await createStoredProject('Android', 'google-play-phone')
+    expect(android).toMatchObject({
+      target: 'google-play-phone',
+      globals: { deviceModel: 'android-phone', deviceColor: 'black' },
+    })
+    useProjectStore.getState().createProject('Temporary')
+    await expect(openStoredProject(android.id)).resolves.toMatchObject({
+      id: android.id,
+      target: 'google-play-phone',
+    })
+    expect(await listProjects()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: android.id, target: 'google-play-phone' }),
+        expect.objectContaining({ target: 'app-store-iphone' }),
+      ]),
+    )
   })
 
   it('rolls back the project and keeps assets dirty after an asset write failure', async () => {
@@ -335,17 +357,17 @@ describe('storage', () => {
       background: current.screens[0].background,
     })
 
-    const created = await createStoredProject('Tablette', 'ipad-13')
+    const created = await createStoredProject('Tablette', 'app-store-ipad-13')
 
-    expect(created.profileId).toBe('ipad-13')
+    expect(created.target).toBe('app-store-ipad-13')
     expect(useProjectStore.getState().project).toMatchObject({
       id: created.id,
-      profileId: 'ipad-13',
+      target: 'app-store-ipad-13',
     })
     expect(useCanvasStore.getState().selectedLayerIds).toEqual([])
     expect(useHistoryStore.getState().past).toEqual([])
     expect(await loadProject(current.id)).toMatchObject({ name: 'Courant' })
-    expect(await loadProject(created.id)).toMatchObject({ profileId: 'ipad-13' })
+    expect(await loadProject(created.id)).toMatchObject({ target: 'app-store-ipad-13' })
   })
 
   it('refuse un profil inconnu avant toute mutation', async () => {
@@ -353,7 +375,7 @@ describe('storage', () => {
     useProjectStore.getState().loadProject(current)
 
     await expect(createStoredProject('Invalide', 'unknown' as never)).rejects.toThrow(
-      'Unknown App Store profile',
+      'Unknown store target',
     )
     expect(useProjectStore.getState().project).toBe(current)
     expect(await listProjects()).toEqual([])
@@ -519,7 +541,13 @@ describe('storage', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(await listProjects()).toEqual([
-      { id: 'project', name: 'Valid', createdAt: 1, updatedAt: 1 },
+      {
+        id: 'project',
+        name: 'Valid',
+        target: 'app-store-iphone',
+        createdAt: 1,
+        updatedAt: 1,
+      },
     ])
     const stored = await database()
     expect(await stored.get('projects', 'invalid')).toEqual(invalid)

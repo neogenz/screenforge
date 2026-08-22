@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 ---
 
 # Instruction: poser les garde-fous natifs de préproduction
@@ -85,6 +85,12 @@ journey
 4. Définir l'escalade WAF : uniquement après preuve de trafic applicatif abusif non couvert par auth/rate limits, avec Cloudflare requis pour protéger aussi le WebSocket Convex.
 
 ## Test acceptance criteria
+
+> Déviation fournisseur validée le 22 août 2026 : le dashboard du déploiement
+> Development ne permet pas d'activer les warnings souples. Le propriétaire a
+> explicitement approuvé trois disables quotidiens dérivés du baseline. Cette
+> décision remplace uniquement le critère « warning actif » pour la préproduction;
+> aucune valeur opérationnelle n'est publiée dans Git.
 
 | Task | Acceptance criteria |
 | --- | --- |

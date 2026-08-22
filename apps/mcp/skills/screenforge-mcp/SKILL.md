@@ -1,6 +1,6 @@
 ---
 name: screenforge-mcp
-description: Composes App Store screenshots in the running ScreenForge editor through its local MCP server. Use when the user wants App Store listing visuals or wants an agent to drive ScreenForge. Not for exporting the PNGs, which happens in the app.
+description: Composes App Store or Google Play screenshots in the running ScreenForge editor through its local MCP server. Use when the user wants store listing visuals or wants an agent to drive ScreenForge. Not for exporting the PNGs, which happens in the app.
 argument-hint: brief | reference shot | own captures
 ---
 
@@ -32,5 +32,6 @@ Run the flow above. Read only the next action file.
 - Every call can be refused, and the refusal names its cause and the expected sub-schema. Correct the call from what it says instead of retrying it unchanged.
 - Before writing geometry, read `screenforge_get_project_state.canvas.width` and
   `screenforge_get_project_state.canvas.height`. Use those board units and the
-  active ratio, never the export pixels in `profile.width` and `.height`.
+  active ratio, never export pixels. Read `target` and `globals.deviceModel` too;
+  the active target decides the compatible device family.
 - Write the user's copy in the user's own language. The board is a real listing, not a demo.

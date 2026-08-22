@@ -1,8 +1,6 @@
 import { layerDisplayName } from '@/lib/layer-factories'
-import { canvasSize } from '@/lib/canvas/canvas-utils'
-import { deviceModelIdsForPlatform } from '@screenforge/project-format'
-import { getAppStoreProfile, type AppStorePlatform, type AppStoreProfileId } from '@/lib/dimensions'
-import type { Layer, Project, Screen } from '@/types'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import type { DeviceFamily, Layer, Project, Screen } from '@/types'
 
 /**
  * Ce qu'un modèle a le droit de voir du projet.
@@ -44,13 +42,9 @@ export interface ScreenView {
 
 export interface ProjectView {
   name: string
-  profile: {
-    id: AppStoreProfileId
-    platform: AppStorePlatform
-    name: string
-    width: number
-    height: number
-  }
+  target: Project['target']
+  platform: 'apple' | 'android'
+  family: DeviceFamily
   deviceModels: readonly Project['globals']['deviceModel'][]
   canvas: { width: number; height: number }
   globals: Project['globals']
@@ -92,19 +86,14 @@ export function screenView(screen: Screen, rank: number): ScreenView {
 
 /** Réponse de `get_project_state`. */
 export function describeProject(project: Project): ProjectView {
-  const size = canvasSize(project.profileId)
-  const profile = getAppStoreProfile(project.profileId)!
+  const profile = getStoreTargetProfile(project.target)
   return {
     name: project.name,
-    profile: {
-      id: profile.id,
-      platform: profile.platform,
-      name: profile.name,
-      width: profile.portrait.width,
-      height: profile.portrait.height,
-    },
-    deviceModels: deviceModelIdsForPlatform(profile.platform),
-    canvas: size,
+    target: project.target,
+    platform: profile.platform,
+    family: profile.family,
+    deviceModels: profile.deviceModels,
+    canvas: { ...profile.board },
     globals: structuredClone(project.globals),
     screens: project.screens.map(screenView),
     layoutLayers: project.layoutLayers.map(layerView),

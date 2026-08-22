@@ -1,12 +1,6 @@
-import { MAX_PROJECT_SCREENS } from './dimensions.ts'
-import {
-  CONTENT_FONTS,
-  deviceModelIdsForPlatform,
-  ICON_IDS,
-  SHAPE_IDS,
-  type DevicePlatform,
-} from './catalog-ids.ts'
-import type { LayerType } from './types.ts'
+import { getStoreTargetProfile, MAX_PROJECT_SCREENS, STORE_TARGET_PROFILES } from './dimensions.ts'
+import { CONTENT_FONTS, ICON_IDS, SHAPE_IDS } from './catalog-ids.ts'
+import type { LayerType, StoreTargetId } from './types.ts'
 
 /**
  * Ce qu'un modèle peut faire au projet, et rien d'autre — la partie
@@ -30,13 +24,13 @@ import type { LayerType } from './types.ts'
  */
 
 /*
-   Les bornes de schéma couvrent la planche logique la plus haute. La planche
-   active dépend du profil et vient de `get_project_state.canvas`; ce module ne
-   doit rien devoir au canevas Fabric, et conserve donc ici seulement le plafond
-   commun accepté par les outils.
+   Les bornes de coordonnées s'expriment dans l'unité de la planche de
+   l'éditeur. Le schéma partagé couvre la plus grande planche connue ;
+   l'exécuteur applique ensuite le profil du projet ouvert.
 */
-const ARTBOARD_WIDTH = 440
-const ARTBOARD_HEIGHT = 956
+const PROFILES = Object.values(STORE_TARGET_PROFILES)
+const ARTBOARD_WIDTH = Math.max(...PROFILES.map((profile) => profile.board.width))
+const ARTBOARD_HEIGHT = Math.max(...PROFILES.map((profile) => profile.board.height))
 
 export const AI_LIMITS = {
   /** Le plafond du projet, pas un second plafond qui divergerait du premier. */
@@ -408,10 +402,10 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
   return { AI_TOOLS, toolSchema, validateToolCall }
 }
 
-/** Construit le même contrat, fermé sur les seuls appareils de la plateforme. */
-export function createPlatformAiTools(platform: DevicePlatform): AiTooling {
+/** Construit le même contrat, fermé sur les seuls appareils de la cible. */
+export function createTargetAiTools(target: StoreTargetId): AiTooling {
   return createAiTools({
-    deviceModels: deviceModelIdsForPlatform(platform),
+    deviceModels: getStoreTargetProfile(target).deviceModels,
     shapeIds: SHAPE_IDS,
     iconIds: ICON_IDS,
     fonts: CONTENT_FONTS,

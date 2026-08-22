@@ -45,6 +45,7 @@ const PLAN = {
 }
 
 const BRIEF = {
+  target: 'app-store-iphone' as const,
   appName: 'Cadence',
   pitch: 'Le rythme de vos journées',
   productContext: 'Planifiez vos priorités\r\n\r\nVotre semaine visible',
@@ -310,6 +311,28 @@ describe('protocole', () => {
     expect(request.prompt).toContain('mêmes accents, signes et ponctuation')
     expect(request.prompt).toContain('sans omission, enrichissement ni paraphrase')
     expect(request.prompt).toContain('réécrire ensuite dans la revue')
+  })
+
+  it('adapte le prompt à Google Play pour un projet Android', async () => {
+    const turn = vi.fn(async (request?: unknown) => {
+      void request
+      return JSON.stringify({ ...PLAN, deviceModel: 'android-phone' })
+    })
+    const { call } = harness(turn)
+    const response = await call('/plan', {
+      method: 'POST',
+      body: planBody({
+        deviceModel: 'android-phone',
+        brief: { ...BRIEF, target: 'google-play-phone' },
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    const request = turn.mock.calls[0]?.[0] as { prompt: string }
+    expect(request.prompt).toContain('fiche Google Play d’une application Android')
+    expect(request.prompt).toContain('Le texte reste bref et secondaire face à l’interface')
+    expect(request.prompt).toContain('Aucun classement, prix, récompense')
+    expect(request.prompt).not.toContain('application iOS')
   })
 
   it('refuse une requête hors schéma avant d’allumer le moteur', async () => {

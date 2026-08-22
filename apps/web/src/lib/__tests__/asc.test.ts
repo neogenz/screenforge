@@ -8,6 +8,7 @@ import {
   buildManifest,
   commandLine,
   preflight,
+  targetSummary,
   uploadCommand,
   APP_STORE_LOCALES,
   ASC_DISPLAY_TYPE,
@@ -31,7 +32,7 @@ import type { Release, ReleaseFile } from '@/types'
 
 function releaseFile(over: Partial<ReleaseFile> = {}): ReleaseFile {
   return {
-    path: 'iphone-6.9/01_accueil.png',
+    path: '6.9/01_accueil.png',
     screenId: 's1',
     width: 1320,
     height: 2868,
@@ -50,7 +51,7 @@ function release(over: Partial<Release> = {}): Release {
     files: [releaseFile()],
     snapshot: {
       name: 'Cadence',
-      profileId: 'iphone-6.9',
+      target: 'app-store-iphone',
       screens: [],
       layoutLayers: [],
       globals: DEFAULT_GLOBALS,
@@ -146,10 +147,10 @@ describe('manifeste', () => {
 
   it('nomme exactement les destinations officielles iPad et Apple Watch', () => {
     const ipad = release({
-      snapshot: { ...release().snapshot, profileId: 'ipad-13' },
+      snapshot: { ...release().snapshot, target: 'app-store-ipad-13' },
     })
     const watch = release({
-      snapshot: { ...release().snapshot, profileId: 'watch-series-10' },
+      snapshot: { ...release().snapshot, target: 'app-store-watch-series-10' },
     })
 
     const ipadManifest = buildManifest(ipad, TARGET, [], 'f'.repeat(64))
@@ -247,10 +248,10 @@ describe('preflight', () => {
 
   it('accepte les dimensions portrait exactes iPad et Watch, jamais leur inverse', () => {
     const ipad = release({
-      snapshot: { ...release().snapshot, profileId: 'ipad-13' },
+      snapshot: { ...release().snapshot, target: 'app-store-ipad-13' },
     })
     const watch = release({
-      snapshot: { ...release().snapshot, profileId: 'watch-series-10' },
+      snapshot: { ...release().snapshot, target: 'app-store-watch-series-10' },
     })
     const ipadFile = manifestFile({ width: 2064, height: 2752 })
     const watchFile = manifestFile({ width: 416, height: 496 })
@@ -305,5 +306,20 @@ describe('preflight', () => {
     expect(blocking(preflight(release(), TARGET, []))).toBe(true)
     const many = Array.from({ length: 11 }, (_, index) => manifestFile({ name: `${index}_a.png` }))
     expect(blocking(preflight(release(), TARGET, many))).toBe(true)
+  })
+})
+
+describe('résumé de cible', () => {
+  it('ne résume rien tant qu’un champ manque', () => {
+    expect(targetSummary({ ...TARGET, bundleId: '' })).toBeNull()
+    expect(targetSummary({ ...TARGET, appVersion: '' })).toBeNull()
+    expect(targetSummary({ ...TARGET, locale: '' })).toBeNull()
+  })
+
+  it('rend les valeurs saisies, jamais un chevron', () => {
+    const summary = targetSummary(TARGET)
+    expect(summary).toContain('com.exemple.cadence 1.4.0')
+    expect(summary).toContain('fr-FR')
+    expect(summary).not.toContain('<')
   })
 })

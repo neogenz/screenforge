@@ -1,5 +1,4 @@
 import type { DeviceModelId, IconId, ShapeId } from './catalog-ids.ts'
-import type { AppStoreProfileId } from './dimensions.ts'
 
 // ─── Layer Types ────────────────────────────────────────────────────────────
 
@@ -201,7 +200,7 @@ export interface GlobalSettings {
 export interface Project {
   id: string
   name: string
-  profileId: AppStoreProfileId
+  target: StoreTargetId
   screens: Screen[]
   activeScreenId: string
   globals: GlobalSettings
@@ -277,14 +276,14 @@ export interface LocaleVariant {
  */
 export interface ProjectSnapshot {
   name: string
-  profileId: AppStoreProfileId
+  target: StoreTargetId
   screens: Screen[]
   layoutLayers: Layer[]
   globals: GlobalSettings
 }
 
 export interface ReleaseFile {
-  /** `6.9/01_onboarding.png` — la place du fichier dans le lot. */
+  /** `6.9/01_onboarding.png` ou `phone/01_onboarding.png`. */
   path: string
   screenId: string
   width: number
@@ -326,7 +325,7 @@ export interface Release {
 
 export interface ExportConfig {
   screenIds: string[]
-  dimensions: DisplayClass[]
+  target: StoreTargetId
   format: 'png'
 }
 
@@ -334,6 +333,21 @@ export interface ExportConfig {
 
 /** Les modèles que le format connaît — la liste vit dans `catalog-ids.ts`. */
 export type DeviceModel = DeviceModelId
+
+export type StoreTargetId =
+  | 'app-store-iphone'
+  | 'app-store-ipad-13'
+  | 'app-store-watch-ultra-422x514'
+  | 'app-store-watch-ultra-410x502'
+  | 'app-store-watch-series-10'
+  | 'app-store-watch-series-7'
+  | 'app-store-watch-series-4'
+  | 'app-store-watch-series-3'
+  | 'google-play-phone'
+
+export type DevicePlatform = 'apple' | 'android'
+
+export type DeviceFamily = 'iphone' | 'ipad' | 'watch' | 'android-phone'
 
 export type DeviceColor =
   | 'cosmic-orange'
@@ -376,7 +390,7 @@ export interface TemplateDefinition {
   id: string
   name: string
   description: string
-  profileId: AppStoreProfileId
+  target?: StoreTargetId
   thumbnail?: string
   layers: Layer[]
   background: Background

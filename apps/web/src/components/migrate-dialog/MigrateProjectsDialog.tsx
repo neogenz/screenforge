@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { attachProjects, unattachedProjects, type LocalProject } from '@/lib/sync'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -108,23 +108,23 @@ function MigrateProjectsDialogContent() {
         : 'Ajouter les projets au Cloud'
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={() => setShowMigrateDialog(false)}
       title="Ajouter ces projets au Cloud ?"
       size="sm"
       footer={
         <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-          <Button variant="default" disabled={pending} onClick={() => setShowMigrateDialog(false)}>
+          <Button variant="outline" disabled={pending} onClick={() => setShowMigrateDialog(false)}>
             Pas maintenant
           </Button>
           {loadError ? (
-            <Button variant="primary" loading={loading} disabled={loading} onClick={retryLoad}>
+            <Button variant="default" loading={loading} disabled={loading} onClick={retryLoad}>
               Réessayer
             </Button>
           ) : (
             <Button
-              variant="primary"
+              variant="default"
               className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
               loading={pending || loading}
               disabled={pending || loading || !projects?.length}
@@ -191,7 +191,7 @@ function MigrateProjectsDialogContent() {
           </p>
         )}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 

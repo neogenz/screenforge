@@ -8,22 +8,19 @@ async function createTargetProject(
   page: Page,
   name: string,
   optionName: RegExp,
-  profileId: Project['profileId'],
+  target: Project['target'],
 ): Promise<void> {
   await page.getByLabel('Ouvrir le sélecteur de projets').click()
   await page.getByRole('button', { name: 'Nouveau projet…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Nouveau projet' })
   await expect(dialog).toBeVisible()
   await dialog.getByLabel('Nom du nouveau projet').fill(name)
-  await dialog.getByLabel('Format App Store').click()
-  await page.getByRole('option', { name: optionName }).click()
+  await dialog.getByRole('button', { name: optionName }).click()
   await dialog.getByRole('button', { name: 'Créer' }).click()
   await expect(dialog).toBeHidden()
   await expect
-    .poll(() =>
-      page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.profileId),
-    )
-    .toBe(profileId)
+    .poll(() => page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.target))
+    .toBe(target)
 }
 
 async function activeDeviceState(page: Page) {
@@ -55,7 +52,7 @@ test('crée des projets iPad et Watch, filtre leurs ressources et exporte une ca
     () => window.__sfStores?.useProjectStore.getState().project?.name ?? '',
   )
 
-  await createTargetProject(page, 'Maquette iPad', /iPad 13 pouces.*2064×2752/, 'ipad-13')
+  await createTargetProject(page, 'Maquette iPad', /iPad 13 pouces.*2064×2752/, 'app-store-ipad-13')
   await page.getByLabel('Ouvrir le sélecteur de projets').click()
   await expect(page.getByText(/iPad.*2064×2752/)).toBeVisible()
   await expect(page.getByRole('button', { name: `Ouvrir « ${previousName} »` })).toBeVisible()
@@ -84,8 +81,8 @@ test('crée des projets iPad et Watch, filtre leurs ressources et exporte une ca
   await createTargetProject(
     page,
     'Maquette Watch',
-    /Apple Watch Series 10.*416×496/,
-    'watch-series-10',
+    /App Store · Watch Series 10.*416×496/,
+    'app-store-watch-series-10',
   )
   await page.getByRole('button', { name: 'Ouvrir les modèles' }).click()
   await expect(page.getByLabel('Sélectionner le modèle Focus Watch')).toBeVisible()

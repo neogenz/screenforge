@@ -29,7 +29,7 @@ function project(screens: Screen[], layoutLayers: Layer[] = []): Project {
   return {
     id: 'project',
     name: 'Project',
-    profileId: 'iphone-6.9',
+    target: 'app-store-iphone',
     screens,
     activeScreenId: screens[0].id,
     globals: {
@@ -54,10 +54,17 @@ describe('diffProjectChange', () => {
     expect(diffProjectChange(current, null)).toEqual({ type: 'full' })
   })
 
-  it('forces a full reconciliation when the canvas profile changes', () => {
+  it('fully rebuilds when the project target changes', () => {
     const previous = project([screen('screen-1')])
-    const current = { ...previous, profileId: 'ipad-13' as const }
-
+    const current = {
+      ...previous,
+      target: 'google-play-phone' as const,
+      globals: {
+        ...previous.globals,
+        deviceModel: 'android-phone' as const,
+        deviceColor: 'black' as const,
+      },
+    }
     expect(diffProjectChange(current, previous)).toEqual({ type: 'full' })
   })
 

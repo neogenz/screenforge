@@ -102,26 +102,21 @@ test.describe('canvas text editing', () => {
     await waitForApp(page)
     await addTextLayer(page)
 
-    const trigger = page.getByRole('button', { name: /^Police :/ })
-    await trigger.click()
-    const search = page.getByRole('combobox', { name: 'Rechercher une police' })
+    // Le sélecteur de police est un Combobox coss : le champ est la recherche.
+    const search = page.getByRole('combobox', { name: /^Police :/ })
+    await search.click()
     await search.fill('Poppins')
     await search.press('ArrowDown')
     await expect(search).toBeFocused()
-    await expect(page.getByRole('option', { name: 'Poppins' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
     await search.press('Enter')
-    await expect(trigger).toBeFocused()
+    await expect(search).toHaveAccessibleName('Police : Poppins')
 
-    await trigger.click()
-    const reopenedSearch = page.getByRole('combobox', { name: 'Rechercher une police' })
-    await reopenedSearch.fill('police-introuvable')
+    await search.click()
+    await search.fill('police-introuvable')
     await expect(page.getByText('Aucune police trouvée', { exact: true })).toBeVisible()
-    await reopenedSearch.press('Escape')
-    await expect(trigger).toBeFocused()
-    await expect(trigger).toHaveAccessibleName('Police : Poppins')
+    await search.press('Escape')
+    await expect(search).toBeFocused()
+    await expect(search).toHaveAccessibleName('Police : Poppins')
 
     const weight = page.getByRole('combobox', { name: 'Graisse de la police' })
     await weight.click()
@@ -166,9 +161,9 @@ test.describe('canvas text editing', () => {
     ]) {
       await expect(toolbar.getByRole('button', { name: action })).toHaveCount(0)
     }
-    const trigger = toolbar.getByRole('button', { name: /^Police :/ })
-    await trigger.click()
-    await page.getByRole('combobox', { name: 'Rechercher une police' }).fill('Poppins')
+    const search = toolbar.getByRole('combobox', { name: /^Police :/ })
+    await search.click()
+    await search.fill('Poppins')
     await page.getByRole('option', { name: 'Poppins' }).click()
 
     const fonts = () =>
@@ -184,6 +179,9 @@ test.describe('canvas text editing', () => {
       )
     await expect.poll(fonts).toEqual(['Poppins', 'Poppins'])
 
+    // Le champ de recherche garde le focus après le choix : ⌘Z y serait celui
+    // du texte. On le quitte avant de défaire le geste du projet.
+    await search.blur()
     await page.keyboard.press('Meta+z')
     await expect.poll(fonts).toEqual(['Space Grotesk', 'Space Grotesk'])
   })

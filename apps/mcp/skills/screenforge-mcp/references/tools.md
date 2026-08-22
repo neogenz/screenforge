@@ -16,27 +16,28 @@ tools of all its servers flat.
 
 ## The board
 
-| Fact                   | Value                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| Artboard               | `get_project_state.canvas.width` by `.height`, in board units                         |
-| Export                 | `get_project_state.profile.width` by `.height`, derived and never addressed by a call |
-| Coordinates `x` `y`    | schema range -440 to 880; visible bounds are the active canvas width and height       |
-| Sizes `width` `height` | 4 to 1912                                                                             |
-| `rotation`             | -360 to 360 degrees, around the layer centre                                          |
-| `opacity`              | 0 to 1                                                                                |
-| Colours                | `#rrggbb` exactly, six hex digits, no shorthand and no alpha                          |
-| Screens per project    | 10                                                                                    |
-| Layers per screen      | 24                                                                                    |
-| Calls per batch        | 200                                                                                   |
+| Fact                   | Value                                                                      |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Artboard               | `get_project_state.canvas.width` by `.height`, in board units              |
+| Active target          | read `target`, `family`, `canvas` and `globals.deviceModel` before writing |
+| Export                 | derived from `target`, never addressed by a call                           |
+| Coordinates `x` `y`    | -540 to 1080; the active board decides what is visible                     |
+| Sizes `width` `height` | 4 to 1920                                                                  |
+| `rotation`             | -360 to 360 degrees, around the layer centre                               |
+| `opacity`              | 0 to 1                                                                     |
+| Colours                | `#rrggbb` exactly, six hex digits, no shorthand and no alpha               |
+| Screens per project    | 10 for App Store, 8 for Google Play phone                                  |
+| Layers per screen      | 24                                                                         |
+| Calls per batch        | 200                                                                        |
 
 ## Reading
 
-| Tool                | Arguments                                                | Returns                                                                                               |
-| ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `get_project_state` | none                                                     | name, profile, compatible device models, canvas, globals, every screen with its layers, layout layers |
-| `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                                                      |
-| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                                                             |
-| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per saved template on the active platform        |
+| Tool                | Arguments                                                | Returns                                                                                   |
+| ------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `get_project_state` | none                                                     | name, target, platform, family, device models, canvas, globals, screens and layout layers |
+| `get_screen`        | `screenId` required                                      | one screen, its rank, its background, its layers                                          |
+| `get_thumbnail`     | `screenId` optional, `maxWidth` 200 to 1320, default 640 | a measured report, then a PNG image block                                                 |
+| `list_templates`    | none                                                     | id, name, description, source, layerCount, createdAt per compatible saved template        |
 
 A layer read back carries `id`, `type`, `name`, `x`, `y`, `width`, `height`,
 `visible`, `locked`, plus `content` on a text and `slot` with `hasScreenshot` on
@@ -54,7 +55,7 @@ box is holding five lines.
 | Measure        | Threshold                                                   |
 | -------------- | ----------------------------------------------------------- |
 | Text overflow  | measured height above the layer's own `height`              |
-| Off-board text | a text box leaving the active `canvas.width` by `.height`   |
+| Off-board text | a text box leaving the active `canvas`, on any side         |
 | Cropped device | under 70 % of the device frame on the board                 |
 | Contrast       | under 4.5:1 against **every** stop of the screen background |
 | Overlap        | two **text** layers whose boxes intersect                   |
@@ -100,7 +101,7 @@ takes an absolute path under a root granted by the MCP client (or
 `SCREENFORGE_MCP_ASSET_ROOTS`), reads the file on the machine running the daemon, and
 turns it into a call the project accepts. `role` is `image` for a logo or
 `screenshot` for a capture, which lands in a device frame compatible with the
-active profile. Give `layerId` to
+active target. Give `layerId` to
 fill a frame that already exists, keeping the crop the user set on it. Refused
 with its cause named: a relative path, an extension outside PNG, JPEG and SVG, a
 missing file, more than 16 MB, or an SVG offered as a screenshot.
@@ -205,12 +206,12 @@ A stop is `{ "offset": 0 to 1, "color": "#rrggbb" }`.
 `iphone-17-pro-max`, `iphone-17-pro`, `iphone-17`, `iphone-air`,
 `iphone-16-plus`, `iphone-16`, `iphone-16e`, `iphone-16-pro-max`,
 `iphone-16-pro`, `tablet-slate`, `tablet-studio`, `watch-halo`,
-`watch-compact`.
+`watch-compact`, `android-phone`.
 
-The active project's immutable profile filters this catalogue: iPhone tools
+The active project's immutable target filters this catalogue: iPhone tools
 accept the iPhone identifiers, iPad accepts the two `tablet-*` identifiers, and
-Watch accepts the two `watch-*` identifiers. The two `iphone-16-pro*` entries
-are legacy, kept so older projects still render.
+Watch accepts the two `watch-*` identifiers. Android accepts `android-phone`.
+The two `iphone-16-pro*` entries are legacy, kept so older projects still render.
 
 ## Shapes
 

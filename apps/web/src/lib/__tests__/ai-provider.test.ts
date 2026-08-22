@@ -38,7 +38,7 @@ const BRIEF: CampaignBrief = {
 }
 
 const HELLO = {
-  protocol: 5,
+  protocol: 6,
   bridge: '0.1.0',
   engines: [{ id: 'claude', version: 'claude-cli 0.0.0-test' }],
   capabilities: { vision: false, structuredOutput: true, reasoning: true },
@@ -191,7 +191,20 @@ describe('plan via le pont', () => {
       },
       { label: 'Budget', hasAsset: false },
     ])
+    expect(JSON.parse(sent).brief.target).toBe('app-store-iphone')
     expect(sent).toContain('Planifiez vos priorités')
+  })
+
+  it('transmet la cible Android au pont', async () => {
+    const calls = respond({
+      '/plan': { body: { plan: { ...PLAN, deviceModel: 'android-phone' } } },
+    })
+    await planViaBridge(
+      { ...BRIEF, target: 'google-play-phone', deviceModel: 'android-phone' },
+      TOKEN,
+      'claude',
+    )
+    expect(JSON.parse(String(calls[0].init?.body)).brief.target).toBe('google-play-phone')
   })
 
   it('reprend de force ce que l’utilisateur a choisi', async () => {

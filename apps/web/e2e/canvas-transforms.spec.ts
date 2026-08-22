@@ -12,11 +12,13 @@ import {
   findObject,
   lassoOverScreen,
   layerRows,
+  openAndroidProject,
   screenCenter,
   transformInput,
   waitForApp,
   waitForCanvasSettled,
   type DebugObject,
+  fillNumber,
 } from './helpers'
 
 async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
@@ -108,6 +110,20 @@ test.describe('canvas transforms', () => {
     expectClose(after!.top, before!.top, 0.5)
   })
 
+  test('keeps Android coordinates stable through canvas, store and sync', async ({ page }) => {
+    await openAndroidProject(page)
+    await addShapeLayer(page)
+    const before = await activeObjectState(page)
+    await dragActiveBody(page, 40, 24)
+    const immediate = await activeObjectState(page)
+    await waitForCanvasSettled(page)
+    const settled = await activeObjectState(page)
+    expect(immediate!.left).toBeGreaterThan(before!.left)
+    expect(immediate!.top).toBeGreaterThan(before!.top)
+    expectClose(settled!.left, immediate!.left, 0.5)
+    expectClose(settled!.top, immediate!.top, 0.5)
+  })
+
   test('scrubbing position X stays aligned through the store sync', async ({ page }) => {
     await addDeviceLayer(page)
     const before = await page.evaluate(() => {
@@ -138,8 +154,12 @@ test.describe('canvas transforms', () => {
     // sous le pli d'une fenêtre de 900, et la mesure rendait alors la boîte
     // d'un élément écrêté, donc un glissement dans le vide.
     const scrubBox = await transformInput(page, 0).evaluate((input) => {
-      input.parentElement?.scrollIntoView({ block: 'center' })
-      const rect = input.parentElement?.getBoundingClientRect()
+      // La surface de scrub coss est le libellé (`NumberFieldScrubArea`), pas le champ.
+      const surface = input
+        .closest('[data-slot="unit-field"]')
+        ?.querySelector('[data-slot="number-field-scrub-area"]')
+      surface?.scrollIntoView({ block: 'center' })
+      const rect = surface?.getBoundingClientRect()
       if (!rect) throw new Error('Scrub surface missing')
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     })
@@ -147,6 +167,13 @@ test.describe('canvas transforms', () => {
       x: scrubBox.x + scrubBox.width / 2,
       y: scrubBox.y + scrubBox.height / 2,
     }
+    // Ce test couvre notre round-trip store/canvas, pas le pointer-lock de Base UI.
+    // Son chemin de repli garde les mouvements Playwright déterministes en CI.
+    await page.evaluate(() => {
+      document.body.requestPointerLock = () => {
+        throw new DOMException('Pointer lock disabled by E2E', 'NotAllowedError')
+      }
+    })
     await page.mouse.move(start.x, start.y)
     await page.mouse.down()
     await page.mouse.move(start.x + 24, start.y, { steps: 6 })
@@ -602,7 +629,7 @@ test.describe('canvas transforms', () => {
     expect(await grab()).toEqual({ selectable: true, evented: true })
 
     const positionX = transformInput(page, 0)
-    await positionX.fill('-600')
+    await fillNumber(positionX, '-600')
     await positionX.press('Enter')
     await waitForCanvasSettled(page)
 
@@ -624,7 +651,7 @@ test.describe('canvas transforms', () => {
   test('a lost layer can be dragged back from the empty stage', async ({ page }) => {
     await addTextLayer(page)
     const positionX = transformInput(page, 0)
-    await positionX.fill('-600')
+    await fillNumber(positionX, '-600')
     await positionX.press('Enter')
     await waitForCanvasSettled(page)
 

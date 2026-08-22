@@ -6,9 +6,8 @@ import {
   type ScreenHistorySnapshot,
 } from '@/stores/history.store'
 import { getActiveScreen, getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { getAppStoreProfile, MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
-import { canvasSize } from '@/lib/canvas/canvas-utils'
 import { alignTo, boundsOf, distribute } from '@/lib/align'
 import type { AlignMode, DistributeMode, Placeable } from '@/lib/align'
 import type { TextRange } from '@/lib/text-styles'
@@ -108,7 +107,7 @@ function alignmentReference(selected: Layer[]): Placeable {
   if (selected.length > 1) return boundsOf(selected)
   const project = useProjectStore.getState().project
   const screens = project?.screens ?? []
-  const size = canvasSize(project?.profileId)
+  const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
   const index =
     selected[0]?.scope === 'layout'
       ? Math.max(
@@ -116,7 +115,7 @@ function alignmentReference(selected: Layer[]): Placeable {
           screens.findIndex((screen) => screen.id === project?.activeScreenId),
         )
       : 0
-  return { x: index * size.width, y: 0, width: size.width, height: size.height }
+  return { x: index * board.width, y: 0, width: board.width, height: board.height }
 }
 
 /** Réécrit les positions calculées dans la liste complète, ordre préservé. */
@@ -417,8 +416,8 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
       const screenId = project?.activeScreenId
       const screenIndex = project?.screens.findIndex((screen) => screen.id === screenId) ?? -1
       if (!project || screenIndex === -1) return
-      const size = canvasSize(project.profileId)
       const screen = project.screens[screenIndex]
+      const board = getStoreTargetProfile(project.target).board
       const screenLayer = screen.layers.find((layer) => layer.id === id)
       const layoutLayer = project.layoutLayers.find((layer) => layer.id === id)
       if ((scope === 'layout' && !screenLayer) || (scope === 'screen' && !layoutLayer)) return
@@ -436,7 +435,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
                       ...candidate.layers,
                       {
                         ...moved,
-                        x: moved.x - screenIndex * size.width,
+                        x: moved.x - screenIndex * board.width,
                         zIndex: moved.zIndex,
                         scope: undefined,
                       },
@@ -450,7 +449,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
               ...project.layoutLayers,
               {
                 ...moved,
-                x: moved.x + screenIndex * size.width,
+                x: moved.x + screenIndex * board.width,
                 zIndex: moved.zIndex,
                 scope: 'layout' as const,
               },
@@ -509,9 +508,9 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
     applyTemplate: (template, mode) => {
       const project = useProjectStore.getState().project
       if (!project) return null
-      const projectPlatform = getAppStoreProfile(project.profileId)?.platform
-      const templatePlatform = getAppStoreProfile(template.profileId)?.platform
-      if (!projectPlatform || templatePlatform !== projectPlatform) return null
+      const projectFamily = getStoreTargetProfile(project.target).family
+      const templateFamily = getStoreTargetProfile(template.target ?? 'app-store-iphone').family
+      if (templateFamily !== projectFamily) return null
       const layers = template.layers.map((layer, index) => ({
         ...structuredClone(layer),
         id: crypto.randomUUID(),
@@ -527,7 +526,7 @@ export const useCanvasStore = create<CanvasState>()((set, get) => {
         return screenId
       }
 
-      if (project.screens.length >= MAX_PROJECT_SCREENS) return null
+      if (project.screens.length >= getStoreTargetProfile(project.target).maxScreens) return null
       recordProject()
       const screenId = useProjectStore.getState().addScreen({
         name: `${template.name} ${project.screens.length + 1}`,

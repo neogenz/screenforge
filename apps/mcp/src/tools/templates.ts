@@ -1,5 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/server'
-import type { ParamSchema } from '@screenforge/project-format'
+import { STORE_TARGET_IDS, type ParamSchema } from '@screenforge/project-format'
 import type { RelaySession } from '../relay/session.ts'
 
 /**
@@ -53,10 +53,11 @@ const templateSummary: ParamSchema = {
     name: { type: 'string' },
     description: { type: 'string' },
     source: { type: 'string', enum: ['ai', 'user'] },
+    target: { type: 'string', enum: STORE_TARGET_IDS },
     layerCount: { type: 'integer' },
     createdAt: { type: 'number' },
   },
-  required: ['id', 'name', 'description', 'source', 'layerCount', 'createdAt'],
+  required: ['id', 'name', 'description', 'source', 'target', 'layerCount', 'createdAt'],
   additionalProperties: false,
 }
 

@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { createShapeLayer, createTextLayer } from '@/lib/layer-factories'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
 
@@ -47,11 +48,16 @@ function remapClipboardAssets(entry: ClipboardEntry): Layer {
   return layer
 }
 
+const NON_TEXT_INPUT_TYPES = new Set(['range', 'checkbox', 'radio', 'button', 'file', 'color'])
+
 function isEditingInput(): boolean {
   const el = document.activeElement
   if (!el) return false
   const tag = el.tagName.toLowerCase()
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  // Un curseur Base UI est un `<input type="range">` : rien à y éditer, ⌘Z
+  // doit encore défaire le geste qu'on vient d'y faire.
+  if (tag === 'input') return !NON_TEXT_INPUT_TYPES.has((el as HTMLInputElement).type)
+  if (tag === 'textarea' || tag === 'select') return true
   if ((el as HTMLElement).isContentEditable) return true
   const canvasContainer = document.querySelector('.canvas-container')
   if (canvasContainer?.contains(el)) return true
@@ -142,12 +148,25 @@ export function useKeyboard(): void {
         document.activeElement.closest('[role="listbox"], [role="menu"], [role="dialog"]') !== null
       if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 't') {
         e.preventDefault()
-        addLayer(createTextLayer(layerCount))
+        const project = useProjectStore.getState().project
+        addLayer(
+          createTextLayer(
+            layerCount,
+            project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board,
+          ),
+        )
         return
       }
       if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 'r') {
         e.preventDefault()
-        addLayer(createShapeLayer(layerCount))
+        const project = useProjectStore.getState().project
+        addLayer(
+          createShapeLayer(
+            layerCount,
+            'rectangle',
+            project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board,
+          ),
+        )
         return
       }
 

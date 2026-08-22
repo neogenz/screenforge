@@ -67,6 +67,13 @@ export const DEVICE_HEIGHT_PCT = 74
 /* Le titre se tape à 26 % puis se tire à 13 %, où il reste. */
 export const TITLE_Y = 13
 
+/* La hauteur de la barre fixe de la landing. Elle vit ici parce que deux
+   endroits en dépendent et qu'ils doivent lire le même nombre : `Nav` la
+   dessine, et l'observateur de la démo la retranche du viewport — un seuil
+   mesuré contre la fenêtre entière compte comme visibles les 72 px que la
+   barre recouvre. */
+export const NAV_HEIGHT = 72
+
 export const EMPTY_SCENE: DemoSceneState = {
   device: false,
   textChars: 0,

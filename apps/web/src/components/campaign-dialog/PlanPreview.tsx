@@ -1,5 +1,6 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
-import { PLAN_CANVAS, planScreenLayout, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import { planScreenLayout, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
 import type { PlanAccent, PlanBox } from '@/lib/ai/archetypes'
 import { backgroundToCss } from '@/lib/background-css'
 import { resolveAsset } from '@/lib/assets'
@@ -50,7 +51,7 @@ function percent(value: number, total: number): string {
 
 function box(
   rect: PlanBox,
-  board: Pick<PlanBox, 'width' | 'height'>,
+  board: { width: number; height: number },
   rotation = 0,
 ): React.CSSProperties {
   return {
@@ -81,7 +82,7 @@ function AccentShape({
   board,
 }: {
   accent: PlanAccent
-  board: Pick<PlanBox, 'width' | 'height'>
+  board: { width: number; height: number }
 }) {
   const entry = shapeEntry(accent.shape)
   const [x, y, width, height] = entry ? drawnBox(entry) : [0, 0, SHAPE_BOX, SHAPE_BOX]
@@ -117,7 +118,7 @@ function AccentShape({
 export function PlanPreview({ plan, brief, index, size, className }: PlanPreviewProps) {
   const layout = planScreenLayout(plan, brief, index)
   if (!layout) return null
-  const board = brief.board ?? PLAN_CANVAS
+  const board = getStoreTargetProfile(plan.target).board
 
   const config = getDeviceFrame(plan.deviceModel)
   const deviceSvg = layout.device
@@ -142,7 +143,7 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
       className={cn('relative shrink-0 overflow-hidden rounded-sm border border-border', className)}
       style={{
         width,
-        aspectRatio: `${board.width} / ${board.height}`,
+        aspectRatio: `${String(board.width)} / ${String(board.height)}`,
         background: backgroundToCss(layout.background),
       }}
     >

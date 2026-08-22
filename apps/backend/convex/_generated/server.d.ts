@@ -35,6 +35,9 @@ type Env = {
   readonly POLAR_CLOUD_PRODUCT_ID: string | undefined;
   readonly POLAR_SERVER: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
+  readonly POSTHOG_HOST: string | undefined;
+  readonly POSTHOG_PERSON_API_KEY: string | undefined;
+  readonly POSTHOG_PROJECT_ID: string | undefined;
   readonly SITE_URL: string | undefined;
 };
 

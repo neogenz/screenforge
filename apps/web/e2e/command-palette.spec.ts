@@ -1,19 +1,26 @@
 import { expect, test } from '@playwright/test'
-import { addTextLayer, layerRows, waitForApp } from './helpers'
+import { addTextLayer, layerRows, openUtility, utilitiesTrigger, waitForApp } from './helpers'
 
 test.describe('command palette', () => {
   test('le déclencheur de la TopBar garde la primitive et rend le focus', async ({ page }) => {
     await waitForApp(page)
-    const trigger = page.getByRole('button', { name: 'Ouvrir la palette de commandes' })
-    await expect(trigger).toHaveAttribute('data-slot', 'icon-button')
+    /* La palette est descendue dans le menu « … » avec les autres utilitaires :
+       une commande qu'on appelle à ⌘K n'a pas à tenir une case de la rangée,
+       où la place revient à composer et à livrer. Le déclencheur mesuré est
+       donc celui du menu, et c'est à lui que la boîte rend le focus. */
+    const trigger = utilitiesTrigger(page)
+    /* Le déclencheur de menu coss réécrit le `data-slot` : la primitive se
+       reconnaît au `data-slot` du menu, pas à celui du bouton qu'il habille. */
+    await expect(trigger).toHaveAttribute('data-slot', 'menu-trigger')
     /* L'infobulle est la primitive, pas le `title=` natif : elle se montre au
        survol comme au focus clavier. */
     await trigger.hover()
-    await expect(page.getByRole('tooltip')).toContainText('Palette de commandes')
-    await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(36)
-    await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(36)
+    await expect(page.getByRole('tooltip')).toContainText('Autres actions')
+    // `size="icon"` coss : 36 au doigt, 32 à la souris (`sm:size-8`).
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(32)
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(32)
 
-    await trigger.click()
+    await openUtility(page, 'Ouvrir la palette de commandes')
     const dialog = page.getByRole('dialog', { name: 'Palette de commandes' })
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')

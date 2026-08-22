@@ -1,5 +1,5 @@
 export interface ExportEntry {
-  dimension: string // e.g. '6.9'
+  folder: string // e.g. '6.9' or 'phone'
   index: number // 1-based
   name: string // screen name slugified
   blob: Blob
@@ -10,7 +10,7 @@ export async function createExportZip(entries: ExportEntry[]): Promise<Blob> {
   const zip = new JSZip()
   for (const entry of entries) {
     const filename = `${String(entry.index).padStart(2, '0')}_${entry.name}.png`
-    zip.file(`${entry.dimension}/${filename}`, entry.blob)
+    zip.file(`${entry.folder}/${filename}`, entry.blob)
   }
   return zip.generateAsync({ type: 'blob', mimeType: 'application/zip' })
 }

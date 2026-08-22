@@ -5,41 +5,40 @@ import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
 import { deviceFrameOptionsFor, getDeviceFrame } from '@/assets/device-frames'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
-import { Select } from '@/components/ui/select'
-import { SwatchButton } from '@/components/ui/swatch-button'
+import { Card } from '@/components/ui/card'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField } from '@/components/patterns/unit-field'
+import { SelectField } from '@/components/patterns/select-field'
+import { SwatchButton } from '@/components/patterns/swatch-button'
+import { Separator } from '@/components/ui/separator'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
-import { getAppStoreProfile, type AppStoreProfile } from '@/lib/dimensions'
-import type { GlobalSettings, DeviceModel } from '@/types'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import type { GlobalSettings, DeviceModel, StoreTargetId } from '@/types'
 
 export function GlobalsEditor() {
   const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const project = useProjectStore((s) => s.project)
 
   if (!showGlobalsEditor || !project) return null
-  return (
-    <GlobalsEditorContent
-      globals={project.globals}
-      profile={getAppStoreProfile(project.profileId)!}
-    />
-  )
+  return <GlobalsEditorContent globals={project.globals} target={project.target} />
 }
 
 function GlobalsEditorContent({
   globals,
-  profile,
+  target,
 }: {
   globals: GlobalSettings
-  profile: AppStoreProfile
+  target: StoreTargetId
 }) {
   const setShowGlobalsEditor = useUIStore((s) => s.setShowGlobalsEditor)
   const [draft, setDraft] = useState<GlobalSettings>(() => ({ ...globals }))
+  const profile = getStoreTargetProfile(target)
 
+  const modelOptions = deviceFrameOptionsFor(draft.deviceModel, profile.family)
   const frame = getDeviceFrame(draft.deviceModel)
-  const modelOptions = deviceFrameOptionsFor(draft.deviceModel, profile.platform)
 
   function update(partial: Partial<GlobalSettings>) {
     setDraft((previous) => ({ ...previous, ...partial }))
@@ -60,18 +59,23 @@ function GlobalsEditorContent({
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={handleClose}
       title="Réglages globaux"
       size="md"
       footer={
         <>
-          <Button variant="default" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose}>
             Annuler
           </Button>
-          <Button variant="primary" onClick={handleSave}>
-            Enregistrer
+          {/* « Enregistrer », pas « Appliquer à N écrans » : les réglages
+              globaux n'écrivent que les défauts des calques à venir
+              (`canvas.store.ts` les lit à la création) — les N écrans déjà
+              composés n'en sont pas retouchés, et le dire changerait
+              promettrait un geste que le bouton ne fait pas. */}
+          <Button variant="default" onClick={handleSave}>
+            Enregistrer les réglages par défaut
           </Button>
         </>
       }
@@ -79,22 +83,25 @@ function GlobalsEditorContent({
       <div className="flex flex-col gap-6">
         <section>
           <h3 className="section-title mb-2">Profil du projet</h3>
-          <div className="surface-inner p-3">
-            <p className="text-sm font-medium text-foreground">{profile.name}</p>
+          <Card className="p-3">
+            <p className="text-sm font-medium text-foreground">{profile.label}</p>
             <p className="mt-1 text-2xs text-muted-foreground tabular-nums">
-              {profile.portrait.width}×{profile.portrait.height} px · {profile.appStoreConnectType}
+              {profile.output.portrait.width}×{profile.output.portrait.height} px
+              {profile.platform === 'apple' ? ` · ${profile.appStoreConnectType}` : ''}
             </p>
             <p className="mt-1 text-2xs text-muted-foreground">
               Immuable pour préserver les coordonnées et les releases de ce projet.
             </p>
-          </div>
+          </Card>
         </section>
 
         <div className="hairline" />
 
         {/* Typographie */}
         <section>
-          <h3 className="section-title mb-2">Typographie</h3>
+          <h3 className="text-sm font-medium mb-2">Typographie</h3>
+          {/* Contrôles d'une ligne, libellé en ligne (grammaire du panneau) :
+              seul le composite — la pastille de couleur — passe par `PropertyRow`. */}
           <div className="flex flex-col gap-2">
             <FontPicker
               label="Police"
@@ -103,21 +110,19 @@ function GlobalsEditorContent({
             />
             <div className="flex gap-2">
               <div className="flex-1">
-                <Select
+                <SelectField
                   label="Graisse"
-                  value={draft.fontWeight}
-                  onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
                   aria-label="Graisse de police par défaut"
-                >
-                  {FONT_WEIGHT_OPTIONS.map((weight) => (
-                    <option key={weight.value} value={weight.value}>
-                      {weight.label}
-                    </option>
-                  ))}
-                </Select>
+                  value={String(draft.fontWeight)}
+                  onValueChange={(next) => update({ fontWeight: parseInt(next, 10) })}
+                  items={FONT_WEIGHT_OPTIONS.map((weight) => ({
+                    value: String(weight.value),
+                    label: weight.label,
+                  }))}
+                />
               </div>
               <div className="w-28">
-                <NumberField
+                <UnitField
                   label="Taille"
                   ariaLabel="Taille de police par défaut"
                   value={draft.fontSize}
@@ -127,45 +132,44 @@ function GlobalsEditorContent({
                 />
               </div>
             </div>
-            <Field label="Couleur">
+            <PropertyRow label="Couleur" stacked>
               <ColorPicker
                 value={draft.fontColor}
                 onChange={(fontColor) => update({ fontColor })}
               />
-            </Field>
+            </PropertyRow>
           </div>
         </section>
 
-        <div className="hairline" />
+        <Separator />
 
         {/* Arrière-plan */}
         <section>
-          <h3 className="section-title mb-2">Arrière-plan</h3>
+          <h3 className="text-sm font-medium mb-2">Arrière-plan</h3>
           <BackgroundEditor
             background={draft.background}
             onChange={(background) => update({ background })}
           />
         </section>
 
-        <div className="hairline" />
+        <Separator />
 
         {/* Appareil */}
         <section>
-          <h3 className="section-title mb-2">Appareil</h3>
+          <h3 className="text-sm font-medium mb-2">Appareil</h3>
           <div className="flex flex-col gap-2">
-            <Select
+            <SelectField<DeviceModel>
               label="Modèle"
-              value={draft.deviceModel}
-              onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
               aria-label="Modèle d’appareil par défaut"
-            >
-              {modelOptions.map((option) => (
-                <option key={option.model} value={option.model}>
-                  {option.modelName} · {option.screenSize}
-                </option>
-              ))}
-            </Select>
-            <Field label="Couleur">
+              value={draft.deviceModel}
+              onValueChange={handleModelChange}
+              items={modelOptions.map((option) => ({
+                value: option.model,
+                label: `${option.modelName} · ${option.screenSize}`,
+              }))}
+            />
+            <Field className="gap-1.5">
+              <FieldLabel>Couleur</FieldLabel>
               <div
                 className="flex flex-wrap gap-2"
                 role="group"
@@ -186,6 +190,6 @@ function GlobalsEditorContent({
           </div>
         </section>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

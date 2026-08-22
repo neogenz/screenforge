@@ -72,6 +72,13 @@ test('ne laisse aucun élément cliquable rendre le curseur de texte', async ({ 
       '[role="switch"]',
       '[role="checkbox"]',
       '[role="radio"]',
+      // Slots coss couvrant ce qu'un rôle seul ne dit pas : l'item de menu et
+      // de Select quand il n'est pas un `menuitem`/`option` ARIA, et la zone
+      // de scrub du NumberField — un geste, pas un clic, qui doit rendre
+      // `ew-resize` et non la flèche par défaut.
+      '[data-slot="menu-item"]',
+      '[data-slot="select-item"]',
+      '[data-slot="number-field-scrub-area"]',
     ].join(', ')
     // Les curseurs qu'un composant pose exprès pour annoncer un geste, et non
     // un clic : la poignée d'un dégradé se tire, elle ne se presse pas.

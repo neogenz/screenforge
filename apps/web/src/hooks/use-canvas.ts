@@ -7,6 +7,7 @@ import {
   disposeFabricObjectResource,
   getScreenOffset,
   getTotalWidth,
+  type BoardSize,
   type RenderedObject,
 } from '@/lib/canvas/canvas-utils'
 import {
@@ -48,8 +49,8 @@ export function useCanvas() {
   const pendingPatch = useRef<PatchJob | 'full' | null>(null)
   const [selectionFrame, setSelectionFrame] = useState<SelectionFrame | null>(null)
 
-  const generateThumbnails = useCallback((screens: Screen[]) => {
-    thumbnails.current?.schedule(screens)
+  const generateThumbnails = useCallback((screens: Screen[], board: BoardSize) => {
+    thumbnails.current?.schedule(screens, board)
   }, [])
 
   const getLayerIdAtPoint = useCallback((event: MouseEvent): string | null => {
@@ -171,7 +172,6 @@ export function useCanvas() {
 
     const thumbnailController = installThumbnails({
       currentCanvas: () => fabricRef.current,
-      getProfileId: () => useProjectStore.getState().project?.profileId ?? 'iphone-6.9',
       onGenerated: (generated) => {
         const project = useProjectStore.getState().project
         if (!project) return
@@ -283,11 +283,11 @@ export function useCanvas() {
           void drainPatches({ project: state.project, change })
           return
         }
-        const sceneChanged =
+        const geometryChanged =
           state.project.screens.length !== previous.project?.screens.length ||
-          state.project.profileId !== previous.project?.profileId
+          state.project.target !== previous.project?.target
         void sync(state.project).then(() => {
-          if (sceneChanged) viewport.current?.fitAll()
+          if (geometryChanged) viewport.current?.fitAll()
         })
       }),
     [sync, drainPatches],

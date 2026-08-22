@@ -5,51 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScreenForge</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!--
-      La feuille Inter ne bloque plus le rendu. Le navigateur la déclarait
-      « blocking » : rien ne pouvait s'afficher avant un aller-retour vers une
-      origine tierce. `media="print"` la sort du chemin critique, et `boot.js`
-      la rend applicable une fois arrivée. L'URL porte déjà `display=swap`, donc
-      le texte s'affiche en repli puis bascule — un caractère de repli pendant
-      200ms vaut mieux qu'une page vide pendant le même temps.
-    -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-    />
-    <link
-      rel="stylesheet"
-      media="print"
-      data-screenforge-font
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap"
-      />
-    </noscript>
     <script src="/boot.js"></script>
     <style>
       /* Évite le flash du mauvais thème avant la feuille de styles. Les valeurs
          recopient les tokens de la scène et du texte secondaire : le boot doit
          être juste avant que le CSS de l'app soit disponible. */
       html {
-        /* `--color-background`, pas `--color-stage` : c'est la valeur que le
-           chrome peint en premier au montage, et un boot plus sombre que
-           l'application se lisait comme un double flash. */
-        --boot-background: oklch(0.175 0 0);
-        --boot-ink: oklch(0.78 0 0);
-        --boot-track: oklch(0.26 0 0);
+        /* `--background`, pas `--stage` : c'est la valeur que le chrome peint
+           en premier au montage, et un boot plus sombre que l'application se
+           lisait comme un double flash. Les valeurs recopient la palette coss
+           neutre (`index.css`) : blanc en clair, neutral-950 éclairci de 5 %
+           en sombre. Le sombre est la classe, le clair son absence. */
+        --boot-background: #fff;
+        --boot-ink: #686868;
+        --boot-track: #ebebeb;
         background: var(--boot-background);
       }
-      html.light {
-        --boot-background: oklch(0.965 0 0);
-        --boot-ink: oklch(0.4 0 0);
-        --boot-track: oklch(0.915 0 0);
+      html.dark {
+        --boot-background: #161616;
+        --boot-ink: #818181;
+        --boot-track: #2a2a2a;
       }
 
       /* Le squelette de démarrage, en styles inline : la feuille de l'app fait
@@ -106,6 +81,74 @@
           animation: none;
         }
       }
+
+      /* Le chrome flottant, posé à sa géométrie finale avant tout CSS de
+         l'app : la barre haute, la pellicule et le HUD de zoom montent au
+         même endroit que leurs vraies vignettes, donc rien ne saute au
+         montage. `lib/stage.ts` reste la source des marges et hauteurs —
+         `--boot-topbar-height` vaut 46px, comme `TOP_BAR_HEIGHT` : le rang le
+         plus haut de la grille de l'îlot est le champ « Nom du projet »
+         (36px, coss `h-9`), pas les boutons de la barre d'outils (32px), qui
+         s'y centrent verticalement ; + padding d'îlot (2×4) + filet (2×1). */
+      :root {
+        --boot-margin: 12px;
+        --boot-topbar-height: 46px;
+        --boot-topbar-radius: 18px;
+        --boot-export-width: 102px;
+        --boot-export-height: 32px;
+        --boot-export-radius: 10px;
+        --boot-filmstrip-height: 184px;
+        --boot-filmstrip-width: 69px;
+        --boot-hud-width: 134px;
+        --boot-hud-height: 38px;
+      }
+      .boot-topbar {
+        position: fixed;
+        top: var(--boot-margin);
+        left: var(--boot-margin);
+        right: var(--boot-margin);
+        height: var(--boot-topbar-height);
+        box-sizing: border-box;
+        border: 1px solid var(--boot-track);
+        border-radius: var(--boot-topbar-radius);
+        padding: 4px;
+      }
+      /* Le bouton Exporter ne se replie jamais (règle du chrome flottant) :
+         sa largeur entière est partagée avec le bouton hydraté pour rester
+         identique quel que soit le moteur de rendu de la police. */
+      .boot-export {
+        position: absolute;
+        /* Le carré de positionnement absolu se compte depuis le bord interne
+           du filet (la boîte de remplissage), pas depuis le bord du contenu :
+           il faut donc recompter le retrait de 4px du padding en plus des 2px
+           de centrage vertical (36px de rangée pour un bouton de 32px). */
+        top: 6px;
+        right: 4px;
+        width: var(--boot-export-width);
+        height: var(--boot-export-height);
+        border-radius: var(--boot-export-radius);
+        background: var(--boot-track);
+      }
+      .boot-filmstrip {
+        position: fixed;
+        bottom: var(--boot-margin);
+        left: 50%;
+        translate: -50% 0;
+        width: var(--boot-filmstrip-width);
+        height: var(--boot-filmstrip-height);
+        border-radius: 9px;
+        background: var(--boot-track);
+      }
+      .boot-hud {
+        position: fixed;
+        bottom: var(--boot-margin);
+        right: var(--boot-margin);
+        width: var(--boot-hud-width);
+        height: var(--boot-hud-height);
+        border: 1px solid var(--boot-track);
+        border-radius: 18px;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -120,6 +163,11 @@
         <span class="boot-wordmark" aria-hidden="true"></span>
         <span class="boot-bar"><span></span></span>
       </div>
+      <div class="boot-topbar" aria-hidden="true">
+        <span class="boot-export"></span>
+      </div>
+      <div class="boot-filmstrip" aria-hidden="true"></div>
+      <div class="boot-hud" aria-hidden="true"></div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

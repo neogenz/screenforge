@@ -19,13 +19,9 @@ import {
   screenshotImage,
 } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
-import {
-  DEFAULT_APP_STORE_PROFILE_ID,
-  getAppStoreProfile,
-  type AppStoreProfileId,
-} from '@/lib/dimensions'
 import { DEFAULT_CANVAS_SHADOW_COLOR, DEFAULT_DEVICE_SCREEN_COLOR } from '@/lib/content-defaults'
 import { normalizeScreenshotPlacement } from '@/lib/screenshot-placement'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { ICON_STROKE, iconEntry, shapeEntry } from '@/lib/vector-catalog'
 import {
   GHOST_HALO,
@@ -43,10 +39,13 @@ import type {
   Layer,
   TextLayer,
   TextShadow,
+  StoreTargetId,
 } from '@/types'
 
-export const SCREEN_WIDTH = 440
-export const SCREEN_HEIGHT = 956
+export type BoardSize = { width: number; height: number }
+/** Compatibility aliases for Apple-only call sites removed in later phases. */
+export const SCREEN_WIDTH = APP_STORE_PROFILE.board.width
+export const SCREEN_HEIGHT = APP_STORE_PROFILE.board.height
 export const SCREEN_GAP = 40
 
 export interface CanvasSize {
@@ -54,12 +53,8 @@ export interface CanvasSize {
   height: number
 }
 
-export function canvasSize(
-  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
-): CanvasSize {
-  const profile = getAppStoreProfile(profileId)
-  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
-  return profile.logical
+export function canvasSize(target: StoreTargetId = APP_STORE_PROFILE.id): CanvasSize {
+  return getStoreTargetProfile(target).board
 }
 
 FabricObject.ownDefaults.originX = 'left'
@@ -139,8 +134,8 @@ export type RenderedObject = FabricObject & {
     screenIndex?: number
     clipScreenIndex?: number
     clipScreenCount?: number
-    clipScreenWidth?: number
-    clipScreenHeight?: number
+    clipBoardWidth?: number
+    clipBoardHeight?: number
     layout?: boolean
     rendererType?: Layer['type'] | 'background' | 'label'
     resourceKey?: string
@@ -195,8 +190,50 @@ interface FabricInternalSetter {
   _set(key: string, value: unknown): void
 }
 
-export function getScreenOffset(index: number, screenWidth = SCREEN_WIDTH): number {
-  return index * (screenWidth + SCREEN_GAP)
+export function getScreenOffset(index: number, board: BoardSize = APP_STORE_PROFILE.board): number {
+  return index * (board.width + SCREEN_GAP)
+}
+
+/**
+ * Le nom d'une planche se lit à l'écran, pas dans la scène.
+ *
+ * Il n'appartient pas à la composition : il désigne la planche, comme le
+ * ferait une étiquette posée à côté. Rendu en unités de scène il suivait le
+ * zoom — à 65 %, douze unités font 7,8 px, illisible ; à 400 %, 48 px, un
+ * titre qui domine le visuel qu'il nomme. Les deux valeurs sont donc divisées
+ * par le zoom pour rendre 12 px de texte à 26 px au-dessus du bord, quel que
+ * soit le facteur.
+ */
+export const SCREEN_LABEL_FONT_SIZE = 12
+export const SCREEN_LABEL_OFFSET = 26
+
+/** @param zoom facteur du viewport Fabric */
+export function screenLabelGeometry(zoom: number): { fontSize: number; top: number } {
+  const factor = zoom > 0 ? zoom : 1
+  return { fontSize: SCREEN_LABEL_FONT_SIZE / factor, top: -SCREEN_LABEL_OFFSET / factor }
+}
+
+/**
+ * Remet les étiquettes de planche à leur taille écran.
+ *
+ * Rien dans Fabric ne dit « cet objet ignore le viewport » : la taille est
+ * recalculée à chaque changement de zoom. Rend `true` si quelque chose a
+ * bougé, pour que l'appelant sache s'il doit redessiner.
+ */
+export function scaleScreenLabels(
+  canvas: { getObjects: () => FabricObject[] },
+  zoom: number,
+): boolean {
+  const { fontSize, top } = screenLabelGeometry(zoom)
+  let changed = false
+  for (const object of canvas.getObjects() as RenderedObject[]) {
+    if (object.data?.rendererType !== 'label') continue
+    if (object.get('fontSize') === fontSize && object.top === top) continue
+    object.set({ fontSize, top })
+    object.setCoords()
+    changed = true
+  }
+  return changed
 }
 
 // ─── Hors planche : ce qui est sorti du cadre, et ce qu'il en reste ──────────
@@ -242,15 +279,15 @@ const OFFBOARD_EPSILON = 0.5
 export function escapesScreen(
   object: FabricObject,
   screenIndex: number,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): boolean {
   const bounds = object.getBoundingRect()
-  const left = getScreenOffset(screenIndex, size.width)
+  const left = getScreenOffset(screenIndex, board)
   return (
     bounds.left < left - OFFBOARD_EPSILON ||
     bounds.top < -OFFBOARD_EPSILON ||
-    bounds.left + bounds.width > left + size.width + OFFBOARD_EPSILON ||
-    bounds.top + bounds.height > size.height + OFFBOARD_EPSILON
+    bounds.left + bounds.width > left + board.width + OFFBOARD_EPSILON ||
+    bounds.top + bounds.height > board.height + OFFBOARD_EPSILON
   )
 }
 
@@ -270,14 +307,10 @@ interface Box {
 }
 
 /** Le rectangle a-t-il de quoi être attrapé sur une planche posée en `boardLeft` ? */
-function grabbable(
-  box: Box,
-  boardLeft: number,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
-): boolean {
+function grabbable(box: Box, boardLeft: number, board: BoardSize): boolean {
   const overlapX =
-    Math.min(box.left + box.width, boardLeft + size.width) - Math.max(box.left, boardLeft)
-  const overlapY = Math.min(box.top + box.height, size.height) - Math.max(box.top, 0)
+    Math.min(box.left + box.width, boardLeft + board.width) - Math.max(box.left, boardLeft)
+  const overlapY = Math.min(box.top + box.height, board.height) - Math.max(box.top, 0)
   return overlapX > MIN_GRABBABLE && overlapY > MIN_GRABBABLE
 }
 
@@ -285,9 +318,9 @@ function grabbable(
 export function intersectsScreen(
   object: FabricObject,
   screenIndex: number,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): boolean {
-  return grabbable(object.getBoundingRect(), getScreenOffset(screenIndex, size.width), size)
+  return grabbable(object.getBoundingRect(), getScreenOffset(screenIndex, board), board)
 }
 
 /**
@@ -305,19 +338,19 @@ export function intersectsScreen(
  */
 export function layerOutOfReach(
   layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): boolean {
   return !grabbable(
     { left: layer.x, top: layer.y, width: layer.width, height: layer.height },
     0,
-    size,
+    board,
   )
 }
 
 /** Où poser le calque pour qu'il tienne entier sur sa planche. */
 export function clampLayerToBoard(
   layer: Pick<BaseLayer, 'x' | 'y' | 'width' | 'height'>,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): {
   x: number
   y: number
@@ -325,8 +358,8 @@ export function clampLayerToBoard(
   const clamp = (value: number, extent: number, size: number) =>
     Math.round(Math.min(Math.max(value, 0), Math.max(0, extent - size)))
   return {
-    x: clamp(layer.x, size.width, layer.width),
-    y: clamp(layer.y, size.height, layer.height),
+    x: clamp(layer.x, board.width, layer.width),
+    y: clamp(layer.y, board.height, layer.height),
   }
 }
 
@@ -347,11 +380,11 @@ export function clampLayerToBoard(
  * donc un point du contour extérieur qui tombe dans l'un d'eux est traversé deux
  * fois et sort du tracé. C'est exactement le complément voulu.
  */
-function clipToStage(ctx: CanvasRenderingContext2D, screenCount: number, size: CanvasSize): void {
+function clipToStage(ctx: CanvasRenderingContext2D, screenCount: number, board: BoardSize): void {
   ctx.beginPath()
   ctx.rect(-STAGE_REACH, -STAGE_REACH, STAGE_REACH * 2, STAGE_REACH * 2)
   for (let index = 0; index < screenCount; index += 1) {
-    ctx.rect(getScreenOffset(index, size.width), 0, size.width, size.height)
+    ctx.rect(getScreenOffset(index, board), 0, board.width, board.height)
   }
   ctx.clip('evenodd')
 }
@@ -363,13 +396,13 @@ function clipToScreen(
   ctx: CanvasRenderingContext2D,
   object: FabricObject,
   screenIndex: number,
-  size: CanvasSize,
+  board: BoardSize,
 ): void {
   const [a, b, c, d, e, f] = object.getViewportTransform()
   const transform = ctx.getTransform()
   ctx.transform(a, b, c, d, e, f)
   ctx.beginPath()
-  ctx.rect(getScreenOffset(screenIndex, size.width), 0, size.width, size.height)
+  ctx.rect(getScreenOffset(screenIndex, board), 0, board.width, board.height)
   ctx.clip()
   // Le tracé de Fabric applique lui-même le transform de vue : on lui rend le
   // contexte tel qu'il l'attend. L'écrêtage, lui, est figé en espace device.
@@ -393,12 +426,12 @@ function clipToScreen(
 export function clipControlsToScreen(
   object: RenderedObject,
   screenIndex: number,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): void {
   const target = object as RenderedObject & ControlHost
   target._renderControls = function renderClippedControls(ctx, styleOverride) {
     ctx.save()
-    clipToScreen(ctx, this, screenIndex, size)
+    clipToScreen(ctx, this, screenIndex, board)
     renderTwoTone(this, ctx, styleOverride, SELECTION_INK, SELECTION_HALO)
     ctx.restore()
 
@@ -409,7 +442,7 @@ export function clipControlsToScreen(
       const siblingScreen = sibling.data?.screenIndex
       if (siblingScreen === undefined) continue
       ctx.save()
-      clipToScreen(ctx, sibling, siblingScreen, size)
+      clipToScreen(ctx, sibling, siblingScreen, board)
       // La couleur, pas `globalAlpha` : le tracé de Fabric remet l'alpha à 1.
       renderTwoTone(sibling, ctx, { hasControls: false }, GHOST_INK, GHOST_HALO)
       ctx.restore()
@@ -473,7 +506,7 @@ export function clipContentToScreen(
   object: RenderedObject,
   screenIndex: number,
   screenCount: number,
-  size: CanvasSize = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): void {
   const renderPlain = Object.getPrototypeOf(object).render as FabricObject['render']
   object.render = function renderClipped(ctx: CanvasRenderingContext2D) {
@@ -482,7 +515,7 @@ export function clipContentToScreen(
     // transform de vue avant de parcourir les objets. Contrairement au tracé
     // des poignées, qui lui arrive en espace device, il n'y a rien à composer.
     ctx.beginPath()
-    ctx.rect(getScreenOffset(screenIndex, size.width), 0, size.width, size.height)
+    ctx.rect(getScreenOffset(screenIndex, board), 0, board.width, board.height)
     ctx.clip()
     renderPlain.call(this, ctx)
     ctx.restore()
@@ -499,15 +532,15 @@ export function clipContentToScreen(
        le fantôme y serait repassé à pleine opacité. `this.opacity` alimente les
        deux branches, celle du groupe comme celle de l'objet seul, et compose
        avec l'opacité que l'utilisateur a réglée sur son calque. */
-    if (!escapesScreen(this, screenIndex, size)) return
+    if (!escapesScreen(this, screenIndex, board)) return
     const opacity = this.opacity
     ctx.save()
     try {
-      clipToStage(ctx, screenCount, size)
+      clipToStage(ctx, screenCount, board)
       this.opacity = opacity * OFFBOARD_OPACITY
       renderPlain.call(this, ctx)
       this.opacity = opacity
-      if (!intersectsScreen(this, screenIndex, size)) strokeLostFrame(ctx, this)
+      if (!intersectsScreen(this, screenIndex, board)) strokeLostFrame(ctx, this)
     } finally {
       this.opacity = opacity
       ctx.restore()
@@ -515,8 +548,11 @@ export function clipContentToScreen(
   }
 }
 
-export function getTotalWidth(screenCount: number, screenWidth = SCREEN_WIDTH): number {
-  return screenCount < 1 ? screenWidth : screenCount * screenWidth + (screenCount - 1) * SCREEN_GAP
+export function getTotalWidth(
+  screenCount: number,
+  board: BoardSize = APP_STORE_PROFILE.board,
+): number {
+  return screenCount < 1 ? board.width : screenCount * board.width + (screenCount - 1) * SCREEN_GAP
 }
 
 function createShadow(shadow?: TextShadow): Shadow | null {

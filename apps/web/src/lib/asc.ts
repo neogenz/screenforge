@@ -1,4 +1,8 @@
-import { APP_STORE_TARGET, getAppStoreProfile, MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import {
+  APP_STORE_PROFILE,
+  getStoreTargetProfile,
+  type AppStoreTargetProfile,
+} from '@/lib/dimensions'
 import { INTERNAL_PNG_SIZE_TARGET } from '@/lib/export'
 import { sha256OfText } from '@/lib/hash'
 import type { Release, ReleaseFile } from '@/types'
@@ -36,10 +40,16 @@ export const ASC_DISPLAY_TYPE = 'APP_IPHONE_69'
 /** Les dimensions qu'Apple accepte dans ce jeu, portrait et paysage. */
 export const ASC_ACCEPTED_SIZES: readonly (readonly [number, number])[] = [[1320, 2868]]
 
-function releaseProfile(release: Release) {
-  const profile = getAppStoreProfile(release.snapshot.profileId)
-  if (!profile) throw new Error(`Profil App Store inconnu : ${release.snapshot.profileId}.`)
+function releaseProfile(release: Release): AppStoreTargetProfile {
+  const profile = getStoreTargetProfile(release.snapshot.target)
+  if (profile.platform !== 'apple') {
+    throw new Error(`La cible ${release.snapshot.target} n’est pas publiable sur l’App Store.`)
+  }
   return profile
+}
+
+export function ascDeviceType(release: Release): string {
+  return releaseProfile(release).appStoreConnectType
 }
 
 /**
@@ -375,13 +385,13 @@ export function preflight(
 
   if (files.length === 0) {
     error('Ce lot ne contient aucune planche.')
-  } else if (files.length > MAX_PROJECT_SCREENS) {
-    error(`App Store Connect accepte au plus ${MAX_PROJECT_SCREENS} captures par jeu.`)
+  } else if (files.length > profile.maxScreens) {
+    error(`App Store Connect accepte au plus ${profile.maxScreens} captures par jeu.`)
   }
 
   for (const file of files) {
     const accepted =
-      file.width === profile.portrait.width && file.height === profile.portrait.height
+      file.width === profile.output.portrait.width && file.height === profile.output.portrait.height
     if (!accepted) {
       error(
         `« ${file.name} » fait ${file.width}×${file.height}, que le jeu ${profile.appStoreConnectType} n’accepte pas.`,
@@ -401,10 +411,17 @@ export function blocking(findings: readonly AscFinding[]): boolean {
   return findings.some((finding) => finding.level === 'error')
 }
 
-/** Le préambule du manifeste : le même que celui de la page, pour la vérité. */
-export function targetSummary(target: AscTarget, release?: Release): string {
+/**
+ * Le préambule du manifeste : le même que celui de la page, pour la vérité.
+ *
+ * `null` tant que la cible est incomplète. Les chevrons `<app>` `<version>`
+ * qu'il posait à la place composaient une phrase de succès sur des champs
+ * jamais saisis — un résumé qui ne résume rien n'a pas à s'écrire.
+ */
+export function targetSummary(target: AscTarget, release?: Release): string | null {
+  if (!target.bundleId || !target.appVersion || !target.locale) return null
   const deviceType = release ? releaseProfile(release).appStoreConnectType : ASC_DISPLAY_TYPE
-  return `${target.bundleId || '<app>'} ${target.appVersion || '<version>'} · ${target.locale || '<langue>'} · ${deviceType}`
+  return `${target.bundleId} ${target.appVersion} · ${target.locale} · ${deviceType}`
 }
 
 /**
@@ -413,9 +430,9 @@ export function targetSummary(target: AscTarget, release?: Release): string {
  * `APP_STORE_TARGET` est lu ici pour que le libellé de taille affiché soit celui
  * des dimensions réellement rendues, et non une constante recopiée.
  */
-export const ASC_SIZE_LABEL = `${APP_STORE_TARGET.size} — ${APP_STORE_TARGET.portrait.width}×${APP_STORE_TARGET.portrait.height}`
+export const ASC_SIZE_LABEL = `${APP_STORE_PROFILE.output.size} — ${APP_STORE_PROFILE.output.portrait.width}×${APP_STORE_PROFILE.output.portrait.height}`
 
 export function ascSizeLabel(release: Release): string {
   const profile = releaseProfile(release)
-  return `${profile.name} — ${profile.portrait.width}×${profile.portrait.height}`
+  return `${profile.output.name} — ${profile.output.portrait.width}×${profile.output.portrait.height}`
 }

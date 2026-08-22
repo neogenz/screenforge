@@ -1,45 +1,28 @@
 import { create } from 'zustand'
-import { currentDeviceFramesFor, getDeviceFrame } from '@/assets/device-frames'
 import { DEFAULT_INK_COLOR, DEFAULT_SOLID_COLOR } from '@/lib/content-defaults'
-import {
-  DEFAULT_APP_STORE_PROFILE_ID,
-  getAppStoreProfile,
-  MAX_PROJECT_SCREENS,
-  type AppStoreProfileId,
-} from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import { defaultScreenName } from '@/lib/screens'
-import type { DeviceModel, GlobalSettings, Layer, Project, Screen } from '@/types'
-
-const DEFAULT_DEVICE_MODEL: DeviceModel = 'iphone-17-pro-max'
+import type { GlobalSettings, Layer, Project, Screen, StoreTargetId } from '@/types'
 
 // Les réglages globaux l'emportent sur les fabriques de calques : tout défaut
 // posé ici est ce que l'utilisateur voit réellement en ajoutant un calque.
 // Ils dérivent donc des mêmes sources uniques, jamais de valeurs recopiées.
-export const DEFAULT_GLOBALS: GlobalSettings = {
-  fontFamily: POPULAR_FONTS[0],
-  fontWeight: 700,
-  fontSize: 48,
-  fontColor: DEFAULT_INK_COLOR,
-  background: { type: 'solid', color: DEFAULT_SOLID_COLOR },
-  deviceModel: DEFAULT_DEVICE_MODEL,
-  deviceColor: getDeviceFrame(DEFAULT_DEVICE_MODEL).colors[0].name,
-}
-
-export function createDefaultGlobals(
-  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
-): GlobalSettings {
-  const profile = getAppStoreProfile(profileId)
-  if (!profile) throw new Error(`Unknown App Store profile: ${profileId}`)
-  const defaultDevice = currentDeviceFramesFor(profile.platform)[0]
-  if (!defaultDevice) throw new Error(`No device frame for platform: ${profile.platform}`)
+export function createDefaultGlobals(target: StoreTargetId): GlobalSettings {
+  const profile = getStoreTargetProfile(target)
   return {
-    ...structuredClone(DEFAULT_GLOBALS),
-    deviceModel: defaultDevice.model,
-    deviceColor: defaultDevice.colors[0].name,
+    fontFamily: POPULAR_FONTS[0],
+    fontWeight: 700,
+    fontSize: 48,
+    fontColor: DEFAULT_INK_COLOR,
+    background: { type: 'solid', color: DEFAULT_SOLID_COLOR },
+    deviceModel: profile.defaultDeviceModel,
+    deviceColor: profile.defaultDeviceColor,
   }
 }
+
+export const DEFAULT_GLOBALS: GlobalSettings = createDefaultGlobals(APP_STORE_PROFILE.id)
 
 export function createDefaultScreen(name: string, globals: GlobalSettings): Screen {
   return {
@@ -52,15 +35,15 @@ export function createDefaultScreen(name: string, globals: GlobalSettings): Scre
 
 export function createProjectDocument(
   name: string,
-  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+  target: StoreTargetId = APP_STORE_PROFILE.id,
 ): Project {
   const now = Date.now()
-  const globals = createDefaultGlobals(profileId)
+  const globals = createDefaultGlobals(target)
   const screen = createDefaultScreen(defaultScreenName(0), globals)
   return {
     id: crypto.randomUUID(),
     name,
-    profileId,
+    target,
     screens: [screen],
     activeScreenId: screen.id,
     globals,
@@ -92,7 +75,7 @@ export function getProjectLayers(project: Project | null): Layer[] {
 interface ProjectState {
   project: Project | null
 
-  createProject: (name: string, profileId?: AppStoreProfileId) => void
+  createProject: (name: string, target?: StoreTargetId) => void
   loadProject: (project: Project) => void
   setActiveScreenId: (id: string) => void
   updateProjectName: (name: string) => void
@@ -120,8 +103,8 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: null,
 
-  createProject: (name, profileId = DEFAULT_APP_STORE_PROFILE_ID) => {
-    set({ project: createProjectDocument(name, profileId) })
+  createProject: (name, target = APP_STORE_PROFILE.id) => {
+    set({ project: createProjectDocument(name, target) })
   },
 
   loadProject: (project) => set({ project }),
@@ -151,7 +134,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   addScreen: (content) => {
     const project = get().project
-    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
+    if (!project || project.screens.length >= getStoreTargetProfile(project.target).maxScreens)
+      return null
     const screen = content
       ? {
           id: crypto.randomUUID(),
@@ -186,7 +170,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   duplicateScreen: (id) => {
     const project = get().project
-    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return null
+    if (!project || project.screens.length >= getStoreTargetProfile(project.target).maxScreens)
+      return null
     const sourceIndex = project.screens.findIndex((screen) => screen.id === id)
     if (sourceIndex === -1) return null
     const source = project.screens[sourceIndex]

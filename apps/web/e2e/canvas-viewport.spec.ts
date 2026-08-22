@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { addDeviceLayer, waitForApp, waitForCanvasSettled } from './helpers'
+import { addDeviceLayer, openAndroidProject, waitForApp, waitForCanvasSettled } from './helpers'
 
 /**
  * Le recadrage au redimensionnement.
@@ -150,4 +150,70 @@ test('preserves a hand-set zoom while the content still fits', async ({ page }) 
   expect(after).not.toBeNull()
   if (!before || !after) return
   expect(after.zoom).toBeCloseTo(before.zoom, 2)
+})
+
+test('fits the Android 9:16 artboard from its active project target', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  const scene = await page.evaluate(() => {
+    const board = window.__sfCanvas
+      ?.getObjects()
+      .find(
+        (object) =>
+          (object as { data?: { rendererType?: string } }).data?.rendererType === 'background',
+      )
+    return board ? { width: board.width, height: board.height } : null
+  })
+  expect(scene).toMatchObject({ width: 540, height: 960 })
+
+  const rect = await artboardRect(page)
+  expect(rect).not.toBeNull()
+  if (!rect) return
+  const free = freeStage(rect)
+  expect(rect.left).toBeGreaterThanOrEqual(free.left - 1)
+  expect(rect.right).toBeLessThanOrEqual(free.right + 1)
+  expect(rect.top).toBeGreaterThanOrEqual(free.top - 1)
+  expect(rect.bottom).toBeLessThanOrEqual(free.bottom + 1)
+})
+
+/**
+ * Taille rendue du nom de planche, en pixels d'écran.
+ *
+ * C'est le produit qui compte, pas la valeur de scène : le label est écrit en
+ * unités de scène et divisé par le zoom, donc seul `fontSize × zoom` dit ce
+ * que l'œil mesure.
+ */
+async function labelScreenBox(page: Page) {
+  return page.evaluate(() => {
+    const canvas = window.__sfCanvas
+    if (!canvas) return null
+    const label = canvas
+      .getObjects()
+      .find(
+        (object) => (object as { data?: { rendererType?: string } }).data?.rendererType === 'label',
+      ) as unknown as { fontSize?: number; top?: number } | undefined
+    if (!label?.fontSize) return null
+    const zoom = canvas.getZoom()
+    return { fontSize: label.fontSize * zoom, top: (label.top ?? 0) * zoom }
+  })
+}
+
+test('le nom de la planche garde sa taille écran à tous les zooms', async ({ page }) => {
+  await waitForApp(page)
+  await addDeviceLayer(page)
+  await waitForCanvasSettled(page)
+
+  /* À 65 %, douze unités de scène font 7,8 px : illisible, donc inutile ; à
+     400 %, 48 px, un titre qui domine le visuel qu'il nomme. Le label désigne
+     la planche, il n'en fait pas partie. */
+  for (const zoom of [0.65, 2, 0.25, 4]) {
+    await page.evaluate((value) => window.__sfStores?.useUIStore.getState().setZoom(value), zoom)
+    await page.waitForTimeout(150)
+
+    const measured = await labelScreenBox(page)
+    expect(measured, `étiquette absente à ${String(zoom)}`).not.toBeNull()
+    if (!measured) return
+    expect(measured.fontSize, `taille à ${String(zoom)}`).toBeCloseTo(12, 3)
+    expect(measured.top, `distance à la planche à ${String(zoom)}`).toBeCloseTo(-26, 3)
+  }
 })

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   INTERNAL_PNG_SIZE_TARGET,
-  assertAppStorePng,
+  assertExportPng,
   inspectPng,
   type PngMetadata,
 } from '@/lib/export'
@@ -41,7 +41,7 @@ describe('inspectPng', () => {
   })
 })
 
-describe('assertAppStorePng', () => {
+describe('assertExportPng', () => {
   const valid: PngMetadata = {
     width: 1320,
     height: 2868,
@@ -51,7 +51,8 @@ describe('assertAppStorePng', () => {
   }
 
   it('accepts the exact opaque PNG contract', () => {
-    expect(() => assertAppStorePng(valid, 1320, 2868)).not.toThrow()
+    expect(() => assertExportPng(valid, 1320, 2868)).not.toThrow()
+    expect(() => assertExportPng({ ...valid, width: 1080, height: 1920 }, 1080, 1920)).not.toThrow()
   })
 
   it.each([
@@ -60,6 +61,6 @@ describe('assertAppStorePng', () => {
     [{ ...valid, colorType: 6 }, 'Canal alpha détecté'],
     [{ ...valid, byteLength: INTERNAL_PNG_SIZE_TARGET + 1 }, 'PNG trop lourd'],
   ] as const)('rejects an invalid contract', (metadata, message) => {
-    expect(() => assertAppStorePng(metadata, 1320, 2868)).toThrow(message)
+    expect(() => assertExportPng(metadata, 1320, 2868)).toThrow(message)
   })
 })

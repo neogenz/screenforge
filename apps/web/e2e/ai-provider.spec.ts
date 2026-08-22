@@ -20,10 +20,10 @@ import { waitForApp } from './helpers'
  * est interceptée — aucune requête ne sort d'ici.
  */
 
-const DIALOG = 'Générer les visuels App Store'
+const DIALOG = 'Générer les visuels · App Store · iPhone'
 
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: DIALOG }).click()
+  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
 
@@ -75,6 +75,7 @@ test('le choix du modèle est replié, honnête, et jamais bloquant', async ({ p
   // Et la voie recommandée reste à un clic, sans rien connecter.
   await local.click()
   await page.getByRole('button', { name: 'Retour au brief' }).click()
+  await page.getByLabel('Nom de l’app').fill('Cadence')
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
   await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
 })
@@ -142,6 +143,7 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
   // Et la voie recommandée reste à un clic, sans reconnexion ni redémarrage.
   await page.getByRole('radio', { name: /ScreenForge seul/ }).click()
   await page.getByRole('button', { name: 'Retour au brief' }).click()
+  await page.getByLabel('Nom de l’app').fill('Cadence')
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
   await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
 })

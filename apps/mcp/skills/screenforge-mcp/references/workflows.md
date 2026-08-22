@@ -7,7 +7,7 @@ Five recipes. Each is a call order, not a template to copy verbatim.
 These six are the layouts ScreenForge's own generator lays down. Read
 `canvas.width` as `W` and `canvas.height` as `H` from the current
 `get_project_state`; set `S = W / 440` and the text gutter `G = 0.073W`. The
-ratios below therefore hold on iPhone, iPad and Watch instead of carrying one
+ratios below therefore hold on iPhone, iPad, Watch and Android instead of carrying one
 profile's coordinates into another.
 
 | Archetype          | Headline                                            | Device target                                             | Reads as                                   |

@@ -64,6 +64,12 @@ export function Hero() {
             {t.hero.ctaSecondary}
           </CtaGhost>
         </div>
+        {/* Encre pleine et non `marker-ink/80` : `marker-ink` sur `marker` est
+            un couple déjà mesuré à 11,47:1 par `audit:contrast`, une opacité
+            en sortirait et aucun audit ne lit les alphas. */}
+        {t.hero.langNote ? (
+          <p className="mt-4 text-sm leading-5 text-marker-ink">{t.hero.langNote}</p>
+        ) : null}
       </div>
     </section>
   )

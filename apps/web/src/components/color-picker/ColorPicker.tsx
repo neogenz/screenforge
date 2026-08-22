@@ -1,7 +1,14 @@
 import { useId, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from '@/components/ui/input-group'
+import { SliderField } from '@/components/patterns/slider-field'
+import { Button } from '@/components/ui/button'
 import { formatPercent } from '@/lib/number'
 
 interface ColorPickerProps {
@@ -122,10 +129,12 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     emitColor(h, opacityInput / 100)
   }
 
+  // ponytail: le « # » est l'addon de l'InputGroup — le champ ne porte que les
+  // chiffres, on retire un éventuel # tapé quand même (ex. un `fill('#ff0000')` de test).
   function handleHexInput(e: ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value
-    setHexInput(raw)
-    const normalized = raw.startsWith('#') ? raw : '#' + raw
+    const digits = e.target.value.replace(/^#+/, '')
+    const normalized = '#' + digits
+    setHexInput(normalized)
     if (isValidHex(normalized)) {
       setColorError(null)
       emitColor(normalized, opacityInput / 100)
@@ -152,9 +161,9 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     <div className="flex w-full min-w-0 max-w-full flex-col gap-2">
       {/* Swatch + hex + opacity */}
       <div className="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
+        <Button
+          variant="ghost"
+          className="relative h-8 w-10 shrink-0 overflow-hidden rounded-md border border-border px-0 transition-[border-color] duration-150 ease-out hover:border-input hover:bg-transparent focus-visible:border-muted-foreground"
           onClick={() => nativeRef.current?.click()}
           aria-label="Ouvrir le sélecteur de couleur"
         >
@@ -175,8 +184,10 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
             className="absolute inset-0"
             style={{ backgroundColor: showOpacity ? value : hex6 }}
           />
-        </button>
-        <input
+        </Button>
+        <Input
+          unstyled
+          nativeInput
           ref={nativeRef}
           type="color"
           value={hex6}
@@ -185,22 +196,29 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           tabIndex={-1}
           aria-hidden="true"
         />
-        <Input
-          font="tabular"
-          value={hexInput}
-          onChange={handleHexInput}
-          onBlur={handleHexBlur}
-          maxLength={7}
-          placeholder="#000000"
-          spellCheck={false}
-          autoComplete="off"
-          aria-label="Couleur hexadécimale"
-          aria-invalid={Boolean(colorError)}
-          aria-describedby={colorError ? errorId : undefined}
-          className="min-w-0 flex-1"
-        />
+        {/* `nativeInput` : hors du câblage du `Field` parent, dont le libellé
+            (« Couleur », « Ombre »…) écraserait le nom propre de ce champ. */}
+        {/* Six chiffres, largeur connue : le curseur d'opacité prend le reste. */}
+        <InputGroup className="w-24 shrink-0">
+          <InputGroupAddon className="text-muted-foreground">
+            <InputGroupText>#</InputGroupText>
+          </InputGroupAddon>
+          <InputGroupInput
+            nativeInput
+            value={hexInput.replace(/^#/, '')}
+            onChange={handleHexInput}
+            onBlur={handleHexBlur}
+            placeholder="000000"
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="Couleur hexadécimale"
+            aria-invalid={Boolean(colorError)}
+            aria-describedby={colorError ? errorId : undefined}
+            className="tabular-nums"
+          />
+        </InputGroup>
         {showOpacity && (
-          <Slider
+          <SliderField
             ariaLabel="Opacité de la couleur"
             min={0}
             max={100}
@@ -212,7 +230,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         )}
       </div>
       {colorError && (
-        <p id={errorId} role="alert" className="text-2xs text-destructive">
+        <p id={errorId} role="alert" className="text-xs text-destructive">
           {colorError}
         </p>
       )}
@@ -220,20 +238,27 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       {/* Recent colors */}
       {recentColors.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="field-label">Récents</span>
+          <span className="text-xs text-muted-foreground">Récents</span>
           <div className="flex flex-wrap gap-1">
             {recentColors.map((color) => (
-              <button
+              <Button
                 key={color}
-                type="button"
-                className="h-5 w-5 cursor-pointer rounded-xs border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
-                style={{ backgroundColor: color }}
+                variant="ghost"
+                size="icon-xs"
+                className="p-[3px] ring-inset ring-1 ring-transparent hover:bg-transparent hover:ring-input"
                 onClick={() => {
                   addRecentColor(color)
                   onChange(color)
                 }}
                 aria-label={`Couleur récente ${color}`}
-              />
+              >
+                <span aria-hidden className="checkerboard block size-full rounded-sm">
+                  <span
+                    className="block size-full rounded-sm ring-1 ring-inset ring-input"
+                    style={{ backgroundColor: color }}
+                  />
+                </span>
+              </Button>
             ))}
           </div>
         </div>

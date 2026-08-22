@@ -23,6 +23,7 @@ export function DemoCursor({ pose, visible }: { pose: CursorPose; visible: boole
   return (
     <div
       aria-hidden
+      data-demo-cursor
       className="pointer-events-none absolute top-0 left-0 z-10"
       style={{
         transform: `translate(${pose.x - CURSOR_HOTSPOT.x}px, ${pose.y - CURSOR_HOTSPOT.y}px)`,

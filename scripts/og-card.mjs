@@ -25,10 +25,8 @@ const WORDMARK = `data:image/svg+xml;base64,${readFileSync(
   new URL('../apps/web/public/brand/screenforge-wordmark.svg', import.meta.url),
 ).toString('base64')}`
 
-/* La carte disait « Ten iPhone screens » et en dessinait neuf. Le nombre est
-   lu dans `dimensions.ts` plutôt que recopié : il apparaît deux fois sur cette
-   image, une fois en chiffre et une fois en vignettes, et rien ne les tenait
-   ensemble. */
+/* La rangée montre le maximum Apple. Le nombre reste lu dans `dimensions.ts`
+   pour que la carte ne dessine jamais plus de planches que l'éditeur. */
 const SCREENS = Number(
   /MAX_PROJECT_SCREENS = (\d+)/.exec(
     readFileSync(new URL('../packages/project-format/src/dimensions.ts', import.meta.url), 'utf8'),
@@ -74,9 +72,9 @@ const html = `<!doctype html><html><head><meta charset="utf-8" />
        border:1px solid rgba(255,255,255,0.7);background:rgba(0,0,0,0.3);border-radius:18%/8%}
 </style></head><body>
   <div class="brand" role="img" aria-label="ScreenForge"></div>
-  <h1>App Store screenshots,<br />down to the pixel.</h1>
+  <h1>Store screenshots,<br />down to the pixel.</h1>
   <div class="row">
-    <p class="lede">${SCREENS} iPhone screens composed once, re-shot in one click, exported at native 1320&times;2868.
+    <p class="lede">App Store at native 1320&times;2868. Google Play phone at 1080&times;1920. One local editor, two exact exports.
       <span class="price"><span class="mark">Free on your machine</span> · $39/year Cloud.</span></p>
     <div class="strip" style="--sheets:${SCREENS}">${sheets}</div>
   </div>

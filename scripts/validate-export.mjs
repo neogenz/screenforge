@@ -1,14 +1,23 @@
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import JSZip from 'jszip'
-import { APP_STORE_PROFILES } from '../packages/project-format/src/dimensions.ts'
+import { STORE_TARGET_PROFILES } from '../packages/project-format/src/dimensions.ts'
 
 const EXPECTED_BIT_DEPTH = 8
 const EXPECTED_COLOR_TYPE = 2
 const INTERNAL_SIZE_TARGET = 5 * 1024 * 1024
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10]
-const FILE_PATTERN = /^([^/]+)\/(\d{2})_([a-z0-9_]+)\.png$/
-const PROFILE_BY_FOLDER = new Map(APP_STORE_PROFILES.map((profile) => [profile.folder, profile]))
+const PROFILES = Object.fromEntries(
+  Object.entries(STORE_TARGET_PROFILES).map(([id, profile]) => [
+    id,
+    {
+      folder: profile.zipFolder,
+      width: profile.output.portrait.width,
+      height: profile.output.portrait.height,
+      maxFiles: profile.maxScreens,
+    },
+  ]),
+)
 
 /**
  * @typedef {{ width: number; height: number; bitDepth: number; colorType: number; byteLength: number }} PngMetadata
@@ -34,11 +43,11 @@ function readPngMetadata(bytes, path) {
   }
 }
 
-/** @param {PngMetadata} metadata @param {string} path @param {(typeof APP_STORE_PROFILES)[number]} profile */
+/** @param {PngMetadata} metadata @param {string} path @param {{width: number; height: number}} profile */
 function assertPng(metadata, path, profile) {
-  if (metadata.width !== profile.portrait.width || metadata.height !== profile.portrait.height) {
+  if (metadata.width !== profile.width || metadata.height !== profile.height) {
     throw new Error(
-      `${path}: ${metadata.width}×${metadata.height}, attendu ${profile.portrait.width}×${profile.portrait.height}`,
+      `${path}: ${metadata.width}×${metadata.height}, attendu ${profile.width}×${profile.height}`,
     )
   }
   if (metadata.bitDepth !== EXPECTED_BIT_DEPTH) {
@@ -54,31 +63,82 @@ function assertPng(metadata, path, profile) {
   }
 }
 
-/** @param {Uint8Array} zipBytes */
-export async function validateExportZip(zipBytes) {
+/** Lit le répertoire central : JSZip masque sinon deux entrées de même nom. @param {Uint8Array} bytes */
+function centralDirectoryNames(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  let eocd = -1
+  for (let at = bytes.byteLength - 22; at >= Math.max(0, bytes.byteLength - 65_557); at -= 1) {
+    if (view.getUint32(at, true) === 0x06054b50) {
+      eocd = at
+      break
+    }
+  }
+  if (eocd < 0) throw new Error('répertoire central ZIP introuvable')
+  const count = view.getUint16(eocd + 10, true)
+  let offset = view.getUint32(eocd + 16, true)
+  const names = []
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 46 > bytes.byteLength || view.getUint32(offset, true) !== 0x02014b50) {
+      throw new Error('entrée du répertoire central ZIP invalide')
+    }
+    const nameLength = view.getUint16(offset + 28, true)
+    const extraLength = view.getUint16(offset + 30, true)
+    const commentLength = view.getUint16(offset + 32, true)
+    names.push(new TextDecoder().decode(bytes.subarray(offset + 46, offset + 46 + nameLength)))
+    offset += 46 + nameLength + extraLength + commentLength
+  }
+  return names
+}
+
+/** @typedef {keyof typeof STORE_TARGET_PROFILES} TargetId */
+
+/** @param {string[]} paths @param {string | undefined} targetId */
+function resolveProfile(paths, targetId) {
+  if (targetId && !Object.hasOwn(PROFILES, targetId))
+    throw new Error(`cible inconnue : ${targetId}`)
+  const inferred = Object.entries(PROFILES).find(([, profile]) =>
+    paths.some((path) => path.startsWith(`${profile.folder}/`)),
+  )?.[0]
+  const id = /** @type {TargetId | undefined} */ (targetId ?? inferred)
+  if (!id) throw new Error('cible indétectable : dossier d’export inconnu')
+  return { id, ...PROFILES[id] }
+}
+
+/** @param {Uint8Array} zipBytes @param {string} [targetId] */
+export async function validateExportZip(zipBytes, targetId) {
+  const centralNames = centralDirectoryNames(zipBytes).filter((name) => !name.endsWith('/'))
+  if (new Set(centralNames).size !== centralNames.length) {
+    throw new Error('le ZIP contient un chemin en double')
+  }
   const zip = await JSZip.loadAsync(zipBytes)
   const files = Object.values(zip.files)
     .filter((entry) => !entry.dir)
     .sort((left, right) => left.name.localeCompare(right.name))
 
-  if (files.length < 1 || files.length > 10) {
-    throw new Error(`le ZIP doit contenir entre 1 et 10 PNG, reçu ${files.length}`)
+  const profile = resolveProfile(
+    files.map((file) => file.name),
+    targetId,
+  )
+  if (files.length < 1 || files.length > profile.maxFiles) {
+    throw new Error(
+      `le ZIP ${profile.id} doit contenir entre 1 et ${profile.maxFiles} PNG, reçu ${files.length}`,
+    )
   }
 
   const summaries = []
-  let folder
+  const filePattern = new RegExp(
+    `^${profile.folder.replace('.', '\\.')}\\/(\\d{2})_([a-z0-9_]+)\\.png$`,
+  )
   for (let index = 0; index < files.length; index += 1) {
     const entry = files[index]
-    const match = FILE_PATTERN.exec(entry.name)
-    if (!match) throw new Error(`${entry.name}: chemin invalide, attendu profil/NN_nom.png`)
-    const profile = PROFILE_BY_FOLDER.get(match[1])
-    if (!profile) throw new Error(`${entry.name}: dossier de profil App Store inconnu`)
-    folder ??= profile.folder
-    if (folder !== profile.folder) throw new Error('le ZIP mélange plusieurs profils App Store')
+    const match = filePattern.exec(entry.name)
+    if (!match) {
+      throw new Error(`${entry.name}: chemin invalide, attendu ${profile.folder}/NN_nom.png`)
+    }
     const expectedIndex = index + 1
-    if (Number(match[2]) !== expectedIndex) {
+    if (Number(match[1]) !== expectedIndex) {
       throw new Error(
-        `${entry.name}: index ${match[2]}, attendu ${String(expectedIndex).padStart(2, '0')}`,
+        `${entry.name}: index ${match[1]}, attendu ${String(expectedIndex).padStart(2, '0')}`,
       )
     }
     const bytes = await entry.async('uint8array')
@@ -90,9 +150,21 @@ export async function validateExportZip(zipBytes) {
 }
 
 async function main() {
-  const inputPath = process.argv.slice(2).find((argument) => argument !== '--')
-  if (!inputPath) throw new Error('usage: pnpm validate:export -- <screenforge-app-store.zip>')
-  const summaries = await validateExportZip(await readFile(inputPath))
+  const args = process.argv.slice(2)
+  const targetAt = args.indexOf('--target')
+  const inlineTarget = args.find((argument) => argument.startsWith('--target='))?.slice(9)
+  const targetId = inlineTarget ?? (targetAt >= 0 ? args[targetAt + 1] : undefined)
+  const inputPath = args.find(
+    (argument, index) =>
+      argument !== '--' &&
+      argument !== '--target' &&
+      index !== targetAt + 1 &&
+      !argument.startsWith('--target='),
+  )
+  if (!inputPath) {
+    throw new Error('usage: pnpm validate:export -- <screenforge.zip> [--target <cible>]')
+  }
+  const summaries = await validateExportZip(await readFile(inputPath), targetId)
   const totalBytes = summaries.reduce((total, file) => total + file.byteLength, 0)
   const first = summaries[0]
   console.log(

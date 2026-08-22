@@ -2,7 +2,13 @@ import { authTables } from '@convex-dev/auth/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { internalMutation, internalQuery, mutation, type MutationCtx } from './_generated/server'
+import {
+  env,
+  internalMutation,
+  internalQuery,
+  mutation,
+  type MutationCtx,
+} from './_generated/server'
 import { requireUser } from './authz'
 import { consume, normalizeEmail, resetAccountLimits } from './limits'
 import { deleteIfUnreferenced } from './storageReferences'
@@ -369,6 +375,13 @@ type DeletionProgress = 'deleted' | 'cleanup-pending' | 'deletion-pending' | 'bi
 
 export type AccountDeletionOutcome = DeletionProgress
 
+/** Local-first deployments intentionally omit PostHog altogether. */
+function posthogDisabled(): boolean {
+  return ![env.POSTHOG_HOST, env.POSTHOG_PERSON_API_KEY, env.POSTHOG_PROJECT_ID].some((value) =>
+    value?.trim(),
+  )
+}
+
 async function billingPreventsDeletion(ctx: MutationCtx, userId: Id<'users'>): Promise<boolean> {
   const entitlement = await ctx.db
     .query('entitlements')
@@ -419,6 +432,15 @@ async function advance(
   ctx: MutationCtx,
   job: Doc<'accountDeletionJobs'>,
 ): Promise<DeletionProgress> {
+  if (job.status === 'telemetry') {
+    if (posthogDisabled()) {
+      await ctx.db.delete(job._id)
+      return 'deleted'
+    }
+    await ctx.scheduler.runAfter(0, internal.posthog.deletePerson, { userId: job.userId })
+    return 'cleanup-pending'
+  }
+
   const userId = ctx.db.normalizeId('users', job.userId)
   if (userId === null) {
     /* Une ligne dont l'identifiant n'a jamais été un `Id<'users'>` ne désigne
@@ -482,8 +504,14 @@ async function advance(
     return 'cleanup-pending'
   }
 
-  await ctx.db.delete(job._id)
-  return 'deleted'
+  if (posthogDisabled()) {
+    await ctx.db.delete(job._id)
+    return 'deleted'
+  }
+
+  await ctx.db.patch(job._id, { status: 'telemetry', lastError: null })
+  await ctx.scheduler.runAfter(0, internal.posthog.deletePerson, { userId: job.userId })
+  return 'cleanup-pending'
 }
 
 /**
@@ -570,6 +598,39 @@ export const resumeAll = internalMutation({
       await ctx.scheduler.runAfter(0, internal.accountDeletion.resume, { userId: job.userId })
     }
     return jobs.length
+  },
+})
+
+const posthogDeletionOutcome = v.union(
+  v.literal('deleted'),
+  v.literal('absent'),
+  v.literal('configuration'),
+  v.literal('invalid-response'),
+  v.literal('network'),
+  v.literal('rate-limited'),
+  v.literal('service-unavailable'),
+  v.literal('unauthorized'),
+)
+
+/** A PostHog acknowledgement is the final durable deletion checkpoint. */
+export const finishTelemetry = internalMutation({
+  args: { userId: v.string(), outcome: posthogDeletionOutcome },
+  returns: v.null(),
+  handler: async (ctx, { userId, outcome }) => {
+    const job = await jobFor(ctx, userId)
+    if (job === null || job.status !== 'telemetry') return null
+
+    if (outcome === 'deleted' || outcome === 'absent') {
+      await ctx.db.delete(job._id)
+      return null
+    }
+
+    await ctx.db.patch(job._id, {
+      attempts: job.attempts + 1,
+      lastError: `posthog:${outcome}`,
+    })
+    console.error('PostHog person deletion remains queued.', { outcome })
+    return null
   },
 })
 

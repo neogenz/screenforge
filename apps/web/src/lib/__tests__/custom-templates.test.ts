@@ -186,15 +186,30 @@ describe('validation', () => {
     }
     expect(isCustomTemplate(broken)).toBe(false)
     expect(isCustomTemplate({ ...template, source: 'humain' })).toBe(false)
-    expect(isCustomTemplate({ ...template, profileId: 'unknown' })).toBe(false)
   })
 
-  it('migre un ancien enregistrement vers iPhone à la lecture', async () => {
+  it('migre un ancien profil vers sa cible à la lecture', async () => {
     const legacy = templateFromScreen(screen([textLayer()]), { name: 'Ancien', source: 'user' })
-    delete (legacy as Partial<CustomTemplate>).profileId
+    delete (legacy as { target?: string }).target
+    ;(legacy as unknown as { profileId: string }).profileId = 'ipad-13'
     await (await getDB()).put('templates', legacy)
 
-    await expect(readCustomTemplates()).resolves.toMatchObject([{ profileId: 'iphone-6.9' }])
+    await expect(readCustomTemplates()).resolves.toMatchObject([{ target: 'app-store-ipad-13' }])
+  })
+
+  it('relit un ancien gabarit sans cible comme Apple et conserve une cible Android', () => {
+    const apple = templateFromScreen(screen([textLayer()]), { name: 'Ancien', source: 'user' })
+    delete (apple as { target?: string }).target
+    expect(isCustomTemplate(apple)).toBe(true)
+    expect(instantiateTemplate(apple).target).toBe('app-store-iphone')
+
+    const android = templateFromScreen(screen([]), {
+      name: 'Android',
+      source: 'user',
+      target: 'google-play-phone',
+    })
+    expect(isCustomTemplate(android)).toBe(true)
+    expect(instantiateTemplate(android).target).toBe('google-play-phone')
   })
 
   it('ignore un enregistrement illisible sans perdre les autres', async () => {

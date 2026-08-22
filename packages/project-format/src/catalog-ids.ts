@@ -23,54 +23,57 @@ export const ICON_BOX = 24
 /** Épaisseur du trait d'une icône, dans son repère de 24. */
 export const ICON_STROKE = 2
 
-export type DevicePlatform = 'iphone' | 'ipad' | 'watch'
+/** La gamme Apple, la plus large d'abord ; les modèles legacy restent rendables. */
+export const IPHONE_DEVICE_MODEL_IDS = [
+  'iphone-17-pro-max',
+  'iphone-17-pro',
+  'iphone-17',
+  'iphone-air',
+  'iphone-16-plus',
+  'iphone-16',
+  'iphone-16e',
+  // Legacy — kept so older projects still render
+  'iphone-16-pro-max',
+  'iphone-16-pro',
+] as const
 
-/**
- * Modèles originaux disponibles par famille de projet.
- *
- * Les identifiants iPhone historiques restent rendables. Les silhouettes
- * tablette et montre sont volontairement génériques : elles ne nomment aucun
- * produit Apple et ne persistent aucun asset sous licence.
- */
-export const DEVICE_MODEL_IDS_BY_PLATFORM = {
-  iphone: [
-    'iphone-17-pro-max',
-    'iphone-17-pro',
-    'iphone-17',
-    'iphone-air',
-    'iphone-16-plus',
-    'iphone-16',
-    'iphone-16e',
-    // Legacy — kept so older projects still render
-    'iphone-16-pro-max',
-    'iphone-16-pro',
-  ],
-  ipad: ['tablet-slate', 'tablet-studio'],
-  watch: ['watch-halo', 'watch-compact'],
+/** Cadres génériques, sans marque ni ressource propriétaire Apple. */
+export const IPAD_DEVICE_MODEL_IDS = ['tablet-slate', 'tablet-studio'] as const
+export const WATCH_DEVICE_MODEL_IDS = ['watch-halo', 'watch-compact'] as const
+export const ANDROID_DEVICE_MODEL_IDS = ['android-phone'] as const
+
+export const DEVICE_MODEL_IDS_BY_FAMILY = {
+  iphone: IPHONE_DEVICE_MODEL_IDS,
+  ipad: IPAD_DEVICE_MODEL_IDS,
+  watch: WATCH_DEVICE_MODEL_IDS,
+  'android-phone': ANDROID_DEVICE_MODEL_IDS,
 } as const
 
-/** Catalogue plat pour le format persistant et les migrations. */
 export const DEVICE_MODEL_IDS = [
-  ...DEVICE_MODEL_IDS_BY_PLATFORM.iphone,
-  ...DEVICE_MODEL_IDS_BY_PLATFORM.ipad,
-  ...DEVICE_MODEL_IDS_BY_PLATFORM.watch,
+  ...IPHONE_DEVICE_MODEL_IDS,
+  ...IPAD_DEVICE_MODEL_IDS,
+  ...WATCH_DEVICE_MODEL_IDS,
+  ...ANDROID_DEVICE_MODEL_IDS,
 ] as const
 
 export type DeviceModelId = (typeof DEVICE_MODEL_IDS)[number]
 
 const DEVICE_MODEL_ID_SET: ReadonlySet<string> = new Set(DEVICE_MODEL_IDS)
 
-export function isDeviceModelId(value: unknown): value is DeviceModelId {
-  return typeof value === 'string' && DEVICE_MODEL_ID_SET.has(value)
+export function isDeviceModelId(id: unknown): id is DeviceModelId {
+  return typeof id === 'string' && DEVICE_MODEL_ID_SET.has(id)
 }
 
-export function deviceModelIdsForPlatform(platform: DevicePlatform): readonly DeviceModelId[] {
-  return DEVICE_MODEL_IDS_BY_PLATFORM[platform]
+export function deviceModelIdsForFamily(
+  family: keyof typeof DEVICE_MODEL_IDS_BY_FAMILY,
+): readonly DeviceModelId[] {
+  return DEVICE_MODEL_IDS_BY_FAMILY[family]
 }
 
-export function deviceModelPlatform(model: DeviceModelId): DevicePlatform {
-  if ((DEVICE_MODEL_IDS_BY_PLATFORM.ipad as readonly string[]).includes(model)) return 'ipad'
-  if ((DEVICE_MODEL_IDS_BY_PLATFORM.watch as readonly string[]).includes(model)) return 'watch'
+export function deviceModelFamily(model: DeviceModelId): keyof typeof DEVICE_MODEL_IDS_BY_FAMILY {
+  if ((IPAD_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'ipad'
+  if ((WATCH_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'watch'
+  if ((ANDROID_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'android-phone'
   return 'iphone'
 }
 

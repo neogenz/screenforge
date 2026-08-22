@@ -3,11 +3,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
-import { AngleControl } from '@/components/ui/angle-control'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
+import { AngleControl } from '@/components/patterns/angle-control'
+import { IconButton } from '@/components/patterns/icon-button'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
 import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
@@ -98,7 +98,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
       {/* Type */}
       <div className="flex flex-col gap-2">
-        <span className="field-label">Type</span>
+        <span className="text-xs text-muted-foreground">Type</span>
         <Segmented
           options={TYPE_OPTIONS}
           value={value.type}
@@ -116,7 +116,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Center (radial only) */}
       {value.type === 'radial' && (
         <div className="flex gap-2">
-          <NumberField
+          <UnitField
             label="X"
             ariaLabel="Centre X du dégradé"
             min={0}
@@ -124,7 +124,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
             value={Math.round(value.centerX ?? 50)}
             onChange={(v) => setCenter('centerX', v)}
           />
-          <NumberField
+          <UnitField
             label="Y"
             ariaLabel="Centre Y du dégradé"
             min={0}
@@ -146,37 +146,49 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Stops */}
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="field-label">
-            Arrêts <span className="tabular">{value.stops.length}/10</span>
+          <span className="text-xs text-muted-foreground">
+            Arrêts <span className="tabular-nums">{value.stops.length}/10</span>
           </span>
         </div>
 
         <div className="flex flex-col gap-2">
-          {sortedStops.map((stop) => (
+          {sortedStops.map((stop, displayIndex) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-border bg-muted p-2"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-muted p-2"
             >
               <ColorPicker
                 value={stop.color}
                 onChange={(color) => updateStop(stop.originalIndex, { color }, 'color')}
                 showOpacity
               />
-              <IconButton
-                size="sm"
-                onClick={() => removeStop(stop.originalIndex)}
-                disabled={value.stops.length <= 2}
-                aria-label="Supprimer le stop"
-                className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
-              >
-                <Trash2 size={13} strokeWidth={1.5} aria-hidden />
-              </IconButton>
+              <div className="flex items-center gap-2">
+                <UnitField
+                  label="Position"
+                  ariaLabel={`Position de l’arrêt ${displayIndex + 1}`}
+                  unit="%"
+                  min={0}
+                  max={100}
+                  value={Math.round(stop.offset * 100)}
+                  onChange={(v) => updateStop(stop.originalIndex, { offset: v / 100 }, 'offset')}
+                  className="flex-1"
+                />
+                <IconButton
+                  size="sm"
+                  onClick={() => removeStop(stop.originalIndex)}
+                  disabled={value.stops.length <= 2}
+                  aria-label="Supprimer le stop"
+                  className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
+                >
+                  <Trash2 size={13} strokeWidth={1.5} aria-hidden />
+                </IconButton>
+              </div>
             </div>
           ))}
         </div>
 
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
           onClick={addStop}
           disabled={value.stops.length >= 10}
@@ -252,9 +264,9 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
         style={{ background: buildCssGradient(gradient) }}
       />
       {stops.map((stop, displayIndex) => (
-        <button
+        <Button
           key={stop.originalIndex}
-          type="button"
+          variant="ghost"
           role="slider"
           aria-label={`Position de l’arrêt ${displayIndex + 1}`}
           aria-valuemin={0}
@@ -272,7 +284,7 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
           // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
           // sombre. Même raison que `SELECTION_INK` sur le canevas.
           className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
-            rounded-full border-2 border-white shadow-(--shadow-handle)
+            rounded-full border-2 border-white p-0 shadow-(--shadow-handle) sm:h-4.5
             transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
         />
       ))}

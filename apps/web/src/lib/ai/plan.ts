@@ -1,5 +1,5 @@
 import { getDefaultDeviceSize } from '@/assets/device-frames'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { backgroundToCss } from '@/lib/background-css'
 import { normalizeSlot } from '@/lib/slots'
 import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
@@ -16,7 +16,7 @@ import {
   type PlanDevice,
 } from '@/lib/ai/archetypes'
 import type { Palette } from '@/lib/ai/palette'
-import type { Background, DeviceModel, ScreenshotSize } from '@/types'
+import type { Background, DeviceModel, ScreenshotSize, StoreTargetId } from '@/types'
 
 /**
  * Le plan de campagne : ce qui sera fait, avant que quoi que ce soit ne le soit.
@@ -39,6 +39,7 @@ export interface BriefScreenshot {
 }
 
 export interface CampaignBrief {
+  target?: StoreTargetId
   appName: string
   /** Accroche générale vérifiée ; un modèle ne la reprend que si elle fait 3 à 7 mots. */
   pitch: string
@@ -87,6 +88,7 @@ export interface PlannedScreen {
 }
 
 export interface CampaignPlan {
+  target: StoreTargetId
   appName: string
   direction: DirectionId
   /**
@@ -196,7 +198,8 @@ function headlineFor(
  */
 export function planFromBrief(brief: CampaignBrief): CampaignPlan {
   const palette = resolvePalette(brief)
-  const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const profile = getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id)
+  const count = Math.max(1, Math.min(brief.screenCount, profile.maxScreens))
   const screens: PlannedScreen[] = Array.from({ length: count }, (_unused, index) => {
     const shot = brief.screenshots[index]
     const label = shot?.label.trim()
@@ -209,6 +212,7 @@ export function planFromBrief(brief: CampaignBrief): CampaignPlan {
     }
   })
   const plan: CampaignPlan = {
+    target: profile.id,
     appName: brief.appName,
     direction: brief.direction,
     palette,
@@ -228,11 +232,17 @@ export function planFromBrief(brief: CampaignBrief): CampaignPlan {
 export function isCampaignPlan(value: unknown): value is CampaignPlan {
   if (typeof value !== 'object' || value === null) return false
   const plan = value as Record<string, unknown>
+  const profile = getStoreTargetProfile(plan.target)
+  if (!profile) return false
   if (typeof plan.appName !== 'string' || !isDirectionId(plan.direction)) return false
   if (!isPalette(plan.palette)) return false
-  if (typeof plan.deviceModel !== 'string') return false
+  if (
+    typeof plan.deviceModel !== 'string' ||
+    !profile.deviceModels.includes(plan.deviceModel as DeviceModel)
+  )
+    return false
   if (!Array.isArray(plan.screens) || plan.screens.length === 0) return false
-  if (plan.screens.length > AI_LIMITS.maxScreens) return false
+  if (plan.screens.length > profile.maxScreens) return false
   return plan.screens.every((entry) => {
     if (typeof entry !== 'object' || entry === null) return false
     const screen = entry as Record<string, unknown>
@@ -395,7 +405,12 @@ function fitLocalHeadline(plan: CampaignPlan, brief: CampaignBrief, index: numbe
 
 /** Valide en bloc une proposition distante avant que la revue puisse la recevoir. */
 export function validateGeneratedPlan(plan: CampaignPlan, brief: CampaignBrief): string | null {
-  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const profile = getStoreTargetProfile(brief.target ?? plan.target)
+  const expected = Math.max(1, Math.min(brief.screenCount, profile.maxScreens))
+  if (plan.target !== profile.id) return 'Le plan ne vise pas la destination du projet.'
+  if (!profile.deviceModels.includes(plan.deviceModel)) {
+    return `Le modèle ${plan.deviceModel} n’est pas compatible avec ${profile.label}.`
+  }
   if (plan.screens.length !== expected) {
     return `Le modèle a rendu ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''} au lieu de ${expected}.`
   }
@@ -475,9 +490,12 @@ export interface PlanScreenLayout extends ArchetypeLayout {
  * logo signe. Répété partout, il devient un filigrane que l'utilisateur efface
  * huit fois.
  */
-function logoBox(brief: CampaignBrief, archetype: ArchetypeId): PlanBox | null {
+function logoBox(
+  brief: CampaignBrief,
+  archetype: ArchetypeId,
+  board: { width: number; height: number },
+): PlanBox | null {
   if (!brief.logo) return null
-  const board = brief.board ?? PLAN_CANVAS
   const width = Math.max(
     1,
     Math.round((brief.logo.size.width / brief.logo.size.height) * LOGO_HEIGHT),
@@ -498,6 +516,7 @@ export function planScreenLayout(
   if (!screen) return null
 
   const archetype = screen.layout
+  const board = getStoreTargetProfile(plan.target).board
   const frame = getDefaultDeviceSize(plan.deviceModel)
   const shot =
     screen.screenshotIndex === undefined ? undefined : brief.screenshots[screen.screenshotIndex]
@@ -517,11 +536,11 @@ export function planScreenLayout(
     headline: screen.headline,
     deviceAspect: frame.width / frame.height,
     index,
-    board: brief.board,
+    board,
   })
 
   const carriesLogo = Boolean(brief.logo) && (index === 0 || archetype === 'mur')
-  const logo = carriesLogo ? logoBox(brief, archetype) : null
+  const logo = carriesLogo ? logoBox(brief, archetype, board) : null
 
   /* Le logo se pose en haut, et l'archétype ne sait pas qu'il existe : sur
      l'ouverture, l'accroche commence à 43 et la bande du logo occupe 32 à 80.
@@ -745,4 +764,4 @@ export function restyleCalls(
 }
 
 /** Bornes de la planche, exposées au plan pour que rien ne sorte du cadre. */
-export const PLAN_CANVAS = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } as const
+export const PLAN_CANVAS = APP_STORE_PROFILE.board

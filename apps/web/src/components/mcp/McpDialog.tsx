@@ -1,12 +1,21 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
+import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/patterns/setup-flow'
+import { StatusChip, type StatusTone } from '@/components/patterns/status-chip'
 import { disableMcp, enableMcp, MCP_COMMAND, mcpRelayAddress } from '@/lib/mcp/client'
-import { MCP_LABELS, projectMcpSteps, useMcpStore } from '@/stores/mcp.store'
+import { MCP_LABELS, projectMcpSteps, useMcpStore, type McpStatus } from '@/stores/mcp.store'
 import { useUIStore } from '@/stores/ui.store'
+
+/** off patiente, connecting progresse, live confirme, error alerte — même palette que `ProjectSwitcher`. */
+const MCP_STATUS_TONE: Record<McpStatus, StatusTone> = {
+  off: 'neutral',
+  connecting: 'pulse',
+  live: 'success',
+  error: 'warning',
+}
 
 /** La porte locale vers le projet ouvert, décrite par ses seuls jalons observables. */
 export function McpDialog() {
@@ -47,21 +56,21 @@ export function McpDialog() {
 
   const footer =
     status === 'connecting' ? (
-      <Button variant="primary" loading>
+      <Button variant="default" loading>
         Appairer
       </Button>
     ) : status === 'live' ? (
-      <Button ref={disableRef} variant="default" onClick={deactivate}>
+      <Button ref={disableRef} variant="outline" onClick={deactivate}>
         Désactiver
       </Button>
     ) : (
-      <Button variant="primary" onClick={activate} disabled={!/^\d{6}$/.test(code)}>
+      <Button variant="default" onClick={activate} disabled={!/^\d{6}$/.test(code)}>
         Appairer
       </Button>
     )
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={close}
       title="Connexion MCP"
@@ -74,8 +83,13 @@ export function McpDialog() {
           <p className="max-w-[65ch] text-sm text-muted-foreground">
             Un agent externe peut piloter le projet actuellement ouvert dans ScreenForge.
           </p>
-          <p role="status" aria-live="polite" className="shrink-0 text-2xs text-foreground">
-            {MCP_LABELS[status]}
+          <p
+            role="status"
+            aria-live="polite"
+            aria-label="État de la connexion"
+            className="shrink-0"
+          >
+            <StatusChip tone={MCP_STATUS_TONE[status]}>{MCP_LABELS[status]}</StatusChip>
           </p>
         </div>
 
@@ -85,7 +99,7 @@ export function McpDialog() {
 
             {status !== 'live' ? (
               <div className="flex flex-col gap-2">
-                <label htmlFor="mcp-pairing-code" className="field-label">
+                <label htmlFor="mcp-pairing-code" className="text-xs text-muted-foreground">
                   Code à 6 chiffres affiché par le démon
                 </label>
                 <Input
@@ -99,11 +113,11 @@ export function McpDialog() {
                   onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                 />
                 {status === 'error' && connectionStep === 'pairing' ? (
-                  <p role="alert" className="text-2xs text-destructive">
+                  <p role="alert" className="text-xs text-destructive">
                     {message}
                   </p>
                 ) : (
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Usage unique, valable cinq minutes. Le jeton de session reste en mémoire.
                   </p>
                 )}
@@ -119,19 +133,19 @@ export function McpDialog() {
             >
               {status === 'error' && connectionStep === 'daemon' ? (
                 <div className="flex flex-col gap-2">
-                  <p role="alert" className="text-2xs text-destructive">
+                  <p role="alert" className="text-xs text-destructive">
                     {message}
                   </p>
                   <SetupCommand command={MCP_COMMAND} />
                   <div>
-                    <Button variant="default" onClick={activate}>
+                    <Button variant="outline" onClick={activate}>
                       <RefreshCw size={12} aria-hidden />
                       Réessayer
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {status === 'off'
                     ? 'Lancez le démon qui tourne uniquement sur cette machine.'
                     : 'Recherche du démon sur l’adresse loopback…'}
@@ -146,7 +160,7 @@ export function McpDialog() {
               result="Code accepté et session éphémère créée."
               announce={false}
             >
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Le code est vérifié localement et ne peut servir qu’une fois.
               </p>
             </SetupStep>
@@ -159,25 +173,25 @@ export function McpDialog() {
               announce={false}
             >
               {status === 'error' ? (
-                <p role="alert" className="text-2xs text-destructive">
+                <p role="alert" className="text-xs text-destructive">
                   {message}
                 </p>
               ) : (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Le flux local est ouvert. ScreenForge transmet l’état initial du projet.
                 </p>
               )}
             </SetupStep>
 
             <SetupStep rank={4} title="Prêt pour l’agent" state={steps.ready} announce={false}>
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 L’agent peut maintenant lire, rendre et modifier ce projet tant que le mode reste
                 actif.
               </p>
             </SetupStep>
           </div>
 
-          <details className="border-t border-border px-3 py-2 text-2xs text-muted-foreground">
+          <details className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none font-medium hover:text-foreground">
               Détails de connexion
             </summary>
@@ -199,6 +213,6 @@ export function McpDialog() {
           </details>
         </SetupFlow>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

@@ -1,21 +1,26 @@
 import { test, expect, type Page } from '@playwright/test'
 import { decode } from 'fast-png'
-import { addDeviceLayer, addTextLayer, downloadFirstExportedPng, waitForApp } from './helpers'
+import JSZip from 'jszip'
+import {
+  addDeviceLayer,
+  addTextLayer,
+  downloadFirstExportedPng,
+  openAndroidProject,
+  readDownload,
+  waitForApp,
+} from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 import type { Project } from '../src/types'
 
-async function switchProfile(page: Page, profileId: Project['profileId']): Promise<void> {
-  await page.evaluate((id) => {
+async function createTargetProject(page: Page, target: Project['target']): Promise<void> {
+  await page.evaluate((nextTarget) => {
     const store = window.__sfStores?.useProjectStore
-    const project = store?.getState().project
-    if (!store || !project) throw new Error('project store unavailable')
-    store.setState({ project: { ...project, profileId: id } })
-  }, profileId)
+    if (!store) throw new Error('project store unavailable')
+    store.getState().createProject('Export target', nextTarget)
+  }, target)
   await expect
-    .poll(() =>
-      page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.profileId),
-    )
-    .toBe(profileId)
+    .poll(() => page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.target))
+    .toBe(target)
 }
 
 /**
@@ -29,7 +34,7 @@ test.describe('export', () => {
 
     const { names, png } = await downloadFirstExportedPng(page)
     expect(names).toHaveLength(1)
-    expect(names[0]).toMatch(/^iphone-6\.9\/\d{2}_[a-z0-9_]+\.png$/)
+    expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
     const view = new DataView(png.buffer, png.byteOffset, png.byteLength)
     expect(view.getUint32(16)).toBe(1320) // IHDR width
     expect(view.getUint32(20)).toBe(2868) // IHDR height
@@ -39,14 +44,14 @@ test.describe('export', () => {
 
   const profileTargets = [
     {
-      profileId: 'ipad-13' as const,
+      target: 'app-store-ipad-13' as const,
       folder: 'ipad-13',
       width: 2064,
       height: 2752,
       logicalHeight: 586.667,
     },
     {
-      profileId: 'watch-series-10' as const,
+      target: 'app-store-watch-series-10' as const,
       folder: 'watch-series-10',
       width: 416,
       height: 496,
@@ -55,11 +60,11 @@ test.describe('export', () => {
   ] as const
 
   for (const target of profileTargets) {
-    test(`exports ${target.profileId} from its real artboard to its exact App Store dimensions`, async ({
+    test(`exports ${target.target} from its real artboard to its exact App Store dimensions`, async ({
       page,
     }) => {
       await waitForApp(page)
-      await switchProfile(page, target.profileId)
+      await createTargetProject(page, target.target)
 
       await expect
         .poll(() =>
@@ -91,6 +96,34 @@ test.describe('export', () => {
     })
   }
 
+  test('ZIP Google Play contient un PNG RGB opaque exact 1080×1920 sous phone/', async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    await openAndroidProject(page)
+    await page.getByLabel('Ouvrir l’export').click()
+    const dialog = page.getByRole('dialog', { name: 'Export officiel' })
+    await expect(dialog).toContainText('Google Play · téléphone')
+    await expect(dialog).toContainText('1080×1920 px')
+    await expect(dialog).toContainText('au moins 2 captures')
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 60_000 }),
+      dialog.getByRole('button', { name: 'Exporter le ZIP' }).click(),
+    ])
+    expect(download.suggestedFilename()).toMatch(/-google-play\.zip$/)
+    const zip = await JSZip.loadAsync(await readDownload(download))
+    const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir)
+    expect(names).toEqual([expect.stringMatching(/^phone\/01_[a-z0-9_]+\.png$/)])
+    const png = decode(await zip.files[names[0]].async('uint8array'))
+    expect({
+      width: png.width,
+      height: png.height,
+      depth: png.depth,
+      channels: png.channels,
+    }).toEqual({ width: 1080, height: 1920, depth: 8, channels: 3 })
+  })
+
   test('official bezel export preserves screenshot, frame and transparent exterior', async ({
     page,
   }) => {
@@ -121,7 +154,7 @@ test.describe('export', () => {
     })
     const { names, png } = await downloadFirstExportedPng(page)
     expect(names).toHaveLength(1)
-    expect(names[0]).toMatch(/^iphone-6\.9\/\d{2}_[a-z0-9_]+\.png$/)
+    expect(names[0]).toMatch(/^6\.9\/\d{2}_[a-z0-9_]+\.png$/)
     const decoded = decode(png)
     expect(decoded.width).toBe(1320)
     expect(decoded.height).toBe(2868)

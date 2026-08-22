@@ -346,6 +346,7 @@ describe('le catalogue publié', () => {
       name: 'Plein cadre',
       description: 'Accroche haute, appareil centré',
       source: 'user',
+      target: 'app-store-iphone',
       layerCount: 4,
       createdAt: 1_755_000_000_000,
     }
@@ -382,6 +383,18 @@ describe('le catalogue publié', () => {
     const result = await catalogue().get('screenforge_save_template')!.run({ name: 'Gabarit' })
     expect(result.isError).toBe(true)
     expect(result.structuredContent).toBeUndefined()
+  })
+
+  it('refuse un appareil qui n’appartient pas à la cible ouverte', async () => {
+    const state = createRelayState()
+    state.session.pushState({ target: 'app-store-ipad-13' })
+
+    const result = await catalogue(state)
+      .get('screenforge_add_device')!
+      .run({ deviceModel: 'iphone-17' })
+
+    expect(result.isError).toBe(true)
+    expect((result.content[0] as { text: string }).text).toMatch(/deviceModel.*hors catalogue/)
   })
 })
 

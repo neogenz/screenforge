@@ -2,14 +2,15 @@ import { useState } from 'react'
 import { CornerUpLeft, Link, Unlink } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
-import { canvasSize, clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
+import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { useProjectStore } from '@/stores/project.store'
 import { Button } from '@/components/ui/button'
-import { AngleControl } from '@/components/ui/angle-control'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
 import { Slider } from '@/components/ui/slider'
-import { formatPercent } from '@/lib/number'
+import { AngleControl } from '@/components/patterns/angle-control'
+import { IconButton } from '@/components/patterns/icon-button'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField, UnitFieldPair } from '@/components/patterns/unit-field'
 import type { Layer } from '@/types'
 
 interface TransformSectionProps {
@@ -18,8 +19,6 @@ interface TransformSectionProps {
 
 export function TransformSection({ layer }: TransformSectionProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer)
-  const profileId = useProjectStore((state) => state.project?.profileId)
-  const size = canvasSize(profileId)
   const isDevice = layer.type === 'device-frame'
   const isOfficialBezel = isDevice && Boolean(layer.importedBezel)
   const isText = layer.type === 'text'
@@ -120,20 +119,22 @@ export function TransformSection({ layer }: TransformSectionProps) {
    * fantôme depuis la scène vide. Le panneau garde cette issue directe pour un
    * calque parti hors du champ ou difficile à viser.
    */
-  const outOfReach = layerOutOfReach(layer, size)
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const board = getStoreTargetProfile(target).board
+  const outOfReach = layerOutOfReach(layer, board)
 
   function bringBack() {
-    update(clampLayerToBoard(layer, size))
+    update(clampLayerToBoard(layer, board))
   }
 
   return (
     <div className="flex flex-col gap-2">
       {outOfReach && (
         <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-          <p className="text-2xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
           </p>
-          <Button variant="default" size="sm" onClick={bringBack} className="self-start">
+          <Button variant="outline" size="sm" onClick={bringBack} className="self-start">
             <CornerUpLeft size={12} strokeWidth={1.5} aria-hidden />
             Ramener sur la planche
           </Button>
@@ -141,29 +142,35 @@ export function TransformSection({ layer }: TransformSectionProps) {
       )}
 
       {/* X / Y */}
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField
-          label="X"
-          ariaLabel="Position X"
-          value={Math.round(layer.x)}
-          onChange={handleX}
-        />
-        <NumberField
-          label="Y"
-          ariaLabel="Position Y"
-          value={Math.round(layer.y)}
-          onChange={handleY}
-        />
-      </div>
+      <UnitFieldPair
+        fields={[
+          { label: 'X', ariaLabel: 'Position X', value: Math.round(layer.x), onChange: handleX },
+          { label: 'Y', ariaLabel: 'Position Y', value: Math.round(layer.y), onChange: handleY },
+        ]}
+      />
 
-      {/* W / Lock / H */}
+      {/* L / Lock / H — le verrou s'intercale entre les deux champs de la
+          paire, `UnitFieldPair` ne réserve donc que la grille, pas le bouton. */}
       <div className="flex items-center gap-1.5">
-        <NumberField
-          label="L"
-          ariaLabel="Largeur"
-          min={1}
-          value={Math.round(layer.width)}
-          onChange={handleWidth}
+        <UnitFieldPair
+          className="flex-1"
+          fields={[
+            {
+              label: 'L',
+              ariaLabel: 'Largeur',
+              min: 1,
+              value: Math.round(layer.width),
+              onChange: handleWidth,
+            },
+            {
+              label: 'H',
+              ariaLabel: 'Hauteur',
+              min: 1,
+              value: Math.round(layer.height),
+              onChange: handleHeight,
+              disabled: isText,
+            },
+          ]}
         />
         <IconButton
           size="sm"
@@ -180,14 +187,6 @@ export function TransformSection({ layer }: TransformSectionProps) {
             <Unlink size={12} strokeWidth={1.5} aria-hidden />
           )}
         </IconButton>
-        <NumberField
-          label="H"
-          ariaLabel="Hauteur"
-          min={1}
-          value={Math.round(layer.height)}
-          onChange={handleHeight}
-          disabled={isText}
-        />
       </div>
 
       {/* Rotation */}
@@ -199,18 +198,33 @@ export function TransformSection({ layer }: TransformSectionProps) {
         disabled={isOfficialBezel}
       />
 
-      {/* Opacity */}
-      <Slider
-        label="Opacité"
-        ariaLabel="Opacité"
-        min={0}
-        max={100}
-        step={1}
-        value={Math.round(layer.opacity * 100)}
-        onChange={handleOpacity}
-        disabled={isOfficialBezel}
-        formatValue={formatPercent}
-      />
+      {/* Opacity — glisse ou saisie, le champ reste éditable au clavier. */}
+      <PropertyRow label="Opacité" stacked>
+        <div className="flex h-8 items-center gap-2">
+          <Slider
+            value={Math.round(layer.opacity * 100)}
+            onValueChange={(next) =>
+              handleOpacity(typeof next === 'number' ? next : (next[0] ?? 0))
+            }
+            min={0}
+            max={100}
+            step={1}
+            disabled={isOfficialBezel}
+            // Voir `SliderField` : sans ça le curseur passe sous le champ.
+            className="min-w-0 flex-1 *:data-[slot=slider-control]:min-w-0"
+          />
+          <UnitField
+            ariaLabel="Opacité"
+            value={Math.round(layer.opacity * 100)}
+            onChange={handleOpacity}
+            min={0}
+            max={100}
+            unit="%"
+            disabled={isOfficialBezel}
+            className="w-24 flex-none"
+          />
+        </div>
+      </PropertyRow>
 
       {(isDevice || layer.type === 'image') && (
         <Button variant="ghost" size="sm" onClick={resetSize} className="self-start">

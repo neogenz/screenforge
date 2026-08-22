@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { useLang } from '../i18n'
+import { NAV_HEIGHT } from '../demo/demo-script'
 import { LINKS } from '../links'
 import { CtaPrimary } from './cta'
 import { BrandWordmark } from './BrandWordmark'
@@ -11,9 +12,15 @@ const MENU_ID = 'nav-menu'
 
 /* Une ancre de nav est une cible tactile : 44px de haut, pas 20. La hauteur
    vient du padding vertical et non d'une hauteur fixe, pour que le libellé
-   reste centré s'il passe sur deux lignes. */
+   reste centré s'il passe sur deux lignes.
+
+   La teinte est passée par l'appelant : dans le popover l'ancre est sur
+   `bg-stage`, dans la barre non défilée elle est sur le citron. C'est le même
+   conditionnement que `LangLink` reçoit déjà juste en dessous. */
 const anchorClass =
   'flex items-center px-1 py-3 text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+
+const anchorOnMarker = 'text-marker-ink hover:text-marker-ink/60 focus-visible:outline-marker-ink'
 
 function closeMenu() {
   const menu = document.getElementById(MENU_ID)
@@ -51,18 +58,18 @@ export function Nav() {
     }
   }, [])
 
-  const anchors = (onNavigate?: () => void) => (
+  const anchors = (tone?: string, onNavigate?: () => void) => (
     <>
-      <a className={anchorClass} href="#features" onClick={onNavigate}>
+      <a className={cn(anchorClass, tone)} href="#features" onClick={onNavigate}>
         {t.nav.features}
       </a>
-      <a className={anchorClass} href="#agent" onClick={onNavigate}>
+      <a className={cn(anchorClass, tone)} href="#agent" onClick={onNavigate}>
         {t.nav.agent}
       </a>
-      <a className={anchorClass} href="#pricing" onClick={onNavigate}>
+      <a className={cn(anchorClass, tone)} href="#pricing" onClick={onNavigate}>
         {t.nav.pricing}
       </a>
-      <a className={anchorClass} href="#faq" onClick={onNavigate}>
+      <a className={cn(anchorClass, tone)} href="#faq" onClick={onNavigate}>
         {t.nav.faq}
       </a>
     </>
@@ -85,7 +92,8 @@ export function Nav() {
       </a>
       <nav
         aria-label={t.nav.navLabel}
-        className="flex h-[72px] items-center gap-6 px-5 text-sm md:px-14"
+        style={{ height: NAV_HEIGHT }}
+        className="flex items-center gap-6 px-5 text-sm md:px-14"
       >
         <a
           href="#hero"
@@ -93,6 +101,14 @@ export function Nav() {
         >
           <BrandWordmark className="h-8" />
         </a>
+        {/* Les ancres sortent du menu dès que la barre a la place : la décision
+            est celle de `2026_08_13_landing-quality`, qui ne l'avait appliquée
+            qu'au CTA. Une landing à 1440 px qui range « Tarifs » derrière un
+            hamburger perd la visite venue comparer. Sous `md` elles restent
+            dans le popover, qui les porte déjà. */}
+        <div className="hidden items-center gap-6 md:flex">
+          {anchors(scrolled ? undefined : anchorOnMarker)}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <div
             role="group"
@@ -137,7 +153,7 @@ export function Nav() {
             type="button"
             popoverTarget={MENU_ID}
             aria-label={t.nav.menuLabel}
-            className="flex size-11 items-center justify-center transition-colors duration-150 hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            className="flex size-11 items-center justify-center transition-colors duration-150 hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current md:hidden"
           >
             <Menu className="size-7" strokeWidth={1.5} aria-hidden />
           </button>
@@ -146,10 +162,11 @@ export function Nav() {
       <div
         id={MENU_ID}
         popover="auto"
-        className="fixed top-[72px] right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border border-border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
+        style={{ top: NAV_HEIGHT }}
+        className="fixed right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border border-border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
       >
         <div className="flex flex-col">
-          {anchors(closeMenu)}
+          {anchors(undefined, closeMenu)}
           <CtaPrimary href={LINKS.app} className="mt-4 mb-1 md:hidden">
             {t.nav.cta}
           </CtaPrimary>

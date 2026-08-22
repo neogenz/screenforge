@@ -1,12 +1,13 @@
 import { Textbox, type Canvas } from 'fabric'
-import { rewrapTextbox, type RenderedObject } from '@/lib/canvas/canvas-utils'
+import { rewrapTextbox, type BoardSize, type RenderedObject } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { onFontMetricsChanged } from '@/lib/fonts'
 import type { Project, Screen } from '@/types'
 
 export interface FontsInstall {
   currentCanvas: () => Canvas | null
   getProject: () => Project | null
-  generateThumbnails: (screens: Screen[]) => void
+  generateThumbnails: (screens: Screen[], board: BoardSize) => void
 }
 
 /**
@@ -73,7 +74,9 @@ export function installFonts(runtime: FontsInstall): { cleanup: () => void } {
     /* La vraie graisse arrive après les vignettes : sans ce second passage la
        pellicule garderait le repli système jusqu'à la prochaine édition. */
     const project = runtime.getProject()
-    if (project) runtime.generateThumbnails(project.screens)
+    if (project) {
+      runtime.generateThumbnails(project.screens, getStoreTargetProfile(project.target).board)
+    }
   })
   return { cleanup: unsubscribe }
 }

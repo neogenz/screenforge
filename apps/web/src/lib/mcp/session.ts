@@ -15,8 +15,7 @@ import { describeProject, type ProjectView } from '@/lib/ai/state'
 import type { ToolCall } from '@/lib/ai/tools'
 import { resolveRelayAssets, type AssetFetcher } from '@/lib/mcp/assets'
 import { renderScreenToBlob } from '@/lib/export'
-import { canvasSize } from '@/lib/canvas/canvas-utils'
-import { getAppStoreProfile } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { useProjectStore } from '@/stores/project.store'
 import { useMcpStore } from '@/stores/mcp.store'
 
@@ -166,15 +165,14 @@ export async function renderRelayScreen(render: RelayRender): Promise<RelayOutco
 
   const screen = project.screens[index]
   const asked = Math.round(render.maxWidth ?? 640)
-  const logical = canvasSize(project.profileId)
+  const board = getStoreTargetProfile(project.target).board
   try {
     const blob = await renderScreenToBlob(
       screen,
       project.layoutLayers,
-      asked / logical.width,
+      asked / board.width,
       index,
-      logical.width,
-      logical.height,
+      board,
     )
     const bytes = new Uint8Array(await blob.arrayBuffer())
     /* Les dimensions sont relues dans l'IHDR, jamais recalculées depuis le
@@ -192,7 +190,7 @@ export async function renderRelayScreen(render: RelayRender): Promise<RelayOutco
            l'image, elle mesure la planche que l'image montre. Elle n'écrit
            rien — ni projet, ni historique, ni sélection — donc `get_thumbnail`
            reste la lecture qu'il annonce être. */
-        findings: reviewBoard(screen, project.layoutLayers, undefined, logical).map(
+        findings: reviewBoard(screen, project.layoutLayers, undefined, board).map(
           (finding) => finding.detail,
         ),
       } satisfies RelayRendered,
@@ -245,14 +243,15 @@ export async function listRelayTemplates(): Promise<RelayOutcome> {
   await Promise.all(templateSaves)
   const project = useProjectStore.getState().project
   if (!project) return { committed: false, error: 'Aucun projet ouvert.' }
-  const platform = getAppStoreProfile(project.profileId)!.platform
+  const family = getStoreTargetProfile(project.target).family
   return {
     committed: true,
     result: {
       templates: useTemplatesStore
         .getState()
         .templates.filter(
-          (template) => getAppStoreProfile(template.profileId)?.platform === platform,
+          (template) =>
+            getStoreTargetProfile(template.target ?? 'app-store-iphone').family === family,
         )
         .map(summarize),
     },
@@ -266,6 +265,7 @@ function summarize(template: CustomTemplate): RelayTemplateSummary {
     name: template.name,
     description: template.description,
     source: template.source,
+    target: template.target ?? 'app-store-iphone',
     layerCount: template.layers.length,
     createdAt: template.createdAt,
   }

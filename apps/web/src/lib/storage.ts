@@ -7,11 +7,7 @@ import {
   sweepAssets,
 } from '@/lib/assets'
 import { collectAssetIds } from '@/lib/asset-refs'
-import {
-  DEFAULT_APP_STORE_PROFILE_ID,
-  getAppStoreProfile,
-  type AppStoreProfileId,
-} from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { readProjectFile, type DecodedProjectFile } from '@/lib/project-file'
 import { isProject, migrateProject } from '@/lib/project-validation'
 import { createProjectDocument, useProjectStore } from '@/stores/project.store'
@@ -19,7 +15,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
-import type { Layer, Project } from '@/types'
+import type { Layer, Project, StoreTargetId } from '@/types'
 
 interface AssetRecord {
   id: string
@@ -305,7 +301,7 @@ export async function loadLatestProject(): Promise<Project | undefined> {
 }
 
 export async function listProjects(): Promise<
-  Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]
+  Pick<Project, 'id' | 'name' | 'target' | 'createdAt' | 'updatedAt'>[]
 > {
   const db = await getDB()
   const all: unknown[] = await db.getAll('projects')
@@ -323,8 +319,13 @@ export async function listProjects(): Promise<
       console.error('Ignored invalid local project metadata.', new InvalidProjectRecordError())
       return []
     }
-    const { id, name, createdAt, updatedAt } = record
-    return [{ id, name, createdAt, updatedAt }]
+    const normalized = migrateProject(record)
+    if (!isRecord(normalized) || !isProject(normalized)) {
+      console.error('Ignored invalid local project metadata.', new InvalidProjectRecordError())
+      return []
+    }
+    const { id, name, target, createdAt, updatedAt } = normalized
+    return [{ id, name, target, createdAt, updatedAt }]
   })
 }
 
@@ -465,11 +466,11 @@ function activateProject(project: Project, assets: readonly AssetRecord[]): Proj
 /** Saves the active document, durably creates a targeted one, then activates it. */
 export async function createStoredProject(
   name: string,
-  profileId: AppStoreProfileId = DEFAULT_APP_STORE_PROFILE_ID,
+  target: StoreTargetId = APP_STORE_PROFILE.id,
 ): Promise<Project> {
-  if (!getAppStoreProfile(profileId)) throw new Error(`Unknown App Store profile: ${profileId}`)
+  if (!getStoreTargetProfile(target)) throw new Error(`Unknown store target: ${target}`)
   await saveCurrentProject()
-  const project = createProjectDocument(name, profileId)
+  const project = createProjectDocument(name, target)
   await saveProject(project)
   sweepAssets(new Set())
   return activateProject(project, [])
@@ -595,6 +596,31 @@ export async function saveCurrentProject(): Promise<void> {
 export async function afterProjectSaved<T>(action: () => T | Promise<T>): Promise<T> {
   await saveCurrentProject()
   return await action()
+}
+
+let recoveryUnsubscribe: (() => void) | null = null
+
+/**
+ * Réessaie d'ouvrir IndexedDB après l'échec initial du démarrage.
+ *
+ * `getDB()` mémorise sa promesse, y compris rejetée : sans la vider, tout
+ * nouvel appel retomberait sur le même échec. Un succès démarre l'autosave,
+ * qui ne l'était pas — `App.tsx` échoue avant `initAutoSave()` — et pousse
+ * une fois le projet resté en mémoire, puisque l'autosave ne réagit qu'aux
+ * changements à venir.
+ */
+export async function retryStorage(): Promise<boolean> {
+  dbPromise = null
+  try {
+    await getDB()
+  } catch {
+    return false
+  }
+  // ponytail: pas de désabonnement au démontage de l'app (elle ne se
+  // démonte jamais en production) — voir `initAutoSave` pour la forme complète.
+  recoveryUnsubscribe ??= initAutoSave()
+  await saveCurrentProject()
+  return true
 }
 
 export function initAutoSave(): () => void {

@@ -1,21 +1,15 @@
 import {
-  DEFAULT_APP_STORE_PROFILE_ID,
-  getAppStoreProfile,
-  isAppStoreProfileId,
-  MAX_PROJECT_SCREENS,
+  APP_STORE_PROFILE,
+  deviceModelSupportsTarget,
+  getStoreTargetProfile,
+  legacyAppStoreTarget,
+  type StoreTargetProfile,
 } from './dimensions.ts'
 import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement.ts'
 import { SAFE_SLOT } from './slots.ts'
 import { isTextCharStyles } from './text-char-styles.ts'
-import {
-  deviceModelPlatform,
-  ICON_BOX,
-  isDeviceModelId,
-  isIconId,
-  isShapeId,
-  type DevicePlatform,
-} from './catalog-ids.ts'
-import type { Layer, Project, ScriptId } from './types.ts'
+import { ICON_BOX, isDeviceModelId, isIconId, isShapeId } from './catalog-ids.ts'
+import type { Layer, Project, ScriptId, StoreTargetId } from './types.ts'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
 export const MAX_PROJECT_LAYERS = 500
@@ -135,11 +129,7 @@ function isImportedBezel(value: unknown): boolean {
   )
 }
 
-function isLayer(
-  value: unknown,
-  scope: 'screen' | 'layout',
-  platform: DevicePlatform,
-): value is Layer {
+function isLayer(value: unknown, scope: 'screen' | 'layout'): value is Layer {
   if (!isRecord(value) || !isBaseLayer(value)) return false
   if (scope === 'layout' ? value.scope !== 'layout' : value.scope !== undefined) return false
 
@@ -152,8 +142,7 @@ function isLayer(
     )
   }
   if (value.type === 'device-frame') {
-    if (!isDeviceModelId(value.deviceModel) || deviceModelPlatform(value.deviceModel) !== platform)
-      return false
+    if (!isDeviceModelId(value.deviceModel)) return false
     if (typeof value.deviceColor !== 'string' || !value.deviceColor) return false
     if (!['portrait', 'landscape'].includes(String(value.orientation))) return false
     if (
@@ -244,7 +233,7 @@ export const SCRIPT_IDS = [
 
 const SHA256_HEX = /^[a-f0-9]{64}$/
 
-function isGlobals(value: unknown, platform: DevicePlatform): boolean {
+function isGlobals(value: unknown, target: StoreTargetId): boolean {
   return (
     isRecord(value) &&
     isBoundedString(value.fontFamily) &&
@@ -253,7 +242,7 @@ function isGlobals(value: unknown, platform: DevicePlatform): boolean {
     isStyleString(value.fontColor) &&
     isBackground(value.background) &&
     isDeviceModelId(value.deviceModel) &&
-    deviceModelPlatform(value.deviceModel) === platform &&
+    deviceModelSupportsTarget(value.deviceModel, target) &&
     typeof value.deviceColor === 'string' &&
     Boolean(value.deviceColor)
   )
@@ -270,10 +259,10 @@ function isGlobals(value: unknown, platform: DevicePlatform): boolean {
 function sceneScreenIds(
   screens: unknown,
   layoutLayers: unknown,
-  platform: DevicePlatform,
+  profile: StoreTargetProfile,
 ): Set<string> | null {
   if (!Array.isArray(screens) || !Array.isArray(layoutLayers)) return null
-  if (screens.length < 1 || screens.length > MAX_PROJECT_SCREENS) return null
+  if (screens.length < 1 || screens.length > profile.maxScreens) return null
 
   const screenIds = new Set<string>()
   const layerIds = new Set<string>()
@@ -285,14 +274,21 @@ function sceneScreenIds(
     if (screen.thumbnail !== undefined && typeof screen.thumbnail !== 'string') return null
     screenIds.add(screen.id)
     for (const layer of screen.layers) {
-      if (!isLayer(layer, 'screen', platform) || layerIds.has(layer.id)) return null
+      if (!isLayer(layer, 'screen') || layerIds.has(layer.id)) return null
+      if (
+        layer.type === 'device-frame' &&
+        !deviceModelSupportsTarget(layer.deviceModel, profile.id)
+      )
+        return null
       layerIds.add(layer.id)
       if (layerIds.size > MAX_PROJECT_LAYERS) return null
     }
   }
   if (layoutLayers.length > MAX_PROJECT_LAYERS) return null
   for (const layer of layoutLayers) {
-    if (!isLayer(layer, 'layout', platform) || layerIds.has(layer.id)) return null
+    if (!isLayer(layer, 'layout') || layerIds.has(layer.id)) return null
+    if (layer.type === 'device-frame' && !deviceModelSupportsTarget(layer.deviceModel, profile.id))
+      return null
     layerIds.add(layer.id)
     if (layerIds.size > MAX_PROJECT_LAYERS) return null
   }
@@ -313,7 +309,7 @@ function isReleaseFile(value: unknown): boolean {
   )
 }
 
-function isRelease(value: unknown, profileId: Project['profileId']): boolean {
+function isRelease(value: unknown, projectTarget: StoreTargetId): boolean {
   if (!isRecord(value)) return false
   if (typeof value.id !== 'string' || !value.id) return false
   if (typeof value.name !== 'string' || value.name.length > MAX_RELEASE_NAME_LENGTH) return false
@@ -327,10 +323,10 @@ function isRelease(value: unknown, profileId: Project['profileId']): boolean {
 
   const snapshot = value.snapshot
   if (!isRecord(snapshot) || typeof snapshot.name !== 'string') return false
-  if (snapshot.profileId !== profileId) return false
-  const platform = getAppStoreProfile(profileId).platform
-  if (!isGlobals(snapshot.globals, platform)) return false
-  return sceneScreenIds(snapshot.screens, snapshot.layoutLayers, platform) !== null
+  const profile = getStoreTargetProfile(snapshot.target)
+  if (!profile || profile.id !== projectTarget) return false
+  if (!isGlobals(snapshot.globals, profile.id)) return false
+  return sceneScreenIds(snapshot.screens, snapshot.layoutLayers, profile) !== null
 }
 
 /**
@@ -360,18 +356,16 @@ function isLocaleVariant(value: unknown): boolean {
 export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || !isBoundedString(value.id, 128)) return false
   if (!isBoundedString(value.name) || !isBoundedString(value.activeScreenId, 128)) return false
-  if (!isAppStoreProfileId(value.profileId)) return false
-  const profileId = value.profileId
-  const platform = getAppStoreProfile(profileId).platform
-  if (!isGlobals(value.globals, platform)) return false
+  const profile = getStoreTargetProfile(value.target)
+  if (!profile || !isGlobals(value.globals, profile.id)) return false
   if (!isFiniteNumber(value.createdAt) || !isFiniteNumber(value.updatedAt)) return false
 
-  const screenIds = sceneScreenIds(value.screens, value.layoutLayers, platform)
+  const screenIds = sceneScreenIds(value.screens, value.layoutLayers, profile)
   if (!screenIds) return false
 
   if (value.releases !== undefined) {
     if (!Array.isArray(value.releases) || value.releases.length > MAX_PROJECT_RELEASES) return false
-    if (!value.releases.every((release) => isRelease(release, profileId))) return false
+    if (!value.releases.every((release) => isRelease(release, profile.id))) return false
   }
 
   if (value.locales !== undefined) {
@@ -388,12 +382,23 @@ export function isProject(value: unknown): value is Project {
 export function migrateProject(value: unknown): unknown {
   const project = structuredClone(value)
   if (!isRecord(project)) return project
-  project.profileId ??= DEFAULT_APP_STORE_PROFILE_ID
+  if (project.target === undefined) {
+    project.target =
+      project.profileId === undefined
+        ? APP_STORE_PROFILE.id
+        : legacyAppStoreTarget(project.profileId)
+  }
+  delete project.profileId
   if (Array.isArray(project.releases)) {
     for (const release of project.releases) {
-      if (isRecord(release) && isRecord(release.snapshot)) {
-        release.snapshot.profileId ??= DEFAULT_APP_STORE_PROFILE_ID
+      if (!isRecord(release) || !isRecord(release.snapshot)) continue
+      if (release.snapshot.target === undefined) {
+        release.snapshot.target =
+          release.snapshot.profileId === undefined
+            ? project.target
+            : legacyAppStoreTarget(release.snapshot.profileId)
       }
+      delete release.snapshot.profileId
     }
   }
   const collections = [
@@ -403,6 +408,20 @@ export function migrateProject(value: unknown): unknown {
         )
       : []),
     ...(Array.isArray(project.layoutLayers) ? [project.layoutLayers] : []),
+    ...(Array.isArray(project.releases)
+      ? project.releases.flatMap((release) => {
+          if (!isRecord(release) || !isRecord(release.snapshot)) return []
+          const snapshot = release.snapshot
+          return [
+            ...(Array.isArray(snapshot.screens)
+              ? snapshot.screens.flatMap((screen) =>
+                  isRecord(screen) && Array.isArray(screen.layers) ? [screen.layers] : [],
+                )
+              : []),
+            ...(Array.isArray(snapshot.layoutLayers) ? [snapshot.layoutLayers] : []),
+          ]
+        })
+      : []),
   ]
   for (const layers of collections) {
     for (const layer of layers) {

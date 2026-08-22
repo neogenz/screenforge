@@ -1,6 +1,7 @@
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
+import { PanelSection } from '@/components/patterns/panel-section'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField, UnitFieldPair } from '@/components/patterns/unit-field'
 import { Switch } from '@/components/ui/switch'
 import { DEFAULT_SHADOW_COLOR } from '@/lib/content-defaults'
 import type { TextShadow } from '@/types'
@@ -31,36 +32,39 @@ export function ShadowEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h3 className="section-title">{title}</h3>
+    <PanelSection
+      title={title}
+      headerExtra={
         <Switch
-          ariaLabel={ariaLabel}
+          aria-label={ariaLabel}
           checked={!!shadow}
-          onChange={(checked) => onChange(checked ? { ...DEFAULT_SHADOW } : undefined)}
+          onCheckedChange={(checked) => onChange(checked ? { ...DEFAULT_SHADOW } : undefined)}
         />
-      </div>
+      }
+    >
       {shadow && (
         <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            <NumberField
-              label="X"
-              ariaLabel="Décalage X de l’ombre"
-              value={shadow.offsetX}
-              onChange={(offsetX) => patch({ offsetX })}
-              min={-500}
-              max={500}
-            />
-            <NumberField
-              label="Y"
-              ariaLabel="Décalage Y de l’ombre"
-              value={shadow.offsetY}
-              onChange={(offsetY) => patch({ offsetY })}
-              min={-500}
-              max={500}
-            />
-          </div>
-          <NumberField
+          <UnitFieldPair
+            fields={[
+              {
+                label: 'X',
+                ariaLabel: 'Décalage X de l’ombre',
+                value: shadow.offsetX,
+                onChange: (offsetX) => patch({ offsetX }),
+                min: -500,
+                max: 500,
+              },
+              {
+                label: 'Y',
+                ariaLabel: 'Décalage Y de l’ombre',
+                value: shadow.offsetY,
+                onChange: (offsetY) => patch({ offsetY }),
+                min: -500,
+                max: 500,
+              },
+            ]}
+          />
+          <UnitField
             label="Flou"
             ariaLabel="Flou de l’ombre"
             value={shadow.blur}
@@ -68,11 +72,11 @@ export function ShadowEditor({
             min={0}
             max={500}
           />
-          <Field label="Couleur">
+          <PropertyRow label="Couleur" stacked>
             <ColorPicker value={shadow.color} onChange={(color) => patch({ color })} showOpacity />
-          </Field>
+          </PropertyRow>
         </div>
       )}
-    </div>
+    </PanelSection>
   )
 }

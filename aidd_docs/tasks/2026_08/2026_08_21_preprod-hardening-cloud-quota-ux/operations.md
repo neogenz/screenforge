@@ -26,6 +26,10 @@ Ne jamais copier leur sortie brute dans un ticket ou un artifact.
   gate le plus cher et deux fois le pic journalier normal.
 - Utiliser une fenêtre quotidienne. Le warning alerte et alimente History sans
   couper le service.
+- Si le type de déploiement ou le plan fournisseur ne permet pas d'activer un
+  warning, ne pas le remplacer silencieusement par un disable actif : consigner
+  le blocage, conserver la surveillance manuelle et demander une décision sur
+  le budget d'indisponibilité.
 - Préparer la valeur d'un éventuel disable dans le dashboard, mais la laisser
   inactive jusqu'à validation explicite du budget maximal et de
   l'indisponibilité acceptable. Aucun test ne déclenche volontairement ce

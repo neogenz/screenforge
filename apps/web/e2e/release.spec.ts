@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addTextLayer, transformInput, waitForApp } from './helpers'
+import { addTextLayer, fillNumber, openAndroidProject, transformInput, waitForApp } from './helpers'
 import type { Project } from '../src/types'
 
 /**
@@ -14,7 +14,7 @@ interface ReleaseState {
   id: string
   name: string
   files: { path: string; width: number; height: number; sha256: string }[]
-  snapshot: { profileId: Project['profileId'] }
+  snapshot: { target: Project['target'] }
 }
 
 async function releases(page: Page): Promise<ReleaseState[]> {
@@ -34,15 +34,12 @@ async function createIpadProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Nouveau projet…' }).click()
   const dialog = page.getByRole('dialog', { name: 'Nouveau projet' })
   await dialog.getByLabel('Nom du nouveau projet').fill('Release iPad')
-  await dialog.getByLabel('Format App Store').click()
-  await page.getByRole('option', { name: /iPad 13 pouces.*2064×2752/ }).click()
+  await dialog.getByRole('button', { name: /App Store · iPad 13 pouces.*2064×2752/ }).click()
   await dialog.getByRole('button', { name: 'Créer' }).click()
   await expect(dialog).toBeHidden()
   await expect
-    .poll(() =>
-      page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.profileId),
-    )
-    .toBe('ipad-13')
+    .poll(() => page.evaluate(() => window.__sfStores?.useProjectStore.getState().project?.target))
+    .toBe('app-store-ipad-13')
 }
 
 test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', async ({ page }) => {
@@ -51,7 +48,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await addTextLayer(page)
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('1.0.0')
+  await page.getByLabel('Nom de la release').fill('1.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
 
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
@@ -59,7 +56,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   // Une seule planche, rendue dans le profil propre au document.
   expect(frozen.name).toBe('1.0.0')
   expect(frozen.files).toHaveLength(1)
-  expect(frozen.snapshot.profileId).toBe('ipad-13')
+  expect(frozen.snapshot.target).toBe('app-store-ipad-13')
   expect(frozen.files[0]).toMatchObject({ width: 2064, height: 2752 })
   expect(frozen.files[0].path).toMatch(/^ipad-13\/01_/)
   expect(frozen.files[0].sha256).toMatch(/^[a-f0-9]{64}$/)
@@ -76,7 +73,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   /* Le projet continue de vivre : le texte se déplace. La release, elle, ne
      doit rien en savoir. */
   const before = JSON.stringify(frozen.snapshot)
-  await transformInput(page, 0).fill('42')
+  await fillNumber(transformInput(page, 0), '42')
   await transformInput(page, 0).press('Enter')
 
   await openReleaseDialog(page)
@@ -94,10 +91,28 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })
 
+test('fige et rejoue une release Google Play avec son profil', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  await openReleaseDialog(page)
+  await page.getByLabel('Nom de la release').fill('android-1')
+  await page.getByRole('button', { name: 'Figer une release' }).click()
+
+  await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
+  const frozen = (await releases(page))[0]
+  expect(frozen.snapshot.target).toBe('google-play-phone')
+  expect(frozen.files).toHaveLength(1)
+  expect(frozen.files[0].path).toMatch(/^phone\/01_/)
+  expect(frozen.files[0]).toMatchObject({ width: 1080, height: 1920 })
+
+  await page.getByRole('button', { name: 'Vérifier' }).click()
+  await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
+})
+
 test('un lot figé survit au rechargement et se retire à la demande', async ({ page }) => {
   await waitForApp(page)
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('2.0.0')
+  await page.getByLabel('Nom de la release').fill('2.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   /* Le toast suit l'écriture durable : l'attendre, c'est attendre que le lot
      soit sur disque, sans dépendre du délai de l'autosave. */
@@ -140,13 +155,13 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   expect(origin).not.toBeNull()
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom du lot').fill('3.0.0')
+  await page.getByLabel('Nom de la release').fill('3.0.0')
   await page.getByRole('button', { name: 'Figer une release' }).click()
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]
   await page.keyboard.press('Escape')
 
-  await transformInput(page, 0).fill('42')
+  await fillNumber(transformInput(page, 0), '42')
   await transformInput(page, 0).press('Enter')
   await expect.poll(() => textLayerX(page)).toBe(42)
 

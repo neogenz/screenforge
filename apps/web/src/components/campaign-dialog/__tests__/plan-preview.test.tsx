@@ -1,16 +1,16 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { PlanPreview } from '@/components/campaign-dialog/PlanPreview'
-import { canvasSize } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { planScreenLayout, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
-import type { AppStoreProfileId } from '@/lib/dimensions'
-import type { DeviceModel } from '@/types'
+import type { DeviceModel, StoreTargetId } from '@/types'
 
 const palette = { background: '#101114', ink: '#ffffff', accent: '#c6ff4f' }
 
-function preview(profileId: AppStoreProfileId, deviceModel: DeviceModel) {
-  const board = canvasSize(profileId)
+function preview(target: StoreTargetId, deviceModel: DeviceModel) {
+  const board = getStoreTargetProfile(target).board
   const brief: CampaignBrief = {
+    target,
     appName: 'ScreenForge',
     pitch: 'Une campagne nette',
     direction: 'contraste',
@@ -20,6 +20,7 @@ function preview(profileId: AppStoreProfileId, deviceModel: DeviceModel) {
     screenshots: [],
   }
   const plan: CampaignPlan = {
+    target,
     appName: brief.appName,
     direction: brief.direction,
     palette,
@@ -37,10 +38,10 @@ function preview(profileId: AppStoreProfileId, deviceModel: DeviceModel) {
 
 describe('PlanPreview', () => {
   it.each([
-    ['iPad', 'ipad-13', 'tablet-slate'],
-    ['Apple Watch', 'watch-ultra-422x514', 'watch-halo'],
-  ] as const)('suit la planche %s', (_name, profileId, deviceModel) => {
-    const { board, layout, html } = preview(profileId, deviceModel)
+    ['iPad', 'app-store-ipad-13', 'tablet-slate'],
+    ['Apple Watch', 'app-store-watch-ultra-422x514', 'watch-halo'],
+  ] as const)('suit la planche %s', (_name, target, deviceModel) => {
+    const { board, layout, html } = preview(target, deviceModel)
 
     expect(html).toContain(`aspect-ratio:${board.width} / ${board.height}`)
     expect(html).toContain(`left:${(layout.headline.x / board.width) * 100}%`)

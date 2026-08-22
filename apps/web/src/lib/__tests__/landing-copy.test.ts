@@ -27,20 +27,26 @@ test.each(['en', 'fr'] as const)('la landing %s publie le contrat Cloud appliqu�
 })
 
 test.each(['en', 'fr'] as const)(
-  'la landing %s annonce tous les profils sans redistribuer les bezels Apple',
+  'la landing %s annonce toutes les cibles sans redistribuer les bezels Apple',
   (lang) => {
     const landing = copy[lang]
-    const headline = `${landing.meta.description} ${landing.hero.sub} ${landing.features.export.body}`
+    const rendered = JSON.stringify(landing)
     const faq = landing.faq.items.map(({ q, a }) => `${q} ${a}`).join('\n')
 
-    expect(headline).toMatch(/iPhone 6[,.]9″/)
-    expect(headline).toContain('iPad 13″')
-    expect(headline).toContain('2064×2752')
-    expect(headline).toMatch(/six (?:official Apple Watch formats|formats Apple Watch officiels)/)
+    expect(rendered).toMatch(/iPhone 6[,.]9″/)
+    expect(rendered).toContain('iPad 13″')
+    expect(rendered).toContain('2064×2752')
+    expect(rendered).toMatch(/six (?:Apple Watch formats|formats Apple Watch)/)
     expect(faq).toMatch(/1320×2868/)
     expect(faq).toMatch(/422×514.*410×502.*416×496.*396×484.*368×448.*312×390/s)
     expect(faq).toMatch(/(?:not bundled or redistributed|ni inclus ni redistribués)/)
-    expect(faq).toMatch(/iPad 13″.*(?:in portrait|uniquement en portrait)/s)
+    for (const claim of ['App Store', 'Google Play', '1320×2868', '1080×1920', '6.9/', 'phone/']) {
+      expect(rendered).toContain(claim)
+    }
+    expect(rendered).toMatch(lang === 'en' ? /does not include tablets/ : /n’inclut ni tablettes/)
+    expect(rendered).not.toMatch(
+      /publishes? directly to Google Play|publication Google Play incluse/i,
+    )
   },
 )
 
@@ -52,4 +58,18 @@ test.each(['en', 'fr'] as const)('la section IA %s cite la vraie commande MCP', 
   const agent = copy[lang].agent
   expect(agent.setupSteps.join('\n')).toContain(MCP_COMMAND)
   expect(copy[lang].faq.items.map((item) => item.a).join('\n')).toContain(MCP_COMMAND)
+})
+
+/* Le hero dit une chose. Quatre lignes de sous-titre ne se lisent pas, et la
+   limite est ici plutôt que dans une revue : c'est la seule mesure qui survit
+   à une réécriture de la copie. */
+test.each(['en', 'fr'] as const)('le sous-titre du hero %s tient en deux phrases', (lang) => {
+  expect(copy[lang].hero.sub.length).toBeLessThanOrEqual(160)
+})
+
+/* La langue de l'éditeur ne change l'expérience que du visiteur anglophone :
+   la page française n'a rien à annoncer. */
+test('la note de langue est anglaise seulement', () => {
+  expect(copy.en.hero.langNote).toBeTruthy()
+  expect(copy.fr.hero.langNote).toBeUndefined()
 })

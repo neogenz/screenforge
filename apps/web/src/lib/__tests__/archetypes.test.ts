@@ -14,10 +14,11 @@ import {
   type ArchetypeId,
 } from '@/lib/ai/archetypes'
 import { DEVICE_FRAMES, getDefaultDeviceSize } from '@/assets/device-frames'
-import { APP_STORE_PROFILES } from '@/lib/dimensions'
+import { STORE_TARGET_PROFILES } from '@/lib/dimensions'
 import { contrastRatio, type Palette } from '@/lib/ai/palette'
 import { DIRECTIONS, planFromBrief, planScreenLayout, planToolCalls } from '@/lib/ai/plan'
 import { validateToolCall } from '@/lib/ai/tools'
+import { GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import type { CampaignBrief } from '@/lib/ai/plan'
 
 /**
@@ -35,11 +36,11 @@ import type { CampaignBrief } from '@/lib/ai/plan'
    sans qu'un test écrit sur 0,46 ne s'en aperçoive. */
 const CASES = DEVICE_FRAMES.map((config) => {
   const frame = getDefaultDeviceSize(config.model)
-  const profile = [...APP_STORE_PROFILES]
-    .filter((candidate) => candidate.platform === config.platform)
-    .sort((left, right) => left.logical.height - right.logical.height)[0]
+  const profile = Object.values(STORE_TARGET_PROFILES)
+    .filter((candidate) => candidate.family === config.family)
+    .sort((left, right) => left.board.height - right.board.height)[0]
   if (!profile) throw new Error(`Profil absent pour ${config.model}`)
-  return { model: config.model, aspect: frame.width / frame.height, board: profile.logical }
+  return { model: config.model, aspect: frame.width / frame.height, board: profile.board }
 })
 const ASPECTS = CASES.map(({ aspect }) => aspect)
 
@@ -138,7 +139,7 @@ describe('chaque composition', () => {
     for (const id of ARCHETYPE_IDS) {
       for (const { model, aspect, board } of CASES) {
         expect(
-          tallestEmptyBand(layoutOf(id, PALETTES[0], 0, aspect, board), board.height),
+          tallestEmptyBand(layoutOf(id, PALETTES[0], 0, aspect, board), board),
           `${id} sur ${model}`,
         ).toBeLessThan(board.height / 4)
       }
@@ -277,5 +278,33 @@ describe('le lot composé', () => {
     expect(plan.screens[3]).toMatchObject({ screenshotIndex: 3 })
     expect(plan.screens[3].layout).not.toBe('mur')
     expect(planScreenLayout(plan, fullBrief, 3)?.device?.assetId).toBe('asset-4')
+  })
+
+  it('compose au plus huit visuels Android dans la planche 540×960', () => {
+    const androidBrief: CampaignBrief = {
+      ...brief,
+      target: 'google-play-phone',
+      screenCount: 9,
+      deviceModel: 'android-phone',
+    }
+    const plan = planFromBrief(androidBrief)
+
+    expect(plan).toMatchObject({ target: 'google-play-phone', deviceModel: 'android-phone' })
+    expect(plan.screens).toHaveLength(GOOGLE_PLAY_PROFILE.maxScreens)
+    for (const [index] of plan.screens.entries()) {
+      const layout = planScreenLayout(plan, androidBrief, index)
+      expect(layout).toBeDefined()
+      expect(layout!.headline.x).toBeGreaterThanOrEqual(0)
+      expect(layout!.headline.y).toBeGreaterThanOrEqual(0)
+      expect(layout!.headline.x + layout!.headline.width).toBeLessThanOrEqual(
+        GOOGLE_PLAY_PROFILE.board.width,
+      )
+      expect(layout!.headline.y + layout!.headline.height).toBeLessThanOrEqual(
+        GOOGLE_PLAY_PROFILE.board.height,
+      )
+      if (layout!.device) {
+        expect(onBoardRatio(layout!.device, GOOGLE_PLAY_PROFILE.board)).toBeGreaterThanOrEqual(0.9)
+      }
+    }
   })
 })

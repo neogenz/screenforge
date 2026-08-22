@@ -2,8 +2,10 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
+import { PanelSection } from '@/components/patterns/panel-section'
+import { PropertyRow } from '@/components/patterns/property-row'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
 import { SHAPE_CATALOG, type ShapeId } from '@/lib/vector-catalog'
@@ -56,18 +58,19 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       />
 
       {/* Fill */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title">Remplissage</h3>
+      <PanelSection
+        title="Remplissage"
+        headerExtra={
           <div className="flex items-center gap-2">
-            <span className="field-label">Dégradé</span>
+            <span className="text-xs text-muted-foreground">Dégradé</span>
             <Switch
-              ariaLabel="Activer le dégradé"
+              aria-label="Activer le dégradé"
               checked={fillIsGradient}
-              onChange={handleGradientToggle}
+              onCheckedChange={handleGradientToggle}
             />
           </div>
-        </div>
+        }
+      >
         {fillIsGradient ? (
           <GradientEditor
             value={layer.fill as GradientFill}
@@ -85,13 +88,13 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
             showOpacity
           />
         )}
-      </div>
+      </PanelSection>
 
       {/* Border radius — rounded-rect only */}
       {layer.shapeType === 'rounded-rect' && (
         <>
-          <div className="hairline" />
-          <NumberField
+          <Separator />
+          <UnitField
             label="Rayon"
             ariaLabel="Rayon des coins"
             value={layer.borderRadius ?? 8}
@@ -103,18 +106,18 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         </>
       )}
 
-      <div className="hairline" />
+      <Separator />
 
       {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <h3 className="section-title">Contour</h3>
-        <Field label="Couleur">
+        <h3 className="text-sm font-medium">Contour</h3>
+        <PropertyRow label="Couleur" stacked>
           <ColorPicker
             value={layer.stroke ?? DEFAULT_STROKE_COLOR}
             onChange={(stroke) => update({ stroke }, { coalesceKey: `layer:${layer.id}:stroke` })}
           />
-        </Field>
-        <NumberField
+        </PropertyRow>
+        <UnitField
           label="Épaisseur"
           ariaLabel="Épaisseur du contour"
           value={layer.strokeWidth ?? 0}
@@ -126,8 +129,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         />
       </div>
 
-      <div className="hairline" />
-
+      {/* La bordure du panneau "Ombre" fait déjà le trait : pas de hairline en double. */}
       <ShadowEditor
         shadow={layer.shadow}
         onChange={(shadow, options) => update({ shadow }, options)}
