@@ -29,10 +29,8 @@ test.describe('filmstrip rename', () => {
     await waitForApp(page)
     await openAndroidProject(page)
     const preview = tile(page, 'Écran 1')
-    const box = await preview.boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.width).toBe(65)
-    expect(box!.height).toBe(116)
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.width ?? 0)).toBe(65)
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.height ?? 0)).toBe(116)
   })
 
   test('names every screen, and never leaves one anonymous', async ({ page }) => {
