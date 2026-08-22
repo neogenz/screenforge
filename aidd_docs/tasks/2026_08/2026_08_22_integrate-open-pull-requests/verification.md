@@ -35,3 +35,17 @@ donnée utilisateur.
 - Validation locale : `pnpm run test:release` vert, 743 tests unitaires, 218 E2E réussis et 1 skip attendu pour une ressource Apple externe
 - Audits : sécurité, publication, dépendances, UI coss, contraste, échelle, landing et matrice de probes visuelles verts
 - Verdict : GitHub, Vercel et push `main` verts; aucun commentaire humain pertinent ouvert
+
+## Phase 4 — Contrat Android et Google Play téléphone
+
+- PR intégrée : [#22](https://github.com/neogenz/screenforge/pull/22)
+- Tête réconciliée et revue : `dfc24155ba11e3c964ec68f4f550de58903831e1`
+- Conflits résolus : 23 fichiers, sans choix global `ours` ou `theirs`
+- Pipeline de PR : [Quality 32584849810](https://github.com/neogenz/screenforge/actions/runs/32584849810)
+- Squash merge `main` : `2b48e01d47362b6b568a8a0414cd6c63724950ee`
+- Pipeline post-merge : [Quality 32585652581](https://github.com/neogenz/screenforge/actions/runs/32585652581)
+- Contrat : cible projet persistée, profil Google Play 1080×1920, ZIP `phone/`, huit captures maximum et migration iPhone idempotente
+- Réconciliation : primitives coss conservées, analytics toujours consentie, publication Apple refusée sur Android et hashes CSP recalculés depuis le pré-rendu
+- Validation locale : `pnpm run test:release` vert, 765 tests unitaires, 228 E2E réussis et 1 skip attendu pour une ressource Apple externe
+- Audits : Gitleaks, publication, dépendances, CSP, UI coss, contraste, échelle, landing et matrice visuelle Apple/Android verts
+- Verdict : PR et push `main` verts; aucun commentaire humain pertinent ouvert
