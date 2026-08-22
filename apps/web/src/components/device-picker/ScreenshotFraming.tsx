@@ -118,7 +118,7 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
           <Button
             variant="link"
             size="xs"
-            className="field-label h-auto self-start px-0"
+            className="text-xs text-muted-foreground h-auto self-start px-0"
             onClick={() => onUpdate({ placement: { ...DEFAULT_SCREENSHOT_PLACEMENT } })}
           >
             Réinitialiser le cadrage

@@ -655,7 +655,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                         }}
                       />
                       {!named && (
-                        <p className="text-2xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Les accroches le citent : sans lui, rien n’est proposé.
                         </p>
                       )}
@@ -840,7 +840,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <Paintbrush size={12} aria-hidden />
                       Appliquer à « {activeScreen.name} »
                     </Button>
-                    <p className="text-2xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Repeint « {activeScreen.name} » avec le style ci-dessus, sans ajouter d’écran.
                     </p>
                   </div>
@@ -868,7 +868,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
           title: 'Fournisseur',
           content: (
             <div className="grid gap-3">
-              <h3 className="section-title">Qui écrit les accroches</h3>
+              <h3 className="text-sm font-medium">Qui écrit les accroches</h3>
               <AssistantSetup
                 providerId={providerId}
                 onProvider={(next) => {
@@ -924,7 +924,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       }}
                     />
                   </Field>
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Écrivez des accroches spécifiques de 3 à 7 mots et 72 caractères maximum, prêtes
                     à publier. L’IA les sélectionne et les ordonne ; vous pourrez les réécrire dans
                     la revue. ScreenForge ne charge aucune URL arbitraire.
@@ -973,7 +973,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
 function CampaignSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
-      <h3 className="section-title">{title}</h3>
+      <h3 className="text-sm font-medium">{title}</h3>
       <div className="min-w-0">{children}</div>
     </section>
   )
@@ -1051,9 +1051,9 @@ function AssistantRow({
       onClick={onOpen}
       className="h-9 w-full justify-start gap-2 px-3 text-start font-normal"
     >
-      <span className="field-label">Qui écrit les accroches</span>
+      <span className="text-xs text-muted-foreground">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
-      {status && <span className="shrink-0 text-2xs text-muted-foreground">{status}</span>}
+      {status && <span className="shrink-0 text-xs text-muted-foreground">{status}</span>}
       <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
     </Button>
   )
@@ -1103,7 +1103,7 @@ function PlanReview({
 
   return (
     <div>
-      <h3 className="section-title flex items-center gap-2">
+      <h3 className="text-sm font-medium flex items-center gap-2">
         Vérifiez la proposition
         <span className="ml-auto flex items-center gap-1" aria-hidden>
           {[plan.palette.background, plan.palette.ink, plan.palette.accent].map((color) => (
@@ -1163,7 +1163,7 @@ function PlanReview({
             <PlanPreview plan={plan} brief={brief} index={index} size="thumb" />
             <span
               className={cn(
-                'tabular text-2xs',
+                'tabular-nums text-xs',
                 index === focus ? 'font-semibold text-foreground' : 'text-muted-foreground',
               )}
             >
@@ -1212,7 +1212,7 @@ function PlanReview({
                 celui-ci n'est pas celui d'à côté. La capture n'est annoncée que
                 là où un appareil la portera — le libellé de l'archétype dit
                 déjà, sur le visuel de clôture, qu'il n'y en a pas. */}
-            <p className="text-2xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {layout ? `${archetypeSpec(layout.archetype).label}.` : ''}
               {layout?.device
                 ? current.screenshotIndex === undefined
@@ -1221,7 +1221,7 @@ function PlanReview({
                 : ''}
             </p>
             {current.evidence && (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Source factuelle : « {current.evidence} »
               </p>
             )}

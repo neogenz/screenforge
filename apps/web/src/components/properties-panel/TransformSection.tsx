@@ -127,7 +127,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
     <div className="flex flex-col gap-2">
       {outOfReach && (
         <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-          <p className="text-2xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
           </p>
           <Button variant="outline" size="sm" onClick={bringBack} className="self-start">

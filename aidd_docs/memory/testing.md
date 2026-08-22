@@ -5,7 +5,8 @@
 - Co-located Vitest unit tests cover pure library logic and Zustand store contracts.
 - Playwright E2E tests drive the real French-labelled UI and cover editor interaction, persistence, accessibility recovery, and export.
 - Export tests and `scripts/validate-export.mjs` enforce exact dimensions, opaque PNG output, and ZIP structure.
-- `scripts/visual-probe.mjs` and the contrast audit guard the design system outside ordinary assertions. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape.
+- `scripts/visual-probe.mjs`, the contrast audit and the scale audit guard the design system outside ordinary assertions, all three against a real rendered page (Chromium) rather than a static read of `index.css` — coss writes its palette in `--alpha()`/`color-mix()`, which no regex resolves, and a rendered size no longer appears literally in the stylesheet at all. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape; the scale audit counts the type/height/radius/gap values actually rendered in the populated DOM against coss's own closed steps. `scripts/ui-source-audit.mjs` (`pnpm run audit:ui`) is the fourth: every `components/ui/` file must still match what the `@coss` registry serves for it, naming the file the moment one drifts — a component edited in place stops updating from the CLI, which is the state coss replaced.
+- `empty-state.spec.ts` covers the editor's empty states (no screenshots, no layers, no selection, no saved templates) against the copy and controls `lib/copy.ts` centralises.
 - `apps/backend/convex/*.test.ts` run under `convex-test` and cover authorization from the attacker's point of view. Only the third party is faked: real webhook signatures, the real SDK parser, the real mutations.
 - What the simulator does **not** cover is exercised by the strict Playwright gate against the real local engine: document size limits, cron execution, and transport behavior. Only failures specific to hosted infrastructure remain manual.
 - Security regressions exercise concurrent MCP offers and revocation leases, authenticated cache headers, hostile portable archives and the exact release-tag provenance check.
@@ -29,7 +30,7 @@
 - `pnpm run test:unit`: unit suite.
 - `pnpm run test:e2e`: local Chromium suite; the cloud project is omitted when Convex is not already running.
 - `pnpm run test:e2e:release`: strict Chromium suite; Playwright starts Convex on 3210/3211 and fails if any cloud prerequisite is absent.
-- `pnpm run test:release`: complete release proof with dependency and publication audits, one production build, strict Cloud E2E and visual/security audits.
+- `pnpm run test:release`: complete release proof with dependency and publication audits, one production build, strict Cloud E2E and visual/security audits, contrast, scale, `audit:ui`, and landing.
 - Run all commands from the workspace root; root scripts delegate to the owning package.
 - `pnpm --filter backend run test:unit`: the deployment suite (already included in `pnpm run test:unit`).
 - Aggregate commit and release gates are defined in `coding-assertions.md`.

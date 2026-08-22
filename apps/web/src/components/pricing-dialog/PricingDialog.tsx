@@ -110,12 +110,12 @@ function PricingDialogContent() {
         </div>
 
         {!billingConfigured ? (
-          <p className="field-label">
+          <p className="text-xs text-muted-foreground">
             Cloud n’est pas configuré dans ce build local. Local reste entièrement disponible, sans
             compte ni backend.
           </p>
         ) : !signedIn ? (
-          <p className="field-label">
+          <p className="text-xs text-muted-foreground">
             Connectez-vous pour choisir Cloud : l’abonnement est rattaché à votre compte, pas à ce
             navigateur.
           </p>
@@ -173,7 +173,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
         <CardTitle className="text-sm">{plan.name}</CardTitle>
         <CardDescription className="flex items-baseline gap-1.5 text-foreground">
           <span className="text-base font-semibold tabular-nums">{plan.price}</span>
-          {plan.period && <span className="text-2xs text-muted-foreground">{plan.period}</span>}
+          {plan.period && <span className="text-xs text-muted-foreground">{plan.period}</span>}
         </CardDescription>
         {owned ? (
           <CardAction>
@@ -187,7 +187,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
       </CardHeader>
 
       <CardPanel className="flex flex-col gap-3">
-        <p className="text-2xs leading-4 text-muted-foreground">{plan.tagline}</p>
+        <p className="text-xs leading-4 text-muted-foreground">{plan.tagline}</p>
 
         {/* Une coche par point, et l'icône de stockage nulle part : posée sur les
             chaque ligne elle mettait un disque dur à côté de bénéfices qui ne
@@ -195,7 +195,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
             vivent les projets par sa dernière puce. */}
         <ul className="flex flex-col gap-1.5">
           {plan.points.map((point) => (
-            <li key={point} className="flex items-start gap-1.5 text-2xs leading-4">
+            <li key={point} className="flex items-start gap-1.5 text-xs leading-4">
               <Check
                 aria-hidden
                 size={12}
@@ -215,7 +215,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
           face — pour que les deux cartes payantes gardent leur ligne. */}
       <CardFooter>
         {owned ? (
-          <p className="flex min-h-8 w-full items-center justify-center gap-1.5 text-center text-2xs leading-4 font-medium text-foreground">
+          <p className="flex min-h-8 w-full items-center justify-center gap-1.5 text-center text-xs leading-4 font-medium text-foreground">
             <Check size={12} strokeWidth={2} aria-hidden className="shrink-0" />
             {ownedNote ?? 'Actif'}
           </p>

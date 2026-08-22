@@ -59,7 +59,7 @@ export function SaveStatusChip({
         </span>
       }
       className={cn(
-        'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-2xs',
+        'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-xs',
         status === 'error' && 'text-destructive',
         className,
       )}

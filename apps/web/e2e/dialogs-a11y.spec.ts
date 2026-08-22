@@ -1,5 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTextLayer, layerRows, openUtility, utilitiesTrigger, waitForApp } from './helpers'
+import {
+  addTextLayer,
+  expectOneFocusRing,
+  layerRows,
+  openMenu,
+  openUtility,
+  utilitiesTrigger,
+  waitForApp,
+} from './helpers'
 
 /**
  * Les boîtes livrées par les phases, au clavier et dans une fenêtre étroite.
@@ -48,9 +56,7 @@ async function openWithKeyboard(
     /* L'entrée est dans le menu « … » : deux activations au clavier, et c'est
        le déclencheur du menu qui reste l'appelant, l'entrée disparaissant avec
        lui. */
-    await utilitiesTrigger(page).focus()
-    await page.keyboard.press('Enter')
-    await page.getByRole('menuitem', { name: label }).focus()
+    await openMenu(page, utilitiesTrigger(page), label)
   } else {
     await page.getByLabel(label).focus()
   }
@@ -77,36 +83,6 @@ async function closeDialog(page: Page, dialog: Locator): Promise<void> {
     }
   }
   await expect(dialog).toBeHidden()
-}
-
-async function expectRingToken(page: Page, control: Locator): Promise<void> {
-  await control.evaluate((element) => {
-    const host =
-      element instanceof HTMLInputElement && element.type === 'radio'
-        ? element.closest('label')
-        : element
-    const sentinel = document.createElement('button')
-    sentinel.type = 'button'
-    sentinel.dataset.focusSentinel = ''
-    sentinel.className = 'sr-only'
-    host?.before(sentinel)
-    sentinel.focus()
-  })
-  await page.keyboard.press('Tab')
-  await expect(control).toBeFocused()
-  expect(
-    await control.evaluate((element) => {
-      const host =
-        element instanceof HTMLInputElement && element.type === 'radio'
-          ? element.closest('label')
-          : element
-      return String(host?.className).includes('ring-ring')
-    }),
-  ).toBe(true)
-  await expect
-    .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
-    .toBe(true)
-  await control.evaluate(() => document.querySelector('[data-focus-sentinel]')?.remove())
 }
 
 test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ page }) => {
@@ -159,9 +135,9 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Générer les visuels App Store').click()
   let dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
-  await expectRingToken(page, dialog.getByRole('radio', { name: 'Sobre' }))
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: 'Sobre' }))
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
-  await expectRingToken(page, assistance)
+  await expectOneFocusRing(page, assistance)
   await assistance.click()
   // Le bouton cliqué disparaît avec la vue : Base UI rapatrie le focus dans
   // la boîte à la frame suivante, et l'attendre évite qu'il vole la sentinelle.
@@ -169,7 +145,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   // L'étape glisse en entrant ; une sentinelle posée pendant l'animation se
   // fait doubler par le rapatriement du focus.
   await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
-  await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les langues').click()
@@ -177,8 +153,8 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await dialog.getByLabel('Code').fill('de')
   await dialog.getByLabel('Nom').fill('Allemand')
   await dialog.getByRole('button', { name: 'Ajouter' }).click()
-  await expectRingToken(page, dialog.getByRole('radio', { name: /de Allemand/ }))
-  await expectRingToken(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /de Allemand/ }))
+  await expectOneFocusRing(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir les releases').click()
@@ -186,7 +162,7 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await dialog.getByLabel('Nom de la release').fill('1.0.0')
   await dialog.getByRole('button', { name: 'Figer une release' }).click()
   await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
-  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Publier chez Apple').click()
@@ -194,12 +170,12 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   // Un lot existe : la boîte s'ouvre sur l'envoi, le choix du lot est l'étape d'avant.
   await dialog.getByRole('button', { name: 'Retour' }).click()
   await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
-  await expectRingToken(page, dialog.locator('button[aria-current="true"]'))
+  await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir l’export').click()
   dialog = page.getByRole('dialog', { name: 'Export officiel' })
-  await expectRingToken(page, dialog.getByRole('checkbox').first())
+  await expectOneFocusRing(page, dialog.getByRole('checkbox').first())
   await expect(dialog.locator('[class~="focus-visible:ring-foreground"]')).toHaveCount(0)
   await closeDialog(page, dialog)
 })

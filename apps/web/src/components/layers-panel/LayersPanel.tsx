@@ -222,7 +222,7 @@ export function LayersPanel() {
       titleId="sf-layers-panel-title"
       title="Calques"
       headerExtra={
-        <span className="tabular text-2xs text-muted-foreground">{String(layers.length)}</span>
+        <span className="tabular-nums text-xs text-muted-foreground">{String(layers.length)}</span>
       }
       headerBelow={
         <InputGroup className="mt-2">
@@ -248,7 +248,7 @@ export function LayersPanel() {
         <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 pb-2 text-center">
           <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">Écran vide.</p>
-          <p className="max-w-[190px] text-2xs text-muted-foreground">
+          <p className="max-w-[190px] text-xs text-muted-foreground">
             Partez de vos captures de simulateur, ou composez à la main.
           </p>
           <Input
@@ -298,7 +298,7 @@ export function LayersPanel() {
               <div key={group.label} role="group" aria-label={group.label}>
                 {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
                   et un paragraphe n'est pas un enfant de listbox. */}
-                <p aria-hidden className="field-label px-2 pb-2 pt-4">
+                <p aria-hidden className="text-xs text-muted-foreground px-2 pb-2 pt-4">
                   {group.label}
                 </p>
                 {group.rows.map(({ layer, ghost }) =>

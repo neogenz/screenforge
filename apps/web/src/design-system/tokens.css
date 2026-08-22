@@ -52,6 +52,9 @@
 
   --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.18);
   --shadow-handle-focus: 0 0 0 4px color-mix(in oklch, var(--foreground) 16%, transparent);
+  /* Le reflet du haut d'une surface élevée (planche du gabarit) : coss n'a pas
+     de mot pour ce liseré, composé avec la propre ombre de l'élément. */
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
 
   /* Le voile passe devant le canvas et derrière le chrome. */
   --z-stage-veil: 10;
@@ -96,6 +99,7 @@
   --guide-halo: oklch(0 0 0 / 0.4);
 
   --shadow-handle: 0 1px 3px oklch(0 0 0 / 0.4);
+  --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
 }
 
 /* La seule valeur coss corrigée, et par une règle plus spécifique que

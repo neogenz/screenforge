@@ -31,7 +31,7 @@ export function ZoomHud() {
           pressed={zoom === 1}
           onPressedChange={() => resetZoom()}
           aria-label="Ajuster le zoom aux écrans"
-          className="tabular min-w-13 border-transparent text-2xs text-muted-foreground hover:text-foreground data-pressed:text-foreground"
+          className="tabular-nums min-w-13 border-transparent text-xs text-muted-foreground hover:text-foreground data-pressed:text-foreground"
         >
           {Math.round(zoom * 100)}%
         </Toggle>

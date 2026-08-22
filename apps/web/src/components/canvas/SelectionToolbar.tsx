@@ -210,7 +210,9 @@ function Divider() {
 
 function MultiCount({ count }: { count: number }) {
   return (
-    <span className="field-label tabular shrink-0 whitespace-nowrap px-1.5">{count} calques</span>
+    <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap px-1.5">
+      {count} calques
+    </span>
   )
 }
 
@@ -283,7 +285,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
     if (layer.importedBezel) {
       return (
         <>
-          <span className="field-label max-w-44 shrink truncate px-1">
+          <span className="text-xs text-muted-foreground max-w-44 shrink truncate px-1">
             {layer.importedBezel.fileName}
           </span>
           <ScreenshotButton
@@ -297,7 +299,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
     const colors = getDeviceFrame(layer.deviceModel).colors
     return (
       <>
-        <span className="field-label shrink-0 whitespace-nowrap px-1">
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap px-1">
           {getDeviceFrame(layer.deviceModel).modelName}
         </span>
         <ScreenshotButton

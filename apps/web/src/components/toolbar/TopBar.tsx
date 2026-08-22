@@ -360,7 +360,7 @@ function SyncIndicator({ written }: { written: boolean }) {
       tone={SYNC_TONE[syncStatus]}
       icon={SYNC_ICON[syncStatus]}
       className={cn(
-        'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-2xs',
+        'h-auto min-w-0 shrink-0 border-transparent bg-transparent px-0 text-xs',
         syncStatus === 'error' && 'text-destructive',
       )}
     >
@@ -695,7 +695,7 @@ function usePlanAction(): SecondaryAction | null {
  */
 function BadgeIcon({ children }: { children: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-2xs font-medium">
+    <span className="flex items-center gap-1.5 text-xs font-medium">
       {children !== 'Essai' && (
         <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-marker" />
       )}

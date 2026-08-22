@@ -225,18 +225,18 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             href="https://developer.apple.com/design/resources/#product-bezels"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-2xs text-muted-foreground underline-offset-2 hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
             Télécharger le DMG chez Apple
             <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
           </a>
-          <span className="text-2xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Extraire le DMG, puis choisir un PNG transparent.
           </span>
         </div>
       )}
       {bezelError && (
-        <p role="alert" className="text-2xs text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {bezelError}
         </p>
       )}
@@ -256,7 +256,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               <Button variant="outline" className="w-full justify-between">
                 <span className="truncate">{config.modelName}</span>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  <span className="tabular text-2xs text-muted-foreground">
+                  <span className="tabular-nums text-xs text-muted-foreground">
                     {config.screenSize}
                   </span>
                   <ChevronDown
@@ -344,7 +344,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             onClick={() => fileInputRef.current?.click()}
             className={cn(
               'flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border',
-              'field-label transition-colors duration-150 ease-out hover:bg-transparent',
+              'text-xs text-muted-foreground transition-colors duration-150 ease-out hover:bg-transparent',
               'hover:border-input hover:text-foreground',
             )}
           >
@@ -362,7 +362,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
           onChange={(event) => void handleScreenshotChange(event)}
         />
         {screenshotError && (
-          <p role="alert" className="mt-1.5 text-2xs text-destructive">
+          <p role="alert" className="mt-1.5 text-xs text-destructive">
             {screenshotError}
           </p>
         )}
@@ -371,13 +371,13 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <ScreenshotFraming layer={layer} onUpdate={onUpdate} />
 
       {layer.importedBezel ? (
-        <p className="text-2xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
         </p>
       ) : (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h3 className="section-title">Ombre</h3>
+            <h3 className="text-sm font-medium">Ombre</h3>
             <Switch
               checked={shadowEnabled}
               aria-label="Activer l’ombre de l’appareil"
@@ -420,7 +420,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="field-label">Couleur</span>
+                <span className="text-xs text-muted-foreground">Couleur</span>
                 <ColorPicker
                   value={shadowColor}
                   showOpacity

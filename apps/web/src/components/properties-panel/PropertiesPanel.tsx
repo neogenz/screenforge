@@ -53,7 +53,7 @@ export function PropertiesPanel() {
       title={headerLabel}
       headerExtra={
         selectedLayers.length > 1 ? (
-          <span className="tabular text-2xs text-muted-foreground">
+          <span className="tabular-nums text-xs text-muted-foreground">
             {String(selectedLayers.length)}
           </span>
         ) : undefined
@@ -87,7 +87,7 @@ export function PropertiesPanel() {
               <p className="text-sm text-muted-foreground">
                 {selectedLayers.length} calques sélectionnés.
               </p>
-              <p className="mt-1 text-2xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Sélectionnez un seul calque pour éditer.
               </p>
             </div>

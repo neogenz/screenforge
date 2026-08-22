@@ -57,7 +57,7 @@ export function ProcessingPanel({
       className={cn('animate-enter flex flex-col gap-3 rounded-lg border bg-card p-3', className)}
     >
       <div className="flex flex-col gap-0.5">
-        <h3 className="section-title">{title}</h3>
+        <h3 className="text-sm font-medium">{title}</h3>
         <p className="text-xs text-muted-foreground">
           {verdict} · {finished}/{steps.length} étapes
         </p>

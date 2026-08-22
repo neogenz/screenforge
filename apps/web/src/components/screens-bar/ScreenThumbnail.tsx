@@ -191,7 +191,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           marginBottom: THUMBNAIL_LABEL_GAP,
         }}
         className={cn(
-          'tabular w-fit px-1 text-2xs',
+          'tabular-nums w-fit px-1 text-xs',
           'transition-colors duration-150 ease-out',
           // Trois états, un seul repère. Le citron reste ce qui dit « vous êtes
           // ici » et ne se pose que sur l'écran courant ; un écran seulement
@@ -297,7 +297,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-hidden
         style={{ height: THUMBNAIL_LABEL_HEIGHT, marginTop: THUMBNAIL_LABEL_GAP }}
         className={cn(
-          'block truncate text-center text-2xs',
+          'block truncate text-center text-xs',
           isActive || isSelected ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -345,7 +345,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         />
         {/* Une ligne, pas deux : « Laissé vide, il garde son rang pour nom. »
             débordait et laissait « nom. » orphelin sous un champ de 224. */}
-        <p className="field-label mt-1.5 leading-4">Vide, il garde son rang.</p>
+        <p className="text-xs text-muted-foreground mt-1.5 leading-4">Vide, il garde son rang.</p>
       </AnchoredPopover>
 
       <button

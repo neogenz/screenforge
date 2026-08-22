@@ -85,15 +85,11 @@
       /* Le chrome flottant, posé à sa géométrie finale avant tout CSS de
          l'app : la barre haute, la pellicule et le HUD de zoom montent au
          même endroit que leurs vraies vignettes, donc rien ne saute au
-         montage. `lib/stage.ts` reste la source des marges et hauteurs — sauf
-         `--boot-topbar-height`, mesurée ici à 46px (le bouton `size="default"`
-         rend en `sm:h-8` à cette largeur, padding d'îlot 4px, filet 1px) :
-         `TOP_BAR_HEIGHT` y vaut 50 (36 + 2×6 + 2×1), un compte qui suppose un
-         bouton `h-9` et un îlot à 6px de retrait — ni l'un ni l'autre ne
-         correspond plus à ce que le navigateur pose aujourd'hui. Une vraie
-         planche à ce chiffre décalait le bouton Exporter de 4px à
-         l'hydratation ; la valeur ci-dessous est mesurée sur le rendu, pas
-         recopiée de la constante. */
+         montage. `lib/stage.ts` reste la source des marges et hauteurs —
+         `--boot-topbar-height` vaut 46px, comme `TOP_BAR_HEIGHT` : le rang le
+         plus haut de la grille de l'îlot est le champ « Nom du projet »
+         (36px, coss `h-9`), pas les boutons de la barre d'outils (32px), qui
+         s'y centrent verticalement ; + padding d'îlot (2×4) + filet (2×1). */
       :root {
         --boot-margin: 12px;
         --boot-topbar-height: 46px;

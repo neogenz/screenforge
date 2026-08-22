@@ -233,7 +233,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             render={<section aria-labelledby="current-project-title" />}
             className="m-3 p-3 shadow-none"
           >
-            <h2 id="current-project-title" className="section-title mb-2">
+            <h2 id="current-project-title" className="text-sm font-medium mb-2">
               Projet courant
             </h2>
             <div aria-current="page" className="flex min-w-0 items-center gap-2">
@@ -265,11 +265,11 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
 
           <section className="p-3" aria-labelledby="other-projects-title">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 id="other-projects-title" className="section-title">
+              <h3 id="other-projects-title" className="text-sm font-medium">
                 Autres projets
               </h3>
               {!loading && !loadError && (
-                <span className="text-2xs text-muted-foreground tabular-nums">{others.length}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{others.length}</span>
               )}
             </div>
             <Input
@@ -341,7 +341,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                           <time
                             id={dateId}
                             dateTime={new Date(project.updatedAt).toISOString()}
-                            className="shrink-0 text-2xs text-muted-foreground tabular-nums"
+                            className="shrink-0 text-xs text-muted-foreground tabular-nums"
                           >
                             <span className="sr-only">Modifié le </span>
                             {date}

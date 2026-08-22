@@ -101,13 +101,13 @@ export function VectorPicker({
           setActiveId(value)
           setOpen((isOpen) => !isOpen)
         }}
-        className="field-surface h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
+        className="h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
         aria-label={`${label} : ${current?.label ?? value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="field-label shrink-0 select-none">{label}</span>
+          <span className="text-xs text-muted-foreground shrink-0 select-none">{label}</span>
           <VectorGlyph entry={current} kind={kind} size={14} />
           <span className="truncate">{current?.label ?? value}</span>
         </span>
@@ -158,7 +158,7 @@ export function VectorPicker({
         >
           {groups.map(([group, items]) => (
             <div key={group}>
-              <div role="presentation" className="field-label px-2 pt-1.5 pb-1">
+              <div role="presentation" className="text-xs text-muted-foreground px-2 pt-1.5 pb-1">
                 {group}
               </div>
               <div className="grid grid-cols-5 gap-1 px-1 pb-1">
@@ -224,7 +224,9 @@ export function VectorPicker({
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="field-label px-2 py-3 text-center">Aucun résultat</div>
+            <div className="text-xs text-muted-foreground px-2 py-3 text-center">
+              Aucun résultat
+            </div>
           )}
         </div>
       </AnchoredPopover>

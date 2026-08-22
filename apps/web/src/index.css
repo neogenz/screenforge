@@ -321,6 +321,12 @@ button[aria-disabled='true'],
 [data-slot='command-dialog-backdrop'] {
   transition: none;
 }
+@keyframes exit-fast {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot='menu-popup'] {
     animation-name: fade-in;
@@ -330,63 +336,12 @@ button[aria-disabled='true'],
   }
 }
 
-/* ponytail: alias de transition, retiré en phase 7.
-   Les classes v6 que les features référencent encore jusqu'à leur phase de
-   réécriture, mappées sur la grammaire coss. Ce bloc est la dette nommée de la
-   migration : la phase 7 vérifie qu'il est vide. */
+/* Zone de préhension 44×24 px : aucune primitive coss n'exprime une cible
+   tactile plus grande que l'élément visible, donc pas d'alias à en faire —
+   c'est un besoin d'accessibilité permanent, pas une dette v6. En couche pour
+   qu'un `hit-*` posé sur un élément coss reste dominé par ses propres
+   utilitaires. */
 @layer components {
-  :root {
-    --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.7);
-    --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.06);
-  }
-  .dark {
-    --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
-    --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
-  }
-  /* Un bouton qui ne bouge pas sous le doigt paraît sourd. En couche, pour
-     que le reduced-motion de `motion.css` (hors couche) le remette à plat. */
-  button:active {
-    scale: 0.97;
-    transition: scale 0.12s var(--ease-out);
-  }
-  .panel-title {
-    @apply text-base font-medium;
-  }
-  .section-title {
-    @apply text-sm font-medium;
-  }
-  .field-label {
-    @apply text-xs text-muted-foreground;
-  }
-  .text-2xs {
-    @apply text-xs;
-  }
-  .tabular {
-    @apply tabular-nums;
-  }
-  .rounded-xs {
-    @apply rounded-sm;
-  }
-  .field-surface {
-    @apply rounded-md border border-input bg-muted;
-  }
-  .surface-inner {
-    @apply rounded-xl border bg-muted;
-  }
-  .surface-modal {
-    @apply rounded-2xl border bg-popover shadow-lg/5;
-  }
-  .menu-shadow {
-    @apply shadow-lg/5;
-  }
-  .hairline {
-    height: 1px;
-    background: var(--color-border);
-  }
-  .img-outline {
-    outline: 1px solid --alpha(var(--color-black) / 10%);
-    outline-offset: -1px;
-  }
   .hit-44,
   .hit-24 {
     position: relative;
@@ -407,78 +362,4 @@ button[aria-disabled='true'],
     min-width: 24px;
     min-height: 24px;
   }
-  .scroll-fade {
-    scrollbar-gutter: stable;
-  }
-  .scroll-fade[data-fade] {
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
-  }
-  .ease-out-expo {
-    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  @keyframes exit-fast {
-    to {
-      opacity: 0;
-      transform: scale(0.98);
-    }
-  }
-  @keyframes exit {
-    to {
-      opacity: 0;
-      translate: 0 4px;
-    }
-  }
-  @keyframes fade-out {
-    to {
-      opacity: 0;
-    }
-  }
-  @keyframes check-draw {
-    from {
-      stroke-dashoffset: var(--check-draw-length, 14);
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .animate-slide-up,
-    .animate-menu-in,
-    .animate-check-in {
-      animation-name: fade-in;
-    }
-    .animate-exit,
-    .animate-exit-fast {
-      animation-name: fade-out;
-    }
-    .animate-check-draw {
-      animation: none;
-      stroke-dashoffset: 0;
-    }
-  }
-}
-
-/* ponytail: suite du bloc d'alias de transition, en `@utility` parce que les
-   features les préfixent d'un variant (`data-[state=closed]:animate-exit-fast`)
-   et qu'une classe de composant n'en accepte pas. Retiré en phase 7. */
-@utility animate-fade-in {
-  animation: fade-in 0.14s var(--ease-out);
-}
-@utility animate-slide-up {
-  animation: enter 0.16s var(--ease-out);
-}
-@utility animate-menu-in {
-  animation: enter 0.16s var(--ease-out);
-}
-@utility animate-check-in {
-  animation: mark 0.24s var(--ease-out);
-}
-@utility animate-exit-fast {
-  animation: exit-fast 0.1s var(--ease-out) both;
-}
-@utility animate-exit {
-  animation: exit 0.18s var(--ease-out) both;
-}
-@utility animate-check-draw {
-  animation: check-draw 0.28s var(--ease-out) 0.05s both;
 }

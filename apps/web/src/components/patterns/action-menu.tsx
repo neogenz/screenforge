@@ -14,7 +14,7 @@ export interface ActionMenuItem {
   id?: string
   label: string
   icon?: ReactNode
-  /** Secondary info on the right (e.g. screen size), plain tabular text. */
+  /** Secondary info on the right (e.g. screen size), plain tabular-nums text. */
   meta?: string
   shortcut?: string
   danger?: boolean

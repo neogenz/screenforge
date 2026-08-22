@@ -243,7 +243,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         /* « 0/20 » se lit comme un score de test. Le compteur dit ce qu'il
            compte, et le lecteur d'écran en entend la phrase entière. */
         <span
-          className="tabular field-label px-1"
+          className="tabular-nums text-xs text-muted-foreground px-1"
           aria-label={`${releases.length} release${releases.length > 1 ? 's' : ''} sur ${MAX_PROJECT_RELEASES}`}
         >
           {releases.length} release{releases.length > 1 ? 's' : ''} sur {MAX_PROJECT_RELEASES}
@@ -299,7 +299,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
               {/* Ce que le bouton produit, au moment de l'appuyer. Le rendu
                   complet prend plusieurs secondes : savoir ce qu'on attend
                   change ce qu'on comprend de l'attente. */}
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {project.screens.length > 1
                   ? `Rend les ${project.screens.length} écrans et retient leurs empreintes.`
                   : 'Rend l’écran et retient son empreinte.'}
@@ -307,7 +307,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
             </div>
 
             {releases.length === 0 ? (
-              <p className="text-2xs text-muted-foreground">Aucune release figée pour l’instant.</p>
+              <p className="text-xs text-muted-foreground">Aucune release figée pour l’instant.</p>
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {[...releases].reverse().map((release) => {
@@ -339,7 +339,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                             {identical ? 'à jour' : 'dérivé'}
                           </Badge>
                         </div>
-                        <span className="tabular text-2xs text-muted-foreground">
+                        <span className="tabular-nums text-xs text-muted-foreground">
                           {formatDate(release.createdAt)} · {release.files.length} écrans
                           {release.locale ? ` · ${release.locale}` : ''}
                         </span>
@@ -356,8 +356,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           <div className="mb-4" aria-live="polite">
             <div className="mb-2 flex items-center gap-2">
               <Loader size={13} className="animate-spin text-foreground" aria-hidden />
-              <span className="text-2xs text-foreground">{progress.label}</span>
-              <span className="tabular ml-auto text-2xs text-muted-foreground">
+              <span className="text-xs text-foreground">{progress.label}</span>
+              <span className="tabular-nums ml-auto text-xs text-muted-foreground">
                 {progress.current}/{progress.total}
               </span>
             </div>
@@ -385,8 +385,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="section-title">{selected.name}</h3>
-                <p className="tabular mt-1 text-2xs text-muted-foreground">
+                <h3 className="text-sm font-medium">{selected.name}</h3>
+                <p className="tabular-nums mt-1 text-xs text-muted-foreground">
                   {formatDate(selected.createdAt)} · {selected.files.length} écrans
                   {selected.watermarked ? ' · filigrané' : ''}
                 </p>
@@ -456,7 +456,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 plutôt qu'au moment de l'envoi, et sur un lot qu'on n'a pas
                 l'intention de publier aujourd'hui. Le taire laissait croire à
                 une étape obligatoire dont personne ne voyait l'effet. */}
-            <p className="text-2xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} écrans de cette release
               et recompare leurs empreintes : c’est ce qui dit si une police disparue ou un cadre
               d’appareil remplacé l’a changé depuis. Publier refait ce contrôle et refuse une
@@ -493,15 +493,15 @@ type Verdict = 'ok' | 'drift' | null
  * La coche entre en fondu-échelle : un changement d'icône sans transition se
  * lit comme un défaut d'affichage, alors que l'entrée dit « ceci vient
  * d'arriver, à cause de votre clic ». Le mouvement tombe sous
- * `prefers-reduced-motion`, où `animate-check-in` se réduit au fondu — le sens
+ * `prefers-reduced-motion`, où `animate-mark` se réduit au fondu — le sens
  * est porté par la couleur *et* par le libellé, jamais par l'animation.
  */
 function VerdictIcon({ verdict }: { verdict: Verdict }) {
   if (verdict === 'ok') {
-    return <Check size={12} aria-hidden className="animate-check-in text-success" />
+    return <Check size={12} aria-hidden className="animate-mark text-success" />
   }
   if (verdict === 'drift') {
-    return <AlertCircle size={12} aria-hidden className="animate-check-in text-warning" />
+    return <AlertCircle size={12} aria-hidden className="animate-mark text-warning" />
   }
   return <ShieldCheck size={12} aria-hidden />
 }
@@ -527,7 +527,7 @@ function VerdictIcon({ verdict }: { verdict: Verdict }) {
 function WhyFreeze({ open }: { open?: boolean }) {
   return (
     <details className="group/why" {...(open ? { open: true } : {})}>
-      <summary className="flex list-none items-center gap-1.5 text-2xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
+      <summary className="flex list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
         <ChevronRight
           size={12}
           strokeWidth={1.75}
@@ -546,7 +546,7 @@ function WhyFreeze({ open }: { open?: boolean }) {
 function FreezeReasons() {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-2xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Un projet bouge tous les jours ; une livraison App Store, non. Une release est la photo
         datée de ce que vous avez décidé de livrer — le projet continue de vivre à côté, sans jamais
         la modifier.
@@ -588,7 +588,7 @@ function FreezeReasons() {
  * ouvre chaque ligne : elle suffit à les faire scanner.
  */
 function ReasonLine({ children }: { children: ReactNode }) {
-  return <li className="text-2xs text-muted-foreground">{children}</li>
+  return <li className="text-xs text-muted-foreground">{children}</li>
 }
 
 /**
@@ -603,9 +603,9 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
 
   return (
     <div className="border-t border-border pt-4" aria-live="polite">
-      <h3 className="section-title">Vérification</h3>
+      <h3 className="text-sm font-medium">Vérification</h3>
       {broken.length === 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-2xs text-foreground">
+        <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
           <Check size={13} className="text-success" aria-hidden />
           Les {results.length} écrans se rejouent à l’identique : cette release est encore publiable
           telle quelle.
@@ -614,10 +614,10 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
         <>
           <ul className="mt-2 flex flex-col gap-1.5">
             {broken.map((result) => (
-              <li key={result.path} className="flex items-start gap-2 text-2xs text-warning">
+              <li key={result.path} className="flex items-start gap-2 text-xs text-warning">
                 <AlertCircle size={13} className="mt-px shrink-0" aria-hidden />
                 <span className="min-w-0">
-                  <span className="tabular">{result.path}</span>
+                  <span className="tabular-nums">{result.path}</span>
                   {' — '}
                   {result.status === 'changed' ? 'empreinte différente' : 'rendu impossible'}
                   {result.detail ? ` (${result.detail})` : ''}
@@ -629,7 +629,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
               empreintes tronquées. Ce qu'il lui faut savoir tient en deux
               faits : l'envoi est fermé pour ce lot, et un lot n'est jamais
               réparé — il est remplacé, puisque sa date est ce qu'il atteste. */}
-          <p className="mt-2 text-2xs text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Publier refusera cette release. Une release ne se répare pas : reprenez-la si vous
             voulez retrouver cet état, puis figez-en une nouvelle.
           </p>
@@ -676,7 +676,7 @@ function propLabel(prop: string): string {
 function LayerLine({ change }: { change: LayerChange }) {
   const verb = change.kind === 'added' ? 'ajouté' : change.kind === 'removed' ? 'retiré' : 'modifié'
   return (
-    <li className="flex items-baseline gap-2 text-2xs text-muted-foreground">
+    <li className="flex items-baseline gap-2 text-xs text-muted-foreground">
       <span
         aria-hidden
         className={cn(
@@ -697,20 +697,20 @@ function DiffReport({ diff }: { diff: StructuralDiff }) {
 
   return (
     <div className="border-t border-border pt-4">
-      <h3 className="section-title">Depuis cette release</h3>
+      <h3 className="text-sm font-medium">Depuis cette release</h3>
       {diff.identical ? (
-        <p className="mt-2 flex items-center gap-2 text-2xs text-foreground">
+        <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
           <History size={13} aria-hidden />
           Le projet est exactement dans l’état figé.
         </p>
       ) : (
         <>
-          <p className="mt-1 text-2xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {total} changement{total > 1 ? 's' : ''} structurel{total > 1 ? 's' : ''}.
           </p>
           <div className="mt-3 flex flex-col gap-3">
             {diff.projectRenamed && (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Projet renommé : {diff.projectRenamed.from} → {diff.projectRenamed.to}
               </p>
             )}
@@ -743,7 +743,7 @@ function DiffReport({ diff }: { diff: StructuralDiff }) {
               </div>
             )}
             {diff.globals.length > 0 && (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Réglages globaux : {diff.globals.map(propLabel).join(', ')}
               </p>
             )}

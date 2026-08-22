@@ -119,7 +119,7 @@ function ProviderChoice({
       value={entry.id}
       aria-label={entry.label}
       className={cn(
-        'flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-3 py-1.5 text-left text-2xs transition-colors outline-none',
+        'flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-3 py-1.5 text-left text-xs transition-colors outline-none',
         'focus-visible:ring-1 focus-visible:ring-ring',
         'data-disabled:cursor-not-allowed data-disabled:opacity-50',
         active ? 'border-foreground bg-muted' : 'border-border hover:border-input',
@@ -268,14 +268,14 @@ export function AssistantSetup({
                   copiée puis collée dans le terminal tel qu'il était ouvert :
                   `--filter` ne trouve aucun paquet « bridge » hors de cet espace
                   de travail, et l'échec ressemble à un pont cassé. */}
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
                 </p>
                 <SetupCommand command={BRIDGE_COMMAND} />
                 <p
                   role={found && !engineFound ? 'alert' : 'status'}
                   className={cn(
-                    'flex items-start gap-1.5 text-2xs',
+                    'flex items-start gap-1.5 text-xs',
                     engineFound ? 'text-muted-foreground' : 'text-warning',
                   )}
                 >
@@ -285,7 +285,7 @@ export function AssistantSetup({
                   {bridgeStatusLine()}
                 </p>
                 {found?.state === 'up' && !engineFound && (
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {active.setup.requirement}{' '}
                     <Away href={active.setup.requirementHref}>Comment l’installer</Away>
                   </p>
@@ -318,12 +318,12 @@ export function AssistantSetup({
               }
             >
               {!viaBridge && (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {active.setup.requirement}{' '}
                   <Away href={active.setup.requirementHref}>Ouvrir la page des clés</Away>
                 </p>
               )}
-              <p className="text-2xs text-muted-foreground">{active.setup.secretHelp}</p>
+              <p className="text-xs text-muted-foreground">{active.setup.secretHelp}</p>
               <div className="flex items-end gap-2">
                 <Field className="min-w-0 flex-1 gap-1.5">
                   <FieldLabel htmlFor={SECRET_FIELD_ID}>{active.setup.secretLabel}</FieldLabel>
@@ -348,7 +348,7 @@ export function AssistantSetup({
                 </Button>
               </div>
               {connection.state === 'error' && (
-                <p role="alert" className="flex items-start gap-1.5 text-2xs text-destructive">
+                <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
                   <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
                   {connection.message}
                 </p>
@@ -394,7 +394,7 @@ export function AssistantSetup({
                       </option>
                     ))}
                   </datalist>
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {connection.models.length} modèles disponibles. Tous ne savent pas rendre du
                     JSON strict : en cas d’échec, essayez-en un autre avant de conclure.
                   </p>
@@ -422,7 +422,7 @@ export function AssistantSetup({
 
         <details
           key={active.id}
-          className="border-t border-border px-3 py-2 text-2xs text-muted-foreground"
+          className="border-t border-border px-3 py-2 text-xs text-muted-foreground"
         >
           <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
             Données et confidentialité

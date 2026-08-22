@@ -229,7 +229,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
         )}
       </div>
       {colorError && (
-        <p id={errorId} role="alert" className="text-2xs text-destructive">
+        <p id={errorId} role="alert" className="text-xs text-destructive">
           {colorError}
         </p>
       )}
@@ -237,7 +237,7 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
       {/* Recent colors */}
       {recentColors.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="field-label">Récents</span>
+          <span className="text-xs text-muted-foreground">Récents</span>
           <div className="flex flex-wrap gap-1">
             {recentColors.map((color) => (
               <Button

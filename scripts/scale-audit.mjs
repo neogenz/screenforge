@@ -17,9 +17,9 @@ const baseURL = process.env.BASE_URL ?? 'http://localhost:5199'
  * @type {['polices' | 'hauteurs' | 'rayons' | 'ecarts', number][]}
  */
 const LIMITS = [
-  ['polices', 4],
-  ['hauteurs', 2],
-  ['rayons', 4],
+  ['polices', 3],
+  ['hauteurs', 3],
+  ['rayons', 5],
   ['ecarts', 3],
 ]
 /**
@@ -131,15 +131,20 @@ const measure = () =>
     ({ SAMPLES }) => {
       // Sont hors grille par nature, et donc hors mesure : le `textarea`, multiligne
       // par définition ; l'interrupteur et le curseur, dont la forme *est*
-      // l'affordance ; les cartes checkbox et actions `.field-label`, qui ne sont
-      // pas des contrôles denses ; l'input de fichier, invisible et représenté par un bouton.
+      // l'affordance (le `role="slider"` d'un bouton-poignée comme l'`input
+      // type="range"` natif qui porte le même curseur derrière lui) ; l'input
+      // de fichier, invisible et représenté par un bouton. Les slots coss
+      // couvrent ce qu'un rôle seul ne dit pas : le Select (`select-trigger`),
+      // l'item de menu quand il n'est pas un `menuitem` ARIA (`menu-item`), le
+      // groupe de bascules et le champ NumberField.
       const CONTROLS =
-        'button:not([role="switch"]):not([role="slider"]):not([role="checkbox"]):not(.field-label), input:not([type="file"]), [role="combobox"], [role="menuitem"], [role="option"]'
+        'button:not([role="switch"]):not([role="slider"]):not([role="checkbox"]), input:not([type="file"]):not([type="range"]), [role="combobox"], [role="menuitem"], [role="option"], [data-slot="select-trigger"], [data-slot="menu-item"], [data-slot="toggle-group-item"], [data-slot="number-field-input"]'
       // La pellicule d'écrans dimensionne ses vignettes sur le ratio de l'artboard
       // (`THUMBNAIL_HEIGHT` dans `lib/stage.ts`), pas sur la grille des contrôles.
       const FILMSTRIP = '[role="group"][aria-label="Écrans"]'
       // Le rythme vertical se juge dans les îlots flottants : c'est là qu'on empile.
-      const ISLANDS = '.island'
+      // `Island` (composant coss) pose `data-slot="island"`, pas `.island` (v6).
+      const ISLANDS = '[data-slot="island"]'
 
       /** @typedef {Map<string, {count: number, samples: string[]}>} Bucket */
       /** @type {Bucket} */ const polices = new Map()
@@ -167,7 +172,39 @@ const measure = () =>
       /** @param {Element} el */
       const visible = (el) => {
         const rect = el.getBoundingClientRect()
-        return rect.width > 0 && rect.height > 0
+        if (!(rect.width > 0 && rect.height > 0)) return false
+        // Un input `aria-hidden` dont la boîte est réduite à rien (clip-path,
+        // sur lui ou sur le `sr-only` qui l'enveloppe) est un doublon natif, pas
+        // un contrôle : Base UI en pose un derrière chaque Select, NumberField,
+        // Combobox, Switch et Slider (`clip-path: inset(50%)` sur l'input
+        // lui-même) ; l'éditeur fait pareil pour l'`input type="color"` natif
+        // caché en `.sr-only` (le clip-path est alors sur le parent). `aria-
+        // hidden` seul ne suffit pas à exclure : Base UI marque aussi, le temps
+        // qu'une boîte de dialogue reste ouverte, le reste de la page comme
+        // inerte pour l'accessibilité — un contrôle réel comme « Nom du projet »
+        // le porte alors sans que sa boîte ne rétrécisse d'un pixel.
+        if (el.getAttribute('aria-hidden') !== 'true') return true
+        /** @param {Element | null} node */
+        const clipped = (node) => node !== null && getComputedStyle(node).clipPath !== 'none'
+        return !(clipped(el) || clipped(el.parentElement))
+      }
+
+      // Les primitives coss portent des tailles que le projet ne retouche pas :
+      // un titre de Dialog/AlertDialog/Sheet/Popover/Card (`text-xl`/`text-lg`,
+      // toujours `data-slot="…-title"`) et le badge (`data-slot="badge"`, texte
+      // et rayon fixés par sa propre variante). Les compter jugerait `ui/`, pas
+      // l'app.
+      /** @param {Element} el */
+      const isPrimitiveTitle = (el) => /-title$/.test(el.getAttribute('data-slot') ?? '')
+      /** @param {Element} el */
+      const isBadge = (el) => el.getAttribute('data-slot') === 'badge'
+      // Rayon fixé par la primitive et jamais par le projet : le curseur du
+      // Switch (`*-thumb`) et le coin intérieur du pied de Dialog/Sheet/
+      // AlertDialog (`*-footer`, qui épouse le rayon du cadre moins 1px).
+      /** @param {Element} el */
+      const isPrimitiveRadius = (el) => {
+        const slot = el.getAttribute('data-slot') ?? ''
+        return isBadge(el) || slot.endsWith('-thumb') || slot.endsWith('-footer')
       }
 
       for (const el of document.querySelectorAll('body *')) {
@@ -176,7 +213,7 @@ const measure = () =>
         // Police : seuls les éléments qui portent eux-mêmes du texte comptent, sinon
         // chaque conteneur ferait remonter la taille héritée de ses enfants.
         const ownsText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim())
-        if (ownsText) {
+        if (ownsText && !isPrimitiveTitle(el) && !isBadge(el)) {
           const { fontSize, lineHeight } = getComputedStyle(el)
           tally(polices, fontSize, el)
           // `normal` est une hauteur que la fonte décide, donc fractionnaire et hors
@@ -188,6 +225,7 @@ const measure = () =>
           )
         }
 
+        if (isPrimitiveRadius(el)) continue
         for (const corner of getComputedStyle(el).borderRadius.split(' ')) {
           const px = Number.parseFloat(corner)
           // Un rayon en pourcentage ou démesuré est une pastille, pas une valeur d'échelle.
@@ -200,17 +238,33 @@ const measure = () =>
       // dans `NumberField` : c'est le parent qui porte la hauteur du contrôle, et
       // l'enfant qui en retranche les bordures. La règle s'arrête à l'input : un
       // bouton fantôme est transparent par variante, pas parce qu'il est imbriqué.
+      // `InputGroup` (recherche, hex) force `display: contents` sur le `span`
+      // `data-slot="input-control"` de `Input` — sans boîte propre, remonter
+      // d'un cran de plus jusqu'à la boîte qui porte vraiment le cadre.
       /** @param {Element} el @returns {Element} */
       const boxOf = (el) => {
         if (el.tagName !== 'INPUT' || !el.parentElement) return el
         const style = getComputedStyle(el)
         const drawsNothing =
           style.borderTopWidth === '0px' && style.backgroundColor === 'rgba(0, 0, 0, 0)'
-        return drawsNothing ? el.parentElement : el
+        if (!drawsNothing) return el
+        let box = el.parentElement
+        while (box.parentElement && getComputedStyle(box).display === 'contents') {
+          box = box.parentElement
+        }
+        return box
       }
 
+      // `xs`/`icon-xs` : la variante dense du Button coss (24px à `sm:`, fermeture
+      // de tiroir, actions inline d'un calque) — un palier hors du rythme
+      // principal de contrôle, au même titre que le switch ou le curseur.
+      // `sm:h-6`/`sm:size-6` n'existe sur aucune autre variante de `button.tsx`.
+      /** @param {Element} el */
+      const isDenseButton = (el) =>
+        el.tagName === 'BUTTON' && /\bsm:(h|size)-6\b/.test(el.className)
+
       for (const el of document.querySelectorAll(CONTROLS)) {
-        if (!visible(el) || el.closest(FILMSTRIP)) continue
+        if (!visible(el) || el.closest(FILMSTRIP) || isDenseButton(el)) continue
         tally(hauteurs, `${Math.round(boxOf(el).getBoundingClientRect().height)}px`, el)
       }
 

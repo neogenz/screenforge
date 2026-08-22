@@ -371,7 +371,7 @@ export function ScreensBar() {
       // des surfaces. Une carte autour d'eux empilait plateau, tuile et aperçu à
       // trois clartés voisines, et prenait 26px de hauteur au canevas pour
       // encadrer du vide. Ce sont les vignettes qui flottent.
-      className="filmstrip-scroll relative flex animate-slide-up items-start"
+      className="filmstrip-scroll relative flex animate-enter-quick items-start"
       onDragOver={handleStripDragOver}
       onDrop={handleDrop}
     >
@@ -470,7 +470,7 @@ export function ScreensBar() {
       {list.length >= MAX_PROJECT_SCREENS - 1 && (
         <span
           style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
-          className="tabular flex shrink-0 items-center px-1 text-2xs text-muted-foreground"
+          className="tabular-nums flex shrink-0 items-center px-1 text-xs text-muted-foreground"
         >
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>

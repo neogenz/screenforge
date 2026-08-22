@@ -135,13 +135,13 @@ function RefreshDialogContent({ project }: { project: Project }) {
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Un fichier va sur l’écran dont il porte le rôle : <code>budget.png</code> sur
                     les appareils dont le rôle est <code>budget</code>. Le reste se corrige à
                     l’étape suivante.
                   </p>
                   {files.length > 0 && (
-                    <p className="mt-1 text-2xs tabular-nums text-muted-foreground">
+                    <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                       {files.length} fichier{files.length > 1 ? 's' : ''} chargé
                       {files.length > 1 ? 's' : ''}
                     </p>
@@ -173,7 +173,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
               />
 
               {error && (
-                <p role="alert" className="flex items-start gap-2 text-2xs text-destructive">
+                <p role="alert" className="flex items-start gap-2 text-xs text-destructive">
                   <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
                   {error}
                 </p>
@@ -187,7 +187,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
           content: (
             <div className="flex flex-col gap-4">
               {targets.length === 0 ? (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Aucun appareil dans ce projet : ajoutez un cadre iPhone avant d’actualiser un lot.
                 </p>
               ) : (
@@ -228,12 +228,12 @@ function Thumbnail({ src, muted }: { src?: string; muted?: boolean }) {
       src={src}
       alt=""
       className={cn(
-        'h-12 w-6 shrink-0 rounded-xs border border-border object-cover',
+        'h-12 w-6 shrink-0 rounded-sm border border-border object-cover',
         muted && 'opacity-40',
       )}
     />
   ) : (
-    <span aria-hidden className="h-12 w-6 shrink-0 rounded-xs border border-dashed border-input" />
+    <span aria-hidden className="h-12 w-6 shrink-0 rounded-sm border border-dashed border-input" />
   )
 }
 
@@ -259,7 +259,7 @@ function TargetRow({
     <li className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2">
       <div className="flex min-w-0 flex-1 basis-40 flex-col">
         <span className="truncate text-sm text-foreground">{place}</span>
-        <span className="truncate text-2xs text-muted-foreground">
+        <span className="truncate text-xs text-muted-foreground">
           {target.layerName}
           {target.slot ? ` · ${target.slot}` : ' · sans rôle'}
         </span>
@@ -334,10 +334,10 @@ function PlanNotes({
 
   return (
     <div className="border-t border-border pt-4" aria-live="polite">
-      <h3 className="section-title">À vérifier</h3>
+      <h3 className="text-sm font-medium">À vérifier</h3>
       <ul className="mt-2 flex flex-col gap-1.5">
         {notes.map((note) => (
-          <li key={note} className="flex items-start gap-2 text-2xs text-warning">
+          <li key={note} className="flex items-start gap-2 text-xs text-warning">
             <AlertCircle size={13} className="mt-px shrink-0" aria-hidden />
             {note}
           </li>

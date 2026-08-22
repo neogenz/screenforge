@@ -155,7 +155,7 @@ function AccountDialogContent() {
               pas plus le compte que le vide. */}
           <span
             aria-hidden
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-2xs font-semibold text-foreground uppercase"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-xs font-semibold text-foreground uppercase"
           >
             {email?.[0] ?? '?'}
           </span>
@@ -167,7 +167,7 @@ function AccountDialogContent() {
             <CloudUsagePanel usage={usage} />
             {confirmingClear ? (
               <div className="flex flex-col gap-2">
-                <p role="alert" className="text-2xs leading-4 text-muted-foreground">
+                <p role="alert" className="text-xs leading-4 text-muted-foreground">
                   Les projets de cet appareil, votre compte et votre abonnement restent en place.
                   Les copies uniquement présentes dans Cloud ou sur d’autres machines ne seront plus
                   récupérables depuis Cloud.
@@ -211,9 +211,9 @@ function AccountDialogContent() {
             <p className="text-sm font-semibold text-foreground">{currentPlan}</p>
             <Check size={13} strokeWidth={2} aria-label="Actif" className="text-marker" />
           </div>
-          <p className="text-2xs leading-4 text-muted-foreground">{planDetail}</p>
+          <p className="text-xs leading-4 text-muted-foreground">{planDetail}</p>
           {cloud && (
-            <p className="text-2xs leading-4 text-muted-foreground">
+            <p className="text-xs leading-4 text-muted-foreground">
               Synchronisation : projets, images et thème sur chaque machine.
             </p>
           )}
@@ -223,7 +223,7 @@ function AccountDialogContent() {
             </Button>
           )}
           {!cloud && durable === false && (
-            <p className="text-2xs leading-4 text-muted-foreground">
+            <p className="text-xs leading-4 text-muted-foreground">
               Vos projets vivent dans ce navigateur, qui n’a pas garanti de les conserver.
               Téléchargez-en une copie depuis le menu du projet, ou choisissez Cloud.
             </p>
@@ -284,14 +284,14 @@ function AccountDialogContent() {
 function CloudUsagePanel({ usage }: { usage: CloudUsage | 'loading' | 'error' }) {
   if (usage === 'loading') {
     return (
-      <p role="status" className="mt-2 text-2xs text-muted-foreground">
+      <p role="status" className="mt-2 text-xs text-muted-foreground">
         Mesure en cours…
       </p>
     )
   }
   if (usage === 'error') {
     return (
-      <p role="status" className="mt-2 text-2xs text-muted-foreground">
+      <p role="status" className="mt-2 text-xs text-muted-foreground">
         Utilisation indisponible. Local et les autres actions restent disponibles.
       </p>
     )
@@ -315,7 +315,7 @@ function CloudUsageLine({ label, value }: { label: string; value: CloudUsageRow 
       ? 'near'
       : 'normal'
   return (
-    <p className={`flex items-center justify-between gap-3 text-2xs ${usageClass(state)}`}>
+    <p className={`flex items-center justify-between gap-3 text-xs ${usageClass(state)}`}>
       <span>{label}</span>
       <span className="text-right tabular-nums">
         {value.count}/{value.limitCount} · {formatCloudBytes(value.bytes)}/

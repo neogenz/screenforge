@@ -5,6 +5,7 @@ import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
 import { PanelSection } from '@/components/patterns/panel-section'
 import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
 import { SHAPE_CATALOG, type ShapeId } from '@/lib/vector-catalog'
@@ -61,7 +62,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         title="Remplissage"
         headerExtra={
           <div className="flex items-center gap-2">
-            <span className="field-label">Dégradé</span>
+            <span className="text-xs text-muted-foreground">Dégradé</span>
             <Switch
               aria-label="Activer le dégradé"
               checked={fillIsGradient}
@@ -92,7 +93,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Border radius — rounded-rect only */}
       {layer.shapeType === 'rounded-rect' && (
         <>
-          <div className="hairline" />
+          <Separator />
           <UnitField
             label="Rayon"
             ariaLabel="Rayon des coins"
@@ -105,11 +106,11 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
         </>
       )}
 
-      <div className="hairline" />
+      <Separator />
 
       {/* Stroke */}
       <div className="flex flex-col gap-2">
-        <h3 className="section-title">Contour</h3>
+        <h3 className="text-sm font-medium">Contour</h3>
         <PropertyRow label="Couleur" stacked>
           <ColorPicker
             value={layer.stroke ?? DEFAULT_STROKE_COLOR}

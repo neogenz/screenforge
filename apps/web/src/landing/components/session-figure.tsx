@@ -26,7 +26,7 @@ export function ProgressBar({ value }: { value: number }) {
           style={{ width: `${value}%` }}
         />
       </span>
-      <span className="tabular w-9 shrink-0 text-right text-2xs text-muted-foreground">
+      <span className="tabular-nums w-9 shrink-0 text-right text-2xs text-muted-foreground">
         {Math.round(value)}%
       </span>
     </span>

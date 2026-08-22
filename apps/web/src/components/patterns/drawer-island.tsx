@@ -43,7 +43,7 @@ export function DrawerIsland({
     >
       <div className="shrink-0 px-3 pt-2 pb-2">
         <div className="flex h-8 items-center gap-2">
-          <h2 id={titleId} className="panel-title min-w-0 flex-1 truncate">
+          <h2 id={titleId} className="text-base font-medium min-w-0 flex-1 truncate">
             {title}
           </h2>
           {headerExtra}

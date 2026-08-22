@@ -11,6 +11,7 @@ import { ProcessingPanel, type ProcessingStep } from '@/components/patterns/proc
 import { StatusChip } from '@/components/patterns/status-chip'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { SelectField } from '@/components/patterns/select-field'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import type { Project, Screen } from '@/types'
@@ -162,7 +163,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       title="Export officiel"
       size="lg"
       flush
-      headerActions={<span className="field-label px-1">App Store</span>}
+      headerActions={<span className="text-xs text-muted-foreground px-1">App Store</span>}
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
@@ -180,7 +181,7 @@ function ExportDialogContent({ project }: { project: Project }) {
             disabled={selectedScreens.length === 0 || localeRefused}
           >
             {justExported ? (
-              <Check size={12} aria-hidden className="animate-check-in" />
+              <Check size={12} aria-hidden className="animate-mark" />
             ) : (
               <Download size={12} aria-hidden />
             )}
@@ -200,16 +201,16 @@ function ExportDialogContent({ project }: { project: Project }) {
           contentLabel="Captures à exporter"
           rail={
             <>
-              <div className="surface-inner p-4">
-                <span className="field-label">Profil</span>
+              <div className="rounded-xl border bg-muted p-4">
+                <span className="text-xs text-muted-foreground">Profil</span>
                 <p className="mt-1.5 text-sm font-medium text-foreground">
                   iPhone {PRIMARY_DIMENSION.size}
                 </p>
-                <p className="tabular mt-1 text-sm text-muted-foreground">
+                <p className="tabular-nums mt-1 text-sm text-muted-foreground">
                   {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
                 </p>
-                <div className="hairline my-3" />
-                <ul className="flex flex-col gap-2 text-2xs text-muted-foreground">
+                <Separator className="my-3" />
+                <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
                   <li className="flex items-center gap-2">
                     <Check size={12} aria-hidden /> PNG · 8 bits
                   </li>
@@ -222,12 +223,12 @@ function ExportDialogContent({ project }: { project: Project }) {
                 </ul>
               </div>
 
-              <div className="surface-inner p-4">
-                <span className="field-label">Lot final</span>
-                <p className="mt-1.5 text-xl font-medium tabular-nums text-foreground">
+              <div className="rounded-xl border bg-muted p-4">
+                <span className="text-xs text-muted-foreground">Lot final</span>
+                <p className="mt-1.5 text-base font-medium tabular-nums text-foreground">
                   {selectedScreens.length}
                 </p>
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   fichier{selectedScreens.length > 1 ? 's' : ''}
                   {' sous '}
                   <span className="font-mono">6.9/</span>
@@ -258,8 +259,8 @@ function ExportDialogContent({ project }: { project: Project }) {
                 </StatusChip>
               </div>
 
-              <div className="surface-inner p-4">
-                <span className="field-label">Langue</span>
+              <div className="rounded-xl border bg-muted p-4">
+                <span className="text-xs text-muted-foreground">Langue</span>
                 <SelectField
                   className="mt-1.5"
                   aria-label="Langue exportée"
@@ -280,7 +281,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 {localeRefused && (
                   <Alert variant="error" className="mt-2 py-2">
                     <AlertTriangle aria-hidden />
-                    <AlertDescription className="text-2xs">
+                    <AlertDescription className="text-xs">
                       {localeFindings.length} texte{localeFindings.length > 1 ? 's' : ''} déborde
                       {localeFindings.length > 1 ? 'nt' : ''} ou manque
                       {localeFindings.length > 1 ? 'nt' : ''}. Corrigez-les dans « Langues » avant
@@ -294,8 +295,8 @@ function ExportDialogContent({ project }: { project: Project }) {
         >
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="section-title">Captures</h3>
-              <p className="mt-1 text-2xs text-muted-foreground">
+              <h3 className="text-sm font-medium">Captures</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
                 L’ordre du projet sera conservé dans le ZIP.
               </p>
             </div>
@@ -304,7 +305,7 @@ function ExportDialogContent({ project }: { project: Project }) {
               size="xs"
               onClick={toggleAllScreens}
               disabled={isExporting}
-              className="field-label shrink-0"
+              className="text-xs text-muted-foreground shrink-0"
             >
               {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
             </Button>
@@ -336,7 +337,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         )}
         {!isExporting && !error && completedFiles.length > 0 && (
           <div className="border-t border-border px-6 py-4" aria-live="polite">
-            <div className="flex items-center gap-2 text-2xs text-foreground">
+            <div className="flex items-center gap-2 text-xs text-foreground">
               <FileCheck2 size={13} aria-hidden />
               ZIP validé et téléchargé · {completedFiles.length} fichier
               {completedFiles.length > 1 ? 's' : ''}
@@ -344,10 +345,10 @@ function ExportDialogContent({ project }: { project: Project }) {
             <ul className="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto">
               {completedFiles.map((file) => (
                 <li key={file.path} className="flex items-baseline justify-between gap-3">
-                  <span className="tabular min-w-0 truncate text-2xs text-muted-foreground">
+                  <span className="tabular-nums min-w-0 truncate text-xs text-muted-foreground">
                     {file.path}
                   </span>
-                  <span className="tabular shrink-0 text-2xs text-muted-foreground">
+                  <span className="tabular-nums shrink-0 text-xs text-muted-foreground">
                     {formatMegabytes(file.size)}
                   </span>
                 </li>
@@ -401,12 +402,12 @@ function ScreenChoice({
         <img
           src={screen.thumbnail}
           alt=""
-          className="h-10 w-[18px] shrink-0 rounded-xs border border-border object-cover"
+          className="h-10 w-[18px] shrink-0 rounded-sm border border-border object-cover"
         />
       ) : (
-        <span className="h-10 w-[18px] shrink-0 rounded-xs border border-border bg-stage" />
+        <span className="h-10 w-[18px] shrink-0 rounded-sm border border-border bg-stage" />
       )}
-      <span className="tabular w-5 shrink-0 text-2xs text-muted-foreground">
+      <span className="tabular-nums w-5 shrink-0 text-xs text-muted-foreground">
         {String(index + 1).padStart(2, '0')}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{screen.name}</span>

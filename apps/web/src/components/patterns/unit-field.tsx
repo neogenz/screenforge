@@ -117,7 +117,7 @@ export function UnitField({
         )}
       </NumberFieldGroup>
       {bound !== null && (
-        <p className="absolute inset-x-0 top-full z-10 mt-1 truncate text-2xs text-muted-foreground">
+        <p className="absolute inset-x-0 top-full z-10 mt-1 truncate text-xs text-muted-foreground">
           {bound === min ? 'Min. ' : 'Max. '}
           {bound}
           {unit}

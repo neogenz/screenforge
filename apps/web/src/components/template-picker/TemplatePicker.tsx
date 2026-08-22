@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty'
+import { Separator } from '@/components/ui/separator'
 import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
 import { copy } from '@/lib/copy'
@@ -73,7 +74,7 @@ function TemplatePickerContent() {
                 modèle choisi, que sa description a la place d'être lue. */}
             <div className="flex min-w-0 flex-col">
               <p className="truncate text-sm font-medium text-foreground">{selected.name}</p>
-              <p className="truncate text-2xs text-muted-foreground">{selected.description}</p>
+              <p className="truncate text-xs text-muted-foreground">{selected.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="outline" onClick={() => handleApply('current')}>
@@ -95,7 +96,7 @@ function TemplatePickerContent() {
             même vide — sans lui, rien ne dit que la bibliothèque personnelle
             existe avant qu'on y ait posé quoi que ce soit. */}
         <section className="flex flex-col gap-1.5">
-          <h3 className="section-title">Mes gabarits</h3>
+          <h3 className="text-sm font-medium">Mes gabarits</h3>
           {custom.length > 0 ? (
             <Gallery
               templates={custom}
@@ -113,9 +114,9 @@ function TemplatePickerContent() {
             </Empty>
           )}
         </section>
-        <div className="hairline" />
+        <Separator />
         <section className="flex flex-col gap-1.5">
-          <h3 className="section-title">Catalogue</h3>
+          <h3 className="text-sm font-medium">Catalogue</h3>
           <Gallery templates={TEMPLATES} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
       </div>
@@ -166,7 +167,7 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                 <TemplatePreview template={template} assets={saved?.assets} />
               </div>
               <div className="flex min-w-0 items-center gap-1 px-0.5">
-                <p className="truncate text-2xs font-medium text-foreground">{template.name}</p>
+                <p className="truncate text-xs font-medium text-foreground">{template.name}</p>
                 {/* Neutre, et seulement quand c'est vrai : « IA » dit d'où vient
                     la mise en page, il ne la recommande pas ; « Vide » dit ce
                     que la vignette ne peut pas montrer à cette échelle. */}

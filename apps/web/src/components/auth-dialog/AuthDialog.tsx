@@ -3,6 +3,7 @@ import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { signInWithEmail, signInWithProvider, type OAuthProvider } from '@/lib/auth'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -81,7 +82,7 @@ function AuthDialogContent() {
             connecter : le produit promet « local est complet », et la boîte qui
             demande un compte est précisément l'endroit où cette promesse se
             vérifie ou se perd. */}
-        <p className="text-2xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Un compte sert uniquement à Cloud : synchroniser vos projets sur plusieurs machines.
           L’éditeur et l’export n’en ont pas besoin.
         </p>
@@ -102,9 +103,9 @@ function AuthDialogContent() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div aria-hidden className="hairline flex-1" />
-          <span className="field-label">ou</span>
-          <div aria-hidden className="hairline flex-1" />
+          <Separator aria-hidden className="flex-1" />
+          <span className="text-xs text-muted-foreground">ou</span>
+          <Separator aria-hidden className="flex-1" />
         </div>
 
         {/* Un vrai `form` : la touche Entrée dans le champ doit envoyer le lien,
@@ -139,14 +140,16 @@ function AuthDialogContent() {
         </form>
 
         {sentTo && (
-          <p role="status" className="field-label text-foreground">
+          <p role="status" className="text-xs text-muted-foreground text-foreground">
             Lien envoyé à {sentTo}. Ouvre-le depuis ce navigateur pour terminer la connexion.
           </p>
         )}
 
         {/* Le compte est optionnel, et cette phrase est la seule chose qui le
             dit à qui vient d'ouvrir la dialog par curiosité. */}
-        <p className="field-label">Sans compte, tout reste local à ce navigateur.</p>
+        <p className="text-xs text-muted-foreground">
+          Sans compte, tout reste local à ce navigateur.
+        </p>
       </div>
     </DialogShell>
   )

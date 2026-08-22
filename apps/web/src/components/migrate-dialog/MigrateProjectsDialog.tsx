@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { attachProjects, unattachedProjects, type LocalProject } from '@/lib/sync'
 import { toast } from '@/stores/toast.store'
@@ -33,29 +32,6 @@ function MigrateProjectsDialogContent() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  /** La liste reste sémantiquement plate (une `ul`) : la case coche l'ajout, elle ne groupe rien. */
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  /**
-   * Tout part coché par défaut : c'est le geste d'origine (« ajouter tout »)
-   * qu'une case décoche désormais au lieu d'exclure. Réinitialisé pendant le
-   * rendu — et non dans un effet — dès que la liste change de référence, pour
-   * qu'une nouvelle tentative de chargement reparte cochée sans un rendu
-   * intermédiaire vide.
-   */
-  const [selectedFor, setSelectedFor] = useState<LocalProject[] | null>(null)
-  if (projects !== selectedFor) {
-    setSelectedFor(projects)
-    setSelected(new Set(projects?.map((project) => project.id)))
-  }
-
-  function toggle(id: string) {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -88,12 +64,10 @@ function MigrateProjectsDialogContent() {
 
   async function attachAll() {
     if (!projects) return
-    const ids = Array.from(selected)
-    if (ids.length === 0) return
     setPending(true)
     let failed: string[]
     try {
-      failed = await attachProjects(ids)
+      failed = await attachProjects(projects.map((project) => project.id))
     } catch (error) {
       console.error('Could not attach local projects.', error)
       toast(
@@ -108,7 +82,7 @@ function MigrateProjectsDialogContent() {
 
     if (failed.length === 0) {
       toast(
-        `${ids.length} projet${plural(ids.length)} ajouté${plural(ids.length)} au Cloud. Leur copie locale reste disponible.`,
+        `${projects.length} projet${plural(projects.length)} ajouté${plural(projects.length)} au Cloud. Leur copie locale reste disponible.`,
         'success',
       )
       return
@@ -125,12 +99,12 @@ function MigrateProjectsDialogContent() {
     )
   }
 
-  const selectedCount = selected.size
+  const projectCount = projects?.length ?? 0
   const attachLabel =
-    selectedCount === 1
+    projectCount === 1
       ? 'Ajouter ce projet au Cloud'
-      : selectedCount > 1
-        ? `Ajouter les ${selectedCount} projets au Cloud`
+      : projectCount > 1
+        ? `Ajouter les ${projectCount} projets au Cloud`
         : 'Ajouter les projets au Cloud'
 
   return (
@@ -153,7 +127,7 @@ function MigrateProjectsDialogContent() {
               variant="default"
               className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
               loading={pending || loading}
-              disabled={pending || loading || selectedCount === 0}
+              disabled={pending || loading || !projects?.length}
               onClick={() => void attachAll()}
             >
               {attachLabel}
@@ -190,19 +164,13 @@ function MigrateProjectsDialogContent() {
                   key={project.id}
                   className="flex min-h-10 items-center gap-2 border-b border-border py-2 last:border-b-0"
                 >
-                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
-                    <Checkbox
-                      checked={selected.has(project.id)}
-                      onCheckedChange={() => toggle(project.id)}
-                    />
-                    <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden />
-                    <span
-                      className="min-w-0 flex-1 truncate text-sm text-foreground"
-                      title={project.name}
-                    >
-                      {project.name}
-                    </span>
-                  </label>
+                  <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                  <span
+                    className="min-w-0 flex-1 truncate text-sm text-foreground"
+                    title={project.name}
+                  >
+                    {project.name}
+                  </span>
                   <time
                     dateTime={new Date(project.updatedAt).toISOString()}
                     className="shrink-0 text-2xs text-muted-foreground tabular-nums"

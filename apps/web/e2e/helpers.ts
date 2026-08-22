@@ -268,6 +268,60 @@ export function layerRows(page: Page) {
   return page.locator('[data-layer-id]')
 }
 
+/**
+ * Ouvre un menu au clavier et focus l'entrée nommée, sans l'activer : à
+ * l'appelant de presser Entrée ensuite, pour rester sur le même geste qu'un
+ * contrôle ouvert directement (cf. `openWithKeyboard` dans dialogs-a11y).
+ */
+export async function openMenu(
+  page: Page,
+  trigger: Locator,
+  itemName: string | RegExp,
+): Promise<Locator> {
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  const item = page.getByRole('menuitem', { name: itemName })
+  await item.focus()
+  return item
+}
+
+/**
+ * Un seul anneau de focus, jamais deux superposés — le contour natif du
+ * navigateur sur l'input caché d'une radio-card, par exemple, par-dessus
+ * l'anneau 1px du label qui la porte. Place le focus par tabulation depuis
+ * une sentinelle, vérifie le jeton `ring-ring` coss sur la boîte qui le
+ * porte, et que le focus est bien `:focus-visible`.
+ */
+export async function expectOneFocusRing(page: Page, control: Locator): Promise<void> {
+  await control.evaluate((element) => {
+    const host =
+      element instanceof HTMLInputElement && element.type === 'radio'
+        ? element.closest('label')
+        : element
+    const sentinel = document.createElement('button')
+    sentinel.type = 'button'
+    sentinel.dataset.focusSentinel = ''
+    sentinel.className = 'sr-only'
+    host?.before(sentinel)
+    sentinel.focus()
+  })
+  await page.keyboard.press('Tab')
+  await expect(control).toBeFocused()
+  expect(
+    await control.evaluate((element) => {
+      const host =
+        element instanceof HTMLInputElement && element.type === 'radio'
+          ? element.closest('label')
+          : element
+      return String(host?.className).includes('ring-ring')
+    }),
+  ).toBe(true)
+  await expect
+    .poll(() => control.evaluate((element) => element.matches(':focus-visible')))
+    .toBe(true)
+  await control.evaluate(() => document.querySelector('[data-focus-sentinel]')?.remove())
+}
+
 export async function findObject(page: Page, rendererType: string): Promise<DebugObject | null> {
   return page.evaluate((type) => {
     const canvas = window.__sfCanvas

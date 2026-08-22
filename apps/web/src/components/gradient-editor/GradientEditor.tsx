@@ -98,7 +98,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
     <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
       {/* Type */}
       <div className="flex flex-col gap-2">
-        <span className="field-label">Type</span>
+        <span className="text-xs text-muted-foreground">Type</span>
         <Segmented
           options={TYPE_OPTIONS}
           value={value.type}
@@ -146,8 +146,8 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Stops */}
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="field-label">
-            Arrêts <span className="tabular">{value.stops.length}/10</span>
+          <span className="text-xs text-muted-foreground">
+            Arrêts <span className="tabular-nums">{value.stops.length}/10</span>
           </span>
         </div>
 

@@ -99,7 +99,7 @@ export function McpDialog() {
 
             {status !== 'live' ? (
               <div className="flex flex-col gap-2">
-                <label htmlFor="mcp-pairing-code" className="field-label">
+                <label htmlFor="mcp-pairing-code" className="text-xs text-muted-foreground">
                   Code à 6 chiffres affiché par le démon
                 </label>
                 <Input
@@ -113,11 +113,11 @@ export function McpDialog() {
                   onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                 />
                 {status === 'error' && connectionStep === 'pairing' ? (
-                  <p role="alert" className="text-2xs text-destructive">
+                  <p role="alert" className="text-xs text-destructive">
                     {message}
                   </p>
                 ) : (
-                  <p className="text-2xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Usage unique, valable cinq minutes. Le jeton de session reste en mémoire.
                   </p>
                 )}
@@ -133,7 +133,7 @@ export function McpDialog() {
             >
               {status === 'error' && connectionStep === 'daemon' ? (
                 <div className="flex flex-col gap-2">
-                  <p role="alert" className="text-2xs text-destructive">
+                  <p role="alert" className="text-xs text-destructive">
                     {message}
                   </p>
                   <SetupCommand command={MCP_COMMAND} />
@@ -145,7 +145,7 @@ export function McpDialog() {
                   </div>
                 </div>
               ) : (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {status === 'off'
                     ? 'Lancez le démon qui tourne uniquement sur cette machine.'
                     : 'Recherche du démon sur l’adresse loopback…'}
@@ -160,7 +160,7 @@ export function McpDialog() {
               result="Code accepté et session éphémère créée."
               announce={false}
             >
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Le code est vérifié localement et ne peut servir qu’une fois.
               </p>
             </SetupStep>
@@ -173,25 +173,25 @@ export function McpDialog() {
               announce={false}
             >
               {status === 'error' ? (
-                <p role="alert" className="text-2xs text-destructive">
+                <p role="alert" className="text-xs text-destructive">
                   {message}
                 </p>
               ) : (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Le flux local est ouvert. ScreenForge transmet l’état initial du projet.
                 </p>
               )}
             </SetupStep>
 
             <SetupStep rank={4} title="Prêt pour l’agent" state={steps.ready} announce={false}>
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 L’agent peut maintenant lire, rendre et modifier ce projet tant que le mode reste
                 actif.
               </p>
             </SetupStep>
           </div>
 
-          <details className="border-t border-border px-3 py-2 text-2xs text-muted-foreground">
+          <details className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none font-medium hover:text-foreground">
               Détails de connexion
             </summary>

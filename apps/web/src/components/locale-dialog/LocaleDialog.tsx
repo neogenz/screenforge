@@ -226,7 +226,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   Les deux craintes qu'on a devant ce bouton sont « est-ce que ça
                   duplique mes dix écrans ? » et « est-ce que ça touche ma mise en
                   page ? » : les deux réponses sont non, et aucune n'était écrite. */}
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Une langue ne duplique pas le projet. Elle ne stocke que le texte traduit de chaque
                 calque — la mise en page, les captures et les appareils restent les mêmes.
               </p>
@@ -275,9 +275,9 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 {/* « Écriture » ne décide rien de visible ici, mais tout du rendu :
                     une accroche japonaise composée dans une police latine se mesure
                     juste et s'exporte en carrés vides. */}
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Propose des polices capables d’afficher la langue. Le code suit l’App Store : deux
-                  lettres, plus une région si besoin (<span className="tabular">pt-BR</span>).
+                  lettres, plus une région si besoin (<span className="tabular-nums">pt-BR</span>).
                 </p>
               </div>
 
@@ -298,7 +298,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                       key={entry.code}
                       value={entry.code}
                       className={cn(
-                        'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors outline-none',
+                        'flex items-center gap-2 rounded-md border px-3 py-2 text-xs transition-colors outline-none',
                         'focus-visible:ring-1 focus-visible:ring-ring',
                         'data-disabled:cursor-not-allowed data-disabled:opacity-50',
                         entry.code === locale?.code
@@ -306,7 +306,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                           : 'border-border text-muted-foreground hover:border-input',
                       )}
                     >
-                      <span className="tabular">{entry.code}</span>
+                      <span className="tabular-nums">{entry.code}</span>
                       {entry.name}
                     </RadioPrimitive.Root>
                   ))}
@@ -361,11 +361,11 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   traduction dans le champ — et rien ne disait lequel était
                   lequel : on relit une traduction sans savoir ce qu'elle traduit. */}
               <div className="flex items-baseline justify-between gap-2 border-t border-border pt-4">
-                <h3 className="section-title">Calque · texte d’origine</h3>
-                <span className="field-label">Traduction · relu</span>
+                <h3 className="text-sm font-medium">Calque · texte d’origine</h3>
+                <span className="text-xs text-muted-foreground">Traduction · relu</span>
               </div>
               {layers.length === 0 ? (
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Aucun texte dans ce projet. Ajoutez un calque de texte, il apparaîtra ici.
                 </p>
               ) : (
@@ -383,7 +383,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
               )}
             </>
           ) : (
-            <p className="text-2xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Ajoutez une langue, ou choisissez-en une dans la liste, pour en relire les textes.
             </p>
           )}
@@ -422,10 +422,10 @@ function TextRow({
           situer. L'original ne descend jamais sous 4.5:1 — on ne relit pas une
           traduction contre une source en gris pâle. */}
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={fieldId} className="min-w-0 truncate text-2xs text-foreground">
+        <label htmlFor={fieldId} className="min-w-0 truncate text-xs text-foreground">
           {layer.content}
         </label>
-        <span className="field-label shrink-0">{layer.name}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{layer.name}</span>
       </div>
       <div className="flex items-center gap-2">
         <Input
@@ -447,7 +447,7 @@ function TextRow({
         <Hint content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
           <label
             className={cn(
-              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-2xs',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs',
               variant?.reviewed ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
@@ -466,7 +466,7 @@ function TextRow({
       {findings.map((finding) => (
         <Alert key={finding.kind} variant="error" className="py-1.5">
           <AlertCircle aria-hidden />
-          <AlertDescription className="flex flex-wrap items-center gap-1.5 text-2xs">
+          <AlertDescription className="flex flex-wrap items-center gap-1.5 text-xs">
             <Badge variant="error" size="sm">
               {FINDING_LABELS[finding.kind]}
             </Badge>

@@ -12,6 +12,7 @@ import { PropertyRow } from '@/components/patterns/property-row'
 import { UnitField } from '@/components/patterns/unit-field'
 import { SelectField } from '@/components/patterns/select-field'
 import { SwatchButton } from '@/components/patterns/swatch-button'
+import { Separator } from '@/components/ui/separator'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
@@ -73,7 +74,7 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
       <div className="flex flex-col gap-6">
         {/* Typographie */}
         <section>
-          <h3 className="section-title mb-2">Typographie</h3>
+          <h3 className="text-sm font-medium mb-2">Typographie</h3>
           {/* Contrôles d'une ligne, libellé en ligne (grammaire du panneau) :
               seul le composite — la pastille de couleur — passe par `PropertyRow`. */}
           <div className="flex flex-col gap-2">
@@ -115,22 +116,22 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
           </div>
         </section>
 
-        <div className="hairline" />
+        <Separator />
 
         {/* Arrière-plan */}
         <section>
-          <h3 className="section-title mb-2">Arrière-plan</h3>
+          <h3 className="text-sm font-medium mb-2">Arrière-plan</h3>
           <BackgroundEditor
             background={draft.background}
             onChange={(background) => update({ background })}
           />
         </section>
 
-        <div className="hairline" />
+        <Separator />
 
         {/* Appareil */}
         <section>
-          <h3 className="section-title mb-2">Appareil</h3>
+          <h3 className="text-sm font-medium mb-2">Appareil</h3>
           <div className="flex flex-col gap-2">
             <SelectField<DeviceModel>
               label="Modèle"

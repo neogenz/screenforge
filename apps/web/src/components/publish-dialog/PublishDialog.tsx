@@ -287,7 +287,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           title: 'Lot',
           content:
             releases.length === 0 ? (
-              <p className="text-2xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Aucun lot figé. Ouvrez « Releases » pour en figer un : on ne publie que ce qui a été
                 rendu et haché.
               </p>
@@ -313,7 +313,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                         )}
                       >
                         <span className="truncate text-sm text-foreground">{entry.name}</span>
-                        <span className="tabular text-2xs text-muted-foreground">
+                        <span className="tabular-nums text-xs text-muted-foreground">
                           {entry.files.length} planches · {entry.locale ?? 'langue du projet'}
                           {entry.watermarked ? ' · filigrane' : ''}
                         </span>
@@ -321,7 +321,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                     </li>
                   ))}
                 </ul>
-                <p className="text-2xs text-muted-foreground">{ASC_SIZE_LABEL}</p>
+                <p className="text-xs text-muted-foreground">{ASC_SIZE_LABEL}</p>
               </div>
             ),
         },
@@ -371,14 +371,14 @@ function PublishDialogContent({ project }: { project: Project }) {
                     onChange={(event) => edit({ versionLocalization: event.target.value.trim() })}
                   />
                 </Field>
-                <p className="text-2xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Il se lit avec{' '}
                   <code className="text-foreground">{commandLine(LOCALIZATION_HINT)}</code>.
                 </p>
               </div>
 
               {localeMismatch && (
-                <p role="alert" className="text-2xs text-warning">
+                <p role="alert" className="text-xs text-warning">
                   Ce lot a été rendu en « {release?.locale} » mais viserait la fiche «{' '}
                   {target.locale} ».
                 </p>
@@ -391,7 +391,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                       key={finding.message}
                       {...(finding.level === 'error' ? { role: 'alert' } : {})}
                       className={cn(
-                        'flex items-start gap-2 text-2xs',
+                        'flex items-start gap-2 text-xs',
                         finding.level === 'error' ? 'text-destructive' : 'text-warning',
                       )}
                     >
@@ -406,14 +406,14 @@ function PublishDialogContent({ project }: { project: Project }) {
                   une liste vide ne vaut pas un feu vert. La coche ne s'affiche que sur
                   un lot réellement passé par `preflight()`. */}
               {!release && (
-                <p className="flex items-start gap-2 text-2xs text-muted-foreground">
+                <p className="flex items-start gap-2 text-xs text-muted-foreground">
                   <Package size={12} className="mt-0.5 shrink-0" aria-hidden />
                   Figez d’abord une release dans « Releases » : le preflight porte sur un lot rendu.
                 </p>
               )}
 
               {release && findings.length === 0 && (
-                <p className="flex items-center gap-2 text-2xs text-success">
+                <p className="flex items-center gap-2 text-xs text-success">
                   <ShieldCheck size={12} aria-hidden />
                   Preflight sans réserve : {targetSummary(target)}
                 </p>
@@ -439,7 +439,7 @@ function PublishDialogContent({ project }: { project: Project }) {
               </div>
 
               {progress && (
-                <p role="status" className="tabular text-2xs text-muted-foreground">
+                <p role="status" className="tabular-nums text-xs text-muted-foreground">
                   {progress.current}/{progress.total} · {progress.label}
                 </p>
               )}
@@ -457,18 +457,18 @@ function PublishDialogContent({ project }: { project: Project }) {
               )}
 
               {error && (
-                <p role="alert" className="text-2xs text-destructive">
+                <p role="alert" className="text-xs text-destructive">
                   {error}
                 </p>
               )}
 
               {usable && bundle && (
-                <div className="surface-inner flex flex-col gap-2 p-4">
-                  <span className="field-label">Commande à lancer</span>
-                  <code className="block break-all text-2xs text-foreground">
+                <div className="rounded-xl border bg-muted flex flex-col gap-2 p-4">
+                  <span className="text-xs text-muted-foreground">Commande à lancer</span>
+                  <code className="block break-all text-xs text-foreground">
                     {commandLine(command)}
                   </code>
-                  <p className="tabular text-2xs text-muted-foreground">
+                  <p className="tabular-nums text-xs text-muted-foreground">
                     Empreinte du lot : {bundle.bundleHash.slice(0, 16)}…
                   </p>
                   <Button
@@ -485,8 +485,8 @@ function PublishDialogContent({ project }: { project: Project }) {
               )}
 
               <div className="flex flex-col gap-3 border-t border-border pt-4">
-                <span className="field-label">Publier via le pont local</span>
-                <p className="text-2xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground">Publier via le pont local</span>
+                <p className="text-xs text-muted-foreground">
                   Facultatif : le pont lance la même commande à votre place. Son jeton « asc-publish
                   » est distinct de celui de l’assistance, et ne quitte pas cet onglet.
                 </p>
@@ -507,7 +507,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                   </Button>
                 </div>
 
-                <label className="flex items-center justify-between gap-3 text-2xs text-foreground">
+                <label className="flex items-center justify-between gap-3 text-xs text-foreground">
                   Essai à blanc (rien n’est modifié chez Apple)
                   <Switch
                     checked={dryRun}
@@ -518,7 +518,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                 </label>
                 {/* Le seul drapeau destructeur de la boîte : décoché par défaut, et
                     dit en toutes lettres ce qu'il supprime. */}
-                <label className="flex items-center justify-between gap-3 text-2xs text-foreground">
+                <label className="flex items-center justify-between gap-3 text-xs text-foreground">
                   Supprimer les captures déjà en ligne avant d’envoyer
                   <Switch
                     checked={replaceExisting}
@@ -532,7 +532,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                   <p
                     role="status"
                     className={cn(
-                      'text-2xs',
+                      'text-xs',
                       bridge.available ? 'text-muted-foreground' : 'text-destructive',
                     )}
                   >
@@ -548,7 +548,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                       <li
                         key={publishStep.name}
                         className={cn(
-                          'tabular flex items-center gap-2 text-2xs',
+                          'tabular-nums flex items-center gap-2 text-xs',
                           publishStep.status === 'ok'
                             ? 'text-muted-foreground'
                             : 'text-destructive',

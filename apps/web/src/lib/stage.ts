@@ -9,8 +9,13 @@
 import { APP_STORE_TARGET } from './dimensions'
 
 export const ISLAND_MARGIN = 12
-/** Contrôle de 36 (coss `h-9`, la hauteur de barre haute) + le retrait d'îlot (2×6) + son filet (2×1). */
-export const TOP_BAR_HEIGHT = 50
+/**
+ * Mesurée, pas déduite : le rang le plus haut de la grille de l'îlot est le
+ * champ « Nom du projet » (36px, coss `h-9`) — pas les boutons de la barre
+ * d'outils (32px, `size="default"`), qui s'y centrent verticalement. + le
+ * padding de l'îlot (`p-1`, 2×4) + son filet (2×1) = 46.
+ */
+export const TOP_BAR_HEIGHT = 46
 export const DRAWER_WIDTH_LAYERS = 280
 export const DRAWER_WIDTH_PROPS = 320
 /**
@@ -269,7 +274,7 @@ export const DIALOG_SIDEBAR_WIDTH = 260
 export const DIALOG_STACK_MIN_WIDTH =
   DIALOG_SIDEBAR_WIDTH + DRAWER_WIDTH_PROPS + DIALOG_VIEWPORT_GUTTER
 
-/** Top bar (50px) + margins above and below. */
+/** Top bar (46px) + margins above and below. */
 export const STAGE_TOP_INSET = TOP_BAR_HEIGHT + ISLAND_MARGIN * 2
 /** Pellicule + marges. */
 export function stageBottomInset(): number {

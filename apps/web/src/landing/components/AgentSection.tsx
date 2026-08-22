@@ -98,7 +98,7 @@ export function AgentSection() {
               <ol className="mt-3 flex flex-col gap-2 text-sm leading-5">
                 {a.setupSteps.map((step, i) => (
                   <li key={step} className="flex gap-3">
-                    <span className="tabular w-4 shrink-0 font-mono text-2xs text-muted-foreground">
+                    <span className="tabular-nums w-4 shrink-0 font-mono text-2xs text-muted-foreground">
                       {i + 1}
                     </span>
                     <span>{withCommand(step)}</span>

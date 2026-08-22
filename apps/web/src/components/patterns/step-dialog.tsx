@@ -111,7 +111,7 @@ export function StepDialog({
         className="animate-step"
         style={{ '--step-from': `${12 * direction}px`, minHeight } as CSSProperties}
       >
-        {showStepTitle && <h3 className="section-title mb-2">{current.title}</h3>}
+        {showStepTitle && <h3 className="text-sm font-medium mb-2">{current.title}</h3>}
         {current.content}
       </div>
     </DialogShell>

@@ -34,7 +34,7 @@ export function PanelSection({
       className={cn('border-t border-border pt-2 first:border-t-0 first:pt-0', className)}
     >
       <div className="flex items-center gap-2">
-        <h3 className="section-title min-w-0 flex-1">
+        <h3 className="text-sm font-medium min-w-0 flex-1">
           <CollapsibleTrigger
             render={
               <Button
