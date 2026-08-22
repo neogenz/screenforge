@@ -15,14 +15,14 @@ const setupStepVariants = cva(
 )
 
 const setupMarkerVariants = cva(
-  'mt-0.5 flex size-4 items-center justify-center rounded-sm border text-2xs tabular-nums',
+  'mt-0.5 flex size-4 items-center justify-center rounded-sm border text-xs tabular-nums',
   {
     variants: {
       state: {
         waiting: 'border-border bg-muted text-muted-foreground',
         active: 'marker-fill border-marker',
         done: 'border-border bg-secondary text-foreground',
-        error: 'border-destructive bg-destructive text-destructive-foreground',
+        error: 'border-destructive bg-destructive text-white',
       },
     },
   },
@@ -32,7 +32,7 @@ export function SetupFlow({ className, ...props }: HTMLAttributes<HTMLDivElement
   return (
     <div
       data-slot="setup-flow"
-      className={cn('surface-inner overflow-hidden', className)}
+      className={cn('overflow-hidden rounded-xl border bg-muted', className)}
       {...props}
     />
   )
@@ -63,7 +63,7 @@ export function SetupStep({
     >
       <span aria-hidden className={setupMarkerVariants({ state })}>
         {state === 'done' ? (
-          <Check size={10} strokeWidth={3} className="animate-check-in" />
+          <Check size={10} strokeWidth={3} className="animate-mark" />
         ) : state === 'error' ? (
           <AlertCircle size={10} strokeWidth={2.5} />
         ) : (
@@ -71,14 +71,14 @@ export function SetupStep({
         )}
       </span>
       <div className="flex min-w-0 flex-col gap-1.5">
-        <p className="text-2xs font-semibold text-foreground">{title}</p>
+        <p className="text-xs font-semibold text-foreground">{title}</p>
         {announce && state === 'active' && (
           <span role="status" aria-live="polite" className="sr-only">
             Étape active : {title}
           </span>
         )}
         {state === 'done'
-          ? result && <div className="text-2xs text-muted-foreground">{result}</div>
+          ? result && <div className="text-xs text-muted-foreground">{result}</div>
           : current
             ? children
             : null}
@@ -106,7 +106,7 @@ export function SetupProgress({
         className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted accent-marker [&::-moz-progress-bar]:bg-marker [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:bg-marker"
       />
       {value !== undefined && (
-        <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {value} sur {max}
         </span>
       )}
@@ -125,7 +125,7 @@ export function SetupCommand({ command }: { command: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
-      <code className="min-w-0 flex-1 overflow-x-auto rounded-sm bg-muted px-2 py-1 text-2xs text-foreground">
+      <code className="min-w-0 flex-1 overflow-x-auto rounded-sm bg-muted px-2 py-1 text-xs text-foreground">
         {command}
       </code>
       <Button
@@ -141,7 +141,7 @@ export function SetupCommand({ command }: { command: string }) {
         }}
       >
         {copied ? (
-          <Check size={12} className="animate-check-in" aria-hidden />
+          <Check size={12} className="animate-mark" aria-hidden />
         ) : (
           <Copy size={12} aria-hidden />
         )}

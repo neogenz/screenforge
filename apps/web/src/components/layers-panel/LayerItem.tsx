@@ -11,8 +11,9 @@ import {
   Type,
   Unlock,
 } from 'lucide-react'
-import { ContextMenu } from '@/components/ui/ContextMenu'
-import { IconButton } from '@/components/ui/icon-button'
+import { ContextMenu } from '@/components/patterns/action-menu'
+import { IconButton } from '@/components/patterns/icon-button'
+import { Input } from '@/components/ui/input'
 import { buildLayerMenuItems } from './layer-menu'
 import { useLayerActions } from '@/hooks/use-layer-actions'
 import { layerDisplayName } from '@/lib/layer-factories'
@@ -214,7 +215,8 @@ export const LayerItem = memo(function LayerItem({
       <LayerTypeIcon type={layer.type} />
 
       {editing ? (
-        <input
+        <Input
+          size="sm"
           ref={inputRef}
           value={editName}
           onChange={(event) => setEditName(event.target.value)}
@@ -222,7 +224,7 @@ export const LayerItem = memo(function LayerItem({
           onKeyDown={handleRenameKeyDown}
           onClick={(event) => event.stopPropagation()}
           aria-label="Nom du calque"
-          className="min-w-0 flex-1 rounded-md border border-border bg-secondary px-1.5 py-0.5 text-sm focus:border-muted-foreground"
+          className="min-w-0 flex-1"
         />
       ) : (
         <span className="flex-1 truncate text-sm">{displayName}</span>

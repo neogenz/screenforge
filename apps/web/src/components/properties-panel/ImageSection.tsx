@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { registerAsset } from '@/lib/assets'
 import { IMAGE_ACCEPT, imageImportErrorMessage, importImageFile } from '@/lib/image'
 import type { ImageLayer, Layer } from '@/types'
@@ -42,7 +43,9 @@ export function ImageSection({ layer }: ImageSectionProps) {
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <input
+        <Input
+          unstyled
+          nativeInput
           ref={fileRef}
           type="file"
           accept={IMAGE_ACCEPT}
@@ -50,7 +53,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           className="sr-only"
           aria-label="Remplacer le fichier image"
         />
-        <Button variant="default" className="w-full" onClick={() => fileRef.current?.click()}>
+        <Button variant="outline" className="w-full" onClick={() => fileRef.current?.click()}>
           <Upload size={11} strokeWidth={1.5} aria-hidden />
           Remplacer
         </Button>

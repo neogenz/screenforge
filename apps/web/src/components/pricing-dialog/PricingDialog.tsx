@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { billingConfigured, createCheckout, createPortalSession } from '@/lib/account'
 import type { Entitlements } from '@/lib/entitlements'
 import { formatGrantDate, PLANS, type Plan, type SellableProduct } from '@/lib/plans'
@@ -61,7 +61,7 @@ function PricingDialogContent() {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={() => setShowPricingDialog(false)}
       title="Offres ScreenForge"
@@ -111,7 +111,7 @@ function PricingDialogContent() {
           </p>
         ) : null}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -209,7 +209,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
           </p>
         ) : onBuy ? (
           <Button
-            variant="primary"
+            variant="default"
             size="sm"
             className="w-full"
             loading={pending}

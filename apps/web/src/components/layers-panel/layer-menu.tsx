@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, Pencil, Trash2, Unlock } from 'lucide-react'
-import type { ContextMenuEntry } from '@/components/ui/ContextMenu'
+import type { ActionMenuEntry } from '@/components/patterns/action-menu'
 import type { LayerActions } from '@/hooks/use-layer-actions'
 import type { Layer } from '@/types'
 
@@ -15,8 +15,8 @@ export function buildLayerMenuItems(
   layer: Layer,
   actions: LayerActions,
   options: { onRename?: () => void } = {},
-): ContextMenuEntry[] {
-  const items: ContextMenuEntry[] = []
+): ActionMenuEntry[] {
+  const items: ActionMenuEntry[] = []
 
   if (options.onRename) {
     items.push({

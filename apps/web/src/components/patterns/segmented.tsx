@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Hint } from '@/components/patterns/hint'
 import { cn } from '@/lib/utils'
 
 export interface SegmentedOption<T extends string> {
@@ -16,12 +16,8 @@ export interface SegmentedProps<T extends string> {
   value: T
   onChange: (value: T) => void
   /**
-   * Libellé visible posé à gauche du groupe.
-   *
-   * Un segmenté seul en tête de panneau se lit comme une barre d'onglets : on
-   * y voit deux vues du panneau, pas deux valeurs d'une propriété. Le mot est
-   * ce qui fait la différence, et il est le nom accessible du groupe — pas un
-   * doublon de `ariaLabel`, qui devient inutile dès qu'il est écrit.
+   * Libellé visible à gauche du groupe : sans lui, un segmenté seul en tête de
+   * panneau se lit comme une barre d'onglets. C'est le nom accessible du groupe.
    */
   label?: string
   ariaLabel?: string
@@ -29,6 +25,7 @@ export interface SegmentedProps<T extends string> {
   disabled?: boolean
 }
 
+/** Choix exclusif : `ToggleGroup` coss `outline`, une valeur toujours tenue. */
 export function Segmented<T extends string>({
   options,
   value,
@@ -41,23 +38,26 @@ export function Segmented<T extends string>({
   const labelId = useId()
   const group = (
     <ToggleGroup
-      type="single"
+      variant="outline"
+      size="sm"
       aria-label={label ? undefined : ariaLabel}
       aria-labelledby={label ? labelId : undefined}
-      value={value}
-      onValueChange={(next) => onChange((next || value) as T)}
+      value={[value]}
+      onValueChange={(next) => {
+        const picked = next[0] as T | undefined
+        if (picked !== undefined) onChange(picked)
+      }}
       disabled={disabled}
+      data-slot="segmented"
       className={cn('self-start', !label && className)}
     >
       {options.map((option) => {
-        /* L'infobulle ne sert qu'aux options sans libellé visible : répéter à
-           la souris ce qui est déjà écrit est du bruit, pas une aide. */
+        /* L'infobulle ne sert qu'aux options sans libellé visible. */
         const hint = option.label ? undefined : option.ariaLabel
         const item = (
           <ToggleGroupItem
             key={option.value}
             value={option.value}
-            aria-pressed={option.value === value}
             aria-label={option.ariaLabel ?? option.label}
           >
             {option.icon}
@@ -65,9 +65,9 @@ export function Segmented<T extends string>({
           </ToggleGroupItem>
         )
         return hint ? (
-          <Tooltip key={option.value} content={hint}>
+          <Hint key={option.value} content={hint}>
             {item}
-          </Tooltip>
+          </Hint>
         ) : (
           item
         )
@@ -77,11 +77,9 @@ export function Segmented<T extends string>({
 
   if (!label) return group
 
-  // Même grammaire que `Select` : un contrôle d'une ligne porte son libellé à
-  // côté, et l'écart de 6 est celui qui lie une étiquette à son contrôle.
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
-      <span id={labelId} className="field-label shrink-0 select-none">
+      <span id={labelId} className="shrink-0 select-none text-xs text-muted-foreground">
         {label}
       </span>
       {group}

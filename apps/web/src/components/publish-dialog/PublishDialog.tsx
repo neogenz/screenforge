@@ -31,10 +31,11 @@ import { renderReleaseFiles, type RenderProgress } from '@/lib/release'
 import { downloadBlob } from '@/lib/zip'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogColumns } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { DialogColumns } from '@/components/patterns/dialog-columns'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SelectField } from '@/components/patterns/select-field'
 import { Switch } from '@/components/ui/switch'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -249,7 +250,7 @@ function PublishDialogContent({ project }: { project: Project }) {
   const command = manifest?.command ?? []
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Publier chez Apple"
@@ -257,7 +258,7 @@ function PublishDialogContent({ project }: { project: Project }) {
       flush
       footerNote="ScreenForge ne détient aucune clé App Store : « asc » utilise le trousseau du système."
       footer={
-        <Button variant="default" onClick={close} disabled={busy}>
+        <Button variant="outline" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
@@ -276,8 +277,8 @@ function PublishDialogContent({ project }: { project: Project }) {
               <ul className="flex flex-col gap-1">
                 {[...releases].reverse().map((entry) => (
                   <li key={entry.id}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       onClick={() => {
                         setSelectedId(entry.id)
                         setBundle(null)
@@ -285,8 +286,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                       }}
                       aria-current={entry.id === release?.id}
                       className={cn(
-                        'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        'h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
                         entry.id === release?.id
                           ? 'border-foreground bg-muted'
                           : 'border-border hover:border-input',
@@ -297,7 +297,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                         {entry.files.length} planches · {entry.locale ?? 'langue du projet'}
                         {entry.watermarked ? ' · filigrane' : ''}
                       </span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -307,17 +307,18 @@ function PublishDialogContent({ project }: { project: Project }) {
         }
       >
         <div className="flex flex-col gap-2">
-          <Field id={APP_FIELD_ID} label="Identifiant de l’application">
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={APP_FIELD_ID}>Identifiant de l’application</FieldLabel>
             <Input
               id={APP_FIELD_ID}
-              font="sans"
               placeholder="com.exemple.monapp"
               value={target.bundleId}
               disabled={busy}
               onChange={(event) => edit({ bundleId: event.target.value.trim() })}
             />
           </Field>
-          <Field id={VERSION_FIELD_ID} label="Version">
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={VERSION_FIELD_ID}>Version</FieldLabel>
             <Input
               id={VERSION_FIELD_ID}
               placeholder="1.4.0"
@@ -326,23 +327,20 @@ function PublishDialogContent({ project }: { project: Project }) {
               onChange={(event) => edit({ appVersion: event.target.value.trim() })}
             />
           </Field>
-          <Select
+          <SelectField
             aria-label="Langue App Store"
             label="Langue App Store"
             value={target.locale}
             disabled={busy}
-            onChange={(event) => edit({ locale: event.target.value })}
-          >
-            {APP_STORE_LOCALES.map((locale) => (
-              <option key={locale} value={locale}>
-                {locale}
-              </option>
-            ))}
-          </Select>
-          <Field id={LOCALIZATION_FIELD_ID} label="Identifiant de localisation de version">
+            onValueChange={(locale) => edit({ locale })}
+            items={APP_STORE_LOCALES.map((locale) => ({ value: locale, label: locale }))}
+          />
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={LOCALIZATION_FIELD_ID}>
+              Identifiant de localisation de version
+            </FieldLabel>
             <Input
               id={LOCALIZATION_FIELD_ID}
-              font="tabular"
               placeholder="0a1b2c3d-…"
               value={target.versionLocalization}
               disabled={busy}
@@ -398,7 +396,7 @@ function PublishDialogContent({ project }: { project: Project }) {
 
         <div className="flex items-center gap-2">
           <Button
-            variant="primary"
+            variant="default"
             onClick={() => void prepare()}
             loading={progress !== null}
             disabled={!release || refused || busy}
@@ -406,7 +404,7 @@ function PublishDialogContent({ project }: { project: Project }) {
             <Package size={12} aria-hidden />
             Préparer le lot
           </Button>
-          <Button variant="default" onClick={() => void download()} disabled={!usable || busy}>
+          <Button variant="outline" onClick={() => void download()} disabled={!usable || busy}>
             Télécharger le lot
           </Button>
         </div>
@@ -449,10 +447,10 @@ function PublishDialogContent({ project }: { project: Project }) {
             Facultatif : le pont lance la même commande à votre place. Son jeton « asc-publish » est
             distinct de celui de l’assistance, et ne quitte pas cet onglet.
           </p>
-          <Field id={TOKEN_FIELD_ID} label="Jeton asc-publish">
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor={TOKEN_FIELD_ID}>Jeton asc-publish</FieldLabel>
             <Input
               id={TOKEN_FIELD_ID}
-              font="tabular"
               type="password"
               autoComplete="off"
               value={token}
@@ -461,11 +459,11 @@ function PublishDialogContent({ project }: { project: Project }) {
             />
           </Field>
           <div className="flex items-center gap-2">
-            <Button variant="default" onClick={() => void connect()} disabled={busy}>
+            <Button variant="outline" onClick={() => void connect()} disabled={busy}>
               Vérifier le pont
             </Button>
             <Button
-              variant="primary"
+              variant="default"
               onClick={() => void publish()}
               loading={publishing}
               disabled={!usable || !token.trim() || refused || busy}
@@ -479,8 +477,8 @@ function PublishDialogContent({ project }: { project: Project }) {
             Essai à blanc (rien n’est modifié chez Apple)
             <Switch
               checked={dryRun}
-              onChange={setDryRun}
-              ariaLabel="Essai à blanc"
+              onCheckedChange={setDryRun}
+              aria-label="Essai à blanc"
               disabled={busy}
             />
           </label>
@@ -490,8 +488,8 @@ function PublishDialogContent({ project }: { project: Project }) {
             Supprimer les captures déjà en ligne avant d’envoyer
             <Switch
               checked={replaceExisting}
-              onChange={setReplaceExisting}
-              ariaLabel="Remplacer les captures existantes"
+              onCheckedChange={setReplaceExisting}
+              aria-label="Remplacer les captures existantes"
               disabled={busy}
             />
           </label>
@@ -532,7 +530,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           )}
         </div>
       </DialogColumns>
-    </Dialog>
+    </DialogShell>
   )
 }
 

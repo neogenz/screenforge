@@ -6,10 +6,11 @@ import type { AiProvider, ProviderId } from '@/lib/ai/providers'
 import type { AssistantConnection } from '@/lib/ai/session'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Field } from '@/components/ui/field'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
-import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
+import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
+import { SelectField } from '@/components/patterns/select-field'
+import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/patterns/setup-flow'
 
 /**
  * Brancher un modèle, marche par marche.
@@ -100,15 +101,11 @@ function Away({ href, children }: { href: string; children: React.ReactNode }) {
 function ProviderChoice({
   entry,
   active,
-  disabled,
   unavailable,
-  onPick,
 }: {
   entry: AiProvider
   active: boolean
-  disabled: boolean
   unavailable?: string
-  onPick: () => void
 }) {
   const meta =
     entry.transport === 'in-process'
@@ -118,24 +115,16 @@ function ProviderChoice({
         : 'En ligne · votre clé'
 
   return (
-    <label
+    <RadioPrimitive.Root
+      value={entry.id}
+      aria-label={entry.label}
       className={cn(
-        'relative flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-3 py-1.5 text-left text-2xs transition-colors',
-        'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
-        disabled && 'cursor-not-allowed opacity-50',
+        'flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border px-3 py-1.5 text-left text-2xs transition-colors outline-none',
+        'focus-visible:ring-1 focus-visible:ring-ring',
+        'data-disabled:cursor-not-allowed data-disabled:opacity-50',
         active ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
-      <input
-        type="radio"
-        name="screenforge-ai-provider"
-        aria-label={entry.label}
-        value={entry.id}
-        checked={active}
-        disabled={disabled}
-        onChange={onPick}
-        className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
-      />
       <span className="flex items-center gap-1.5 text-foreground">
         {active && <Check size={11} aria-hidden />}
         {PROVIDER_NAMES[entry.id]}
@@ -148,7 +137,7 @@ function ProviderChoice({
           {unavailable}
         </span>
       )}
-    </label>
+    </RadioPrimitive.Root>
   )
 }
 
@@ -232,22 +221,28 @@ export function AssistantSetup({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1" role="radiogroup" aria-label="Qui écrit les accroches">
+      <RadioGroup
+        className="gap-1"
+        aria-label="Qui écrit les accroches"
+        value={providerId}
+        onValueChange={(next) => {
+          if (typeof next === 'string') onProvider(next as ProviderId)
+        }}
+        disabled={busy}
+      >
         {AI_PROVIDERS.map((entry) => (
           <ProviderChoice
             key={entry.id}
             entry={entry}
             active={entry.id === providerId}
-            disabled={busy}
             unavailable={
               entry.transport === 'local-bridge' && !reachable
                 ? 'Indisponible depuis cette adresse : le pont n’accepte que ScreenForge ouvert en local.'
                 : undefined
             }
-            onPick={() => onProvider(entry.id)}
           />
         ))}
-      </div>
+      </RadioGroup>
 
       <SetupFlow>
         <div className="px-3 py-2.5">
@@ -296,7 +291,7 @@ export function AssistantSetup({
                   </p>
                 )}
                 <div>
-                  <Button variant="default" onClick={recheck} loading={!found} disabled={busy}>
+                  <Button variant="outline" onClick={recheck} loading={!found} disabled={busy}>
                     <RefreshCw size={12} aria-hidden />
                     Vérifier
                   </Button>
@@ -330,14 +325,10 @@ export function AssistantSetup({
               )}
               <p className="text-2xs text-muted-foreground">{active.setup.secretHelp}</p>
               <div className="flex items-end gap-2">
-                <Field
-                  id={SECRET_FIELD_ID}
-                  label={active.setup.secretLabel}
-                  className="min-w-0 flex-1"
-                >
+                <Field className="min-w-0 flex-1 gap-1.5">
+                  <FieldLabel htmlFor={SECRET_FIELD_ID}>{active.setup.secretLabel}</FieldLabel>
                   <Input
                     id={SECRET_FIELD_ID}
-                    font="sans"
                     type="password"
                     autoComplete="off"
                     value={secret}
@@ -347,7 +338,7 @@ export function AssistantSetup({
                   />
                 </Field>
                 <Button
-                  variant="default"
+                  variant="outline"
                   onClick={onConnect}
                   disabled={busy || !readyToPair || secret.trim().length === 0}
                   loading={connection.state === 'checking'}
@@ -384,10 +375,10 @@ export function AssistantSetup({
             >
               {connection.state === 'ready' && connection.models.length > BROWSABLE_MODELS ? (
                 <>
-                  <Field id={MODEL_FIELD_ID} label="Modèle">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={MODEL_FIELD_ID}>Modèle</FieldLabel>
                     <Input
                       id={MODEL_FIELD_ID}
-                      font="sans"
                       list={`${MODEL_FIELD_ID}-options`}
                       autoComplete="off"
                       value={model}
@@ -409,23 +400,21 @@ export function AssistantSetup({
                   </p>
                 </>
               ) : (
-                <Select
+                <SelectField
                   aria-label="Modèle"
                   label="Modèle"
                   value={model}
                   disabled={busy || !connected}
-                  onChange={(event) => onModel(event.target.value)}
-                >
-                  {connection.state === 'ready' ? (
-                    connection.models.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.displayName}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">Après la connexion</option>
-                  )}
-                </Select>
+                  onValueChange={onModel}
+                  items={
+                    connection.state === 'ready'
+                      ? connection.models.map((entry) => ({
+                          value: entry.id,
+                          label: entry.displayName,
+                        }))
+                      : [{ value: '', label: 'Après la connexion' }]
+                  }
+                />
               )}
             </SetupStep>
           </div>

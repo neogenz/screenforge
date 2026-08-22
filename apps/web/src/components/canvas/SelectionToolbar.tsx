@@ -17,10 +17,11 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { FontPicker } from '@/components/text-editor/FontPicker'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Popover } from '@/components/ui/popover'
-import { SwatchButton } from '@/components/ui/swatch-button'
+import { IconButton } from '@/components/patterns/icon-button'
+import { Input } from '@/components/ui/input'
+import { UnitField } from '@/components/patterns/unit-field'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { SwatchButton } from '@/components/patterns/swatch-button'
 import { getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import {
@@ -235,7 +236,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
           />
         </div>
         <div className="w-[68px] shrink-0">
-          <NumberField
+          <UnitField
             ariaLabel="Taille du texte"
             value={layer.fontSize}
             min={8}
@@ -337,7 +338,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
         )}
         {layer.shapeType === 'rounded-rect' && (
           <div className="w-20 shrink-0">
-            <NumberField
+            <UnitField
               label="Rayon"
               ariaLabel="Rayon des angles"
               value={layer.borderRadius ?? 0}
@@ -355,7 +356,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
 
   return (
     <div className="w-20 shrink-0">
-      <NumberField
+      <UnitField
         label="Opac."
         ariaLabel="Opacité"
         value={Math.round(layer.opacity * 100)}
@@ -397,7 +398,9 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: Screensh
       >
         <ImagePlus size={14} strokeWidth={1.6} aria-hidden />
       </IconButton>
-      <input
+      <Input
+        unstyled
+        nativeInput
         ref={input}
         type="file"
         accept={SCREENSHOT_IMAGE_ACCEPT}
@@ -433,7 +436,7 @@ function ColorControl({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       />
-      <Popover
+      <AnchoredPopover
         open={open}
         anchor={anchor}
         onClose={() => setOpen(false)}
@@ -442,7 +445,7 @@ function ColorControl({
         ariaLabel={label}
       >
         <ColorPicker value={value} onChange={onChange} showOpacity />
-      </Popover>
+      </AnchoredPopover>
     </>
   )
 }

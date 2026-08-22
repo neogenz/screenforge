@@ -9,13 +9,16 @@ test.describe('command palette', () => {
        où la place revient à composer et à livrer. Le déclencheur mesuré est
        donc celui du menu, et c'est à lui que la boîte rend le focus. */
     const trigger = utilitiesTrigger(page)
-    await expect(trigger).toHaveAttribute('data-slot', 'icon-button')
+    /* Le déclencheur de menu coss réécrit le `data-slot` : la primitive se
+       reconnaît au `data-slot` du menu, pas à celui du bouton qu'il habille. */
+    await expect(trigger).toHaveAttribute('data-slot', 'menu-trigger')
     /* L'infobulle est la primitive, pas le `title=` natif : elle se montre au
        survol comme au focus clavier. */
     await trigger.hover()
     await expect(page.getByRole('tooltip')).toContainText('Autres actions')
-    await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(36)
-    await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(36)
+    // `size="icon"` coss : 36 au doigt, 32 à la souris (`sm:size-8`).
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.width ?? 0)).toBe(32)
+    await expect.poll(async () => Math.round((await trigger.boundingBox())?.height ?? 0)).toBe(32)
 
     await openUtility(page, 'Ouvrir la palette de commandes')
     const dialog = page.getByRole('dialog', { name: 'Palette de commandes' })

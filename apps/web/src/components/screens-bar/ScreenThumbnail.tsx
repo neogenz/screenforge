@@ -10,10 +10,10 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { ContextMenu } from '@/components/ui/ContextMenu'
+import { ContextMenu } from '@/components/patterns/action-menu'
 import { Input } from '@/components/ui/input'
-import { Popover } from '@/components/ui/popover'
-import { Tooltip } from '@/components/ui/tooltip'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { Hint } from '@/components/patterns/hint'
 import { cn } from '@/lib/utils'
 import { defaultScreenName } from '@/lib/screens'
 import { useTemplatesStore } from '@/stores/templates.store'
@@ -206,7 +206,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           pointeur — `aria-hidden`, `tabIndex={-1}` et une zone de clic étendue à
           la main. Le rang est sorti de l'aperçu mais reste hors du parcours :
           il n'y a toujours qu'une boîte cliquable par écran. */}
-      <Tooltip content={`${screen.name} — double-clic pour renommer`}>
+      <Hint content={`${screen.name} — double-clic pour renommer`}>
         <button
           ref={previewRef}
           type="button"
@@ -267,7 +267,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             <span className="block h-full w-full bg-secondary" />
           )}
         </button>
-      </Tooltip>
+      </Hint>
 
       {/* Le nom, toujours — son rang à défaut. La rangée n'apparaissait qu'au
           premier renommage, et seuls les écrans nommés y écrivaient : une file
@@ -303,7 +303,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           prend la largeur d'un nom au lieu de celle d'une vignette. Il éclot du
           bord haut de la tuile, aligné sur son bord gauche — c'est ce qui dit
           quel écran est renommé, sans qu'aucune tuile ait à changer d'état. */}
-      <Popover
+      <AnchoredPopover
         open={editing}
         anchor={previewRef}
         onClose={() => finishRename(false)}
@@ -322,7 +322,6 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
       >
         <Input
           ref={inputRef}
-          font="sans"
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           onKeyDown={(event) => {
@@ -335,7 +334,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         {/* Une ligne, pas deux : « Laissé vide, il garde son rang pour nom. »
             débordait et laissait « nom. » orphelin sous un champ de 224. */}
         <p className="field-label mt-1.5 leading-4">Vide, il garde son rang.</p>
-      </Popover>
+      </AnchoredPopover>
 
       <button
         ref={actionsRef}

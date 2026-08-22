@@ -3,11 +3,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { GradientFill, ColorStop } from '@/types'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { Button } from '@/components/ui/button'
-import { AngleControl } from '@/components/ui/angle-control'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
+import { AngleControl } from '@/components/patterns/angle-control'
+import { IconButton } from '@/components/patterns/icon-button'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
 import { DEFAULT_STOP_COLOR } from '@/lib/content-defaults'
 
 interface GradientEditorProps {
@@ -116,7 +116,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
       {/* Center (radial only) */}
       {value.type === 'radial' && (
         <div className="flex gap-2">
-          <NumberField
+          <UnitField
             label="X"
             ariaLabel="Centre X du dégradé"
             min={0}
@@ -124,7 +124,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
             value={Math.round(value.centerX ?? 50)}
             onChange={(v) => setCenter('centerX', v)}
           />
-          <NumberField
+          <UnitField
             label="Y"
             ariaLabel="Centre Y du dégradé"
             min={0}
@@ -176,7 +176,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
         </div>
 
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
           onClick={addStop}
           disabled={value.stops.length >= 10}
@@ -252,9 +252,9 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
         style={{ background: buildCssGradient(gradient) }}
       />
       {stops.map((stop, displayIndex) => (
-        <button
+        <Button
           key={stop.originalIndex}
-          type="button"
+          variant="ghost"
           role="slider"
           aria-label={`Position de l’arrêt ${displayIndex + 1}`}
           aria-valuemin={0}
@@ -272,7 +272,7 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
           // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
           // sombre. Même raison que `SELECTION_INK` sur le canevas.
           className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
-            rounded-full border-2 border-white shadow-(--shadow-handle)
+            rounded-full border-2 border-white p-0 shadow-(--shadow-handle) sm:h-4.5
             transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
         />
       ))}

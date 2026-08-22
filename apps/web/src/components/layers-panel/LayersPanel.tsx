@@ -231,7 +231,6 @@ export function LayersPanel() {
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <Input
-            font="sans"
             value={query}
             onChange={handleQueryChange}
             placeholder="Filtrer…"
@@ -251,7 +250,9 @@ export function LayersPanel() {
           <p className="max-w-[190px] text-2xs text-muted-foreground">
             Partez de vos captures de simulateur, ou composez à la main.
           </p>
-          <input
+          <Input
+            unstyled
+            nativeInput
             ref={capturesInput}
             type="file"
             multiple
@@ -264,7 +265,7 @@ export function LayersPanel() {
             }}
           />
           <Button
-            variant="primary"
+            variant="default"
             size="sm"
             className="mt-2"
             onClick={() => capturesInput.current?.click()}
@@ -290,49 +291,48 @@ export function LayersPanel() {
           // hauteur automatique. `flex: 0 1 auto` la dimensionne sur son contenu
           // puis la laisse rétrécir — et défiler — une fois le plafond atteint.
           className="px-2 pb-2"
-          role="listbox"
-          aria-label="Calques"
-          aria-multiselectable
         >
-          {layerGroups.map((group) => (
-            <div key={group.label} role="group" aria-label={group.label}>
-              {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
+          <div role="listbox" aria-label="Calques" aria-multiselectable>
+            {layerGroups.map((group) => (
+              <div key={group.label} role="group" aria-label={group.label}>
+                {/* `aria-hidden` : le groupe porte déjà ce texte en `aria-label`,
                   et un paragraphe n'est pas un enfant de listbox. */}
-              <p aria-hidden className="field-label px-2 pb-2 pt-4">
-                {group.label}
-              </p>
-              {group.rows.map(({ layer, ghost }) =>
-                ghost ? (
-                  /* Fantôme de sortie : hors de l'arbre a11y (`presentation`),
+                <p aria-hidden className="field-label px-2 pb-2 pt-4">
+                  {group.label}
+                </p>
+                {group.rows.map(({ layer, ghost }) =>
+                  ghost ? (
+                    /* Fantôme de sortie : hors de l'arbre a11y (`presentation`),
                      inerte — il ne doit ni se lire, ni se focaliser, ni se
                      tirer. Il sort à la place que la ligne occupait. */
-                  <div
-                    key={`ghost-${layer.id}`}
-                    role="presentation"
-                    aria-hidden
-                    inert
-                    className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
-                  >
-                    <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
-                  </div>
-                ) : (
-                  <LayerItem
-                    key={layer.id}
-                    layer={layer}
-                    isSelected={selectedIds.has(layer.id)}
-                    tabIndex={layer.id === activeFocusId ? 0 : -1}
-                    onSelect={handleSelect}
-                    onSelectExclusive={handleSelectExclusive}
-                    onNavigate={handleNavigate}
-                    onFocusRow={handleFocusRow}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                  />
-                ),
-              )}
-            </div>
-          ))}
+                    <div
+                      key={`ghost-${layer.id}`}
+                      role="presentation"
+                      aria-hidden
+                      inert
+                      className="animate-exit pointer-events-none flex h-9 items-center gap-2 rounded-md px-2 text-muted-foreground"
+                    >
+                      <span className="flex-1 truncate text-sm">{layerDisplayName(layer)}</span>
+                    </div>
+                  ) : (
+                    <LayerItem
+                      key={layer.id}
+                      layer={layer}
+                      isSelected={selectedIds.has(layer.id)}
+                      tabIndex={layer.id === activeFocusId ? 0 : -1}
+                      onSelect={handleSelect}
+                      onSelectExclusive={handleSelectExclusive}
+                      onNavigate={handleNavigate}
+                      onFocusRow={handleFocusRow}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                    />
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
         </ScrollArea>
       )}
     </aside>

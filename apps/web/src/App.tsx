@@ -7,9 +7,9 @@ import { LayersDrawer } from '@/components/layers-panel/LayersDrawer'
 import CanvasEditor from '@/components/canvas/CanvasEditor'
 import { PropertiesDrawer } from '@/components/properties-panel/PropertiesDrawer'
 import { ScreensBar } from '@/components/screens-bar/ScreensBar'
-import { CommandPalette } from '@/components/ui/command-palette'
-import { ShortcutsOverlay } from '@/components/ui/shortcuts-overlay'
-import { Provider as TooltipProvider } from '@radix-ui/react-tooltip'
+import { CommandPalette } from '@/components/patterns/command-palette'
+import { ShortcutsOverlay } from '@/components/patterns/shortcuts-overlay'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { toast } from '@/stores/toast.store'
 import { useKeyboard } from '@/hooks/use-keyboard'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
@@ -228,7 +228,7 @@ export default function App() {
   }
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delay={300}>
       <div className="relative h-full w-full overflow-hidden bg-stage">
         {/* Le document a un nom. Sans lui, la hiérarchie de titres démarrait au
           niveau 2 et le saut de titre ne renvoyait rien depuis la racine. Le

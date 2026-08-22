@@ -58,6 +58,78 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+  --animate-toast-success-odd: toast-success-odd 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-success-even: toast-success-even 0.32s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-even: toast-error-even 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+  @keyframes skeleton {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes toast-success-odd {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-error-odd {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
+  @keyframes toast-success-even {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-error-even {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
 }
 
 /* coss neutral palette (installed by @coss/colors-neutral) */
@@ -192,7 +264,17 @@
   [role='listbox'] {
     cursor: default;
   }
+}
 
+/* Hors couche : le `cursor-pointer` du Button coss vit dans `utilities`, qui
+   bat `base`, et son `disabled:pointer-events-none` n'ôte pas le curseur
+   relu par `semantics.spec.ts`. Un bouton inerte montre la flèche. */
+button:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: default;
+}
+
+@layer base {
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -215,6 +297,32 @@
   }
 }
 
+/* ── Ce que coss n'anime pas, et ce qu'il anime de trop ──
+   Un menu coss apparaît et disparaît sec ; la palette ⌘K coss glisse et
+   fond. ScreenForge veut l'inverse : un menu qui entre en 160 ms et sort en
+   100 ms (`data-ending-style`, que Base UI tient monté le temps de la jouer),
+   et une palette qui est là ou n'est pas là. Hors couche pour passer devant
+   les utilitaires coss ; le bloc reduced-motion de `motion.css` (importé
+   avant) ne coupe que `scale`, et ces règles-ci n'en posent pas. */
+[data-slot='menu-popup'] {
+  animation: enter 0.16s var(--ease-out);
+}
+[data-slot='menu-popup'][data-ending-style] {
+  animation: exit-fast 0.1s var(--ease-out) both;
+}
+[data-slot='command-dialog-popup'],
+[data-slot='command-dialog-backdrop'] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='menu-popup'] {
+    animation-name: fade-in;
+  }
+  [data-slot='menu-popup'][data-ending-style] {
+    animation-name: fade-out;
+  }
+}
+
 /* ponytail: alias de transition, retiré en phase 7.
    Les classes v6 que les features référencent encore jusqu'à leur phase de
    réécriture, mappées sur la grammaire coss. Ce bloc est la dette nommée de la
@@ -227,6 +335,12 @@
   .dark {
     --hairline-top: inset 0 1px 0 oklch(1 0 0 / 0.05);
     --shadow-inset: inset 0 1px 0 oklch(0 0 0 / 0.35);
+  }
+  /* Un bouton qui ne bouge pas sous le doigt paraît sourd. En couche, pour
+     que le reduced-motion de `motion.css` (hors couche) le remette à plat. */
+  button:active {
+    scale: 0.97;
+    transition: scale 0.12s var(--ease-out);
   }
   .island {
     @apply rounded-2xl border bg-popover p-1 shadow-lg/5;
@@ -300,9 +414,6 @@
   }
   .ease-out-expo {
     transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  [cmdk-group-heading] {
-    @apply px-2 pt-2.5 pb-1 text-xs font-medium text-muted-foreground;
   }
   @keyframes exit-fast {
     to {

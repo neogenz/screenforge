@@ -1,7 +1,8 @@
 import { useId, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
+import { SliderField } from '@/components/patterns/slider-field'
+import { Button } from '@/components/ui/button'
 import { formatPercent } from '@/lib/number'
 
 interface ColorPickerProps {
@@ -152,9 +153,9 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
     <div className="flex w-full min-w-0 max-w-full flex-col gap-2">
       {/* Swatch + hex + opacity */}
       <div className="flex min-w-0 items-center gap-2">
-        <button
-          type="button"
-          className="relative h-8 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
+        <Button
+          variant="ghost"
+          className="relative h-8 w-10 shrink-0 overflow-hidden rounded-md border border-border px-0 transition-[border-color] duration-150 ease-out hover:border-input hover:bg-transparent focus-visible:border-muted-foreground"
           onClick={() => nativeRef.current?.click()}
           aria-label="Ouvrir le sélecteur de couleur"
         >
@@ -175,8 +176,10 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
             className="absolute inset-0"
             style={{ backgroundColor: showOpacity ? value : hex6 }}
           />
-        </button>
-        <input
+        </Button>
+        <Input
+          unstyled
+          nativeInput
           ref={nativeRef}
           type="color"
           value={hex6}
@@ -185,22 +188,23 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           tabIndex={-1}
           aria-hidden="true"
         />
+        {/* `nativeInput` : hors du câblage du `Field` parent, dont le libellé
+            (« Couleur », « Ombre »…) écraserait le nom propre de ce champ. */}
         <Input
-          font="tabular"
+          nativeInput
           value={hexInput}
           onChange={handleHexInput}
           onBlur={handleHexBlur}
-          maxLength={7}
           placeholder="#000000"
           spellCheck={false}
           autoComplete="off"
           aria-label="Couleur hexadécimale"
           aria-invalid={Boolean(colorError)}
           aria-describedby={colorError ? errorId : undefined}
-          className="min-w-0 flex-1"
+          className="min-w-0 flex-1 tabular-nums"
         />
         {showOpacity && (
-          <Slider
+          <SliderField
             ariaLabel="Opacité de la couleur"
             min={0}
             max={100}
@@ -223,10 +227,10 @@ export function ColorPicker({ value, onChange, showOpacity = false }: ColorPicke
           <span className="field-label">Récents</span>
           <div className="flex flex-wrap gap-1">
             {recentColors.map((color) => (
-              <button
+              <Button
                 key={color}
-                type="button"
-                className="h-5 w-5 cursor-pointer rounded-xs border border-border transition-[border-color] duration-150 ease-out hover:border-input focus-visible:border-muted-foreground"
+                variant="ghost"
+                className="h-5 w-5 rounded-xs border border-border px-0 transition-[border-color] duration-150 ease-out hover:border-input hover:bg-transparent focus-visible:border-muted-foreground"
                 style={{ backgroundColor: color }}
                 onClick={() => {
                   addRecentColor(color)

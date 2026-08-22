@@ -5,12 +5,12 @@ import { FontPicker } from '@/components/text-editor/FontPicker'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { BackgroundEditor } from '@/components/background-editor/BackgroundEditor'
 import { CURRENT_DEVICE_FRAMES, getDeviceFrame } from '@/assets/device-frames'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
-import { Select } from '@/components/ui/select'
-import { SwatchButton } from '@/components/ui/swatch-button'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { UnitField } from '@/components/patterns/unit-field'
+import { SelectField } from '@/components/patterns/select-field'
+import { SwatchButton } from '@/components/patterns/swatch-button'
 import { FONT_WEIGHT_OPTIONS } from '@/lib/fonts'
 import type { GlobalSettings, DeviceModel } from '@/types'
 
@@ -48,17 +48,17 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={handleClose}
       title="Réglages globaux"
       size="md"
       footer={
         <>
-          <Button variant="default" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose}>
             Annuler
           </Button>
-          <Button variant="primary" onClick={handleSave}>
+          <Button variant="default" onClick={handleSave}>
             Enregistrer
           </Button>
         </>
@@ -76,21 +76,19 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
             />
             <div className="flex gap-2">
               <div className="flex-1">
-                <Select
+                <SelectField
                   label="Graisse"
-                  value={draft.fontWeight}
-                  onChange={(event) => update({ fontWeight: parseInt(event.target.value, 10) })}
+                  value={String(draft.fontWeight)}
+                  onValueChange={(next) => update({ fontWeight: parseInt(next, 10) })}
                   aria-label="Graisse de police par défaut"
-                >
-                  {FONT_WEIGHT_OPTIONS.map((weight) => (
-                    <option key={weight.value} value={weight.value}>
-                      {weight.label}
-                    </option>
-                  ))}
-                </Select>
+                  items={FONT_WEIGHT_OPTIONS.map((weight) => ({
+                    value: String(weight.value),
+                    label: weight.label,
+                  }))}
+                />
               </div>
               <div className="w-28">
-                <NumberField
+                <UnitField
                   label="Taille"
                   ariaLabel="Taille de police par défaut"
                   value={draft.fontSize}
@@ -100,7 +98,8 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
                 />
               </div>
             </div>
-            <Field label="Couleur">
+            <Field className="gap-1.5">
+              <FieldLabel>Couleur</FieldLabel>
               <ColorPicker
                 value={draft.fontColor}
                 onChange={(fontColor) => update({ fontColor })}
@@ -126,19 +125,18 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
         <section>
           <h3 className="section-title mb-2">Appareil</h3>
           <div className="flex flex-col gap-2">
-            <Select
+            <SelectField<DeviceModel>
               label="Modèle"
               value={draft.deviceModel}
-              onChange={(event) => handleModelChange(event.target.value as DeviceModel)}
+              onValueChange={handleModelChange}
               aria-label="Modèle d’appareil par défaut"
-            >
-              {modelOptions.map((option) => (
-                <option key={option.model} value={option.model}>
-                  {option.modelName} · {option.screenSize}
-                </option>
-              ))}
-            </Select>
-            <Field label="Couleur">
+              items={modelOptions.map((option) => ({
+                value: option.model,
+                label: `${option.modelName} · ${option.screenSize}`,
+              }))}
+            />
+            <Field className="gap-1.5">
+              <FieldLabel>Couleur</FieldLabel>
               <div
                 className="flex flex-wrap gap-2"
                 role="group"
@@ -159,6 +157,6 @@ function GlobalsEditorContent({ globals }: { globals: GlobalSettings }) {
           </div>
         </section>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

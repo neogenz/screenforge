@@ -1,6 +1,5 @@
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
-import { Slider } from '@/components/ui/slider'
+import { Segmented, type SegmentedOption } from '@/components/patterns/segmented'
+import { SliderField } from '@/components/patterns/slider-field'
 import { cn } from '@/lib/utils'
 
 const ANGLE_PRESETS = ['0', '90', '180', '270'] as const
@@ -32,9 +31,9 @@ export function AngleControl({
   const normalized = Math.round(((value % 360) + 360) % 360)
 
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
-      <span className="field-label">{label}</span>
-      <Slider
+    <div data-slot="angle-control" className={cn('flex flex-col gap-1.5', className)}>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <SliderField
         ariaLabel={ariaLabel}
         min={0}
         max={359}
@@ -50,7 +49,7 @@ export function AngleControl({
         onChange={(angle) => onChange(Number(angle))}
         ariaLabel={`${ariaLabel} — angles principaux`}
         disabled={disabled}
-        className="w-full [&>button]:min-w-0 [&>button]:flex-1 [&>button]:px-1.5"
+        className="w-full *:min-w-0 *:flex-1 *:px-1.5"
       />
     </div>
   )

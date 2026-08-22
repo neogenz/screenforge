@@ -17,6 +17,7 @@ import {
   waitForApp,
   waitForCanvasSettled,
   type DebugObject,
+  fillNumber,
 } from './helpers'
 
 async function dragSelectionToScreen(page: Page, screenIndex: number): Promise<void> {
@@ -138,8 +139,12 @@ test.describe('canvas transforms', () => {
     // sous le pli d'une fenêtre de 900, et la mesure rendait alors la boîte
     // d'un élément écrêté, donc un glissement dans le vide.
     const scrubBox = await transformInput(page, 0).evaluate((input) => {
-      input.parentElement?.scrollIntoView({ block: 'center' })
-      const rect = input.parentElement?.getBoundingClientRect()
+      // La surface de scrub coss est le libellé (`NumberFieldScrubArea`), pas le champ.
+      const surface = input
+        .closest('[data-slot="unit-field"]')
+        ?.querySelector('[data-slot="number-field-scrub-area"]')
+      surface?.scrollIntoView({ block: 'center' })
+      const rect = surface?.getBoundingClientRect()
       if (!rect) throw new Error('Scrub surface missing')
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
     })
@@ -602,7 +607,7 @@ test.describe('canvas transforms', () => {
     expect(await grab()).toEqual({ selectable: true, evented: true })
 
     const positionX = transformInput(page, 0)
-    await positionX.fill('-600')
+    await fillNumber(positionX, '-600')
     await positionX.press('Enter')
     await waitForCanvasSettled(page)
 
@@ -624,7 +629,7 @@ test.describe('canvas transforms', () => {
   test('a lost layer can be dragged back from the empty stage', async ({ page }) => {
     await addTextLayer(page)
     const positionX = transformInput(page, 0)
-    await positionX.fill('-600')
+    await fillNumber(positionX, '-600')
     await positionX.press('Enter')
     await waitForCanvasSettled(page)
 

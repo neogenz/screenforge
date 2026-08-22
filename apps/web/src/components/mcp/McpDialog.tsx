@@ -1,9 +1,9 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/ui/setup-flow'
+import { SetupCommand, SetupFlow, SetupProgress, SetupStep } from '@/components/patterns/setup-flow'
 import { disableMcp, enableMcp, MCP_COMMAND, mcpRelayAddress } from '@/lib/mcp/client'
 import { MCP_LABELS, projectMcpSteps, useMcpStore } from '@/stores/mcp.store'
 import { useUIStore } from '@/stores/ui.store'
@@ -47,21 +47,21 @@ export function McpDialog() {
 
   const footer =
     status === 'connecting' ? (
-      <Button variant="primary" loading>
+      <Button variant="default" loading>
         Appairer
       </Button>
     ) : status === 'live' ? (
-      <Button ref={disableRef} variant="default" onClick={deactivate}>
+      <Button ref={disableRef} variant="outline" onClick={deactivate}>
         Désactiver
       </Button>
     ) : (
-      <Button variant="primary" onClick={activate} disabled={!/^\d{6}$/.test(code)}>
+      <Button variant="default" onClick={activate} disabled={!/^\d{6}$/.test(code)}>
         Appairer
       </Button>
     )
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={close}
       title="Connexion MCP"
@@ -74,7 +74,12 @@ export function McpDialog() {
           <p className="max-w-[65ch] text-sm text-muted-foreground">
             Un agent externe peut piloter le projet actuellement ouvert dans ScreenForge.
           </p>
-          <p role="status" aria-live="polite" className="shrink-0 text-2xs text-foreground">
+          <p
+            role="status"
+            aria-live="polite"
+            aria-label="État de la connexion"
+            className="shrink-0 text-2xs text-foreground"
+          >
             {MCP_LABELS[status]}
           </p>
         </div>
@@ -124,7 +129,7 @@ export function McpDialog() {
                   </p>
                   <SetupCommand command={MCP_COMMAND} />
                   <div>
-                    <Button variant="default" onClick={activate}>
+                    <Button variant="outline" onClick={activate}>
                       <RefreshCw size={12} aria-hidden />
                       Réessayer
                     </Button>
@@ -199,6 +204,6 @@ export function McpDialog() {
           </details>
         </SetupFlow>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }

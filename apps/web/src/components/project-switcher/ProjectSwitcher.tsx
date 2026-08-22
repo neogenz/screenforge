@@ -12,9 +12,9 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { IconButton } from '@/components/ui/icon-button'
+import { IconButton } from '@/components/patterns/icon-button'
 import { Input } from '@/components/ui/input'
-import { Popover } from '@/components/ui/popover'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
 import {
   createProjectFile,
   PROJECT_FILE_EXTENSION,
@@ -179,7 +179,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         )}
       </IconButton>
 
-      <Popover
+      <AnchoredPopover
         open={open}
         anchor={triggerRef}
         onClose={() => setOpen(false)}
@@ -231,7 +231,6 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             </div>
             <Input
               ref={filterRef}
-              font="sans"
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Filtrer par nom"
@@ -248,7 +247,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                   <p role="alert" className="text-xs text-destructive">
                     Catalogue local indisponible. Le projet courant reste ouvert.
                   </p>
-                  <Button size="sm" variant="default" onClick={() => void refresh()}>
+                  <Button size="sm" variant="outline" onClick={() => void refresh()}>
                     <RefreshCw size={13} strokeWidth={1.75} aria-hidden />
                     Réessayer
                   </Button>
@@ -267,8 +266,8 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     const dateId = `project-${project.id}-date`
                     return (
                       <li key={project.id}>
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
                           disabled={busy}
                           aria-label={`Ouvrir « ${project.name} »`}
                           aria-describedby={`${availabilityId} ${dateId}`}
@@ -278,7 +277,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             event.preventDefault()
                             void openProject(project.id)
                           }}
-                          className="flex min-h-11 w-full items-center gap-2 border-b border-border px-1 text-left last:border-b-0 hover:bg-accent focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                          className="h-auto min-h-11 w-full justify-start gap-2 rounded-none border-x-0 border-t-0 border-b border-border px-1 text-left font-normal last:border-b-0 focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
                         >
                           <FileText
                             size={14}
@@ -301,7 +300,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             <span className="sr-only">Modifié le </span>
                             {date}
                           </time>
-                        </button>
+                        </Button>
                       </li>
                     )
                   })}
@@ -327,9 +326,11 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             </Button>
           </footer>
         </div>
-      </Popover>
+      </AnchoredPopover>
 
-      <input
+      <Input
+        unstyled
+        nativeInput
         ref={fileRef}
         type="file"
         accept={`${PROJECT_FILE_EXTENSION},${PROJECT_FILE_MIME}`}

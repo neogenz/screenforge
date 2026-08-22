@@ -1,6 +1,6 @@
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { UnitField } from '@/components/patterns/unit-field'
 import { Switch } from '@/components/ui/switch'
 import { DEFAULT_SHADOW_COLOR } from '@/lib/content-defaults'
 import type { TextShadow } from '@/types'
@@ -35,15 +35,15 @@ export function ShadowEditor({
       <div className="flex items-center justify-between">
         <h3 className="section-title">{title}</h3>
         <Switch
-          ariaLabel={ariaLabel}
+          aria-label={ariaLabel}
           checked={!!shadow}
-          onChange={(checked) => onChange(checked ? { ...DEFAULT_SHADOW } : undefined)}
+          onCheckedChange={(checked) => onChange(checked ? { ...DEFAULT_SHADOW } : undefined)}
         />
       </div>
       {shadow && (
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-2 gap-2">
-            <NumberField
+            <UnitField
               label="X"
               ariaLabel="Décalage X de l’ombre"
               value={shadow.offsetX}
@@ -51,7 +51,7 @@ export function ShadowEditor({
               min={-500}
               max={500}
             />
-            <NumberField
+            <UnitField
               label="Y"
               ariaLabel="Décalage Y de l’ombre"
               value={shadow.offsetY}
@@ -60,7 +60,7 @@ export function ShadowEditor({
               max={500}
             />
           </div>
-          <NumberField
+          <UnitField
             label="Flou"
             ariaLabel="Flou de l’ombre"
             value={shadow.blur}
@@ -68,7 +68,8 @@ export function ShadowEditor({
             min={0}
             max={500}
           />
-          <Field label="Couleur">
+          <Field className="gap-1.5">
+            <FieldLabel>Couleur</FieldLabel>
             <ColorPicker value={shadow.color} onChange={(color) => patch({ color })} showOpacity />
           </Field>
         </div>

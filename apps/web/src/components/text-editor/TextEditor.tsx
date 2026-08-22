@@ -3,11 +3,11 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
-import { Select } from '@/components/ui/select'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { UnitField } from '@/components/patterns/unit-field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
+import { SelectField } from '@/components/patterns/select-field'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GRADIENT_FROM, DEFAULT_GRADIENT_TO } from '@/lib/content-defaults'
@@ -83,7 +83,8 @@ export function TextEditor({ layer }: TextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Field label="Contenu">
+      <Field className="gap-1.5">
+        <FieldLabel>Contenu</FieldLabel>
         <Textarea
           value={layer.content}
           onChange={(event) =>
@@ -100,7 +101,7 @@ export function TextEditor({ layer }: TextEditorProps) {
         onChange={(fontFamily) => update({ fontFamily })}
       />
 
-      <NumberField
+      <UnitField
         label="Taille"
         ariaLabel="Taille de la police"
         value={layer.fontSize}
@@ -108,25 +109,21 @@ export function TextEditor({ layer }: TextEditorProps) {
         min={1}
       />
 
-      <Select
+      <SelectField
         label="Graisse"
-        value={layer.fontWeight}
-        onChange={(event) => update({ fontWeight: Number(event.target.value) })}
+        value={String(layer.fontWeight)}
+        onValueChange={(next) => update({ fontWeight: Number(next) })}
         aria-label="Graisse de la police"
-      >
-        {weights.map((weight) => (
-          <option key={weight.value} value={weight.value}>
-            {weight.label}
-          </option>
-        ))}
-      </Select>
+        items={weights.map((weight) => ({ value: String(weight.value), label: weight.label }))}
+      />
 
       {/* Un seul contrôle pour deux portées : tant que rien n'est surligné sur
           la planche, il peint le calque ; dès qu'un passage l'est, il ne peint
           que lui. Deux champs côte à côte auraient demandé à l'utilisateur de
           choisir la portée *avant* la couleur, alors que sa sélection l'a déjà
           dite — et le second serait resté grisé les neuf dixièmes du temps. */}
-      <Field label={range ? 'Couleur du passage' : 'Couleur'}>
+      <Field className="gap-1.5">
+        <FieldLabel>{range ? 'Couleur du passage' : 'Couleur'}</FieldLabel>
         <ColorPicker
           value={textColorValue(layer, range)}
           onChange={(color) => {
@@ -147,7 +144,8 @@ export function TextEditor({ layer }: TextEditorProps) {
         )}
       </Field>
 
-      <Field label="Alignement">
+      <Field className="gap-1.5">
+        <FieldLabel>Alignement</FieldLabel>
         <Segmented
           ariaLabel="Alignement"
           options={ALIGN_OPTIONS}
@@ -157,7 +155,7 @@ export function TextEditor({ layer }: TextEditorProps) {
       </Field>
 
       <div className="grid grid-cols-2 gap-2">
-        <NumberField
+        <UnitField
           label="Interligne"
           ariaLabel="Interligne"
           value={layer.lineHeight}
@@ -169,7 +167,7 @@ export function TextEditor({ layer }: TextEditorProps) {
           min={0.5}
           max={3}
         />
-        <NumberField
+        <UnitField
           label="Espacement"
           ariaLabel="Espacement des lettres"
           value={layer.letterSpacing}
@@ -181,7 +179,8 @@ export function TextEditor({ layer }: TextEditorProps) {
         />
       </div>
 
-      <Field label="Casse">
+      <Field className="gap-1.5">
+        <FieldLabel>Casse</FieldLabel>
         <Segmented
           ariaLabel="Casse"
           options={CASING_OPTIONS}
@@ -205,9 +204,9 @@ export function TextEditor({ layer }: TextEditorProps) {
         <div className="flex items-center justify-between">
           <h3 className="section-title">Dégradé</h3>
           <Switch
-            ariaLabel="Activer le dégradé du texte"
+            aria-label="Activer le dégradé du texte"
             checked={!!layer.gradientFill}
-            onChange={(checked) =>
+            onCheckedChange={(checked) =>
               update({
                 gradientFill: checked
                   ? {

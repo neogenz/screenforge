@@ -36,7 +36,8 @@ async function armExitProbe(page: Page): Promise<void> {
     root.__sfExitProbe = undefined
     const capture = (event: AnimationEvent) => {
       if (!(event.target instanceof HTMLElement)) return
-      if (event.target.dataset.state !== 'closed') return
+      // Base UI marque la sortie par `data-ending-style`, pas `data-state`.
+      if (!('endingStyle' in event.target.dataset)) return
       const style = getComputedStyle(event.target)
       root.__sfExitProbe = { name: event.animationName, duration: style.animationDuration }
       document.removeEventListener('animationstart', capture)
@@ -103,13 +104,12 @@ test.describe('micro-interactions', () => {
   test('la palette n’anime ni son voile ni son contenu', async ({ page }) => {
     await waitForApp(page)
     await page.keyboard.press('ControlOrMeta+k')
-    await expect(page.locator('[cmdk-root]')).toBeVisible()
+    await expect(page.locator('[data-slot="command-dialog-popup"]')).toBeVisible()
 
     const running = await page.evaluate(() =>
-      [...document.querySelectorAll('[cmdk-dialog], [cmdk-root], [cmdk-overlay]')].reduce(
-        (total, element) => total + element.getAnimations().length,
-        0,
-      ),
+      [
+        ...document.querySelectorAll('[data-slot^="command-dialog-"], [data-slot="command"]'),
+      ].reduce((total, element) => total + element.getAnimations().length, 0),
     )
     expect(running).toBe(0)
   })

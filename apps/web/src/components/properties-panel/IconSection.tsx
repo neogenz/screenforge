@@ -1,8 +1,8 @@
 import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field } from '@/components/ui/field'
-import { Slider } from '@/components/ui/slider'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { SliderField } from '@/components/patterns/slider-field'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
 import { ICON_CATALOG, ICON_STROKE, iconEntry, type IconId } from '@/lib/vector-catalog'
 import type { IconLayer, Layer } from '@/types'
@@ -41,7 +41,8 @@ export function IconSection({ layer }: IconSectionProps) {
         searchPlaceholder="Rechercher une icône…"
       />
 
-      <Field label="Couleur">
+      <Field className="gap-1.5">
+        <FieldLabel>Couleur</FieldLabel>
         <ColorPicker
           value={layer.color}
           onChange={(color) => update({ color }, { coalesceKey: `layer:${layer.id}:color` })}
@@ -49,7 +50,7 @@ export function IconSection({ layer }: IconSectionProps) {
         />
       </Field>
 
-      <Slider
+      <SliderField
         label="Épaisseur du trait"
         ariaLabel="Épaisseur du trait de l’icône"
         value={layer.strokeWidth ?? ICON_STROKE}

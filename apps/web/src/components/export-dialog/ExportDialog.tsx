@@ -5,9 +5,10 @@ import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useExport } from '@/hooks/use-export'
 import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
-import { Dialog, DialogColumns } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { DialogColumns } from '@/components/patterns/dialog-columns'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
+import { SelectField } from '@/components/patterns/select-field'
 import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } from '@/lib/locale'
 import type { Project, Screen } from '@/types'
 
@@ -108,7 +109,7 @@ function ExportDialogContent({ project }: { project: Project }) {
   }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
 
   return (
-    <Dialog
+    <DialogShell
       open={showExportDialog}
       onClose={handleClose}
       title="Export officiel"
@@ -118,11 +119,11 @@ function ExportDialogContent({ project }: { project: Project }) {
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
-          <Button variant="default" onClick={handleClose} disabled={isExporting}>
+          <Button variant="outline" onClick={handleClose} disabled={isExporting}>
             Annuler
           </Button>
           <Button
-            variant="primary"
+            variant="default"
             onClick={() => void handleExport()}
             loading={isExporting}
             disabled={selectedScreens.length === 0 || localeRefused}
@@ -184,20 +185,20 @@ function ExportDialogContent({ project }: { project: Project }) {
 
               <div className="surface-inner p-4">
                 <span className="field-label">Langue</span>
-                <Select
+                <SelectField
                   className="mt-1.5"
                   aria-label="Langue exportée"
                   value={localeCode}
                   disabled={isExporting}
-                  onChange={(event) => setLocaleCode(event.target.value)}
-                >
-                  <option value="">Langue du projet</option>
-                  {(project.locales ?? []).map((entry) => (
-                    <option key={entry.code} value={entry.code}>
-                      {entry.name}
-                    </option>
-                  ))}
-                </Select>
+                  onValueChange={setLocaleCode}
+                  items={[
+                    { value: '', label: 'Langue du projet' },
+                    ...(project.locales ?? []).map((entry) => ({
+                      value: entry.code,
+                      label: entry.name,
+                    })),
+                  ]}
+                />
                 {/* Une langue qui déborde ne s'exporte pas, et la boîte dit
                     combien de lignes la retiennent — refuser sans compter
                     laisserait l'utilisateur chercher. */}
@@ -220,14 +221,15 @@ function ExportDialogContent({ project }: { project: Project }) {
                 L’ordre du projet sera conservé dans le ZIP.
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="xs"
               onClick={toggleAllScreens}
               disabled={isExporting}
-              className="field-label shrink-0 transition-colors hover:text-foreground"
+              className="field-label shrink-0"
             >
               {allScreensSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -293,7 +295,7 @@ function ExportDialogContent({ project }: { project: Project }) {
           </div>
         )}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -315,15 +317,14 @@ function ScreenChoice({
   onToggle: () => void
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       role="checkbox"
       aria-checked={checked}
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        'flex min-h-14 w-full items-center gap-3 rounded-md border px-3 py-2 text-left',
-        'transition-colors duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'h-auto min-h-14 w-full justify-start gap-3 rounded-md border px-3 py-2 text-left font-normal',
         checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
@@ -348,6 +349,6 @@ function ScreenChoice({
         {String(index + 1).padStart(2, '0')}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{screen.name}</span>
-    </button>
+    </Button>
   )
 }

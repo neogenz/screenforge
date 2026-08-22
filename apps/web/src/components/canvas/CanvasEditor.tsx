@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { SelectionToolbar } from '@/components/canvas/SelectionToolbar'
-import { ContextMenu } from '@/components/ui/ContextMenu'
+import { ContextMenu } from '@/components/patterns/action-menu'
 import { buildLayerMenuItems } from '@/components/layers-panel/layer-menu'
 import { useCanvas } from '@/hooks/use-canvas'
 import { useLayerActions } from '@/hooks/use-layer-actions'

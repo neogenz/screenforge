@@ -133,7 +133,9 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   await expect(replié.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
   expect(
     await replié.evaluate((menu) =>
-      [...menu.children].map((child) =>
+      // Par rôle et non par enfants directs : le popup coss pose une case de
+      // défilement entre lui et ses entrées, et l'ordre du DOM est le même.
+      [...menu.querySelectorAll('[role="menuitem"], [role="separator"]')].map((child) =>
         child.getAttribute('role') === 'separator' ? 'filet' : (child.textContent ?? '').trim(),
       ),
     ),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, Languages, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, Languages, Plus, Trash2 } from 'lucide-react'
 import {
   addLocale,
   applyTranslations,
@@ -23,12 +23,14 @@ import {
 import { bridgeEngine, bridgeToken, translateViaBridge } from '@/lib/bridge-client'
 import { loadGoogleFont } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
+import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
-import { Tooltip } from '@/components/ui/tooltip'
+import { SelectField } from '@/components/patterns/select-field'
+import { Hint } from '@/components/patterns/hint'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -176,7 +178,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const blocked = locale ? localeBlocked(findings) : false
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Langues"
@@ -192,7 +194,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
           : undefined
       }
       footer={
-        <Button variant="default" onClick={close} disabled={busy}>
+        <Button variant="outline" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
@@ -216,10 +218,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
         </p>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Field id={CODE_FIELD_ID} label="Code" className="w-24">
+          <Field className="gap-1.5 w-24">
+            <FieldLabel htmlFor={CODE_FIELD_ID}>Code</FieldLabel>
             <Input
               id={CODE_FIELD_ID}
-              font="sans"
               value={code}
               maxLength={12}
               placeholder="ja"
@@ -227,10 +229,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
               onChange={(event) => setCode(event.target.value)}
             />
           </Field>
-          <Field id={NAME_FIELD_ID} label="Nom" className="min-w-0 flex-1">
+          <Field className="gap-1.5 min-w-0 flex-1">
+            <FieldLabel htmlFor={NAME_FIELD_ID}>Nom</FieldLabel>
             <Input
               id={NAME_FIELD_ID}
-              font="sans"
               value={name}
               maxLength={MAX_LOCALE_NAME_LENGTH}
               placeholder="Japonais"
@@ -238,22 +240,17 @@ function LocaleDialogContent({ project }: { project: Project }) {
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
-          <Select
+          <SelectField<ScriptId>
             className="w-44"
             label="Écriture"
             aria-label="Écriture"
             value={scriptId}
             disabled={busy}
-            onChange={(event) => setScriptId(event.target.value as ScriptId)}
-          >
-            {SCRIPTS.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.label}
-              </option>
-            ))}
-          </Select>
+            onValueChange={setScriptId}
+            items={SCRIPTS.map((entry) => ({ value: entry.id, label: entry.label }))}
+          />
           <Button
-            variant="primary"
+            variant="default"
             onClick={create}
             disabled={busy || locales.length >= MAX_PROJECT_LOCALES}
           >
@@ -271,64 +268,67 @@ function LocaleDialogContent({ project }: { project: Project }) {
         </p>
 
         {locales.length > 0 && (
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Langue">
+          <RadioGroup
+            className="flex-row flex-wrap gap-2"
+            aria-label="Langue"
+            value={locale?.code ?? null}
+            onValueChange={(code) => {
+              if (typeof code === 'string') setSelectedCode(code)
+            }}
+            disabled={busy}
+          >
             {locales.map((entry) => (
-              <label
+              /* La carte est le bouton radio : Base UI porte l'état, le focus
+                 tombe sur l'élément lui-même. */
+              <RadioPrimitive.Root
                 key={entry.code}
+                value={entry.code}
                 className={cn(
-                  'relative flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors',
-                  'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
-                  busy && 'cursor-not-allowed opacity-50',
+                  'flex items-center gap-2 rounded-md border px-3 py-2 text-2xs transition-colors outline-none',
+                  'focus-visible:ring-1 focus-visible:ring-ring',
+                  'data-disabled:cursor-not-allowed data-disabled:opacity-50',
                   entry.code === locale?.code
                     ? 'border-foreground bg-muted text-foreground'
                     : 'border-border text-muted-foreground hover:border-input',
                 )}
               >
-                <input
-                  type="radio"
-                  name="screenforge-locale"
-                  value={entry.code}
-                  checked={entry.code === locale?.code}
-                  disabled={busy}
-                  onChange={() => setSelectedCode(entry.code)}
-                  className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
-                />
                 <span className="tabular">{entry.code}</span>
                 {entry.name}
-              </label>
+              </RadioPrimitive.Root>
             ))}
-          </div>
+          </RadioGroup>
         )}
 
         {locale && (
           <>
             <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
-              <Select
+              <SelectField
                 className="w-56"
                 label="Police de cette langue"
                 aria-label="Police de cette langue"
                 value={locale.fontFamily ?? ''}
                 disabled={busy}
-                onChange={(event) => setLocaleFont(locale.code, event.target.value || undefined)}
-              >
-                <option value="">Garder celle de chaque calque</option>
-                {fontsForScript(locale.script).map((family) => (
-                  <option key={family} value={family}>
-                    {family}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={(next) => setLocaleFont(locale.code, next || undefined)}
+                items={[
+                  { value: '', label: 'Garder celle de chaque calque' },
+                  ...fontsForScript(locale.script).map((family) => ({
+                    value: family,
+                    label: family,
+                  })),
+                ]}
+              />
+              <Hint content="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire.">
+                <Button
+                  variant="outline"
+                  onClick={() => void translate(locale, layers)}
+                  loading={busy}
+                >
+                  <Languages size={12} aria-hidden />
+                  Pré-remplir via le pont
+                </Button>
+              </Hint>
               <Button
-                variant="default"
-                onClick={() => void translate(locale, layers)}
-                loading={busy}
-                tooltip="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire."
-              >
-                <Languages size={12} aria-hidden />
-                Pré-remplir via le pont
-              </Button>
-              <Button
-                variant="default"
+                variant="outline"
                 onClick={() => {
                   removeLocale(locale.code)
                   setSelectedCode('')
@@ -368,7 +368,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
           </>
         )}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -409,7 +409,6 @@ function TextRow({
       <div className="flex items-center gap-2">
         <Input
           id={fieldId}
-          font="sans"
           value={variant?.value ?? ''}
           maxLength={MAX_LOCALE_TEXT_LENGTH}
           disabled={disabled}
@@ -424,33 +423,24 @@ function TextRow({
         />
         {/* Relu est un fait qu'on déclare, pas un état qu'on devine : une
             traduction reprise du pont arrive toujours non relue. */}
-        <Tooltip content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={variant?.reviewed ?? false}
-            aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
-            disabled={disabled}
-            onClick={() =>
-              setLocaleText(
-                locale.code,
-                layer.id,
-                variant?.value ?? '',
-                !(variant?.reviewed ?? false),
-              )
-            }
+        <Hint content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
+          <label
             className={cn(
-              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              variant?.reviewed
-                ? 'border-foreground bg-muted text-foreground'
-                : 'border-border text-muted-foreground hover:border-input',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-2xs',
+              variant?.reviewed ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
-            <Check size={11} aria-hidden />
+            <Checkbox
+              checked={variant?.reviewed ?? false}
+              aria-label={`Marquer la traduction de « ${layer.name} » comme relue`}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                setLocaleText(locale.code, layer.id, variant?.value ?? '', checked)
+              }
+            />
             Relu
-          </button>
-        </Tooltip>
+          </label>
+        </Hint>
       </div>
       {findings.map((finding) => (
         <p

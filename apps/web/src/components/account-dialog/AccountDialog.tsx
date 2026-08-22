@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { createPortalSession, deleteAccount } from '@/lib/account'
 import { handleAccountDeletionOutcome } from '@/lib/account-deletion-ui'
 import { signOut, signOutAndReport } from '@/lib/auth'
@@ -153,7 +153,7 @@ function AccountDialogContent() {
   }
 
   return (
-    <Dialog open onClose={() => setShowAccountDialog(false)} title="Compte" size="sm">
+    <DialogShell open onClose={() => setShowAccountDialog(false)} title="Compte" size="sm">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           {/* L'initiale plutôt qu'une image : le fournisseur d'identité peut
@@ -190,7 +190,7 @@ function AccountDialogContent() {
                       Annuler
                     </Button>
                     <Button
-                      variant="danger"
+                      variant="destructive-outline"
                       size="sm"
                       loading={pending === 'clear-cloud'}
                       disabled={pending !== null}
@@ -202,7 +202,7 @@ function AccountDialogContent() {
                 </div>
               ) : (
                 <Button
-                  variant="danger"
+                  variant="destructive-outline"
                   size="sm"
                   className="w-full"
                   disabled={pending !== null}
@@ -228,7 +228,7 @@ function AccountDialogContent() {
             </p>
           )}
           {!cloud && (
-            <Button variant="default" size="sm" className="mt-3 w-full" onClick={openPricing}>
+            <Button variant="outline" size="sm" className="mt-3 w-full" onClick={openPricing}>
               Passer au Cloud
             </Button>
           )}
@@ -246,7 +246,7 @@ function AccountDialogContent() {
               compte sans achat, il n'ouvre qu'une page vide. */}
           {hasBillingHistory && (
             <Button
-              variant="default"
+              variant="outline"
               className="w-full"
               loading={pending === 'portal'}
               disabled={pending !== null}
@@ -256,7 +256,7 @@ function AccountDialogContent() {
             </Button>
           )}
           <Button
-            variant="default"
+            variant="outline"
             className="w-full"
             disabled={pending !== null}
             onClick={() => {
@@ -272,7 +272,7 @@ function AccountDialogContent() {
 
         <div className="flex flex-col gap-2">
           <Button
-            variant="danger"
+            variant="destructive-outline"
             className="w-full"
             loading={pending === 'delete'}
             disabled={pending !== null}
@@ -291,7 +291,7 @@ function AccountDialogContent() {
           )}
         </div>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 

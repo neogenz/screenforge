@@ -4,8 +4,9 @@ import { ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { getProjectLayers, useProjectStore } from '@/stores/project.store'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { TransformSection } from './TransformSection'
@@ -64,70 +65,72 @@ export function PropertiesPanel() {
       </div>
 
       {/* Voir `LayersPanel` : `flex-1` effondrerait le contenu ici aussi. */}
-      <ScrollArea className="px-3 pb-3" contentClassName="flex flex-col gap-2">
-        {selectedLayers.length === 0 && <BackgroundSection />}
+      <ScrollArea className="px-3 pb-3">
+        <div className="flex flex-col gap-2">
+          {selectedLayers.length === 0 && <BackgroundSection />}
 
-        {selectedLayers.length > 1 && (
-          <div className="px-2 py-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              {selectedLayers.length} calques sélectionnés.
-            </p>
-            <p className="mt-1 text-2xs text-muted-foreground">
-              Sélectionnez un seul calque pour éditer.
-            </p>
-          </div>
-        )}
+          {selectedLayers.length > 1 && (
+            <div className="px-2 py-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {selectedLayers.length} calques sélectionnés.
+              </p>
+              <p className="mt-1 text-2xs text-muted-foreground">
+                Sélectionnez un seul calque pour éditer.
+              </p>
+            </div>
+          )}
 
-        {selectedLayer && (
-          <>
-            {/* Scope — screen-local or shared across all screens */}
-            <Segmented
-              label="Portée"
-              options={SCOPE_OPTIONS}
-              value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
-              onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
-            />
+          {selectedLayer && (
+            <>
+              {/* Scope — screen-local or shared across all screens */}
+              <Segmented
+                label="Portée"
+                options={SCOPE_OPTIONS}
+                value={selectedLayer.scope === 'layout' ? 'layout' : 'screen'}
+                onChange={(scope) => setLayerScope(selectedLayer.id, scope)}
+              />
 
-            {/* Ce qu'on est venu régler d'abord, la géométrie ensuite.
+              {/* Ce qu'on est venu régler d'abord, la géométrie ensuite.
                 On sélectionne un texte pour changer son texte, une icône pour
                 changer son icône — pas pour pousser son X d'un pixel. La
                 transformation est la seule section commune aux six types :
                 c'est ce qui en fait le socle, pas l'en-tête. */}
-            {selectedLayer.type === 'text' && (
-              <Section title="Texte" defaultOpen>
-                <TextSection layer={selectedLayer} />
-              </Section>
-            )}
+              {selectedLayer.type === 'text' && (
+                <Section title="Texte" defaultOpen>
+                  <TextSection layer={selectedLayer} />
+                </Section>
+              )}
 
-            {selectedLayer.type === 'device-frame' && (
-              <Section title="Appareil" defaultOpen>
-                <DeviceSection layer={selectedLayer} />
-              </Section>
-            )}
+              {selectedLayer.type === 'device-frame' && (
+                <Section title="Appareil" defaultOpen>
+                  <DeviceSection layer={selectedLayer} />
+                </Section>
+              )}
 
-            {selectedLayer.type === 'image' && (
-              <Section title="Image" defaultOpen>
-                <ImageSection layer={selectedLayer} />
-              </Section>
-            )}
+              {selectedLayer.type === 'image' && (
+                <Section title="Image" defaultOpen>
+                  <ImageSection layer={selectedLayer} />
+                </Section>
+              )}
 
-            {selectedLayer.type === 'shape' && (
-              <Section title="Forme" defaultOpen>
-                <ShapeSection layer={selectedLayer} />
-              </Section>
-            )}
+              {selectedLayer.type === 'shape' && (
+                <Section title="Forme" defaultOpen>
+                  <ShapeSection layer={selectedLayer} />
+                </Section>
+              )}
 
-            {selectedLayer.type === 'icon' && (
-              <Section title="Icône" defaultOpen>
-                <IconSection layer={selectedLayer} />
-              </Section>
-            )}
+              {selectedLayer.type === 'icon' && (
+                <Section title="Icône" defaultOpen>
+                  <IconSection layer={selectedLayer} />
+                </Section>
+              )}
 
-            <Section title="Transformation" defaultOpen>
-              <TransformSection layer={selectedLayer} />
-            </Section>
-          </>
-        )}
+              <Section title="Transformation" defaultOpen>
+                <TransformSection layer={selectedLayer} />
+              </Section>
+            </>
+          )}
+        </div>
       </ScrollArea>
     </aside>
   )
@@ -162,12 +165,12 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
           titre, alors que c'est bien lui qui découpe le panneau. Le `h3` porte
           la typographie, le bouton la mise en boîte. */}
       <h3 className="section-title">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            'flex h-8 w-full items-center gap-1.5',
-            'transition-colors duration-150 ease-out hover:text-foreground',
+            'flex h-8 w-full items-center justify-start gap-1.5 rounded-none px-0 font-[inherit] text-[inherit]',
+            'transition-colors duration-150 ease-out hover:bg-transparent hover:text-foreground',
           )}
           aria-expanded={open}
         >
@@ -181,7 +184,7 @@ function Section({ title, defaultOpen = true, children }: SectionProps) {
             )}
           />
           <span>{title}</span>
-        </button>
+        </Button>
       </h3>
 
       {open && children && <div className="pb-1">{children}</div>}

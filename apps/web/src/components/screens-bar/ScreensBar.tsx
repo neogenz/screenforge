@@ -4,7 +4,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/project.store'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { toast } from '@/stores/toast.store'
-import { IconButton } from '@/components/ui/icon-button'
+import { IconButton } from '@/components/patterns/icon-button'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
 import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
@@ -167,6 +168,12 @@ export function ScreensBar() {
     },
     [targetIds],
   )
+
+  /* La suppression se confirme : elle s'annule, mais un écran est une
+     composition, et un clic de trop dans un menu ne doit pas en coûter trois.
+     Le bouton nomme la quantité, le menu l'a déjà annoncée. */
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const pendingCount = pendingDelete ? targetIds(pendingDelete).length : 0
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -428,7 +435,7 @@ export function ScreensBar() {
             canPasteSettings={copiedSettings !== null}
             onCopySettings={handleCopySettings}
             onPasteSettings={handlePasteSettings}
-            onDelete={handleDelete}
+            onDelete={setPendingDelete}
             onMove={handleMove}
           />
         </div>
@@ -470,6 +477,19 @@ export function ScreensBar() {
           {list.length}/{MAX_PROJECT_SCREENS}
         </span>
       )}
+      <ConfirmAction
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+        title={pendingCount > 1 ? `Supprimer ${pendingCount} écrans ?` : 'Supprimer cet écran ?'}
+        description="Les calques de l’écran partent avec lui. ⌘Z le ramène."
+        confirmLabel={pendingCount > 1 ? `Supprimer ${pendingCount} écrans` : 'Supprimer l’écran'}
+        onConfirm={() => {
+          if (pendingDelete) handleDelete(pendingDelete)
+          setPendingDelete(null)
+        }}
+      />
     </div>
   )
 }

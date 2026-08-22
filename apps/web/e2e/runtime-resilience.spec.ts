@@ -52,5 +52,8 @@ test('announces a delayed lazy dialog before replacing it with the focused dialo
   release()
   const dialog = page.getByRole('dialog', { name: 'Export officiel' })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toBeFocused()
+  // Base UI pose le focus sur le premier contrôle de la boîte, pas sur elle.
+  await expect
+    .poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))))
+    .toBe(true)
 })

@@ -1,7 +1,8 @@
 import { Minus, Plus } from 'lucide-react'
 import { useUIStore } from '@/stores/ui.store'
-import { IconButton } from '@/components/ui/icon-button'
-import { Tooltip } from '@/components/ui/tooltip'
+import { IconButton } from '@/components/patterns/icon-button'
+import { Button } from '@/components/ui/button'
+import { Hint } from '@/components/patterns/hint'
 
 /**
  * Îlot de zoom, bas-droite. Îlot permanent au même titre que la barre et la
@@ -19,16 +20,17 @@ export function ZoomHud() {
       <IconButton size="sm" aria-label="Zoom arrière" tooltip="Zoom arrière (⌘−)" onClick={zoomOut}>
         <Minus size={14} strokeWidth={1.75} />
       </IconButton>
-      <Tooltip content="Ajuster aux écrans (⌘0)">
-        <button
-          type="button"
+      <Hint content="Ajuster aux écrans (⌘0)">
+        <Button
+          variant="ghost"
+          size="sm"
           aria-label="Ajuster le zoom aux écrans"
           onClick={resetZoom}
-          className="tabular h-8 min-w-13 rounded-md px-2 text-center text-2xs font-medium text-muted-foreground transition-colors duration-150 ease-out hover:bg-accent hover:text-foreground"
+          className="tabular min-w-13 text-2xs text-muted-foreground hover:text-foreground"
         >
           {Math.round(zoom * 100)}%
-        </button>
-      </Tooltip>
+        </Button>
+      </Hint>
       <IconButton size="sm" aria-label="Zoom avant" tooltip="Zoom avant (⌘+)" onClick={zoomIn}>
         <Plus size={14} strokeWidth={1.75} />
       </IconButton>

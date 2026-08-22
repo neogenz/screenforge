@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addTextLayer, transformInput, waitForApp } from './helpers'
+import { addTextLayer, fillNumber, transformInput, waitForApp } from './helpers'
 
 /**
  * Le lot livré : figé, vérifiable, et indifférent à ce que le projet devient.
@@ -56,7 +56,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   /* Le projet continue de vivre : le texte se déplace. La release, elle, ne
      doit rien en savoir. */
   const before = JSON.stringify(frozen.snapshot)
-  await transformInput(page, 0).fill('42')
+  await fillNumber(transformInput(page, 0), '42')
   await transformInput(page, 0).press('Enter')
 
   await openReleaseDialog(page)
@@ -126,7 +126,7 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   const frozen = (await releases(page))[0]
   await page.keyboard.press('Escape')
 
-  await transformInput(page, 0).fill('42')
+  await fillNumber(transformInput(page, 0), '42')
   await transformInput(page, 0).press('Enter')
   await expect.poll(() => textLayerX(page)).toBe(42)
 

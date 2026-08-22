@@ -217,6 +217,8 @@ export async function connect(page: Page, relay: Relay): Promise<void> {
   // qui s'offre, pas « Désactiver ».
   await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
   await dialog.getByRole('button', { name: 'Appairer' }).click()
-  await expect(dialog.getByRole('status')).toHaveText('Connectée')
+  // Le bouton en cours porte lui aussi un `role=status` (Spinner coss) : on
+  // vise la ligne d'état, pas le premier statut venu.
+  await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText('Connectée')
   await relay.waitForStream()
 }

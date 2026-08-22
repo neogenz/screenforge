@@ -6,9 +6,9 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
-import { Dialog } from '@/components/ui/dialog'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Button } from '@/components/ui/button'
-import { IconButton } from '@/components/ui/icon-button'
+import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
 import { cn } from '@/lib/utils'
 import type { TemplateDefinition } from '@/types'
@@ -57,7 +57,7 @@ function TemplatePickerContent() {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={handleClose}
       title="Modèles de mise en page"
@@ -72,10 +72,10 @@ function TemplatePickerContent() {
               <p className="truncate text-2xs text-muted-foreground">{selected.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Button variant="default" onClick={() => handleApply('current')}>
+              <Button variant="outline" onClick={() => handleApply('current')}>
                 Appliquer à l’écran actuel
               </Button>
-              <Button variant="primary" onClick={() => handleApply('new')}>
+              <Button variant="default" onClick={() => handleApply('new')}>
                 Nouvel écran
               </Button>
             </div>
@@ -104,7 +104,7 @@ function TemplatePickerContent() {
           <Gallery templates={TEMPLATES} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -131,15 +131,13 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
         const isSelected = selectedId === template.id
         return (
           <div key={template.id} className="group/tile relative self-start">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => onSelect(template.id)}
               aria-pressed={isSelected}
               aria-label={`Sélectionner le modèle ${template.name}`}
               className={cn(
-                'flex w-full flex-col gap-2 rounded-lg border p-2 text-left',
-                'transition-[border-color,background] duration-150 ease-out',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'h-auto w-full flex-col items-stretch gap-2 rounded-lg border p-2 text-left font-normal',
                 isSelected
                   ? 'border-foreground bg-muted'
                   : 'border-border hover:border-input hover:bg-accent',
@@ -158,7 +156,7 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                   </span>
                 )}
               </div>
-            </button>
+            </Button>
             {saved && onRemove && (
               <IconButton
                 size="sm"

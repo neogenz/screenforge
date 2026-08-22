@@ -2,8 +2,8 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
 import { ShadowEditor } from '@/components/properties-panel/ShadowEditor'
-import { Field } from '@/components/ui/field'
-import { NumberField } from '@/components/ui/number-field'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { UnitField } from '@/components/patterns/unit-field'
 import { Switch } from '@/components/ui/switch'
 import { VectorPicker } from '@/components/vector-picker/VectorPicker'
 import { SHAPE_CATALOG, type ShapeId } from '@/lib/vector-catalog'
@@ -62,9 +62,9 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
           <div className="flex items-center gap-2">
             <span className="field-label">Dégradé</span>
             <Switch
-              ariaLabel="Activer le dégradé"
+              aria-label="Activer le dégradé"
               checked={fillIsGradient}
-              onChange={handleGradientToggle}
+              onCheckedChange={handleGradientToggle}
             />
           </div>
         </div>
@@ -91,7 +91,7 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {layer.shapeType === 'rounded-rect' && (
         <>
           <div className="hairline" />
-          <NumberField
+          <UnitField
             label="Rayon"
             ariaLabel="Rayon des coins"
             value={layer.borderRadius ?? 8}
@@ -108,13 +108,14 @@ export function ShapeSection({ layer }: ShapeSectionProps) {
       {/* Stroke */}
       <div className="flex flex-col gap-2">
         <h3 className="section-title">Contour</h3>
-        <Field label="Couleur">
+        <Field className="gap-1.5">
+          <FieldLabel>Couleur</FieldLabel>
           <ColorPicker
             value={layer.stroke ?? DEFAULT_STROKE_COLOR}
             onChange={(stroke) => update({ stroke }, { coalesceKey: `layer:${layer.id}:stroke` })}
           />
         </Field>
-        <NumberField
+        <UnitField
           label="Épaisseur"
           ariaLabel="Épaisseur du contour"
           value={layer.strokeWidth ?? 0}

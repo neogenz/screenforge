@@ -31,10 +31,12 @@ import { localeBlocked, localizedLayoutLayers, localizedScreens, reviewLocale } 
 import { saveCurrentProject } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogColumns } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { DialogColumns } from '@/components/patterns/dialog-columns'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { Hint } from '@/components/patterns/hint'
+import { SelectField } from '@/components/patterns/select-field'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -202,7 +204,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Releases"
@@ -220,7 +222,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       }
       footerNote="Une release figée ne change plus : c’est elle que « Publier chez Apple » envoie, et elle que « Reprendre » ramène."
       footer={
-        <Button variant="default" onClick={close} disabled={busy}>
+        <Button variant="outline" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
@@ -231,10 +233,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         rail={
           <>
             <div className="flex flex-col gap-1.5">
-              <Field id={RELEASE_NAME_FIELD_ID} label="Nom de la release">
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor={RELEASE_NAME_FIELD_ID}>Nom de la release</FieldLabel>
                 <Input
                   id={RELEASE_NAME_FIELD_ID}
-                  font="sans"
                   value={name}
                   maxLength={MAX_RELEASE_NAME_LENGTH}
                   placeholder="1.4.0"
@@ -242,22 +244,22 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                   onChange={(event) => setName(event.target.value)}
                 />
               </Field>
-              <Select
+              <SelectField
                 aria-label="Langue de la release"
                 label="Langue"
                 value={localeCode}
                 disabled={busy}
-                onChange={(event) => setLocaleCode(event.target.value)}
-              >
-                <option value="">Langue du projet</option>
-                {(project.locales ?? []).map((entry) => (
-                  <option key={entry.code} value={entry.code}>
-                    {entry.name}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={setLocaleCode}
+                items={[
+                  { value: '', label: 'Langue du projet' },
+                  ...(project.locales ?? []).map((entry) => ({
+                    value: entry.code,
+                    label: entry.name,
+                  })),
+                ]}
+              />
               <Button
-                variant="primary"
+                variant="default"
                 onClick={() => void freeze()}
                 loading={running === 'freeze'}
                 disabled={busy || releases.length >= MAX_PROJECT_RELEASES}
@@ -281,13 +283,12 @@ function ReleaseDialogContent({ project }: { project: Project }) {
               <ul className="flex flex-col gap-1">
                 {[...releases].reverse().map((release) => (
                   <li key={release.id}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       onClick={() => setSelectedId(release.id)}
                       aria-current={release.id === selected?.id}
                       className={cn(
-                        'flex w-full flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                        'h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
                         release.id === selected?.id
                           ? 'border-foreground bg-muted'
                           : 'border-border hover:border-input',
@@ -298,7 +299,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                         {formatDate(release.createdAt)} · {release.files.length} écrans
                         {release.locale ? ` · ${release.locale}` : ''}
                       </span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -356,34 +357,40 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     moins d'une seconde — cliquer ne produisait rien là où l'œil
                     se trouvait. L'écusson devient une coche verte, et le
                     libellé nomme ce qui vient d'être appris. */}
-                <Button
-                  variant="default"
-                  onClick={() => void verify(selected)}
-                  loading={running === 'verify'}
-                  disabled={busy}
-                  tooltip={
+                <Hint
+                  content={
                     verdict === 'ok'
                       ? 'Cette release vient de se rejouer à l’identique. Cliquez pour recommencer.'
                       : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si cette release se rend encore à l’identique.'
                   }
                 >
-                  {running !== 'verify' && <VerdictIcon verdict={verdict} />}
-                  {verdict === 'ok' ? 'Vérifié' : verdict === 'drift' ? 'A dérivé' : 'Vérifier'}
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={() => resume(selected)}
-                  disabled={busy || diff?.identical}
-                  tooltip={
+                  <Button
+                    variant="outline"
+                    onClick={() => void verify(selected)}
+                    loading={running === 'verify'}
+                    disabled={busy}
+                  >
+                    {running !== 'verify' && <VerdictIcon verdict={verdict} />}
+                    {verdict === 'ok' ? 'Vérifié' : verdict === 'drift' ? 'A dérivé' : 'Vérifier'}
+                  </Button>
+                </Hint>
+                <Hint
+                  content={
                     diff?.identical
                       ? 'Le projet est déjà dans cet état.'
                       : 'Ramène les écrans et les réglages du projet dans l’état de cette release. La release, elle, ne bouge pas.'
                   }
                 >
-                  <RotateCcw size={12} aria-hidden />
-                  Reprendre
-                </Button>
-                <Button variant="default" onClick={() => forget(selected)} disabled={busy}>
+                  <Button
+                    variant="outline"
+                    onClick={() => resume(selected)}
+                    disabled={busy || diff?.identical}
+                  >
+                    <RotateCcw size={12} aria-hidden />
+                    Reprendre
+                  </Button>
+                </Hint>
+                <Button variant="outline" onClick={() => forget(selected)} disabled={busy}>
                   <Trash2 size={12} aria-hidden />
                   Retirer
                 </Button>
@@ -418,7 +425,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           </div>
         )}
       </DialogColumns>
-    </Dialog>
+    </DialogShell>
   )
 }
 

@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Popover } from '@/components/ui/popover'
-import { Tooltip } from '@/components/ui/tooltip'
+import { AnchoredPopover } from '@/components/patterns/anchored-popover'
+import { Hint } from '@/components/patterns/hint'
 import { groupsOf, ICON_BOX, ICON_STROKE, SHAPE_BOX } from '@/lib/vector-catalog'
 import { cn } from '@/lib/utils'
 
@@ -95,7 +95,7 @@ export function VectorPicker({
     <>
       <Button
         ref={triggerRef}
-        variant="default"
+        variant="outline"
         size="sm"
         onClick={() => {
           setActiveId(value)
@@ -119,7 +119,7 @@ export function VectorPicker({
         />
       </Button>
 
-      <Popover
+      <AnchoredPopover
         open={open}
         anchor={triggerRef}
         onClose={close}
@@ -129,7 +129,6 @@ export function VectorPicker({
         <div className="border-b border-border p-1.5">
           <Input
             ref={searchRef}
-            font="sans"
             type="search"
             value={search}
             onChange={(event) => {
@@ -159,9 +158,10 @@ export function VectorPicker({
               </div>
               <div className="grid grid-cols-5 gap-1 px-1 pb-1">
                 {items.map((entry) => (
-                  <Tooltip key={entry.id} content={entry.label}>
-                    <button
-                      type="button"
+                  <Hint key={entry.id} content={entry.label}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       role="option"
                       aria-selected={entry.id === value}
                       aria-label={entry.label}
@@ -207,15 +207,13 @@ export function VectorPicker({
                         close(true)
                       }}
                       className={cn(
-                        'flex h-8 w-full items-center justify-center rounded-md border border-transparent',
-                        'text-foreground transition-colors duration-120 hover:bg-accent',
-                        'focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
+                        'h-8 w-full rounded-md',
                         entry.id === value && 'border-foreground bg-muted',
                       )}
                     >
                       <VectorGlyph entry={entry} kind={kind} size={16} />
-                    </button>
-                  </Tooltip>
+                    </Button>
+                  </Hint>
                 ))}
               </div>
             </div>
@@ -224,7 +222,7 @@ export function VectorPicker({
             <div className="field-label px-2 py-3 text-center">Aucun résultat</div>
           )}
         </div>
-      </Popover>
+      </AnchoredPopover>
     </>
   )
 }

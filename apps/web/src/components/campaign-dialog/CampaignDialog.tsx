@@ -48,13 +48,14 @@ import {
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Field } from '@/components/ui/field'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SelectField } from '@/components/patterns/select-field'
 import { Textarea } from '@/components/ui/textarea'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Hint } from '@/components/patterns/hint'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -552,7 +553,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Générer les visuels App Store"
@@ -579,17 +580,17 @@ function CampaignDialogContent({ project }: { project: Project }) {
       }
       footer={
         plan ? (
-          <Button variant="primary" onClick={accept} disabled={busy}>
+          <Button variant="default" onClick={accept} disabled={busy}>
             <Check size={12} aria-hidden />
             Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
           </Button>
         ) : (
           <>
-            <Button variant="default" onClick={close} disabled={busy}>
+            <Button variant="outline" onClick={close} disabled={busy}>
               Annuler
             </Button>
             <Button
-              variant="primary"
+              variant="default"
               onClick={() => void compose()}
               loading={busy}
               disabled={full || !named}
@@ -645,10 +646,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
                 l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
             {aiProvider(providerId).transport !== 'in-process' && (
               <div className="grid gap-3 border-t border-border pt-3">
-                <Field id={URL_FIELD_ID} label="Page produit (provenance)">
+                <Field className="gap-1.5">
+                  <FieldLabel htmlFor={URL_FIELD_ID}>Page produit (provenance)</FieldLabel>
                   <Input
                     id={URL_FIELD_ID}
-                    font="sans"
                     type="url"
                     inputMode="url"
                     value={landingUrl}
@@ -661,10 +662,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     }}
                   />
                 </Field>
-                <Field
-                  id={CONTEXT_FIELD_ID}
-                  label="Arguments à reprendre (un par ligne, facultatif)"
-                >
+                <Field className="gap-1.5">
+                  <FieldLabel htmlFor={CONTEXT_FIELD_ID}>
+                    Arguments à reprendre (un par ligne, facultatif)
+                  </FieldLabel>
                   <Textarea
                     id={CONTEXT_FIELD_ID}
                     value={productContext}
@@ -693,10 +694,10 @@ function CampaignDialogContent({ project }: { project: Project }) {
             <CampaignSection title="Contenu">
               <div className="grid gap-3">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                  <Field id={NAME_FIELD_ID} label="Nom de l’app">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={NAME_FIELD_ID}>Nom de l’app</FieldLabel>
                     <Input
                       id={NAME_FIELD_ID}
-                      font="sans"
                       value={appName}
                       maxLength={60}
                       placeholder="Ex. : Sleep Tracker"
@@ -712,10 +713,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       </p>
                     )}
                   </Field>
-                  <Field id={PITCH_FIELD_ID} label="Ce que fait l’app, en une phrase">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={PITCH_FIELD_ID}>
+                      Ce que fait l’app, en une phrase
+                    </FieldLabel>
                     <Input
                       id={PITCH_FIELD_ID}
-                      font="sans"
                       value={pitch}
                       maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                       placeholder="Suivez votre budget chaque mois"
@@ -727,7 +730,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    variant="default"
+                    variant="outline"
                     onClick={() => shotsInput.current?.click()}
                     disabled={busy}
                   >
@@ -737,7 +740,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       : 'Ajouter les captures…'}
                   </Button>
                   <Button
-                    variant="default"
+                    variant="outline"
                     onClick={() => logoInput.current?.click()}
                     disabled={busy}
                   >
@@ -745,24 +748,22 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
                   </Button>
                   {!full && (
-                    <Select
+                    <SelectField
                       id={COUNT_FIELD_ID}
                       aria-label="Combien de visuels"
                       label="Visuels"
                       className="w-36"
                       value={String(screenCount)}
                       disabled={busy}
-                      onChange={(event) => {
-                        setChosenCount(Number(event.target.value))
+                      onValueChange={(next) => {
+                        setChosenCount(Number(next))
                         setPlan(null)
                       }}
-                    >
-                      {Array.from({ length: room }, (_unused, index) => index + 1).map((count) => (
-                        <option key={count} value={count}>
-                          {count}
-                        </option>
-                      ))}
-                    </Select>
+                      items={Array.from({ length: room }, (_unused, index) => ({
+                        value: String(index + 1),
+                        label: index + 1,
+                      }))}
+                    />
                   )}
                 </div>
 
@@ -773,14 +774,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     </summary>
                     <div className="mt-3 grid gap-3">
                       {shots.map((shot, index) => (
-                        <Field
-                          key={shot.assetId}
-                          id={`sf-campaign-shot-${index}`}
-                          label={`${index + 1}. ${shot.label}`}
-                        >
+                        <Field key={shot.assetId} className="gap-1.5">
+                          <FieldLabel htmlFor={`sf-campaign-shot-${index}`}>
+                            {`${index + 1}. ${shot.label}`}
+                          </FieldLabel>
                           <Input
                             id={`sf-campaign-shot-${index}`}
-                            font="sans"
                             value={shot.description ?? ''}
                             maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                             placeholder="Gardez vos priorités toujours visibles"
@@ -804,7 +803,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   </p>
                 ) : null}
 
-                <input
+                <Input
+                  unstyled
+                  nativeInput
                   ref={shotsInput}
                   type="file"
                   multiple
@@ -818,7 +819,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     void loadShots(chosen)
                   }}
                 />
-                <input
+                <Input
+                  unstyled
+                  nativeInput
                   ref={logoInput}
                   type="file"
                   accept={IMAGE_ACCEPT}
@@ -835,42 +838,43 @@ function CampaignDialogContent({ project }: { project: Project }) {
             </CampaignSection>
 
             <CampaignSection title="Direction">
-              <div
+              <RadioGroup
                 className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
-                role="radiogroup"
                 aria-label="Style des visuels"
+                value={useShotPalette ? SHOT_PALETTE_CHOICE : direction}
+                onValueChange={(next) => {
+                  if (next === SHOT_PALETTE_CHOICE) setUseShotPalette(true)
+                  else if (typeof next === 'string') {
+                    setDirection(next as DirectionId)
+                    setUseShotPalette(false)
+                  }
+                  setPlan(null)
+                }}
+                disabled={busy}
               >
                 {DIRECTIONS.map((entry) => (
                   <StyleChip
                     key={entry.id}
+                    value={entry.id}
                     label={entry.label}
                     swatch={entry.background}
                     selected={!useShotPalette && entry.id === direction}
-                    disabled={busy}
-                    onSelect={() => {
-                      setDirection(entry.id)
-                      setUseShotPalette(false)
-                      setPlan(null)
-                    }}
                   />
                 ))}
                 <StyleChip
+                  value={SHOT_PALETTE_CHOICE}
                   label="Mes captures"
                   ariaLabel="D’après mes captures"
                   swatch={shotPalette?.background ?? 'var(--color-muted)'}
                   selected={useShotPalette}
-                  disabled={busy || !shotPalette}
+                  disabled={!shotPalette}
                   title={
                     shotPalette
                       ? 'Les couleurs dominantes lues dans vos captures.'
                       : 'Ajoutez des captures pour utiliser leurs couleurs.'
                   }
-                  onSelect={() => {
-                    setUseShotPalette(true)
-                    setPlan(null)
-                  }}
                 />
-              </div>
+              </RadioGroup>
             </CampaignSection>
 
             {/* Repeindre l'écran courant n'est pas un style de plus : c'est
@@ -912,7 +916,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
           </>
         )}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -925,52 +929,51 @@ function CampaignSection({ title, children }: { title: string; children: React.R
   )
 }
 
+/** Valeur du groupe « Style » qui n'est pas une direction : la palette lue dans les captures. */
+const SHOT_PALETTE_CHOICE = 'shots'
+
 function StyleChip({
+  value,
   label,
   ariaLabel,
   swatch,
   selected,
   disabled,
   title,
-  onSelect,
 }: {
+  value: string
   label: string
   ariaLabel?: string
   swatch: string
   selected: boolean
   disabled?: boolean
   title?: string
-  onSelect: () => void
 }) {
   const card = (
-    <label
+    /* La carte est le bouton radio : Base UI porte l'état, le focus tombe sur
+       l'élément lui-même. */
+    <RadioPrimitive.Root
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
       className={cn(
-        'relative flex w-full cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-        'has-[:focus-visible]:outline-none has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring',
-        disabled && 'cursor-not-allowed opacity-50',
+        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors outline-none',
+        'focus-visible:ring-1 focus-visible:ring-ring',
+        'data-disabled:cursor-not-allowed data-disabled:opacity-50',
         selected
           ? 'border-foreground bg-muted text-foreground'
           : 'border-border text-muted-foreground hover:border-input',
       )}
     >
-      <input
-        type="radio"
-        name="screenforge-campaign-style"
-        aria-label={ariaLabel}
-        checked={selected}
-        disabled={disabled}
-        onChange={onSelect}
-        className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none disabled:cursor-not-allowed"
-      />
       <span
         aria-hidden
         className="size-4 rounded-sm border border-border"
         style={{ background: swatch }}
       />
       {label}
-    </label>
+    </RadioPrimitive.Root>
   )
-  return title ? <Tooltip content={title}>{card}</Tooltip> : card
+  return title ? <Hint content={title}>{card}</Hint> : card
 }
 
 /**
@@ -992,17 +995,17 @@ function AssistantRow({
   onOpen: () => void
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
       aria-label={`Qui écrit les accroches : ${providerLabel}`}
       onClick={onOpen}
-      className="field-surface flex h-9 w-full items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="h-9 w-full justify-start gap-2 px-3 text-start font-normal"
     >
       <span className="field-label">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
       {status && <span className="shrink-0 text-2xs text-muted-foreground">{status}</span>}
       <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
-    </button>
+    </Button>
   )
 }
 
@@ -1077,10 +1080,10 @@ function PlanReview({
         aria-orientation="horizontal"
       >
         {plan.screens.map((screen, index) => (
-          <button
+          <Button
             key={`${screen.name}-${index}`}
             id={`campaign-plan-tab-${index}`}
-            type="button"
+            variant="ghost"
             role="tab"
             aria-selected={index === focus}
             aria-controls={`campaign-plan-panel-${index}`}
@@ -1103,8 +1106,7 @@ function PlanReview({
                 [next]?.focus()
             }}
             className={cn(
-              'flex shrink-0 flex-col items-center gap-1 rounded-md p-1 transition-colors',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
               index === focus ? 'bg-muted' : 'hover:bg-muted/60',
             )}
           >
@@ -1117,7 +1119,7 @@ function PlanReview({
             >
               {index + 1}
             </span>
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -1131,32 +1133,29 @@ function PlanReview({
         >
           <PlanPreview plan={plan} brief={brief} index={focus} size="full" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Field id={HEADLINE_FIELD_ID} label={`Accroche du visuel ${focus + 1}`}>
+            <Field className="gap-1.5">
+              <FieldLabel
+                htmlFor={HEADLINE_FIELD_ID}
+              >{`Accroche du visuel ${focus + 1}`}</FieldLabel>
               <Input
                 id={HEADLINE_FIELD_ID}
-                font="sans"
                 value={current.headline}
                 maxLength={AI_LIMITS.maxCampaignHeadlineLength}
                 disabled={busy || regenerating !== null}
                 onChange={(event) => onHeadline(focus, event.target.value)}
               />
             </Field>
-            <Select
+            <SelectField<ArchetypeId>
               aria-label="Mise en page du visuel"
               label="Mise en page"
               value={current.layout}
               disabled={busy || regenerating !== null}
-              onChange={(event) => onLayout(focus, event.target.value as ArchetypeId)}
-            >
-              {[
+              onValueChange={(next) => onLayout(focus, next)}
+              items={[
                 ...SAFE_ARCHETYPE_IDS,
                 ...(current.screenshotIndex === undefined ? (['mur'] as const) : []),
-              ].map((id) => (
-                <option key={id} value={id}>
-                  {archetypeSpec(id).label}
-                </option>
-              ))}
-            </Select>
+              ].map((id) => ({ value: id, label: archetypeSpec(id).label }))}
+            />
             {/* La composition est nommée parce qu'elle est choisie : à 132px,
                 deux mises en page voisines se distinguent mal, et l'utilisateur
                 qui vient de voir dix visuels identiques a besoin de lire que
@@ -1182,7 +1181,7 @@ function PlanReview({
             <div className="flex flex-wrap gap-2">
               {onRegenerate && (
                 <Button
-                  variant="default"
+                  variant="outline"
                   onClick={() => onRegenerate(focus)}
                   loading={regenerating === focus}
                   disabled={busy || regenerating !== null}
@@ -1191,15 +1190,23 @@ function PlanReview({
                   Réécrire
                 </Button>
               )}
-              <Button
-                variant="default"
-                onClick={() => onDrop(focus)}
-                disabled={busy || only || regenerating !== null}
-                tooltip={only ? 'Il faut au moins un visuel : utilisez « Annuler ».' : undefined}
-              >
-                <Trash2 size={12} aria-hidden />
-                Retirer
-              </Button>
+              {only ? (
+                <Hint content="Il faut au moins un visuel : utilisez « Annuler »." side="top">
+                  <Button variant="outline" disabled>
+                    <Trash2 size={12} aria-hidden />
+                    Retirer
+                  </Button>
+                </Hint>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => onDrop(focus)}
+                  disabled={busy || regenerating !== null}
+                >
+                  <Trash2 size={12} aria-hidden />
+                  Retirer
+                </Button>
+              )}
             </div>
           </div>
         </div>

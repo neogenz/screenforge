@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import type { Background, ColorStop, GradientFill } from '@/types'
-import { Tooltip } from '@/components/ui/tooltip'
+import { Hint } from '@/components/patterns/hint'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { backgroundToCss } from '@/lib/background-css'
 import { ColorPicker } from '@/components/color-picker/ColorPicker'
 import { GradientEditor } from '@/components/gradient-editor/GradientEditor'
-import { Field } from '@/components/ui/field'
-import { Segmented } from '@/components/ui/segmented'
-import type { SegmentedOption } from '@/components/ui/segmented'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Segmented } from '@/components/patterns/segmented'
+import type { SegmentedOption } from '@/components/patterns/segmented'
 import { PRESET_GRADIENTS } from '@/assets/gradients'
 import {
   DEFAULT_BACKGROUND_FROM,
@@ -125,7 +126,8 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
       />
 
       {activeTab === 'solid' && (
-        <Field label="Couleur">
+        <Field className="gap-1.5">
+          <FieldLabel>Couleur</FieldLabel>
           <ColorPicker value={solidColor} onChange={handleSolidColor} />
         </Field>
       )}
@@ -139,19 +141,19 @@ export function BackgroundEditor({ background, onChange }: BackgroundEditorProps
           {PRESET_GRADIENTS.map((preset) => {
             const selected = isPresetActive(preset.background, background)
             return (
-              <Tooltip key={preset.name} content={preset.name}>
-                <button
-                  type="button"
+              <Hint key={preset.name} content={preset.name}>
+                <Button
+                  variant="ghost"
                   onClick={() => handlePresetClick(preset.background)}
                   aria-label={`Appliquer le dégradé ${preset.name}`}
                   aria-pressed={selected}
                   style={{ background: backgroundToCss(preset.background) }}
                   className={cn(
-                    'h-9 rounded-md border transition-[border-color] duration-150 ease-out',
+                    'h-9 w-auto rounded-md border px-0 transition-[border-color] duration-150 ease-out hover:bg-transparent',
                     selected ? 'border-foreground' : 'border-border hover:border-input',
                   )}
                 />
-              </Tooltip>
+              </Hint>
             )
           })}
         </div>

@@ -38,9 +38,10 @@ import { useUIStore, type SaveStatus, type SyncStatus } from '@/stores/ui.store'
 import { MCP_LABELS, useMcpStore } from '@/stores/mcp.store'
 import { McpStatusDot } from '@/components/mcp/McpStatusDot'
 import { ProjectSwitcher } from '@/components/project-switcher/ProjectSwitcher'
-import { IconButton } from '@/components/ui/icon-button'
+import { IconButton } from '@/components/patterns/icon-button'
 import { Button } from '@/components/ui/button'
-import { Dropdown } from '@/components/ui/dropdown'
+import { InputPrimitive } from '@/components/ui/input'
+import { Dropdown } from '@/components/patterns/action-menu'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
 import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
 import { cn } from '@/lib/utils'
@@ -296,8 +297,10 @@ function ProjectName() {
     setEditing(false)
   }
 
+  // Le primitif Base UI nu, pas l'`Input` coss : un titre sans cadre, dimensionné
+  // sur son contenu, que l'enveloppe à bordure du champ ne sait pas rendre.
   return (
-    <input
+    <InputPrimitive
       ref={inputRef}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
@@ -868,8 +871,8 @@ function ActionsSegment({
       <SecondaryActionsMenu groups={folded} />
 
       <Button
-        variant="primary"
-        size="md"
+        variant="default"
+        size="default"
         aria-label="Ouvrir l’export"
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
         className="ml-2.5"

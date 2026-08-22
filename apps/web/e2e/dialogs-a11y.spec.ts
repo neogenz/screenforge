@@ -136,7 +136,13 @@ test('chaque boîte s’ouvre, se parcourt et se referme au clavier', async ({ p
        d'adresse ou vers la barre supérieure. */
     for (let step = 0; step < 25; step += 1) {
       await page.keyboard.press('Tab')
-      expect(await activeInsideDialog(page), `${title} : focus échappé au tour ${step}`).toBe(true)
+      // Le garde de Base UI rapatrie le focus à la frame suivante, pas dans
+      // le keydown : on laisse cette frame passer avant de juger.
+      await expect
+        .poll(() => activeInsideDialog(page), {
+          message: `${title} : focus échappé au tour ${step}`,
+        })
+        .toBe(true)
     }
 
     await closeDialog(page, dialog)
@@ -155,6 +161,9 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
   await expectRingToken(page, assistance)
   await assistance.click()
+  // Le bouton cliqué disparaît avec la vue : Base UI rapatrie le focus dans
+  // la boîte à la frame suivante, et l'attendre évite qu'il vole la sentinelle.
+  await expect.poll(() => activeInsideDialog(page)).toBe(true)
   await expectRingToken(page, dialog.getByRole('radio', { name: /ScreenForge seul/ }))
   await closeDialog(page, dialog)
 
@@ -223,6 +232,10 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
             // débordements : elles annoncent elles-mêmes qu'elles coupent.
             if (style.textOverflow === 'ellipsis') continue
             if (style.overflowX === 'auto' || style.overflowX === 'scroll') continue
+            // Les champs cachés de Base UI (Select, Checkbox) sont un pixel
+            // rogné à `clip-path`, posé à -1px par construction : rien à voir.
+            if (élément.getAttribute('aria-hidden') === 'true' && style.clipPath !== 'none')
+              continue
             const rect = élément.getBoundingClientRect()
             if (rect.width === 0) continue
             if (rect.left < box.left - 0.5 || rect.right > box.right + 0.5) {

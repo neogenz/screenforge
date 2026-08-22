@@ -94,9 +94,10 @@ test.describe('layers panel', () => {
     const trigger = page.getByRole('button', { name: /iPhone 17 Pro Max/ })
     await trigger.focus()
     await page.keyboard.press('Enter')
-    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toBeVisible()
+    // Base UI nomme le menu par son déclencheur, comme le veut le motif ARIA.
+    await expect(page.getByRole('menu', { name: /iPhone 17 Pro Max/ })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('menu', { name: 'Modèle d’appareil' })).toHaveCount(0)
+    await expect(page.getByRole('menu', { name: /iPhone 17 Pro Max/ })).toHaveCount(0)
     await expect(trigger).toBeFocused()
   })
 

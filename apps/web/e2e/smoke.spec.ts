@@ -52,6 +52,7 @@ test.describe('smoke', () => {
     // Delete the duplicate.
     await page.locator('button[aria-label^="Activer"]').nth(1).click({ button: 'right' })
     await page.locator('[data-context-menu] [role="menuitem"]', { hasText: 'Supprimer' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer l’écran' }).click()
     await expect(page.locator('button[aria-label^="Activer"]')).toHaveCount(2)
   })
 

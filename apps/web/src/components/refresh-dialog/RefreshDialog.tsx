@@ -21,8 +21,9 @@ import {
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
-import { Select } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { DialogShell } from '@/components/patterns/dialog-shell'
+import { SelectField } from '@/components/patterns/select-field'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
@@ -102,7 +103,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
   }
 
   return (
-    <Dialog
+    <DialogShell
       open
       onClose={close}
       title="Actualiser les captures"
@@ -118,10 +119,10 @@ function RefreshDialogContent({ project }: { project: Project }) {
       footerNote="Le cadrage, le rôle et la mise en page sont conservés."
       footer={
         <>
-          <Button variant="default" onClick={close} disabled={busy}>
+          <Button variant="outline" onClick={close} disabled={busy}>
             Annuler
           </Button>
-          <Button variant="primary" onClick={confirm} disabled={busy || posed.length === 0}>
+          <Button variant="default" onClick={confirm} disabled={busy || posed.length === 0}>
             <RefreshCw size={12} aria-hidden />
             Remplacer {posed.length} capture{posed.length > 1 ? 's' : ''}
           </Button>
@@ -137,13 +138,15 @@ function RefreshDialogContent({ project }: { project: Project }) {
               appareils dont le rôle est <code>budget</code>. Le reste se corrige ici.
             </p>
           </div>
-          <Button variant="default" onClick={() => inputRef.current?.click()} loading={busy}>
+          <Button variant="outline" onClick={() => inputRef.current?.click()} loading={busy}>
             <ImageUp size={12} aria-hidden />
             {files.length > 0 ? 'Changer de lot…' : 'Choisir les captures…'}
           </Button>
         </div>
 
-        <input
+        <Input
+          unstyled
+          nativeInput
           ref={inputRef}
           type="file"
           multiple
@@ -196,7 +199,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
 
         {plan && <PlanNotes plan={plan} files={files} targets={targets} />}
       </div>
-    </Dialog>
+    </DialogShell>
   )
 }
 
@@ -249,22 +252,17 @@ function TargetRow({
         <ArrowRight size={12} className="text-muted-foreground" aria-hidden />
         <Thumbnail src={after} />
       </div>
-      <Select
+      <SelectField
         className="w-44 shrink-0"
         aria-label={`Capture pour ${target.layerName}`}
         value={fileIndex === undefined ? '' : String(fileIndex)}
         disabled={files.length === 0}
-        onChange={(event) =>
-          onAssign(event.target.value === '' ? undefined : Number(event.target.value))
-        }
-      >
-        <option value="">Inchangée</option>
-        {files.map((file, index) => (
-          <option key={file.name + index} value={String(index)}>
-            {file.name}
-          </option>
-        ))}
-      </Select>
+        onValueChange={(next) => onAssign(next === '' ? undefined : Number(next))}
+        items={[
+          { value: '', label: 'Inchangée' },
+          ...files.map((file, index) => ({ value: String(index), label: file.name })),
+        ]}
+      />
     </li>
   )
 }

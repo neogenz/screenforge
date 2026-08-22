@@ -4,10 +4,10 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { getDefaultDeviceSize } from '@/assets/device-frames'
 import { clampLayerToBoard, layerOutOfReach } from '@/lib/canvas/canvas-utils'
 import { Button } from '@/components/ui/button'
-import { AngleControl } from '@/components/ui/angle-control'
-import { IconButton } from '@/components/ui/icon-button'
-import { NumberField } from '@/components/ui/number-field'
-import { Slider } from '@/components/ui/slider'
+import { AngleControl } from '@/components/patterns/angle-control'
+import { IconButton } from '@/components/patterns/icon-button'
+import { UnitField } from '@/components/patterns/unit-field'
+import { SliderField } from '@/components/patterns/slider-field'
 import { formatPercent } from '@/lib/number'
 import type { Layer } from '@/types'
 
@@ -130,7 +130,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
           <p className="text-2xs text-muted-foreground">
             Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
           </p>
-          <Button variant="default" size="sm" onClick={bringBack} className="self-start">
+          <Button variant="outline" size="sm" onClick={bringBack} className="self-start">
             <CornerUpLeft size={12} strokeWidth={1.5} aria-hidden />
             Ramener sur la planche
           </Button>
@@ -139,13 +139,13 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
       {/* X / Y */}
       <div className="grid grid-cols-2 gap-2">
-        <NumberField
+        <UnitField
           label="X"
           ariaLabel="Position X"
           value={Math.round(layer.x)}
           onChange={handleX}
         />
-        <NumberField
+        <UnitField
           label="Y"
           ariaLabel="Position Y"
           value={Math.round(layer.y)}
@@ -155,7 +155,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
 
       {/* W / Lock / H */}
       <div className="flex items-center gap-1.5">
-        <NumberField
+        <UnitField
           label="L"
           ariaLabel="Largeur"
           min={1}
@@ -177,7 +177,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
             <Unlink size={12} strokeWidth={1.5} aria-hidden />
           )}
         </IconButton>
-        <NumberField
+        <UnitField
           label="H"
           ariaLabel="Hauteur"
           min={1}
@@ -197,7 +197,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
       />
 
       {/* Opacity */}
-      <Slider
+      <SliderField
         label="Opacité"
         ariaLabel="Opacité"
         min={0}

@@ -1,4 +1,4 @@
-import { expect, type Download, type Page } from '@playwright/test'
+import { expect, type Download, type Page, type Locator } from '@playwright/test'
 import type { Canvas } from 'fabric'
 import JSZip from 'jszip'
 import type { Entitlements } from '../src/lib/entitlements'
@@ -444,4 +444,15 @@ const TRANSFORM_LABELS = ['Position X', 'Position Y', 'Largeur', 'Hauteur'] as c
 
 export function transformInput(page: Page, index: number) {
   return page.getByLabel(TRANSFORM_LABELS[index])
+}
+
+/**
+ * Saisit une valeur dans un champ numérique coss. `fill` pose la valeur sans
+ * passer par le clavier et Base UI, qui relit chaque frappe, la recolle
+ * derrière l'ancienne ; on sélectionne tout et on tape.
+ */
+export async function fillNumber(field: Locator, text: string): Promise<void> {
+  await field.click()
+  await field.press('ControlOrMeta+a')
+  await field.pressSequentially(text)
 }

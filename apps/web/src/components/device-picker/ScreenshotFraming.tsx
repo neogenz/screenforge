@@ -1,7 +1,10 @@
-import { Field } from '@/components/ui/field'
+import { useId } from 'react'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Segmented, type SegmentedOption } from '@/components/ui/segmented'
-import { Slider } from '@/components/ui/slider'
+import { Segmented, type SegmentedOption } from '@/components/patterns/segmented'
+import { SliderField } from '@/components/patterns/slider-field'
+import { Button } from '@/components/ui/button'
 import {
   DEFAULT_SCREENSHOT_PLACEMENT,
   MAX_SCREENSHOT_ZOOM,
@@ -36,6 +39,7 @@ interface ScreenshotFramingProps {
  * un curseur qui ne fait rien.
  */
 export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
+  const slotFieldId = useId()
   const placement = normalizeScreenshotPlacement(layer.placement)
   const measured = Boolean(layer.screenshotAssetId && layer.screenshotSize)
 
@@ -47,8 +51,12 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Field label="Rôle de l’écran">
+      {/* `Label` et non `Field` : le champ porte un nom accessible plus long
+          que son libellé visible, et l'`aria-labelledby` du Field l'écraserait. */}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={slotFieldId}>Rôle de l’écran</Label>
         <Input
+          id={slotFieldId}
           value={layer.slot ?? ''}
           maxLength={MAX_SLOT_LENGTH}
           placeholder="budget, onboarding, reglages…"
@@ -58,11 +66,12 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
           onChange={(event) => onUpdate({ slot: event.target.value as string })}
           onBlur={(event) => onUpdate({ slot: normalizeSlot(event.target.value) })}
         />
-      </Field>
+      </div>
 
       {measured && (
         <>
-          <Field label="Cadrage">
+          <Field className="gap-1.5">
+            <FieldLabel>Cadrage</FieldLabel>
             <Segmented
               options={MODE_OPTIONS}
               value={placement.mode}
@@ -72,7 +81,7 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
             />
           </Field>
 
-          <Slider
+          <SliderField
             label="Zoom"
             ariaLabel="Zoom de la capture"
             value={placement.zoom}
@@ -82,7 +91,7 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
             formatValue={(value: number) => `${Math.round(value * 100)} %`}
             onChange={(zoom) => setPlacement({ zoom }, 'placement-zoom')}
           />
-          <Slider
+          <SliderField
             label="Point focal horizontal"
             ariaLabel="Point focal horizontal"
             value={placement.focusX}
@@ -92,7 +101,7 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
             formatValue={(value: number) => `${Math.round(value * 100)} %`}
             onChange={(focusX) => setPlacement({ focusX }, 'placement-focus-x')}
           />
-          <Slider
+          <SliderField
             label="Point focal vertical"
             ariaLabel="Point focal vertical"
             value={placement.focusY}
@@ -103,13 +112,14 @@ export function ScreenshotFraming({ layer, onUpdate }: ScreenshotFramingProps) {
             onChange={(focusY) => setPlacement({ focusY }, 'placement-focus-y')}
           />
 
-          <button
-            type="button"
-            className="field-label self-start underline-offset-2 hover:text-foreground hover:underline"
+          <Button
+            variant="link"
+            size="xs"
+            className="field-label h-auto self-start px-0"
             onClick={() => onUpdate({ placement: { ...DEFAULT_SCREENSHOT_PLACEMENT } })}
           >
             Réinitialiser le cadrage
-          </button>
+          </Button>
         </>
       )}
     </div>
