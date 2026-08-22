@@ -17,6 +17,7 @@ test('la landing présente Local gratuit et Cloud payant en anglais et en franç
     'href',
     '/?offers=open',
   )
+  await expect(page.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms.html')
   await expect(pricing).not.toContainText(/\$49|free trial|three watermarked/i)
 
   await page.getByRole('link', { name: 'Français' }).first().click()
@@ -38,4 +39,23 @@ test('un build sans Convex désactive uniquement Cloud', async ({ page }) => {
   await expect(dialog.getByText(/Cloud n’est pas configuré/)).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Acheter Cloud' })).toBeDisabled()
   await expect(dialog.getByText('Inclus gratuitement')).toBeVisible()
+  await expect(dialog.getByRole('link', { name: 'Conditions ScreenForge' })).toHaveAttribute(
+    'href',
+    '/terms.html',
+  )
+  await expect(dialog.getByRole('link', { name: 'conditions acheteur Polar' })).toHaveAttribute(
+    'href',
+    'https://polar.sh/legal/checkout-buyer-terms',
+  )
+})
+
+test('publie des conditions bilingues utilisables sans JavaScript', async ({ page }) => {
+  await page.route('**/*.js', (route) => route.abort())
+  await page.goto('/terms.html', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.getByRole('heading', { name: '1. Éditeur et contact' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '1. Publisher and contact' })).toBeVisible()
+  await expect(page.getByText('Route Cantonale 158, 1963 Vétroz, Suisse')).toBeVisible()
+  await expect(page.getByText(/Cloud se renouvelle automatiquement chaque année/)).toBeVisible()
+  await expect(page.getByText(/Cloud renews automatically each year/)).toBeVisible()
 })

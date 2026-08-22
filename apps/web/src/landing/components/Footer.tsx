@@ -23,6 +23,12 @@ export function Footer({ onPrivacyPreferences }: { onPrivacyPreferences: () => v
         >
           {t.footer.privacy}
         </a>
+        <a
+          className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href="/terms.html"
+        >
+          {t.footer.terms}
+        </a>
         <button
           className="py-1 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           type="button"

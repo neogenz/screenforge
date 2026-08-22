@@ -362,6 +362,7 @@ const en = {
   footer: {
     source: 'Source',
     privacy: 'Privacy',
+    terms: 'Terms',
     preferences: 'Privacy settings',
     copyright: '© 2026 ScreenForge',
   },
@@ -689,6 +690,7 @@ const fr: Copy = {
   footer: {
     source: 'Code source',
     privacy: 'Confidentialité',
+    terms: 'Conditions',
     preferences: 'Préférences de confidentialité',
     copyright: '© 2026 ScreenForge',
   },

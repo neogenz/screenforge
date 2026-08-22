@@ -46,6 +46,7 @@ export default defineConfig({
         main: path.resolve(import.meta.dirname, 'index.html'),
         landing: path.resolve(import.meta.dirname, 'landing.html'),
         privacy: path.resolve(import.meta.dirname, 'privacy.html'),
+        terms: path.resolve(import.meta.dirname, 'terms.html'),
       },
     },
   },

@@ -78,6 +78,7 @@ test('publie une politique bilingue utilisable sans JavaScript', async ({ page }
   await page.goto('/privacy.html', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Responsable du traitement' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Data controller' })).toBeVisible()
+  await expect(page.getByText('Route Cantonale 158, 1963 Vétroz, Suisse')).toBeVisible()
   await expect(page.getByRole('link', { name: 'bonjour@screenforge.app' }).first()).toHaveAttribute(
     'href',
     'mailto:bonjour@screenforge.app',
