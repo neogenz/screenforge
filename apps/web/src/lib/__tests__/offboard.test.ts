@@ -91,3 +91,15 @@ describe('l’issue du panneau', () => {
     expect(clampLayerToBoard({ x: -50, y: -50, width: 900, height: 2_000 })).toEqual({ x: 0, y: 0 })
   })
 })
+
+describe('planche explicite', () => {
+  it('emploie les bornes Android sans constante Apple implicite', () => {
+    const android = { width: 540, height: 960 }
+    expect(escapesScreen(boxed(0, 0, 540, 960), 0, android)).toBe(false)
+    expect(escapesScreen(boxed(530, 0, 20, 20), 0, android)).toBe(true)
+    expect(clampLayerToBoard({ x: 600, y: 1_000, width: 100, height: 100 }, android)).toEqual({
+      x: 440,
+      y: 860,
+    })
+  })
+})

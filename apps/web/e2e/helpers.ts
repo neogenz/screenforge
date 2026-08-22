@@ -4,7 +4,7 @@ import JSZip from 'jszip'
 import type { Entitlements } from '../src/lib/entitlements'
 import type { Theme } from '../src/lib/user-settings'
 import type { SaveStatus, SyncStatus } from '../src/stores/ui.store'
-import type { Layer, Project } from '../src/types'
+import type { Layer, Project, StoreTargetId } from '../src/types'
 
 /**
  * E2E helpers driving the app through its real UI, plus a dev-only debug
@@ -38,6 +38,8 @@ export interface DebugObject {
   angle?: number
   scaleX?: number
   scaleY?: number
+  width?: number
+  height?: number
   type?: string
   visible?: boolean
   text?: string
@@ -80,7 +82,8 @@ declare global {
         setState: (partial: { project: Project | null }) => void
         getState: () => {
           project: Project | null
-          createProject: (name: string) => void
+          createProject: (name: string, target?: StoreTargetId) => void
+          addScreen: () => string | null
           addScreenLayer: (screenId: string, layer: Layer) => void
           updateScreenBackground: (
             screenId: string,
@@ -96,6 +99,7 @@ declare global {
         setState: (partial: { saveStatus?: SaveStatus; syncStatus?: SyncStatus }) => void
         getState: () => {
           syncStatus: SyncStatus
+          saveStatus: SaveStatus
           theme: Theme
           setZoom: (zoom: number) => void
           toggleTheme: () => void
@@ -116,13 +120,46 @@ export async function waitForApp(page: Page): Promise<void> {
   await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 15_000 })
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        window.__sfCanvas
-          ?.getObjects()
-          .some((object) => (object as DebugObject).data?.rendererType === 'background'),
-      ),
+      page.evaluate(() => {
+        const project = window.__sfStores?.useProjectStore.getState().project
+        return Boolean(
+          project &&
+          window.__sfCanvas
+            ?.getObjects()
+            .some(
+              (object) =>
+                (object as DebugObject).data?.rendererType === 'background' &&
+                (object as DebugObject).data?.screenId === project.activeScreenId,
+            ),
+        )
+      }),
     )
     .toBe(true)
+}
+
+export async function openAndroidProject(page: Page): Promise<void> {
+  await page.evaluate(() =>
+    window.__sfStores?.useProjectStore.getState().createProject('Android', 'google-play-phone'),
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const project = window.__sfStores?.useProjectStore.getState().project
+        const background = window.__sfCanvas
+          ?.getObjects()
+          .find(
+            (object) =>
+              (object as DebugObject).data?.rendererType === 'background' &&
+              (object as DebugObject).data?.screenId === project?.activeScreenId,
+          )
+        return {
+          target: project?.target,
+          width: (background as DebugObject | undefined)?.width,
+          height: (background as DebugObject | undefined)?.height,
+        }
+      }),
+    )
+    .toEqual({ target: 'google-play-phone', width: 540, height: 960 })
 }
 
 export async function addTextLayer(page: Page): Promise<void> {
@@ -140,7 +177,7 @@ export async function addShapeLayer(page: Page): Promise<void> {
 }
 
 export async function addDeviceLayer(page: Page): Promise<void> {
-  await page.locator('button[aria-label="Ajouter un cadre iPhone"]').click()
+  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
   const model = page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ })
   await expect(model).toBeVisible()
   await model.click()

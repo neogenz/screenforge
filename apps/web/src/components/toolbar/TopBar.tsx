@@ -64,6 +64,7 @@ import {
   createTextLayer,
 } from '@/lib/layer-factories'
 import { CURRENT_DEVICE_FRAMES } from '@/assets/device-frames'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import type { DeviceModel, Layer } from '@/types'
 
 /** Le menu Projet renomme sans posséder le champ : il le vise par son id. */
@@ -460,6 +461,11 @@ function ToolsSegment() {
     return getProjectLayers(useProjectStore.getState().project).length
   }
 
+  function board() {
+    const project = useProjectStore.getState().project
+    return project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
+  }
+
   return (
     <ToolbarGroup className="justify-self-center">
       {/*
@@ -473,11 +479,13 @@ function ToolsSegment() {
       <ToolbarTool
         aria-label="Ajouter Texte"
         tooltip="Ajouter : texte"
-        onClick={() => addLayer(createTextLayer(layerCount()))}
+        onClick={() => addLayer(createTextLayer(layerCount(), board()))}
       >
         <Type size={16} strokeWidth={1.75} />
       </ToolbarTool>
-      <DeviceAddTool onSelect={(model) => addLayer(createDeviceLayer(model, layerCount()))} />
+      <DeviceAddTool
+        onSelect={(model) => addLayer(createDeviceLayer(model, layerCount(), board()))}
+      />
       <ToolbarTool
         aria-label="Ajouter Image"
         tooltip="Ajouter : image…"
@@ -488,14 +496,14 @@ function ToolsSegment() {
       <ToolbarTool
         aria-label="Ajouter Forme"
         tooltip="Ajouter : forme"
-        onClick={() => addLayer(createShapeLayer(layerCount()))}
+        onClick={() => addLayer(createShapeLayer(layerCount(), 'rectangle', board()))}
       >
         <Square size={16} strokeWidth={1.75} />
       </ToolbarTool>
       <ToolbarTool
         aria-label="Ajouter Icône"
         tooltip="Ajouter : icône"
-        onClick={() => addLayer(createIconLayer(layerCount()))}
+        onClick={() => addLayer(createIconLayer(layerCount(), undefined, board()))}
       >
         <Star size={16} strokeWidth={1.75} />
       </ToolbarTool>
@@ -541,11 +549,18 @@ function useToolActions(): SecondaryAction[] {
   const canUndo = useHistoryStore((s) => s.past.length > 0)
   const canRedo = useHistoryStore((s) => s.future.length > 0)
   const deviceModel = useProjectStore((s) => s.project?.globals.deviceModel)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
 
   function addLayer(create: (index: number) => Layer) {
     useCanvasStore
       .getState()
       .addLayer(create(getProjectLayers(useProjectStore.getState().project).length))
+  }
+
+  function board() {
+    const project = useProjectStore.getState().project
+    return project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
   }
 
   return [
@@ -570,16 +585,16 @@ function useToolActions(): SecondaryAction[] {
       label: 'Ajouter Texte',
       hint: 'Ajouter : texte',
       icon: <Type size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createTextLayer),
+      onSelect: () => addLayer((index) => createTextLayer(index, board())),
     },
     {
       id: 'add-device',
-      label: 'Ajouter un cadre iPhone',
-      hint: 'Ajouter : cadre iPhone',
+      label: 'Ajouter un cadre de téléphone',
+      hint: 'Ajouter : cadre de téléphone',
       icon: <Smartphone size={16} strokeWidth={1.75} />,
       onSelect: () =>
         addLayer((index) =>
-          createDeviceLayer(deviceModel ?? CURRENT_DEVICE_FRAMES[0].model, index),
+          createDeviceLayer(deviceModel ?? profile.defaultDeviceModel, index, board()),
         ),
     },
     {
@@ -594,14 +609,14 @@ function useToolActions(): SecondaryAction[] {
       label: 'Ajouter Forme',
       hint: 'Ajouter : forme',
       icon: <Square size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createShapeLayer),
+      onSelect: () => addLayer((index) => createShapeLayer(index, 'rectangle', board())),
     },
     {
       id: 'add-icon',
       label: 'Ajouter Icône',
       hint: 'Ajouter : icône',
       icon: <Star size={16} strokeWidth={1.75} />,
-      onSelect: () => addLayer(createIconLayer),
+      onSelect: () => addLayer((index) => createIconLayer(index, undefined, board())),
     },
   ]
 }
@@ -753,7 +768,7 @@ function useComposeActions(): SecondaryAction[] {
       : []),
     {
       id: 'campaign',
-      label: 'Générer les visuels App Store',
+      label: 'Générer les visuels de la fiche',
       hint: 'Captures, brief et style vers des calques éditables',
       /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
          du marketing, et la génération n'est intelligente que si l'utilisateur
@@ -772,6 +787,8 @@ function useDeliverActions(): SecondaryAction[] {
   const showLocaleDialog = useUIStore((s) => s.showLocaleDialog)
   const showReleaseDialog = useUIStore((s) => s.showReleaseDialog)
   const showPublishDialog = useUIStore((s) => s.showPublishDialog)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const isApple = getStoreTargetProfile(target).platform === 'apple'
 
   return [
     {
@@ -798,14 +815,18 @@ function useDeliverActions(): SecondaryAction[] {
       expanded: showReleaseDialog,
       onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
     },
-    {
-      id: 'publish',
-      label: 'Publier chez Apple',
-      hint: 'Preflight, manifeste et commande asc',
-      icon: <CloudUpload size={16} strokeWidth={1.75} />,
-      expanded: showPublishDialog,
-      onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
-    },
+    ...(isApple
+      ? [
+          {
+            id: 'publish',
+            label: 'Publier chez Apple',
+            hint: 'Preflight, manifeste et commande asc',
+            icon: <CloudUpload size={16} strokeWidth={1.75} />,
+            expanded: showPublishDialog,
+            onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+          },
+        ]
+      : []),
   ]
 }
 
@@ -997,10 +1018,12 @@ function ActionsSegment({
 function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void }) {
   const [open, setOpen] = useState(false)
   const preferredModel = useProjectStore((s) => s.project?.globals.deviceModel)
+  const target = useProjectStore((s) => s.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
 
-  const models = [...CURRENT_DEVICE_FRAMES].sort(
-    (a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel),
-  )
+  const models = CURRENT_DEVICE_FRAMES.filter((frame) =>
+    profile.deviceModels.includes(frame.model),
+  ).sort((a, b) => Number(b.model === preferredModel) - Number(a.model === preferredModel))
 
   return (
     <Dropdown
@@ -1008,8 +1031,8 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
       onOpenChange={setOpen}
       trigger={
         <ToolbarTool
-          aria-label="Ajouter un cadre iPhone"
-          tooltip="Ajouter : cadre iPhone"
+          aria-label="Ajouter un cadre de téléphone"
+          tooltip="Ajouter : cadre de téléphone"
           active={open}
           aria-expanded={open}
         >
@@ -1017,7 +1040,7 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
           <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
         </ToolbarTool>
       }
-      ariaLabel="Modèle d’iPhone"
+      ariaLabel="Modèle de téléphone"
       items={models.map((frame) => ({
         id: frame.model,
         label: frame.modelName,

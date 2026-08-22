@@ -1,4 +1,5 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { type BoardSize } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE } from '@/lib/dimensions'
 import { getDefaultDeviceSize, getDeviceFrame } from '@/assets/device-frames'
 import { registerAsset } from '@/lib/assets'
 import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
@@ -49,12 +50,15 @@ export function layerDisplayName(layer: { type: string; name: string; content?: 
   return firstLine || layer.name
 }
 
-export function createTextLayer(zIndex: number): TextLayer {
+export function createTextLayer(
+  zIndex: number,
+  board: BoardSize = APP_STORE_PROFILE.board,
+): TextLayer {
   return {
     id: crypto.randomUUID(),
     type: 'text',
     name: DEFAULT_TEXT_NAME,
-    x: (SCREEN_WIDTH - 320) / 2,
+    x: (board.width - 320) / 2,
     y: 160,
     width: 300,
     height: 80,
@@ -75,13 +79,17 @@ export function createTextLayer(zIndex: number): TextLayer {
   }
 }
 
-export function createShapeLayer(zIndex: number, shapeType: ShapeId = 'rectangle'): ShapeLayer {
+export function createShapeLayer(
+  zIndex: number,
+  shapeType: ShapeId = 'rectangle',
+  board: BoardSize = APP_STORE_PROFILE.board,
+): ShapeLayer {
   return {
     id: crypto.randomUUID(),
     type: 'shape',
     name: shapeEntry(shapeType)?.label ?? 'Forme',
-    x: (SCREEN_WIDTH - 200) / 2,
-    y: (SCREEN_HEIGHT - 200) / 2,
+    x: (board.width - 200) / 2,
+    y: (board.height - 200) / 2,
     width: 200,
     height: 200,
     rotation: 0,
@@ -104,7 +112,11 @@ const ICON_SIZE = 120
  * carré la déforme dès l'insertion. Rien n'est ajouté au canevas — l'objet
  * sert de règle et est jeté.
  */
-export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID): IconLayer {
+export function createIconLayer(
+  zIndex: number,
+  iconId: IconId = DEFAULT_ICON_ID,
+  board: BoardSize = APP_STORE_PROFILE.board,
+): IconLayer {
   const entry = iconEntry(iconId) ?? iconEntry(DEFAULT_ICON_ID)!
   const probe = new Path(entry.path)
   const ratio = probe.width > 0 && probe.height > 0 ? probe.width / probe.height : 1
@@ -114,8 +126,8 @@ export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID
     id: crypto.randomUUID(),
     type: 'icon',
     name: entry.label,
-    x: (SCREEN_WIDTH - width) / 2,
-    y: (SCREEN_HEIGHT - height) / 2,
+    x: (board.width - width) / 2,
+    y: (board.height - height) / 2,
     width,
     height,
     rotation: 0,
@@ -129,15 +141,19 @@ export function createIconLayer(zIndex: number, iconId: IconId = DEFAULT_ICON_ID
   }
 }
 
-export function createDeviceLayer(model: DeviceModel, zIndex: number): DeviceFrameLayer {
+export function createDeviceLayer(
+  model: DeviceModel,
+  zIndex: number,
+  board: BoardSize = APP_STORE_PROFILE.board,
+): DeviceFrameLayer {
   const config = getDeviceFrame(model)
   const { width, height } = getDefaultDeviceSize(model)
   return {
     id: crypto.randomUUID(),
     type: 'device-frame' as const,
-    name: 'iPhone',
-    x: (SCREEN_WIDTH - width) / 2,
-    y: SCREEN_HEIGHT - height - 120,
+    name: config.platform === 'android' ? 'Téléphone Android' : 'iPhone',
+    x: (board.width - width) / 2,
+    y: board.height - height - 120,
     width,
     height,
     rotation: 0,
@@ -162,6 +178,7 @@ export type ImageImportResult = { ok: true; layer: ImageLayer } | { ok: false; e
 export async function createImageLayerFromFile(
   file: File,
   zIndex: number,
+  board: BoardSize = APP_STORE_PROFILE.board,
 ): Promise<ImageImportResult> {
   try {
     const image = await importImageFile(file)
@@ -175,8 +192,8 @@ export async function createImageLayerFromFile(
         id: crypto.randomUUID(),
         type: 'image',
         name: file.name.replace(/\.[^.]+$/, '') || 'Image',
-        x: Math.max(0, (SCREEN_WIDTH - width) / 2),
-        y: Math.max(0, (SCREEN_HEIGHT - height) / 2),
+        x: Math.max(0, (board.width - width) / 2),
+        y: Math.max(0, (board.height - height) / 2),
         width,
         height,
         rotation: 0,

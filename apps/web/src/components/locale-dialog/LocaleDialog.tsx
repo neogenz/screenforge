@@ -56,7 +56,7 @@ const FINDING_LABELS: Record<LocaleFinding['kind'], string> = {
  * **relisible**. Chaque texte est modifiable ligne à ligne, porte son état de
  * révision, et tout débordement est nommé sur la ligne qui le cause. Une langue
  * qui déborde ne s'exporte pas — c'est la seule règle dure, parce qu'une
- * capture dont l'accroche sort du cadre est refusée par App Store Connect ou,
+ * capture dont l'accroche sort du cadre est refusée par la boutique ou,
  * pire, acceptée telle quelle.
  */
 export function LocaleDialog() {
@@ -153,7 +153,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
          à la main reste dite en premier — c'est le chemin qui marche tout de
          suite, et le pont est facultatif par contrat. */
       setError(
-        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou branchez un modèle depuis « Générer les visuels App Store » → « Qui écrit les accroches ».',
+        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou branchez un modèle depuis « Générer les visuels de la fiche » → « Qui écrit les accroches ».',
       )
       return
     }

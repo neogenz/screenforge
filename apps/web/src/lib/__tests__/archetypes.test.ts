@@ -17,6 +17,7 @@ import { DEVICE_FRAMES, getDefaultDeviceSize } from '@/assets/device-frames'
 import { contrastRatio, type Palette } from '@/lib/ai/palette'
 import { DIRECTIONS, planFromBrief, planScreenLayout, planToolCalls } from '@/lib/ai/plan'
 import { validateToolCall } from '@/lib/ai/tools'
+import { GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import type { CampaignBrief } from '@/lib/ai/plan'
 import type { DeviceModel } from '@/types'
 
@@ -265,5 +266,33 @@ describe('le lot composé', () => {
     expect(plan.screens[3]).toMatchObject({ screenshotIndex: 3 })
     expect(plan.screens[3].layout).not.toBe('mur')
     expect(planScreenLayout(plan, fullBrief, 3)?.device?.assetId).toBe('asset-4')
+  })
+
+  it('compose au plus huit visuels Android dans la planche 540×960', () => {
+    const androidBrief: CampaignBrief = {
+      ...brief,
+      target: 'google-play-phone',
+      screenCount: 9,
+      deviceModel: 'android-phone',
+    }
+    const plan = planFromBrief(androidBrief)
+
+    expect(plan).toMatchObject({ target: 'google-play-phone', deviceModel: 'android-phone' })
+    expect(plan.screens).toHaveLength(GOOGLE_PLAY_PROFILE.maxScreens)
+    for (const [index] of plan.screens.entries()) {
+      const layout = planScreenLayout(plan, androidBrief, index)
+      expect(layout).toBeDefined()
+      expect(layout!.headline.x).toBeGreaterThanOrEqual(0)
+      expect(layout!.headline.y).toBeGreaterThanOrEqual(0)
+      expect(layout!.headline.x + layout!.headline.width).toBeLessThanOrEqual(
+        GOOGLE_PLAY_PROFILE.board.width,
+      )
+      expect(layout!.headline.y + layout!.headline.height).toBeLessThanOrEqual(
+        GOOGLE_PLAY_PROFILE.board.height,
+      )
+      if (layout!.device) {
+        expect(onBoardRatio(layout!.device, GOOGLE_PLAY_PROFILE.board)).toBeGreaterThanOrEqual(0.9)
+      }
+    }
   })
 })

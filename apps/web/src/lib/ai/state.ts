@@ -1,5 +1,5 @@
 import { layerDisplayName } from '@/lib/layer-factories'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { Layer, Project, Screen } from '@/types'
 
 /**
@@ -42,6 +42,8 @@ export interface ScreenView {
 
 export interface ProjectView {
   name: string
+  target: Project['target']
+  platform: 'apple' | 'android'
   canvas: { width: number; height: number }
   globals: Project['globals']
   screens: ScreenView[]
@@ -82,9 +84,12 @@ export function screenView(screen: Screen, rank: number): ScreenView {
 
 /** Réponse de `get_project_state`. */
 export function describeProject(project: Project): ProjectView {
+  const profile = getStoreTargetProfile(project.target)
   return {
     name: project.name,
-    canvas: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+    target: project.target,
+    platform: profile.platform,
+    canvas: { ...profile.board },
     globals: structuredClone(project.globals),
     screens: project.screens.map(screenView),
     layoutLayers: project.layoutLayers.map(layerView),

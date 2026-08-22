@@ -9,6 +9,7 @@ import {
 } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { EngineId } from '@/lib/ai/providers'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 
 /**
  * Le client du pont local.
@@ -27,7 +28,7 @@ import type { EngineId } from '@/lib/ai/providers'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 5
+const PROTOCOL = 6
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
 export type BridgeCapability = 'assistant' | 'asc-publish'
@@ -211,7 +212,13 @@ export async function planViaBridge(
   engine: EngineId,
   model?: string,
 ): Promise<CampaignPlan> {
-  const expected = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const expected = Math.max(
+    1,
+    Math.min(
+      brief.screenCount,
+      getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id).maxScreens,
+    ),
+  )
   const capacityFailure = validateBriefGroundingCapacity(brief, expected)
   if (capacityFailure) throw new Error(capacityFailure)
   const { plan } = await call<{ plan: BridgePlan }>('/plan', token, {
@@ -222,6 +229,7 @@ export async function planViaBridge(
       engine,
       ...(model ? { model } : {}),
       brief: {
+        target: brief.target ?? APP_STORE_PROFILE.id,
         appName: brief.appName,
         pitch: brief.pitch,
         ...(brief.landingUrl ? { landingUrl: brief.landingUrl } : {}),
@@ -267,6 +275,7 @@ export async function planViaBridge(
   })
 
   const result: CampaignPlan = {
+    target: brief.target ?? 'app-store-iphone',
     appName: brief.appName,
     direction: brief.direction,
     palette,

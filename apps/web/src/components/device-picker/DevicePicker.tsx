@@ -23,6 +23,8 @@ import {
   SCREENSHOT_IMAGE_TYPES,
 } from '@/lib/image'
 import { cn } from '@/lib/utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
+import { useProjectStore } from '@/stores/project.store'
 import type { DeviceFrameLayer, DeviceModel, Orientation } from '@/types'
 
 interface DevicePickerProps {
@@ -35,12 +37,10 @@ const ORIENTATION_OPTIONS: SegmentedOption<Orientation>[] = [
   { value: 'landscape', label: 'Paysage' },
 ]
 
-const SOURCE_OPTIONS: SegmentedOption<'generated' | 'apple'>[] = [
-  { value: 'generated', label: 'ScreenForge' },
-  { value: 'apple', label: 'Apple officiel' },
-]
-
 export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const profile = getStoreTargetProfile(target)
+  const isApple = profile.platform === 'apple'
   const { deviceModel, deviceColor, orientation, width, height, screenshotAssetId } = layer
   const shadowEnabled = layer.shadowEnabled ?? false
   const shadowBlur = layer.shadowBlur ?? 0
@@ -60,7 +60,17 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
   const config = getDeviceFrame(deviceModel)
   const screenshotUrl = resolveAsset(screenshotAssetId)
   const bezelUrl = resolveAsset(layer.importedBezel?.assetId)
-  const modelOptions = config.current ? CURRENT_DEVICE_FRAMES : [config, ...CURRENT_DEVICE_FRAMES]
+  const compatibleModels = CURRENT_DEVICE_FRAMES.filter((frame) =>
+    profile.deviceModels.includes(frame.model),
+  )
+  const modelOptions =
+    config.current && compatibleModels.includes(config)
+      ? compatibleModels
+      : [config, ...compatibleModels]
+  const sourceOptions: SegmentedOption<'generated' | 'apple'>[] = [
+    { value: 'generated', label: 'ScreenForge' },
+    { value: 'apple', label: isApple ? 'Apple officiel' : 'PNG personnalisé' },
+  ]
 
   async function handleScreenshotChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -158,7 +168,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <Field className="gap-1.5">
         <FieldLabel>Source</FieldLabel>
         <Segmented
-          options={SOURCE_OPTIONS}
+          options={sourceOptions}
           value={layer.importedBezel ? 'apple' : 'generated'}
           onChange={(source) => {
             if (source === 'apple') bezelInputRef.current?.click()
@@ -175,14 +185,14 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
         type="file"
         accept="image/png"
         className="sr-only"
-        aria-label="Importer un bezel Apple"
+        aria-label={isApple ? 'Importer un bezel Apple' : 'Importer un cadre PNG personnalisé'}
         disabled={bezelLoading}
         onChange={(event) => void handleBezelChange(event)}
       />
 
       {layer.importedBezel ? (
         <Field className="gap-1.5">
-          <FieldLabel>Bezel Apple</FieldLabel>
+          <FieldLabel>{isApple ? 'Bezel Apple' : 'Cadre PNG'}</FieldLabel>
           <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
             {bezelUrl && (
               <img src={bezelUrl} alt="Bezel importé" className="h-8 w-8 shrink-0 object-contain" />
@@ -195,14 +205,14 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               size="sm"
               loading={bezelLoading}
               onClick={() => bezelInputRef.current?.click()}
-              aria-label="Remplacer le bezel Apple"
+              aria-label={isApple ? 'Remplacer le bezel Apple' : 'Remplacer le cadre PNG'}
             >
               Remplacer
             </Button>
             <IconButton
               size="sm"
               disabled={bezelLoading}
-              aria-label="Retirer le bezel Apple"
+              aria-label={isApple ? 'Retirer le bezel Apple' : 'Retirer le cadre PNG'}
               className="hover:text-destructive"
               onClick={removeImportedBezel}
             >
@@ -219,20 +229,28 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             onClick={() => bezelInputRef.current?.click()}
           >
             <Upload size={13} strokeWidth={1.5} aria-hidden />
-            Importer le PNG Apple
+            {isApple ? 'Importer le PNG Apple' : 'Importer un cadre PNG'}
           </Button>
-          <a
-            href="https://developer.apple.com/design/resources/#product-bezels"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
-          >
-            Télécharger le DMG chez Apple
-            <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
-          </a>
-          <span className="text-xs text-muted-foreground">
-            Extraire le DMG, puis choisir un PNG transparent.
-          </span>
+          {isApple ? (
+            <>
+              <a
+                href="https://developer.apple.com/design/resources/#product-bezels"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+              >
+                Télécharger le DMG chez Apple
+                <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
+              </a>
+              <span className="text-xs text-muted-foreground">
+                Extraire le DMG, puis choisir un PNG transparent.
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Choisissez un PNG transparent contenant son ouverture d’écran.
+            </span>
+          )}
         </div>
       )}
       {bezelError && (
@@ -372,7 +390,9 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
 
       {layer.importedBezel ? (
         <p className="text-xs text-muted-foreground">
-          Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.
+          {isApple
+            ? 'Apple demande d’utiliser ce bezel tel quel : sans rotation, opacité ni ombre.'
+            : 'Le cadre PNG est utilisé tel quel : sans rotation, opacité ni ombre.'}
         </p>
       ) : (
         <div className="flex flex-col gap-2">

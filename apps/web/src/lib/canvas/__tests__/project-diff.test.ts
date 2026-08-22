@@ -29,6 +29,7 @@ function project(screens: Screen[], layoutLayers: Layer[] = []): Project {
   return {
     id: 'project',
     name: 'Project',
+    target: 'app-store-iphone',
     screens,
     activeScreenId: screens[0].id,
     globals: {
@@ -51,6 +52,20 @@ describe('diffProjectChange', () => {
     const current = project([screen('screen-1')])
     expect(diffProjectChange(current, current)).toEqual({ type: 'none' })
     expect(diffProjectChange(current, null)).toEqual({ type: 'full' })
+  })
+
+  it('fully rebuilds when the project target changes', () => {
+    const previous = project([screen('screen-1')])
+    const current = {
+      ...previous,
+      target: 'google-play-phone' as const,
+      globals: {
+        ...previous.globals,
+        deviceModel: 'android-phone' as const,
+        deviceColor: 'black' as const,
+      },
+    }
+    expect(diffProjectChange(current, previous)).toEqual({ type: 'full' })
   })
 
   it('targets a changed layer on one screen', () => {

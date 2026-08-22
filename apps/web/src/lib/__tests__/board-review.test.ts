@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { reviewBoard, type BoardFindingKind } from '@/lib/ai/board-review'
 import { PLAN_BOARD } from '@/lib/ai/archetypes'
+import { GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import { planFromBrief, planToolCalls } from '@/lib/ai/plan'
 import { applyToolCalls } from '@/lib/ai/tools'
 import { DEFAULT_GLOBALS } from '@/stores/project.store'
@@ -121,6 +122,7 @@ describe('le constat d’une planche', () => {
     const draft: Project = {
       id: 'p1',
       name: 'Projet',
+      target: 'app-store-iphone',
       screens: [],
       activeScreenId: '',
       globals: structuredClone(DEFAULT_GLOBALS),
@@ -200,6 +202,14 @@ describe('le constat d’une planche', () => {
     const findings = reviewBoard(screen([textLayer({ x: PLAN_BOARD.width - 60 })]), [], measure)
     const off = findings.find((finding) => finding.kind === 'off-canvas')
     expect(off?.detail).toMatch(/à droite/)
+  })
+
+  it('relit les bornes de la planche Android active', () => {
+    const layer = textLayer({ x: 450, width: 50, y: 840, height: 80 })
+    expect(kinds(reviewBoard(screen([layer]), [], measure))).toContain('off-canvas')
+    expect(
+      kinds(reviewBoard(screen([layer]), [], measure, GOOGLE_PLAY_PROFILE.board)),
+    ).not.toContain('off-canvas')
   })
 
   it('mesure une bande vide de plus d’un quart de planche', () => {

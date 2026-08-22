@@ -277,7 +277,9 @@ test.describe('smoke', () => {
       .locator('aside input[type="file"]')
       .setInputFiles([1, 2, 3].map((rank) => capture(`Écran ${String(rank)}`, rank)))
 
-    const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+    const dialog = page.getByRole('dialog', {
+      name: 'Générer les visuels · App Store · iPhone',
+    })
     await expect(dialog).toBeVisible()
     // Les trois captures sont déjà là, et le nombre de visuels les suit.
     await expect(page.getByRole('button', { name: '3 captures' })).toBeVisible()
@@ -311,7 +313,9 @@ test.describe('smoke', () => {
     await waitForApp(page)
     const stage = page.locator('.stage-grain')
     const png = (rank: number) => [...makeSolidPng(300, 600, [34 + rank * 60, 197, 94, 255])]
-    const dialog = page.getByRole('dialog', { name: 'Générer les visuels App Store' })
+    const dialog = page.getByRole('dialog', {
+      name: 'Générer les visuels · App Store · iPhone',
+    })
 
     await dropFiles(page, [{ name: 'notes.txt', type: 'text/plain', bytes: [110, 111] }])
     await expect(dialog).toBeHidden()

@@ -37,9 +37,31 @@ describe('generated device frame SVG', () => {
     expect(svg).not.toContain('data-part="island"')
   })
 
-  it('defaults every current model to a white frame', () => {
-    for (const config of CURRENT_DEVICE_FRAMES) {
+  it('defaults every current Apple model to a white frame', () => {
+    for (const config of CURRENT_DEVICE_FRAMES.filter((frame) => frame.platform === 'apple')) {
       expect(config.colors[0].frame, config.model).toBe('#ffffff')
     }
+  })
+
+  it('renders the Android frame with a persistent punch-hole and two neutral colors', () => {
+    const config = getDeviceFrame('android-phone')
+    const svg = generateDeviceFrameSVG(config, config.colors[0].name, 'data:image/png;base64,a')
+
+    expect(config.platform).toBe('android')
+    expect(config.colors.map((color) => color.name)).toEqual(['black', 'silver'])
+    expect(svg).toContain('data-part="punch-hole"')
+    expect(svg).toContain('data-part="screenshot"')
+    expect(svg).not.toContain('data-part="island"')
+  })
+
+  it('keeps every shared device model represented in the renderer catalogue', async () => {
+    const { DEVICE_MODEL_IDS } = await import('@screenforge/project-format/catalog-ids')
+    expect(
+      DEVICE_MODEL_IDS.every(
+        (model) =>
+          CURRENT_DEVICE_FRAMES.some((frame) => frame.model === model) ||
+          getDeviceFrame(model).model === model,
+      ),
+    ).toBe(true)
   })
 })

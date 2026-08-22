@@ -1,8 +1,9 @@
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { isProject } from '@/lib/project-validation'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { getDB } from '@/lib/storage'
-import { DEFAULT_GLOBALS } from '@/stores/project.store'
+import { createDefaultGlobals } from '@/stores/project.store'
 import type { Layer, Screen, TemplateDefinition } from '@/types'
 
 /**
@@ -71,11 +72,15 @@ export function isCustomTemplate(value: unknown): value is CustomTemplate {
     return false
   }
 
+  const target =
+    record.target === undefined ? 'app-store-iphone' : getStoreTargetProfile(record.target)?.id
+  if (!target) return false
   return isProject({
     id: 'template',
     name: record.name,
+    target,
     activeScreenId: 'screen',
-    globals: DEFAULT_GLOBALS,
+    globals: createDefaultGlobals(target),
     createdAt: record.createdAt,
     updatedAt: record.createdAt,
     layoutLayers: [],
@@ -111,7 +116,12 @@ export class TemplateRefusedError extends Error {
  */
 export function templateFromScreen(
   screen: Screen,
-  meta: { name: string; description?: string; source: CustomTemplate['source'] },
+  meta: {
+    name: string
+    description?: string
+    source: CustomTemplate['source']
+    target?: CustomTemplate['target']
+  },
 ): CustomTemplate {
   const layers = screen.layers.map(keepable)
   const ids = new Set<string>()
@@ -132,6 +142,7 @@ export function templateFromScreen(
     id: crypto.randomUUID(),
     name: meta.name,
     description: meta.description ?? `D’après « ${screen.name} ».`,
+    target: meta.target ?? 'app-store-iphone',
     background: structuredClone(screen.background),
     layers,
     assets,
@@ -168,6 +179,7 @@ export function instantiateTemplate(template: CustomTemplate): TemplateDefinitio
     id: template.id,
     name: template.name,
     description: template.description,
+    target: template.target ?? 'app-store-iphone',
     background: structuredClone(template.background),
     layers,
   }

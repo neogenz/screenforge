@@ -1,11 +1,6 @@
 import { Canvas, Point } from 'fabric'
-import {
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
-  getScreenOffset,
-  getTotalWidth,
-  scaleScreenLabels,
-} from '@/lib/canvas/canvas-utils'
+import { getScreenOffset, getTotalWidth, scaleScreenLabels } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { stageInsets } from '@/lib/stage'
 import { ZOOM_MAX, ZOOM_MIN } from '@/stores/ui.store'
 import type { Project } from '@/types'
@@ -89,9 +84,11 @@ export function installViewport({
   }
 
   function fitAll(): void {
-    const screenCount = getProject()?.screens.length ?? 1
+    const project = getProject()
+    const screenCount = project?.screens.length ?? 1
+    const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
     const { insets, width, height } = availableStage()
-    const totalWidth = getTotalWidth(screenCount)
+    const totalWidth = getTotalWidth(screenCount, board)
     const padding = 48
     /* Borné aux clamps du store : un fit sous `ZOOM_MIN` mettait le canvas à
        15 % pendant que le store affichait 25 % — HUD faux, puis saut au premier
@@ -99,7 +96,7 @@ export function installViewport({
        donc une partie de la scène, panoramique à l'appui, mais un seul zoom. */
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / SCREEN_HEIGHT, 1),
+      Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / board.height, 1),
     )
     canvas.setViewportTransform([
       zoom,
@@ -107,7 +104,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
     setZoom(zoom)
   }
@@ -121,12 +118,14 @@ export function installViewport({
    * lorsque le contenu, au zoom courant, ne tient plus dans la zone libre.
    */
   function recenter(): void {
-    const screenCount = getProject()?.screens.length ?? 1
+    const project = getProject()
+    const screenCount = project?.screens.length ?? 1
+    const board = project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board
     const { insets, width, height } = availableStage()
     const zoom = canvas.getZoom()
-    const totalWidth = getTotalWidth(screenCount)
+    const totalWidth = getTotalWidth(screenCount, board)
 
-    if (totalWidth * zoom > width || SCREEN_HEIGHT * zoom > height) {
+    if (totalWidth * zoom > width || board.height * zoom > height) {
       fitAll()
       return
     }
@@ -137,7 +136,7 @@ export function installViewport({
       0,
       zoom,
       insets.left + (width - totalWidth * zoom) / 2,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
   }
 
@@ -291,21 +290,22 @@ export function installViewport({
     }
     const screenIndex = project.screens.findIndex((screen) => screen.id === activeScreenId)
     if (screenIndex === -1) return
+    const board = getStoreTargetProfile(project.target).board
     const { insets, width, height } = availableStage()
     const padding = 48
     // Même borne que `fitAll` : le canvas et le store doivent lire un seul zoom.
     const zoom = Math.max(
       ZOOM_MIN,
-      Math.min((width - padding * 2) / SCREEN_WIDTH, (height - padding * 2) / SCREEN_HEIGHT, 1),
+      Math.min((width - padding * 2) / board.width, (height - padding * 2) / board.height, 1),
     )
-    const screenCenterX = getScreenOffset(screenIndex) + SCREEN_WIDTH / 2
+    const screenCenterX = getScreenOffset(screenIndex, board) + board.width / 2
     canvas.setViewportTransform([
       zoom,
       0,
       0,
       zoom,
       insets.left + width / 2 - screenCenterX * zoom,
-      insets.top + (height - SCREEN_HEIGHT * zoom) / 2,
+      insets.top + (height - board.height * zoom) / 2,
     ])
     setZoom(zoom)
     canvas.requestRenderAll()

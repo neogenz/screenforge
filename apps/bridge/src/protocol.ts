@@ -16,7 +16,7 @@ import { z } from 'zod'
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 5
+export const PROTOCOL_VERSION = 6
 
 /**
  * Codex reste absent tant que son protocole ne permet pas de désactiver tous les
@@ -86,6 +86,7 @@ const screenshotSchema = z.object({
 })
 
 export const briefSchema = z.object({
+  target: z.enum(['app-store-iphone', 'google-play-phone']),
   appName: z.string().min(1).max(60),
   pitch: z.string().max(140),
   /**

@@ -53,10 +53,11 @@ const templateSummary: ParamSchema = {
     name: { type: 'string' },
     description: { type: 'string' },
     source: { type: 'string', enum: ['ai', 'user'] },
+    target: { type: 'string', enum: ['app-store-iphone', 'google-play-phone'] },
     layerCount: { type: 'integer' },
     createdAt: { type: 'number' },
   },
-  required: ['id', 'name', 'description', 'source', 'layerCount', 'createdAt'],
+  required: ['id', 'name', 'description', 'source', 'target', 'layerCount', 'createdAt'],
   additionalProperties: false,
 }
 

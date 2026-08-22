@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/ui.store'
 import { registerAsset, resolveAsset } from '@/lib/assets'
 import { collectLayerAssetIds } from '@/lib/asset-refs'
 import { createShapeLayer, createTextLayer } from '@/lib/layer-factories'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { saveCurrentProject } from '@/lib/storage'
 import type { Layer } from '@/types'
 
@@ -147,12 +148,25 @@ export function useKeyboard(): void {
         document.activeElement.closest('[role="listbox"], [role="menu"], [role="dialog"]') !== null
       if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 't') {
         e.preventDefault()
-        addLayer(createTextLayer(layerCount))
+        const project = useProjectStore.getState().project
+        addLayer(
+          createTextLayer(
+            layerCount,
+            project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board,
+          ),
+        )
         return
       }
       if (!meta && !shift && !letterOwnedBySurface && key.toLowerCase() === 'r') {
         e.preventDefault()
-        addLayer(createShapeLayer(layerCount))
+        const project = useProjectStore.getState().project
+        addLayer(
+          createShapeLayer(
+            layerCount,
+            'rectangle',
+            project ? getStoreTargetProfile(project.target).board : APP_STORE_PROFILE.board,
+          ),
+        )
         return
       }
 

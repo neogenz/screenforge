@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import { addDeviceLayer, waitForApp, waitForCanvasSettled } from './helpers'
+import { addDeviceLayer, openAndroidProject, waitForApp, waitForCanvasSettled } from './helpers'
 
 /**
  * Le recadrage au redimensionnement.
@@ -150,6 +150,30 @@ test('preserves a hand-set zoom while the content still fits', async ({ page }) 
   expect(after).not.toBeNull()
   if (!before || !after) return
   expect(after.zoom).toBeCloseTo(before.zoom, 2)
+})
+
+test('fits the Android 9:16 artboard from its active project target', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  const scene = await page.evaluate(() => {
+    const board = window.__sfCanvas
+      ?.getObjects()
+      .find(
+        (object) =>
+          (object as { data?: { rendererType?: string } }).data?.rendererType === 'background',
+      )
+    return board ? { width: board.width, height: board.height } : null
+  })
+  expect(scene).toMatchObject({ width: 540, height: 960 })
+
+  const rect = await artboardRect(page)
+  expect(rect).not.toBeNull()
+  if (!rect) return
+  const free = freeStage(rect)
+  expect(rect.left).toBeGreaterThanOrEqual(free.left - 1)
+  expect(rect.right).toBeLessThanOrEqual(free.right + 1)
+  expect(rect.top).toBeGreaterThanOrEqual(free.top - 1)
+  expect(rect.bottom).toBeLessThanOrEqual(free.bottom + 1)
 })
 
 /**

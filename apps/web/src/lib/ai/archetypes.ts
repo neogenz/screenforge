@@ -1,4 +1,5 @@
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { type BoardSize } from '@/lib/canvas/canvas-utils'
+import { APP_STORE_PROFILE } from '@/lib/dimensions'
 import { wrappedLineCount, type TextMeasure } from '@/lib/locale'
 import { mix, readableInk, shade, type Palette } from '@/lib/ai/palette'
 import type { Background } from '@/types'
@@ -45,10 +46,10 @@ import type { ShapeId } from '@/lib/vector-catalog'
  */
 
 /** La planche, en unités de projet. Tout le reste en est une fraction. */
-const BOARD = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } as const
+const APPLE_BOARD = APP_STORE_PROFILE.board
 
 /** Marge latérale du texte : 7,3 % de part et d'autre, comme l'ancienne mise. */
-const GUTTER = 32
+const APPLE_GUTTER = 32
 
 /**
  * L'interligne d'un calque de texte, tel que `layer-factories` le pose.
@@ -156,6 +157,7 @@ export interface ArchetypeContext {
   deviceAspect: number
   /** Le rang de la planche : il décide du sens des inclinaisons. */
   index: number
+  board?: BoardSize
 }
 
 /**
@@ -385,17 +387,19 @@ function round(value: number): number {
 export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): ArchetypeLayout {
   const spec = archetypeSpec(id)
   const { palette, background, deviceAspect, index } = context
+  const board = context.board ?? APPLE_BOARD
+  const gutter = round((APPLE_GUTTER / APPLE_BOARD.width) * board.width)
   const ink = readableInk(backgroundColors(background), palette.ink)
 
-  const headlineWidth = round((spec.headline.width ?? 1) * BOARD.width) - GUTTER * 2
+  const headlineWidth = round((spec.headline.width ?? 1) * board.width) - gutter * 2
   const headline: PlanText = {
     text: context.headline,
     color: ink,
     fontSize: spec.headline.fontSize,
     fontWeight: spec.headline.fontWeight,
     align: spec.headline.align,
-    x: GUTTER,
-    y: round(spec.headline.y * BOARD.height),
+    x: gutter,
+    y: round(spec.headline.y * board.height),
     width: headlineWidth,
     /* Dérivée, jamais déclarée : c'est exactement ce que `measuredHeight` rend
        pour ce nombre de lignes, donc une accroche qui tient dans le compte tient
@@ -408,10 +412,10 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
 
   let device: PlanDevice | undefined
   if (spec.deviceWidth !== undefined) {
-    const width = round(spec.deviceWidth * BOARD.width)
+    const width = round(spec.deviceWidth * board.width)
     device = {
-      x: round((spec.deviceX ?? 0) * BOARD.width),
-      y: round((spec.deviceY ?? 0) * BOARD.height),
+      x: round((spec.deviceX ?? 0) * board.width),
+      y: round((spec.deviceY ?? 0) * board.height),
       width,
       height: round(width / deviceAspect),
       rotation: tiltAt(spec.deviceTilt ?? 0, index),
@@ -428,10 +432,10 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
       color: palette.accent,
       opacity: 0.28,
       rotation: tiltAt(12, index),
-      x: round(BOARD.width * 0.02),
-      y: round(BOARD.height * 0.26),
-      width: round(BOARD.width * 0.96),
-      height: round(BOARD.width * 0.96),
+      x: round(board.width * 0.02),
+      y: round(board.height * 0.26),
+      width: round(board.width * 0.96),
+      height: round(board.width * 0.96),
     })
   }
   if (id === 'bord-coupe' && device) {
@@ -440,10 +444,10 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
       color: palette.accent,
       opacity: 0.22,
       rotation: tiltAt(18, index),
-      x: round(BOARD.width * 0.34),
-      y: round(BOARD.height * 0.5),
-      width: round(BOARD.width * 0.72),
-      height: round(BOARD.width * 0.72),
+      x: round(board.width * 0.34),
+      y: round(board.height * 0.5),
+      width: round(board.width * 0.72),
+      height: round(board.width * 0.72),
     })
   }
   if (id === 'bas-ancre') {
@@ -452,9 +456,9 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
       color: palette.accent,
       opacity: 1,
       rotation: 0,
-      x: GUTTER,
-      y: round(BOARD.height * 0.6),
-      width: round(BOARD.width * 0.2),
+      x: gutter,
+      y: round(board.height * 0.6),
+      width: round(board.width * 0.2),
       height: 40,
     })
   }
@@ -467,20 +471,20 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
         color: ink,
         opacity: 0.12,
         rotation: tiltAt(8, index),
-        x: round(BOARD.width * 0.42),
-        y: round(BOARD.height * 0.02),
-        width: round(BOARD.width * 0.66),
-        height: round(BOARD.width * 0.66),
+        x: round(board.width * 0.42),
+        y: round(board.height * 0.02),
+        width: round(board.width * 0.66),
+        height: round(board.width * 0.66),
       },
       {
         shape: 'spark',
         color: ink,
         opacity: 0.16,
         rotation: tiltAt(14, index),
-        x: round(BOARD.width * 0.06),
-        y: round(BOARD.height * 0.74),
-        width: round(BOARD.width * 0.3),
-        height: round(BOARD.width * 0.3),
+        x: round(board.width * 0.06),
+        y: round(board.height * 0.74),
+        width: round(board.width * 0.3),
+        height: round(board.width * 0.3),
       },
     )
   }
@@ -512,14 +516,14 @@ export function backgroundFor(id: ArchetypeId, palette: Palette): Background {
 }
 
 /** La part de l'appareil qui reste dans le cadre. Le défaut ScreenForge exige 90 %. */
-export function onBoardRatio(device: PlanBox): number {
+export function onBoardRatio(device: PlanBox, board: BoardSize = APPLE_BOARD): number {
   const visibleWidth = Math.max(
     0,
-    Math.min(device.x + device.width, BOARD.width) - Math.max(device.x, 0),
+    Math.min(device.x + device.width, board.width) - Math.max(device.x, 0),
   )
   const visibleHeight = Math.max(
     0,
-    Math.min(device.y + device.height, BOARD.height) - Math.max(device.y, 0),
+    Math.min(device.y + device.height, board.height) - Math.max(device.y, 0),
   )
   return (visibleWidth * visibleHeight) / (device.width * device.height)
 }
@@ -532,13 +536,16 @@ export function onBoardRatio(device: PlanBox): number {
  * Shotluma, où un modèle la juge sur une image rendue ; ici elle se calcule sur
  * les boîtes, ce qui la rend opposable au test plutôt qu'à l'œil.
  */
-export function tallestEmptyBand(layout: ArchetypeLayout): number {
-  return tallestEmptyBandOf([
-    layout.headline,
-    ...(layout.device ? [layout.device] : []),
-    ...layout.accentsBehind,
-    ...layout.accentsFront,
-  ])
+export function tallestEmptyBand(layout: ArchetypeLayout, board: BoardSize = APPLE_BOARD): number {
+  return tallestEmptyBandOf(
+    [
+      layout.headline,
+      ...(layout.device ? [layout.device] : []),
+      ...layout.accentsBehind,
+      ...layout.accentsFront,
+    ],
+    board,
+  )
 }
 
 /**
@@ -550,9 +557,12 @@ export function tallestEmptyBand(layout: ArchetypeLayout): number {
  * c'est ce qui permet à `board-review` d'exiger d'un agent ce que le dépôt
  * s'impose à lui-même, sans en réécrire une seconde version qui divergerait.
  */
-export function tallestEmptyBandOf(boxes: readonly PlanBox[]): number {
+export function tallestEmptyBandOf(
+  boxes: readonly PlanBox[],
+  board: BoardSize = APPLE_BOARD,
+): number {
   const covered = boxes
-    .map((box) => [Math.max(0, box.y), Math.min(BOARD.height, box.y + box.height)] as const)
+    .map((box) => [Math.max(0, box.y), Math.min(board.height, box.y + box.height)] as const)
     .filter(([top, bottom]) => bottom > top)
     .sort((left, right) => left[0] - right[0])
 
@@ -562,7 +572,7 @@ export function tallestEmptyBandOf(boxes: readonly PlanBox[]): number {
     if (top > cursor) widest = Math.max(widest, top - cursor)
     cursor = Math.max(cursor, bottom)
   }
-  return Math.max(widest, BOARD.height - cursor)
+  return Math.max(widest, board.height - cursor)
 }
 
-export const PLAN_BOARD = BOARD
+export const PLAN_BOARD = APPLE_BOARD

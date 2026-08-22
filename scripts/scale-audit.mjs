@@ -106,7 +106,7 @@ await page.waitForTimeout(1200)
 
 // Un écran vide ne rend ni panneau Propriétés ni liste de calques : c'est
 // précisément là que vivent les contrôles à mesurer.
-await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
 await page.click('[role="menu"] [role="menuitem"] >> nth=0')
 await page.waitForTimeout(500)
 await page.click('button[aria-label="Ajouter Texte"]')
@@ -301,10 +301,10 @@ const measure = () =>
   )
 
 const darkReadings = await measure()
-await page.evaluate(async () => {
-  const moduleUrl = new URL('/src/stores/ui.store.ts', window.location.href).href
-  const { useUIStore } = await import(moduleUrl)
-  useUIStore.getState().toggleTheme()
+await page.evaluate(() => {
+  const store = window.__sfStores?.useUIStore
+  if (!store) throw new Error('__sfStores absent — le script exige le serveur de dev')
+  store.getState().toggleTheme()
 })
 await page.waitForFunction(() => !document.documentElement.classList.contains('dark'))
 const readingsByTheme = { dark: darkReadings, light: await measure() }

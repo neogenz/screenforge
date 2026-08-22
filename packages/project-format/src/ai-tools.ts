@@ -1,4 +1,4 @@
-import { MAX_PROJECT_SCREENS } from './dimensions.ts'
+import { MAX_PROJECT_SCREENS, STORE_TARGET_PROFILES } from './dimensions.ts'
 import type { LayerType } from './types.ts'
 
 /**
@@ -24,13 +24,12 @@ import type { LayerType } from './types.ts'
 
 /*
    Les bornes de coordonnées s'expriment dans l'unité de la planche de
-   l'éditeur — 440 × 956, les `SCREEN_WIDTH` / `SCREEN_HEIGHT` de
-   `apps/web/src/lib/canvas/canvas-utils`. Elles sont dérivées ici plutôt
-   qu'importées : ce module ne doit rien devoir au canevas Fabric, et un
-   changement de planche y ferait de toute façon sauter les tests d'export.
+   l'éditeur. Le schéma partagé couvre la plus grande planche connue ;
+   l'exécuteur applique ensuite le profil du projet ouvert.
 */
-const ARTBOARD_WIDTH = 440
-const ARTBOARD_HEIGHT = 956
+const PROFILES = Object.values(STORE_TARGET_PROFILES)
+const ARTBOARD_WIDTH = Math.max(...PROFILES.map((profile) => profile.board.width))
+const ARTBOARD_HEIGHT = Math.max(...PROFILES.map((profile) => profile.board.height))
 
 export const AI_LIMITS = {
   /** Le plafond du projet, pas un second plafond qui divergerait du premier. */
@@ -305,7 +304,7 @@ export function createAiTools(catalogs: AiToolCatalogs): AiTooling {
     },
     {
       name: 'add_device',
-      description: 'Pose un cadre iPhone, avec son rôle et sa capture si elle est fournie.',
+      description: 'Pose un cadre de téléphone compatible avec le projet ouvert.',
       parameters: object({
         screenId,
         deviceModel: { type: 'string', enum: catalogs.deviceModels },

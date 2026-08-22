@@ -5,6 +5,7 @@ import { TemplatePreview } from './TemplatePreview'
 import { useCanvasStore } from '@/stores/canvas.store'
 import { useTemplatesStore } from '@/stores/templates.store'
 import { useUIStore } from '@/stores/ui.store'
+import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +17,7 @@ import { IconButton } from '@/components/patterns/icon-button'
 import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates'
 import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import type { TemplateDefinition } from '@/types'
 
 type ApplyMode = 'current' | 'new'
@@ -30,14 +32,21 @@ export function TemplatePicker() {
 function TemplatePickerContent() {
   const setShowTemplatesPicker = useUIStore((s) => s.setShowTemplatesPicker)
   const custom = useTemplatesStore((s) => s.templates)
+  const target = useProjectStore((state) => state.project?.target ?? 'app-store-iphone')
+  const savedTemplates = custom.filter(
+    (template) => (template.target ?? 'app-store-iphone') === target,
+  )
+  const catalogue = TEMPLATES.filter(
+    (template) => (template.target ?? 'app-store-iphone') === target,
+  )
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   /* Le choix est gardé par identifiant et relu à chaque rendu : supprimer le
      gabarit sélectionné doit vider le pied de page, pas y laisser un bouton
      « Appliquer » qui pointe sur ce qui n'existe plus. */
-  const saved = custom.find((template) => template.id === selectedId) ?? null
+  const saved = savedTemplates.find((template) => template.id === selectedId) ?? null
   const selected: TemplateDefinition | null =
-    saved ?? TEMPLATES.find((template) => template.id === selectedId) ?? null
+    saved ?? catalogue.find((template) => template.id === selectedId) ?? null
 
   function handleClose() {
     setShowTemplatesPicker(false)
@@ -97,9 +106,9 @@ function TemplatePickerContent() {
             existe avant qu'on y ait posé quoi que ce soit. */}
         <section className="flex flex-col gap-1.5">
           <h3 className="text-sm font-medium">Mes gabarits</h3>
-          {custom.length > 0 ? (
+          {savedTemplates.length > 0 ? (
             <Gallery
-              templates={custom}
+              templates={savedTemplates}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onRemove={handleRemove}
@@ -117,7 +126,7 @@ function TemplatePickerContent() {
         <Separator />
         <section className="flex flex-col gap-1.5">
           <h3 className="text-sm font-medium">Catalogue</h3>
-          <Gallery templates={TEMPLATES} selectedId={selectedId} onSelect={setSelectedId} />
+          <Gallery templates={catalogue} selectedId={selectedId} onSelect={setSelectedId} />
         </section>
       </div>
     </DialogShell>
@@ -145,6 +154,7 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
       {templates.map((template) => {
         const saved = savedOf(template)
         const isSelected = selectedId === template.id
+        const board = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
         return (
           <div key={template.id} className="group/tile relative self-start">
             <Card
@@ -163,7 +173,10 @@ function Gallery({ templates, selectedId, onSelect, onRemove }: GalleryProps) {
                   : 'border-border hover:border-input hover:bg-accent',
               )}
             >
-              <div className="aspect-[440/956] w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)">
+              <div
+                className="w-full overflow-hidden rounded-sm bg-stage shadow-(--hairline-top)"
+                style={{ aspectRatio: `${String(board.width)} / ${String(board.height)}` }}
+              >
                 <TemplatePreview template={template} assets={saved?.assets} />
               </div>
               <div className="flex min-w-0 items-center gap-1 px-0.5">

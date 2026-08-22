@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { addScreen, waitForApp } from './helpers'
+import { addScreen, openAndroidProject, waitForApp } from './helpers'
 import { THUMBNAIL_WIDTH } from '../src/lib/stage'
 
 function tile(page: Page, name: string) {
@@ -25,6 +25,14 @@ async function screenNames(page: Page): Promise<string[]> {
  * existe », mais « le champ est plus large que la tuile ».
  */
 test.describe('filmstrip rename', () => {
+  test('renders Android thumbnails at the 9:16 board ratio', async ({ page }) => {
+    await waitForApp(page)
+    await openAndroidProject(page)
+    const preview = tile(page, 'Écran 1')
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.width ?? 0)).toBe(65)
+    await expect.poll(async () => Math.round((await preview.boundingBox())?.height ?? 0)).toBe(116)
+  })
+
   test('names every screen, and never leaves one anonymous', async ({ page }) => {
     await waitForApp(page)
     const strip = page.getByRole('group', { name: 'Écrans' })

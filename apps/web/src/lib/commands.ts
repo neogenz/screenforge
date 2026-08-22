@@ -12,6 +12,7 @@ import {
   createTextLayer,
 } from '@/lib/layer-factories'
 import type { AlignMode, DistributeMode } from '@/lib/align'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 
 export interface Command {
   id: string
@@ -87,8 +88,13 @@ export function getCommands(): Command[] {
   const history = useHistoryStore.getState
 
   const layerCount = () => getProjectLayers(project().project).length
+  const board = () => {
+    const current = project().project
+    return current ? getStoreTargetProfile(current.target).board : APP_STORE_PROFILE.board
+  }
   const hasSelection = () => canvas().selectedLayerIds.length > 0
   const activeScreenId = () => project().project?.activeScreenId ?? ''
+  const profile = getStoreTargetProfile(project().project?.target ?? APP_STORE_PROFILE.id)
 
   return [
     {
@@ -97,7 +103,7 @@ export function getCommands(): Command[] {
       section: 'Calques',
       keywords: ['texte', 'titre', 'typo'],
       shortcut: 'T',
-      run: () => canvas().addLayer(createTextLayer(layerCount())),
+      run: () => canvas().addLayer(createTextLayer(layerCount(), board())),
     },
     {
       id: 'add-shape',
@@ -105,23 +111,23 @@ export function getCommands(): Command[] {
       section: 'Calques',
       keywords: ['rectangle', 'forme', 'cercle'],
       shortcut: 'R',
-      run: () => canvas().addLayer(createShapeLayer(layerCount())),
+      run: () => canvas().addLayer(createShapeLayer(layerCount(), 'rectangle', board())),
     },
     {
       id: 'add-icon',
       title: 'Ajouter une icône',
       section: 'Calques',
       keywords: ['icone', 'icône', 'pictogramme', 'symbole'],
-      run: () => canvas().addLayer(createIconLayer(layerCount())),
+      run: () => canvas().addLayer(createIconLayer(layerCount(), undefined, board())),
     },
     {
       id: 'add-device',
-      title: 'Ajouter un cadre iPhone',
+      title: 'Ajouter un cadre de téléphone',
       section: 'Calques',
-      keywords: ['iphone', 'device', 'mockup', 'cadre'],
+      keywords: [profile.platform === 'apple' ? 'iphone' : 'android', 'device', 'mockup', 'cadre'],
       run: () => {
-        const model = project().project?.globals.deviceModel ?? 'iphone-17-pro-max'
-        canvas().addLayer(createDeviceLayer(model, layerCount()))
+        const model = project().project?.globals.deviceModel ?? profile.defaultDeviceModel
+        canvas().addLayer(createDeviceLayer(model, layerCount(), board()))
       },
     },
     {
@@ -225,7 +231,7 @@ export function getCommands(): Command[] {
     },
     {
       id: 'compose-campaign',
-      title: 'Générer les visuels App Store…',
+      title: 'Générer les visuels de la fiche…',
       section: 'Projet',
       keywords: ['ia', 'générer', 'plan', 'campagne', 'accroche', 'brief', 'visuel'],
       run: () => ui().setShowCampaignDialog(true),
@@ -237,13 +243,17 @@ export function getCommands(): Command[] {
       keywords: ['locale', 'traduction', 'langue', 'i18n', 'localisation'],
       run: () => ui().setShowLocaleDialog(true),
     },
-    {
-      id: 'publish',
-      title: 'Publier chez Apple…',
-      section: 'Projet',
-      keywords: ['asc', 'publier', 'app store', 'preflight', 'manifeste', 'upload'],
-      run: () => ui().setShowPublishDialog(true),
-    },
+    ...(profile.platform === 'apple'
+      ? [
+          {
+            id: 'publish',
+            title: 'Publier chez Apple…',
+            section: 'Projet' as const,
+            keywords: ['asc', 'publier', 'app store', 'preflight', 'manifeste', 'upload'],
+            run: () => ui().setShowPublishDialog(true),
+          },
+        ]
+      : []),
     {
       id: 'templates',
       title: 'Modèles de mise en page…',

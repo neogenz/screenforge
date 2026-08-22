@@ -1,11 +1,10 @@
-import { EXPORT_DIMENSIONS } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { ABORT, runEditorTransaction, type TransactionOutcome } from '@/lib/editor-transaction'
 import { exportScreenToBlob, inspectPng } from '@/lib/export'
 import { sha256OfBlob } from '@/lib/hash'
 import { MAX_PROJECT_RELEASES, MAX_RELEASE_NAME_LENGTH } from '@/lib/project-validation'
 import { slugify } from '@/lib/zip'
 import type {
-  DisplayClass,
   GlobalSettings,
   Layer,
   Project,
@@ -49,6 +48,7 @@ import type {
 export function snapshotOf(project: Project | ProjectSnapshot): ProjectSnapshot {
   const snapshot = structuredClone({
     name: project.name,
+    target: project.target,
     screens: project.screens,
     layoutLayers: project.layoutLayers,
     globals: project.globals,
@@ -57,8 +57,8 @@ export function snapshotOf(project: Project | ProjectSnapshot): ProjectSnapshot 
   return snapshot
 }
 
-function releasePath(dimension: DisplayClass, index: number, screen: Screen): string {
-  return `${dimension.size.replace('"', '')}/${String(index + 1).padStart(2, '0')}_${slugify(screen.name)}.png`
+function releasePath(folder: string, index: number, screen: Screen): string {
+  return `${folder}/${String(index + 1).padStart(2, '0')}_${slugify(screen.name)}.png`
 }
 
 export interface RenderProgress {
@@ -79,7 +79,6 @@ export interface RenderProgress {
 export async function renderReleaseFiles(
   snapshot: ProjectSnapshot,
   onProgress?: (progress: RenderProgress) => void,
-  dimensions: DisplayClass[] = EXPORT_DIMENSIONS,
   /**
    * Les octets, pour qui en a besoin.
    *
@@ -90,23 +89,23 @@ export async function renderReleaseFiles(
    */
   onFile?: (file: ReleaseFile, blob: Blob) => void,
 ): Promise<ReleaseFile[]> {
-  const jobs = dimensions.flatMap((dimension) =>
-    snapshot.screens.map((screen, index) => ({ dimension, screen, index })),
-  )
+  const profile = getStoreTargetProfile(snapshot.target)
+  const jobs = snapshot.screens.map((screen, index) => ({ screen, index }))
   const files: ReleaseFile[] = []
 
-  for (const [position, { dimension, screen, index }] of jobs.entries()) {
+  for (const [position, { screen, index }] of jobs.entries()) {
     onProgress?.({ current: position, total: jobs.length, label: screen.name })
     const blob = await exportScreenToBlob(
       screen,
       snapshot.layoutLayers,
-      dimension.portrait.width,
-      dimension.portrait.height,
+      profile.output.portrait.width,
+      profile.output.portrait.height,
       index,
+      profile.board,
     )
     const metadata = await inspectPng(blob)
     const file: ReleaseFile = {
-      path: releasePath(dimension, index, screen),
+      path: releasePath(profile.zipFolder, index, screen),
       screenId: screen.id,
       width: metadata.width,
       height: metadata.height,
@@ -198,6 +197,7 @@ export function restoreRelease(release: Release): TransactionOutcome<number> {
     const snapshot = structuredClone(release.snapshot)
     if (snapshot.screens.length === 0) return ABORT
     draft.name = snapshot.name
+    draft.target = snapshot.target
     draft.screens = snapshot.screens
     draft.layoutLayers = snapshot.layoutLayers
     draft.globals = snapshot.globals
@@ -232,7 +232,6 @@ export interface ReleaseCheck {
 export async function verifyRelease(
   release: Release,
   onProgress?: (progress: RenderProgress) => void,
-  dimensions: DisplayClass[] = EXPORT_DIMENSIONS,
 ): Promise<ReleaseCheck[]> {
   if (release.watermarked) {
     return release.files.map((file) => ({
@@ -243,7 +242,7 @@ export async function verifyRelease(
   }
   let rendered: ReleaseFile[]
   try {
-    rendered = await renderReleaseFiles(release.snapshot, onProgress, dimensions)
+    rendered = await renderReleaseFiles(release.snapshot, onProgress)
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Rendu impossible.'
     return release.files.map((file) => ({ path: file.path, status: 'failed', detail }))

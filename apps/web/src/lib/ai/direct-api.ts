@@ -8,6 +8,7 @@ import {
 } from '@/lib/ai/plan'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 
 /**
  * Les fournisseurs joignables sans rien installer, et ce qu'ils coûtent.
@@ -256,6 +257,18 @@ function rawScreens(value: unknown, brief: CampaignBrief): RawScreen[] {
  * serveur dans le paquet du navigateur.
  */
 function planPrompt(brief: CampaignBrief, count: number): string {
+  const profile = getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id)
+  const storeRules =
+    profile.platform === 'android'
+      ? [
+          'Règles Google Play :',
+          '— Les visuels reflètent l’expérience réelle de l’application.',
+          '— Le texte reste bref et secondaire face à l’interface.',
+          '— Aucun classement, prix, récompense ou bénéfice invérifiable.',
+        ]
+      : [
+          'Règles App Store : les visuels reflètent l’expérience réelle et tout bénéfice reste vérifiable.',
+        ]
   const shots = brief.screenshots
     .map(
       (shot, index) =>
@@ -263,7 +276,7 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     )
     .join('\n')
   return [
-    'Tu es directeur artistique de la fiche App Store d’une application iOS.',
+    `Tu es directeur artistique de la fiche ${profile.label} d’une application ${profile.platform === 'android' ? 'Android' : 'iOS'}.`,
     'Tu écris les accroches des visuels de la fiche — ces images que l’utilisateur',
     'fait défiler avant de télécharger. Les trois premières décident du',
     'téléchargement : elles doivent porter le bénéfice, pas la fonctionnalité.',
@@ -278,6 +291,7 @@ function planPrompt(brief: CampaignBrief, count: number): string {
       : '',
     `Style visuel imposé : ${brief.direction}.`,
     `Nombre de visuels à proposer : exactement ${count}.`,
+    ...storeRules,
     shots
       ? `Captures décrites par l’utilisateur, dans cet ordre :\n${shots}\nCouvre-les d’abord, dans le même ordre, avec le même index dans screenshotIndex.`
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief.',
@@ -375,7 +389,13 @@ export async function planViaApi(
   key: string,
   model: string,
 ): Promise<CampaignPlan> {
-  const count = Math.max(1, Math.min(brief.screenCount, AI_LIMITS.maxScreens))
+  const count = Math.max(
+    1,
+    Math.min(
+      brief.screenCount,
+      getStoreTargetProfile(brief.target ?? APP_STORE_PROFILE.id).maxScreens,
+    ),
+  )
   const capacityFailure = validateBriefGroundingCapacity(brief, count)
   if (capacityFailure) throw new Error(capacityFailure)
   const palette = resolvePalette(brief)
@@ -404,6 +424,7 @@ export async function planViaApi(
   })
 
   const plan: CampaignPlan = {
+    target: brief.target ?? 'app-store-iphone',
     appName: brief.appName,
     direction: brief.direction,
     palette,

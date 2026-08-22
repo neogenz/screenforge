@@ -41,6 +41,19 @@ beforeEach(() => {
 })
 
 describe('hydratation de la bibliothèque de gabarits', () => {
+  it('fige la cible du projet avec le gabarit', async () => {
+    storage.read.mockResolvedValue([])
+    useProjectStore.getState().createProject('Android', 'google-play-phone')
+
+    const outcome = await useTemplatesStore.getState().save({ name: 'Android' })
+
+    expect(outcome).toMatchObject({ ok: true, template: { target: 'google-play-phone' } })
+    expect(storage.write).toHaveBeenCalledWith(
+      expect.objectContaining({ target: 'google-play-phone' }),
+      undefined,
+    )
+  })
+
   it('abandonne réellement l’écriture IndexedDB avant son commit', async () => {
     const { readCustomTemplates, writeCustomTemplate } =
       await vi.importActual<typeof import('@/lib/custom-templates')>('@/lib/custom-templates')

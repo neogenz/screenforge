@@ -67,7 +67,7 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        protocol: 5,
+        protocol: 6,
         bridge: '0.1.0',
         engines: [],
         capabilities: { vision: false, structuredOutput: true, reasoning: true },
@@ -105,7 +105,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   await waitForApp(page)
 
   // 1) Créer la campagne : deux visuels générés, en calques réels.
-  await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()
+  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
   await page.getByLabel('Nom de l’app').fill('Cadence')
   await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
@@ -113,7 +113,9 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   await page.getByRole('button', { name: /^Proposer \d+ visuels?$/ }).click()
   await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
   await page.getByRole('button', { name: /^Ajouter \d+ visuels?$/ }).click()
-  await expect(page.getByRole('dialog', { name: 'Générer les visuels App Store' })).toBeHidden()
+  await expect(
+    page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' }),
+  ).toBeHidden()
   await expect.poll(async () => (await screens(page)).length).toBeGreaterThan(1)
 
   // 2) Icône et forme : le catalogue vectoriel, éditable comme le reste.
@@ -129,7 +131,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
 
   // 3) Le rôle et le cadrage, posés une fois pour toutes les releases à venir.
   await addScreen(page)
-  await page.locator('button[aria-label="Ajouter un cadre iPhone"]').click()
+  await page.locator('button[aria-label="Ajouter un cadre de téléphone"]').click()
   await page.getByRole('menuitem', { name: /iPhone 17 Pro Max/ }).click()
   const role = page.getByLabel('Rôle de l’écran dans la campagne')
   await role.fill('reglages')
@@ -183,10 +185,12 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
 
   // 6) Retoucher un écran via le fournisseur : borné à l'écran courant.
   const beforeTouch = await screens(page)
-  await page.getByRole('button', { name: 'Générer les visuels App Store' }).click()
+  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
   await page.getByRole('radio', { name: 'Nocturne' }).click()
   await page.getByRole('button', { name: /^Appliquer à/ }).click()
-  await expect(page.getByRole('dialog', { name: 'Générer les visuels App Store' })).toBeHidden()
+  await expect(
+    page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' }),
+  ).toBeHidden()
   const afterTouch = await screens(page)
   expect(afterTouch[0], 'la retouche a débordé sur un autre écran').toEqual(beforeTouch[0])
 

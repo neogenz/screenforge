@@ -1,5 +1,5 @@
 /**
- * Sonde visuelle : les états qui se jugent à l'œil.
+ * Sonde visuelle : les états Apple et Android qui se jugent à l'œil.
  *
  * Vide, peuplé, dialog Export ouvert, menu ouvert, planche sans écran —
  * sombre et clair, en densité 2. Chaque état repart d'un contexte neuf : sans
@@ -14,11 +14,11 @@ const outputDir = process.env.OUT_DIR ?? '/tmp/screenforge-probe'
 mkdirSync(outputDir, { recursive: true })
 
 /**
- * Un cadre iPhone + un texte : le décor commun à peuplé, export, menu.
+ * Un cadre de téléphone + un texte : le décor commun à peuplé et export.
  * @param {import('@playwright/test').Page} page
  */
 async function populate(page) {
-  await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+  await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
   await page.click('[role="menu"] [role="menuitem"] >> nth=0')
   await page.waitForTimeout(500)
   await page.click('button[aria-label="Ajouter Texte"]')
@@ -26,13 +26,14 @@ async function populate(page) {
 }
 
 /**
- * @type {{ name: string; setup: (page: import('@playwright/test').Page) => Promise<void> }[]}
+ * @type {{ name: string; target: 'app-store-iphone' | 'google-play-phone'; setup: (page: import('@playwright/test').Page) => Promise<void> }[]}
  */
 const STATES = [
-  { name: 'vide', setup: async () => {} },
-  { name: 'peuple', setup: populate },
+  { name: 'vide', target: 'app-store-iphone', setup: async () => {} },
+  { name: 'peuple', target: 'app-store-iphone', setup: populate },
   {
     name: 'export',
+    target: 'app-store-iphone',
     setup: async (page) => {
       await populate(page)
       await page.click('button[aria-label="Ouvrir l’export"]')
@@ -42,15 +43,17 @@ const STATES = [
   },
   {
     name: 'menu',
+    target: 'app-store-iphone',
     setup: async (page) => {
       // Ouvert, sans sélectionner d'item : c'est le popup lui-même qu'on juge.
-      await page.click('button[aria-label="Ajouter un cadre iPhone"]')
+      await page.click('button[aria-label="Ajouter un cadre de téléphone"]')
       await page.waitForSelector('[role="menu"]')
       await page.waitForTimeout(300)
     },
   },
   {
     name: 'planche-vide',
+    target: 'app-store-iphone',
     setup: async (page) => {
       // `screens.length === 0` n'arrive jamais par l'UI (`removeScreen` le
       // refuse) — forcé via le store de debug, comme `empty-state.spec.ts`.
@@ -64,12 +67,14 @@ const STATES = [
       await page.waitForTimeout(300)
     },
   },
+  { name: 'android-vide', target: 'google-play-phone', setup: async () => {} },
+  { name: 'android-peuple', target: 'google-play-phone', setup: populate },
 ]
 
 const browser = await chromium.launch()
 
 for (const theme of ['dark', 'light']) {
-  for (const { name, setup } of STATES) {
+  for (const { name, target, setup } of STATES) {
     // Contexte neuf à chaque capture : localStorage et IndexedDB repartent à zéro.
     const context = await browser.newContext({
       viewport: { width: 1600, height: 1000 },
@@ -89,7 +94,39 @@ for (const theme of ['dark', 'light']) {
     )
     await page.reload()
     await page.waitForFunction(() => Boolean(window.__sfCanvas), { timeout: 20000 })
-    await page.waitForTimeout(1200)
+    await page.waitForFunction(() => {
+      const project = window.__sfStores?.useProjectStore.getState().project
+      const objects = /** @type {Array<{data?: {rendererType?: string, screenId?: string}}>} */ (
+        window.__sfCanvas?.getObjects() ?? []
+      )
+      return Boolean(
+        project &&
+        objects.some(
+          (object) =>
+            object.data?.rendererType === 'background' &&
+            object.data?.screenId === project.activeScreenId,
+        ),
+      )
+    })
+
+    if (target === 'google-play-phone') {
+      await page.evaluate(() =>
+        window.__sfStores?.useProjectStore
+          .getState()
+          .createProject('Sonde Android', 'google-play-phone'),
+      )
+      await page.waitForFunction(() => {
+        const objects = /** @type {Array<{data?: {rendererType?: string}, width?: number}>} */ (
+          window.__sfCanvas?.getObjects() ?? []
+        )
+        return (
+          window.__sfStores?.useProjectStore.getState().project?.target === 'google-play-phone' &&
+          objects.some(
+            (object) => object.data?.rendererType === 'background' && object.width === 540,
+          )
+        )
+      })
+    }
 
     await setup(page)
 

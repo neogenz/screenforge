@@ -4,7 +4,7 @@
 
 - Co-located Vitest unit tests cover pure library logic and Zustand store contracts.
 - Playwright E2E tests drive the real French-labelled UI and cover editor interaction, persistence, accessibility recovery, and export.
-- Export tests and `scripts/validate-export.mjs` enforce exact dimensions, opaque PNG output, and ZIP structure.
+- Export tests and `scripts/validate-export.mjs` enforce both exact contracts: `app-store-iphone` produces 1320×2868 opaque PNGs under `6.9/`, while `google-play-phone` produces 1080×1920 opaque PNGs under `phone/`.
 - `scripts/visual-probe.mjs`, the contrast audit and the scale audit guard the design system outside ordinary assertions, all three against a real rendered page (Chromium) rather than a static read of `index.css` — coss writes its palette in `--alpha()`/`color-mix()`, which no regex resolves, and a rendered size no longer appears literally in the stylesheet at all. The contrast audit checks an ink × surface matrix plus closed pairs an ink that only lands on one surface would otherwise escape; the scale audit counts the type/height/radius/gap values actually rendered in the populated DOM against coss's own closed steps. `scripts/ui-source-audit.mjs` (`pnpm run audit:ui`) is the fourth: every `components/ui/` file must still match what the `@coss` registry serves for it, naming the file the moment one drifts — a component edited in place stops updating from the CLI, which is the state coss replaced.
 - `empty-state.spec.ts` covers the editor's empty states (no screenshots, no layers, no selection, no saved templates) against the copy and controls `lib/copy.ts` centralises.
 - `apps/backend/convex/*.test.ts` run under `convex-test` and cover authorization from the attacker's point of view. Only the third party is faked: real webhook signatures, the real SDK parser, the real mutations.
@@ -22,7 +22,7 @@
 - Unit tests live in `src/**/__tests__/*.test.ts`; browser tests live in `e2e/*.spec.ts`.
 - E2E selectors use accessible French labels; development-only `window.__sfCanvas` and `window.__sfStores` are reserved for state contracts the UI cannot expose.
 - Canvas transforms must assert the canvas → store → sync round-trip does not drift after pointer release.
-- Any export-path change must retain the pixel-exact E2E contract.
+- Any export-path change must retain both pixel-exact E2E contracts, their 10/8 maxima, deterministic numbering and all-or-nothing download behavior.
 - `runtime-resilience.spec.ts` forces IndexedDB startup failure and delays a lazy chunk to cover the editable memory fallback, persistent warning, loading status, and final dialog focus.
 
 ## Run

@@ -1,5 +1,5 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '@/lib/canvas/canvas-utils'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { planScreenLayout, type CampaignBrief, type CampaignPlan } from '@/lib/ai/plan'
 import type { PlanAccent, PlanBox } from '@/lib/ai/archetypes'
 import { backgroundToCss } from '@/lib/background-css'
@@ -49,13 +49,17 @@ function percent(value: number, total: number): string {
   return `${(value / total) * 100}%`
 }
 
-function box(rect: PlanBox, rotation = 0): React.CSSProperties {
+function box(
+  rect: PlanBox,
+  board: { width: number; height: number },
+  rotation = 0,
+): React.CSSProperties {
   return {
     position: 'absolute',
-    left: percent(rect.x, SCREEN_WIDTH),
-    top: percent(rect.y, SCREEN_HEIGHT),
-    width: percent(rect.width, SCREEN_WIDTH),
-    height: percent(rect.height, SCREEN_HEIGHT),
+    left: percent(rect.x, board.width),
+    top: percent(rect.y, board.height),
+    width: percent(rect.width, board.width),
+    height: percent(rect.height, board.height),
     ...(rotation ? { transform: `rotate(${rotation}deg)` } : {}),
   }
 }
@@ -73,7 +77,13 @@ function box(rect: PlanBox, rotation = 0): React.CSSProperties {
  * Les trois primitives n'ont pas de tracé — elles sont des primitives
  * justement — et sont redites ici.
  */
-function AccentShape({ accent }: { accent: PlanAccent }) {
+function AccentShape({
+  accent,
+  board,
+}: {
+  accent: PlanAccent
+  board: { width: number; height: number }
+}) {
   const entry = shapeEntry(accent.shape)
   const [x, y, width, height] = entry ? drawnBox(entry) : [0, 0, SHAPE_BOX, SHAPE_BOX]
   return (
@@ -81,7 +91,7 @@ function AccentShape({ accent }: { accent: PlanAccent }) {
       aria-hidden
       viewBox={`${x} ${y} ${width} ${height}`}
       preserveAspectRatio="none"
-      style={{ ...box(accent, accent.rotation), opacity: accent.opacity }}
+      style={{ ...box(accent, board, accent.rotation), opacity: accent.opacity }}
     >
       {entry?.path ? (
         <path d={entry.path} fill={accent.color} />
@@ -123,8 +133,9 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(deviceSvg)}`
     : undefined
   const logo = resolveAsset(layout.logo?.assetId)
+  const board = getStoreTargetProfile(plan.target).board
   const width = size === 'thumb' ? 40 : 132
-  const scale = width / SCREEN_WIDTH
+  const scale = width / board.width
 
   return (
     <div
@@ -132,12 +143,12 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
       className={cn('relative shrink-0 overflow-hidden rounded-sm border border-border', className)}
       style={{
         width,
-        aspectRatio: `${SCREEN_WIDTH} / ${SCREEN_HEIGHT}`,
+        aspectRatio: `${String(board.width)} / ${String(board.height)}`,
         background: backgroundToCss(layout.background),
       }}
     >
       {layout.accentsBehind.map((accent, at) => (
-        <AccentShape key={`behind-${at}`} accent={accent} />
+        <AccentShape key={`behind-${at}`} accent={accent} board={board} />
       ))}
 
       {layout.device && (
@@ -146,16 +157,16 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
           alt=""
           data-device-frame={plan.deviceModel}
           className="object-fill drop-shadow-sm"
-          style={box(layout.device, layout.device.rotation)}
+          style={box(layout.device, board, layout.device.rotation)}
         />
       )}
 
       {layout.accentsFront.map((accent, at) => (
-        <AccentShape key={`front-${at}`} accent={accent} />
+        <AccentShape key={`front-${at}`} accent={accent} board={board} />
       ))}
 
       {logo && layout.logo && (
-        <img src={logo} alt="" className="object-contain" style={box(layout.logo)} />
+        <img src={logo} alt="" className="object-contain" style={box(layout.logo, board)} />
       )}
 
       {/* Sans `overflow-hidden` et sans hauteur imposée : une accroche trop
@@ -167,9 +178,9 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
       <div
         className="flex items-start"
         style={{
-          ...box(layout.headline),
+          ...box(layout.headline, board),
           height: undefined,
-          minHeight: percent(layout.headline.height, SCREEN_HEIGHT),
+          minHeight: percent(layout.headline.height, board.height),
           color: layout.headline.color,
           fontWeight: layout.headline.fontWeight,
           textAlign: layout.headline.align,

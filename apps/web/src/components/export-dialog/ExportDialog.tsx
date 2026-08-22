@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useProjectStore } from '@/stores/project.store'
 import { useExport } from '@/hooks/use-export'
-import { EXPORT_DIMENSIONS, PRIMARY_DIMENSION } from '@/lib/dimensions'
+import { getStoreTargetProfile } from '@/lib/dimensions'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
 import { ProcessingPanel, type ProcessingStep } from '@/components/patterns/processing-panel'
@@ -31,6 +31,7 @@ function ExportDialogGate() {
 }
 
 function ExportDialogContent({ project }: { project: Project }) {
+  const profile = getStoreTargetProfile(project.target)
   const showExportDialog = useUIStore((state) => state.showExportDialog)
   const setShowExportDialog = useUIStore((state) => state.setShowExportDialog)
   const [selectedScreenIds, setSelectedScreenIds] = useState<string[]>(() =>
@@ -104,9 +105,9 @@ function ExportDialogContent({ project }: { project: Project }) {
     try {
       await exportBatch(
         localeCode ? `${project.name}-${localeCode}` : project.name,
+        project.target,
         selectedScreens,
         exportedLayoutLayers,
-        EXPORT_DIMENSIONS,
       )
       /* Le téléchargement part en silence : le bouton qui vient de produire le
          lot le confirme une seconde, puis redevient une proposition. */
@@ -114,7 +115,15 @@ function ExportDialogContent({ project }: { project: Project }) {
     } catch {
       // `useExport` exposes the actionable rendering error in this dialog.
     }
-  }, [exportBatch, exportedLayoutLayers, localeCode, localeRefused, project.name, selectedScreens])
+  }, [
+    exportBatch,
+    exportedLayoutLayers,
+    localeCode,
+    localeRefused,
+    project.name,
+    project.target,
+    selectedScreens,
+  ])
 
   /* Deux étapes, pas un pourcentage simulé : le rendu (une entrée par écran,
      `useExport` en tient le compte) puis l'archive, dont `useExport` ne dit
@@ -163,7 +172,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       title="Export officiel"
       size="lg"
       flush
-      headerActions={<span className="text-xs text-muted-foreground px-1">App Store</span>}
+      headerActions={<span className="px-1 text-xs text-muted-foreground">{profile.label}</span>}
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
@@ -203,11 +212,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             <>
               <div className="rounded-xl border bg-muted p-4">
                 <span className="text-xs text-muted-foreground">Profil</span>
-                <p className="mt-1.5 text-sm font-medium text-foreground">
-                  iPhone {PRIMARY_DIMENSION.size}
-                </p>
-                <p className="tabular-nums mt-1 text-sm text-muted-foreground">
-                  {PRIMARY_DIMENSION.portrait.width}×{PRIMARY_DIMENSION.portrait.height} px
+                <p className="mt-1.5 text-sm font-medium text-foreground">{profile.output.name}</p>
+                <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                  {profile.output.portrait.width}×{profile.output.portrait.height} px
                 </p>
                 <Separator className="my-3" />
                 <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
@@ -231,7 +238,7 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <p className="text-xs text-muted-foreground">
                   fichier{selectedScreens.length > 1 ? 's' : ''}
                   {' sous '}
-                  <span className="font-mono">6.9/</span>
+                  <span className="font-mono">{profile.zipFolder}/</span>
                   {/* Le poids exact, pas une estimation : un PNG App Store varie
                       trop selon le contenu pour qu'un chiffre avancé avant le
                       rendu dise vrai. Il apparaît une fois connu. */}
@@ -257,6 +264,13 @@ function ExportDialogContent({ project }: { project: Project }) {
                         ? 'Bloqué'
                         : 'Prêt'}
                 </StatusChip>
+                {profile.platform === 'android' && selectedScreens.length < 4 && (
+                  <p className="mt-2 text-xs text-warning">
+                    {selectedScreens.length < 2
+                      ? 'Google Play demande au moins 2 captures pour publier la fiche.'
+                      : '4 captures portrait 9:16 sont recommandées pour la promotion.'}
+                  </p>
+                )}
               </div>
 
               <div className="rounded-xl border bg-muted p-4">

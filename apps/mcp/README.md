@@ -85,7 +85,7 @@ IndexedDB), un SVG donné comme capture d'écran.
 
 ### Garder une mise en page
 
-Le lot appartient à une fiche App Store ; la composition trouvée au troisième
+Le lot appartient à une fiche de store ; la composition trouvée au troisième
 essai n'appartient à rien, et disparaissait avec le projet.
 `screenforge_save_template` la range dans la bibliothèque du navigateur, hors
 des projets — c'est ce qui la rend applicable au projet suivant, à la souris
@@ -93,7 +93,7 @@ comme par l'agent, depuis « Modèles de mise en page ».
 
 Un gabarit emporte ses images (un logo) mais **pas la capture d'écran** : celle-ci
 appartient à la fiche, et un gabarit qui la porterait ferait porter à chaque
-écran construit depuis lui la capture d'un autre. Le cadre iPhone reste, vide,
+écran construit depuis lui la capture d'un autre. Le cadre de téléphone reste, vide,
 et c'est le rafraîchissement par lots qui le remplit. Un nom déjà pris est
 refusé plutôt que suffixé : deux gabarits presque homonymes rendent la
 réapplication aveugle.

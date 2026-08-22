@@ -1,6 +1,6 @@
 ---
 name: screenforge-mcp
-description: Composes App Store screenshots in the running ScreenForge editor through its local MCP server. Use when the user wants App Store listing visuals or wants an agent to drive ScreenForge. Not for exporting the PNGs, which happens in the app.
+description: Composes App Store or Google Play screenshots in the running ScreenForge editor through its local MCP server. Use when the user wants store listing visuals or wants an agent to drive ScreenForge. Not for exporting the PNGs, which happens in the app.
 argument-hint: brief | reference shot | own captures
 ---
 
@@ -30,5 +30,5 @@ Run the flow above. Read only the next action file.
 - Never invent an identifier. Device models, shapes, icons and fonts are closed lists, and a value outside them is refused before it reaches the project.
 - The project belongs to the user. Read it before writing, add rather than replace, and never delete a layer this run did not create.
 - Every call can be refused, and the refusal names its cause and the expected sub-schema. Correct the call from what it says instead of retrying it unchanged.
-- Coordinates are board units on a 440 by 956 artboard, never the 1320 by 2868 pixels of the export.
+- Read `target`, `canvas` and `globals.deviceModel` before composing. Coordinates are board units on that canvas: 440 by 956 for App Store, 540 by 960 for Google Play phone.
 - Write the user's copy in the user's own language. The board is a real listing, not a demo.

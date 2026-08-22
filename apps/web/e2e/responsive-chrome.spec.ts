@@ -55,7 +55,7 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     'filet',
     'Ouvrir les modèles',
     'Ouvrir les réglages globaux',
-    'Générer les visuels App Store',
+    'Générer les visuels de la fiche',
     'filet',
     'Actualiser les captures',
     'Ouvrir les langues',
@@ -142,7 +142,7 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   ).toEqual([
     'Ouvrir les modèles',
     'Ouvrir les réglages globaux',
-    'Générer les visuels App Store',
+    'Générer les visuels de la fiche',
     'filet',
     'Actualiser les captures',
     'Ouvrir les langues',

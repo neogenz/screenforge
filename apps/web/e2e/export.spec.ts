@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test'
 import { decode } from 'fast-png'
-import { addDeviceLayer, addTextLayer, downloadFirstExportedPng, waitForApp } from './helpers'
+import JSZip from 'jszip'
+import {
+  addDeviceLayer,
+  addTextLayer,
+  downloadFirstExportedPng,
+  openAndroidProject,
+  readDownload,
+  waitForApp,
+} from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
 /**
@@ -20,6 +28,34 @@ test.describe('export', () => {
     expect(view.getUint32(20)).toBe(2868) // IHDR height
     expect(view.getUint8(24)).toBe(8) // bit depth
     expect(view.getUint8(25)).toBe(2) // color type RGB (opaque)
+  })
+
+  test('ZIP Google Play contient un PNG RGB opaque exact 1080×1920 sous phone/', async ({
+    page,
+  }) => {
+    await waitForApp(page)
+    await openAndroidProject(page)
+    await page.getByLabel('Ouvrir l’export').click()
+    const dialog = page.getByRole('dialog', { name: 'Export officiel' })
+    await expect(dialog).toContainText('Google Play · téléphone')
+    await expect(dialog).toContainText('1080×1920 px')
+    await expect(dialog).toContainText('au moins 2 captures')
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 60_000 }),
+      dialog.getByRole('button', { name: 'Exporter le ZIP' }).click(),
+    ])
+    expect(download.suggestedFilename()).toMatch(/-google-play\.zip$/)
+    const zip = await JSZip.loadAsync(await readDownload(download))
+    const names = Object.keys(zip.files).filter((name) => !zip.files[name].dir)
+    expect(names).toEqual([expect.stringMatching(/^phone\/01_[a-z0-9_]+\.png$/)])
+    const png = decode(await zip.files[names[0]].async('uint8array'))
+    expect({
+      width: png.width,
+      height: png.height,
+      depth: png.depth,
+      channels: png.channels,
+    }).toEqual({ width: 1080, height: 1920, depth: 8, channels: 3 })
   })
 
   test('official bezel export preserves screenshot, frame and transparent exterior', async ({

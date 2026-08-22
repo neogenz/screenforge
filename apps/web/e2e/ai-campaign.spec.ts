@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addScreen, addTextLayer, waitForApp } from './helpers'
+import { addScreen, addTextLayer, openAndroidProject, waitForApp } from './helpers'
 import { makeSolidPng } from './device-bezel-fixture'
 
 /**
@@ -52,12 +52,36 @@ async function historyDepth(page: Page): Promise<number> {
   return page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? 0)
 }
 
-const DIALOG = 'Générer les visuels App Store'
+const DIALOG = /Générer les visuels ·/
 
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: DIALOG }).click()
+  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
+
+test('borne et compose une campagne Google Play dans le vrai ratio', async ({ page }) => {
+  await waitForApp(page)
+  await openAndroidProject(page)
+  await openCampaignDialog(page)
+
+  const dialog = page.getByRole('dialog', { name: 'Générer les visuels · Google Play · téléphone' })
+  await expect(dialog).toContainText('1080×1920 · portrait · 8 captures maximum')
+  await dialog.getByLabel('Nom de l’app').fill('Cadence')
+  await dialog.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
+  await dialog.getByLabel('Combien de visuels').click()
+  await expect(page.getByRole('option', { name: '8', exact: true })).toHaveCount(0)
+  await page.getByRole('option', { name: '7', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Proposer 7 visuels' }).click()
+
+  const preview = dialog.getByRole('tabpanel')
+  await expect(preview.locator('[data-device-frame="android-phone"]').first()).toBeVisible()
+  const previewBox = await preview
+    .locator('[data-device-frame="android-phone"]')
+    .first()
+    .locator('..')
+    .boundingBox()
+  expect(previewBox && previewBox.width / previewBox.height).toBeCloseTo(540 / 960, 2)
+})
 
 test('génère des visuels en calques réels, défaisables d’un seul coup', async ({ page }) => {
   await waitForApp(page)

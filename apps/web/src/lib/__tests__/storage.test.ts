@@ -5,6 +5,7 @@ import { clearAssets, readDirtyAssets, registerAsset, resolveAsset } from '@/lib
 import {
   afterProjectSaved,
   adoptRemoteProject,
+  createStoredProject,
   deleteProject,
   initAutoSave,
   listProjects,
@@ -22,6 +23,7 @@ function project(name = 'Project', layers: Layer[] = []): Project {
   return {
     id: 'project',
     name,
+    target: 'app-store-iphone',
     activeScreenId: 'screen',
     screens: [
       {
@@ -68,6 +70,28 @@ describe('storage', () => {
     vi.restoreAllMocks()
     vi.useRealTimers()
     await clearDatabase()
+  })
+
+  it('creates, persists and reopens a project for the selected target', async () => {
+    useProjectStore.getState().createProject('Apple')
+    await saveCurrentProject()
+
+    const android = await createStoredProject('Android', 'google-play-phone')
+    expect(android).toMatchObject({
+      target: 'google-play-phone',
+      globals: { deviceModel: 'android-phone', deviceColor: 'black' },
+    })
+    useProjectStore.getState().createProject('Temporary')
+    await expect(openStoredProject(android.id)).resolves.toMatchObject({
+      id: android.id,
+      target: 'google-play-phone',
+    })
+    expect(await listProjects()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: android.id, target: 'google-play-phone' }),
+        expect.objectContaining({ target: 'app-store-iphone' }),
+      ]),
+    )
   })
 
   it('rolls back the project and keeps assets dirty after an asset write failure', async () => {
@@ -480,7 +504,13 @@ describe('storage', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(await listProjects()).toEqual([
-      { id: 'project', name: 'Valid', createdAt: 1, updatedAt: 1 },
+      {
+        id: 'project',
+        name: 'Valid',
+        target: 'app-store-iphone',
+        createdAt: 1,
+        updatedAt: 1,
+      },
     ])
     const stored = await database()
     expect(await stored.get('projects', 'invalid')).toEqual(invalid)

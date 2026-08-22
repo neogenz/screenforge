@@ -4,8 +4,9 @@ Five recipes. Each is a call order, not a template to copy verbatim.
 
 ## Compositions that hold
 
-These six are the layouts ScreenForge's own generator lays down, in board units
-on the 440 by 956 artboard. They are asserted in the repo, so a set built from
+These six are the layouts ScreenForge's own generator lays down, shown here in
+App Store board units. For another target, multiply horizontal values by
+`canvas.width / 440` and vertical values by `canvas.height / 956`. They are asserted in the repo, so a set built from
 them cannot leave a bare band, decapitate a device, or repeat itself.
 
 | Archetype          | Headline                                             | Device                              | Reads as                                   |
@@ -33,7 +34,7 @@ The user describes the app and has no captures ready.
 2. Decide the count with the user, then fix one palette for the whole set.
 3. Per screen, one `apply` carrying `add_screen`, `set_background`, `add_text`,
    the accent shapes, then `add_device`.
-4. Leave the iPhone frames empty and say so. Batch refresh fills them in the app
+4. Leave the compatible phone frames empty and say so. Batch refresh fills them in the app
    when the captures exist, and an empty frame is honest where an invented
    screenshot is not.
 5. `get_thumbnail` per screen, correct, then save what worked.

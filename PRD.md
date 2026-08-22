@@ -1,23 +1,23 @@
 # PRD — ScreenForge
 
-> Local-first web app for designing and exporting iPhone App Store screenshots.
+> Local-first web app for designing and exporting App Store iPhone and Google Play phone screenshots.
 > Local is free; the operated Cloud sync and storage service is paid.
 
 ---
 
 ## Problem
 
-Creating App Store screenshots requires either:
+Creating store screenshots requires either:
 
 - **Paid SaaS** (AppScreens.com ~$15/mo, Previewed, Screenshots.pro) for basic drag & drop
-- **Figma/Sketch** — manual, no batch export at exact Apple dimensions
+- **Figma/Sketch** — manual, no batch export at exact store dimensions
 - **Xcode screenshot automation** — developer-only, no design flexibility
 
 None respect indie devs' time or budget.
 
 ## Solution
 
-A **local-first web app** (Vite + React + Fabric.js) running in the browser. ScreenForge exports one App Store-ready iPhone profile: portrait PNG at 1320 × 2868.
+A **local-first web app** (Vite + React + Fabric.js) running in the browser. Each project chooses one immutable production target: App Store iPhone portrait at 1320×2868 or Google Play phone portrait at 1080×1920.
 
 ## Product model
 
@@ -29,7 +29,7 @@ A **local-first web app** (Vite + React + Fabric.js) running in the browser. Scr
 
 ## Scope
 
-**iPhone only.** No iPad, Apple Watch, Mac, or Apple TV.
+**Phone portrait only.** This release supports App Store iPhone and Google Play phone. It excludes iPad/tablets, Apple Watch/Wear OS, Mac, Apple TV, Android XR, landscape Android, feature graphics and direct Google Play publication.
 
 ---
 
@@ -46,6 +46,22 @@ Apple now requires **ONE screenshot set only**. Upload the **largest size** (6.9
 | **iPhone 6.9"** | **Portrait** | **1320 × 2868 px** | **10 screenshots** |
 
 ScreenForge deliberately omits smaller and legacy output choices. App Store Connect accepts the highest-resolution 6.9" set and scales it for smaller iPhone display classes.
+
+## Google Play Screenshot Specifications (phone)
+
+### Production profile
+
+| Device type | Orientation  | Dimensions         | Project limit     |
+| ----------- | ------------ | ------------------ | ----------------- |
+| **Phone**   | **Portrait** | **1080 × 1920 px** | **8 screenshots** |
+
+Google Play accepts 2–8 phone screenshots for a published listing. ScreenForge uses the 1080×1920, 9:16 promotional recommendation as its single deterministic Android profile. The editor warns below 2 and recommends 4, while still allowing a deliberate partial export. See Google's official [preview asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en), [content best practices](https://support.google.com/googleplay/android-developer/answer/13393723?hl=en), and [store listing policy](https://support.google.com/googleplay/android-developer/answer/9898842?hl=en).
+
+The code contract remains authoritative: `packages/project-format/src/dimensions.ts` owns target IDs, board geometry, output dimensions, limits and ZIP folders.
+
+### Shared file contract
+
+Both profiles export 8-bit sRGB PNG-24 without alpha and apply ScreenForge's stricter internal target of less than 5 MB per file. Apple writes under `6.9/`; Google Play writes under `phone/`.
 
 ### File Requirements
 
@@ -91,13 +107,13 @@ ScreenForge deliberately omits smaller and legacy output choices. App Store Conn
 
 Layer-based design surface:
 
-| Layer Type       | Capabilities                                                                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Text**         | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill                                                 |
-| **Device Frame** | iPhone mockup with screenshot inside. Generated frames rotate freely; imported Apple bezels keep their official orientation and scale uniformly |
-| **Image**        | Import PNG/JPEG/SVG, crop, resize, opacity, shadow                                                                                              |
-| **Shape**        | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow                                                                                |
-| **Background**   | Solid color, linear/radial gradient, image fill                                                                                                 |
+| Layer Type       | Capabilities                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Text**         | Font family, size, weight, color, alignment, line height, letter spacing, shadow, gradient fill                                                   |
+| **Device Frame** | Target-compatible phone mockup with screenshot inside. Generated frames rotate freely; imported bezels keep their orientation and scale uniformly |
+| **Image**        | Import PNG/JPEG/SVG, crop, resize, opacity, shadow                                                                                                |
+| **Shape**        | Rectangle, circle, rounded rect — fill, stroke, gradient, shadow                                                                                  |
+| **Background**   | Solid color, linear/radial gradient, image fill                                                                                                   |
 
 **Interactions:**
 
@@ -133,21 +149,23 @@ Layer-based design surface:
 - **Preset gradients** — curated collection (20+) for quick start
 - **Image background** — import + opacity/blur/fit
 
-### 4. Device Frames (iPhone only)
+### 4. Device Frames
 
 Built-in mockups:
 
-| Device            | Status |
-| ----------------- | ------ |
-| iPhone 16 Pro Max | MVP    |
-| iPhone 16 Pro     | MVP    |
-| iPhone 16         | MVP    |
-| iPhone 15 Pro     | v2     |
-| iPhone 15         | v2     |
+| Device                | Status |
+| --------------------- | ------ |
+| iPhone 16 Pro Max     | MVP    |
+| iPhone 16 Pro         | MVP    |
+| iPhone 16             | MVP    |
+| iPhone 15 Pro         | v2     |
+| iPhone 15             | v2     |
+| Generic Android phone | MVP    |
 
 Apple Product Bezels are optional user-provided PNG overlays. The user downloads
 and extracts them from Apple's DMG; ScreenForge stores them only in the current
 project's local IndexedDB assets. No Apple PNG, PSD or DMG is bundled or served.
+The Android frame is generic and vector-based: ScreenForge does not bundle a branded OEM device asset. Users may still import their own PNG bezel locally.
 
 **Controls:**
 
@@ -174,7 +192,7 @@ Fully editable after applying.
 
 ### 6. Project Management
 
-- **Project** = one app. Contains up to 10 screens (App Store max).
+- **Project** = one app and one immutable store target. Contains up to 10 Apple screens or 8 Google Play phone screens.
 - **Screens** = ordered list, thumbnails at bottom
 - **Duplicate screen** — copy as starting point
 - **Globals** — shared settings across all screens:
@@ -185,27 +203,30 @@ Fully editable after applying.
 
 ### 7. Export
 
-**Single export:**
+**Single profile per project:**
 
-- Current screen as an opaque portrait PNG at 1320 × 2868
+- App Store projects render opaque portrait PNGs at 1320×2868.
+- Google Play projects render opaque portrait PNGs at 1080×1920.
 
 **Batch export (the killer feature):**
 
 - Select screens (checkboxes, default: all)
-- Fixed target: **iPhone 6.9" portrait (1320 × 2868)**
+- Fixed target inherited from project setup; it cannot change at export time.
 - Format: PNG (default)
 - Output: ZIP with organized folders
 
 **Output structure:**
 
 ```
-iphone-6.9-portrait/
+6.9/
   01_hero.png
   02_feature_budget.png
   03_feature_year.png
   04_feature_templates.png
   05_feature_expense.png
 ```
+
+Google Play uses the same deterministic numbering under `phone/` and downloads as `{project}-google-play.zip`; Apple downloads as `{project}-app-store.zip`.
 
 **Quality guarantees:**
 
@@ -271,11 +292,11 @@ src/
     use-export.ts        # Export + batch logic
     use-fonts.ts         # Google Fonts loader
   assets/
-    device-frames/       # Generated iPhone SVG fallbacks (per model + color)
+    device-frames/       # Generated iPhone SVG fallbacks + generic Android frame
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
-    dimensions.ts        # Single iPhone 6.9" App Store target
+    dimensions.ts        # Store targets, board geometry, output, limits and ZIP folders
     storage.ts           # IndexedDB read/write
     export.ts            # Canvas-to-PNG at target dimensions
     zip.ts               # ZIP generation
@@ -316,9 +337,9 @@ src/
 - Canvas editor with text, device frame, image, shape, background layers
 - Full text styling (Google Fonts, size, weight, color, shadow, gradient)
 - Background designer (solid + gradients + presets)
-- Generated iPhone frames with color variants + local import of Apple Product Bezel PNGs
+- Generated iPhone frames, a generic Android phone frame, and local bezel import
 - 5 pre-built templates
-- Batch export at 1320 × 2868 (opaque PNG, ZIP)
+- Target-aware batch export at 1320×2868 or 1080×1920 (opaque PNG, ZIP)
 - Project autosave/load (IndexedDB) + portable `.screenforge.zip` backup/import
 - Globals (shared font, background, device across screens)
 - Undo/redo + keyboard shortcuts
@@ -331,14 +352,16 @@ src/
 - Real-time multi-user collaboration
 - JPEG export
 - App Preview video poster frames
+- Android tablets, Wear OS, XR, landscape and feature graphics
+- Direct publication to Google Play
 
 ---
 
 ## Success Criteria
 
 1. Reproduce the 5 Pulpe App Store screenshots in < 30 minutes
-2. Exported PNGs pass App Store Connect upload without rejection
-3. Dimensions are pixel-exact (1320 x 2868 for 6.9", etc.)
+2. Exported PNGs satisfy the selected store's file contract
+3. Dimensions are pixel-exact: 1320×2868 for `app-store-iphone`, 1080×1920 for `google-play-phone`
 4. Text rendering matches AppScreens.com quality
 5. Local works with zero Convex calls and retains every editor/export capability
 6. Projects persist across browser sessions and reopen from a portable local backup

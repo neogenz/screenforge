@@ -4,9 +4,9 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project
 
-**ScreenForge** — Local-first web app for designing and exporting iPhone App Store screenshots. Local is free and complete without a backend; the optional managed Cloud account, sync and storage service is paid.
+**ScreenForge** — Local-first web app for designing and exporting App Store iPhone and Google Play phone screenshots. Local is free and complete without a backend; the optional managed Cloud account, sync and storage service is paid.
 
-See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact (1320x2868 for 6.9", etc.) and pass App Store Connect validation.
+See `PRD.md` for full spec. Key constraint: exported PNGs must be pixel-exact for the project's immutable target: `app-store-iphone` is 1320×2868 and `google-play-phone` is 1080×1920.
 
 ## Tech Stack
 
@@ -65,7 +65,7 @@ pnpm run deploy:prod
 pnpm run test:release-tag
 pnpm run verify:release-tag v0.1.0
 
-# Validate an exported ZIP against App Store rules
+# Validate an exported ZIP against its App Store or Google Play profile
 pnpm run validate:export -- <file.zip>
 ```
 
@@ -73,7 +73,7 @@ pnpm run validate:export -- <file.zip>
 
 - E2E specs live in `apps/web/e2e/`, driven through the real UI (French aria labels) plus two dev-only debug handles: `window.__sfCanvas` (Fabric instance, exposed by `use-canvas`) and `window.__sfStores` (Zustand stores, exposed by `main.tsx`), both only when `import.meta.env.DEV`.
 - Transform specs assert the canvas → store → sync round-trip does not move objects after mouse release — the historical "drifting handles" bug class. Panel inputs are located by aria-label ("Position X", "Largeur", "Rotation"…), never positionally.
-- `e2e/export.spec.ts` verifies the exported ZIP is pixel-exact (1320×2868, PNG-24 opaque) — the critical path.
+- `e2e/export.spec.ts` verifies both pixel-exact ZIP contracts (Apple 1320×2868, Google Play 1080×1920, PNG-24 opaque) — the critical path.
 - `e2e/command-palette.spec.ts` covers the ⌘K palette and history coalescing (nudge burst = one undo step).
 - `scripts/visual-probe.mjs` screenshots the app for design review; `scripts/export-probe.mjs` drives a real export end-to-end and validates the ZIP (requires the dev server on :5199).
 
@@ -138,7 +138,7 @@ apps/web/src/
                          # Image, Shape, Background) + shared ShadowEditor
     screens-bar/         # Floating screens strip, memoized ScreenThumbnail
     background-editor/   # Solid + gradient + preset backgrounds
-    device-picker/       # iPhone frame selection + config
+    device-picker/       # Target-compatible phone frame selection + config
     text-editor/         # Typography controls + FontPicker
     template-picker/     # Template gallery dialog
     globals-editor/      # Project defaults dialog
@@ -158,11 +158,11 @@ apps/web/src/
     use-fonts.ts         # Google Fonts loader (content fonts, on-demand)
     use-layer-actions.ts # Shared layer actions (imperative getState, stable refs)
   assets/
-    device-frames/       # iPhone SVG mockups (per model + color)
+    device-frames/       # iPhone SVG mockups + generic Android phone frame
     templates/           # Template definitions (JSON + thumbnail)
     gradients.ts         # Preset gradient definitions
   lib/
-    dimensions.ts        # Apple dimension constants — MUST match PRD table exactly
+    dimensions.ts        # Store target geometry, output dimensions, limits and folders
     assets.ts            # Binary asset registry (data URLs OUT of the layer graph)
     storage.ts           # IndexedDB v2 (projects + assets tables), migration, autosave
     export.ts            # Canvas-to-PNG at target dimensions
@@ -262,16 +262,17 @@ apps/web/src/
 ### Export (Critical Path)
 
 - Render at exact target resolution via `canvas.toBlob({ multiplier })` (preferred) or `toDataURL({ multiplier })` — zero upscaling.
-- sRGB color space, PNG-24 (8-bit RGBA).
+- sRGB color space, PNG-24 (8-bit RGB, opaque).
 - Target < 5 MB per file.
 - Dimensions MUST be pixel-exact — validate against `lib/dimensions.ts` constants.
-- Batch export outputs a ZIP with `{dimension}/{index}_{name}.png` structure.
+- Batch export outputs `{folder}/{index}_{name}.png`: `6.9/` for Apple or `phone/` for Google Play.
 
-## Apple Dimension Constants
+## Store Target Constants
 
-Primary target: **6.9" = 1320x2868** (portrait). Apple auto-scales to smaller sizes.
+- `app-store-iphone`: **6.9" = 1320×2868**, portrait, at most 10 screens. Apple auto-scales to smaller iPhone sizes.
+- `google-play-phone`: **phone = 1080×1920**, portrait, at most 8 screens.
 
-All accepted dimensions are in `PRD.md` under "Accepted Dimensions". The `lib/dimensions.ts` file must be the single source of truth — never hardcode dimensions elsewhere.
+Android v1 excludes tablets, Wear OS, XR, landscape, feature graphics and direct Google Play publication. `packages/project-format/src/dimensions.ts` is the single source of truth — never hardcode profile geometry or limits elsewhere.
 
 ## Conventions
 

@@ -12,6 +12,7 @@ import {
   findObject,
   lassoOverScreen,
   layerRows,
+  openAndroidProject,
   screenCenter,
   transformInput,
   waitForApp,
@@ -107,6 +108,20 @@ test.describe('canvas transforms', () => {
     expectClose(after!.angle, 30, 0.5)
     expectClose(after!.left, before!.left, 0.5)
     expectClose(after!.top, before!.top, 0.5)
+  })
+
+  test('keeps Android coordinates stable through canvas, store and sync', async ({ page }) => {
+    await openAndroidProject(page)
+    await addShapeLayer(page)
+    const before = await activeObjectState(page)
+    await dragActiveBody(page, 40, 24)
+    const immediate = await activeObjectState(page)
+    await waitForCanvasSettled(page)
+    const settled = await activeObjectState(page)
+    expect(immediate!.left).toBeGreaterThan(before!.left)
+    expect(immediate!.top).toBeGreaterThan(before!.top)
+    expectClose(settled!.left, immediate!.left, 0.5)
+    expectClose(settled!.top, immediate!.top, 0.5)
   })
 
   test('scrubbing position X stays aligned through the store sync', async ({ page }) => {

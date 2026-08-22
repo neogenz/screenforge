@@ -26,6 +26,20 @@ test.each(['en', 'fr'] as const)('la landing %s publie le contrat Cloud appliqu�
   expect(rendered).not.toMatch(/sans limite artificielle|tax(?:es)? (?:included|comprises)/i)
 })
 
+test.each(['en', 'fr'] as const)(
+  'la landing %s publie exactement les deux profils téléphone',
+  (lang) => {
+    const rendered = JSON.stringify(copy[lang])
+    for (const claim of ['App Store', 'Google Play', '1320×2868', '1080×1920', '6.9/', 'phone/']) {
+      expect(rendered).toContain(claim)
+    }
+    expect(rendered).toMatch(lang === 'en' ? /does not include tablets/ : /n’inclut ni tablettes/)
+    expect(rendered).not.toMatch(
+      /publishes? directly to Google Play|publication Google Play incluse/i,
+    )
+  },
+)
+
 /* La marche à suivre de la section IA cite la commande du démon MCP ; elle
    est recopiée dans la vitrine (importer le client y tirerait les stores), et
    c'est ici qu'on la tient en phase avec `MCP_COMMAND`. */

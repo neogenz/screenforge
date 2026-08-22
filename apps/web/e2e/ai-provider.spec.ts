@@ -20,10 +20,10 @@ import { waitForApp } from './helpers'
  * est interceptée — aucune requête ne sort d'ici.
  */
 
-const DIALOG = 'Générer les visuels App Store'
+const DIALOG = 'Générer les visuels · App Store · iPhone'
 
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: DIALOG }).click()
+  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
 

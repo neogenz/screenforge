@@ -188,7 +188,8 @@ function RefreshDialogContent({ project }: { project: Project }) {
             <div className="flex flex-col gap-4">
               {targets.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Aucun appareil dans ce projet : ajoutez un cadre iPhone avant d’actualiser un lot.
+                  Aucun appareil dans ce projet : ajoutez un cadre de téléphone avant d’actualiser
+                  un lot.
                 </p>
               ) : (
                 <ul className="flex flex-col gap-1.5">

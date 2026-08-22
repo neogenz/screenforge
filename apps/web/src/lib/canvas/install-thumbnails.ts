@@ -1,6 +1,6 @@
 import type { Canvas } from 'fabric'
-import { type RenderedObject } from '@/lib/canvas/canvas-utils'
-import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '@/lib/stage'
+import { type BoardSize, type RenderedObject } from '@/lib/canvas/canvas-utils'
+import { THUMBNAIL_HEIGHT, thumbnailWidth } from '@/lib/stage'
 import type { Screen } from '@/types'
 
 interface ThumbnailInstallerOptions {
@@ -9,7 +9,7 @@ interface ThumbnailInstallerOptions {
 }
 
 export interface ThumbnailScheduler {
-  schedule: (screens: Screen[]) => void
+  schedule: (screens: Screen[], board: BoardSize) => void
   cleanup: () => void
 }
 
@@ -21,7 +21,7 @@ export function installThumbnails({
   let cancelIdle: (() => void) | null = null
   let generation = 0
 
-  function capture(screens: Screen[], expectedGeneration: number): void {
+  function capture(screens: Screen[], board: BoardSize, expectedGeneration: number): void {
     cancelIdle = null
     const canvas = currentCanvas()
     if (!canvas || expectedGeneration !== generation) return
@@ -76,7 +76,7 @@ export function installThumbnails({
       // physiques : l'aperçu était agrandi, donc mou. Le rapport de la tuile
       // n'est pas exactement celui de la planche (arrondi au pixel entier), et
       // c'est ce rapport-là qui prime — sinon `object-cover` en rogne l'écart.
-      const thumbnailWidth = THUMBNAIL_WIDTH * 2
+      const renderedThumbnailWidth = thumbnailWidth(board) * 2
       const thumbnailHeight = THUMBNAIL_HEIGHT * 2
 
       for (const screen of screens) {
@@ -87,7 +87,7 @@ export function installThumbnails({
         if (!background) continue
         const { tl, br } = background.aCoords
         const crop = document.createElement('canvas')
-        crop.width = thumbnailWidth
+        crop.width = renderedThumbnailWidth
         crop.height = thumbnailHeight
         const context = crop.getContext('2d')
         if (!context) continue
@@ -99,7 +99,7 @@ export function installThumbnails({
           (br.y - tl.y) * fitZoom * retinaScale,
           0,
           0,
-          thumbnailWidth,
+          renderedThumbnailWidth,
           thumbnailHeight,
         )
         thumbnails[screen.id] = crop.toDataURL('image/png')
@@ -115,19 +115,19 @@ export function installThumbnails({
     if (expectedGeneration === generation) onGenerated(thumbnails)
   }
 
-  function schedule(screens: Screen[]): void {
+  function schedule(screens: Screen[], board: BoardSize): void {
     if (timer) clearTimeout(timer)
     cancelIdle?.()
     const expectedGeneration = ++generation
     timer = setTimeout(() => {
       timer = null
       if (typeof requestIdleCallback === 'function') {
-        const idleId = requestIdleCallback(() => capture(screens, expectedGeneration), {
+        const idleId = requestIdleCallback(() => capture(screens, board, expectedGeneration), {
           timeout: 1200,
         })
         cancelIdle = () => cancelIdleCallback(idleId)
       } else {
-        const idleId = setTimeout(() => capture(screens, expectedGeneration), 0)
+        const idleId = setTimeout(() => capture(screens, board, expectedGeneration), 0)
         cancelIdle = () => clearTimeout(idleId)
       }
     }, 300)

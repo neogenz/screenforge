@@ -176,7 +176,7 @@ class StdioClient {
  * @typedef {{ tool: string; args: Record<string, unknown> }} ProbeCall
  * @typedef {{ screenId?: string; maxWidth?: number }} RelayRender
  * @typedef {{ name: string; description?: string; screenId?: string }} RelayTemplateSave
- * @typedef {{ id: string; name: string; description: string; source: 'ai'; layerCount: number; createdAt: number }} RelayTemplateSummary
+ * @typedef {{ id: string; name: string; description: string; source: 'ai'; target: 'app-store-iphone' | 'google-play-phone'; layerCount: number; createdAt: number }} RelayTemplateSummary
  * @typedef {{ id: string; calls?: ProbeCall[]; render?: RelayRender; saveTemplate?: RelayTemplateSave; listTemplates?: true }} RelayRequest
  * @typedef {{ id: string; mediaType: string; bytes: number }} ProbeClaim
  * @typedef {(request: RelayRequest) => unknown} Answer
@@ -261,7 +261,14 @@ class FakeEditor {
     })
     assert.equal(stream.status, 200, 'le flux SSE ne s’est pas ouvert')
     void this.#read(stream.body, answer)
-    await this.push({ name: 'Sonde', screens: [{ id: 'ecran-1', name: 'Accueil', layers: [] }] })
+    await this.push({
+      name: 'Sonde',
+      target: 'google-play-phone',
+      platform: 'android',
+      canvas: { width: 540, height: 960 },
+      globals: { deviceModel: 'android-phone' },
+      screens: [{ id: 'ecran-1', name: 'Accueil', layers: [] }],
+    })
   }
 
   /**
@@ -293,6 +300,7 @@ class FakeEditor {
                 name: request.saveTemplate.name,
                 description: request.saveTemplate.description ?? '',
                 source: 'ai',
+                target: 'google-play-phone',
                 layerCount: 0,
                 createdAt: this.#templates.length,
               }
@@ -465,7 +473,18 @@ async function main() {
       name: 'screenforge_get_project_state',
       arguments: {},
     })
-    assert.equal(JSON.parse(textOf(state)).name, 'Sonde', 'l’état poussé n’est pas relu')
+    assert.deepEqual(
+      JSON.parse(textOf(state)),
+      {
+        name: 'Sonde',
+        target: 'google-play-phone',
+        platform: 'android',
+        canvas: { width: 540, height: 960 },
+        globals: { deviceModel: 'android-phone' },
+        screens: [{ id: 'ecran-1', name: 'Accueil', layers: [] }],
+      },
+      'l’état poussé n’expose pas la cible Android',
+    )
 
     // 4. Un lot part en une seule livraison, et non appel par appel.
     const batch = await client.send('tools/call', {
@@ -509,7 +528,7 @@ async function main() {
     /** @type {ProbeCall | undefined} */
     const device = editor.applied.at(-1)
     assert.ok(device, 'aucun appel n’est parti vers la page')
-    assert.equal(device.tool, 'add_device', 'une capture doit poser un cadre iPhone')
+    assert.equal(device.tool, 'add_device', 'une capture doit poser un cadre de téléphone')
     assert.deepEqual(
       [device.args.screenshotWidth, device.args.screenshotHeight],
       [1290, 2796],

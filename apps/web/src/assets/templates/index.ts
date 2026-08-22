@@ -1,9 +1,9 @@
 import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceFrameLayer, ShapeLayer, TemplateDefinition, TextLayer } from '@/types'
 
-const W = 440
-const H = 956
+const { width: W, height: H } = APP_STORE_PROFILE.board
 
 function textLayer(
   id: string,
@@ -94,9 +94,10 @@ const overlay: ShapeLayer = {
   },
 }
 
-export const TEMPLATES: TemplateDefinition[] = [
+const IPHONE_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'hero',
+    target: 'app-store-iphone',
     name: 'Plein cadre',
     description: 'Grand titre et appareil incliné, utile comme ouverture panoramique.',
     background: { type: 'solid', color: '#f2f3f5' },
@@ -139,6 +140,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'feature',
+    target: 'app-store-iphone',
     name: 'Fonctionnalité',
     description: 'Hiérarchie verticale pour expliquer une fonctionnalité.',
     background: { type: 'solid', color: '#f7f8f3' },
@@ -181,6 +183,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'side-by-side',
+    target: 'app-store-iphone',
     name: 'Côte à côte',
     description: 'Deux états d’interface comparés sur une même capture.',
     background: {
@@ -225,6 +228,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'full-bleed',
+    target: 'app-store-iphone',
     name: 'Image pleine',
     description: 'Appareil plein cadre avec zone de texte contrastée.',
     background: { type: 'solid', color: '#e4e6ec' },
@@ -268,6 +272,7 @@ export const TEMPLATES: TemplateDefinition[] = [
   },
   {
     id: 'minimal',
+    target: 'app-store-iphone',
     name: 'Minimal',
     description: 'Composition éditoriale simple, texte à gauche et appareil à droite.',
     background: { type: 'solid', color: '#ffffff' },
@@ -317,4 +322,38 @@ export const TEMPLATES: TemplateDefinition[] = [
       }),
     ],
   },
+]
+
+const { width: ANDROID_W, height: ANDROID_H } = GOOGLE_PLAY_PROFILE.board
+
+function androidVariant(template: TemplateDefinition): TemplateDefinition {
+  const scaleX = ANDROID_W / W
+  const scaleY = ANDROID_H / H
+  return {
+    ...structuredClone(template),
+    id: `android-${template.id}`,
+    target: 'google-play-phone',
+    layers: template.layers.map((source) => {
+      const layer = structuredClone(source)
+      const center = (layer.x + layer.width / 2) / W
+      layer.y = Math.round(layer.y * scaleY)
+      layer.height = Math.round(layer.height * scaleY)
+      if (layer.type === 'device-frame') {
+        layer.deviceModel = 'android-phone'
+        layer.deviceColor = 'black'
+        layer.name = 'Téléphone Android'
+        layer.width = Math.round(layer.height * (180 / 384))
+        layer.x = Math.round(center * ANDROID_W - layer.width / 2)
+      } else {
+        layer.x = Math.round(layer.x * scaleX)
+        layer.width = Math.round(layer.width * scaleX)
+      }
+      return layer
+    }),
+  }
+}
+
+export const TEMPLATES: TemplateDefinition[] = [
+  ...IPHONE_TEMPLATES,
+  ...IPHONE_TEMPLATES.map(androidVariant),
 ]

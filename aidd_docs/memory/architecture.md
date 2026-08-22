@@ -32,7 +32,8 @@ flowchart LR
 - `project.store` alone owns the project graph, active screen and layers. `canvas.store` owns selection plus interaction/history commands and always reads domain data from the project at call time.
 - `src/hooks/use-canvas.ts` owns the Fabric instance and granular project synchronization. Flat installers under `src/lib/canvas/install-*` own interactions, viewport and cancellable thumbnail work; Fabric objects are never a second domain store.
 - Binary payloads live in `src/lib/assets.ts`, not layers, keeping history snapshots and sync diffs small.
-- Apple output dimensions come only from `src/lib/dimensions.ts`; export correctness takes priority over configurable formats.
+- Every project carries an immutable target. `packages/project-format/src/dimensions.ts` alone maps `app-store-iphone` to a 440×956 board and 1320×2868 output, or `google-play-phone` to a 540×960 board and 1080×1920 output; canvas, templates, releases, MCP and export all resolve that same profile.
+- Export correctness takes priority over configurable formats: Apple writes at most 10 files under `6.9/`, Google Play at most 8 under `phone/`, always opaque PNG-24 below the internal 5 MB target.
 - Canvas objects disable caching and use render-time clipping rather than Fabric `clipPath` to avoid double-antialiased export edges.
 
 ## Gotchas

@@ -40,6 +40,7 @@ import { downloadBlob } from '@/lib/zip'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { DialogShell } from '@/components/patterns/dialog-shell'
 import { StepDialog } from '@/components/patterns/step-dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -82,7 +83,29 @@ export function PublishDialog() {
   const project = useProjectStore((state) => state.project)
 
   if (!showPublishDialog || !project) return null
+  if (project.target !== 'app-store-iphone') return <PublishTargetRefusal />
   return <PublishDialogContent project={project} />
+}
+
+function PublishTargetRefusal() {
+  const close = () => useUIStore.getState().setShowPublishDialog(false)
+  return (
+    <DialogShell
+      open
+      onClose={close}
+      title="Publier chez Apple"
+      footer={
+        <Button variant="outline" onClick={close}>
+          Fermer
+        </Button>
+      }
+    >
+      <p role="alert" className="text-sm text-destructive">
+        Cette publication est réservée aux projets App Store. Exportez ce projet Google Play en ZIP
+        depuis l’éditeur.
+      </p>
+    </DialogShell>
+  )
 }
 
 interface PreparedBundle {
@@ -169,7 +192,7 @@ function PublishDialogContent({ project }: { project: Project }) {
     const collected: { name: string; blob: Blob; sha256: string }[] = []
     const expected = new Map(release.files.map((file) => [bundleFileName(file), file.sha256]))
     try {
-      await renderReleaseFiles(release.snapshot, setProgress, undefined, (file, blob) => {
+      await renderReleaseFiles(release.snapshot, setProgress, (file, blob) => {
         collected.push({ name: bundleFileName(file), blob, sha256: file.sha256 })
       })
       const drift = collected

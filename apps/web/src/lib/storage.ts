@@ -14,7 +14,7 @@ import { useCanvasStore } from '@/stores/canvas.store'
 import { useHistoryStore } from '@/stores/history.store'
 import { toast } from '@/stores/toast.store'
 import { useUIStore } from '@/stores/ui.store'
-import type { Layer, Project } from '@/types'
+import type { Layer, Project, StoreTargetId } from '@/types'
 
 interface AssetRecord {
   id: string
@@ -300,7 +300,7 @@ export async function loadLatestProject(): Promise<Project | undefined> {
 }
 
 export async function listProjects(): Promise<
-  Pick<Project, 'id' | 'name' | 'createdAt' | 'updatedAt'>[]
+  Pick<Project, 'id' | 'name' | 'target' | 'createdAt' | 'updatedAt'>[]
 > {
   const db = await getDB()
   const all: unknown[] = await db.getAll('projects')
@@ -318,8 +318,13 @@ export async function listProjects(): Promise<
       console.error('Ignored invalid local project metadata.', new InvalidProjectRecordError())
       return []
     }
-    const { id, name, createdAt, updatedAt } = record
-    return [{ id, name, createdAt, updatedAt }]
+    const normalized = migrateProject(record)
+    if (!isRecord(normalized) || !isProject(normalized)) {
+      console.error('Ignored invalid local project metadata.', new InvalidProjectRecordError())
+      return []
+    }
+    const { id, name, target, createdAt, updatedAt } = normalized
+    return [{ id, name, target, createdAt, updatedAt }]
   })
 }
 
@@ -571,6 +576,18 @@ export async function saveCurrentProject(): Promise<void> {
   if (!project) return
   pendingProject = project
   await flushPendingSave()
+}
+
+/** Saves the open document, creates and durably activates a complete new one. */
+export async function createStoredProject(name: string, target: StoreTargetId): Promise<Project> {
+  await saveCurrentProject()
+  useProjectStore.getState().createProject(name, target)
+  useCanvasStore.getState().clearSelection()
+  useHistoryStore.getState().clear()
+  await saveCurrentProject()
+  const project = useProjectStore.getState().project
+  if (!project) throw new Error('Project creation failed.')
+  return project
 }
 
 /** Termine l'autosave avant un geste contrôlé qui quitte le document. */

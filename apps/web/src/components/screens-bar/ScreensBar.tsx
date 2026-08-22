@@ -8,17 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Hint } from '@/components/patterns/hint'
 import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { ScreenThumbnail, type PickMode } from './ScreenThumbnail'
-import { MAX_PROJECT_SCREENS } from '@/lib/dimensions'
+import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { clampNumber } from '@/lib/number'
 import {
   FILMSTRIP_GAP,
-  FILMSTRIP_MAX_WIDTH,
   FILMSTRIP_PADDING,
   THUMBNAIL_HEIGHT,
   THUMBNAIL_LABEL_ROW,
   THUMBNAIL_LIFT,
-  THUMBNAIL_SLOT,
-  THUMBNAIL_WIDTH,
+  filmstripMetrics,
   filmstripHeight,
 } from '@/lib/stage'
 import { cn } from '@/lib/utils'
@@ -32,23 +30,34 @@ import type { Background } from '@/types'
  * qui le porte. Le décalage libère toujours l'emplacement sous le curseur, donc
  * `dragover` ne peut pas rebondir entre deux tuiles.
  */
-function slotShift(index: number, drag: { from: number; over: number } | null): number {
+function slotShift(
+  index: number,
+  drag: { from: number; over: number } | null,
+  slot: number,
+): number {
   if (!drag || drag.from === drag.over || index === drag.from) return 0
-  if (drag.from < drag.over && index > drag.from && index <= drag.over) return -THUMBNAIL_SLOT
-  if (drag.from > drag.over && index < drag.from && index >= drag.over) return THUMBNAIL_SLOT
+  if (drag.from < drag.over && index > drag.from && index <= drag.over) return -slot
+  if (drag.from > drag.over && index < drag.from && index >= drag.over) return slot
   return 0
 }
 
 /** Floating bottom-center screens strip. */
 export function ScreensBar() {
-  const { screens, activeScreenId } = useProjectStore(
+  const { screens, activeScreenId, maxScreens, board } = useProjectStore(
     useShallow((state) => ({
       screens: state.project?.screens,
       activeScreenId: state.project?.activeScreenId ?? '',
+      maxScreens: state.project
+        ? getStoreTargetProfile(state.project.target).maxScreens
+        : APP_STORE_PROFILE.maxScreens,
+      board: state.project
+        ? getStoreTargetProfile(state.project.target).board
+        : APP_STORE_PROFILE.board,
     })),
   )
   const list = screens ?? []
-  const atCapacity = list.length >= MAX_PROJECT_SCREENS
+  const metrics = filmstripMetrics(board)
+  const atCapacity = list.length >= maxScreens
   const dragSourceIndex = useRef<number | null>(null)
   const dragOverIndex = useRef<number | null>(null)
   const [copiedSettings, setCopiedSettings] = useState<Background | null>(null)
@@ -135,7 +144,8 @@ export function ScreensBar() {
 
   const handleAdd = useCallback(() => {
     const project = useProjectStore.getState().project
-    if (!project || project.screens.length >= MAX_PROJECT_SCREENS) return
+    if (!project || project.screens.length >= getStoreTargetProfile(project.target).maxScreens)
+      return
     useCanvasStore.getState().recordProjectHistory()
     if (useProjectStore.getState().addScreen()) {
       setPicked([])
@@ -151,7 +161,8 @@ export function ScreensBar() {
     (id: string) => {
       const project = useProjectStore.getState().project
       if (!project) return
-      const room = MAX_PROJECT_SCREENS - project.screens.length
+      const maximum = getStoreTargetProfile(project.target).maxScreens
+      const room = maximum - project.screens.length
       if (room <= 0) return
       const ids = targetIds(id)
       useCanvasStore.getState().recordProjectHistory()
@@ -162,7 +173,7 @@ export function ScreensBar() {
       // Ce qui n'a pas tenu est dit : un plafond silencieux se lit comme « tout
       // a été fait », et c'est faux d'exactement ce qui manque.
       if (copies.length < ids.length) {
-        toast(`${copies.length} copies sur ${ids.length} : maximum ${MAX_PROJECT_SCREENS} écrans.`)
+        toast(`${copies.length} copies sur ${ids.length} : maximum ${maximum} écrans.`)
       }
       setPicked(copies)
       useCanvasStore.getState().clearSelection()
@@ -289,20 +300,27 @@ export function ScreensBar() {
    * depuis les tuiles — c'est aussi lui qui accepte le lâcher, le curseur
    * survolant le vide au moment du relâchement et non une tuile.
    */
-  const handleStripDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    if (dragSourceIndex.current === null) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    const count = useProjectStore.getState().project?.screens.length ?? 0
-    if (count === 0) return
-    const strip = event.currentTarget
-    const x =
-      event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft - FILMSTRIP_PADDING
-    const index = clampNumber(Math.floor(x / THUMBNAIL_SLOT), 0, count - 1)
-    if (dragOverIndex.current === index) return
-    dragOverIndex.current = index
-    setDrag((current) => (current ? { ...current, over: index } : current))
-  }, [])
+  const handleStripDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (dragSourceIndex.current === null) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      const count = useProjectStore.getState().project?.screens.length ?? 0
+      if (count === 0) return
+      const strip = event.currentTarget
+      const x =
+        event.clientX - strip.getBoundingClientRect().left + strip.scrollLeft - FILMSTRIP_PADDING
+      const project = useProjectStore.getState().project
+      const slot = filmstripMetrics(
+        project ? getStoreTargetProfile(project.target).board : board,
+      ).thumbnailSlot
+      const index = clampNumber(Math.floor(x / slot), 0, count - 1)
+      if (dragOverIndex.current === index) return
+      dragOverIndex.current = index
+      setDrag((current) => (current ? { ...current, over: index } : current))
+    },
+    [board],
+  )
 
   const handleDragEnd = useCallback(() => {
     dragSourceIndex.current = null
@@ -363,7 +381,7 @@ export function ScreensBar() {
         paddingRight: FILMSTRIP_PADDING,
         paddingBottom: FILMSTRIP_PADDING,
         paddingLeft: FILMSTRIP_PADDING,
-        maxWidth: FILMSTRIP_MAX_WIDTH,
+        maxWidth: metrics.maxWidth,
         gap: FILMSTRIP_GAP,
       }}
       // Aucune surface ici, contrairement à la barre et aux tiroirs : la bande
@@ -389,7 +407,11 @@ export function ScreensBar() {
         <span
           aria-hidden
           style={{
-            left: FILMSTRIP_PADDING + drag.over * THUMBNAIL_SLOT + THUMBNAIL_WIDTH / 2 - 1.5,
+            left:
+              FILMSTRIP_PADDING +
+              drag.over * metrics.thumbnailSlot +
+              metrics.thumbnailWidth / 2 -
+              1.5,
             // La rangée du rang s'intercale entre le haut de la bande et
             // l'aperçu : la barre se pose sur les aperçus, pas sur la colonne.
             top: FILMSTRIP_PADDING + THUMBNAIL_LIFT + THUMBNAIL_LABEL_ROW,
@@ -415,13 +437,14 @@ export function ScreensBar() {
           // dessus — à 40% d'opacité, deux aperçus se superposaient en bouillie
           // dès qu'on remontait la bande. C'est le navigateur qui la montre,
           // sous le curseur, pendant tout le geste.
-          style={{ translate: `${slotShift(index, drag)}px` }}
+          style={{ translate: `${slotShift(index, drag, metrics.thumbnailSlot)}px` }}
           className={cn(
             'transition-[translate,opacity] duration-200 ease-out motion-reduce:transition-none',
             drag?.from === index && 'opacity-0',
           )}
         >
           <ScreenThumbnail
+            width={metrics.thumbnailWidth}
             screen={screen}
             isActive={screen.id === activeScreenId}
             isSelected={multiple ? picked.includes(screen.id) : screen.id === activeScreenId}
@@ -452,7 +475,7 @@ export function ScreensBar() {
         style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
         className="flex shrink-0 items-center"
       >
-        <Hint content={atCapacity ? `Maximum ${MAX_PROJECT_SCREENS} écrans` : 'Ajouter un écran'}>
+        <Hint content={atCapacity ? `Maximum ${maxScreens} écrans` : 'Ajouter un écran'}>
           <Button
             variant="outline"
             size="icon-sm"
@@ -467,12 +490,12 @@ export function ScreensBar() {
 
       {/* Le compteur n'apparaît qu'à l'approche de la limite : ailleurs il
           n'informe de rien que la rangée ne montre déjà. */}
-      {list.length >= MAX_PROJECT_SCREENS - 1 && (
+      {list.length >= maxScreens - 1 && (
         <span
           style={{ height: THUMBNAIL_HEIGHT, marginTop: THUMBNAIL_LABEL_ROW }}
           className="tabular-nums flex shrink-0 items-center px-1 text-xs text-muted-foreground"
         >
-          {list.length}/{MAX_PROJECT_SCREENS}
+          {list.length}/{maxScreens}
         </span>
       )}
       <ConfirmAction

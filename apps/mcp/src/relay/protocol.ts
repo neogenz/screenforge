@@ -140,7 +140,7 @@ export interface RelayRefreshFile {
 export interface RelayRefreshed {
   /** Nombre d'appareils dont la capture a changé, en une seule transaction. */
   posed: number
-  /** Un appareil par phrase, avec son écran : « Écran 2 · iPhone — rôle « budget ». */
+  /** Un appareil par phrase, avec son écran et son rôle. */
   unmatched: string[]
   /** Appareils sans rôle : jamais appariés automatiquement. */
   slotless: string[]
@@ -163,6 +163,7 @@ export interface RelayTemplateSummary {
   name: string
   description: string
   source: 'ai' | 'user'
+  target: 'app-store-iphone' | 'google-play-phone'
   layerCount: number
   createdAt: number
 }
@@ -170,7 +171,7 @@ export interface RelayTemplateSummary {
 export interface RelayRender {
   /** Par défaut, l'écran actif. */
   screenId?: string
-  /** Borné côté page : une planche fait 440 unités de large, pas 4000. */
+  /** Borné côté page par la taille de la planche active. */
   maxWidth?: number
 }
 

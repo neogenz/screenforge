@@ -453,11 +453,12 @@ export type ProjectAvailability = keyof typeof PROJECT_AVAILABILITY_LABELS
 export interface ProjectCatalogueEntry {
   id: string
   name: string
+  target: Project['target']
   updatedAt: number
   availability: ProjectAvailability
 }
 
-type ProjectMetadata = Pick<Project, 'id' | 'name' | 'updatedAt'>
+type ProjectMetadata = Pick<Project, 'id' | 'name' | 'target' | 'updatedAt'>
 
 export interface ConsentBarrier {
   userId: string | null
