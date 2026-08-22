@@ -1,5 +1,5 @@
 ---
-status: pending
+status: in-progress
 ---
 
 # Instruction: Poser Android comme contrat multi-store générique
@@ -50,7 +50,7 @@ title: Test scope
 ---
 journey
   section Setup
-    Mettre #22 sur le main coss contenant #23 et #26 => les 48 fichiers partagés observés sont reclassifiés sur le diff courant: 5: cli
+    Mettre #22 sur le main coss contenant #23 et #26 => les 21 conflits textuels recalculés sont résolus sur le diff courant: 5: cli
   section Happy path
     Créer un projet Google Play => cible 1080x1920 persistée et planche 9:16 affichée: 5: browser
     Exporter puis rouvrir le projet => PNG opaque exact ZIP phone et cible inchangée: 5: browser
@@ -99,7 +99,7 @@ journey
 
 | Task | Acceptance criteria |
 | --- | --- |
-| 1 | Les trois conflits attendus conservent simultanément analytics consentie, export multi-store et CSP minimale. |
+| 1 | Les 21 conflits recalculés conservent simultanément fondation coss, analytics consentie, export multi-store et CSP minimale. |
 | 2 | Projet, snapshot, release, canvas, MCP et export dérivent tous de la même cible persistée. |
 | 3 | Google Play 1080×1920 et App Store iPhone 1320×2868 passent le gate release sans émission PostHog non consentie. |
 | 4 | #22 est squash-mergée sur un `main` vert et son contrat devient la base exclusive de l’intégration Apple suivante. |

@@ -23,3 +23,15 @@ donnée utilisateur.
 - Pipeline post-merge : [Quality 32578357651](https://github.com/neogenz/screenforge/actions/runs/32578357651)
 - Verdict : publication, sécurité, actionlint, web, backend, Vercel et E2E release verts sur la PR puis sur `main`
 - Activation : analytics toujours fail-closed; la confirmation de rétention fournisseur reste un prérequis opérateur distinct du code intégré
+
+## Phase 3 — Refonte coss UI
+
+- PR intégrée : [#26](https://github.com/neogenz/screenforge/pull/26)
+- Tête réconciliée et revue : `432daee334ceeb3dda2d3cbd86cf144954e29552`
+- Pipeline de PR : [Quality 32580782646](https://github.com/neogenz/screenforge/actions/runs/32580782646)
+- Squash merge `main` : `3030f679068ce6bd83e398cf6feafe68aef2a0b1`
+- Pipeline post-merge : [Quality 32581563271](https://github.com/neogenz/screenforge/actions/runs/32581563271)
+- Correctifs : shell et bouton Exporter alignés à 102 px, scrub X testé sans course de pointer lock, clés de captures dédupliquées et licence MIT coss attribuée
+- Validation locale : `pnpm run test:release` vert, 743 tests unitaires, 218 E2E réussis et 1 skip attendu pour une ressource Apple externe
+- Audits : sécurité, publication, dépendances, UI coss, contraste, échelle, landing et matrice de probes visuelles verts
+- Verdict : GitHub, Vercel et push `main` verts; aucun commentaire humain pertinent ouvert

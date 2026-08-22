@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Intégrer la refonte coss UI comme nouvelle fondation frontend
