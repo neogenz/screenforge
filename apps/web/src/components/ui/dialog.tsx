@@ -68,7 +68,19 @@ export function Dialog({
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50 data-[state=closed]:animate-fade-out" />
+        {/* Pas d'animation de sortie ici, et ce n'est pas un oubli.
+            `Presence` ne peut jouer une sortie que si la racine Radix reste
+            montée le temps de la jouer, or chaque hôte rend `null` sur son
+            drapeau de store — délibérément, pour que les abonnements au
+            projet ne vivent que boîte ouverte. Poser
+            `data-[state=closed]:animate-exit-fast` ici donne une classe qui
+            ne se déclenche jamais : mesuré, aucun `animationstart` à la
+            fermeture. Ce qu'il faudrait n'est pas un `forceMount` mais que
+            `Dialog` soit rendu au-dessus de la garde, ce qui suppose de
+            remonter le pied de chaque boîte — il est construit à partir de
+            l'état du contenu. Les menus, eux, gardent leur racine et sortent
+            bien : voir `dropdown.tsx`. */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-modal) animate-fade-in bg-black/50" />
         <DialogPrimitive.Content
           ref={contentRef}
           tabIndex={-1}
@@ -93,12 +105,6 @@ export function Dialog({
           onEscapeKeyDown={(event) => event.stopPropagation()}
           className={cn(
             'surface-modal fixed left-1/2 top-1/2 z-(--z-modal) flex max-h-[85dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 animate-slide-up flex-col overflow-hidden',
-            /* Radix attend la fin de l'animation avant de démonter, donc la
-               sortie n'a besoin d'aucun `forceMount` : elle a seulement besoin
-               d'exister. Sans elle un Échap effaçait le dialogue d'une image
-               sur l'autre, ce qui se lit comme un plantage plutôt que comme
-               une fermeture. */
-            'data-[state=closed]:animate-exit-fast',
             'focus:outline-none',
             SIZES[size],
           )}

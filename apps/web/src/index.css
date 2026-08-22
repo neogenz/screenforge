@@ -242,7 +242,6 @@
      plancher sous lequel l'œil ne distingue plus une sortie d'une coupure.
      `both` retient l'état final le temps que Radix démonte. */
   --animate-exit-fast: exit-fast 0.1s var(--ease-out) both;
-  --animate-fade-out: fade-out 0.1s var(--ease-out) both;
   /* L'arrivée d'un verdict sur le contrôle qui vient d'être cliqué. Plus lente
      que les entrées de surface : c'est un résultat, pas un panneau qui se
      pose, et à 0,16s la coche apparaît sans qu'on la voie apparaître. */
