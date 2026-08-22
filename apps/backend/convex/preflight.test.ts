@@ -4,6 +4,10 @@ import { evaluatePreflight } from './preflight'
 const complete = {
   ABUSE_KEY_SECRET: 'anti-abuse-test-value',
   AUTH_EMAIL_FROM: 'ScreenForge <onboarding@resend.dev>',
+  AUTH_GITHUB_ID: 'github-client-test-value',
+  AUTH_GITHUB_SECRET: 'github-secret-test-value',
+  AUTH_GOOGLE_ID: 'google-client-test-value',
+  AUTH_GOOGLE_SECRET: 'google-secret-test-value',
   AUTH_RESEND_KEY: 'resend-test-value',
   CHECKOUT_SUCCESS_URL: 'https://preprod.screenforge.example/?checkout=success',
   CORS_ALLOWED_ORIGINS: 'https://preprod.screenforge.example',
@@ -34,6 +38,17 @@ describe('preflight Cloud expurgé', () => {
     const result = evaluatePreflight('preproduction', { ...complete, AUTH_RESEND_KEY: undefined })
 
     expect(result).toEqual({ ready: false, missing: ['AUTH_RESEND_KEY'], inconsistent: [] })
+  })
+
+  test.each([
+    'AUTH_GITHUB_ID',
+    'AUTH_GITHUB_SECRET',
+    'AUTH_GOOGLE_ID',
+    'AUTH_GOOGLE_SECRET',
+  ] as const)('refuse une porte OAuth incomplète : %s', (name) => {
+    const result = evaluatePreflight('preproduction', { ...complete, [name]: undefined })
+
+    expect(result).toEqual({ ready: false, missing: [name], inconsistent: [] })
   })
 
   test('exige la pseudonymisation anti-abus sans retourner sa valeur', () => {

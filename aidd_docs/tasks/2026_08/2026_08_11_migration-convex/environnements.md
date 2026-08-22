@@ -151,11 +151,10 @@ trois environnements, et c'est la forme donnée ici.
 > employer désormais. Régénérer une clé de signature invalide toutes les
 > sessions ouvertes sur ce déploiement.
 
-Chacune pose `JWT_PRIVATE_KEY`, `JWKS` et `SITE_URL` sur sa cible. `SITE_URL`
-vaut donc `http://localhost:5173` en préproduction : c'est ce qui la rend
-utilisable depuis l'éditeur lancé sur cette machine, tant qu'aucun site de
-préproduction n'est publié. Le jour où il l'est, une seule commande le corrige
-(voir plus bas).
+Chacune pose `JWT_PRIVATE_KEY`, `JWKS` et `SITE_URL` sur sa cible. La commande
+ci-dessus documente l'amorçage historique; la préproduction publiée utilise
+désormais son alias Vercel stable. Changer `SITE_URL` ne demande pas de
+régénérer les clés de session.
 
 ## Étape 2 — les valeurs à obtenir et à poser
 
@@ -163,42 +162,24 @@ Toutes les commandes se lancent depuis `apps/backend` (voir l'encadré plus haut
 et visent la préproduction ; remplacez `.env.preprod` par `.env.production` pour
 viser la production.
 
-**Rien de cette étape n'est nécessaire pour ouvrir une session et synchroniser
-un projet en préproduction** : la porte par mot de passe ne dépend d'aucune de
-ces valeurs, et le compte de test y porte déjà ses droits. Ce qui suit ouvre les
-trois autres portes et la vente, une à une, chacune indépendamment.
+La préproduction hébergée expose le lien magique, Google et GitHub. La porte de
+mot de passe reste une fixture locale uniquement; elle est refusée par le
+preflight dès que `SITE_URL` n'est plus une origine loopback.
 
-> **Ce que le lien magique et les deux SSO n'achètent pas tant que
-> `SITE_URL` vaut `http://localhost:5173`.** Le retour d'authentification n'a
-> qu'une destination autorisée, et c'est celle-là : `safeRedirect` ramène tout le
-> reste à l'origine du déploiement. Le rappel OAuth atterrit bien sur
-> `…convex.site`, mais le code de session repart ensuite vers le `localhost` de
-> celui qui regarde. Brancher ces trois portes ne rend donc pas la préproduction
-> partageable — seule la machine qui fait tourner Vite peut finir une connexion.
-> Vercel est désormais l'hébergeur choisi et `vercel.json` en fixe le build et
-> les headers, mais aucun projet ScreenForge ni alias préproduction n'existe
-> encore dans l'équipe vérifiée le 2026-08-15. La publication et le `SITE_URL`
-> correspondant restent donc un verrou explicite, pas une origine inventée.
-
-> **Ce qu'aucune de ces valeurs n'est en train de bloquer.** Le preflight Cloud
-> couvre l'origine, Resend et Polar; Google et GitHub restent des portes
-> optionnelles. Cliquer « Google » sans `AUTH_GOOGLE_ID`
-> mène à une page d'erreur de Google, et demander un lien magique sans
-> `AUTH_RESEND_KEY` envoie un `Bearer undefined` à Resend, dont le refus
-> s'affiche comme un problème de mot de passe. Aucune des deux n'est un plantage
-> — ce sont deux portes ouvertes sur un mur.
+> **Le preflight ferme désormais les portes incomplètes.** Une cible hébergée
+> n'est prête que si Resend, Google et GitHub possèdent tous leurs identifiants.
+> Les valeurs restent exclusivement dans le déploiement Convex; le dépôt ne
+> conserve que leurs noms et les URLs de rappel publiques.
 
 ### `SITE_URL` — l'origine du site, pas celle du déploiement — **posée**
 
 C'est le point de départ de tous les liens envoyés et la seule destination de
-retour autorisée après une authentification. L'étape 1 l'a posée sur les deux
-déploiements : `http://localhost:5173` en préproduction, `https://screenforge.app`
-en production. La première ligne ci-dessous est à rejouer le jour où un site de
-préproduction existe — pas avant, une origine qui ne répond pas ne servirait
-qu'à casser le retour d'authentification.
+retour autorisée après une authentification. La préproduction utilise son alias
+Vercel stable; la production conserve sa valeur préparatoire et reste inactive
+tant que le domaine final n'est pas choisi.
 
 ```bash
-pnpm exec convex env --env-file .env.preprod set SITE_URL https://votre-preprod.example
+pnpm exec convex env --env-file .env.preprod set SITE_URL https://screenforge-git-preprod-maximes-projects-56d66b35.vercel.app
 pnpm exec convex env --env-file .env.production set SITE_URL https://screenforge.app
 ```
 
@@ -347,21 +328,10 @@ se pose de la même façon, à la construction :
 VITE_CONVEX_URL=https://acrobatic-orca-116.eu-west-1.convex.cloud pnpm run build
 ```
 
-> **Le port du serveur de développement est épinglé à 5173**
-> (`apps/web/vite.config.ts`, `strictPort`), parce que `SITE_URL` le connaît par
-> cœur en préproduction. Sans cela Vite glisse en silence sur 5174 quand 5173 est
-> pris, et le retour d'authentification livre son code de connexion à une fenêtre
-> qui n'existe pas. Vite refuse désormais de démarrer, ce qui est l'échec qu'on
-> veut.
-
-> **La session ne suit pas le déploiement, elle suit l'origine.**
-> `apps/web/src/lib/session-keys.ts` fixe volontairement le nom des clés de
-> stockage, indépendamment de l'hôte du déploiement. Or le local et la
-> préproduction sont servis sur le même `http://localhost:5173` : en changeant de
-> cible, le jeton de l'un survit et l'autre ne l'a pas signé. L'éditeur se
-> présente alors déconnecté, sans un mot. **Se déconnecter avant de changer de
-> cible** ; si c'est déjà fait, vider les données du site pour
-> `http://localhost:5173`.
+`pnpm run dev:preprod` reste utile pour les diagnostics de transport depuis la
+machine, mais les retours d'authentification vont volontairement vers l'alias
+hébergé déclaré dans `SITE_URL`. Les parcours OAuth manuels se testent donc sur
+cet alias, pas sur `localhost`.
 
 `VITE_CONVEX_URL` est l'URL que le client Convex appelle. Son absence est ce qui
 fait de ScreenForge une application purement locale, et c'est un invariant testé
@@ -392,14 +362,14 @@ pnpm exec convex data --env-file .env.preprod entitlements
 
 ### Où on en est, déploiement par déploiement
 
-Mesuré le 2026-08-12, pas déduit.
+Mesuré le 2026-08-22, pas déduit. Les valeurs restent dans leurs fournisseurs.
 
 | | local | préproduction | production |
 | --- | --- | --- | --- |
 | Code poussé | oui | oui | oui |
-| `JWKS` / `JWT_PRIVATE_KEY` / `SITE_URL` | oui | oui (`http://localhost:5173`) | oui (`https://screenforge.app`) |
-| Resend, Google, GitHub | non | non | non |
-| Les variables Polar Cloud | non | non | non |
+| `JWKS` / `JWT_PRIVATE_KEY` / `SITE_URL` | oui | oui (alias Vercel stable) | préparé, domaine final absent |
+| Resend, Google, GitHub | non | oui; Google reste en mode Test | non |
+| Les variables Polar Cloud | non | oui, Sandbox | non |
 | Fixture Password persistante | non | non | non |
 | Cloud de fixture | créé à la demande, jetable | aucun | aucun |
 | `projects` / `assets` | selon la suite e2e | vides | vides |
@@ -493,20 +463,17 @@ droit manque.
 L'ordre compte. Chaque étape est là parce qu'elle échoue en silence si on la
 saute.
 
-1. **Se déconnecter dans l'éditeur** tant qu'il parle encore au local — la
-   session est stockée sous un nom fixe, sur la même origine, et survivrait au
-   changement de cible en faisant passer la préproduction pour déconnectée.
-2. `pnpm run dev:preprod` depuis la racine, puis ouvrir `http://localhost:5173`.
-   Vite refusera de démarrer si le port est pris ; c'est voulu.
-3. Se connecter par Google, GitHub ou lien magique, après avoir configuré le
-   fournisseur choisi dans les sections précédentes. La porte de fixture n'est
-   pas une fonctionnalité de préproduction manuelle.
-4. **Modifier le projet ouvert** : c'est la modification qui déclenche la
+1. Ouvrir l'alias Vercel stable de la branche `preprod` et passer la protection
+   Vercel Authentication.
+2. Se connecter par Google, GitHub ou lien magique. Google reste limité aux
+   testeurs tant que le domaine et les pages légales de production sont absents;
+   la porte de fixture n'est pas une fonctionnalité de préproduction manuelle.
+3. **Modifier le projet ouvert** : c'est la modification qui déclenche la
    poussée, pas la connexion. Si une boîte propose de rattacher les autres
    projets locaux, l'accepter — sans elle, un seul projet monte, ce qui ressemble
    à une synchronisation partielle.
-5. **Importer une capture** dans un écran, pour envoyer un binaire.
-6. **Vérifier hors du navigateur**, depuis `apps/backend` : les tables `projects`
+4. **Importer une capture** dans un écran, pour envoyer un binaire.
+5. **Vérifier hors du navigateur**, depuis `apps/backend` : les tables `projects`
    et `assets` doivent porter une ligne chacune.
 
 Deux choses à savoir avant de conclure à une panne. Un projet portant plus de

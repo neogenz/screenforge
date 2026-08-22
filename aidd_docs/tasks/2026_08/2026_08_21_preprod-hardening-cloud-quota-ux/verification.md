@@ -21,7 +21,7 @@ fournisseur, ni consommation réelle, ni secret, ni URL de contournement.
 
 | Contrôle | Résultat |
 | --- | --- |
-| Unités workspace | Vert : Bridge 59, Backend 193, MCP 43 et Web 413 tests, soit 708 au total. |
+| Unités workspace | Vert : Bridge 59, Backend 197, MCP 43 et Web 413 tests, soit 712 au total. |
 | Corrections sécurité ciblées | Vert : 103 tests backend sur usage, purge, uploads, auth, facturation et webhook; test déterministe de course symlink MCP vert. |
 | Typage, lint et format | `pnpm test` et `pnpm run format:check` verts. |
 | Build et CSP | Build Vite/prérendu vert; hashes des scripts inline recalculés et `security-headers-audit --build-only` vert. |
@@ -60,7 +60,7 @@ bornée. Un troisième scan de confirmation a été annulé à la demande du
 propriétaire parce que ses workers étaient disproportionnés; il ne constitue
 donc aucune preuve et ne bloque pas la validation locale proportionnée restante.
 
-## État fournisseur constaté sans mutation
+## État fournisseur vérifié
 
 - Polar Sandbox présente ScreenForge Cloud comme un abonnement annuel à
   39 USD. La description du checkout reprend les quatre quotas, précise que
@@ -90,12 +90,25 @@ donc aucune preuve et ne bloque pas la validation locale proportionnée restante
 - Resend présente plusieurs liens de connexion ScreenForge livrés, dont un sur
   le parcours de vérification courant. La preuve ne publie ni destinataire, ni
   identifiant de message, ni contenu du lien.
+- GitHub possède une application OAuth dédiée à la préproduction, avec un seul
+  callback Convex exact, sans wildcard ni device flow. Le parcours réel a
+  demandé uniquement le profil et l'e-mail en lecture, puis a ouvert une session
+  ScreenForge sur l'alias stable.
+- Google possède un projet et un client Web dédiés à ScreenForge. L'application
+  reste en mode Test avec un testeur autorisé; l'origine Vercel stable et le
+  callback Convex exact sont enregistrés. Le parcours réel `openid profile
+  email` a ouvert une session ScreenForge. La publication, le domaine vérifié
+  et les pages légales restent volontairement un gate de production.
+- Les quatre identifiants OAuth vivent uniquement dans le déploiement Convex.
+  Le preflight versionné les exige désormais pour toute cible hébergée afin
+  qu'aucun bouton social cassé ne puisse être déclaré prêt.
 
 ## Parcours hébergé restant avant GO production
 
 1. Commiter et pousser, puis déployer exactement ce SHA par le chemin preprod.
-2. Depuis deux navigateurs, prouver inscription, entitlement, sync, usage,
-   remise à zéro, conservation locale et consentement de rattachement.
+2. Depuis deux navigateurs, rejouer entitlement, sync, usage, remise à zéro,
+   conservation locale et consentement de rattachement. Google et GitHub sont
+   déjà prouvés chacun de bout en bout sur un navigateur.
 3. Vérifier History et la réactivation sans provoquer volontairement le seuil
    dur; réévaluer les warnings si le type de déploiement ou le plan change.
 4. Nettoyer toutes les fixtures après le parcours hébergé final.
