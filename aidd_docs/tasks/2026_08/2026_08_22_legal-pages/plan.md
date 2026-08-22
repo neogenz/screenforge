@@ -1,6 +1,6 @@
 ---
 objective: "ScreenForge publishes concise bilingual legal terms and operator information, linked from the landing page and visible before Cloud checkout."
-status: in-progress
+status: implemented
 ---
 
 # Plan: ScreenForge legal pages
