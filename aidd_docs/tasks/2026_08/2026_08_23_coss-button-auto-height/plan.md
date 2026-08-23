@@ -1,6 +1,6 @@
 ---
 objective: "Un bouton coss à qui l'on demande d'épouser son contenu le fait à toutes les largeurs, et un contrôle dont le contenu déborde de sa boîte fait échouer la suite."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Hauteur automatique des boutons coss
