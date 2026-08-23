@@ -330,7 +330,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                         }}
                         aria-current={entry.id === release?.id}
                         className={cn(
-                          'h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
+                          'h-auto sm:h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
                           entry.id === release?.id
                             ? 'border-foreground bg-muted'
                             : 'border-border hover:border-input',

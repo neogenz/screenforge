@@ -1166,7 +1166,7 @@ function PlanReview({
                 [next]?.focus()
             }}
             className={cn(
-              'h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
+              'h-auto sm:h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
               index === focus ? 'bg-muted' : 'hover:bg-muted/60',
             )}
           >

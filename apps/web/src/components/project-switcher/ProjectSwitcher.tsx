@@ -368,7 +368,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                             event.preventDefault()
                             void openProject(project.id)
                           }}
-                          className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-none border-0 px-1 text-left font-normal focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                          className="h-auto sm:h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-none border-0 px-1 text-left font-normal focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
                         >
                           <FileText
                             size={14}
@@ -487,7 +487,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                   type="button"
                   variant={newTarget === target ? 'secondary' : 'outline'}
                   aria-pressed={newTarget === target}
-                  className="h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
+                  className="h-auto sm:h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
                   onClick={() => setNewTarget(target)}
                 >
                   <span className="flex flex-col items-start gap-0.5">

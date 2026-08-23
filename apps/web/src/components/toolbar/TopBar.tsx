@@ -1035,11 +1035,12 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
         <ToolbarTool
           aria-label="Ajouter un appareil"
           tooltip="Ajouter : appareil"
+          className="gap-0.5"
           active={open}
           aria-expanded={open}
         >
           <DeviceToolIcon family={profile.family} />
-          <ChevronDown size={9} strokeWidth={2} aria-hidden className="-ml-0.5" />
+          <ChevronDown strokeWidth={2} aria-hidden className="size-2.5" />
         </ToolbarTool>
       }
       ariaLabel="Modèles d’appareil compatibles"

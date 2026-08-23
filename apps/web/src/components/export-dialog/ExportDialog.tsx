@@ -400,7 +400,7 @@ function ScreenChoice({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        'h-auto min-h-14 w-full justify-start gap-3 rounded-md border px-3 py-2 text-left font-normal',
+        'h-auto sm:h-auto min-h-14 w-full justify-start gap-3 rounded-md border px-3 py-2 text-left font-normal',
         checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >

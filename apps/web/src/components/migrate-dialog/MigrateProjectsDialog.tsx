@@ -125,7 +125,7 @@ function MigrateProjectsDialogContent() {
           ) : (
             <Button
               variant="default"
-              className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
+              className="h-auto sm:h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
               loading={pending || loading}
               disabled={pending || loading || !projects?.length}
               onClick={() => void attachAll()}
