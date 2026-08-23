@@ -180,13 +180,19 @@ export type McpProbe =
 /**
  * Ce qu'attendre plus longtemps n'apprendrait plus.
  *
- * C'est du loopback : trois secondes n'y sont pas une latence, c'est un port
- * qui ne répondra pas. Ce que la borne achète est le verdict, pas la
- * performance — une socket qui accepte la connexion et se tait laissait la
- * boîte sans aucune sortie, le champ inerte et « Vérifier » relançant la même
- * attente sans fin.
+ * C'est du loopback : ces secondes n'y sont pas une latence, c'est un port qui
+ * ne répondra pas. Ce que la borne achète est le verdict, pas la performance —
+ * une socket qui accepte la connexion et se tait laissait la boîte sans aucune
+ * sortie, le champ inerte et « Vérifier » relançant la même attente sans fin.
+ *
+ * Cinq et non trois, parce qu'une borne trop courte échange une panne contre
+ * une autre : à 3000 la suite e2e complète a rendu un « le démon ne répond
+ * pas » sur un relais qui répondait, la machine étant simplement chargée. Un
+ * faux négatif ferme la marche et n'a pas de rattrapage automatique — il faut
+ * recliquer « Vérifier ». Deux secondes de plus ne coûtent que dans le cas où
+ * l'on attend déjà pour rien.
  */
-const PROBE_TIMEOUT_MS = 3000
+const PROBE_TIMEOUT_MS = 5000
 
 /**
  * Le constat, avant la demande.

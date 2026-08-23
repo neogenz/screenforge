@@ -366,9 +366,10 @@ test.describe('connexion MCP', () => {
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
 
-      // Plus long que la borne de la sonde : c'est elle qu'on mesure.
+      // Plus long que la borne de la sonde — cinq secondes — puisque c'est elle
+      // qu'on mesure : l'assertion doit survivre à l'attente, pas la trancher.
       await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/, {
-        timeout: 8000,
+        timeout: 12_000,
       })
       await expectConnectionFlow(dialog, 0)
 
