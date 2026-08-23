@@ -2,7 +2,13 @@ import { expect, test, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
 import { decode } from 'fast-png'
 import JSZip from 'jszip'
-import { addDeviceLayer, downloadFirstExportedPng, readDownload, waitForApp } from './helpers'
+import {
+  addDeviceLayer,
+  downloadFirstExportedPng,
+  expectNoClippedControl,
+  readDownload,
+  waitForApp,
+} from './helpers'
 import { makeDeviceBezelPng, makeSolidPng, MOCK_BEZEL } from './device-bezel-fixture'
 
 interface PortableFixture {
@@ -636,6 +642,18 @@ test('structures, filters and opens local projects without duplicating the curre
   await makeNamedProject(page, longName)
   await makeNamedProject(page, 'Projet Bêta')
   await makeNamedProject(page, 'Projet actif')
+
+  /* La liste se mesure d'abord en fenêtre large, avant la réduction qui suit :
+     une variante de taille coss déclare sa hauteur deux fois (`h-9 sm:h-8`) et
+     seule la moitié préfixée survit à un `h-auto`, donc le défaut n'existe qu'à
+     partir de 640px — la largeur à laquelle l'éditeur est utilisé. Mesuré avant
+     correctif : une ligne de 43px pour 60px de contenu, nom et pastille peints
+     sur les lignes voisines. */
+  await page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' }).click()
+  await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toBeVisible()
+  await expectNoClippedControl(page)
+  await page.keyboard.press('Escape')
+
   await page.setViewportSize({ width: 600, height: 800 })
 
   const trigger = page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' })

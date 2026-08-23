@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addScreen, addTextLayer, openAndroidProject, waitForApp } from './helpers'
+import {
+  addScreen,
+  addTextLayer,
+  expectNoClippedControl,
+  openAndroidProject,
+  waitForApp,
+} from './helpers'
 import { makeSolidPng } from './device-bezel-fixture'
 
 /**
@@ -175,6 +181,11 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   // trois, « le troisième » ne désigne plus rien.
   const strip = page.getByRole('tablist', { name: 'Visuels proposés' })
   await expect(strip.getByRole('tab')).toHaveCount(3)
+
+  /* Chaque onglet tient une vignette de plan sous son numéro : la variante coss
+     lui imposait 32px de haut, quatre-vingt-dix-sept de moins que son contenu. */
+  await expectNoClippedControl(page)
+
   const firstTab = strip.getByRole('tab').first()
   const secondTab = strip.getByRole('tab').nth(1)
   await expect(firstTab).toHaveAttribute('aria-selected', 'true')

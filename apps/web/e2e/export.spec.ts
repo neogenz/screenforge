@@ -5,6 +5,7 @@ import {
   addDeviceLayer,
   addTextLayer,
   downloadFirstExportedPng,
+  expectNoClippedControl,
   openAndroidProject,
   readDownload,
   waitForApp,
@@ -106,6 +107,10 @@ test.describe('export', () => {
     await expect(dialog).toContainText('Google Play · téléphone')
     await expect(dialog).toContainText('1080×1920 px')
     await expect(dialog).toContainText('au moins 2 captures')
+
+    /* Les lignes d'écran empilent une vignette et deux lignes de texte dans un
+       bouton coss, dont la variante fixe une hauteur par point d'arrêt. */
+    await expectNoClippedControl(page)
 
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 60_000 }),

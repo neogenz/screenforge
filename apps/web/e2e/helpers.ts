@@ -547,3 +547,63 @@ export async function fillNumber(field: Locator, text: string): Promise<void> {
   await field.press('ControlOrMeta+a')
   await field.pressSequentially(text)
 }
+
+/**
+ * Un contrôle ne peint rien hors de sa boîte.
+ *
+ * Une variante de taille coss déclare sa hauteur deux fois — `h-9 sm:h-8` — et
+ * `cn()` indexe ses conflits par modificateur : un `h-auto` nu n'annule que la
+ * moitié non préfixée, et au-delà de 640px le bouton reste figé pendant que son
+ * contenu, centré, déborde des deux côtés. Même mécanique sur l'axe horizontal,
+ * où `[&_svg:not([class*='size-'])]:size-4` recouvre la prop `size` de Lucide et
+ * élargit une paire d'icônes au-delà de son carré. Les deux défauts sont muets :
+ * la classe demandée est bien écrite, rien n'échoue à la compilation, et
+ * `audit:scale` ne voit qu'une hauteur de plus, parfaitement légitime. Seule la
+ * géométrie rendue distingue « ce bouton mesure 32px » de « ce bouton en peint
+ * 60 dans 32 ».
+ *
+ * Mesuré sur la ligne du sélecteur de projets avant correctif : boîte de 43px,
+ * contenu de 60px, le nom peint sur la ligne du dessus.
+ */
+export async function expectNoClippedControl(page: Page): Promise<void> {
+  const clipped = await page.evaluate(() => {
+    /* Débordements voulus, à déclarer ici plutôt qu'à affaiblir la mesure. */
+    const ALLOWED = new Set<string>()
+    const TOLERANCE = 1
+
+    return [...document.querySelectorAll('[data-slot="button"], [data-slot="menu-trigger"]')]
+      .filter((element) => {
+        const box = element.getBoundingClientRect()
+        return box.width > 0 && box.height > 0
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect()
+        const name =
+          element.getAttribute('aria-label') || element.textContent?.trim().slice(0, 40) || '(vide)'
+        /* Les enfants directs portent la mise en page ; les `svg` sont relus en
+           propre car coss leur impose une taille que la prop de l'icône ne dit pas. */
+        const parts = [...element.children, ...element.querySelectorAll('svg')]
+        const spill = Math.max(
+          0,
+          ...parts.map((part) => {
+            const rect = part.getBoundingClientRect()
+            if (!(rect.width > 0 && rect.height > 0)) return 0
+            return Math.max(
+              box.top - rect.top,
+              rect.bottom - box.bottom,
+              box.left - rect.left,
+              rect.right - box.right,
+            )
+          }),
+        )
+        return {
+          name,
+          box: `${String(Math.round(box.width))}×${String(Math.round(box.height))}`,
+          spill: Math.round(spill),
+        }
+      })
+      .filter((entry) => entry.spill > TOLERANCE && !ALLOWED.has(entry.name))
+  })
+
+  expect(clipped, 'des contrôles peignent hors de leur boîte').toEqual([])
+}

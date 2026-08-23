@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Interdire le retour du défaut, et l'écrire
@@ -22,7 +22,9 @@ mesure 32px » de « ce bouton peint 50px de contenu dans 32px de boîte ».
 │   ├── helpers.ts               ✏️ `expectNoClippedControl(page)`, la mesure partagée
 │   ├── project-file.spec.ts     ✏️ appel sélecteur ouvert, en 1600px, avant la réduction à 600
 │   ├── export.spec.ts           ✏️ appel dialogue « Export officiel » ouvert
-│   └── ai-campaign.spec.ts      ✏️ appel bande d'onglets « Visuels proposés » affichée
+│   ├── ai-campaign.spec.ts      ✏️ appel bande d'onglets « Visuels proposés » affichée
+│   └── semantics.spec.ts        ✏️ appel sur le balayage existant : barre supérieure et outil scindé
+├── aidd_docs/memory/design.md   ✏️ la même règle, une phrase, section « System »
 └── CLAUDE.md                    ✏️ une puce dans « Design language » : la variante coss déclare sa hauteur deux fois
 ```
 
@@ -73,7 +75,10 @@ journey
 1. `project-file.spec.ts`, scénario « structures, filters and opens local projects… » : appeler la garde juste après l'ouverture du sélecteur, **avant** le `setViewportSize({ width: 600 })`, sinon la mesure passe sous le point d'arrêt `sm` et rate précisément le cas fautif.
 2. `export.spec.ts` : appeler la garde une fois le dialogue « Export officiel » visible, la liste d'écrans rendue.
 3. `ai-campaign.spec.ts` : appeler la garde une fois la tablist « Visuels proposés » visible.
-4. Confirmer la valeur de la garde : retirer temporairement un `sm:h-auto` de la phase 1 et vérifier que la suite échoue, puis le remettre.
+4. `semantics.spec.ts` : appeler la garde sur le balayage existant, qui ouvre déjà le sélecteur en 1600px — c'est lui qui couvre la barre supérieure et son outil scindé.
+5. Confirmer la valeur de la garde : rétablir l'état d'avant correctif et vérifier que la suite échoue en nommant les boutons, puis le remettre.
+
+> La garde mesure la géométrie, pas l'intention : rétablir la taille d'icône fautive **sans** rétablir le `gap-2` ne la déclenche pas, puisque la paire tient alors dans sa boîte. C'est le contrat voulu — « rien ne peint hors de son contrôle » — et pas « chaque icône rend la taille demandée », qui échouerait aujourd'hui partout dans l'application.
 
 ### `3)` L'écrire une fois
 
@@ -87,5 +92,5 @@ journey
 | Task | Acceptance criteria                                                                                                                                       |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1    | Le helper renvoie une liste vide sur l'application corrigée, et une entrée nommant le bouton, sa boîte et son dépassement dès qu'un contenu sort de sa boîte. |
-| 2    | Les trois scénarios passent ; retirer un seul `sm:h-auto` de la phase 1 en fait échouer au moins un, avec le nom du bouton fautif dans le message.            |
+| 2    | Les quatre scénarios passent ; rétabli l'état d'avant correctif, `project-file` échoue sur « Ouvrir « Projet Bêta » » (boîte 286×43, débord 8) et `semantics` sur « Ajouter un appareil » (boîte 32×32, débord 2). |
 | 3    | `CLAUDE.md` et `aidd_docs/memory/design.md` énoncent la règle `h-auto sm:h-auto` et nomment la garde qui la tient.                                            |

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addTextLayer, waitForApp } from './helpers'
+import { addTextLayer, expectNoClippedControl, waitForApp } from './helpers'
 
 /**
  * La structure du document, pas seulement sa peinture.
@@ -59,6 +59,11 @@ test('ne laisse aucun élément cliquable rendre le curseur de texte', async ({ 
   // fenêtre étroite, et le test tournerait alors sans jamais ouvrir de panneau.
   await page.locator('button[aria-label="Ouvrir le sélecteur de projets"]').click()
   await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toBeVisible()
+
+  // Le même balayage, sur la géométrie : la barre supérieure et l'îlot ouvert
+  // rendent ici leurs boutons à pleine largeur de fenêtre, là où une variante
+  // coss `sm:` prend la main.
+  await expectNoClippedControl(page)
 
   const wrong = await page.evaluate(() => {
     const selector = [
