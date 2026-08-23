@@ -1,6 +1,6 @@
 ---
 objective: 'Les sept constats de la revue sont fermés : plus aucune icône ne retombe sur les 24px de Lucide, le balayage des jetons de la vitrine ne laisse plus passer une classe tenue dans une variable, et la sonde du démon MCP a une fin.'
-status: in-progress
+status: implemented
 ---
 
 # Plan: Fermer les constats de la revue coss
