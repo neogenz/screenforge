@@ -289,14 +289,21 @@ Project docs, memory, specs, and plans live in `aidd_docs/`.
 ### Project memory
 
 <aidd_project_memory>
+@aidd_docs/memory/api.md
 @aidd_docs/memory/architecture.md
+@aidd_docs/memory/auth.md
+@aidd_docs/memory/backlog.md
+@aidd_docs/memory/cli.md
 @aidd_docs/memory/codebase-map.md
 @aidd_docs/memory/coding-assertions.md
 @aidd_docs/memory/database.md
+@aidd_docs/memory/deployment.md
 @aidd_docs/memory/design.md
 @aidd_docs/memory/forms.md
+@aidd_docs/memory/integration.md
 @aidd_docs/memory/navigation.md
 @aidd_docs/memory/project-brief.md
+@aidd_docs/memory/realtime.md
 @aidd_docs/memory/testing.md
 @aidd_docs/memory/vcs.md
 </aidd_project_memory>
