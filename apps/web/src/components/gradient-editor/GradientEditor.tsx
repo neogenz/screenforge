@@ -252,42 +252,53 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
   }
 
   return (
-    <div
-      ref={track}
-      // La bande porte le damier : sans lui un arrêt transparent est indiscernable
-      // d'un arrêt blanc, et c'est justement ce qu'on vient régler.
-      className="checkerboard relative h-9 w-full rounded-md border"
-    >
+    // La marge n'habille pas la piste, elle loge les arrêts des extrémités.
+    // Une pastille est centrée sur sa position : à 0 % et à 100 % la moitié
+    // d'elle-même tombe hors de la bande — c'est voulu, elle chevauche le bord
+    // qu'elle désigne. Mais le panneau repliable de coss est exactement aussi
+    // large que la piste et clippe (`overflow: hidden`, ce dont son animation
+    // de hauteur a besoin), et les deux arrêts des bouts arrivaient coupés en
+    // deux, plaqués contre les bords. 12px, c'est la moitié d'une pastille (9)
+    // plus son anneau de focus (3) : la place qu'il faut au geste, pas une
+    // respiration décidée à l'œil.
+    <div className="px-3">
       <div
-        aria-hidden
-        className="absolute inset-0 rounded-md"
-        style={{ background: buildCssGradient(gradient) }}
-      />
-      {stops.map((stop, displayIndex) => (
-        <Button
-          key={stop.originalIndex}
-          variant="ghost"
-          role="slider"
-          aria-label={`Position de l’arrêt ${displayIndex + 1}`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(stop.offset * 100)}
-          aria-valuetext={`${Math.round(stop.offset * 100)} %`}
-          onPointerDown={(event) => handlePointerDown(stop.originalIndex, event)}
-          onKeyDown={(event) => handleKeyDown(stop.originalIndex, stop.offset, event)}
-          style={{ left: `${stop.offset * 100}%`, background: stop.color }}
-          // `hit-24` : la poignée reste à 18px — c'est la piste qui doit rester
-          // lisible — mais la prise atteint le minimum de la 2.5.8. La piste ne
-          // déplace pas les arrêts, donc c'est bien ce bouton qui est la cible.
-          // `border-white` ne suit pas le thème, et c'est voulu : l'arrêt se
-          // pose sur le dégradé de l'utilisateur, pas sur une surface de chrome.
-          // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
-          // sombre. Même raison que `SELECTION_INK` sur le canevas.
-          className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
-            rounded-full border-2 border-white p-0 shadow-(--shadow-handle) sm:h-4.5
-            transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
+        ref={track}
+        // La bande porte le damier : sans lui un arrêt transparent est indiscernable
+        // d'un arrêt blanc, et c'est justement ce qu'on vient régler.
+        className="checkerboard relative h-9 w-full rounded-md border"
+      >
+        <div
+          aria-hidden
+          className="absolute inset-0 rounded-md"
+          style={{ background: buildCssGradient(gradient) }}
         />
-      ))}
+        {stops.map((stop, displayIndex) => (
+          <Button
+            key={stop.originalIndex}
+            variant="ghost"
+            role="slider"
+            aria-label={`Position de l’arrêt ${displayIndex + 1}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(stop.offset * 100)}
+            aria-valuetext={`${Math.round(stop.offset * 100)} %`}
+            onPointerDown={(event) => handlePointerDown(stop.originalIndex, event)}
+            onKeyDown={(event) => handleKeyDown(stop.originalIndex, stop.offset, event)}
+            style={{ left: `${stop.offset * 100}%`, background: stop.color }}
+            // `hit-24` : la poignée reste à 18px — c'est la piste qui doit rester
+            // lisible — mais la prise atteint le minimum de la 2.5.8. La piste ne
+            // déplace pas les arrêts, donc c'est bien ce bouton qui est la cible.
+            // `border-white` ne suit pas le thème, et c'est voulu : l'arrêt se
+            // pose sur le dégradé de l'utilisateur, pas sur une surface de chrome.
+            // Un anneau thématisé disparaîtrait sur un dégradé sombre en thème
+            // sombre. Même raison que `SELECTION_INK` sur le canevas.
+            className="hit-24 absolute top-1/2 h-4.5 w-4.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize
+              rounded-full border-2 border-white p-0 shadow-(--shadow-handle) sm:h-4.5
+              transition-transform duration-100 ease-out hover:scale-110 active:scale-110"
+          />
+        ))}
+      </div>
     </div>
   )
 }

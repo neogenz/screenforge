@@ -243,6 +243,29 @@ test.describe('angle controls', () => {
       .click()
     await expect(gradientAngle).toHaveAttribute('aria-valuenow', '270')
 
+    // Un arrêt est centré sur sa position : à 0 % et à 100 % il chevauche le
+    // bord de la piste, moitié dedans moitié dehors. Le panneau repliable de
+    // coss clippe (son animation de hauteur en a besoin) et faisait exactement
+    // la largeur de la piste : les deux arrêts des bouts arrivaient sciés en
+    // deux, plaqués contre les bords. Ce n'est ni une erreur de type, ni un
+    // écart d'échelle, ni un défaut de contraste — rien ne le voit sauf une
+    // mesure contre l'ancêtre qui coupe.
+    for (const label of ['Position de l’arrêt 1', 'Position de l’arrêt 2']) {
+      const stop = page.getByRole('slider', { name: label })
+      await stop.scrollIntoViewIfNeeded()
+      const gap = await stop.evaluate((el) => {
+        const own = el.getBoundingClientRect()
+        for (let node = el.parentElement; node; node = node.parentElement) {
+          if (getComputedStyle(node).overflowX === 'visible') continue
+          const box = node.getBoundingClientRect()
+          return { left: own.left - box.left, right: box.right - own.right }
+        }
+        return { left: 0, right: 0 }
+      })
+      expect(gap.left, `${label} rognée à gauche`).toBeGreaterThanOrEqual(0)
+      expect(gap.right, `${label} rognée à droite`).toBeGreaterThanOrEqual(0)
+    }
+
     await addTextLayer(page)
     const rotation = page.getByRole('slider', { name: 'Rotation' })
     await page.getByRole('switch', { name: 'Activer le dégradé du texte' }).click()
