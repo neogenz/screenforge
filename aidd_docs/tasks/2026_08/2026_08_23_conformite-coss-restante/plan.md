@@ -1,6 +1,6 @@
 ---
 objective: 'Les écarts coss restants sont fermés : la surface flottante compose `Card` au lieu de la recopier, les cinq `group-hover` passent en `in-*` + `data-slot`, et les deux exemptions muettes deviennent une décision écrite.'
-status: in-progress
+status: implemented
 ---
 
 # Plan: Fermer les écarts coss restants
