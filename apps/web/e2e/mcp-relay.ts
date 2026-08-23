@@ -93,6 +93,16 @@ export async function startRelay(port = 0): Promise<Relay> {
 
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
 
+    // Le constat sans jeton : la boîte le lit à l'ouverture pour décider si le
+    // champ du code sert à quelque chose. Sans lui, la marche 1 reste en erreur
+    // et rien de ce qui suit n'est atteignable.
+    if (url.pathname === '/hello') {
+      response
+        .writeHead(200, { ...cors, 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ protocol: 1, mcp: '0.1.0-test' }))
+      return
+    }
+
     if (url.pathname === '/pair') {
       let body = ''
       request.on('data', (chunk: Buffer) => {
@@ -222,7 +232,7 @@ export async function connect(page: Page, relay: Relay): Promise<void> {
   await expect(dialog).toBeVisible()
   // Le mode est éteint tant que personne ne l'a demandé : c'est « Activer »
   // qui s'offre, pas « Désactiver ».
-  await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+  await dialog.getByLabel('Code d’appairage').fill(relay.code())
   await dialog.getByRole('button', { name: 'Appairer' }).click()
   // Le bouton en cours porte lui aussi un `role=status` (Spinner coss) : on
   // vise la ligne d'état, pas le premier statut venu.

@@ -62,10 +62,20 @@ export function originAllowed(origin: string | null | undefined, origins: string
   return typeof origin === 'string' && origins.includes(origin)
 }
 
-/** Ce que `POST /pair` rend à une page dont l'origine est admise. */
-export interface RelayHello {
+/**
+ * Ce que `GET /hello` rend sans rien demander : de quoi se constater.
+ *
+ * Aucun jeton, aucun effet, et rien de plus que ce qu'un port ouvert dit déjà.
+ * C'est ce qui permet à la page d'annoncer « le démon ne tourne pas » avant de
+ * réclamer un code que l'utilisateur devra aller lire ailleurs.
+ */
+export interface RelayGreeting {
   protocol: number
   mcp: string
+}
+
+/** Ce que `POST /pair` rend à une page dont l'origine est admise. */
+export interface RelayHello extends RelayGreeting {
   token: string
 }
 

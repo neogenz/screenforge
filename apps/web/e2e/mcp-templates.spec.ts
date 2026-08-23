@@ -131,7 +131,7 @@ test.describe('gabarits enregistrés par l’agent', () => {
       await waitForApp(page)
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await dialog.getByLabel('Code d’appairage').fill(relay.code())
       await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBeGreaterThan(opened)
 

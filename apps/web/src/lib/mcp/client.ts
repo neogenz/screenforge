@@ -1,4 +1,4 @@
-import type { RelayHello, RelayRequest } from 'mcp'
+import type { RelayGreeting, RelayHello, RelayRequest } from 'mcp'
 import {
   applyRelayBatch,
   listRelayTemplates,
@@ -123,6 +123,17 @@ function persistEnabled(enabled: boolean): void {
  */
 const UNREACHABLE = `Le démon MCP ne répond pas. Lancez « ${MCP_COMMAND} », et vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.`
 
+/**
+ * Le même fait, sous le bloc qui donne déjà la commande.
+ *
+ * La sonde ne s'affiche qu'à la première marche, juste sous la commande à
+ * copier : la citer une seconde fois dans la phrase la remplissait sans rien
+ * ajouter, et noyait la seule information que le bloc ne porte pas — qu'une
+ * origine refusée et un port fermé sont indiscernables depuis un navigateur.
+ */
+const NOT_ANSWERING =
+  'Le démon ne répond pas. Lancez-le avec la commande ci-dessus, puis vérifiez que l’origine de cette page figure dans la liste qu’il affiche au démarrage.'
+
 class RelayResponseError extends Error {
   constructor(readonly status: number) {
     super(`Le démon a répondu ${status}.`)
@@ -152,6 +163,42 @@ async function fetchAsset(id: string, signal?: AbortSignal): Promise<Blob> {
   })
   if (!response.ok) throw new Error(`Le démon a répondu ${response.status}.`)
   return response.blob()
+}
+
+/**
+ * Ce que la page peut savoir du démon sans rien demander à personne.
+ *
+ * `up` porte la version, parce que la marche l'affiche ; `mismatch` est un
+ * cul-de-sac qu'aucune reprise ne répare, donc il se dit tout de suite plutôt
+ * qu'après un code saisi pour rien.
+ */
+export type McpProbe =
+  | { state: 'up'; version: string }
+  | { state: 'mismatch'; message: string }
+  | { state: 'down'; message: string }
+
+/**
+ * Le constat, avant la demande.
+ *
+ * `GET /hello` ne prend pas de jeton et ne consomme pas de tentative : c'est ce
+ * qui permet d'écrire « le démon ne tourne pas » avant d'ouvrir un champ où
+ * l'utilisateur ne pourrait, sinon, que coller un code obtenu nulle part.
+ */
+export async function probeMcpDaemon(): Promise<McpProbe> {
+  try {
+    const response = await fetch(`${relayUrl()}/hello`)
+    if (!response.ok) throw new RelayResponseError(response.status)
+    const greeting = (await response.json()) as RelayGreeting
+    if (greeting.protocol !== RELAY_PROTOCOL) {
+      return {
+        state: 'mismatch',
+        message: `Le démon parle le protocole ${greeting.protocol}, cette page le ${RELAY_PROTOCOL}. Mettez ScreenForge et le démon à la même version.`,
+      }
+    }
+    return { state: 'up', version: greeting.mcp }
+  } catch {
+    return { state: 'down', message: NOT_ANSWERING }
+  }
 }
 
 async function pair(code: string): Promise<RelayHello> {
@@ -398,8 +445,15 @@ export function mcpRelayAddress(): string {
 export function resumeMcp(): () => void {
   if (readEnabled()) {
     useMcpStore.getState().setEnabled(true)
-    useMcpStore.getState().setConnectionStep('pairing')
-    useMcpStore.getState().setStatus('error', 'Saisissez le code affiché par le démon MCP.')
+    // Le mode est demandé ; la liaison n'a rien tenté. Poser ici une erreur
+    // « Injoignable » sur l'étape du code annonçait deux choses fausses au
+    // rechargement : que le démon avait été sondé, et qu'il avait répondu. La
+    // boîte s'ouvrait donc sur un champ barré de rouge avant toute frappe,
+    // au-dessus d'une première marche cochée « démon joignable » que personne
+    // n'avait vérifiée. Le parcours repart de son début, et c'est la sonde de
+    // la boîte qui dira ce qu'il en est.
+    useMcpStore.getState().setConnectionStep('daemon')
+    useMcpStore.getState().setStatus('off')
   }
   return () => teardown()
 }

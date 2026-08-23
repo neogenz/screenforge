@@ -9,6 +9,7 @@ import {
   relayStateSchema,
   RELAY_PROTOCOL,
   type RelayError,
+  type RelayGreeting,
   type RelayHello,
 } from './protocol.ts'
 import { RelaySession, type AppConnection } from './session.ts'
@@ -70,6 +71,25 @@ export function createRelay(state: RelayState, origins = allowedOrigins()) {
     }
     if (context.req.method === 'OPTIONS') return context.body(null, 204)
     await next()
+  })
+
+  /**
+   * Ce qui peut être constaté n'a pas à être demandé.
+   *
+   * Sans jeton, sans effet, et sans rien dire de plus qu'un port ouvert : la
+   * page apprend que le démon écoute, et sur quelle version, avant de réclamer
+   * un code que l'utilisateur doit aller lire dans son terminal. Sans cette
+   * route, la seule façon de savoir si le démon tourne était de tenter un
+   * appairage — donc d'apprendre qu'il est éteint par l'échec d'un code qu'on
+   * avait dû trouver d'abord.
+   *
+   * Et pas un `POST /pair` à code bidon en guise de sonde : chaque refus compte
+   * dans les cinq tentatives de la fenêtre, donc cinq vérifications
+   * verrouilleraient l'appairage pour dix minutes.
+   */
+  app.get('/hello', (context) => {
+    const greeting: RelayGreeting = { protocol: RELAY_PROTOCOL, mcp: MCP_VERSION }
+    return context.json(greeting)
   })
 
   /**

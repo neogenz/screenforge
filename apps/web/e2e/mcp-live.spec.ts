@@ -42,7 +42,7 @@ test.describe('connexion MCP', () => {
       await waitForApp(page)
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      const code = dialog.getByLabel('Code à 6 chiffres affiché par le démon')
+      const code = dialog.getByLabel('Code d’appairage')
       const pair = dialog.getByRole('button', { name: 'Appairer' })
       await code.fill('000000')
       await pair.focus()
@@ -93,7 +93,9 @@ test.describe('connexion MCP', () => {
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await expectConnectionFlow(dialog, 4)
       await dialog.getByText('Détails de connexion').click()
-      await expect(dialog.getByText('MCP 0.1.0-test')).toBeVisible()
+      // Exact : la première marche annonce désormais elle aussi la version
+      // constatée, et « MCP 0.1.0-test » s'y lit à l'intérieur d'une phrase.
+      await expect(dialog.getByText('MCP 0.1.0-test', { exact: true })).toBeVisible()
       await expect(dialog.getByText(/127\.0\.0\.1:\d+ · loopback/)).toBeVisible()
       await expect(dialog.getByText(/miniature rendue/)).toBeVisible()
 
@@ -297,7 +299,7 @@ test.describe('connexion MCP', () => {
 
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await dialog.getByLabel('Code d’appairage').fill(relay.code())
       await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
@@ -309,8 +311,15 @@ test.describe('connexion MCP', () => {
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(1)
       await openUtility(page, 'Connexion MCP')
       const resumed = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await expect(resumed.getByRole('alert')).toContainText(/code affiché/i)
-      await resumed.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      // Le mode est mémorisé, la liaison non — et la boîte ne prétend pas
+      // l'inverse : elle n'annonce ni « Connectée » ni une panne, elle
+      // redemande le code en disant où il s'affiche. Auparavant la reprise
+      // posait une erreur « Injoignable » sans avoir rien sondé.
+      await expect(resumed.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Inactive',
+      )
+      await expect(resumed.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+      await resumed.getByLabel('Code d’appairage').fill(relay.code())
       await resumed.getByRole('button', { name: 'Appairer' }).click()
       await expect(resumed.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
@@ -347,13 +356,17 @@ test.describe('connexion MCP', () => {
 
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill('123456')
-      await dialog.getByRole('button', { name: 'Appairer' }).click()
-      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
-        'Injoignable',
-      )
+
+      // Constaté, pas déduit d'un échec : la boîte sonde le démon en s'ouvrant,
+      // et le dit avant qu'on ait tapé quoi que ce soit. La commande, elle, est
+      // là dans tous les cas — c'est ce qu'on vient chercher en premier.
+      await expect(dialog.getByText('pnpm --filter mcp run start')).toBeVisible()
+      await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/)
       await expectConnectionFlow(dialog, 0)
-      await expect(dialog.getByRole('alert')).toContainText(/pnpm --filter mcp run start/)
+      // Et tant que personne n'écoute, le code n'est pas réclamé : le champ
+      // n'appartient qu'à la marche suivante, qui n'est pas ouverte.
+      await expect(dialog.getByLabel('Code d’appairage')).toHaveCount(0)
+
       await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
       const copy = dialog.getByRole('button', { name: /^Copier/ })
       await copy.click()
@@ -366,8 +379,15 @@ test.describe('connexion MCP', () => {
           .evaluate((element) => element.scrollWidth <= element.clientWidth),
       ).toBe(true)
 
+      // Le bouton relit l'état de la machine plutôt que de faire recharger la
+      // page : le démon lancé entre-temps est trouvé, et la marche s'ouvre.
       recovered = await startRelay(port)
-      await dialog.getByRole('button', { name: 'Réessayer' }).click()
+      await dialog.getByRole('button', { name: 'Vérifier' }).click()
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+
+      await dialog.getByLabel('Code d’appairage').fill(recovered.code())
+      await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
       )
