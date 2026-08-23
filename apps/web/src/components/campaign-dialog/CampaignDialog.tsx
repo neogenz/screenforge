@@ -586,9 +586,14 @@ function CampaignDialogContent({ project }: { project: Project }) {
     }
   }
 
+  // `size-3.5` parce que rien ici ne dimensionne l'icône : hors d'un conteneur
+  // coss, Lucide retombe sur ses 24px bruts, dans une ligne de 12px. C'est le
+  // seul des cinq sites de ce défaut qu'`expectNoRawIcon` ne garde pas — aucun
+  // scénario e2e n'ouvre ce bandeau, et en fabriquer un pour une icône coûterait
+  // plus qu'il ne garde.
   const errorBanner = error && !composeFailed && (
     <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
-      <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       {error}
     </p>
   )

@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { waitForApp } from './helpers'
+import { expectNoRawIcon, waitForApp } from './helpers'
 
 /**
  * Le chemin recommandé reste le chemin par défaut, et les autres s'installent.
@@ -101,6 +101,9 @@ test('le pont éteint est constaté, pas découvert après coup', async ({ page 
      avant qu'on ait rien tapé, et le champ du jeton reste inerte — coller un
      secret dans un pont éteint ne peut produire qu'un échec. */
   await expect(page.getByRole('alert').filter({ hasText: 'bridge run start' })).toBeVisible()
+  // La garde ne voit que ce qu'un scénario a ouvert, et l'avertissement du
+  // fournisseur porte une icône qu'aucun autre état n'affiche.
+  await expectNoRawIcon(page)
   await expect(page.getByLabel('Jeton d’appairage')).toBeHidden()
   await expect(page.getByRole('button', { name: 'Connecter' })).toBeHidden()
   // Et le bouton qui relit cet état est là, plutôt qu'un rechargement de page.
@@ -128,6 +131,8 @@ test('une clé refusée le dit, et n’est écrite nulle part', async ({ page })
   await field.fill('cle-factice-invalide')
   await page.getByRole('button', { name: 'Connecter' }).click()
   await expect(page.getByRole('alert')).toContainText('recopiée')
+  // Même raison : l'icône du message de connexion n'apparaît qu'ici.
+  await expectNoRawIcon(page)
   await expect(flow.locator('[data-state="active"], [data-state="error"]')).toHaveCount(1)
 
   // La clé n'est écrite nulle part : ni stockage local, ni session.

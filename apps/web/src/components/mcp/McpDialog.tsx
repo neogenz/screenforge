@@ -235,7 +235,7 @@ export function McpDialog() {
                 )}
               >
                 {steps.daemon === 'error' && (
-                  <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+                  <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 )}
                 {daemonLine()}
               </p>

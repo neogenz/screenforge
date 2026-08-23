@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { openUtility, waitForApp } from './helpers'
+import { expectNoRawIcon, openUtility, waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
 
 const PNG_8x4 =
@@ -362,6 +362,9 @@ test.describe('connexion MCP', () => {
       // là dans tous les cas — c'est ce qu'on vient chercher en premier.
       await expect(dialog.getByText('pnpm --filter mcp run start')).toBeVisible()
       await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/)
+      // La garde ne voit que ce qu'un scénario a ouvert, et l'icône de cette
+      // ligne d'alerte n'existe que dans cet état-là.
+      await expectNoRawIcon(page)
       await expectConnectionFlow(dialog, 0)
       // Et tant que personne n'écoute, le code n'est pas réclamé : le champ
       // n'appartient qu'à la marche suivante, qui n'est pas ouverte.

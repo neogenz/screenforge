@@ -93,7 +93,7 @@ function Away({ href, children }: { href: string; children: React.ReactNode }) {
       className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground"
     >
       {children}
-      <ExternalLink aria-hidden />
+      <ExternalLink className="size-3.5" aria-hidden />
     </a>
   )
 }
@@ -126,14 +126,14 @@ function ProviderChoice({
       )}
     >
       <span className="flex items-center gap-1.5 text-foreground">
-        {active && <Check aria-hidden />}
+        {active && <Check className="size-3.5" aria-hidden />}
         {PROVIDER_NAMES[entry.id]}
         {entry.recommended && <span className="text-muted-foreground">· par défaut</span>}
       </span>
       <span className="ml-auto shrink-0 text-muted-foreground">{meta}</span>
       {unavailable && (
         <span className="flex basis-full items-start gap-1 text-warning">
-          <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           {unavailable}
         </span>
       )}
@@ -279,7 +279,9 @@ export function AssistantSetup({
                     engineFound ? 'text-muted-foreground' : 'text-warning',
                   )}
                 >
-                  {found && !engineFound && <AlertCircle className="mt-0.5 shrink-0" aria-hidden />}
+                  {found && !engineFound && (
+                    <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  )}
                   {bridgeStatusLine()}
                 </p>
                 {found?.state === 'up' && !engineFound && (
@@ -347,7 +349,7 @@ export function AssistantSetup({
               </div>
               {connection.state === 'error' && (
                 <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
-                  <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+                  <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   {connection.message}
                 </p>
               )}

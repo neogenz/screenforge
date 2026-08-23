@@ -137,18 +137,31 @@ test('garde le HUD de zoom sur une seule rangée', async ({ page }) => {
   const hud = page.locator('[data-slot="island"]').filter({ has: zoomOut })
   await expect(hud).toBeVisible()
 
-  const [island, first, last] = await Promise.all([
+  const [island, first, last, frame] = await Promise.all([
     hud.boundingBox(),
     zoomOut.boundingBox(),
     zoomIn.boundingBox(),
+    // De part et d'autre, le `p-1` de l'île et le bord de `Card` : deux valeurs
+    // que coss fixe et que le test n'a pas à connaître. Lues sur l'élément, un
+    // échelon de padding retouché en amont déplace l'attendu au lieu de faire
+    // échouer une constante recopiée.
+    hud.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return (
+        parseFloat(style.paddingTop) +
+        parseFloat(style.paddingBottom) +
+        parseFloat(style.borderTopWidth) +
+        parseFloat(style.borderBottomWidth)
+      )
+    }),
   ])
   expect(island, 'le HUD de zoom n’a pas de boîte').not.toBeNull()
   expect(first, 'le zoom arrière n’a pas de boîte').not.toBeNull()
   expect(last, 'le zoom avant n’a pas de boîte').not.toBeNull()
 
-  // De part et d'autre, le `p-1` de l'île et le bord de `Card` : la boîte fait
-  // la hauteur d'un contrôle plus 10. En colonne elle en ferait trois.
-  expect(Math.round(island!.height)).toBe(Math.round(first!.height) + 10)
+  // La boîte fait la hauteur d'un contrôle plus ce cadre. En colonne elle en
+  // ferait trois.
+  expect(Math.round(island!.height)).toBe(Math.round(first!.height + frame))
   // Et les deux extrémités de la rangée partagent la même ordonnée.
   expect(Math.round(last!.y)).toBe(Math.round(first!.y))
 })
