@@ -11,6 +11,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import ts from 'typescript'
 
 const offline = process.argv.includes('--offline')
 const UI_DIR = 'apps/web/src/components/ui'
@@ -291,65 +292,49 @@ for (const [namespace, prefixes] of TOKEN_NAMESPACES) {
 }
 
 /**
- * Ce qui peint, et rien d'autre : les valeurs de `className` et les appels aux
- * assembleurs de classes. Lu sur le fichier entier, ce balayage échouait sur un
- * nom de jeton *cité* — dans une prose qui explique justement pourquoi il est
- * réservé à la vitrine. Une garde qui interdit d'écrire le nom de ce qu'elle
- * interdit ne se documente plus.
+ * Les littéraux de chaîne du fichier, avec leur ligne.
  *
- * Les commentaires sont retirés des segments retenus : ce dépôt en écrit à
- * l'intérieur même des `cn(...)`, où ils décrivent la classe voisine.
+ * Une classe finit forcément dans une chaîne, et l'analyseur sait ce qu'est une
+ * chaîne. Un commentaire n'en est pas un — il n'est même pas un nœud de l'arbre,
+ * donc un nom de jeton *cité* dans la prose qui explique pourquoi il est réservé
+ * à la vitrine ne fait plus rien échouer. Et une classe tenue dans une variable
+ * (`const base = 'animate-mark …'`) en est un, alors qu'elle échappait au
+ * balayage précédent, qui ne regardait que les `className=` et les `cn(`.
+ *
+ * Le prix, inchangé : un nom de classe construit par concaténation ou par
+ * interpolation (`` `text-${size}` ``) reste hors de portée, puisque aucun
+ * littéral ne le porte entier. Les fragments d'un gabarit sont malgré tout lus,
+ * pour la classe écrite en clair à côté d'une substitution.
+ * @param {string} file
  * @param {string} content
- * @returns {{ value: string, index: number }[]}
+ * @returns {{ value: string, line: number }[]}
  */
-function paintedSegments(content) {
-  const segments = []
-  /**
-   * Lit une valeur délimitée à partir de `start`, en comptant les paires.
-   * @param {number} start
-   * @param {string} open
-   * @param {string} close
-   */
-  const balanced = (start, open, close) => {
-    let depth = 0
-    for (let i = start; i < content.length; i++) {
-      if (content[i] === open) depth++
-      else if (content[i] === close && --depth === 0) return content.slice(start, i + 1)
+function paintedLiterals(file, content) {
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true)
+  /** @type {{ value: string, line: number }[]} */
+  const literals = []
+  /** @param {ts.Node} node */
+  const visit = (node) => {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) {
+      literals.push({
+        value: node.text,
+        line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+      })
     }
-    return content.slice(start)
+    ts.forEachChild(node, visit)
   }
-
-  for (const match of content.matchAll(/\bclassName\s*=\s*/g)) {
-    const start = match.index + match[0].length
-    const head = content[start]
-    if (head === '{') segments.push({ value: balanced(start, '{', '}'), index: start })
-    else if (head === '"' || head === "'" || head === '`') {
-      const end = content.indexOf(head, start + 1)
-      segments.push({ value: content.slice(start, end < 0 ? undefined : end), index: start })
-    }
-  }
-  // `cva`/`clsx`/`cn` déclarent des classes hors de tout attribut : une variante
-  // se peint tout autant qu'un `className` littéral.
-  for (const match of content.matchAll(/\b(?:cn|cva|clsx|twMerge)\s*\(/g)) {
-    const start = match.index + match[0].length - 1
-    segments.push({ value: balanced(start, '(', ')'), index: start })
-  }
-  return segments.map(({ value, index }) => ({
-    value: value.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(?<!:)\/\/[^\n]*/g, ' '),
-    index,
-  }))
+  ts.forEachChild(source, visit)
+  return literals
 }
 
 console.log('\njetons de la vitrine dans l’éditeur')
 let landingLeak = false
 for (const file of srcFiles.filter((f) => /\.tsx?$/.test(f) && !f.includes('/src/landing/'))) {
-  const content = readFileSync(file, 'utf8')
-  const segments = paintedSegments(content)
+  const literals = paintedLiterals(file, readFileSync(file, 'utf8'))
   for (const [cls, token] of landingOnly) {
     const written = new RegExp(`(?<![-\\w/])${cls}(?![-\\w])`)
-    for (const { value, index } of segments) {
+    for (const { value, line } of literals) {
       if (!written.test(value)) continue
-      const line = content.slice(0, index).split('\n').length
       landingLeak = true
       fail(`${file}:${line} — .${cls} vient de \`${token}\`, déclaré par la seule vitrine`)
       break
