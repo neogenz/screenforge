@@ -45,16 +45,16 @@ export function ConfirmAction({
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="outline" />}>{cancelLabel}</AlertDialogClose>
-          <Button
-            variant={destructive ? 'destructive' : 'default'}
-            onClick={() => {
-              onConfirm()
-              onOpenChange(false)
-            }}
+          <AlertDialogClose render={<Button variant="ghost" />}>{cancelLabel}</AlertDialogClose>
+          {/* Les deux actions ferment par `AlertDialogClose` : coss y attache
+              la fermeture, donc rien ici n'a à rappeler `onOpenChange(false)`
+              après coup. */}
+          <AlertDialogClose
+            render={<Button variant={destructive ? 'destructive' : 'default'} />}
+            onClick={onConfirm}
           >
             {confirmLabel}
-          </Button>
+          </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogPopup>
     </AlertDialog>

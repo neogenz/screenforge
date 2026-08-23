@@ -155,7 +155,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           {sortedStops.map((stop, displayIndex) => (
             <div
               key={stop.originalIndex}
-              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border border-border bg-muted p-2"
+              className="flex min-w-0 max-w-full flex-col gap-2 rounded-md border bg-muted p-2"
             >
               <ColorPicker
                 value={stop.color}
@@ -256,7 +256,7 @@ function StopTrack({ gradient, stops, onMove }: StopTrackProps) {
       ref={track}
       // La bande porte le damier : sans lui un arrêt transparent est indiscernable
       // d'un arrêt blanc, et c'est justement ce qu'on vient régler.
-      className="checkerboard relative h-9 w-full rounded-md border border-border"
+      className="checkerboard relative h-9 w-full rounded-md border"
     >
       <div
         aria-hidden

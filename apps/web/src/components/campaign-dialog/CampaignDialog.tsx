@@ -600,7 +600,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
     </Button>
   ) : (
     <>
-      <Button variant="outline" onClick={close} disabled={busy}>
+      <Button variant="ghost" onClick={close} disabled={busy}>
         Annuler
       </Button>
       <Button
@@ -725,7 +725,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   </div>
 
                   {shots.length > 0 && (
-                    <details className="rounded-md border border-border px-3 py-2">
+                    <details className="rounded-md border px-3 py-2">
                       <summary className="cursor-pointer text-xs font-medium text-foreground">
                         Accroches liées aux captures (3 à 7 mots)
                       </summary>
@@ -898,7 +898,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   pour un modèle branché, et posés dans le brief ils en faisaient
                   l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
               {aiProvider(providerId).transport !== 'in-process' && (
-                <div className="grid gap-3 border-t border-border pt-3">
+                <div className="grid gap-3 border-t pt-3">
                   <Field className="gap-1.5">
                     <FieldLabel htmlFor={URL_FIELD_ID}>Page produit (provenance)</FieldLabel>
                     <Input
@@ -982,7 +982,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
 function CampaignSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+    <section className="grid gap-3 border-b py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
       <h3 className="text-sm font-medium">{title}</h3>
       <div className="min-w-0">{children}</div>
     </section>
@@ -1025,11 +1025,7 @@ function StyleChip({
           : 'border-border text-muted-foreground hover:border-input',
       )}
     >
-      <span
-        aria-hidden
-        className="size-4 rounded-sm border border-border"
-        style={{ background: swatch }}
-      />
+      <span aria-hidden className="size-4 rounded-sm border" style={{ background: swatch }} />
       {label}
     </RadioPrimitive.Root>
   )
@@ -1117,11 +1113,7 @@ function PlanReview({
         Vérifiez la proposition
         <span className="ml-auto flex items-center gap-1" aria-hidden>
           {[plan.palette.background, plan.palette.ink, plan.palette.accent].map((color) => (
-            <span
-              key={color}
-              className="size-3 rounded-sm border border-border"
-              style={{ background: color }}
-            />
+            <span key={color} className="size-3 rounded-sm border" style={{ background: color }} />
           ))}
         </span>
       </h3>

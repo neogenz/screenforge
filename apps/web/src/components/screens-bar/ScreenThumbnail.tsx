@@ -372,7 +372,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // toute la tuile.
           'after:absolute after:-inset-1 after:content-[""]',
           'absolute right-1 flex h-5 w-5 items-center justify-center rounded-full',
-          'border border-border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
+          'border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
             'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
         )}

@@ -187,7 +187,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       {layer.importedBezel ? (
         <Field className="gap-1.5">
           <FieldLabel>{isApple ? 'Bezel Apple' : 'Cadre PNG'}</FieldLabel>
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border bg-card p-1.5">
             {bezelUrl && (
               <img src={bezelUrl} alt="Bezel importé" className="h-8 w-8 shrink-0 object-contain" />
             )}
@@ -327,11 +327,11 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <Field className="gap-1.5">
         <FieldLabel>Capture d’écran</FieldLabel>
         {screenshotUrl ? (
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border bg-card p-1.5">
             <img
               src={screenshotUrl}
               alt="Capture importée"
-              className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
+              className="h-8 w-8 shrink-0 rounded-sm border object-cover"
             />
             <Button
               variant="ghost"

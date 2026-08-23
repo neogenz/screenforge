@@ -250,7 +250,7 @@ export function AssistantSetup({
         </div>
 
         {active.setup && (viaBridge ? reachable : true) && (
-          <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
+          <div className="flex flex-col gap-3 border-t px-3 py-3">
             <SetupProgress
               label={`Configuration de ${active.label}`}
               value={completedSteps}
@@ -418,10 +418,7 @@ export function AssistantSetup({
           </div>
         )}
 
-        <details
-          key={active.id}
-          className="border-t border-border px-3 py-2 text-xs text-muted-foreground"
-        >
+        <details key={active.id} className="border-t px-3 py-2 text-xs text-muted-foreground">
           <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
             Données et confidentialité
           </summary>

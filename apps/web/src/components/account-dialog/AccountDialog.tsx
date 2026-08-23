@@ -155,7 +155,7 @@ function AccountDialogContent() {
               pas plus le compte que le vide. */}
           <span
             aria-hidden
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-xs font-semibold text-foreground uppercase"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-secondary text-xs font-semibold text-foreground uppercase"
           >
             {email?.[0] ?? '?'}
           </span>

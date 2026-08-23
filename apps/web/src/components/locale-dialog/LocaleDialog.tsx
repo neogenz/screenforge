@@ -204,7 +204,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
           : undefined
       }
       footer={
-        <Button variant="outline" onClick={close} disabled={busy}>
+        <Button variant="ghost" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
@@ -283,7 +283,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
 
               {locales.length > 0 && (
                 <RadioGroup
-                  className="gap-1.5 border-t border-border pt-3"
+                  className="gap-1.5 border-t pt-3"
                   aria-label="Langue"
                   value={locale?.code ?? null}
                   onValueChange={(code) => {
@@ -360,7 +360,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   — le nom du calque à gauche, l'original en gris à droite, la
                   traduction dans le champ — et rien ne disait lequel était
                   lequel : on relit une traduction sans savoir ce qu'elle traduit. */}
-              <div className="flex items-baseline justify-between gap-2 border-t border-border pt-4">
+              <div className="flex items-baseline justify-between gap-2 border-t pt-4">
                 <h3 className="text-sm font-medium">Calque · texte d’origine</h3>
                 <span className="text-xs text-muted-foreground">Traduction · relu</span>
               </div>
@@ -447,7 +447,7 @@ function TextRow({
         <Hint content="Votre pense-bête de relecture. Il n’empêche jamais l’export ; seul un texte qui déborde le fait.">
           <label
             className={cn(
-              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs',
               variant?.reviewed ? 'text-foreground' : 'text-muted-foreground',
             )}
           >

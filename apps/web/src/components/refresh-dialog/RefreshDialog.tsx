@@ -227,10 +227,7 @@ function Thumbnail({ src, muted }: { src?: string; muted?: boolean }) {
     <img
       src={src}
       alt=""
-      className={cn(
-        'h-12 w-6 shrink-0 rounded-sm border border-border object-cover',
-        muted && 'opacity-40',
-      )}
+      className={cn('h-12 w-6 shrink-0 rounded-sm border object-cover', muted && 'opacity-40')}
     />
   ) : (
     <span aria-hidden className="h-12 w-6 shrink-0 rounded-sm border border-dashed border-input" />
@@ -256,7 +253,7 @@ function TargetRow({
     target.scope === 'layout' ? target.screenName : `${target.screenRank}. ${target.screenName}`
 
   return (
-    <li className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2">
+    <li className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2">
       <div className="flex min-w-0 flex-1 basis-40 flex-col">
         <span className="truncate text-sm text-foreground">{place}</span>
         <span className="truncate text-xs text-muted-foreground">
@@ -333,7 +330,7 @@ function PlanNotes({
   if (notes.length === 0) return null
 
   return (
-    <div className="border-t border-border pt-4" aria-live="polite">
+    <div className="border-t pt-4" aria-live="polite">
       <h3 className="text-sm font-medium">À vérifier</h3>
       <ul className="mt-2 flex flex-col gap-1.5">
         {notes.map((note) => (

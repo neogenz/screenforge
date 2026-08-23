@@ -101,7 +101,7 @@ export function VectorPicker({
           setActiveId(value)
           setOpen((isOpen) => !isOpen)
         }}
-        className="h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
+        className="h-8 w-full justify-between bg-muted font-normal normal-case hover:bg-muted"
         aria-label={`${label} : ${current?.label ?? value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -121,7 +121,7 @@ export function VectorPicker({
         onEscape={() => close(true)}
         className="w-56"
       >
-        <div className="border-b border-border p-1.5">
+        <div className="border-b p-1.5">
           <InputGroup>
             <InputGroupAddon>
               <Search strokeWidth={1.5} aria-hidden />

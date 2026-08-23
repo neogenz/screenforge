@@ -66,7 +66,7 @@ function GlobalsEditorContent({
       size="md"
       footer={
         <>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="ghost" onClick={handleClose}>
             Annuler
           </Button>
           {/* « Enregistrer », pas « Appliquer à N écrans » : les réglages

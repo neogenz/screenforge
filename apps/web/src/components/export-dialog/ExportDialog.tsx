@@ -176,7 +176,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
-          <Button variant="outline" onClick={handleClose} disabled={isExporting}>
+          <Button variant="ghost" onClick={handleClose} disabled={isExporting}>
             Annuler
           </Button>
           {/* Le libellé ne change pas avec l'état : `loading` masque le texte et
@@ -340,7 +340,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         </DialogColumns>
 
         {(progress || error) && (
-          <div className="border-t border-border px-6 py-4">
+          <div className="border-t px-6 py-4">
             <ProcessingPanel
               title="Export du lot"
               steps={exportSteps}
@@ -350,7 +350,7 @@ function ExportDialogContent({ project }: { project: Project }) {
           </div>
         )}
         {!isExporting && !error && completedFiles.length > 0 && (
-          <div className="border-t border-border px-6 py-4" aria-live="polite">
+          <div className="border-t px-6 py-4" aria-live="polite">
             <div className="flex items-center gap-2 text-xs text-foreground">
               <FileCheck2 aria-hidden />
               ZIP validé et téléchargé · {completedFiles.length} fichier
@@ -416,10 +416,10 @@ function ScreenChoice({
         <img
           src={screen.thumbnail}
           alt=""
-          className="h-10 w-[18px] shrink-0 rounded-sm border border-border object-cover"
+          className="h-10 w-[18px] shrink-0 rounded-sm border object-cover"
         />
       ) : (
-        <span className="h-10 w-[18px] shrink-0 rounded-sm border border-border bg-stage" />
+        <span className="h-10 w-[18px] shrink-0 rounded-sm border bg-stage" />
       )}
       <span className="tabular-nums w-5 shrink-0 text-xs text-muted-foreground">
         {String(index + 1).padStart(2, '0')}

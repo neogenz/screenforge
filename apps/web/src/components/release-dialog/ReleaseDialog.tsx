@@ -258,7 +258,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           : 'Un lot figé ne change plus : c’est lui que l’export reproduit, et lui que « Reprendre » ramène.'
       }
       footer={
-        <Button variant="outline" onClick={close} disabled={busy}>
+        <Button variant="ghost" onClick={close} disabled={busy}>
           Fermer
         </Button>
       }
@@ -609,7 +609,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
   const broken = results.filter((result) => result.status !== 'ok')
 
   return (
-    <div className="border-t border-border pt-4" aria-live="polite">
+    <div className="border-t pt-4" aria-live="polite">
       <h3 className="text-sm font-medium">Vérification</h3>
       {broken.length === 0 ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
@@ -703,7 +703,7 @@ function DiffReport({ diff }: { diff: StructuralDiff }) {
   const total = countChanges(diff)
 
   return (
-    <div className="border-t border-border pt-4">
+    <div className="border-t pt-4">
       <h3 className="text-sm font-medium">Depuis cette release</h3>
       {diff.identical ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">

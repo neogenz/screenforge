@@ -96,7 +96,7 @@ function PublishTargetRefusal() {
       onClose={close}
       title="Publier chez Apple"
       footer={
-        <Button variant="outline" onClick={close}>
+        <Button variant="ghost" onClick={close}>
           Fermer
         </Button>
       }
@@ -508,7 +508,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                 </div>
               )}
 
-              <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <div className="flex flex-col gap-3 border-t pt-4">
                 <span className="text-xs text-muted-foreground">Publier via le pont local</span>
                 <p className="text-xs text-muted-foreground">
                   Facultatif : le pont lance la même commande à votre place. Son jeton « asc-publish

@@ -191,7 +191,7 @@ export function McpDialog() {
             </SetupStep>
           </div>
 
-          <details className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+          <details className="border-t px-3 py-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none font-medium hover:text-foreground">
               Détails de connexion
             </summary>

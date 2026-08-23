@@ -162,7 +162,7 @@ function MigrateProjectsDialogContent() {
               {projects?.map((project) => (
                 <li
                   key={project.id}
-                  className="flex min-h-10 items-center gap-2 border-b border-border py-2 last:border-b-0"
+                  className="flex min-h-10 items-center gap-2 border-b py-2 last:border-b-0"
                 >
                   <FileText className="shrink-0 text-muted-foreground" aria-hidden />
                   <span

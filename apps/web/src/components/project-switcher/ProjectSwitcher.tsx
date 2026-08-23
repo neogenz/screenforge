@@ -422,7 +422,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             </div>
           </section>
 
-          <footer className="border-t border-border p-2">
+          <footer className="border-t p-2">
             <Button
               size="sm"
               variant="ghost"
@@ -458,7 +458,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         size="sm"
         footer={
           <>
-            <Button variant="outline" disabled={busy} onClick={closeCreating}>
+            <Button variant="ghost" disabled={busy} onClick={closeCreating}>
               Annuler
             </Button>
             <Button

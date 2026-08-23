@@ -130,7 +130,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
   return (
     <div className="flex flex-col gap-2">
       {outOfReach && (
-        <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
+        <div className="flex flex-col gap-1.5 rounded-md border p-2">
           <p className="text-xs text-muted-foreground">
             Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
           </p>
