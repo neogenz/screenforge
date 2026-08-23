@@ -6,6 +6,7 @@
 - The design system is coss ui (Base UI), installed by the shadcn CLI from the `@coss` registry into `src/components/ui/` and never edited by hand — `pnpm run audit:ui` fails naming the file the moment its content drifts from the registry. Project-specific composition (an `Island`, a `PropertyRow`, a colour swatch — anything coss has no primitive for) lives in `src/components/patterns/` instead.
 - Dark is the default theme with a complete light override; coss's own convention (bare `:root` is light, `.dark` overrides) replaced the earlier `.light`-class scheme.
 - A coss size variant declares its height at two breakpoints and its icon size by class, and the class merger resolves conflicts per modifier: an unprefixed override only wins below 640px, and an icon's `size` prop loses to the primitive's class. A button that must fit its content is written `h-auto sm:h-auto`, an icon is sized by a `size-*` class, and an e2e sweep fails on any control whose content paints outside its own box.
+- The editor and the marketing site keep separate themes, each declaring its own tokens; a class built on the other side's token compiles, emits nothing, and renders at the inherited value, which no scale or contrast guard can see. The UI audit reads both `@theme` blocks on every run and rejects a site-only token used in the editor, naming the file and the token it came from.
 
 ## Tokens
 

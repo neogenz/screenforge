@@ -109,7 +109,7 @@ function PricingDialogContent() {
           ))}
         </div>
 
-        <p className="text-2xs leading-4 text-muted-foreground">
+        <p className="text-xs leading-4 text-muted-foreground">
           En continuant vers le paiement, vous acceptez les{' '}
           <a
             className="text-foreground underline underline-offset-4"

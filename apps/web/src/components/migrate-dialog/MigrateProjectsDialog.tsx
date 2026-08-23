@@ -173,7 +173,7 @@ function MigrateProjectsDialogContent() {
                   </span>
                   <time
                     dateTime={new Date(project.updatedAt).toISOString()}
-                    className="shrink-0 text-2xs text-muted-foreground tabular-nums"
+                    className="shrink-0 text-xs text-muted-foreground tabular-nums"
                   >
                     <span className="sr-only">Modifié le </span>
                     {DATE.format(project.updatedAt)}

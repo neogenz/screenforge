@@ -85,11 +85,11 @@ function GlobalsEditorContent({
           <h3 className="section-title mb-2">Profil du projet</h3>
           <Card className="p-3">
             <p className="text-sm font-medium text-foreground">{profile.label}</p>
-            <p className="mt-1 text-2xs text-muted-foreground tabular-nums">
+            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {profile.output.portrait.width}×{profile.output.portrait.height} px
               {profile.platform === 'apple' ? ` · ${profile.appStoreConnectType}` : ''}
             </p>
-            <p className="mt-1 text-2xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               Immuable pour préserver les coordonnées et les releases de ce projet.
             </p>
           </Card>
