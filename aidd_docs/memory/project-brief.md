@@ -21,6 +21,8 @@
 | Device frame | A target-compatible phone, tablet, or watch mockup containing an app screenshot; may use an original generated frame or a user-imported Apple bezel. |
 | Asset | Binary image payload stored outside the layer graph and referenced by ID. |
 | Entitlement | The annual Cloud sync/storage right. It is recomputed server-side from the authenticated account and the Polar mirror; Local never needs one. |
+| Locale variant | One store language of a project: the same layers with translated text, measured for overflow before export. |
+| Release | A frozen, rendered batch of screenshots. Publication consumes a release, never the live project. |
 | Store target | The immutable project destination: iPhone 6.9-inch, iPad 13-inch, one of six Apple Watch portrait dimensions, or Google Play phone. It drives board ratio, compatible frames/templates, limits, validation, release, and export. |
 
 ## Key features
@@ -30,4 +32,8 @@
 - Local persistence plus portable project import/export.
 - Validated single or batch PNG export in an organized ZIP.
 - Platform-compatible built-in templates and original frames; licensed Apple resources are obtained from Apple and imported locally, never bundled or redistributed.
+- Locale variants of a project with text measurement and overflow findings before export.
+- Frozen releases: render once, verify, diff against the live project, restore or publish to App Store Connect through the optional local bridge.
+- Optional agent authoring: an MCP daemon lets a coding agent compose screens in the running editor. Copy can also come from a local Claude Code, a bring-your-own-key provider, or the built-in deterministic builder — the default, which sends nothing anywhere.
 - Optional account (magic link and SSO) with cloud sync of projects and assets, and self-service account deletion.
+- Optional EU-hosted analytics and diagnostics, off until consented.
