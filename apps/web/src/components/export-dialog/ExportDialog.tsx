@@ -352,7 +352,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         {!isExporting && !error && completedFiles.length > 0 && (
           <div className="border-t px-6 py-4" aria-live="polite">
             <div className="flex items-center gap-2 text-xs text-foreground">
-              <FileCheck2 aria-hidden />
+              <FileCheck2 aria-hidden className="size-3.5" />
               ZIP validé et téléchargé · {completedFiles.length} fichier
               {completedFiles.length > 1 ? 's' : ''}
             </div>

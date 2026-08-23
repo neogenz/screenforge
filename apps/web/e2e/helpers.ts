@@ -607,3 +607,46 @@ export async function expectNoClippedControl(page: Page): Promise<void> {
 
   expect(clipped, 'des contrôles peignent hors de leur boîte').toEqual([])
 }
+
+/**
+ * Aucune icône ne retombe sur la taille brute de Lucide.
+ *
+ * coss dimensionne chaque `svg` depuis son conteneur — `[&_svg:not([class*='size-'])]:size-4`
+ * sur `Button`, `[&>svg]` sur `menu-item` — et gagne sur les attributs `width`/`height` que
+ * la prop `size` de Lucide écrit. C'est pourquoi le projet ne déclare aucune taille
+ * numérique. Mais rien ne dimensionne un `svg` hors d'un tel conteneur : aucune règle
+ * globale n'existe, ni dans `index.css` ni dans `design-system/`. Une icône posée dans un
+ * `div` nu rend donc ses 24px d'origine — 2,4 fois la taille voulue dans une ligne de 32,
+ * et 8px de débord hors d'une pastille de 16.
+ *
+ * Le défaut est muet pour la garde d'à côté : `expectNoClippedControl` ne balaie que les
+ * boutons, et ces icônes-là vivent dans des éléments ordinaires. Il l'est aussi pour
+ * `audit:scale`, qui n'y lit qu'une taille de plus, parfaitement légitime. La signature est
+ * en revanche exacte : 24×24 rendus sans classe `size-*` sur l'icône, c'est la valeur par
+ * défaut de Lucide et rien d'autre — un conteneur coss ne produit jamais 24, et une icône
+ * voulue à cette taille écrit `size-6`.
+ *
+ * Mesuré : quatre icônes dans cet état après le retrait des props numériques, toutes dans
+ * des états que le balayage initial n'avait pas rendus — calque masqué ou verrouillé, étape
+ * d'assistant terminée, dialogue derrière l'authentification, fin d'export.
+ */
+export async function expectNoRawIcon(page: Page): Promise<void> {
+  const raw = await page.evaluate(() =>
+    [...document.querySelectorAll('svg')]
+      .filter((icon) => {
+        const rect = icon.getBoundingClientRect()
+        if (Math.round(rect.width) !== 24 || Math.round(rect.height) !== 24) return false
+        /* `size-6` vaut 24 et se déclare : c'est une taille voulue, pas un repli. */
+        return !/(^|\s)size-6(\s|$)/.test(icon.getAttribute('class') ?? '')
+      })
+      .map((icon) => {
+        const host = icon.parentElement
+        return {
+          parent: (host?.getAttribute('class') ?? host?.tagName ?? '?').slice(0, 60),
+          near: host?.textContent?.trim().slice(0, 30) || '(sans texte)',
+        }
+      }),
+  )
+
+  expect(raw, 'des icônes rendent les 24px bruts de Lucide').toEqual([])
+}

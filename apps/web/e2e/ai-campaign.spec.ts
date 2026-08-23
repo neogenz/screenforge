@@ -3,6 +3,7 @@ import {
   addScreen,
   addTextLayer,
   expectNoClippedControl,
+  expectNoRawIcon,
   openAndroidProject,
   waitForApp,
 } from './helpers'
@@ -185,6 +186,8 @@ test('le plan se relit visuel par visuel, et c’est ce qu’on a relu qui est p
   /* Chaque onglet tient une vignette de plan sous son numéro : la variante coss
      lui imposait 32px de haut, quatre-vingt-dix-sept de moins que son contenu. */
   await expectNoClippedControl(page)
+
+  await expectNoRawIcon(page)
 
   const firstTab = strip.getByRole('tab').first()
   const secondTab = strip.getByRole('tab').nth(1)

@@ -6,6 +6,7 @@ import {
   addDeviceLayer,
   downloadFirstExportedPng,
   expectNoClippedControl,
+  expectNoRawIcon,
   readDownload,
   waitForApp,
 } from './helpers'
@@ -652,6 +653,8 @@ test('structures, filters and opens local projects without duplicating the curre
   await page.getByRole('button', { name: 'Ouvrir le sélecteur de projets' }).click()
   await expect(page.getByRole('dialog', { name: 'Sélecteur de projets' })).toBeVisible()
   await expectNoClippedControl(page)
+
+  await expectNoRawIcon(page)
   await page.keyboard.press('Escape')
 
   await page.setViewportSize({ width: 600, height: 800 })

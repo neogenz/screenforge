@@ -312,10 +312,10 @@ export const LayerItem = memo(function LayerItem({
             aria-hidden
           >
             {!layer.visible && (
-              <EyeOff strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+              <EyeOff strokeWidth={1.5} className="size-3 text-muted-foreground" aria-hidden />
             )}
             {layer.locked && (
-              <Lock strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+              <Lock strokeWidth={1.5} className="size-3 text-muted-foreground" aria-hidden />
             )}
           </div>
         )}

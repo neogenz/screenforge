@@ -63,9 +63,9 @@ export function SetupStep({
     >
       <span aria-hidden className={setupMarkerVariants({ state })}>
         {state === 'done' ? (
-          <Check strokeWidth={3} className="animate-mark" aria-hidden />
+          <Check strokeWidth={3} className="size-2.5 animate-mark" aria-hidden />
         ) : state === 'error' ? (
-          <AlertCircle strokeWidth={2.5} aria-hidden />
+          <AlertCircle strokeWidth={2.5} className="size-2.5" aria-hidden />
         ) : (
           rank
         )}

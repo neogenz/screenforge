@@ -6,6 +6,7 @@ import {
   addTextLayer,
   downloadFirstExportedPng,
   expectNoClippedControl,
+  expectNoRawIcon,
   openAndroidProject,
   readDownload,
   waitForApp,
@@ -111,6 +112,8 @@ test.describe('export', () => {
     /* Les lignes d'écran empilent une vignette et deux lignes de texte dans un
        bouton coss, dont la variante fixe une hauteur par point d'arrêt. */
     await expectNoClippedControl(page)
+
+    await expectNoRawIcon(page)
 
     const [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 60_000 }),

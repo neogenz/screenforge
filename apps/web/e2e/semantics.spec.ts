@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addTextLayer, expectNoClippedControl, waitForApp } from './helpers'
+import { addTextLayer, expectNoClippedControl, expectNoRawIcon, waitForApp } from './helpers'
 
 /**
  * La structure du document, pas seulement sa peinture.
@@ -64,6 +64,8 @@ test('ne laisse aucun élément cliquable rendre le curseur de texte', async ({ 
   // rendent ici leurs boutons à pleine largeur de fenêtre, là où une variante
   // coss `sm:` prend la main.
   await expectNoClippedControl(page)
+
+  await expectNoRawIcon(page)
 
   const wrong = await page.evaluate(() => {
     const selector = [
