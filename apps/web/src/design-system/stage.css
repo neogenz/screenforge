@@ -72,7 +72,16 @@
 
 /* Coins en squircle là où le navigateur le sait, arrondi ailleurs. Jamais
    `clip-path: shape()` : il couperait le `box-shadow`, qui porte l'état de la
-   planche courante. */
+   planche courante.
+
+   Le `::before` aussi : le liseré intérieur que `Card` peint est une boîte
+   distincte, et `corner-shape` ne s'hérite pas. Ici plutôt qu'en `before:[…]`
+   sur l'île, pour que les deux courbes soient d'accord par construction — un
+   navigateur qui ignore `corner-shape` les ignore toutes les deux. */
 @utility squircle {
   corner-shape: squircle;
+
+  &::before {
+    corner-shape: squircle;
+  }
 }

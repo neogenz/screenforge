@@ -111,3 +111,38 @@ test('ne laisse aucun élément cliquable rendre le curseur de texte', async ({ 
 
   expect(wrong).toEqual([])
 })
+
+/**
+ * Une île n'est une rangée que si elle le dit.
+ *
+ * `Island` compose le `Card` de coss, qui pose `flex flex-col`. Pour
+ * tailwind-merge, `display` et `flex-direction` sont deux groupes de conflit
+ * distincts : une île qui écrit `flex items-center` sans direction garde la
+ * colonne de `Card` et empile ses contrôles. Rien dans le typage, le lint ou
+ * les audits ne le voit — c'est une bascule de mise en page, et elle est
+ * silencieuse. Le HUD de zoom est le cas le plus court à mesurer : trois
+ * contrôles dont la boîte doit rester haute d'un seul.
+ */
+test('garde le HUD de zoom sur une seule rangée', async ({ page }) => {
+  await waitForApp(page)
+
+  const zoomOut = page.locator('button[aria-label="Zoom arrière"]')
+  const zoomIn = page.locator('button[aria-label="Zoom avant"]')
+  const hud = page.locator('[data-slot="island"]').filter({ has: zoomOut })
+  await expect(hud).toBeVisible()
+
+  const [island, first, last] = await Promise.all([
+    hud.boundingBox(),
+    zoomOut.boundingBox(),
+    zoomIn.boundingBox(),
+  ])
+  expect(island, 'le HUD de zoom n’a pas de boîte').not.toBeNull()
+  expect(first, 'le zoom arrière n’a pas de boîte').not.toBeNull()
+  expect(last, 'le zoom avant n’a pas de boîte').not.toBeNull()
+
+  // De part et d'autre, le `p-1` de l'île et le bord de `Card` : la boîte fait
+  // la hauteur d'un contrôle plus 10. En colonne elle en ferait trois.
+  expect(Math.round(island!.height)).toBe(Math.round(first!.height) + 10)
+  // Et les deux extrémités de la rangée partagent la même ordonnée.
+  expect(Math.round(last!.y)).toBe(Math.round(first!.y))
+})

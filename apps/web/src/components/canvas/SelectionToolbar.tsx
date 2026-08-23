@@ -125,7 +125,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
       // La variante courte, pas `animate-enter` : cette barre s'ouvre et se
       // referme à chaque changement de sélection, pas dix fois par session.
       className="animate-enter-quick pointer-events-auto absolute z-(--z-chrome)
-        flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
+        flex max-w-[min(680px,calc(100%-24px))] flex-row items-center gap-1 overflow-x-auto"
       // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
       // et des flèches entre contrôles, que cette barre n'a pas — chaque
       // contrôle y reste un arrêt de Tab. Le barème complet ne se justifie pas
