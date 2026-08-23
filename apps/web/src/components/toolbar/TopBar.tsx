@@ -86,10 +86,10 @@ const SYNC_TONE: Record<Exclude<SyncStatus, 'off'>, StatusTone> = {
   error: 'warning',
 }
 const SYNC_ICON: Record<Exclude<SyncStatus, 'off'>, ReactNode> = {
-  syncing: <LoaderCircle size={11} className="animate-spin" aria-hidden />,
-  synced: <Cloud size={11} className="text-success" aria-hidden />,
-  offline: <CloudOff size={11} aria-hidden />,
-  error: <TriangleAlert size={11} aria-hidden />,
+  syncing: <LoaderCircle className="animate-spin" aria-hidden />,
+  synced: <Cloud className="text-success" aria-hidden />,
+  offline: <CloudOff aria-hidden />,
+  error: <TriangleAlert aria-hidden />,
 }
 /** Le point de la connexion MCP repliée dans « … », sur le vocabulaire commun des teintes. */
 const MCP_TONE: Record<McpStatus, StatusTone> = {
@@ -325,7 +325,7 @@ function HistoryControls() {
         disabled={!canUndo}
         onClick={() => undo()}
       >
-        <Undo2 size={16} strokeWidth={1.75} />
+        <Undo2 strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
       <ToolbarTool
         className="shrink-0"
@@ -334,7 +334,7 @@ function HistoryControls() {
         disabled={!canRedo}
         onClick={() => redo()}
       >
-        <Redo2 size={16} strokeWidth={1.75} />
+        <Redo2 strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
     </>
   )
@@ -483,7 +483,7 @@ function ToolsSegment() {
         tooltip="Ajouter : texte"
         onClick={() => addLayer(createTextLayer(layerCount(), board()))}
       >
-        <Type size={16} strokeWidth={1.75} />
+        <Type strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
       <DeviceAddTool
         onSelect={(model) => addLayer(createDeviceLayer(model, layerCount(), board()))}
@@ -493,21 +493,21 @@ function ToolsSegment() {
         tooltip="Ajouter : image…"
         onClick={() => document.getElementById('sf-image-import-input')?.click()}
       >
-        <ImageIcon size={16} strokeWidth={1.75} />
+        <ImageIcon strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
       <ToolbarTool
         aria-label="Ajouter Forme"
         tooltip="Ajouter : forme"
         onClick={() => addLayer(createShapeLayer(layerCount(), 'rectangle', board()))}
       >
-        <Square size={16} strokeWidth={1.75} />
+        <Square strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
       <ToolbarTool
         aria-label="Ajouter Icône"
         tooltip="Ajouter : icône"
         onClick={() => addLayer(createIconLayer(layerCount(), undefined, board()))}
       >
-        <Star size={16} strokeWidth={1.75} />
+        <Star strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
     </ToolbarGroup>
   )
@@ -570,7 +570,7 @@ function useToolActions(): SecondaryAction[] {
       id: 'undo',
       label: 'Annuler',
       hint: 'Annuler (⌘Z)',
-      icon: <Undo2 size={16} strokeWidth={1.75} />,
+      icon: <Undo2 strokeWidth={1.75} aria-hidden />,
       disabled: !canUndo,
       onSelect: () => undo(),
     },
@@ -578,7 +578,7 @@ function useToolActions(): SecondaryAction[] {
       id: 'redo',
       label: 'Rétablir',
       hint: 'Rétablir (⌘⇧Z)',
-      icon: <Redo2 size={16} strokeWidth={1.75} />,
+      icon: <Redo2 strokeWidth={1.75} aria-hidden />,
       disabled: !canRedo,
       onSelect: () => redo(),
     },
@@ -586,14 +586,14 @@ function useToolActions(): SecondaryAction[] {
       id: 'add-text',
       label: 'Ajouter Texte',
       hint: 'Ajouter : texte',
-      icon: <Type size={16} strokeWidth={1.75} />,
+      icon: <Type strokeWidth={1.75} aria-hidden />,
       onSelect: () => addLayer((index) => createTextLayer(index, board())),
     },
     {
       id: 'add-device',
       label: 'Ajouter un appareil',
       hint: 'Ajouter : appareil',
-      icon: <Smartphone size={16} strokeWidth={1.75} />,
+      icon: <Smartphone strokeWidth={1.75} aria-hidden />,
       onSelect: () =>
         addLayer((index) =>
           createDeviceLayer(deviceModel ?? profile.defaultDeviceModel, index, board()),
@@ -603,21 +603,21 @@ function useToolActions(): SecondaryAction[] {
       id: 'add-image',
       label: 'Ajouter Image',
       hint: 'Ajouter : image…',
-      icon: <ImageIcon size={16} strokeWidth={1.75} />,
+      icon: <ImageIcon strokeWidth={1.75} aria-hidden />,
       onSelect: () => document.getElementById('sf-image-import-input')?.click(),
     },
     {
       id: 'add-shape',
       label: 'Ajouter Forme',
       hint: 'Ajouter : forme',
-      icon: <Square size={16} strokeWidth={1.75} />,
+      icon: <Square strokeWidth={1.75} aria-hidden />,
       onSelect: () => addLayer((index) => createShapeLayer(index, 'rectangle', board())),
     },
     {
       id: 'add-icon',
       label: 'Ajouter Icône',
       hint: 'Ajouter : icône',
-      icon: <Star size={16} strokeWidth={1.75} />,
+      icon: <Star strokeWidth={1.75} aria-hidden />,
       onSelect: () => addLayer((index) => createIconLayer(index, undefined, board())),
     },
   ]
@@ -653,7 +653,7 @@ function useAccountAction(): SecondaryAction | null {
       // c'est ce qu'on vérifie quand on se demande si on s'est trompé de
       // session. La déconnexion vit dans la boîte, avec le reste du compte.
       hint: email ? `Connecté : ${email}` : 'Mon compte',
-      icon: <UserRound size={16} strokeWidth={1.75} />,
+      icon: <UserRound strokeWidth={1.75} aria-hidden />,
       expanded: showAccountDialog,
       onSelect: () => useUIStore.getState().setShowAccountDialog(!showAccountDialog),
     }
@@ -663,7 +663,7 @@ function useAccountAction(): SecondaryAction | null {
     id: 'account',
     label: 'Se connecter',
     hint: 'Se connecter à ScreenForge',
-    icon: <UserRound size={16} strokeWidth={1.75} />,
+    icon: <UserRound strokeWidth={1.75} aria-hidden />,
     expanded: showAuthDialog,
     disabled: status === 'unknown',
     onSelect: () => useUIStore.getState().setShowAuthDialog(!showAuthDialog),
@@ -744,7 +744,7 @@ function useComposeActions(): SecondaryAction[] {
       id: 'templates',
       label: 'Ouvrir les modèles',
       hint: 'Modèles de mise en page',
-      icon: <LayoutTemplate size={16} strokeWidth={1.75} />,
+      icon: <LayoutTemplate strokeWidth={1.75} aria-hidden />,
       expanded: showTemplatesPicker,
       onSelect: () => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker),
     },
@@ -752,7 +752,7 @@ function useComposeActions(): SecondaryAction[] {
       id: 'globals',
       label: 'Ouvrir les réglages globaux',
       hint: 'Réglages globaux du projet',
-      icon: <Settings size={16} strokeWidth={1.75} />,
+      icon: <Settings strokeWidth={1.75} aria-hidden />,
       expanded: showGlobalsEditor,
       onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
     },
@@ -762,7 +762,7 @@ function useComposeActions(): SecondaryAction[] {
             id: 'privacy',
             label: 'Préférences de confidentialité',
             hint: 'Choisir les analytics et le diagnostic',
-            icon: <ShieldCheck size={16} strokeWidth={1.75} />,
+            icon: <ShieldCheck strokeWidth={1.75} aria-hidden />,
             expanded: showPrivacyDialog,
             onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
           },
@@ -776,7 +776,7 @@ function useComposeActions(): SecondaryAction[] {
          du marketing, et la génération n'est intelligente que si l'utilisateur
          a branché un modèle — une baguette la promettait dans tous les cas et
          se lisait par ailleurs comme une retouche par IA du calque courant. */
-      icon: <Megaphone size={16} strokeWidth={1.75} />,
+      icon: <Megaphone strokeWidth={1.75} aria-hidden />,
       expanded: showCampaignDialog,
       onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
     },
@@ -797,7 +797,7 @@ function useDeliverActions(): SecondaryAction[] {
       id: 'refresh',
       label: 'Actualiser les captures',
       hint: 'Remplacer le lot de captures',
-      icon: <RefreshCw size={16} strokeWidth={1.75} />,
+      icon: <RefreshCw strokeWidth={1.75} aria-hidden />,
       expanded: showRefreshDialog,
       onSelect: () => useUIStore.getState().setShowRefreshDialog(!showRefreshDialog),
     },
@@ -805,7 +805,7 @@ function useDeliverActions(): SecondaryAction[] {
       id: 'locales',
       label: 'Ouvrir les langues',
       hint: 'Variantes de langue et débordements',
-      icon: <Languages size={16} strokeWidth={1.75} />,
+      icon: <Languages strokeWidth={1.75} aria-hidden />,
       expanded: showLocaleDialog,
       onSelect: () => useUIStore.getState().setShowLocaleDialog(!showLocaleDialog),
     },
@@ -813,7 +813,7 @@ function useDeliverActions(): SecondaryAction[] {
       id: 'releases',
       label: 'Ouvrir les releases',
       hint: 'Releases figées et comparaison',
-      icon: <Package size={16} strokeWidth={1.75} />,
+      icon: <Package strokeWidth={1.75} aria-hidden />,
       expanded: showReleaseDialog,
       onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
     },
@@ -823,7 +823,7 @@ function useDeliverActions(): SecondaryAction[] {
             id: 'publish',
             label: 'Publier chez Apple',
             hint: 'Preflight, manifeste et commande asc',
-            icon: <CloudUpload size={16} strokeWidth={1.75} />,
+            icon: <CloudUpload strokeWidth={1.75} aria-hidden />,
             expanded: showPublishDialog,
             onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
           },
@@ -852,13 +852,20 @@ function useUtilityActions(): SecondaryAction[] {
       id: 'mcp',
       label: 'Connexion MCP',
       hint: `Piloter le projet ouvert — ${MCP_LABELS[mcpStatus].toLowerCase()}`,
-      /* La pastille à côté de la prise, jamais posée dessus : repliée dans le
-         menu, l'icône retombe dans une fente que le menu dimensionne, et une
-         pastille en absolu y déborderait sur le libellé. */
+      /* Le `span` occupe exactement la fente d'une icône — `size-4`, le même
+         `-mx-0.5` — et la pastille lui est accrochée hors flux : en flux, ses
+         6px et leur écart élargissaient la fente de 10px, et le libellé de
+         cette seule entrée partait à droite de ses voisines. Le menu reçoit ce
+         `span` et non la prise, donc `[&>svg]` ne descend pas jusqu'à elle :
+         elle porte sa taille et son `opacity-80` elle-même, ce que coss prévoit
+         pour une icône hors de sa fente. */
       icon: (
-        <span className="inline-flex items-center gap-1">
-          <Plug2 size={16} strokeWidth={1.75} />
-          <StatusDot tone={MCP_TONE[mcpStatus]} />
+        <span className="relative -mx-0.5 size-4 shrink-0">
+          <Plug2 strokeWidth={1.75} className="size-4 opacity-80" aria-hidden />
+          <StatusDot
+            tone={MCP_TONE[mcpStatus]}
+            className="absolute -end-1 -top-0.5 ring-2 ring-popover"
+          />
         </span>
       ),
       expanded: showMcpDialog,
@@ -870,9 +877,9 @@ function useUtilityActions(): SecondaryAction[] {
       hint: theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre',
       icon:
         theme === 'dark' ? (
-          <Sun size={16} strokeWidth={1.75} />
+          <Sun strokeWidth={1.75} aria-hidden />
         ) : (
-          <Moon size={16} strokeWidth={1.75} />
+          <Moon strokeWidth={1.75} aria-hidden />
         ),
       onSelect: () => useUIStore.getState().toggleTheme(),
     },
@@ -880,7 +887,7 @@ function useUtilityActions(): SecondaryAction[] {
       id: 'palette',
       label: 'Ouvrir la palette de commandes',
       hint: 'Palette de commandes (⌘K)',
-      icon: <Command size={16} strokeWidth={1.75} />,
+      icon: <Command strokeWidth={1.75} aria-hidden />,
       onSelect: () => useUIStore.getState().setShowCommandPalette(true),
     },
   ]
@@ -908,7 +915,7 @@ function SecondaryActionsMenu({ groups }: { groups: SecondaryAction[][] }) {
           active={open}
           aria-expanded={open}
         >
-          <MoreHorizontal size={16} strokeWidth={1.75} />
+          <MoreHorizontal strokeWidth={1.75} aria-hidden />
         </ToolbarTool>
       }
       ariaLabel="Autres actions"
@@ -974,7 +981,7 @@ function ActionsSegment({
         aria-pressed={layersOpen}
         onClick={() => useUIStore.getState().toggleLayers()}
       >
-        <PanelLeft size={16} strokeWidth={1.75} />
+        <PanelLeft strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
       <ToolbarTool
         aria-label="Basculer le panneau Propriétés"
@@ -983,7 +990,7 @@ function ActionsSegment({
         aria-pressed={propsOpen}
         onClick={() => useUIStore.getState().toggleProps()}
       >
-        <PanelRight size={16} strokeWidth={1.75} />
+        <PanelRight strokeWidth={1.75} aria-hidden />
       </ToolbarTool>
 
       <Divider />
@@ -1010,7 +1017,7 @@ function ActionsSegment({
         onClick={() => useUIStore.getState().setShowExportDialog(true)}
         className="ml-2.5 w-[102px]"
       >
-        <Download size={13} strokeWidth={2} aria-hidden />
+        <Download strokeWidth={2} aria-hidden />
         Exporter
       </Button>
     </ToolbarGroup>
@@ -1056,5 +1063,5 @@ function DeviceAddTool({ onSelect }: { onSelect: (model: DeviceModel) => void })
 
 function DeviceToolIcon({ family }: { family: DeviceFamily }) {
   const Icon = family === 'ipad' ? Tablet : family === 'watch' ? WatchIcon : Smartphone
-  return <Icon size={16} strokeWidth={1.75} />
+  return <Icon strokeWidth={1.75} />
 }

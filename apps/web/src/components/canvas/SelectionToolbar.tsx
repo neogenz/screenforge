@@ -152,7 +152,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               tooltip={label}
               onClick={() => useCanvasStore.getState().alignSelection(mode)}
             >
-              <Icon size={14} strokeWidth={1.6} aria-hidden />
+              <Icon strokeWidth={1.6} aria-hidden />
             </IconButton>
           ))}
           <Divider />
@@ -180,7 +180,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               for (const id of selectedLayerIds) useCanvasStore.getState().duplicateLayer(id)
             }}
           >
-            <Copy size={14} strokeWidth={1.6} aria-hidden />
+            <Copy strokeWidth={1.6} aria-hidden />
           </IconButton>
           <IconButton
             size="sm"
@@ -191,7 +191,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
             }}
           >
-            <Trash2 size={14} strokeWidth={1.6} aria-hidden />
+            <Trash2 strokeWidth={1.6} aria-hidden />
           </IconButton>
         </>
       )}
@@ -274,7 +274,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
             tooltip={label}
             onClick={() => update({ textAlign: value } as Partial<Layer>)}
           >
-            <Icon size={14} strokeWidth={1.6} aria-hidden />
+            <Icon strokeWidth={1.6} aria-hidden />
           </IconButton>
         ))}
       </>
@@ -402,7 +402,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: Screensh
         tooltip="Choisir la capture"
         onClick={() => input.current?.click()}
       >
-        <ImagePlus size={14} strokeWidth={1.6} aria-hidden />
+        <ImagePlus strokeWidth={1.6} aria-hidden />
       </IconButton>
       <Input
         unstyled

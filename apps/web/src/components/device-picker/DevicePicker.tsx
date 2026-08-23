@@ -210,7 +210,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               className="hover:text-destructive"
               onClick={removeImportedBezel}
             >
-              <X size={13} strokeWidth={1.5} aria-hidden />
+              <X strokeWidth={1.5} aria-hidden />
             </IconButton>
           </div>
         </Field>
@@ -222,7 +222,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             loading={bezelLoading}
             onClick={() => bezelInputRef.current?.click()}
           >
-            <Upload size={13} strokeWidth={1.5} aria-hidden />
+            <Upload strokeWidth={1.5} aria-hidden />
             {isApple ? 'Importer le PNG Apple' : 'Importer un cadre PNG'}
           </Button>
           {isApple ? (
@@ -234,7 +234,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
               >
                 Télécharger le DMG chez Apple
-                <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
+                <ExternalLink strokeWidth={1.5} aria-hidden />
               </a>
               <span className="text-xs text-muted-foreground">
                 Fichier fourni localement sous licence Apple. ScreenForge ne le télécharge ni ne le
@@ -273,7 +273,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                     {config.screenSize}
                   </span>
                   <ChevronDown
-                    size={12}
                     strokeWidth={1.5}
                     aria-hidden
                     className={cn(
@@ -348,7 +347,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               className="hover:text-destructive"
               onClick={() => onUpdate({ screenshotAssetId: undefined })}
             >
-              <X size={13} strokeWidth={1.5} aria-hidden />
+              <X strokeWidth={1.5} aria-hidden />
             </IconButton>
           </div>
         ) : (

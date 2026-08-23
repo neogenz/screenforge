@@ -44,7 +44,6 @@ export function PanelSection({
             }
           >
             <ChevronRight
-              size={12}
               strokeWidth={1.75}
               aria-hidden
               className={cn(

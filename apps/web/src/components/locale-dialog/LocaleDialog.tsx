@@ -269,7 +269,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   onClick={create}
                   disabled={busy || locales.length >= MAX_PROJECT_LOCALES}
                 >
-                  <Plus size={12} aria-hidden />
+                  <Plus aria-hidden />
                   Ajouter
                 </Button>
                 {/* « Écriture » ne décide rien de visible ici, mais tout du rendu :
@@ -339,7 +339,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                     onClick={() => void translate(locale, layers)}
                     loading={busy}
                   >
-                    <Languages size={12} aria-hidden />
+                    <Languages aria-hidden />
                     Pré-remplir via le pont
                   </Button>
                 </Hint>
@@ -351,7 +351,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   }}
                   disabled={busy}
                 >
-                  <Trash2 size={12} aria-hidden />
+                  <Trash2 aria-hidden />
                   Supprimer
                 </Button>
               </div>

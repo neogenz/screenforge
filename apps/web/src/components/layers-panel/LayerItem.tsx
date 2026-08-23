@@ -36,18 +36,18 @@ interface LayerItemProps {
 }
 
 function LayerTypeIcon({ type }: { type: Layer['type'] }) {
-  const className = 'shrink-0'
+  const className = 'size-4 shrink-0'
   switch (type) {
     case 'text':
-      return <Type size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <Type strokeWidth={1.5} className={className} aria-hidden />
     case 'device-frame':
-      return <Smartphone size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <Smartphone strokeWidth={1.5} className={className} aria-hidden />
     case 'image':
-      return <ImageIcon size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <ImageIcon strokeWidth={1.5} className={className} aria-hidden />
     case 'icon':
-      return <Star size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <Star strokeWidth={1.5} className={className} aria-hidden />
     default:
-      return <Square size={13} strokeWidth={1.5} className={className} aria-hidden />
+      return <Square strokeWidth={1.5} className={className} aria-hidden />
   }
 }
 
@@ -234,10 +234,9 @@ export const LayerItem = memo(function LayerItem({
         )}
 
         <GripVertical
-          size={11}
           strokeWidth={1.5}
           aria-hidden
-          className="shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          className="size-4 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
         />
 
         <LayerTypeIcon type={layer.type} />
@@ -313,9 +312,11 @@ export const LayerItem = memo(function LayerItem({
             aria-hidden
           >
             {!layer.visible && (
-              <EyeOff size={10} strokeWidth={1.5} className="text-muted-foreground" />
+              <EyeOff strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
             )}
-            {layer.locked && <Lock size={10} strokeWidth={1.5} className="text-muted-foreground" />}
+            {layer.locked && (
+              <Lock strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+            )}
           </div>
         )}
       </div>

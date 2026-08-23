@@ -139,7 +139,7 @@ export function McpDialog() {
                   <SetupCommand command={MCP_COMMAND} />
                   <div>
                     <Button variant="outline" onClick={activate}>
-                      <RefreshCw size={12} aria-hidden />
+                      <RefreshCw aria-hidden />
                       Réessayer
                     </Button>
                   </div>

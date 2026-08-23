@@ -380,7 +380,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         aria-expanded={menuPosition !== null}
         aria-haspopup="menu"
       >
-        <MoreHorizontal size={12} strokeWidth={1.75} aria-hidden />
+        <MoreHorizontal strokeWidth={1.75} aria-hidden className="size-3.5 shrink-0" />
       </button>
 
       {menuPosition && (
@@ -396,12 +396,12 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             // se partage pas, et on copie depuis une source, pas depuis trois.
             {
               label: 'Renommer',
-              icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Pencil strokeWidth={1.5} aria-hidden />,
               onSelect: startRename,
             },
             {
               label: grouped('Dupliquer', groupSize),
-              icon: <Copy size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Copy strokeWidth={1.5} aria-hidden />,
               onSelect: () => onDuplicate(screen.id),
             },
             {
@@ -410,13 +410,13 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
                  refus le dit — un champ de plus pour une valeur qu'on connaît
                  déjà se remplirait à l'identique neuf fois sur dix. */
               label: 'Enregistrer comme gabarit',
-              icon: <LayoutTemplate size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <LayoutTemplate strokeWidth={1.5} aria-hidden />,
               onSelect: () => void saveAsTemplate(screen),
             },
             'separator',
             {
               label: 'Copier les réglages',
-              icon: <ClipboardCopy size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ClipboardCopy strokeWidth={1.5} aria-hidden />,
               onSelect: () => onCopySettings(screen.id),
             },
             {
@@ -424,26 +424,26 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
                 groupSize > 1
                   ? `Coller les réglages sur ${groupSize} écrans`
                   : 'Coller les réglages',
-              icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ClipboardPaste strokeWidth={1.5} aria-hidden />,
               disabled: !canPasteSettings,
               onSelect: () => onPasteSettings(screen.id),
             },
             'separator',
             {
               label: 'Déplacer à gauche',
-              icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ChevronLeft strokeWidth={1.5} aria-hidden />,
               disabled: !canMoveLeft,
               onSelect: () => onMove(index, -1),
             },
             {
               label: 'Déplacer à droite',
-              icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ChevronRight strokeWidth={1.5} aria-hidden />,
               disabled: !canMoveRight,
               onSelect: () => onMove(index, 1),
             },
             {
               label: grouped('Supprimer', groupSize),
-              icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Trash2 strokeWidth={1.5} aria-hidden />,
               danger: true,
               disabled: !canDelete,
               onSelect: () => onDelete(screen.id),

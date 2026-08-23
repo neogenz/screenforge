@@ -588,14 +588,14 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
   const errorBanner = error && !composeFailed && (
     <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
-      <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+      <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
       {error}
     </p>
   )
 
   const primaryAction = plan ? (
     <Button variant="default" onClick={accept} disabled={busy}>
-      <Check size={12} aria-hidden />
+      <Check aria-hidden />
       Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
     </Button>
   ) : (
@@ -609,7 +609,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
         loading={busy}
         disabled={full || !named}
       >
-        <Megaphone size={12} aria-hidden />
+        <Megaphone aria-hidden />
         Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
       </Button>
     </>
@@ -691,7 +691,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={() => shotsInput.current?.click()}
                       disabled={busy}
                     >
-                      <ImageUp size={12} aria-hidden />
+                      <ImageUp aria-hidden />
                       {shots.length > 0
                         ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
                         : 'Ajouter les captures…'}
@@ -701,7 +701,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={() => logoInput.current?.click()}
                       disabled={busy}
                     >
-                      <ImageUp size={12} aria-hidden />
+                      <ImageUp aria-hidden />
                       {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
                     </Button>
                     {!full && (
@@ -847,7 +847,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={harmonize}
                       disabled={busy}
                     >
-                      <Paintbrush size={12} aria-hidden />
+                      <Paintbrush aria-hidden />
                       Appliquer à « {activeScreen.name} »
                     </Button>
                     <p className="text-xs text-muted-foreground">
@@ -1064,7 +1064,7 @@ function AssistantRow({
       <span className="text-xs text-muted-foreground">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
       {status && <span className="shrink-0 text-xs text-muted-foreground">{status}</span>}
-      <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
+      <ChevronRight aria-hidden className="shrink-0 text-muted-foreground" />
     </Button>
   )
 }
@@ -1246,14 +1246,14 @@ function PlanReview({
                   loading={regenerating === focus}
                   disabled={busy || regenerating !== null}
                 >
-                  <RefreshCw size={12} aria-hidden />
+                  <RefreshCw aria-hidden />
                   Réécrire
                 </Button>
               )}
               {only ? (
                 <Hint content="Il faut au moins un visuel : utilisez « Annuler »." side="top">
                   <Button variant="outline" disabled>
-                    <Trash2 size={12} aria-hidden />
+                    <Trash2 aria-hidden />
                     Retirer
                   </Button>
                 </Hint>
@@ -1263,7 +1263,7 @@ function PlanReview({
                   onClick={() => onDrop(focus)}
                   disabled={busy || regenerating !== null}
                 >
-                  <Trash2 size={12} aria-hidden />
+                  <Trash2 aria-hidden />
                   Retirer
                 </Button>
               )}

@@ -180,7 +180,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
                   aria-label="Supprimer le stop"
                   className="shrink-0 hover:bg-destructive/14 hover:text-destructive"
                 >
-                  <Trash2 size={13} strokeWidth={1.5} aria-hidden />
+                  <Trash2 strokeWidth={1.5} aria-hidden />
                 </IconButton>
               </div>
             </div>
@@ -194,7 +194,7 @@ export function GradientEditor({ value, onChange }: GradientEditorProps) {
           disabled={value.stops.length >= 10}
           className="w-full"
         >
-          <Plus size={13} strokeWidth={1.75} aria-hidden />
+          <Plus strokeWidth={1.75} aria-hidden />
           Ajouter un stop
         </Button>
       </div>

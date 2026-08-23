@@ -300,7 +300,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 loading={running === 'freeze'}
                 disabled={busy || releases.length >= MAX_PROJECT_RELEASES}
               >
-                <Package size={12} aria-hidden />
+                <Package aria-hidden />
                 Figer une release
               </Button>
               {/* Ce que le bouton produit, au moment de l'appuyer. Le rendu
@@ -362,7 +362,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         {progress && (
           <div className="mb-4" aria-live="polite">
             <div className="mb-2 flex items-center gap-2">
-              <Loader size={13} className="animate-spin text-foreground" aria-hidden />
+              <Loader className="animate-spin text-foreground" aria-hidden />
               <span className="text-xs text-foreground">{progress.label}</span>
               <span className="tabular-nums ml-auto text-xs text-muted-foreground">
                 {progress.current}/{progress.total}
@@ -438,12 +438,12 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     onClick={() => resume(selected)}
                     disabled={busy || diff?.identical}
                   >
-                    <RotateCcw size={12} aria-hidden />
+                    <RotateCcw aria-hidden />
                     Reprendre
                   </Button>
                 </Hint>
                 <Button variant="outline" onClick={() => forget(selected)} disabled={busy}>
-                  <Trash2 size={12} aria-hidden />
+                  <Trash2 aria-hidden />
                   Retirer
                 </Button>
               </div>
@@ -505,12 +505,12 @@ type Verdict = 'ok' | 'drift' | null
  */
 function VerdictIcon({ verdict }: { verdict: Verdict }) {
   if (verdict === 'ok') {
-    return <Check size={12} aria-hidden className="animate-mark text-success" />
+    return <Check aria-hidden className="animate-mark text-success" />
   }
   if (verdict === 'drift') {
-    return <AlertCircle size={12} aria-hidden className="animate-mark text-warning" />
+    return <AlertCircle aria-hidden className="animate-mark text-warning" />
   }
-  return <ShieldCheck size={12} aria-hidden />
+  return <ShieldCheck aria-hidden />
 }
 
 /**
@@ -536,7 +536,6 @@ function WhyFreeze({ open, isApple }: { open?: boolean; isApple: boolean }) {
     <details className="group/why" {...(open ? { open: true } : {})}>
       <summary className="flex list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
         <ChevronRight
-          size={12}
           strokeWidth={1.75}
           aria-hidden
           className="shrink-0 transition-transform duration-150 ease-out group-open/why:rotate-90"
@@ -614,7 +613,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
       <h3 className="text-sm font-medium">Vérification</h3>
       {broken.length === 0 ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
-          <Check size={13} className="text-success" aria-hidden />
+          <Check className="text-success" aria-hidden />
           Les {results.length} écrans se rejouent à l’identique : cette release est encore publiable
           telle quelle.
         </p>
@@ -623,7 +622,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
           <ul className="mt-2 flex flex-col gap-1.5">
             {broken.map((result) => (
               <li key={result.path} className="flex items-start gap-2 text-xs text-warning">
-                <AlertCircle size={13} className="mt-px shrink-0" aria-hidden />
+                <AlertCircle className="mt-px shrink-0" aria-hidden />
                 <span className="min-w-0">
                   <span className="tabular-nums">{result.path}</span>
                   {' — '}
@@ -708,7 +707,7 @@ function DiffReport({ diff }: { diff: StructuralDiff }) {
       <h3 className="text-sm font-medium">Depuis cette release</h3>
       {diff.identical ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
-          <History size={13} aria-hidden />
+          <History aria-hidden />
           Le projet est exactement dans l’état figé.
         </p>
       ) : (

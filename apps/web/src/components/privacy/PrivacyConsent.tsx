@@ -55,7 +55,7 @@ export function PrivacyConsent({ copy, open, onOpenChange }: PrivacyConsentProps
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
               <h2 id="privacy-banner-title" className="section-title flex items-center gap-2">
-                <ShieldCheck size={16} strokeWidth={1.75} aria-hidden />
+                <ShieldCheck strokeWidth={1.75} aria-hidden />
                 {copy.bannerTitle}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">{copy.bannerBody}</p>

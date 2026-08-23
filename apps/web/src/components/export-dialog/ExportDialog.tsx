@@ -190,9 +190,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             disabled={selectedScreens.length === 0 || localeRefused}
           >
             {justExported ? (
-              <Check size={12} aria-hidden className="animate-mark" />
+              <Check aria-hidden className="animate-mark" />
             ) : (
-              <Download size={12} aria-hidden />
+              <Download aria-hidden />
             )}
             Exporter le ZIP
           </Button>
@@ -219,13 +219,13 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <Separator className="my-3" />
                 <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> PNG · 8 bits
+                    <Check aria-hidden className="size-3.5" /> PNG · 8 bits
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> RGB opaque · sans alpha
+                    <Check aria-hidden className="size-3.5" /> RGB opaque · sans alpha
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> Cible interne &lt; 5 MB
+                    <Check aria-hidden className="size-3.5" /> Cible interne &lt; 5 MB
                   </li>
                 </ul>
               </div>
@@ -352,7 +352,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         {!isExporting && !error && completedFiles.length > 0 && (
           <div className="border-t border-border px-6 py-4" aria-live="polite">
             <div className="flex items-center gap-2 text-xs text-foreground">
-              <FileCheck2 size={13} aria-hidden />
+              <FileCheck2 aria-hidden />
               ZIP validé et téléchargé · {completedFiles.length} fichier
               {completedFiles.length > 1 ? 's' : ''}
             </div>
@@ -410,7 +410,7 @@ function ScreenChoice({
           checked ? 'border-foreground bg-foreground text-card' : 'border-input bg-card',
         )}
       >
-        {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
+        {checked && <Check strokeWidth={2.5} aria-hidden />}
       </span>
       {screen.thumbnail ? (
         <img

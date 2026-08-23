@@ -73,7 +73,7 @@ function Availability({ value }: { value: ProjectAvailability }) {
     <StatusChip
       tone={AVAILABILITY_TONE[value]}
       size="sm"
-      icon={<Icon size={11} strokeWidth={1.75} aria-hidden />}
+      icon={<Icon strokeWidth={1.75} aria-hidden />}
     >
       {PROJECT_AVAILABILITY_LABELS[value]}
     </StatusChip>
@@ -252,9 +252,9 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         }}
       >
         {busy ? (
-          <LoaderCircle size={13} className="animate-spin" aria-hidden />
+          <LoaderCircle className="animate-spin" aria-hidden />
         ) : (
-          <ChevronDown size={13} strokeWidth={2} aria-hidden />
+          <ChevronDown strokeWidth={2} aria-hidden />
         )}
       </IconButton>
 
@@ -279,7 +279,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               Projet courant
             </h2>
             <div aria-current="page" className="flex min-w-0 items-center gap-2">
-              <FileText size={15} className="shrink-0 text-muted-foreground" aria-hidden />
+              <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <span
                 className="min-w-0 flex-1 truncate text-sm font-medium"
                 title={currentProjectName}
@@ -294,7 +294,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             </p>
             <div className="mt-2 flex gap-1">
               <Button size="sm" variant="ghost" onClick={renameCurrent}>
-                <PenLine size={13} strokeWidth={1.75} aria-hidden />
+                <PenLine strokeWidth={1.75} aria-hidden />
                 Renommer
               </Button>
               <Button
@@ -303,7 +303,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 disabled={busy}
                 onClick={() => void downloadCurrent()}
               >
-                <FileDown size={13} strokeWidth={1.75} aria-hidden />
+                <FileDown strokeWidth={1.75} aria-hidden />
                 Télécharger une copie
               </Button>
             </div>
@@ -337,7 +337,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     Catalogue local indisponible. Le projet courant reste ouvert.
                   </p>
                   <Button size="sm" variant="outline" onClick={() => void refresh()}>
-                    <RefreshCw size={13} strokeWidth={1.75} aria-hidden />
+                    <RefreshCw strokeWidth={1.75} aria-hidden />
                     Réessayer
                   </Button>
                 </div>
@@ -412,7 +412,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                           className="shrink-0 hover:text-destructive"
                           onClick={() => setPendingDelete(project)}
                         >
-                          <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                          <Trash2 strokeWidth={1.75} aria-hidden />
                         </IconButton>
                       </li>
                     )
@@ -430,7 +430,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               disabled={busy}
               onClick={startCreating}
             >
-              <Plus size={13} strokeWidth={1.75} aria-hidden />
+              <Plus strokeWidth={1.75} aria-hidden />
               Nouveau projet…
             </Button>
             <Button
@@ -444,7 +444,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 fileRef.current?.click()
               }}
             >
-              <FolderOpen size={13} strokeWidth={1.75} aria-hidden />
+              <FolderOpen strokeWidth={1.75} aria-hidden />
               Importer un fichier…
             </Button>
           </footer>

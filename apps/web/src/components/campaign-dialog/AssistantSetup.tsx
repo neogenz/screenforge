@@ -93,7 +93,7 @@ function Away({ href, children }: { href: string; children: React.ReactNode }) {
       className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground"
     >
       {children}
-      <ExternalLink size={10} aria-hidden />
+      <ExternalLink aria-hidden />
     </a>
   )
 }
@@ -126,14 +126,14 @@ function ProviderChoice({
       )}
     >
       <span className="flex items-center gap-1.5 text-foreground">
-        {active && <Check size={11} aria-hidden />}
+        {active && <Check aria-hidden />}
         {PROVIDER_NAMES[entry.id]}
         {entry.recommended && <span className="text-muted-foreground">· par défaut</span>}
       </span>
       <span className="ml-auto shrink-0 text-muted-foreground">{meta}</span>
       {unavailable && (
         <span className="flex basis-full items-start gap-1 text-warning">
-          <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
+          <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
           {unavailable}
         </span>
       )}
@@ -279,9 +279,7 @@ export function AssistantSetup({
                     engineFound ? 'text-muted-foreground' : 'text-warning',
                   )}
                 >
-                  {found && !engineFound && (
-                    <AlertCircle size={11} className="mt-0.5 shrink-0" aria-hidden />
-                  )}
+                  {found && !engineFound && <AlertCircle className="mt-0.5 shrink-0" aria-hidden />}
                   {bridgeStatusLine()}
                 </p>
                 {found?.state === 'up' && !engineFound && (
@@ -292,7 +290,7 @@ export function AssistantSetup({
                 )}
                 <div>
                   <Button variant="outline" onClick={recheck} loading={!found} disabled={busy}>
-                    <RefreshCw size={12} aria-hidden />
+                    <RefreshCw aria-hidden />
                     Vérifier
                   </Button>
                 </div>
@@ -309,7 +307,7 @@ export function AssistantSetup({
                     <span role="status">{connection.detail}</span>
                     {active.auth === 'api-key' && secret !== '' && (
                       <Button variant="ghost" size="sm" onClick={onForget} disabled={busy}>
-                        <Trash2 size={12} aria-hidden />
+                        <Trash2 aria-hidden />
                         Oublier cette clé
                       </Button>
                     )}
@@ -343,13 +341,13 @@ export function AssistantSetup({
                   disabled={busy || !readyToPair || secret.trim().length === 0}
                   loading={connection.state === 'checking'}
                 >
-                  <Plug size={12} aria-hidden />
+                  <Plug aria-hidden />
                   Connecter
                 </Button>
               </div>
               {connection.state === 'error' && (
                 <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
-                  <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
+                  <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
                   {connection.message}
                 </p>
               )}
@@ -360,7 +358,7 @@ export function AssistantSetup({
               {active.auth === 'api-key' && secret !== '' && (
                 <div>
                   <Button variant="ghost" onClick={onForget} disabled={busy}>
-                    <Trash2 size={12} aria-hidden />
+                    <Trash2 aria-hidden />
                     Oublier cette clé
                   </Button>
                 </div>

@@ -123,7 +123,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
       footerNote="Le cadrage, le rôle et la mise en page sont conservés."
       action={
         <Button variant="default" onClick={confirm} disabled={busy || posed.length === 0}>
-          <RefreshCw size={12} aria-hidden />
+          <RefreshCw aria-hidden />
           Remplacer {posed.length} capture{posed.length > 1 ? 's' : ''}
         </Button>
       }
@@ -148,7 +148,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
                   )}
                 </div>
                 <Button variant="outline" onClick={() => inputRef.current?.click()} loading={busy}>
-                  <ImageUp size={12} aria-hidden />
+                  <ImageUp aria-hidden />
                   {files.length > 0 ? 'Changer de lot…' : 'Choisir les captures…'}
                 </Button>
               </div>
@@ -174,7 +174,7 @@ function RefreshDialogContent({ project }: { project: Project }) {
 
               {error && (
                 <p role="alert" className="flex items-start gap-2 text-xs text-destructive">
-                  <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                  <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
                   {error}
                 </p>
               )}
@@ -268,7 +268,7 @@ function TargetRow({
           nom de fichier désigne bien l'écran qu'on croit. */}
       <div className="flex shrink-0 items-center gap-2">
         <Thumbnail src={before} muted={after !== undefined} />
-        <ArrowRight size={12} className="text-muted-foreground" aria-hidden />
+        <ArrowRight className="text-muted-foreground" aria-hidden />
         <Thumbnail src={after} />
       </div>
       <SelectField
@@ -338,7 +338,7 @@ function PlanNotes({
       <ul className="mt-2 flex flex-col gap-1.5">
         {notes.map((note) => (
           <li key={note} className="flex items-start gap-2 text-xs text-warning">
-            <AlertCircle size={13} className="mt-px shrink-0" aria-hidden />
+            <AlertCircle className="mt-px shrink-0" aria-hidden />
             {note}
           </li>
         ))}

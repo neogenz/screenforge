@@ -33,17 +33,17 @@ const DEFAULT_GRADIENT: GradientFill = {
 const ALIGN_OPTIONS: SegmentedOption<TextLayer['textAlign']>[] = [
   {
     value: 'left',
-    icon: <AlignLeft size={12} strokeWidth={1.5} aria-hidden />,
+    icon: <AlignLeft strokeWidth={1.5} aria-hidden />,
     ariaLabel: 'Aligner à gauche',
   },
   {
     value: 'center',
-    icon: <AlignCenter size={12} strokeWidth={1.5} aria-hidden />,
+    icon: <AlignCenter strokeWidth={1.5} aria-hidden />,
     ariaLabel: 'Centrer',
   },
   {
     value: 'right',
-    icon: <AlignRight size={12} strokeWidth={1.5} aria-hidden />,
+    icon: <AlignRight strokeWidth={1.5} aria-hidden />,
     ariaLabel: 'Aligner à droite',
   },
 ]

@@ -213,7 +213,7 @@ function Gallery({ templates, target, selectedId, onSelect, onRemove }: GalleryP
                 className="absolute right-1 top-1 opacity-0 focus-visible:opacity-100 group-hover/tile:opacity-100"
                 onClick={() => void onRemove(saved)}
               >
-                <Trash2 size={14} strokeWidth={1.75} />
+                <Trash2 strokeWidth={1.75} aria-hidden />
               </IconButton>
             )}
           </div>

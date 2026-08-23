@@ -483,7 +483,7 @@ export function ScreensBar() {
             onClick={handleAdd}
             disabled={atCapacity}
           >
-            <Plus size={16} strokeWidth={1.75} />
+            <Plus strokeWidth={1.75} aria-hidden />
           </Button>
         </Hint>
       </div>

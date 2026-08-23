@@ -135,7 +135,7 @@ export function TransformSection({ layer }: TransformSectionProps) {
             Ce calque est sorti de la planche. L'export ne rend que ce qui est dessus.
           </p>
           <Button variant="outline" size="sm" onClick={bringBack} className="self-start">
-            <CornerUpLeft size={12} strokeWidth={1.5} aria-hidden />
+            <CornerUpLeft strokeWidth={1.5} aria-hidden />
             Ramener sur la planche
           </Button>
         </div>
@@ -182,9 +182,9 @@ export function TransformSection({ layer }: TransformSectionProps) {
           aria-pressed={lockAspect}
         >
           {lockAspect ? (
-            <Link size={12} strokeWidth={1.5} aria-hidden />
+            <Link strokeWidth={1.5} aria-hidden />
           ) : (
-            <Unlink size={12} strokeWidth={1.5} aria-hidden />
+            <Unlink strokeWidth={1.5} aria-hidden />
           )}
         </IconButton>
       </div>

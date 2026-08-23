@@ -164,7 +164,7 @@ function MigrateProjectsDialogContent() {
                   key={project.id}
                   className="flex min-h-10 items-center gap-2 border-b border-border py-2 last:border-b-0"
                 >
-                  <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                  <FileText className="shrink-0 text-muted-foreground" aria-hidden />
                   <span
                     className="min-w-0 flex-1 truncate text-sm text-foreground"
                     title={project.name}

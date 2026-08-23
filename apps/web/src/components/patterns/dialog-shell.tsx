@@ -74,7 +74,7 @@ export function DialogShell({
               disabled={back.disabled}
               onClick={back.onBack}
             >
-              <ChevronLeft size={15} strokeWidth={1.75} />
+              <ChevronLeft strokeWidth={1.75} aria-hidden />
             </IconButton>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-1">

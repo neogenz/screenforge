@@ -209,7 +209,7 @@ function AccountDialogContent() {
         <PanelSection title="Plan actuel">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground">{currentPlan}</p>
-            <Check size={13} strokeWidth={2} aria-label="Actif" className="text-marker" />
+            <Check strokeWidth={2} aria-label="Actif" className="text-marker" />
           </div>
           <p className="text-xs leading-4 text-muted-foreground">{planDetail}</p>
           {cloud && (

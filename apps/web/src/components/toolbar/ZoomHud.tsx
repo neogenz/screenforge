@@ -23,7 +23,7 @@ export function ZoomHud() {
   return (
     <Island className="flex items-center gap-0.5">
       <IconButton size="sm" aria-label="Zoom arrière" tooltip="Zoom arrière (⌘−)" onClick={zoomOut}>
-        <Minus size={14} strokeWidth={1.75} />
+        <Minus strokeWidth={1.75} aria-hidden />
       </IconButton>
       <Hint content="Ajuster aux écrans (⌘0)">
         <Toggle
@@ -37,7 +37,7 @@ export function ZoomHud() {
         </Toggle>
       </Hint>
       <IconButton size="sm" aria-label="Zoom avant" tooltip="Zoom avant (⌘+)" onClick={zoomIn}>
-        <Plus size={14} strokeWidth={1.75} />
+        <Plus strokeWidth={1.75} aria-hidden />
       </IconButton>
     </Island>
   )

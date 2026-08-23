@@ -37,7 +37,7 @@ export function EmptyStage() {
   return (
     <Empty role="status" className="absolute inset-0">
       <EmptyMedia variant="icon">
-        <Images size={18} strokeWidth={1.5} aria-hidden />
+        <Images strokeWidth={1.5} aria-hidden />
       </EmptyMedia>
       <EmptyTitle>{copy.empty.stageTitle}</EmptyTitle>
       <EmptyDescription>{copy.empty.stageDescription}</EmptyDescription>

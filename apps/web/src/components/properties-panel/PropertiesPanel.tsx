@@ -68,7 +68,7 @@ export function PropertiesPanel() {
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <MousePointer size={18} strokeWidth={1.5} aria-hidden />
+                  <MousePointer strokeWidth={1.5} aria-hidden />
                 </EmptyMedia>
                 <EmptyTitle>{copy.empty.selectionTitle}</EmptyTitle>
                 <EmptyDescription>{copy.empty.selectionDescription}</EmptyDescription>
