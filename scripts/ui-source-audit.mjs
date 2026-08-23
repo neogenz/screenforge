@@ -135,12 +135,34 @@ if (indexCss.includes('alias de transition')) {
  * a son propre `.demo-island` et ses propres audits (`landing-audit.mjs`),
  * c'est un site vitrine, pas l'app coss.
  */
+/**
+ * L'unique exemption, avec sa raison — et sa date de péremption : si le chemin
+ * ne désigne plus rien, l'audit échoue au lieu de dissoudre la décision dans un
+ * renommage. Une exemption qu'on ne relit pas est une règle qui s'est éteinte
+ * sans que personne l'ait décidé, ce qui est exactement ce que ce script
+ * existe pour empêcher ailleurs.
+ * @type {[string, string][]}
+ */
+const NATIVE_CONTROL_EXEMPTIONS = [
+  [
+    'apps/web/src/components/screens-bar/ScreenThumbnail.tsx',
+    'la tuile porte un `draggable`, un menu contextuel, un double-clic de renommage et ses propres `aria-pressed`/`aria-current` : l’envelopper dans un `Button` coss reviendrait à en neutraliser la variante classe par classe',
+  ],
+]
+
 const buttonInputScope = [...srcFiles.filter((f) => f.includes('/src/components/'))].filter(
-  (f) => !f.includes('/components/ui/') && !f.endsWith('screens-bar/ScreenThumbnail.tsx'),
+  (f) => !f.includes('/components/ui/') && !NATIVE_CONTROL_EXEMPTIONS.some(([path]) => f === path),
 )
 buttonInputScope.push('apps/web/src/App.tsx')
 
 console.log('\ncontrôles natifs (button/input)')
+for (const [path, why] of NATIVE_CONTROL_EXEMPTIONS) {
+  if (!existsSync(path)) {
+    fail(`exemption périmée — ${path} n’existe plus, la question se rouvre`)
+    continue
+  }
+  console.log(`  exempt ${path}\n         ${why}`)
+}
 let nativeHit = false
 for (const file of buttonInputScope) {
   const content = readFileSync(file, 'utf8')
@@ -189,7 +211,28 @@ const LANDING_CSS = 'apps/web/src/landing/landing.css'
 /** Les espaces de noms Tailwind, et l'utilitaire qu'un jeton y engendre. */
 const TOKEN_NAMESPACES = [
   ['--text-', 'text'],
-  ['--color-', ['text', 'bg', 'border', 'ring', 'fill', 'stroke', 'from', 'to', 'via', 'outline']],
+  [
+    '--color-',
+    // Tailwind ouvre le même espace de noms à ces quinze utilitaires : en
+    // omettre cinq, c'est laisser cinq façons d'écrire un jeton absent.
+    [
+      'text',
+      'bg',
+      'border',
+      'ring',
+      'fill',
+      'stroke',
+      'from',
+      'to',
+      'via',
+      'outline',
+      'divide',
+      'caret',
+      'accent',
+      'decoration',
+      'placeholder',
+    ],
+  ],
   ['--radius-', 'rounded'],
   ['--shadow-', 'shadow'],
   ['--font-', 'font'],
@@ -247,14 +290,70 @@ for (const [namespace, prefixes] of TOKEN_NAMESPACES) {
   }
 }
 
+/**
+ * Ce qui peint, et rien d'autre : les valeurs de `className` et les appels aux
+ * assembleurs de classes. Lu sur le fichier entier, ce balayage échouait sur un
+ * nom de jeton *cité* — dans une prose qui explique justement pourquoi il est
+ * réservé à la vitrine. Une garde qui interdit d'écrire le nom de ce qu'elle
+ * interdit ne se documente plus.
+ *
+ * Les commentaires sont retirés des segments retenus : ce dépôt en écrit à
+ * l'intérieur même des `cn(...)`, où ils décrivent la classe voisine.
+ * @param {string} content
+ * @returns {{ value: string, index: number }[]}
+ */
+function paintedSegments(content) {
+  const segments = []
+  /**
+   * Lit une valeur délimitée à partir de `start`, en comptant les paires.
+   * @param {number} start
+   * @param {string} open
+   * @param {string} close
+   */
+  const balanced = (start, open, close) => {
+    let depth = 0
+    for (let i = start; i < content.length; i++) {
+      if (content[i] === open) depth++
+      else if (content[i] === close && --depth === 0) return content.slice(start, i + 1)
+    }
+    return content.slice(start)
+  }
+
+  for (const match of content.matchAll(/\bclassName\s*=\s*/g)) {
+    const start = match.index + match[0].length
+    const head = content[start]
+    if (head === '{') segments.push({ value: balanced(start, '{', '}'), index: start })
+    else if (head === '"' || head === "'" || head === '`') {
+      const end = content.indexOf(head, start + 1)
+      segments.push({ value: content.slice(start, end < 0 ? undefined : end), index: start })
+    }
+  }
+  // `cva`/`clsx`/`cn` déclarent des classes hors de tout attribut : une variante
+  // se peint tout autant qu'un `className` littéral.
+  for (const match of content.matchAll(/\b(?:cn|cva|clsx|twMerge)\s*\(/g)) {
+    const start = match.index + match[0].length - 1
+    segments.push({ value: balanced(start, '(', ')'), index: start })
+  }
+  return segments.map(({ value, index }) => ({
+    value: value.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(?<!:)\/\/[^\n]*/g, ' '),
+    index,
+  }))
+}
+
 console.log('\njetons de la vitrine dans l’éditeur')
 let landingLeak = false
 for (const file of srcFiles.filter((f) => /\.tsx?$/.test(f) && !f.includes('/src/landing/'))) {
   const content = readFileSync(file, 'utf8')
+  const segments = paintedSegments(content)
   for (const [cls, token] of landingOnly) {
-    if (!new RegExp(`(?<![-\\w/])${cls}(?![-\\w])`).test(content)) continue
-    landingLeak = true
-    fail(`${file} — .${cls} vient de \`${token}\`, déclaré par la seule vitrine`)
+    const written = new RegExp(`(?<![-\\w/])${cls}(?![-\\w])`)
+    for (const { value, index } of segments) {
+      if (!written.test(value)) continue
+      const line = content.slice(0, index).split('\n').length
+      landingLeak = true
+      fail(`${file}:${line} — .${cls} vient de \`${token}\`, déclaré par la seule vitrine`)
+      break
+    }
   }
 }
 if (!landingLeak) {

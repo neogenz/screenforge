@@ -92,5 +92,5 @@ journey
 | Task | Acceptance criteria                                                                                                                                       |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1    | Le helper renvoie une liste vide sur l'application corrigée, et une entrée nommant le bouton, sa boîte et son dépassement dès qu'un contenu sort de sa boîte. |
-| 2    | Les quatre scénarios passent ; rétabli l'état d'avant correctif, `project-file` échoue sur « Ouvrir « Projet Bêta » » (boîte 286×43, débord 8) et `semantics` sur « Ajouter un appareil » (boîte 32×32, débord 2). |
+| 2    | Les quatre scénarios passent ; rétabli l'état d'avant correctif, `project-file` échoue en nommant « Ouvrir « Projet Bêta » » et `semantics` « Ajouter un appareil », chacun avec la boîte et le débord que la garde constate au moment de l'exécution — la rangée a été redessinée depuis, et un chiffre recopié ici vieillirait sans que rien ne le dise. |
 | 3    | `CLAUDE.md` et `aidd_docs/memory/design.md` énoncent la règle `h-auto sm:h-auto` et nomment la garde qui la tient.                                            |
