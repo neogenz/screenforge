@@ -178,15 +178,32 @@ export type McpProbe =
   | { state: 'down'; message: string }
 
 /**
+ * Ce qu'attendre plus longtemps n'apprendrait plus.
+ *
+ * C'est du loopback : trois secondes n'y sont pas une latence, c'est un port
+ * qui ne répondra pas. Ce que la borne achète est le verdict, pas la
+ * performance — une socket qui accepte la connexion et se tait laissait la
+ * boîte sans aucune sortie, le champ inerte et « Vérifier » relançant la même
+ * attente sans fin.
+ */
+const PROBE_TIMEOUT_MS = 3000
+
+/**
  * Le constat, avant la demande.
  *
  * `GET /hello` ne prend pas de jeton et ne consomme pas de tentative : c'est ce
  * qui permet d'écrire « le démon ne tourne pas » avant d'ouvrir un champ où
  * l'utilisateur ne pourrait, sinon, que coller un code obtenu nulle part.
+ *
+ * L'abandon n'a pas de branche à lui : il arrive dans le `catch` comme une
+ * connexion refusée, et `down` y est déjà le bon verdict — un démon qui ne
+ * répond pas dans le temps imparti ne répond pas.
  */
 export async function probeMcpDaemon(): Promise<McpProbe> {
   try {
-    const response = await fetch(`${relayUrl()}/hello`)
+    const response = await fetch(`${relayUrl()}/hello`, {
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    })
     if (!response.ok) throw new RelayResponseError(response.status)
     const greeting = (await response.json()) as RelayGreeting
     if (greeting.protocol !== RELAY_PROTOCOL) {

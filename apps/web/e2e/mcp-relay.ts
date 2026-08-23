@@ -64,6 +64,19 @@ export interface Relay {
   askListTemplates: (id: string) => void
   waitForStream: () => Promise<void>
   dropStream: () => void
+  /**
+   * Accepter `/hello` et ne jamais y répondre.
+   *
+   * Un port fermé et une socket muette ne sont pas le même événement : la
+   * première rejette tout de suite, la seconde laisse la sonde en suspens.
+   * Seule la seconde met la boîte dans l'état sans sortie, et rien d'autre
+   * qu'un vrai serveur ne sait la produire.
+   *
+   * Retombé, l'interrupteur libère ce qu'il retenait, pour que la sonde suivante
+   * réponde normalement — et les réponses gardées sont refermées à l'arrêt, sans
+   * quoi `stop()` attendrait leur socket.
+   */
+  holdHello: (on: boolean) => void
   stop: () => Promise<void>
 }
 
@@ -73,6 +86,13 @@ export async function startRelay(port = 0): Promise<Relay> {
   const assets = new Map<string, { bytes: Buffer; mediaType: string }>()
   const claims: string[] = []
   let stream: ServerResponse | null = null
+  let holdHello = false
+  /* Gardées pour être refermées : une réponse laissée ouverte tient sa socket,
+     et `stop()` attendrait dessus. */
+  const heldHello: ServerResponse[] = []
+  const releaseHello = () => {
+    for (const held of heldHello.splice(0)) held.end()
+  }
   let opened = 0
   let closed = 0
   let activeToken = TOKEN
@@ -97,6 +117,10 @@ export async function startRelay(port = 0): Promise<Relay> {
     // champ du code sert à quelque chose. Sans lui, la marche 1 reste en erreur
     // et rien de ce qui suit n'est atteignable.
     if (url.pathname === '/hello') {
+      if (holdHello) {
+        heldHello.push(response)
+        return
+      }
       response
         .writeHead(200, { ...cors, 'Content-Type': 'application/json' })
         .end(JSON.stringify({ protocol: 1, mcp: '0.1.0-test' }))
@@ -212,9 +236,15 @@ export async function startRelay(port = 0): Promise<Relay> {
       await expect.poll(() => opened, { timeout: 10_000 }).toBeGreaterThan(0)
     },
     dropStream: () => stream?.end(),
+    holdHello: (on) => {
+      holdHello = on
+      if (!on) releaseHello()
+    },
     stop: () =>
       new Promise<void>((resolve) => {
         stream?.end()
+        holdHello = false
+        releaseHello()
         server.close(() => resolve())
         server.closeAllConnections()
       }),

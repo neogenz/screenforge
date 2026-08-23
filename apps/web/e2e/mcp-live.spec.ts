@@ -42,6 +42,16 @@ test.describe('connexion MCP', () => {
       await waitForApp(page)
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      // Avant tout appairage, la version ne vient que de la sonde — et les
+      // détails la lisent au même endroit que la marche 1. Les faire lire le
+      // store seul écrivait « Non détectée » sous une marche qui venait
+      // d'annoncer le démon joignable : deux affirmations contradictoires sur
+      // le même écran.
+      await dialog.getByText('Détails de connexion').click()
+      await expect(dialog.getByText('MCP 0.1.0-test', { exact: true })).toBeVisible()
+      await expect(dialog.getByText('Non détectée')).toHaveCount(0)
+      await dialog.getByText('Détails de connexion').click()
+
       const code = dialog.getByLabel('Code d’appairage')
       const pair = dialog.getByRole('button', { name: 'Appairer' })
       await code.fill('000000')
@@ -335,6 +345,107 @@ test.describe('connexion MCP', () => {
           TOKEN,
         ),
       ).toBe(false)
+    } finally {
+      await relay.stop()
+    }
+  })
+
+  test('une socket qui accepte et se tait laisse quand même une sortie', async ({ page }) => {
+    // Un port fermé rejette tout de suite ; celui-ci accepte la connexion et ne
+    // répond jamais. Sans borne côté page, la sonde restait en suspens, la
+    // marche 1 sur « Connexion… » et « Vérifier » relançait la même attente :
+    // la boîte n'avait plus aucune sortie.
+    const relay = await startRelay()
+    try {
+      relay.holdHello(true)
+      await page.addInitScript((port: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(port))
+      }, relay.port)
+      await waitForApp(page)
+
+      await openUtility(page, 'Connexion MCP')
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+
+      // Plus long que la borne de la sonde : c'est elle qu'on mesure.
+      await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/, {
+        timeout: 8000,
+      })
+      await expectConnectionFlow(dialog, 0)
+
+      // La sortie, et pas seulement le verdict : ce qu'on vient chercher est la
+      // commande à lancer, et le bouton qui relira l'état après l'avoir lancée.
+      await expect(dialog.getByText('pnpm --filter mcp run start')).toBeVisible()
+      await expect(dialog.getByRole('button', { name: /^Copier/ })).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Vérifier' })).toBeEnabled()
+
+      // Et le démon retrouvé, « Vérifier » relit l'état plutôt que de faire
+      // recharger la page.
+      relay.holdHello(false)
+      await dialog.getByRole('button', { name: 'Vérifier' }).click()
+      await expectConnectionFlow(dialog, 1)
+    } finally {
+      await relay.stop()
+    }
+  })
+
+  test('deux vérifications qui se croisent affichent la dernière, jamais la plus ancienne', async ({
+    page,
+  }) => {
+    const relay = await startRelay()
+    try {
+      /* La sonde est retenue au niveau de la route et non du relais : une
+         réponse tenue par un vrai serveur immobilise sa socket, et le navigateur
+         met alors la sonde suivante en file derrière elle — mesuré, les deux
+         partaient à trente millisecondes d'écart et revenaient dans l'ordre.
+         Interceptée ici, la première ne touche jamais le réseau, donc la seconde
+         part vraiment en parallèle et revient la première. */
+      let release: (() => void) | undefined
+      let holdNext = false
+      let held = 0
+      /* La boîte s'ouvre sur un démon absent : c'est l'état où « Vérifier »
+         existe, puisque la marche franchie replie son contenu. */
+      let answering = false
+      await page.route('**/hello', async (route) => {
+        if (holdNext) {
+          // Une seule, désignée par le test : `StrictMode` monte l'effet deux
+          // fois, donc compter les requêtes depuis l'ouverture désignerait la
+          // mauvaise.
+          holdNext = false
+          held += 1
+          await new Promise<void>((resolve) => {
+            release = resolve
+          })
+          await route.fulfill({ status: 503, body: '' })
+          return
+        }
+        if (answering) await route.continue()
+        else await route.fulfill({ status: 503, body: '' })
+      })
+
+      await page.addInitScript((port: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(port))
+      }, relay.port)
+      await waitForApp(page)
+      await openUtility(page, 'Connexion MCP')
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await expectConnectionFlow(dialog, 0)
+
+      const check = dialog.getByRole('button', { name: 'Vérifier' })
+      // La sonde retenue — c'est elle qui reviendra périmée, en échec.
+      holdNext = true
+      await check.click()
+      await expect.poll(() => held).toBe(1)
+      // Et celle qui répond tout de suite : c'est elle qui doit être affichée.
+      answering = true
+      await check.click()
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+
+      // La sonde partie plus tôt revient enfin, et ne repeint rien.
+      release?.()
+      await page.waitForTimeout(1000)
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByRole('alert')).toHaveCount(0)
     } finally {
       await relay.stop()
     }

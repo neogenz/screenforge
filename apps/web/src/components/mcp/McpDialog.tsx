@@ -62,6 +62,8 @@ export function McpDialog() {
   const [probe, setProbe] = useState<McpProbe | null>(null)
   const codeRef = useRef<HTMLInputElement>(null)
   const disableRef = useRef<HTMLButtonElement>(null)
+  /** Le rang de la dernière sonde demandée — voir `recheck`. */
+  const probeRank = useRef(0)
   const status = useMcpStore((state) => state.status)
   const connectionStep = useMcpStore((state) => state.connectionStep)
   const message = useMcpStore((state) => state.message)
@@ -88,7 +90,15 @@ export function McpDialog() {
 
   function recheck() {
     setProbe(null)
-    void probeMcpDaemon().then(setProbe)
+    // Même intention que le `cancelled` de l'effet ci-dessus, sur l'autre
+    // source : deux « Vérifier » rapprochés partent en parallèle, et sans ce
+    // rang la première réponse revenue repeint la marche, fût-elle la plus
+    // ancienne. Depuis que la sonde s'abandonne au bout de trois secondes, une
+    // relance pendant l'attente est le geste normal, pas le cas tordu.
+    const mine = ++probeRank.current
+    void probeMcpDaemon().then((answer) => {
+      if (mine === probeRank.current) setProbe(answer)
+    })
   }
 
   /**
@@ -322,7 +332,14 @@ export function McpDialog() {
               <dt>Transport</dt>
               <dd className="min-w-0 truncate text-foreground">{mcpRelayAddress()} · loopback</dd>
               <dt>Version</dt>
-              <dd className="text-foreground">{version ? `MCP ${version}` : 'Non détectée'}</dd>
+              {/* `daemonVersion` et non `version` : la sonde la connaît avant
+                l'appairage, et lire le store seul écrivait « Non détectée » sous
+                une marche 1 qui venait d'annoncer « Démon MCP 0.1.0 joignable ».
+                « Non détectée » reste le cas où ni la sonde ni le store ne
+                savent. */}
+              <dd className="text-foreground">
+                {daemonVersion ? `MCP ${daemonVersion}` : 'Non détectée'}
+              </dd>
               <dt>Activité</dt>
               <dd className="text-foreground">
                 {batches} lot{batches > 1 ? 's' : ''} · {calls} appel{calls > 1 ? 's' : ''}
