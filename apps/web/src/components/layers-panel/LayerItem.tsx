@@ -188,6 +188,7 @@ export const LayerItem = memo(function LayerItem({
         tabIndex={tabIndex}
         aria-selected={isSelected}
         aria-label={`${displayName}, ${layer.type}`}
+        data-slot="layer-item"
         data-layer-id={layer.id}
         draggable
         onFocus={() => onFocusRow(layer)}
@@ -214,7 +215,7 @@ export const LayerItem = memo(function LayerItem({
           // redémarre ses animations CSS, et la ligne rejouait son entrée à
           // chaque déplacement.
           !entered && 'animate-enter',
-          'group relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2',
+          'relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2',
           'transition-colors duration-100 ease-out',
           // Sélection : voile et liseré d'accent plutôt qu'un aplat gris clair.
           // L'aplat pesait autant que le contenu du panneau et ne disait pas
@@ -236,7 +237,7 @@ export const LayerItem = memo(function LayerItem({
         <GripVertical
           strokeWidth={1.5}
           aria-hidden
-          className="size-4 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          className="size-4 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity in-[[data-slot=layer-item]:hover]:opacity-100"
         />
 
         <LayerTypeIcon type={layer.type} />
@@ -264,7 +265,7 @@ export const LayerItem = memo(function LayerItem({
             la liste promet un seul arrêt de Tab, et ces deux boutons en ajoutaient
             deux par ligne. À la souris rien ne change ; au clavier, Masquer et
             Verrouiller restent au menu contextuel (⇧F10 / touche Menu). */}
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity in-[[data-slot=layer-item]:focus-within]:opacity-100 in-[[data-slot=layer-item]:hover]:opacity-100">
           <Hint content={layer.visible ? 'Masquer le calque' : 'Afficher le calque'}>
             <Button
               variant="ghost"
@@ -308,7 +309,7 @@ export const LayerItem = memo(function LayerItem({
 
         {(!layer.visible || layer.locked) && (
           <div
-            className="flex shrink-0 items-center gap-0.5 group-focus-within:hidden group-hover:hidden"
+            className="flex shrink-0 items-center gap-0.5 in-[[data-slot=layer-item]:focus-within]:hidden in-[[data-slot=layer-item]:hover]:hidden"
             aria-hidden
           >
             {!layer.visible && (

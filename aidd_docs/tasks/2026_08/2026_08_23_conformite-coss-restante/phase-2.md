@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: `group-hover` devient `in-*`, ce que coss écrit

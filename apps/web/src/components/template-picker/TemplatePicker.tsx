@@ -164,7 +164,7 @@ function Gallery({ templates, target, selectedId, onSelect, onRemove }: GalleryP
         const saved = savedOf(template)
         const isSelected = selectedId === template.id
         return (
-          <div key={template.id} className="group/tile relative self-start">
+          <div key={template.id} data-slot="template-tile" className="relative self-start">
             <Card
               render={
                 <button
@@ -210,7 +210,7 @@ function Gallery({ templates, target, selectedId, onSelect, onRemove }: GalleryP
                 aria-label={`Supprimer le gabarit ${template.name}`}
                 /* Visible au survol et dès qu'il a le focus : au seul survol,
                    la suppression n'existerait pas au clavier. */
-                className="absolute right-1 top-1 opacity-0 focus-visible:opacity-100 group-hover/tile:opacity-100"
+                className="absolute right-1 top-1 opacity-0 focus-visible:opacity-100 in-[[data-slot=template-tile]:hover]:opacity-100"
                 onClick={() => void onRemove(saved)}
               >
                 <Trash2 strokeWidth={1.75} aria-hidden />

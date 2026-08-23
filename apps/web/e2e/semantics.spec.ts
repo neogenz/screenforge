@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { addTextLayer, expectNoClippedControl, expectNoRawIcon, waitForApp } from './helpers'
+import {
+  addTextLayer,
+  expectNoClippedControl,
+  expectNoRawIcon,
+  layerRows,
+  waitForApp,
+} from './helpers'
 
 /**
  * La structure du document, pas seulement sa peinture.
@@ -145,4 +151,68 @@ test('garde le HUD de zoom sur une seule rangée', async ({ page }) => {
   expect(Math.round(island!.height)).toBe(Math.round(first!.height) + 10)
   // Et les deux extrémités de la rangée partagent la même ordonnée.
   expect(Math.round(last!.y)).toBe(Math.round(first!.y))
+})
+
+/**
+ * Les révélations au survol s'écrivent `in-[[data-slot=…]:hover]`, la forme
+ * que coss emploie, et non `group-hover`. C'est une variante arbitraire :
+ * Tailwind n'émet la règle que si le nom du slot est écrit à la lettre, et une
+ * faute ne produit ni erreur de compilation, ni exception, ni classe en trop —
+ * seulement une poignée qui ne réapparaît jamais. Aucune de ces cinq
+ * révélations n'était mesurée ; l'opacité calculée sous le pointeur est le seul
+ * témoin qui reste.
+ */
+test('révèle au survol ce qu’une ligne de calque et une vignette taisent au repos', async ({
+  page,
+}) => {
+  await waitForApp(page)
+  await addTextLayer(page)
+
+  const row = layerRows(page).first()
+  await expect(row).toBeVisible()
+  const handle = row.locator('svg').first()
+  const hide = row.getByRole('button', { name: 'Masquer le calque' })
+  // Le conteneur des deux actions, désigné sans passer par un libellé : les
+  // quatre qu'il porte basculent avec l'état du calque.
+  const actions = row
+    .getByRole('button', { name: /le calque$/ })
+    .first()
+    .locator('..')
+
+  // Au repos, la poignée et les deux actions sont montées et invisibles.
+  await page.mouse.move(0, 0)
+  await expect(handle).toHaveCSS('opacity', '0')
+  await expect(actions).toHaveCSS('opacity', '0')
+
+  await row.hover()
+  await expect(handle).toHaveCSS('opacity', '1')
+  await expect(actions).toHaveCSS('opacity', '1')
+
+  // Un calque masqué porte une pastille d'état, que le survol efface : les
+  // actions prennent sa place au lieu de s'ajouter à elle.
+  await hide.click()
+  const badges = row.locator('div[aria-hidden="true"]')
+  await expect(badges).toHaveCount(1)
+  await expect(badges).toHaveCSS('display', 'none')
+
+  // Le pointeur part, mais le clic a laissé le focus sur le bouton : la ligne
+  // reste ouverte par `focus-within`, sans quoi la révélation n'existerait pas
+  // au clavier. C'est la seconde variante, et elle se mesure ici.
+  await page.mouse.move(0, 0)
+  await expect(actions).toHaveCSS('opacity', '1')
+  await expect(badges).toHaveCSS('display', 'none')
+
+  // Ni pointeur ni focus : la ligne retombe à son repos, pastille comprise.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await expect(badges).toHaveCSS('display', 'flex')
+  await expect(actions).toHaveCSS('opacity', '0')
+
+  // Même mécanique sur la pellicule, où c'est le clic qui est rendu, pas
+  // seulement l'encre : la poignée reste inerte tant que rien ne la survole.
+  const thumb = page.locator('[data-slot="screen-thumbnail"]').first()
+  const thumbHandle = thumb.getByRole('button', { name: /^Actions de / })
+  await expect(thumbHandle).toHaveCSS('pointer-events', 'none')
+  await thumb.hover()
+  await expect(thumbHandle).toHaveCSS('pointer-events', 'auto')
+  await expect(thumbHandle).toHaveCSS('opacity', '1')
 })

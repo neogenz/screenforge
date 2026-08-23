@@ -137,6 +137,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
+      data-slot="screen-thumbnail"
       // Largeur imposée par la vignette, et non par le libellé : c'est en
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
       style={{ width }}
@@ -148,7 +149,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         // tombe : réordonner déplace le nœud (`insertBefore`), ce qui redémarre
         // ses animations CSS — la tuile rejouait son entrée à chaque drop.
         !entered && 'animate-enter',
-        'group/thumb relative shrink-0',
+        'relative shrink-0',
         'transition-[translate] duration-150 ease-out',
         // L'état sort du coin et revient à la silhouette. Le badge dit lequel,
         // le soulèvement dit lequel de loin : sur une rangée alignée, 4px de
@@ -374,7 +375,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           'absolute right-1 flex h-5 w-5 items-center justify-center rounded-full',
           'border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
-            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
+            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 in-[[data-slot=screen-thumbnail]:hover]:pointer-events-auto in-[[data-slot=screen-thumbnail]:hover]:opacity-100',
         )}
         aria-label={`Actions de ${screen.name}`}
         aria-expanded={menuPosition !== null}
