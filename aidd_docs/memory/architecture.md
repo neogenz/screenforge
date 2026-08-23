@@ -2,7 +2,7 @@
 
 ## Stack
 
-- pnpm workspace: `apps/web` (Vite + React editor and landing), `apps/backend` (the Convex deployment), `apps/bridge` (optional local daemon), root-level tooling.
+- pnpm workspace: `apps/web` (Vite + React editor and landing), `apps/backend` (the Convex deployment), `apps/bridge` and `apps/mcp` (two optional local daemons, see `cli.md`), `packages/project-format` (the project and store-target contract, consumed as source), root-level tooling.
 - Fabric owns interactive and export canvases; Zustand stores remain the source of truth.
 - Tailwind CSS supplies utility styling from the CSS-first theme in `apps/web/src/index.css`.
 - The SaaS layer is additive: one Convex deployment (auth, database, files, functions) for accounts and cloud sync, Polar as Merchant of Record for the sale. Without `VITE_CONVEX_URL` the editor still boots and runs entirely offline.
@@ -20,6 +20,7 @@ flowchart LR
     Stores --> Account["lib/account.ts: checkout, portal, account deletion"]
     Cloud --> Convex["apps/backend/convex — the only reachable surface"]
     Account --> Convex
+    Stores <-.->|"loopback, optional"| Daemons["apps/mcp relay · apps/bridge"]
 ```
 
 ## Key decisions
@@ -37,6 +38,7 @@ flowchart LR
 - Built-in iPad and Watch frames are original vector silhouettes. Apple Design Resources remain a user-supplied local asset path; no Apple file is fetched, bundled, transformed, hosted, or redistributed.
 - Export correctness takes priority over configurable formats: all eight Apple targets write at most 10 files under their profile folder, Google Play writes at most 8 under `phone/`, always opaque PNG-24 below the internal 5 MB target.
 - Canvas objects disable caching and use render-time clipping rather than Fabric `clipPath` to avoid double-antialiased export edges.
+- The daemons are peers of the editor, not layers under it: they hold no project state, authenticate per capability, and the editor compiles against their protocol types so a renamed route fails the build. `api.md`, `cli.md` and `realtime.md` carry the detail.
 
 ## Gotchas
 
@@ -45,6 +47,5 @@ flowchart LR
 - Any change that re-enables object caching or Fabric clip paths can soften both editor and exported edges.
 - Imported assets must be persisted atomically with their owning project; layer references alone are not durable.
 - A template may only be applied to a project with the same device family. Custom templates preserve the source target and MCP/template lists filter against the active family.
-- The cloud gate is `requireCloud` in `apps/backend/convex/authz.ts`, and it is the wall rather than a door beside one: no client can reach data except through a function. Reads and deletes stay open when the subscription ends, so an expired period never holds someone's files hostage.
-- There is no key that bypasses authorization any more. Privileged work lives in `internalMutation`s, which no client can address — a boundary declared in the code and checked by the compiler, not a secret to keep.
+- Every rule about who may read or write is in `auth.md`; `apps/backend/convex/authz.ts` is its only implementation. Reaching for a second gate is the defect.
 - Account deletion has no cascade behind it: `TABLES_OWNED_BY_USER` in `convex/accountDeletion.ts` is the list, and `accountDeletion.test.ts` enumerates the schema so a new table carrying `userId` fails the suite until it is classified.

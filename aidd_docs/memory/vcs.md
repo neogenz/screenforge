@@ -4,13 +4,12 @@
 
 - Main branch: `main`
 - Platform: GitHub (`neogenz/screenforge`)
-- CI: `.github/workflows/quality.yml` runs independent secret, quality, build, test, and release-readiness jobs on pushes and pull requests.
-- Releases: Release Please maintains the changelog and release pull request through a repository-scoped GitHub App. A canonical `v*` tag created from `main` is the only production-deployment trigger.
-- Ticketing: none recorded in the repository; work records live under `aidd_docs/tasks/`.
+- CI, environments and the release pipeline: `deployment.md`. Only what the convention asks of an author is repeated here.
+- Ticketing: GitHub Issues inbound, work records under `aidd_docs/tasks/` — see `backlog.md`.
 
 ## Branches
 
-- Feature branches merged into `main`; the current repository history uses `codex/<short-description>` for Codex work.
+- Feature branches merged into `main`, named `<agent>/<short-description>` after the agent that opened them (`codex/`, `claude/`).
 - `preprod` is a protected long-lived promotion branch. Update it only through
   a merge-commit pull request from `main`; its tree must equal the current
   `main` tree before Convex can deploy. Vercel owns the stable branch Preview,
@@ -19,11 +18,7 @@
 ## Commits
 
 - Convention: Conventional Commits.
-- Observed formats: `feat:`, `fix(scope):`, `refactor:`, `test:`, and `docs:` followed by a concise imperative description.
+- Observed formats: `feat:`, `fix(scope):`, `refactor:`, `test:`, `chore:`, `ci:` and `docs:` followed by a concise imperative description. Subjects are written in French or English; the repository has never enforced one, and neither should a change.
 - Pull-request titles follow Conventional Commits because squash merge makes the title the commit on `main`; release tags are never created manually.
-- Public-repository rulesets must require reviewed, strictly green pull requests on `main`; before production, a `v*` ruleset must reserve tag creation to the Release GitHub App and forbid manual update or deletion. The deploy workflow also requires the tagged SHA to equal the fetched `origin/main` HEAD.
-- The official Vercel Git integration is scoped to this repository. Internal
-  branches may create protected Previews, `main` is disabled by `vercel.json`,
-  and forks remain protected; the Vercel check stays informative until bot
-  authors are proven compatible with the current plan.
+- Rulesets require reviewed, strictly green pull requests on `main`, and reserve `v*` tag creation to the Release GitHub App. Never create, move or delete a tag by hand.
 - Keep implementation and its sanitized AIDD task/review records aligned; only commit or push when the user has authorized the implementation or publication workflow.

@@ -12,14 +12,21 @@ Structured context the AI assistant reads at the start of a session, so it does 
 The list below is refreshed automatically by the memory hook. Do not edit it by hand.
 
 <!-- files:start -->
+- [api.md](api.md)
 - [architecture.md](architecture.md)
+- [auth.md](auth.md)
+- [backlog.md](backlog.md)
+- [cli.md](cli.md)
 - [codebase-map.md](codebase-map.md)
 - [coding-assertions.md](coding-assertions.md)
 - [database.md](database.md)
+- [deployment.md](deployment.md)
 - [design.md](design.md)
 - [forms.md](forms.md)
+- [integration.md](integration.md)
 - [navigation.md](navigation.md)
 - [project-brief.md](project-brief.md)
+- [realtime.md](realtime.md)
 - [testing.md](testing.md)
 - [vcs.md](vcs.md)
 <!-- files:end -->
