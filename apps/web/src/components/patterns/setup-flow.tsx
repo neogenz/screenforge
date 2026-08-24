@@ -63,9 +63,9 @@ export function SetupStep({
     >
       <span aria-hidden className={setupMarkerVariants({ state })}>
         {state === 'done' ? (
-          <Check size={10} strokeWidth={3} className="animate-mark" />
+          <Check strokeWidth={3} className="size-2.5 animate-mark" aria-hidden />
         ) : state === 'error' ? (
-          <AlertCircle size={10} strokeWidth={2.5} />
+          <AlertCircle strokeWidth={2.5} className="size-2.5" aria-hidden />
         ) : (
           rank
         )}
@@ -140,11 +140,7 @@ export function SetupCommand({ command }: { command: string }) {
             .catch(() => undefined)
         }}
       >
-        {copied ? (
-          <Check size={12} className="animate-mark" aria-hidden />
-        ) : (
-          <Copy size={12} aria-hidden />
-        )}
+        {copied ? <Check className="animate-mark" aria-hidden /> : <Copy aria-hidden />}
         {copied ? 'Copié' : 'Copier'}
       </Button>
     </div>

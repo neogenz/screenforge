@@ -36,11 +36,10 @@ function MenuEntries({ items }: { items: ActionMenuEntry[] }) {
         variant={item.danger ? 'destructive' : 'default'}
         onClick={() => item.onSelect()}
       >
-        {item.icon && (
-          <span className="shrink-0 text-muted-foreground" aria-hidden>
-            {item.icon}
-          </span>
-        )}
+        {/* L'icône est un enfant direct : coss dimensionne, atténue et espace
+            avec `[&>svg…]`, donc un `span` intercalé lui retirait les trois à la
+            fois — mesuré, 24px bruts de Lucide au lieu de 16, à pleine opacité. */}
+        {item.icon}
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
         {item.meta && (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{item.meta}</span>

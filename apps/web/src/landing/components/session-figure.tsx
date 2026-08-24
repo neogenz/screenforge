@@ -54,7 +54,7 @@ export function BoardStrip({ boards }: { boards: BoardLook[] }) {
           key={i}
           className={cn(
             'relative aspect-[1320/2868] overflow-hidden rounded-[2px] transition-opacity duration-300',
-            !board.composed && 'border border-dashed border-border',
+            !board.composed && 'border border-dashed',
             board.ring && 'outline-2 outline-offset-2 outline-marker',
           )}
           style={

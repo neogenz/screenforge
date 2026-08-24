@@ -39,7 +39,7 @@ export function DialogColumns({
       key="rail"
       aria-label={railLabel}
       className={cn(
-        'flex flex-col gap-3 border-border px-4 py-4',
+        'flex flex-col gap-3 px-4 py-4',
         stacked
           ? first
             ? 'border-b'

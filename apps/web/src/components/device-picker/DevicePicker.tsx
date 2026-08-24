@@ -187,7 +187,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       {layer.importedBezel ? (
         <Field className="gap-1.5">
           <FieldLabel>{isApple ? 'Bezel Apple' : 'Cadre PNG'}</FieldLabel>
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border bg-card p-1.5">
             {bezelUrl && (
               <img src={bezelUrl} alt="Bezel importé" className="h-8 w-8 shrink-0 object-contain" />
             )}
@@ -210,7 +210,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               className="hover:text-destructive"
               onClick={removeImportedBezel}
             >
-              <X size={13} strokeWidth={1.5} aria-hidden />
+              <X strokeWidth={1.5} aria-hidden />
             </IconButton>
           </div>
         </Field>
@@ -222,7 +222,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
             loading={bezelLoading}
             onClick={() => bezelInputRef.current?.click()}
           >
-            <Upload size={13} strokeWidth={1.5} aria-hidden />
+            <Upload strokeWidth={1.5} aria-hidden />
             {isApple ? 'Importer le PNG Apple' : 'Importer un cadre PNG'}
           </Button>
           {isApple ? (
@@ -234,7 +234,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
               >
                 Télécharger le DMG chez Apple
-                <ExternalLink size={10} strokeWidth={1.5} aria-hidden />
+                <ExternalLink strokeWidth={1.5} aria-hidden />
               </a>
               <span className="text-xs text-muted-foreground">
                 Fichier fourni localement sous licence Apple. ScreenForge ne le télécharge ni ne le
@@ -273,7 +273,6 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
                     {config.screenSize}
                   </span>
                   <ChevronDown
-                    size={12}
                     strokeWidth={1.5}
                     aria-hidden
                     className={cn(
@@ -328,11 +327,11 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
       <Field className="gap-1.5">
         <FieldLabel>Capture d’écran</FieldLabel>
         {screenshotUrl ? (
-          <div className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-card p-1.5">
+          <div className="flex min-h-11 items-center gap-2 rounded-md border bg-card p-1.5">
             <img
               src={screenshotUrl}
               alt="Capture importée"
-              className="h-8 w-8 shrink-0 rounded-sm border border-border object-cover"
+              className="h-8 w-8 shrink-0 rounded-sm border object-cover"
             />
             <Button
               variant="ghost"
@@ -348,7 +347,7 @@ export function DevicePicker({ layer, onUpdate }: DevicePickerProps) {
               className="hover:text-destructive"
               onClick={() => onUpdate({ screenshotAssetId: undefined })}
             >
-              <X size={13} strokeWidth={1.5} aria-hidden />
+              <X strokeWidth={1.5} aria-hidden />
             </IconButton>
           </div>
         ) : (

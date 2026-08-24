@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <section
           role="alert"
           aria-labelledby="error-boundary-title"
-          className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+          className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl"
         >
           <h1 id="error-boundary-title" className="text-lg font-semibold">
             ScreenForge doit redémarrer

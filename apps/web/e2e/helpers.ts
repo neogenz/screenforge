@@ -547,3 +547,106 @@ export async function fillNumber(field: Locator, text: string): Promise<void> {
   await field.press('ControlOrMeta+a')
   await field.pressSequentially(text)
 }
+
+/**
+ * Un contrôle ne peint rien hors de sa boîte.
+ *
+ * Une variante de taille coss déclare sa hauteur deux fois — `h-9 sm:h-8` — et
+ * `cn()` indexe ses conflits par modificateur : un `h-auto` nu n'annule que la
+ * moitié non préfixée, et au-delà de 640px le bouton reste figé pendant que son
+ * contenu, centré, déborde des deux côtés. Même mécanique sur l'axe horizontal,
+ * où `[&_svg:not([class*='size-'])]:size-4` recouvre la prop `size` de Lucide et
+ * élargit une paire d'icônes au-delà de son carré. Les deux défauts sont muets :
+ * la classe demandée est bien écrite, rien n'échoue à la compilation, et
+ * `audit:scale` ne voit qu'une hauteur de plus, parfaitement légitime. Seule la
+ * géométrie rendue distingue « ce bouton mesure 32px » de « ce bouton en peint
+ * 60 dans 32 ».
+ *
+ * Mesuré sur la ligne du sélecteur de projets avant correctif : boîte de 43px,
+ * contenu de 60px, le nom peint sur la ligne du dessus.
+ */
+export async function expectNoClippedControl(page: Page): Promise<void> {
+  const clipped = await page.evaluate(() => {
+    /* Débordements voulus, à déclarer ici plutôt qu'à affaiblir la mesure. */
+    const ALLOWED = new Set<string>()
+    const TOLERANCE = 1
+
+    return [...document.querySelectorAll('[data-slot="button"], [data-slot="menu-trigger"]')]
+      .filter((element) => {
+        const box = element.getBoundingClientRect()
+        return box.width > 0 && box.height > 0
+      })
+      .map((element) => {
+        const box = element.getBoundingClientRect()
+        const name =
+          element.getAttribute('aria-label') || element.textContent?.trim().slice(0, 40) || '(vide)'
+        /* Les enfants directs portent la mise en page ; les `svg` sont relus en
+           propre car coss leur impose une taille que la prop de l'icône ne dit pas. */
+        const parts = [...element.children, ...element.querySelectorAll('svg')]
+        const spill = Math.max(
+          0,
+          ...parts.map((part) => {
+            const rect = part.getBoundingClientRect()
+            if (!(rect.width > 0 && rect.height > 0)) return 0
+            return Math.max(
+              box.top - rect.top,
+              rect.bottom - box.bottom,
+              box.left - rect.left,
+              rect.right - box.right,
+            )
+          }),
+        )
+        return {
+          name,
+          box: `${String(Math.round(box.width))}×${String(Math.round(box.height))}`,
+          spill: Math.round(spill),
+        }
+      })
+      .filter((entry) => entry.spill > TOLERANCE && !ALLOWED.has(entry.name))
+  })
+
+  expect(clipped, 'des contrôles peignent hors de leur boîte').toEqual([])
+}
+
+/**
+ * Aucune icône ne retombe sur la taille brute de Lucide.
+ *
+ * coss dimensionne chaque `svg` depuis son conteneur — `[&_svg:not([class*='size-'])]:size-4`
+ * sur `Button`, `[&>svg]` sur `menu-item` — et gagne sur les attributs `width`/`height` que
+ * la prop `size` de Lucide écrit. C'est pourquoi le projet ne déclare aucune taille
+ * numérique. Mais rien ne dimensionne un `svg` hors d'un tel conteneur : aucune règle
+ * globale n'existe, ni dans `index.css` ni dans `design-system/`. Une icône posée dans un
+ * `div` nu rend donc ses 24px d'origine — 2,4 fois la taille voulue dans une ligne de 32,
+ * et 8px de débord hors d'une pastille de 16.
+ *
+ * Le défaut est muet pour la garde d'à côté : `expectNoClippedControl` ne balaie que les
+ * boutons, et ces icônes-là vivent dans des éléments ordinaires. Il l'est aussi pour
+ * `audit:scale`, qui n'y lit qu'une taille de plus, parfaitement légitime. La signature est
+ * en revanche exacte : 24×24 rendus sans classe `size-*` sur l'icône, c'est la valeur par
+ * défaut de Lucide et rien d'autre — un conteneur coss ne produit jamais 24, et une icône
+ * voulue à cette taille écrit `size-6`.
+ *
+ * Mesuré : quatre icônes dans cet état après le retrait des props numériques, toutes dans
+ * des états que le balayage initial n'avait pas rendus — calque masqué ou verrouillé, étape
+ * d'assistant terminée, dialogue derrière l'authentification, fin d'export.
+ */
+export async function expectNoRawIcon(page: Page): Promise<void> {
+  const raw = await page.evaluate(() =>
+    [...document.querySelectorAll('svg')]
+      .filter((icon) => {
+        const rect = icon.getBoundingClientRect()
+        if (Math.round(rect.width) !== 24 || Math.round(rect.height) !== 24) return false
+        /* `size-6` vaut 24 et se déclare : c'est une taille voulue, pas un repli. */
+        return !/(^|\s)size-6(\s|$)/.test(icon.getAttribute('class') ?? '')
+      })
+      .map((icon) => {
+        const host = icon.parentElement
+        return {
+          parent: (host?.getAttribute('class') ?? host?.tagName ?? '?').slice(0, 60),
+          near: host?.textContent?.trim().slice(0, 30) || '(sans texte)',
+        }
+      }),
+  )
+
+  expect(raw, 'des icônes rendent les 24px bruts de Lucide').toEqual([])
+}

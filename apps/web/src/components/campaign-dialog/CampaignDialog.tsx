@@ -586,21 +586,26 @@ function CampaignDialogContent({ project }: { project: Project }) {
     }
   }
 
+  // `size-3.5` parce que rien ici ne dimensionne l'icône : hors d'un conteneur
+  // coss, Lucide retombe sur ses 24px bruts, dans une ligne de 12px. C'est le
+  // seul des cinq sites de ce défaut qu'`expectNoRawIcon` ne garde pas — aucun
+  // scénario e2e n'ouvre ce bandeau, et en fabriquer un pour une icône coûterait
+  // plus qu'il ne garde.
   const errorBanner = error && !composeFailed && (
     <p role="alert" className="mb-4 flex items-start gap-2 text-xs text-destructive">
-      <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       {error}
     </p>
   )
 
   const primaryAction = plan ? (
     <Button variant="default" onClick={accept} disabled={busy}>
-      <Check size={12} aria-hidden />
+      <Check aria-hidden />
       Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
     </Button>
   ) : (
     <>
-      <Button variant="outline" onClick={close} disabled={busy}>
+      <Button variant="ghost" onClick={close} disabled={busy}>
         Annuler
       </Button>
       <Button
@@ -609,7 +614,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
         loading={busy}
         disabled={full || !named}
       >
-        <Megaphone size={12} aria-hidden />
+        <Megaphone aria-hidden />
         Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
       </Button>
     </>
@@ -691,7 +696,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={() => shotsInput.current?.click()}
                       disabled={busy}
                     >
-                      <ImageUp size={12} aria-hidden />
+                      <ImageUp aria-hidden />
                       {shots.length > 0
                         ? `${shots.length} capture${shots.length > 1 ? 's' : ''}`
                         : 'Ajouter les captures…'}
@@ -701,7 +706,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={() => logoInput.current?.click()}
                       disabled={busy}
                     >
-                      <ImageUp size={12} aria-hidden />
+                      <ImageUp aria-hidden />
                       {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
                     </Button>
                     {!full && (
@@ -725,7 +730,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   </div>
 
                   {shots.length > 0 && (
-                    <details className="rounded-md border border-border px-3 py-2">
+                    <details className="rounded-md border px-3 py-2">
                       <summary className="cursor-pointer text-xs font-medium text-foreground">
                         Accroches liées aux captures (3 à 7 mots)
                       </summary>
@@ -847,7 +852,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       onClick={harmonize}
                       disabled={busy}
                     >
-                      <Paintbrush size={12} aria-hidden />
+                      <Paintbrush aria-hidden />
                       Appliquer à « {activeScreen.name} »
                     </Button>
                     <p className="text-xs text-muted-foreground">
@@ -898,7 +903,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   pour un modèle branché, et posés dans le brief ils en faisaient
                   l'écran le plus dense de l'app pour qui n'en a pas l'usage. */}
               {aiProvider(providerId).transport !== 'in-process' && (
-                <div className="grid gap-3 border-t border-border pt-3">
+                <div className="grid gap-3 border-t pt-3">
                   <Field className="gap-1.5">
                     <FieldLabel htmlFor={URL_FIELD_ID}>Page produit (provenance)</FieldLabel>
                     <Input
@@ -982,7 +987,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
 
 function CampaignSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-3 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+    <section className="grid gap-3 border-b py-4 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
       <h3 className="text-sm font-medium">{title}</h3>
       <div className="min-w-0">{children}</div>
     </section>
@@ -1025,11 +1030,7 @@ function StyleChip({
           : 'border-border text-muted-foreground hover:border-input',
       )}
     >
-      <span
-        aria-hidden
-        className="size-4 rounded-sm border border-border"
-        style={{ background: swatch }}
-      />
+      <span aria-hidden className="size-4 rounded-sm border" style={{ background: swatch }} />
       {label}
     </RadioPrimitive.Root>
   )
@@ -1064,7 +1065,7 @@ function AssistantRow({
       <span className="text-xs text-muted-foreground">Qui écrit les accroches</span>
       <span className="min-w-0 flex-1 truncate text-sm text-foreground">{providerLabel}</span>
       {status && <span className="shrink-0 text-xs text-muted-foreground">{status}</span>}
-      <ChevronRight size={12} aria-hidden className="shrink-0 text-muted-foreground" />
+      <ChevronRight aria-hidden className="shrink-0 text-muted-foreground" />
     </Button>
   )
 }
@@ -1117,11 +1118,7 @@ function PlanReview({
         Vérifiez la proposition
         <span className="ml-auto flex items-center gap-1" aria-hidden>
           {[plan.palette.background, plan.palette.ink, plan.palette.accent].map((color) => (
-            <span
-              key={color}
-              className="size-3 rounded-sm border border-border"
-              style={{ background: color }}
-            />
+            <span key={color} className="size-3 rounded-sm border" style={{ background: color }} />
           ))}
         </span>
       </h3>
@@ -1166,7 +1163,7 @@ function PlanReview({
                 [next]?.focus()
             }}
             className={cn(
-              'h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
+              'h-auto sm:h-auto shrink-0 flex-col items-center gap-1 rounded-md p-1',
               index === focus ? 'bg-muted' : 'hover:bg-muted/60',
             )}
           >
@@ -1246,14 +1243,14 @@ function PlanReview({
                   loading={regenerating === focus}
                   disabled={busy || regenerating !== null}
                 >
-                  <RefreshCw size={12} aria-hidden />
+                  <RefreshCw aria-hidden />
                   Réécrire
                 </Button>
               )}
               {only ? (
                 <Hint content="Il faut au moins un visuel : utilisez « Annuler »." side="top">
                   <Button variant="outline" disabled>
-                    <Trash2 size={12} aria-hidden />
+                    <Trash2 aria-hidden />
                     Retirer
                   </Button>
                 </Hint>
@@ -1263,7 +1260,7 @@ function PlanReview({
                   onClick={() => onDrop(focus)}
                   disabled={busy || regenerating !== null}
                 >
-                  <Trash2 size={12} aria-hidden />
+                  <Trash2 aria-hidden />
                   Retirer
                 </Button>
               )}

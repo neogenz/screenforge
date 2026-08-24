@@ -96,7 +96,7 @@ function PublishTargetRefusal() {
       onClose={close}
       title="Publier chez Apple"
       footer={
-        <Button variant="outline" onClick={close}>
+        <Button variant="ghost" onClick={close}>
           Fermer
         </Button>
       }
@@ -301,7 +301,7 @@ function PublishDialogContent({ project }: { project: Project }) {
           loading={publishing}
           disabled={!usable || !token.trim() || refused || busy}
         >
-          <CloudUpload size={12} aria-hidden />
+          <CloudUpload aria-hidden />
           {dryRun ? 'Essayer à blanc' : 'Publier'}
         </Button>
       }
@@ -330,7 +330,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                         }}
                         aria-current={entry.id === release?.id}
                         className={cn(
-                          'h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
+                          'h-auto sm:h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-md border px-3 py-2 text-start font-normal',
                           entry.id === release?.id
                             ? 'border-foreground bg-muted'
                             : 'border-border hover:border-input',
@@ -419,7 +419,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                         finding.level === 'error' ? 'text-destructive' : 'text-warning',
                       )}
                     >
-                      <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden />
+                      <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
                       {finding.message}
                     </li>
                   ))}
@@ -431,14 +431,14 @@ function PublishDialogContent({ project }: { project: Project }) {
                   un lot réellement passé par `preflight()`. */}
               {!release && (
                 <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <Package size={12} className="mt-0.5 shrink-0" aria-hidden />
+                  <Package className="mt-0.5 shrink-0" aria-hidden />
                   Figez d’abord une release dans « Releases » : le preflight porte sur un lot rendu.
                 </p>
               )}
 
               {release && findings.length === 0 && (
                 <p className="flex items-center gap-2 text-xs text-success">
-                  <ShieldCheck size={12} aria-hidden />
+                  <ShieldCheck aria-hidden />
                   Preflight sans réserve : {targetSummary(target, release)}
                 </p>
               )}
@@ -450,7 +450,7 @@ function PublishDialogContent({ project }: { project: Project }) {
                   loading={progress !== null}
                   disabled={!release || refused || busy}
                 >
-                  <Package size={12} aria-hidden />
+                  <Package aria-hidden />
                   Préparer le lot
                 </Button>
                 <Button
@@ -502,13 +502,13 @@ function PublishDialogContent({ project }: { project: Project }) {
                       toast('Commande copiée.', 'success')
                     }}
                   >
-                    <Copy size={12} aria-hidden />
+                    <Copy aria-hidden />
                     Copier
                   </Button>
                 </div>
               )}
 
-              <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <div className="flex flex-col gap-3 border-t pt-4">
                 <span className="text-xs text-muted-foreground">Publier via le pont local</span>
                 <p className="text-xs text-muted-foreground">
                   Facultatif : le pont lance la même commande à votre place. Son jeton « asc-publish
@@ -579,9 +579,9 @@ function PublishDialogContent({ project }: { project: Project }) {
                         )}
                       >
                         {publishStep.status === 'ok' ? (
-                          <Check size={12} aria-hidden />
+                          <Check aria-hidden />
                         ) : (
-                          <AlertCircle size={12} aria-hidden />
+                          <AlertCircle aria-hidden />
                         )}
                         {publishStep.name} · {publishStep.detail} · {publishStep.ms} ms
                       </li>

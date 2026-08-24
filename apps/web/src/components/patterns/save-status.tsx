@@ -26,8 +26,8 @@ const MARK: Record<SaveStatusValue, ReactNode> = {
   // garde le sien compterait pour un second témoin dans la barre — mesuré par
   // `responsive-chrome.spec.ts`, qui recense `[role="status"]` un par un.
   saving: <Spinner role="presentation" aria-hidden className="size-3" />,
-  saved: <Check size={11} className="text-success" aria-hidden />,
-  error: <TriangleAlert size={11} aria-hidden />,
+  saved: <Check className="text-success" aria-hidden />,
+  error: <TriangleAlert aria-hidden />,
 }
 
 /**

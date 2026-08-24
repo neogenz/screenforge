@@ -44,6 +44,7 @@ import {
 import { getStoreTargetProfile, STORE_TARGET_IDS } from '@/lib/dimensions'
 import { MAX_PROJECT_NAME_LENGTH } from '@/lib/project-validation'
 import { downloadBlob, slugify } from '@/lib/zip'
+import { cn } from '@/lib/utils'
 import { useProjectStore } from '@/stores/project.store'
 import { toast } from '@/stores/toast.store'
 import type { StoreTargetId } from '@/types'
@@ -72,7 +73,7 @@ function Availability({ value }: { value: ProjectAvailability }) {
     <StatusChip
       tone={AVAILABILITY_TONE[value]}
       size="sm"
-      icon={<Icon size={11} strokeWidth={1.75} aria-hidden />}
+      icon={<Icon strokeWidth={1.75} aria-hidden />}
     >
       {PROJECT_AVAILABILITY_LABELS[value]}
     </StatusChip>
@@ -251,9 +252,9 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         }}
       >
         {busy ? (
-          <LoaderCircle size={13} className="animate-spin" aria-hidden />
+          <LoaderCircle className="animate-spin" aria-hidden />
         ) : (
-          <ChevronDown size={13} strokeWidth={2} aria-hidden />
+          <ChevronDown strokeWidth={2} aria-hidden />
         )}
       </IconButton>
 
@@ -278,7 +279,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               Projet courant
             </h2>
             <div aria-current="page" className="flex min-w-0 items-center gap-2">
-              <FileText size={15} className="shrink-0 text-muted-foreground" aria-hidden />
+              <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <span
                 className="min-w-0 flex-1 truncate text-sm font-medium"
                 title={currentProjectName}
@@ -287,13 +288,13 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               </span>
               {current && <Availability value={current.availability} />}
             </div>
-            <p className="mt-1 pl-[23px] text-2xs text-muted-foreground tabular-nums">
+            <p className="mt-1 pl-[23px] text-xs text-muted-foreground tabular-nums">
               {currentProfile.label} · {currentProfile.output.portrait.width}×
               {currentProfile.output.portrait.height}
             </p>
             <div className="mt-2 flex gap-1">
               <Button size="sm" variant="ghost" onClick={renameCurrent}>
-                <PenLine size={13} strokeWidth={1.75} aria-hidden />
+                <PenLine strokeWidth={1.75} aria-hidden />
                 Renommer
               </Button>
               <Button
@@ -302,7 +303,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 disabled={busy}
                 onClick={() => void downloadCurrent()}
               >
-                <FileDown size={13} strokeWidth={1.75} aria-hidden />
+                <FileDown strokeWidth={1.75} aria-hidden />
                 Télécharger une copie
               </Button>
             </div>
@@ -336,7 +337,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     Catalogue local indisponible. Le projet courant reste ouvert.
                   </p>
                   <Button size="sm" variant="outline" onClick={() => void refresh()}>
-                    <RefreshCw size={13} strokeWidth={1.75} aria-hidden />
+                    <RefreshCw strokeWidth={1.75} aria-hidden />
                     Réessayer
                   </Button>
                 </div>
@@ -347,63 +348,71 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                     : 'Aucun autre projet sur cet appareil.'}
                 </p>
               ) : (
-                <ul className="flex max-h-60 flex-col overflow-y-auto">
+                <ul className="-mx-1 flex max-h-60 flex-col gap-0.5 overflow-y-auto px-1">
                   {others.map((project) => {
                     const date = DATE.format(project.updatedAt)
                     const availabilityId = `project-${project.id}-availability`
                     const dateId = `project-${project.id}-date`
+                    const AvailabilityIcon = AVAILABILITY_ICONS[project.availability]
                     return (
-                      <li
-                        key={project.id}
-                        className="flex items-center gap-1 border-b border-border last:border-b-0"
-                      >
+                      <li key={project.id} className="flex items-center gap-0.5">
                         <Button
                           variant="ghost"
                           disabled={busy}
                           aria-label={`Ouvrir « ${project.name} »`}
                           aria-describedby={`${availabilityId} ${dateId}`}
                           onClick={() => void openProject(project.id)}
+                          /* Le popover Base UI consomme la frappe avant qu'elle ne
+                             devienne un clic natif : sans ceci, la ligne ne s'ouvre
+                             qu'à la souris. */
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter' && event.key !== ' ') return
                             event.preventDefault()
                             void openProject(project.id)
                           }}
-                          className="h-auto min-h-11 min-w-0 flex-1 justify-start gap-2 rounded-none border-0 px-1 text-left font-normal focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-40"
+                          className="h-auto sm:h-auto min-w-0 flex-1 flex-col items-stretch gap-0.5 rounded-md px-2 py-1.5 text-left font-normal disabled:pointer-events-none disabled:opacity-40"
                         >
-                          <FileText
-                            size={14}
-                            className="shrink-0 text-muted-foreground"
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm text-foreground">
+                          <span className="flex min-w-0 items-baseline gap-2">
+                            <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                               {project.name}
                             </span>
-                            <span className="block text-2xs text-muted-foreground">
-                              {getStoreTargetProfile(project.target).label}
-                            </span>
-                            <span id={availabilityId}>
-                              <Availability value={project.availability} />
+                            <time
+                              id={dateId}
+                              dateTime={new Date(project.updatedAt).toISOString()}
+                              className="shrink-0 text-xs text-muted-foreground tabular-nums"
+                            >
+                              <span className="sr-only">Modifié le </span>
+                              {date}
+                            </time>
+                          </span>
+                          {/* Une ligne sourde plutôt qu'une pastille par ligne : encadrée,
+                              répétée à l'identique sur chaque projet, elle pesait plus que
+                              le nom qu'on vient lire. */}
+                          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                            <AvailabilityIcon
+                              strokeWidth={1.75}
+                              aria-hidden
+                              className={cn(
+                                'size-3 shrink-0',
+                                project.availability === 'pending' &&
+                                  'animate-pulse motion-reduce:animate-none',
+                              )}
+                            />
+                            <span className="truncate" id={availabilityId}>
+                              {getStoreTargetProfile(project.target).label} ·{' '}
+                              {PROJECT_AVAILABILITY_LABELS[project.availability]}
                             </span>
                           </span>
-                          <time
-                            id={dateId}
-                            dateTime={new Date(project.updatedAt).toISOString()}
-                            className="shrink-0 text-xs text-muted-foreground tabular-nums"
-                          >
-                            <span className="sr-only">Modifié le </span>
-                            {date}
-                          </time>
                         </Button>
                         <IconButton
                           size="sm"
                           aria-label={`Supprimer « ${project.name} »`}
                           tooltip="Supprimer le projet"
                           disabled={busy}
-                          className="mr-1 shrink-0 hover:text-destructive"
+                          className="shrink-0 hover:text-destructive"
                           onClick={() => setPendingDelete(project)}
                         >
-                          <Trash2 size={13} strokeWidth={1.75} aria-hidden />
+                          <Trash2 strokeWidth={1.75} aria-hidden />
                         </IconButton>
                       </li>
                     )
@@ -413,7 +422,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
             </div>
           </section>
 
-          <footer className="border-t border-border p-2">
+          <footer className="border-t p-2">
             <Button
               size="sm"
               variant="ghost"
@@ -421,7 +430,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
               disabled={busy}
               onClick={startCreating}
             >
-              <Plus size={13} strokeWidth={1.75} aria-hidden />
+              <Plus strokeWidth={1.75} aria-hidden />
               Nouveau projet…
             </Button>
             <Button
@@ -435,7 +444,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                 fileRef.current?.click()
               }}
             >
-              <FolderOpen size={13} strokeWidth={1.75} aria-hidden />
+              <FolderOpen strokeWidth={1.75} aria-hidden />
               Importer un fichier…
             </Button>
           </footer>
@@ -449,7 +458,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
         size="sm"
         footer={
           <>
-            <Button variant="outline" disabled={busy} onClick={closeCreating}>
+            <Button variant="ghost" disabled={busy} onClick={closeCreating}>
               Annuler
             </Button>
             <Button
@@ -487,7 +496,7 @@ export function ProjectSwitcher({ projectNameInputId }: ProjectSwitcherProps) {
                   type="button"
                   variant={newTarget === target ? 'secondary' : 'outline'}
                   aria-pressed={newTarget === target}
-                  className="h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
+                  className="h-auto sm:h-auto min-h-14 justify-start px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:bg-muted"
                   onClick={() => setNewTarget(target)}
                 >
                   <span className="flex flex-col items-start gap-0.5">

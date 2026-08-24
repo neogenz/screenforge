@@ -50,6 +50,39 @@ async function openStream(state: RelayState, app: ReturnType<typeof createRelay>
   return events
 }
 
+describe('constat', () => {
+  it('se laisse constater sans jeton, sans consommer de tentative', async () => {
+    const codes: string[] = []
+    let nextCode = 123456
+    const state = createRelayState({
+      mintCode: () => String(nextCode++),
+      announce: (code) => codes.push(code),
+    })
+    const { app } = relay(state)
+
+    // Cinq fois : c'est le plafond de tentatives d'appairage. Une sonde qui
+    // passerait par `/pair` aurait ici verrouillé le démon pour dix minutes.
+    for (let probe = 0; probe < 5; probe += 1) {
+      const hello = await app.request('/hello', { headers: { Origin: ORIGIN } })
+      expect(hello.status).toBe(200)
+      expect(await hello.json()).toEqual({ protocol: 1, mcp: expect.any(String) })
+    }
+
+    const granted = await app.request('/pair', {
+      method: 'POST',
+      headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: codes.at(-1) }),
+    })
+    expect(granted.status).toBe(200)
+  })
+
+  it('refuse le constat à une origine non admise, comme le reste', async () => {
+    const { app } = relay()
+    const refused = await app.request('/hello', { headers: { Origin: 'http://ailleurs.test' } })
+    expect(refused.status).toBe(403)
+  })
+})
+
 describe('appairage', () => {
   it('rend le jeton à une origine admise et refuse les autres', async () => {
     const codes: string[] = []

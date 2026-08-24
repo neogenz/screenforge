@@ -31,7 +31,7 @@ export function PanelSection({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className={cn('border-t border-border pt-2 first:border-t-0 first:pt-0', className)}
+      className={cn('border-t pt-2 first:border-t-0 first:pt-0', className)}
     >
       <div className="flex items-center gap-2">
         <h3 className="text-sm font-medium min-w-0 flex-1">
@@ -44,7 +44,6 @@ export function PanelSection({
             }
           >
             <ChevronRight
-              size={12}
               strokeWidth={1.75}
               aria-hidden
               className={cn(

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { openUtility, waitForApp } from './helpers'
+import { expectNoRawIcon, openUtility, waitForApp } from './helpers'
 import { connect, startRelay, TOKEN } from './mcp-relay'
 
 const PNG_8x4 =
@@ -42,7 +42,17 @@ test.describe('connexion MCP', () => {
       await waitForApp(page)
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      const code = dialog.getByLabel('Code à 6 chiffres affiché par le démon')
+      // Avant tout appairage, la version ne vient que de la sonde — et les
+      // détails la lisent au même endroit que la marche 1. Les faire lire le
+      // store seul écrivait « Non détectée » sous une marche qui venait
+      // d'annoncer le démon joignable : deux affirmations contradictoires sur
+      // le même écran.
+      await dialog.getByText('Détails de connexion').click()
+      await expect(dialog.getByText('MCP 0.1.0-test', { exact: true })).toBeVisible()
+      await expect(dialog.getByText('Non détectée')).toHaveCount(0)
+      await dialog.getByText('Détails de connexion').click()
+
+      const code = dialog.getByLabel('Code d’appairage')
       const pair = dialog.getByRole('button', { name: 'Appairer' })
       await code.fill('000000')
       await pair.focus()
@@ -93,7 +103,9 @@ test.describe('connexion MCP', () => {
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
       await expectConnectionFlow(dialog, 4)
       await dialog.getByText('Détails de connexion').click()
-      await expect(dialog.getByText('MCP 0.1.0-test')).toBeVisible()
+      // Exact : la première marche annonce désormais elle aussi la version
+      // constatée, et « MCP 0.1.0-test » s'y lit à l'intérieur d'une phrase.
+      await expect(dialog.getByText('MCP 0.1.0-test', { exact: true })).toBeVisible()
       await expect(dialog.getByText(/127\.0\.0\.1:\d+ · loopback/)).toBeVisible()
       await expect(dialog.getByText(/miniature rendue/)).toBeVisible()
 
@@ -297,7 +309,7 @@ test.describe('connexion MCP', () => {
 
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      await dialog.getByLabel('Code d’appairage').fill(relay.code())
       await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
@@ -309,8 +321,15 @@ test.describe('connexion MCP', () => {
       await expect.poll(() => relay.opened(), { timeout: 10_000 }).toBe(1)
       await openUtility(page, 'Connexion MCP')
       const resumed = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await expect(resumed.getByRole('alert')).toContainText(/code affiché/i)
-      await resumed.getByLabel('Code à 6 chiffres affiché par le démon').fill(relay.code())
+      // Le mode est mémorisé, la liaison non — et la boîte ne prétend pas
+      // l'inverse : elle n'annonce ni « Connectée » ni une panne, elle
+      // redemande le code en disant où il s'affiche. Auparavant la reprise
+      // posait une erreur « Injoignable » sans avoir rien sondé.
+      await expect(resumed.getByRole('status', { name: 'État de la connexion' })).toHaveText(
+        'Inactive',
+      )
+      await expect(resumed.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+      await resumed.getByLabel('Code d’appairage').fill(relay.code())
       await resumed.getByRole('button', { name: 'Appairer' }).click()
       await expect(resumed.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
@@ -326,6 +345,108 @@ test.describe('connexion MCP', () => {
           TOKEN,
         ),
       ).toBe(false)
+    } finally {
+      await relay.stop()
+    }
+  })
+
+  test('une socket qui accepte et se tait laisse quand même une sortie', async ({ page }) => {
+    // Un port fermé rejette tout de suite ; celui-ci accepte la connexion et ne
+    // répond jamais. Sans borne côté page, la sonde restait en suspens, la
+    // marche 1 sur « Connexion… » et « Vérifier » relançait la même attente :
+    // la boîte n'avait plus aucune sortie.
+    const relay = await startRelay()
+    try {
+      relay.holdHello(true)
+      await page.addInitScript((port: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(port))
+      }, relay.port)
+      await waitForApp(page)
+
+      await openUtility(page, 'Connexion MCP')
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+
+      // Plus long que la borne de la sonde — cinq secondes — puisque c'est elle
+      // qu'on mesure : l'assertion doit survivre à l'attente, pas la trancher.
+      await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/, {
+        timeout: 12_000,
+      })
+      await expectConnectionFlow(dialog, 0)
+
+      // La sortie, et pas seulement le verdict : ce qu'on vient chercher est la
+      // commande à lancer, et le bouton qui relira l'état après l'avoir lancée.
+      await expect(dialog.getByText('pnpm --filter mcp run start')).toBeVisible()
+      await expect(dialog.getByRole('button', { name: /^Copier/ })).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Vérifier' })).toBeEnabled()
+
+      // Et le démon retrouvé, « Vérifier » relit l'état plutôt que de faire
+      // recharger la page.
+      relay.holdHello(false)
+      await dialog.getByRole('button', { name: 'Vérifier' }).click()
+      await expectConnectionFlow(dialog, 1)
+    } finally {
+      await relay.stop()
+    }
+  })
+
+  test('deux vérifications qui se croisent affichent la dernière, jamais la plus ancienne', async ({
+    page,
+  }) => {
+    const relay = await startRelay()
+    try {
+      /* La sonde est retenue au niveau de la route et non du relais : une
+         réponse tenue par un vrai serveur immobilise sa socket, et le navigateur
+         met alors la sonde suivante en file derrière elle — mesuré, les deux
+         partaient à trente millisecondes d'écart et revenaient dans l'ordre.
+         Interceptée ici, la première ne touche jamais le réseau, donc la seconde
+         part vraiment en parallèle et revient la première. */
+      let release: (() => void) | undefined
+      let holdNext = false
+      let held = 0
+      /* La boîte s'ouvre sur un démon absent : c'est l'état où « Vérifier »
+         existe, puisque la marche franchie replie son contenu. */
+      let answering = false
+      await page.route('**/hello', async (route) => {
+        if (holdNext) {
+          // Une seule, désignée par le test : `StrictMode` monte l'effet deux
+          // fois, donc compter les requêtes depuis l'ouverture désignerait la
+          // mauvaise.
+          holdNext = false
+          held += 1
+          await new Promise<void>((resolve) => {
+            release = resolve
+          })
+          await route.fulfill({ status: 503, body: '' })
+          return
+        }
+        if (answering) await route.continue()
+        else await route.fulfill({ status: 503, body: '' })
+      })
+
+      await page.addInitScript((port: number) => {
+        localStorage.setItem('screenforge-mcp-port', String(port))
+      }, relay.port)
+      await waitForApp(page)
+      await openUtility(page, 'Connexion MCP')
+      const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
+      await expectConnectionFlow(dialog, 0)
+
+      const check = dialog.getByRole('button', { name: 'Vérifier' })
+      // La sonde retenue — c'est elle qui reviendra périmée, en échec.
+      holdNext = true
+      await check.click()
+      await expect.poll(() => held).toBe(1)
+      // Et celle qui répond tout de suite : c'est elle qui doit être affichée.
+      answering = true
+      await check.click()
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+
+      // La sonde partie plus tôt revient enfin, et ne repeint rien.
+      release?.()
+      await page.waitForTimeout(1000)
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByRole('alert')).toHaveCount(0)
     } finally {
       await relay.stop()
     }
@@ -347,13 +468,20 @@ test.describe('connexion MCP', () => {
 
       await openUtility(page, 'Connexion MCP')
       const dialog = page.getByRole('dialog', { name: 'Connexion MCP' })
-      await dialog.getByLabel('Code à 6 chiffres affiché par le démon').fill('123456')
-      await dialog.getByRole('button', { name: 'Appairer' }).click()
-      await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
-        'Injoignable',
-      )
+
+      // Constaté, pas déduit d'un échec : la boîte sonde le démon en s'ouvrant,
+      // et le dit avant qu'on ait tapé quoi que ce soit. La commande, elle, est
+      // là dans tous les cas — c'est ce qu'on vient chercher en premier.
+      await expect(dialog.getByText('pnpm --filter mcp run start')).toBeVisible()
+      await expect(dialog.getByRole('alert')).toContainText(/Le démon ne répond pas/)
+      // La garde ne voit que ce qu'un scénario a ouvert, et l'icône de cette
+      // ligne d'alerte n'existe que dans cet état-là.
+      await expectNoRawIcon(page)
       await expectConnectionFlow(dialog, 0)
-      await expect(dialog.getByRole('alert')).toContainText(/pnpm --filter mcp run start/)
+      // Et tant que personne n'écoute, le code n'est pas réclamé : le champ
+      // n'appartient qu'à la marche suivante, qui n'est pas ouverte.
+      await expect(dialog.getByLabel('Code d’appairage')).toHaveCount(0)
+
       await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
       const copy = dialog.getByRole('button', { name: /^Copier/ })
       await copy.click()
@@ -366,8 +494,15 @@ test.describe('connexion MCP', () => {
           .evaluate((element) => element.scrollWidth <= element.clientWidth),
       ).toBe(true)
 
+      // Le bouton relit l'état de la machine plutôt que de faire recharger la
+      // page : le démon lancé entre-temps est trouvé, et la marche s'ouvre.
       recovered = await startRelay(port)
-      await dialog.getByRole('button', { name: 'Réessayer' }).click()
+      await dialog.getByRole('button', { name: 'Vérifier' }).click()
+      await expectConnectionFlow(dialog, 1)
+      await expect(dialog.getByText(/Code d’appairage ScreenForge/)).toBeVisible()
+
+      await dialog.getByLabel('Code d’appairage').fill(recovered.code())
+      await dialog.getByRole('button', { name: 'Appairer' }).click()
       await expect(dialog.getByRole('status', { name: 'État de la connexion' })).toHaveText(
         'Connectée',
       )

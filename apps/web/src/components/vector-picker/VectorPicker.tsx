@@ -101,7 +101,7 @@ export function VectorPicker({
           setActiveId(value)
           setOpen((isOpen) => !isOpen)
         }}
-        className="h-8 w-full justify-between border-border bg-muted font-normal normal-case hover:bg-muted"
+        className="h-8 w-full justify-between bg-muted font-normal normal-case hover:bg-muted"
         aria-label={`${label} : ${current?.label ?? value}`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -111,12 +111,7 @@ export function VectorPicker({
           <VectorGlyph entry={current} kind={kind} size={14} />
           <span className="truncate">{current?.label ?? value}</span>
         </span>
-        <ChevronDown
-          size={12}
-          strokeWidth={1.5}
-          className="shrink-0 text-muted-foreground"
-          aria-hidden
-        />
+        <ChevronDown strokeWidth={1.5} className="shrink-0 text-muted-foreground" aria-hidden />
       </Button>
 
       <AnchoredPopover
@@ -126,10 +121,10 @@ export function VectorPicker({
         onEscape={() => close(true)}
         className="w-56"
       >
-        <div className="border-b border-border p-1.5">
+        <div className="border-b p-1.5">
           <InputGroup>
             <InputGroupAddon>
-              <Search size={13} strokeWidth={1.5} aria-hidden />
+              <Search strokeWidth={1.5} aria-hidden />
             </InputGroupAddon>
             <InputGroupInput
               ref={searchRef}

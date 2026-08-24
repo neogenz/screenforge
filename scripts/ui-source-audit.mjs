@@ -11,6 +11,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import ts from 'typescript'
 
 const offline = process.argv.includes('--offline')
 const UI_DIR = 'apps/web/src/components/ui'
@@ -135,12 +136,34 @@ if (indexCss.includes('alias de transition')) {
  * a son propre `.demo-island` et ses propres audits (`landing-audit.mjs`),
  * c'est un site vitrine, pas l'app coss.
  */
+/**
+ * L'unique exemption, avec sa raison — et sa date de péremption : si le chemin
+ * ne désigne plus rien, l'audit échoue au lieu de dissoudre la décision dans un
+ * renommage. Une exemption qu'on ne relit pas est une règle qui s'est éteinte
+ * sans que personne l'ait décidé, ce qui est exactement ce que ce script
+ * existe pour empêcher ailleurs.
+ * @type {[string, string][]}
+ */
+const NATIVE_CONTROL_EXEMPTIONS = [
+  [
+    'apps/web/src/components/screens-bar/ScreenThumbnail.tsx',
+    'la tuile porte un `draggable`, un menu contextuel, un double-clic de renommage et ses propres `aria-pressed`/`aria-current` : l’envelopper dans un `Button` coss reviendrait à en neutraliser la variante classe par classe',
+  ],
+]
+
 const buttonInputScope = [...srcFiles.filter((f) => f.includes('/src/components/'))].filter(
-  (f) => !f.includes('/components/ui/') && !f.endsWith('screens-bar/ScreenThumbnail.tsx'),
+  (f) => !f.includes('/components/ui/') && !NATIVE_CONTROL_EXEMPTIONS.some(([path]) => f === path),
 )
 buttonInputScope.push('apps/web/src/App.tsx')
 
 console.log('\ncontrôles natifs (button/input)')
+for (const [path, why] of NATIVE_CONTROL_EXEMPTIONS) {
+  if (!existsSync(path)) {
+    fail(`exemption périmée — ${path} n’existe plus, la question se rouvre`)
+    continue
+  }
+  console.log(`  exempt ${path}\n         ${why}`)
+}
 let nativeHit = false
 for (const file of buttonInputScope) {
   const content = readFileSync(file, 'utf8')
@@ -161,31 +184,166 @@ for (const file of buttonInputScope) {
 }
 if (!nativeHit) console.log('  ok   aucun <button>/<input> natif hors liste blanche')
 
-// --- (e) classes v6 mortes : .island, .surface-inner ---
+// --- (e) jetons de la vitrine employés dans l'éditeur ---
 
 /**
- * `.panel-title`/`.section-title`/`.field-label` restent des classes
- * légitimes (hiérarchie de titres, grammaire de champ documentées dans
- * CLAUDE.md) tant qu'elles ont une définition permanente — hors du périmètre
- * de ce garde. Voir le rapport de tâche pour `.field-label`, dans le même cas
- * que `.surface-inner` mais non retenu par la portée demandée.
+ * L'éditeur et la vitrine ne partagent pas leur thème : `landing.css` déclare
+ * son propre `@theme static`, l'éditeur tient le sien dans `index.css` et
+ * `design-system/tokens.css`. Un jeton qui ne vit que dans la vitrine s'écrit
+ * donc sans erreur dans l'éditeur, où Tailwind n'émet rien pour lui — la
+ * compilation passe, l'élément se peint à sa taille héritée, et `audit:scale`
+ * y lit une valeur parfaitement légitime de l'échelle.
+ *
+ * C'est arrivé à `text-2xs` : la vitrine a gardé son échelon à 11px quand
+ * l'éditeur est passé aux tailles coss (12/14/16), et quatre libellés annoncés
+ * à 11px se sont rendus à 14 dans quatre dialogues. La liste en dur qui
+ * occupait cette place (`.island`, `.surface-inner`) ne pouvait attraper que
+ * les deux noms qu'elle connaissait ; celle-ci se relit dans `landing.css` à
+ * chaque exécution, donc elle suit la divergence des deux thèmes sans être
+ * tenue à jour.
+ *
+ * Ce garde ne prétend pas trouver toute classe morte : une garde générale
+ * demanderait la CSS de production, puisqu'en développement Tailwind n'a pas
+ * encore vu les primitives des dialogues chargés paresseusement — mesuré, 165
+ * classes coss vivantes déclarées mortes sur un serveur froid. Il couvre la
+ * divergence des deux thèmes, qui est la seule à s'être produite.
  */
-const DEAD_CLASSES = ['island', 'surface-inner']
+const LANDING_CSS = 'apps/web/src/landing/landing.css'
+/** Les espaces de noms Tailwind, et l'utilitaire qu'un jeton y engendre. */
+const TOKEN_NAMESPACES = [
+  ['--text-', 'text'],
+  [
+    '--color-',
+    // Tailwind ouvre le même espace de noms à ces quinze utilitaires : en
+    // omettre cinq, c'est laisser cinq façons d'écrire un jeton absent.
+    [
+      'text',
+      'bg',
+      'border',
+      'ring',
+      'fill',
+      'stroke',
+      'from',
+      'to',
+      'via',
+      'outline',
+      'divide',
+      'caret',
+      'accent',
+      'decoration',
+      'placeholder',
+    ],
+  ],
+  ['--radius-', 'rounded'],
+  ['--shadow-', 'shadow'],
+  ['--font-', 'font'],
+  ['--animate-', 'animate'],
+  ['--ease-', 'ease'],
+  ['--tracking-', 'tracking'],
+  ['--leading-', 'leading'],
+]
 
-console.log('\nclasses v6 mortes')
-let deadHit = false
-for (const file of srcFiles.filter((f) => !f.includes('/src/landing/'))) {
-  const content = readFileSync(file, 'utf8')
-  const classNameCtx = content.match(/className\s*=\s*(["'`])(?:(?!\1).)*\1/gs) ?? []
-  for (const cls of DEAD_CLASSES) {
-    const re = new RegExp(`(?<![-\\w])${cls}(?![-\\w])`)
-    if (classNameCtx.some((attr) => re.test(attr))) {
-      deadHit = true
-      fail(`${file} — classe .${cls} encore utilisée`)
+/**
+ * Les blocs `@theme` d'une feuille, et eux seuls : un `--shadow-md` réécrit
+ * dans un `:root` ordinaire ne crée aucune classe, il retouche une valeur que
+ * Tailwind fournit déjà. Les confondre faisait passer `shadow-md` pour un
+ * jeton réservé à la vitrine, dans quatre fichiers qui l'emploient à bon droit.
+ * @param {string} css
+ */
+function themeBlocks(css) {
+  const blocks = []
+  const opener = /@theme[^{]*\{/g
+  while (opener.exec(css) !== null) {
+    let i = opener.lastIndex
+    let depth = 1
+    const start = i
+    for (; i < css.length && depth > 0; i++) {
+      if (css[i] === '{') depth++
+      else if (css[i] === '}') depth--
+    }
+    blocks.push(css.slice(start, i - 1))
+  }
+  return blocks.join('\n')
+}
+
+const landingTheme = themeBlocks(readFileSync(LANDING_CSS, 'utf8'))
+/* Le thème de l'éditeur, plus celui que Tailwind fournit d'origine : un jeton
+   que la vitrine se contente de réécrire reste disponible des deux côtés. */
+const editorTheme = [
+  'apps/web/src/index.css',
+  'apps/web/src/design-system/tokens.css',
+  'node_modules/tailwindcss/theme.css',
+]
+  .filter((file) => existsSync(file))
+  .map((file) => readFileSync(file, 'utf8'))
+  .join('\n')
+
+/** @type {Map<string, string>} classe interdite -> jeton dont elle vient */
+const landingOnly = new Map()
+for (const [namespace, prefixes] of TOKEN_NAMESPACES) {
+  const declared = new RegExp(`^\\s*\\${namespace}([a-z0-9-]+)\\s*:`, 'gm')
+  for (const match of landingTheme.matchAll(declared)) {
+    const name = match[1]
+    // Un suffixe de configuration (`--text-2xs--line-height`) n'est pas un jeton.
+    if (name.includes('--')) continue
+    if (new RegExp(`^\\s*\\${namespace}${name}\\s*:`, 'm').test(editorTheme)) continue
+    for (const prefix of [prefixes].flat()) landingOnly.set(`${prefix}-${name}`, namespace + name)
+  }
+}
+
+/**
+ * Les littéraux de chaîne du fichier, avec leur ligne.
+ *
+ * Une classe finit forcément dans une chaîne, et l'analyseur sait ce qu'est une
+ * chaîne. Un commentaire n'en est pas un — il n'est même pas un nœud de l'arbre,
+ * donc un nom de jeton *cité* dans la prose qui explique pourquoi il est réservé
+ * à la vitrine ne fait plus rien échouer. Et une classe tenue dans une variable
+ * (`const base = 'animate-mark …'`) en est un, alors qu'elle échappait au
+ * balayage précédent, qui ne regardait que les `className=` et les `cn(`.
+ *
+ * Le prix, inchangé : un nom de classe construit par concaténation ou par
+ * interpolation (`` `text-${size}` ``) reste hors de portée, puisque aucun
+ * littéral ne le porte entier. Les fragments d'un gabarit sont malgré tout lus,
+ * pour la classe écrite en clair à côté d'une substitution.
+ * @param {string} file
+ * @param {string} content
+ * @returns {{ value: string, line: number }[]}
+ */
+function paintedLiterals(file, content) {
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true)
+  /** @type {{ value: string, line: number }[]} */
+  const literals = []
+  /** @param {ts.Node} node */
+  const visit = (node) => {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) {
+      literals.push({
+        value: node.text,
+        line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+      })
+    }
+    ts.forEachChild(node, visit)
+  }
+  ts.forEachChild(source, visit)
+  return literals
+}
+
+console.log('\njetons de la vitrine dans l’éditeur')
+let landingLeak = false
+for (const file of srcFiles.filter((f) => /\.tsx?$/.test(f) && !f.includes('/src/landing/'))) {
+  const literals = paintedLiterals(file, readFileSync(file, 'utf8'))
+  for (const [cls, token] of landingOnly) {
+    const written = new RegExp(`(?<![-\\w/])${cls}(?![-\\w])`)
+    for (const { value, line } of literals) {
+      if (!written.test(value)) continue
+      landingLeak = true
+      fail(`${file}:${line} — .${cls} vient de \`${token}\`, déclaré par la seule vitrine`)
+      break
     }
   }
 }
-if (!deadHit) console.log('  ok   aucune classe .island / .surface-inner')
+if (!landingLeak) {
+  console.log(`  ok   aucune des ${landingOnly.size} classes réservées à la vitrine`)
+}
 
 if (failures > 0) {
   console.log(`\n${failures} défaut(s)`)

@@ -163,7 +163,7 @@ export function Nav() {
         id={MENU_ID}
         popover="auto"
         style={{ top: NAV_HEIGHT }}
-        className="fixed right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border border-border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
+        className="fixed right-5 left-auto m-0 w-[min(22rem,calc(100vw-2.5rem))] border bg-stage px-5 py-4 text-sm text-foreground md:right-14"
       >
         <div className="flex flex-col">
           {anchors(undefined, closeMenu)}

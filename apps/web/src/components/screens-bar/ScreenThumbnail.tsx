@@ -137,6 +137,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
 
   return (
     <div
+      data-slot="screen-thumbnail"
       // Largeur imposée par la vignette, et non par le libellé : c'est en
       // laissant l'étiquette étirer la colonne que la tuile perdait son cadrage.
       style={{ width }}
@@ -148,7 +149,7 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
         // tombe : réordonner déplace le nœud (`insertBefore`), ce qui redémarre
         // ses animations CSS — la tuile rejouait son entrée à chaque drop.
         !entered && 'animate-enter',
-        'group/thumb relative shrink-0',
+        'relative shrink-0',
         'transition-[translate] duration-150 ease-out',
         // L'état sort du coin et revient à la silhouette. Le badge dit lequel,
         // le soulèvement dit lequel de loin : sur une rangée alignée, 4px de
@@ -372,15 +373,15 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
           // toute la tuile.
           'after:absolute after:-inset-1 after:content-[""]',
           'absolute right-1 flex h-5 w-5 items-center justify-center rounded-full',
-          'border border-border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
+          'border bg-card/95 text-muted-foreground transition-opacity hover:text-foreground',
           !menuPosition &&
-            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 group-hover/thumb:pointer-events-auto group-hover/thumb:opacity-100',
+            'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100 in-[[data-slot=screen-thumbnail]:hover]:pointer-events-auto in-[[data-slot=screen-thumbnail]:hover]:opacity-100',
         )}
         aria-label={`Actions de ${screen.name}`}
         aria-expanded={menuPosition !== null}
         aria-haspopup="menu"
       >
-        <MoreHorizontal size={12} strokeWidth={1.75} aria-hidden />
+        <MoreHorizontal strokeWidth={1.75} aria-hidden className="size-3.5 shrink-0" />
       </button>
 
       {menuPosition && (
@@ -396,12 +397,12 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
             // se partage pas, et on copie depuis une source, pas depuis trois.
             {
               label: 'Renommer',
-              icon: <Pencil size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Pencil strokeWidth={1.5} aria-hidden />,
               onSelect: startRename,
             },
             {
               label: grouped('Dupliquer', groupSize),
-              icon: <Copy size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Copy strokeWidth={1.5} aria-hidden />,
               onSelect: () => onDuplicate(screen.id),
             },
             {
@@ -410,13 +411,13 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
                  refus le dit — un champ de plus pour une valeur qu'on connaît
                  déjà se remplirait à l'identique neuf fois sur dix. */
               label: 'Enregistrer comme gabarit',
-              icon: <LayoutTemplate size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <LayoutTemplate strokeWidth={1.5} aria-hidden />,
               onSelect: () => void saveAsTemplate(screen),
             },
             'separator',
             {
               label: 'Copier les réglages',
-              icon: <ClipboardCopy size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ClipboardCopy strokeWidth={1.5} aria-hidden />,
               onSelect: () => onCopySettings(screen.id),
             },
             {
@@ -424,26 +425,26 @@ export const ScreenThumbnail = memo(function ScreenThumbnail({
                 groupSize > 1
                   ? `Coller les réglages sur ${groupSize} écrans`
                   : 'Coller les réglages',
-              icon: <ClipboardPaste size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ClipboardPaste strokeWidth={1.5} aria-hidden />,
               disabled: !canPasteSettings,
               onSelect: () => onPasteSettings(screen.id),
             },
             'separator',
             {
               label: 'Déplacer à gauche',
-              icon: <ChevronLeft size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ChevronLeft strokeWidth={1.5} aria-hidden />,
               disabled: !canMoveLeft,
               onSelect: () => onMove(index, -1),
             },
             {
               label: 'Déplacer à droite',
-              icon: <ChevronRight size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <ChevronRight strokeWidth={1.5} aria-hidden />,
               disabled: !canMoveRight,
               onSelect: () => onMove(index, 1),
             },
             {
               label: grouped('Supprimer', groupSize),
-              icon: <Trash2 size={11} strokeWidth={1.5} aria-hidden />,
+              icon: <Trash2 strokeWidth={1.5} aria-hidden />,
               danger: true,
               disabled: !canDelete,
               onSelect: () => onDelete(screen.id),

@@ -125,7 +125,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
       // La variante courte, pas `animate-enter` : cette barre s'ouvre et se
       // referme à chaque changement de sélection, pas dix fois par session.
       className="animate-enter-quick pointer-events-auto absolute z-(--z-chrome)
-        flex max-w-[min(680px,calc(100%-24px))] items-center gap-1 overflow-x-auto"
+        flex max-w-[min(680px,calc(100%-24px))] flex-row items-center gap-1 overflow-x-auto"
       // `group` et non `toolbar` : le rôle toolbar promet un roving tabindex
       // et des flèches entre contrôles, que cette barre n'a pas — chaque
       // contrôle y reste un arrêt de Tab. Le barème complet ne se justifie pas
@@ -152,7 +152,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               tooltip={label}
               onClick={() => useCanvasStore.getState().alignSelection(mode)}
             >
-              <Icon size={14} strokeWidth={1.6} aria-hidden />
+              <Icon strokeWidth={1.6} aria-hidden />
             </IconButton>
           ))}
           <Divider />
@@ -180,7 +180,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               for (const id of selectedLayerIds) useCanvasStore.getState().duplicateLayer(id)
             }}
           >
-            <Copy size={14} strokeWidth={1.6} aria-hidden />
+            <Copy strokeWidth={1.6} aria-hidden />
           </IconButton>
           <IconButton
             size="sm"
@@ -191,7 +191,7 @@ export function SelectionToolbar({ frame }: SelectionToolbarProps) {
               for (const id of selectedLayerIds) useCanvasStore.getState().removeLayer(id)
             }}
           >
-            <Trash2 size={14} strokeWidth={1.6} aria-hidden />
+            <Trash2 strokeWidth={1.6} aria-hidden />
           </IconButton>
         </>
       )}
@@ -274,7 +274,7 @@ function LayerControls({ layer, layerIds }: { layer: Layer; layerIds: string[] }
             tooltip={label}
             onClick={() => update({ textAlign: value } as Partial<Layer>)}
           >
-            <Icon size={14} strokeWidth={1.6} aria-hidden />
+            <Icon strokeWidth={1.6} aria-hidden />
           </IconButton>
         ))}
       </>
@@ -402,7 +402,7 @@ function ScreenshotButton({ onPick }: { onPick: (assetId: string, size: Screensh
         tooltip="Choisir la capture"
         onClick={() => input.current?.click()}
       >
-        <ImagePlus size={14} strokeWidth={1.6} aria-hidden />
+        <ImagePlus strokeWidth={1.6} aria-hidden />
       </IconButton>
       <Input
         unstyled

@@ -140,7 +140,7 @@ export function PlanPreview({ plan, brief, index, size, className }: PlanPreview
   return (
     <div
       aria-hidden
-      className={cn('relative shrink-0 overflow-hidden rounded-sm border border-border', className)}
+      className={cn('relative shrink-0 overflow-hidden rounded-sm border', className)}
       style={{
         width,
         aspectRatio: `${String(board.width)} / ${String(board.height)}`,

@@ -250,7 +250,7 @@ export function LayersPanel() {
           un bouton d'appel. */}
       {layers.length === 0 && (
         <div className="flex min-h-44 flex-col items-center justify-center gap-2 px-6 pb-2 text-center">
-          <Smartphone size={20} strokeWidth={1.5} className="text-muted-foreground" aria-hidden />
+          <Smartphone strokeWidth={1.5} className="size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm text-muted-foreground">Écran vide.</p>
           <p className="max-w-[190px] text-xs text-muted-foreground">
             Partez de vos captures de simulateur, ou composez à la main.
@@ -275,7 +275,7 @@ export function LayersPanel() {
             className="mt-2"
             onClick={() => capturesInput.current?.click()}
           >
-            <ImageUp size={12} aria-hidden />
+            <ImageUp aria-hidden />
             Partir de mes captures…
           </Button>
           <Button variant="ghost" size="sm" onClick={handleAddDevice}>

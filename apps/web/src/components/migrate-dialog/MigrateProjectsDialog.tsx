@@ -125,7 +125,7 @@ function MigrateProjectsDialogContent() {
           ) : (
             <Button
               variant="default"
-              className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
+              className="h-auto sm:h-auto min-h-9 max-w-full whitespace-normal py-2 text-center"
               loading={pending || loading}
               disabled={pending || loading || !projects?.length}
               onClick={() => void attachAll()}
@@ -162,9 +162,9 @@ function MigrateProjectsDialogContent() {
               {projects?.map((project) => (
                 <li
                   key={project.id}
-                  className="flex min-h-10 items-center gap-2 border-b border-border py-2 last:border-b-0"
+                  className="flex min-h-10 items-center gap-2 border-b py-2 last:border-b-0"
                 >
-                  <FileText size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                  <FileText className="shrink-0 text-muted-foreground" aria-hidden />
                   <span
                     className="min-w-0 flex-1 truncate text-sm text-foreground"
                     title={project.name}
@@ -173,7 +173,7 @@ function MigrateProjectsDialogContent() {
                   </span>
                   <time
                     dateTime={new Date(project.updatedAt).toISOString()}
-                    className="shrink-0 text-2xs text-muted-foreground tabular-nums"
+                    className="shrink-0 text-xs text-muted-foreground tabular-nums"
                   >
                     <span className="sr-only">Modifié le </span>
                     {DATE.format(project.updatedAt)}

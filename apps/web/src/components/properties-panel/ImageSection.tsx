@@ -59,7 +59,7 @@ export function ImageSection({ layer }: ImageSectionProps) {
           className="w-full"
           onClick={() => fileRef.current?.click()}
         >
-          <Upload size={11} strokeWidth={1.5} aria-hidden />
+          <Upload strokeWidth={1.5} aria-hidden />
           Remplacer
         </Button>
         {fileError && (

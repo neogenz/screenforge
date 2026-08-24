@@ -109,7 +109,7 @@ function PricingDialogContent() {
           ))}
         </div>
 
-        <p className="text-2xs leading-4 text-muted-foreground">
+        <p className="text-xs leading-4 text-muted-foreground">
           En continuant vers le paiement, vous acceptez les{' '}
           <a
             className="text-foreground underline underline-offset-4"
@@ -220,9 +220,8 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
             <li key={point} className="flex items-start gap-1.5 text-xs leading-4">
               <Check
                 aria-hidden
-                size={12}
                 strokeWidth={2}
-                className="mt-0.5 shrink-0 text-muted-foreground"
+                className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
               />
               {point}
             </li>
@@ -238,7 +237,7 @@ function PlanCard({ plan, owned, ownedNote, pending, disabled, onBuy }: PlanCard
       <CardFooter>
         {owned ? (
           <p className="flex min-h-8 w-full items-center justify-center gap-1.5 text-center text-xs leading-4 font-medium text-foreground">
-            <Check size={12} strokeWidth={2} aria-hidden className="shrink-0" />
+            <Check strokeWidth={2} aria-hidden className="size-3.5 shrink-0" />
             {ownedNote ?? 'Actif'}
           </p>
         ) : onBuy ? (

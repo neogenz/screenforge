@@ -176,7 +176,7 @@ function ExportDialogContent({ project }: { project: Project }) {
       footerNote="Aucun téléchargement partiel en cas d’échec."
       footer={
         <>
-          <Button variant="outline" onClick={handleClose} disabled={isExporting}>
+          <Button variant="ghost" onClick={handleClose} disabled={isExporting}>
             Annuler
           </Button>
           {/* Le libellé ne change pas avec l'état : `loading` masque le texte et
@@ -190,9 +190,9 @@ function ExportDialogContent({ project }: { project: Project }) {
             disabled={selectedScreens.length === 0 || localeRefused}
           >
             {justExported ? (
-              <Check size={12} aria-hidden className="animate-mark" />
+              <Check aria-hidden className="animate-mark" />
             ) : (
-              <Download size={12} aria-hidden />
+              <Download aria-hidden />
             )}
             Exporter le ZIP
           </Button>
@@ -219,13 +219,13 @@ function ExportDialogContent({ project }: { project: Project }) {
                 <Separator className="my-3" />
                 <ul className="flex flex-col gap-2 text-xs text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> PNG · 8 bits
+                    <Check aria-hidden className="size-3.5" /> PNG · 8 bits
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> RGB opaque · sans alpha
+                    <Check aria-hidden className="size-3.5" /> RGB opaque · sans alpha
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check size={12} aria-hidden /> Cible interne &lt; 5 MB
+                    <Check aria-hidden className="size-3.5" /> Cible interne &lt; 5 MB
                   </li>
                 </ul>
               </div>
@@ -340,7 +340,7 @@ function ExportDialogContent({ project }: { project: Project }) {
         </DialogColumns>
 
         {(progress || error) && (
-          <div className="border-t border-border px-6 py-4">
+          <div className="border-t px-6 py-4">
             <ProcessingPanel
               title="Export du lot"
               steps={exportSteps}
@@ -350,9 +350,9 @@ function ExportDialogContent({ project }: { project: Project }) {
           </div>
         )}
         {!isExporting && !error && completedFiles.length > 0 && (
-          <div className="border-t border-border px-6 py-4" aria-live="polite">
+          <div className="border-t px-6 py-4" aria-live="polite">
             <div className="flex items-center gap-2 text-xs text-foreground">
-              <FileCheck2 size={13} aria-hidden />
+              <FileCheck2 aria-hidden className="size-3.5" />
               ZIP validé et téléchargé · {completedFiles.length} fichier
               {completedFiles.length > 1 ? 's' : ''}
             </div>
@@ -400,7 +400,7 @@ function ScreenChoice({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        'h-auto min-h-14 w-full justify-start gap-3 rounded-md border px-3 py-2 text-left font-normal',
+        'h-auto sm:h-auto min-h-14 w-full justify-start gap-3 rounded-md border px-3 py-2 text-left font-normal',
         checked ? 'border-foreground bg-muted' : 'border-border hover:border-input',
       )}
     >
@@ -410,16 +410,16 @@ function ScreenChoice({
           checked ? 'border-foreground bg-foreground text-card' : 'border-input bg-card',
         )}
       >
-        {checked && <Check size={10} strokeWidth={2.5} aria-hidden />}
+        {checked && <Check strokeWidth={2.5} aria-hidden />}
       </span>
       {screen.thumbnail ? (
         <img
           src={screen.thumbnail}
           alt=""
-          className="h-10 w-[18px] shrink-0 rounded-sm border border-border object-cover"
+          className="h-10 w-[18px] shrink-0 rounded-sm border object-cover"
         />
       ) : (
-        <span className="h-10 w-[18px] shrink-0 rounded-sm border border-border bg-stage" />
+        <span className="h-10 w-[18px] shrink-0 rounded-sm border bg-stage" />
       )}
       <span className="tabular-nums w-5 shrink-0 text-xs text-muted-foreground">
         {String(index + 1).padStart(2, '0')}
