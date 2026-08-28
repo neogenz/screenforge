@@ -38,7 +38,7 @@ const BRIEF: CampaignBrief = {
 }
 
 const HELLO = {
-  protocol: 6,
+  protocol: 7,
   bridge: '0.1.0',
   engines: [{ id: 'claude', version: 'claude-cli 0.0.0-test' }],
   capabilities: { vision: false, structuredOutput: true, reasoning: true },

@@ -110,6 +110,21 @@ describe('project validation', () => {
 
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
+  })
+
+  it('borne le brief de la fiche quand il est là, et l’ignore quand il n’y est pas', () => {
+    const listing = {
+      appName: 'Cadence',
+      pitch: 'Le rythme de vos journées',
+      direction: 'sobre',
+      language: 'fr-FR',
+    }
+    expect(isProject({ ...project(), listing })).toBe(true)
+    expect(isProject({ ...project(), listing: { ...listing, direction: 'flashy' } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, language: 'FR' } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, pitch: 'x'.repeat(141) } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, productContext: 'a' } })).toBe(true)
+    expect(isProject({ ...project(), listing: { ...listing, appName: '' } })).toBe(true)
     expect(APP_STORE_PROFILE).toMatchObject({
       board: { width: 440, height: 956 },
       output: { portrait: { width: 1320, height: 2868 } },

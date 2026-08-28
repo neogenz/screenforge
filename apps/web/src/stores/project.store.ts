@@ -4,7 +4,7 @@ import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import { defaultScreenName } from '@/lib/screens'
-import type { GlobalSettings, Layer, Project, Screen, StoreTargetId } from '@/types'
+import type { GlobalSettings, Layer, Project, ProjectListing, Screen, StoreTargetId } from '@/types'
 
 // Les réglages globaux l'emportent sur les fabriques de calques : tout défaut
 // posé ici est ce que l'utilisateur voit réellement en ajoutant un calque.
@@ -85,6 +85,8 @@ interface ProjectState {
   renameScreen: (id: string, name: string) => void
   reorderScreens: (ids: string[]) => void
   updateGlobals: (globals: Partial<GlobalSettings>) => void
+  /** Le brief de la fiche : une donnée du projet, sans pas d'annulation. */
+  updateListing: (listing: ProjectListing) => void
   updateScreenBackground: (screenId: string, background: Screen['background']) => void
   saveScreenLayers: (screenId: string, layers: Screen['layers']) => void
   saveLayoutLayers: (layers: Layer[]) => void
@@ -219,6 +221,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
               globals: { ...state.project.globals, ...structuredClone(globals) },
             }),
           }
+        : state,
+    ),
+
+  updateListing: (listing) =>
+    set((state) =>
+      state.project
+        ? { project: withTimestamp(state.project, { listing: structuredClone(listing) }) }
         : state,
     ),
 

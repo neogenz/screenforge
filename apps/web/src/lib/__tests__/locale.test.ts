@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   addLocale,
+  applySourceTexts,
   applyTranslations,
   fontsForScript,
   isFontCompatible,
@@ -284,6 +285,23 @@ describe('écriture', () => {
     addLocale('de', 'Allemand', 'latin')
     const before = current()
     expect(applyTranslations('de', { inconnu: 'x' }).committed).toBe(false)
+    expect(useProjectStore.getState().project).toBe(before)
+  })
+
+  it('reprend une relecture dans les calques d’origine, sans toucher aux langues', () => {
+    addLocale('de', 'Allemand', 'latin')
+    const outcome = applySourceTexts({
+      t1: 'Le rythme.',
+      t2: 'Chaque euro à sa place',
+      inconnu: 'x',
+    })
+    expect(outcome.committed && outcome.value).toBe(1)
+    const layers = current().screens[0].layers as TextLayer[]
+    expect(layers.map((layer) => layer.content)).toEqual(['Le rythme.', 'Chaque euro à sa place'])
+    expect(current().locales![0].texts.t1.value).toBe('Le rythme')
+    expect(useHistoryStore.getState().past).toHaveLength(2)
+    const before = current()
+    expect(applySourceTexts({ t1: 'Le rythme.' }).committed).toBe(false)
     expect(useProjectStore.getState().project).toBe(before)
   })
 })

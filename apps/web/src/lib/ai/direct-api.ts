@@ -6,6 +6,7 @@ import {
   validateBriefGroundingCapacity,
   validateGeneratedPlan,
 } from '@/lib/ai/plan'
+import type { TextContext, TextLanguage } from '@/lib/ai/text'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
@@ -297,7 +298,7 @@ function planPrompt(brief: CampaignBrief, count: number): string {
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief.',
     '',
     'Écriture des accroches :',
-    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
+    `— Une idée par visuel, jamais deux. Trois à sept mots. Dans la langue « ${brief.language ?? 'fr-FR'} ».`,
     '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
     '  enfin lisibles » et non « Tableau de bord ».',
     '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
@@ -334,6 +335,7 @@ async function complete(
   key: string,
   model: string,
   prompt: string,
+  maxTokens = 2048,
 ): Promise<string> {
   if (provider === 'anthropic') {
     const body = await request<{ content?: { type?: string; text?: string }[] }>(
@@ -344,7 +346,7 @@ async function complete(
         method: 'POST',
         body: JSON.stringify({
           model,
-          max_tokens: 2048,
+          max_tokens: maxTokens,
           messages: [{ role: 'user', content: prompt }],
         }),
       },
@@ -362,7 +364,7 @@ async function complete(
       method: 'POST',
       body: JSON.stringify({
         model,
-        max_tokens: 2048,
+        max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
       }),
@@ -434,4 +436,103 @@ export async function planViaApi(
   const failure = validateGeneratedPlan(plan, brief)
   if (failure) throw new Error(`${failure} Rien n’a été repris.`)
   return plan
+}
+
+/* ------------------------------------------------------------ textes */
+
+/**
+ * Traduire et relire par un fournisseur direct.
+ *
+ * Même prose que les routes `/translate` et `/proofread` du pont, réécrite ici
+ * parce que l'onglet et le pont ne partagent aucun module exécutable : le
+ * contrat est le même — des textes numérotés, autant en retour, dans l'ordre —
+ * et il est revérifié au retour comme pour un plan.
+ */
+function contextLines(context?: TextContext): string[] {
+  return [
+    ...(context?.appName ? [`Application : ${context.appName}.`] : []),
+    ...(context?.pitch ? [`Ce qu’elle fait : ${context.pitch}`] : []),
+  ]
+}
+
+function textsPrompt(
+  head: string,
+  rules: readonly string[],
+  texts: readonly string[],
+  context?: TextContext,
+): string {
+  return [
+    head,
+    ...contextLines(context),
+    ...rules,
+    'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
+    'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
+    'Rends uniquement cet objet JSON, sans texte autour et sans bloc de code : {"texts":["…"]}',
+    '',
+    ...texts.map((text, index) => `${index + 1}. ${text}`),
+  ].join('\n')
+}
+
+async function completeTexts(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  prompt: string,
+  count: number,
+): Promise<string[]> {
+  const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
+    texts?: unknown
+  }
+  const texts = Array.isArray(raw.texts) ? raw.texts : []
+  if (texts.length !== count || !texts.every((text) => typeof text === 'string')) {
+    throw new Error('Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.')
+  }
+  return texts as string[]
+}
+
+export function translateViaApi(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  target: TextLanguage & { script: string },
+  texts: readonly string[],
+  options: { source?: TextLanguage; context?: TextContext } = {},
+): Promise<string[]> {
+  const from = options.source ? `du ${options.source.name} (${options.source.code}) ` : ''
+  return completeTexts(
+    provider,
+    key,
+    model,
+    textsPrompt(
+      `Traduis ${from}en ${target.name} (${target.code}) les accroches de captures App Store ci-dessous.`,
+      ['Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.'],
+      texts,
+      options.context,
+    ),
+    texts.length,
+  )
+}
+
+export function proofreadViaApi(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  language: TextLanguage,
+  texts: readonly string[],
+  context?: TextContext,
+): Promise<string[]> {
+  return completeTexts(
+    provider,
+    key,
+    model,
+    textsPrompt(
+      `Corrige l’orthographe, la grammaire et la typographie des accroches ci-dessous, écrites en ${language.name} (${language.code}).`,
+      [
+        'Ne reformule pas, ne raccourcis pas, ne change ni le sens ni le ton : un texte déjà correct est rendu tel quel.',
+      ],
+      texts,
+      context,
+    ),
+    texts.length,
+  )
 }

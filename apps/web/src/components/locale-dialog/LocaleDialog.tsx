@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Languages, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, Languages, Plus, SpellCheck, Trash2 } from 'lucide-react'
 import {
   addLocale,
+  applySourceTexts,
   applyTranslations,
   fontsForScript,
   localeBlocked,
@@ -11,16 +12,19 @@ import {
   setLocaleText,
   textLayersOf,
   unreviewedCount,
-  SCRIPTS,
   type LocaleFinding,
 } from '@/lib/locale'
 import {
-  LOCALE_CODE,
-  MAX_LOCALE_NAME_LENGTH,
-  MAX_LOCALE_TEXT_LENGTH,
-  MAX_PROJECT_LOCALES,
-} from '@/lib/project-validation'
-import { bridgeEngine, bridgeToken, translateViaBridge } from '@/lib/bridge-client'
+  LOCALE_CATALOG,
+  defaultSourceLanguage,
+  localeEntry,
+  localeName,
+} from '@/lib/locale-catalog'
+import { MAX_LOCALE_TEXT_LENGTH, MAX_PROJECT_LOCALES } from '@/lib/project-validation'
+import { MAX_TEXT_JOB_LENGTH, runTextJob, textWriterUnavailable } from '@/lib/ai/text'
+import { aiProvider } from '@/lib/ai/providers'
+import { AssistantSetup } from '@/components/campaign-dialog/AssistantSetup'
+import { useAssistant } from '@/components/campaign-dialog/use-assistant'
 import { loadGoogleFont } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { RadioGroup, RadioPrimitive } from '@/components/ui/radio-group'
@@ -30,17 +34,16 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { SelectField } from '@/components/patterns/select-field'
 import { Hint } from '@/components/patterns/hint'
 import { useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
-import type { LocaleVariant, Project, ScriptId, TextLayer } from '@/types'
+import type { LocaleVariant, Project, TextLayer } from '@/types'
 
-const CODE_FIELD_ID = 'sf-locale-code'
-const NAME_FIELD_ID = 'sf-locale-name'
+const ADD_FIELD_ID = 'sf-locale-add'
+const SOURCE_FIELD_ID = 'sf-locale-source'
 
 /** Les trois défauts que `reviewLocale` sait nommer, tous bloquants à égalité. */
 const FINDING_LABELS: Record<LocaleFinding['kind'], string> = {
@@ -58,6 +61,10 @@ const FINDING_LABELS: Record<LocaleFinding['kind'], string> = {
  * qui déborde ne s'exporte pas — c'est la seule règle dure, parce qu'une
  * capture dont l'accroche sort du cadre est refusée par la boutique ou,
  * pire, acceptée telle quelle.
+ *
+ * Le rédacteur qui remplit ces textes est le même que celui de la fiche : la
+ * session d'appairage (`use-assistant.ts`) est partagée, choisir « qui écrit »
+ * une fois suffit pour traduire et relire ici aussi.
  */
 export function LocaleDialog() {
   const showLocaleDialog = useUIStore((state) => state.showLocaleDialog)
@@ -89,14 +96,26 @@ function localeStatus(
   return `« ${name} » est exportable, et tout est relu.`
 }
 
+/** Une phrase pour ce que le rédacteur n'a pas pu écrire : trop long, ou rien à faire. */
+function tooLongMessage(skipped: number, verb: 'traduire' | 'relire'): string {
+  if (skipped === 0) return `Aucun texte à ${verb}.`
+  return `${skipped > 1 ? `${skipped} textes dépassent` : 'Un texte dépasse'} ${MAX_TEXT_JOB_LENGTH} caractères : rien n’a été envoyé.`
+}
+
+/** Ajoutée à un toast de succès quand une partie du lot a été laissée de côté. */
+function skippedNote(skipped: number): string {
+  return skipped > 0
+    ? ` ${skipped} ignoré${skipped > 1 ? 's' : ''} (plus de ${MAX_TEXT_JOB_LENGTH} caractères).`
+    : ''
+}
+
 function LocaleDialogContent({ project }: { project: Project }) {
   const close = () => useUIStore.getState().setShowLocaleDialog(false)
   const locales = project.locales ?? []
+  const assistant = useAssistant()
 
   const [selectedCode, setSelectedCode] = useState(() => locales[0]?.code ?? '')
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [scriptId, setScriptId] = useState<ScriptId>('latin')
+  const [pendingAddCode, setPendingAddCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -117,66 +136,91 @@ function LocaleDialogContent({ project }: { project: Project }) {
     return map
   }, [findings])
 
-  function create() {
+  /* Dérivé au rendu, jamais recopié dans un état : la liste se rétrécit d'elle-
+     même à mesure que des langues sont ajoutées, sans effet pour la resynchroniser. */
+  const usedCodes = new Set(locales.map((entry) => entry.code))
+  const availableEntries = LOCALE_CATALOG.filter((entry) => !usedCodes.has(entry.code))
+  const addCode = availableEntries.some((entry) => entry.code === pendingAddCode)
+    ? pendingAddCode
+    : (availableEntries[0]?.code ?? '')
+
+  const sourceCode = project.listing?.language ?? defaultSourceLanguage()
+
+  function setSourceLanguage(language: string) {
+    useProjectStore.getState().updateListing({
+      appName: '',
+      pitch: '',
+      direction: 'sobre',
+      ...project.listing,
+      language,
+    })
+  }
+
+  function addSelected() {
     setError(null)
-    const trimmed = code.trim()
-    if (!LOCALE_CODE.test(trimmed)) {
-      setError(
-        'Code de langue attendu : deux lettres, éventuellement suivies d’une région (pt-BR).',
-      )
-      return
-    }
-    const outcome = addLocale(
-      trimmed,
-      name.trim() || trimmed,
-      scriptId,
-      fontsForScript(scriptId)[0],
-    )
+    const entry = localeEntry(addCode)
+    if (!entry) return
+    const outcome = addLocale(entry.code, entry.name, entry.script, fontsForScript(entry.script)[0])
     if (!outcome.committed) {
       setError(
-        locales.some((entry) => entry.code === trimmed)
+        locales.some((existing) => existing.code === entry.code)
           ? 'Cette langue existe déjà.'
           : `Maximum ${MAX_PROJECT_LOCALES} langues par projet.`,
       )
       return
     }
-    setSelectedCode(trimmed)
-    setCode('')
-    setName('')
+    setSelectedCode(entry.code)
   }
 
-  async function translate(target: LocaleVariant, layers: TextLayer[]) {
-    const token = bridgeToken('assistant')
-    if (!token) {
-      /* L'erreur nomme le geste, pas l'absence : « aucun pont appairé » décrit
-         un état interne à qui n'a jamais entendu parler du pont. La traduction
-         à la main reste dite en premier — c'est le chemin qui marche tout de
-         suite, et le pont est facultatif par contrat. */
-      setError(
-        'Rien n’est pré-rempli sans le pont local, qui n’est pas connecté. Saisissez les traductions ci-dessous, ou branchez un modèle depuis « Générer les visuels de la fiche » → « Qui écrit les accroches ».',
-      )
+  const layers = textLayersOf(project)
+  const blocked = locale ? localeBlocked(findings) : false
+  const unreviewed = locale ? unreviewedCount(locale) : 0
+  const unavailable = textWriterUnavailable(assistant)
+  const provider = aiProvider(assistant.providerId)
+  const writerStatus =
+    provider.auth === 'none' ? null : assistant.connected ? 'Connecté' : 'À connecter'
+
+  async function translate() {
+    if (!locale) return
+    setError(null)
+    /* Seuls les calques déjà présents dans `locale.texts` sont candidats :
+       `applyTranslations` ignore par contrat tout identifiant qu'elle ne
+       connaît pas déjà (« un traducteur ne décide pas de la structure »), donc
+       envoyer un calque ajouté après coup au rédacteur gaspillerait l'appel
+       pour une proposition qui serait rejetée au retour. */
+    const candidates = layers.filter((layer) => {
+      const variant = locale.texts[layer.id]
+      return variant && (unreviewed === 0 || !variant.reviewed)
+    })
+    const eligible = candidates.filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
+    const skipped = candidates.length - eligible.length
+    if (eligible.length === 0) {
+      setError(tooLongMessage(skipped, 'traduire'))
       return
     }
     setBusy(true)
-    setError(null)
     try {
-      const sources = layers.map((layer) => layer.content)
-      const translated = await translateViaBridge(
-        { code: target.code, name: target.name, script: target.script },
-        sources,
-        token,
-        // Le moteur retenu à l'appairage, partagé avec la campagne.
-        bridgeEngine(),
+      const translated = await runTextJob(
+        {
+          kind: 'translate',
+          source: { code: sourceCode, name: localeName(sourceCode) },
+          target: { code: locale.code, name: locale.name, script: locale.script },
+        },
+        eligible.map((layer) => layer.content),
+        { appName: project.listing?.appName, pitch: project.listing?.pitch },
       )
       const proposals = Object.fromEntries(
-        layers.map((layer, index) => [layer.id, translated[index]]),
+        eligible.map((layer, index) => [layer.id, translated[index]]),
       )
-      const outcome = applyTranslations(target.code, proposals)
+      const outcome = applyTranslations(locale.code, proposals)
       if (!outcome.committed) {
         setError('Aucune proposition n’a pu être reprise : la langue est restée inchangée.')
         return
       }
-      toast(`${outcome.value} textes proposés, à relire.`, 'success')
+      toast(
+        `${outcome.value} texte${outcome.value > 1 ? 's' : ''} traduit${outcome.value > 1 ? 's' : ''} en ${locale.name} : à relire.${skippedNote(skipped)}`,
+        'success',
+      )
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La traduction a échoué.')
     } finally {
@@ -184,14 +228,45 @@ function LocaleDialogContent({ project }: { project: Project }) {
     }
   }
 
-  const layers = textLayersOf(project)
-  const blocked = locale ? localeBlocked(findings) : false
+  async function proofread() {
+    setError(null)
+    const eligible = layers.filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
+    const skipped = layers.length - eligible.length
+    if (eligible.length === 0) {
+      setError(tooLongMessage(skipped, 'relire'))
+      return
+    }
+    setBusy(true)
+    try {
+      const corrected = await runTextJob(
+        { kind: 'proofread', language: { code: sourceCode, name: localeName(sourceCode) } },
+        eligible.map((layer) => layer.content),
+        { appName: project.listing?.appName, pitch: project.listing?.pitch },
+      )
+      const proposals = Object.fromEntries(
+        eligible.map((layer, index) => [layer.id, corrected[index]]),
+      )
+      const outcome = applySourceTexts(proposals)
+      const note = skippedNote(skipped)
+      toast(
+        outcome.committed
+          ? `${outcome.value} texte${outcome.value > 1 ? 's' : ''} corrigé${outcome.value > 1 ? 's' : ''}.${note}`
+          : `Aucune faute trouvée.${note}`,
+        outcome.committed ? 'success' : 'info',
+      )
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La relecture a échoué.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <DialogShell
       open
       onClose={busy ? () => undefined : close}
       title="Langues"
+      description="Chaque langue reprend les mêmes calques avec ses propres textes : traduits par le rédacteur choisi, puis relus ici. L’export et la publication prennent la langue de la version figée."
       size="lg"
       flush
       /* Un seul état à la fois, et il dit ce qui bloque plutôt que de compter.
@@ -199,9 +274,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
          sans dire lequel des deux empêchait de sortir — les deux se lisaient
          comme des conditions, alors qu'une seule l'est. */
       footerNote={
-        locale
-          ? localeStatus(locale.name, findings.length, unreviewedCount(locale), blocked)
-          : undefined
+        locale ? localeStatus(locale.name, findings.length, unreviewed, blocked) : undefined
       }
       footer={
         <Button variant="ghost" onClick={close} disabled={busy}>
@@ -231,54 +304,40 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 calque — la mise en page, les captures et les appareils restent les mêmes.
               </p>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <Field className="w-20 gap-1.5">
-                    <FieldLabel htmlFor={CODE_FIELD_ID}>Code</FieldLabel>
-                    <Input
-                      id={CODE_FIELD_ID}
-                      value={code}
-                      maxLength={12}
-                      placeholder="ja"
-                      disabled={busy}
-                      onChange={(event) => setCode(event.target.value)}
-                    />
-                  </Field>
-                  <Field className="min-w-0 flex-1 gap-1.5">
-                    <FieldLabel htmlFor={NAME_FIELD_ID}>Nom</FieldLabel>
-                    <Input
-                      id={NAME_FIELD_ID}
-                      value={name}
-                      maxLength={MAX_LOCALE_NAME_LENGTH}
-                      placeholder="Japonais"
-                      disabled={busy}
-                      onChange={(event) => setName(event.target.value)}
-                    />
-                  </Field>
-                </div>
-                <SelectField<ScriptId>
-                  label="Écriture"
-                  aria-label="Écriture"
-                  value={scriptId}
-                  disabled={busy}
-                  onValueChange={setScriptId}
-                  items={SCRIPTS.map((entry) => ({ value: entry.id, label: entry.label }))}
+              <SelectField
+                id={SOURCE_FIELD_ID}
+                label="Langue d’origine des textes"
+                aria-label="Langue d’origine des textes"
+                value={sourceCode}
+                disabled={busy}
+                onValueChange={setSourceLanguage}
+                items={LOCALE_CATALOG.map((entry) => ({
+                  value: entry.code,
+                  label: `${entry.name} · ${entry.code}`,
+                }))}
+              />
+
+              <div className="flex flex-col gap-2 border-t pt-3">
+                <SelectField
+                  id={ADD_FIELD_ID}
+                  label="Langue à ajouter"
+                  aria-label="Langue à ajouter"
+                  value={addCode}
+                  disabled={busy || availableEntries.length === 0}
+                  onValueChange={setPendingAddCode}
+                  items={availableEntries.map((entry) => ({
+                    value: entry.code,
+                    label: `${entry.name} · ${entry.code}`,
+                  }))}
                 />
                 <Button
                   variant="default"
-                  onClick={create}
-                  disabled={busy || locales.length >= MAX_PROJECT_LOCALES}
+                  onClick={addSelected}
+                  disabled={busy || locales.length >= MAX_PROJECT_LOCALES || !addCode}
                 >
                   <Plus aria-hidden />
                   Ajouter
                 </Button>
-                {/* « Écriture » ne décide rien de visible ici, mais tout du rendu :
-                    une accroche japonaise composée dans une police latine se mesure
-                    juste et s'exporte en carrés vides. */}
-                <p className="text-xs text-muted-foreground">
-                  Propose des polices capables d’afficher la langue. Le code suit l’App Store : deux
-                  lettres, plus une région si besoin (<span className="tabular-nums">pt-BR</span>).
-                </p>
               </div>
 
               {locales.length > 0 && (
@@ -333,16 +392,6 @@ function LocaleDialogContent({ project }: { project: Project }) {
                     })),
                   ]}
                 />
-                <Hint content="Envoie les textes d’origine au pont local et remplit les traductions ci-dessous, à relire.">
-                  <Button
-                    variant="outline"
-                    onClick={() => void translate(locale, layers)}
-                    loading={busy}
-                  >
-                    <Languages aria-hidden />
-                    Pré-remplir via le pont
-                  </Button>
-                </Hint>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -355,6 +404,56 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   Supprimer
                 </Button>
               </div>
+
+              <details className="rounded-md border px-3 py-2">
+                <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-medium text-foreground marker:text-muted-foreground hover:text-foreground">
+                  <span>Qui traduit</span>
+                  <span className="font-normal text-muted-foreground">{provider.label}</span>
+                  {writerStatus && (
+                    <span className="ml-auto font-normal text-muted-foreground">
+                      {writerStatus}
+                    </span>
+                  )}
+                </summary>
+                <div className="mt-3">
+                  <AssistantSetup
+                    providerId={assistant.providerId}
+                    onProvider={assistant.pickProvider}
+                    secret={assistant.secret}
+                    onSecret={assistant.setSecret}
+                    connection={assistant.connection}
+                    onConnect={() => void assistant.connect()}
+                    onForget={assistant.forgetSecret}
+                    model={assistant.model}
+                    onModel={assistant.setModel}
+                    busy={busy}
+                  />
+                </div>
+              </details>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="default"
+                  onClick={() => void translate()}
+                  loading={busy}
+                  disabled={busy || Boolean(unavailable) || layers.length === 0}
+                >
+                  <Languages aria-hidden />
+                  {unreviewed > 0
+                    ? `Traduire ${unreviewed === 1 ? 'le texte non relu' : `les ${unreviewed} textes non relus`}`
+                    : 'Tout retraduire'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void proofread()}
+                  loading={busy}
+                  disabled={busy || Boolean(unavailable) || layers.length === 0}
+                >
+                  <SpellCheck aria-hidden />
+                  Corriger l’orthographe des textes d’origine
+                </Button>
+              </div>
+              {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
 
               {/* En-tête de colonnes. Sans elle, chaque ligne montrait deux textes
                   — le nom du calque à gauche, l'original en gris à droite, la

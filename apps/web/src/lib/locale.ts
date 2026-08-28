@@ -410,3 +410,24 @@ export function applyTranslations(code: string, proposals: Record<string, string
     return applied
   })
 }
+
+/**
+ * Reprend les textes d'origine relus, dans les calques eux-mêmes.
+ *
+ * Une relecture ne touche qu'aux mots : les variantes de langue gardent les
+ * leurs, un texte rendu identique ne compte pas, et un calque que la relecture
+ * ne nomme pas n'est pas touché. Tout le lot en une transaction, un seul retour.
+ */
+export function applySourceTexts(proposals: Record<string, string>) {
+  return runEditorTransaction((draft) => {
+    let applied = 0
+    for (const layer of textLayersOf(draft)) {
+      const value = proposals[layer.id]
+      if (value === undefined || value === layer.content) continue
+      layer.content = value.slice(0, MAX_LOCALE_TEXT_LENGTH)
+      applied += 1
+    }
+    if (applied === 0) return ABORT
+    return applied
+  })
+}

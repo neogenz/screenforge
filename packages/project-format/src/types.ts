@@ -212,6 +212,31 @@ export interface Project {
   releases?: Release[]
   /** Les variantes de langue. Voir `lib/locale.ts`. */
   locales?: LocaleVariant[]
+  /** Ce que la fiche sait du produit, saisi une fois. Voir `lib/listing.ts`. */
+  listing?: ProjectListing
+}
+
+/** Les quatre directions visuelles que le compositeur sait peindre. */
+export type ListingDirection = 'sobre' | 'contraste' | 'chaleureux' | 'nocturne'
+
+/**
+ * Le brief de la fiche, propriété du projet et non de la boîte qui le lit.
+ *
+ * Le nom de l'app, sa phrase, ses arguments et son style ne changent pas d'une
+ * génération à l'autre ; ils vivaient pourtant dans l'état d'un dialogue, donc
+ * mouraient à sa fermeture et se ressaisissaient à chaque ouverture. Écrit sans
+ * pas d'annulation, comme le nom du projet : un brief n'est pas un geste sur la
+ * planche.
+ */
+export interface ProjectListing {
+  appName: string
+  pitch: string
+  /** Arguments vérifiés, un par ligne. */
+  productContext?: string
+  landingUrl?: string
+  direction: ListingDirection
+  /** Langue des textes d'origine, en code App Store Connect (`fr-FR`). */
+  language: string
 }
 
 // ─── Localisation ────────────────────────────────────────────────────────────
