@@ -330,6 +330,16 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     .join('\n')
 }
 
+/**
+ * Une réponse coupée par la limite de sortie n'est pas une réponse fausse.
+ *
+ * Sans lire `stop_reason`, un lot tronqué ressortait comme « nombre de textes
+ * inattendu » ou comme un JSON illisible — deux messages qui accusent le
+ * modèle d'une erreur qu'il n'a pas faite.
+ */
+const TRUNCATED =
+  'Le fournisseur a coupé sa réponse avant la fin : rien n’a été repris. Réessayez, ou choisissez un modèle qui écrit plus long.'
+
 async function complete(
   provider: ApiProviderId,
   key: string,
@@ -338,38 +348,35 @@ async function complete(
   maxTokens = 2048,
 ): Promise<string> {
   if (provider === 'anthropic') {
-    const body = await request<{ content?: { type?: string; text?: string }[] }>(
-      'anthropic',
-      '/messages',
-      key,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          model,
-          max_tokens: maxTokens,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      },
-    )
-    const text = (body.content ?? []).find((part) => part.type === 'text')?.text
-    if (!text) throw new Error('Le modèle n’a rien répondu.')
-    return text
-  }
-
-  const body = await request<{ choices?: { message?: { content?: string } }[] }>(
-    'openrouter',
-    '/chat/completions',
-    key,
-    {
+    const body = await request<{
+      stop_reason?: string
+      content?: { type?: string; text?: string }[]
+    }>('anthropic', '/messages', key, {
       method: 'POST',
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
       }),
-    },
-  )
+    })
+    if (body.stop_reason === 'max_tokens') throw new Error(TRUNCATED)
+    const text = (body.content ?? []).find((part) => part.type === 'text')?.text
+    if (!text) throw new Error('Le modèle n’a rien répondu.')
+    return text
+  }
+
+  const body = await request<{
+    choices?: { finish_reason?: string; message?: { content?: string } }[]
+  }>('openrouter', '/chat/completions', key, {
+    method: 'POST',
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+    }),
+  })
+  if (body.choices?.[0]?.finish_reason === 'length') throw new Error(TRUNCATED)
   const text = body.choices?.[0]?.message?.content
   if (!text) throw new Error('Le modèle n’a rien répondu.')
   return text

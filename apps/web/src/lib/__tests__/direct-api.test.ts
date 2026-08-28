@@ -710,6 +710,25 @@ describe('plan via une API', () => {
     expect(() => extractJson('Je ne peux pas vous aider.')).toThrow()
   })
 
+  it('nomme une réponse coupée par la limite de sortie au lieu d’en accuser le contenu', async () => {
+    respond({
+      '/messages': {
+        body: { stop_reason: 'max_tokens', content: [{ type: 'text', text: WRITTEN }] },
+      },
+    })
+    await expect(planViaApi('anthropic', BRIEF, KEY, 'claude-x')).rejects.toThrow(
+      /coupé sa réponse/,
+    )
+    respond({
+      '/chat/completions': {
+        body: { choices: [{ finish_reason: 'length', message: { content: WRITTEN } }] },
+      },
+    })
+    await expect(planViaApi('openrouter', BRIEF, KEY, 'un/modele')).rejects.toThrow(
+      /coupé sa réponse/,
+    )
+  })
+
   it('passe par OpenRouter quand c’est OpenRouter qui est choisi', async () => {
     const calls = respond(answering(WRITTEN, 'openrouter'))
     const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
