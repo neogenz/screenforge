@@ -53,11 +53,22 @@ status: implemented
 
 | Porte | Commande | Résultat |
 | --- | --- | --- |
-| Unitaires + contrat + typage + lint | `pnpm test` (racine) | bridge 64, mcp 48, backend 209, web 496+ ; typecheck et lint propres |
+| Unitaires + contrat + typage + lint | `pnpm test` (racine) | bridge 64, mcp 48, backend 209, web 503 ; typecheck et lint propres |
 | Pont sous `node` | `node src/main.ts` puis `GET /hello` | 200, protocole 7, `asc` 0.45.4 détecté, listes `apps/versions/localizations` lues sur le vrai compte (lecture seule, aucun envoi) |
-| Boîtes et parcours | `playwright test` : `ai-campaign`, `ai-provider`, `locale`, `release`, `asc-publish` (5, dont le choix du lot), `campaign-journey` (dix étapes, pont → destination lue → preflight → essai à blanc), `dialogs-a11y` (8), `semantics`, `smoke`, `responsive-chrome`, `empty-state`, `android-project`, `mcp-templates`, `command-palette`, `export`, `project-file` | tous verts |
+| Boîtes et parcours | `playwright test` : `ai-campaign`, `ai-provider`, `locale`, `release`, `asc-publish` (6, dont le choix du lot et l'envoi réel confirmé), `campaign-journey` (dix étapes, pont → destination lue → preflight → essai à blanc), `dialogs-a11y` (8), `semantics`, `smoke`, `responsive-chrome`, `empty-state`, `android-project`, `mcp-templates`, `command-palette`, `export`, `project-file` | tous verts |
 | Build + vitrine | `pnpm run build` puis `audit:landing` | pré-rendu en/fr, contraste et interdits OK |
 | Design | `audit:contrast` / `audit:scale` / `audit:ui` | pire cas 5.02:1 ; échelles fermées ; provenance coss intacte |
-| Suite e2e complète | `pnpm run test:e2e` | 217 réussis, 1 ignoré, 1 échec de charge (`mcp-live` : focus du code d'appairage), relancé seul : 10/10 |
+| Suite e2e complète | `pnpm run test:e2e` (deux tranches, après reprises) | 219 réussis, 1 ignoré, 0 échec — la passe d'avant reprises avait un échec de charge (`mcp-live`, 10/10 seul) |
 
 Aucun envoi réel chez Apple n'a été fait : seules les listes (lecture) et l'essai à blanc simulé ont tourné.
+
+## Revue indépendante et reprises
+
+Verdict de la revue (`review.md`) : changements demandés — un bloquant, dix-sept à corriger, douze mineurs. Repris dans le même lot :
+
+- **Bloquant** : `bas-ancre` laissait l'appareil passer sous l'accroche sur la planche Google Play (540×960) ; l'appareil est maintenant plafonné à `headline.y - 16` quand l'accroche n'est pas posée sur lui, sur toute planche. La suite `archetypes.test.ts` boucle sur les six archétypes pour la séparation (le plancher de 90 % à bord reste borné aux trois archétypes à appareil choisi automatiquement, `bas-ancre` saignant par le haut à dessein), et `templates.test.ts` tient chaque gabarit généré aux mêmes règles (contraste, bande vide, séparation) sur les calques réellement émis.
+- Langues : un calque de texte né après une langue est compté « à traduire », traduit, et reçoit sa variante à l'écriture ; « Traduire toutes les langues » traduit chaque langue en parallèle puis écrit tout en une transaction ; la suppression d'une langue se confirme.
+- Publication : un 401 à l'envoi rouvre l'étape du jeton sans perdre le lot préparé ; le pont arrêté en cours de route se lit « injoignable » ; le téléchargement du lot est gardé et remonte ses erreurs ; « release » et « gel » ont quitté les derniers textes rendus ; quatre icônes prennent leur taille ; la publication réelle (essai à blanc décoché → confirmation → envoi) est couverte par un test.
+- Rédacteur par clé : ~6 000 caractères par appel, un lot plus gros était tronqué puis refusé entier ; vignettes des gabarits : les tracés se mettent à l'échelle sur leur propre boîte, comme sur la planche ; couverture des cibles dérivée des familles de `dimensions.ts` ; FAQ et CLAUDE.md alignés sur l'ordre réel et le nom réel de la boîte.
+
+Laissé en l'état, en connaissance de cause : le `as TranslateRequest & ProofreadRequest` du pont, la relecture de la session du module dans `runTextJob` (c'est le rédacteur), `evidence` non renvoyé par `onHeadline`, « Réécrire » retiré sans note, l'échec silencieux d'une suppression de version, les deux listes de directions, `ConfirmAction` frère de `StepDialog` dans la publication (Échap mesuré : ne ferme que la confirmation).

@@ -343,7 +343,7 @@ const en = {
       },
       {
         q: 'Can it upload straight to App Store Connect?',
-        a: 'Yes, through the local bridge and the asc CLI on your Mac. Freeze a version, run the preflight, pick the app, version and language the bridge reads from your account, try a dry run, then publish. ScreenForge never holds an Apple credential: asc keeps its own in your keychain.',
+        a: 'Yes, through the local bridge and the asc CLI on your Mac. Freeze a version, pick the app, version and language the bridge reads from your account, run the preflight, try a dry run, then publish. ScreenForge never holds an Apple credential: asc keeps its own in your keychain.',
       },
       {
         q: 'Which devices can I frame?',
@@ -700,7 +700,7 @@ const fr: Copy = {
       },
       {
         q: 'Peut-il envoyer directement sur App Store Connect ?',
-        a: 'Oui, par le pont local et la commande asc sur votre Mac. Figez une version, lancez le preflight, choisissez l’application, la version et la langue que le pont lit dans votre compte, essayez à blanc, puis publiez. ScreenForge ne détient jamais d’identifiant Apple : asc garde les siens dans votre trousseau.',
+        a: 'Oui, par le pont local et la commande asc sur votre Mac. Figez une version, choisissez l’application, la version et la langue que le pont lit dans votre compte, lancez le preflight, essayez à blanc, puis publiez. ScreenForge ne détient jamais d’identifiant Apple : asc garde les siens dans votre trousseau.',
       },
       {
         q: 'Quels appareils puis-je encadrer ?',
