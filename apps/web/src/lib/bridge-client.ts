@@ -107,6 +107,8 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+  }).catch((cause: unknown) => {
+    throw cause instanceof TypeError ? new Error(UNREACHABLE) : cause
   })
   const body = (await response.json().catch(() => ({}))) as BridgeFailure
   if (!response.ok) throw new Error(messageFor(response.status, body))

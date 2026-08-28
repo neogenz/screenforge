@@ -301,6 +301,14 @@ function PublishDialogContent({
     : appsResult.state === 'ready'
       ? 'active'
       : 'waiting'
+  // Mesuré sur un compte réel : toutes les versions étaient distribuées, la boîte
+  // en retenait une sans un mot, et Apple aurait refusé le lot à l'envoi.
+  const pickedVersionReleased =
+    versionsResult.state === 'ready' &&
+    versionsResult.data.some(
+      (version) =>
+        version.id === target.versionId && NON_EDITABLE_VERSION_STATES.has(version.state),
+    )
   const pontProgress =
     (bridgeReady ? 1 : 0) + (appsResult.state === 'ready' ? 1 : 0) + (targetReady ? 1 : 0)
 
@@ -317,7 +325,9 @@ function PublishDialogContent({
     try {
       const apps = await listAscApps(trimmed)
       setAppsResult({ state: 'ready', data: apps })
-      if (apps[0]) void selectApp(apps[0])
+      // Seulement sans destination : revérifier un jeton après un 401 passe
+      // par ici, et `selectApp` → `edit` jetterait le lot déjà préparé.
+      if (apps[0] && !apps.some((app) => app.id === target.appId)) void selectApp(apps[0])
     } catch (cause) {
       setAppsResult({ state: 'failed', message: failureMessage(cause) })
     }
@@ -714,6 +724,12 @@ function PublishDialogContent({
                         : []
                     }
                   />
+                  {pickedVersionReleased && (
+                    <p role="alert" className="text-xs text-warning">
+                      Cette version est déjà distribuée : Apple n’y accepte plus de captures. Créez
+                      d’abord une nouvelle version dans App Store Connect.
+                    </p>
+                  )}
                 </AsyncPanel>
 
                 <AsyncPanel

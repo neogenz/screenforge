@@ -200,6 +200,29 @@ test('un lot part seulement après avoir été rendu, et jamais en remplaçant',
   expect(stored.session).not.toContain(TOKEN)
 })
 
+test('une version déjà distribuée est nommée comme telle avant l’envoi', async ({ page }) => {
+  await fakeBridge(page)
+  await waitForApp(page)
+  await addTextLayer(page)
+  await freeze(page, '1.4.0')
+
+  await page.getByRole('button', { name: 'Publier chez Apple' }).click()
+  const dialog = publishDialog(page)
+  await dialog.getByLabel('Jeton asc-publish').fill(TOKEN)
+  await dialog.getByRole('button', { name: 'Vérifier le pont' }).click()
+  await expect(dialog.getByText('1 application lue chez Apple')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
+
+  // La version modifiable est retenue d'office, sans réserve.
+  await expect(dialog.getByText('1.4.0 · PREPARE_FOR_SUBMISSION')).toBeVisible()
+  await expect(dialog.getByRole('alert').filter({ hasText: /déjà distribuée/ })).toHaveCount(0)
+
+  // Celle déjà en vente peut être choisie, mais la boîte dit ce qu'Apple en fera.
+  await dialog.getByRole('combobox', { name: 'Version', exact: true }).click()
+  await page.getByRole('option', { name: '1.3.0 · READY_FOR_DISTRIBUTION' }).click()
+  await expect(dialog.getByRole('alert').filter({ hasText: /déjà distribuée/ })).toBeVisible()
+})
+
 test('le chemin manuel reste complet sans lecture chez Apple', async ({ page }) => {
   await fakeBridge(page)
   await waitForApp(page)
@@ -248,6 +271,7 @@ test('un lot filigrané ne se publie pas', async ({ page }) => {
 
   await expect(dialog.getByRole('alert').filter({ hasText: /filigrane/ })).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Préparer le lot' })).toBeDisabled()
+  await expectNoRawIcon(page)
 })
 
 test('un projet Google Play ne propose ni n’exécute la publication Apple', async ({ page }) => {
