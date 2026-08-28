@@ -1,20 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES } from '@/assets/templates'
-import { ARCHETYPE_IDS, onBoardRatio } from '@/lib/ai/archetypes'
+import { CATALOG_TARGETS } from '@/assets/templates/catalog'
+import {
+  ARCHETYPE_IDS,
+  SAFE_ARCHETYPE_IDS,
+  archetypeSpec,
+  onBoardRatio,
+  tallestEmptyBandOf,
+} from '@/lib/ai/archetypes'
+import { contrastRatio } from '@/lib/ai/palette'
 import { DIRECTIONS } from '@/lib/ai/plan'
 import { getStoreTargetProfile } from '@/lib/dimensions'
 import { deviceModelFamily } from '@screenforge/project-format'
-import type { StoreTargetId } from '@/types'
+import type { DeviceFrameLayer, TextLayer } from '@/types'
 
 const HAND_WRITTEN = TEMPLATES.filter((template) => !template.id.startsWith('catalog-'))
 const GENERATED = TEMPLATES.filter((template) => template.id.startsWith('catalog-'))
-
-const CATALOG_TARGETS = [
-  'app-store-iphone',
-  'app-store-ipad-13',
-  'app-store-watch-series-10',
-  'google-play-phone',
-] as const satisfies readonly StoreTargetId[]
 
 describe('built-in templates', () => {
   it.each(['app-store-iphone', 'google-play-phone'] as const)(
@@ -98,30 +99,71 @@ describe('generated catalogue (direction × archetype)', () => {
 
     for (const template of templates) {
       for (const layer of template.layers) {
-        if (layer.type === 'text') {
-          // Text must never leave the board — an off-board headline is a lost
-          // visual, not a stylistic choice.
-          expect(layer.x, `${template.id}/${layer.id} x`).toBeGreaterThanOrEqual(0)
-          expect(layer.y, `${template.id}/${layer.id} y`).toBeGreaterThanOrEqual(0)
-          expect(layer.x + layer.width, `${template.id}/${layer.id} width`).toBeLessThanOrEqual(
-            board.width,
-          )
-          expect(layer.y + layer.height, `${template.id}/${layer.id} height`).toBeLessThanOrEqual(
-            board.height,
-          )
-        } else if (layer.type === 'device-frame') {
-          // 'bord-coupe'/'bas-ancre' intentionally bleed the device off the
-          // board (see archetypes.ts) — same 90% ScreenForge default read down
-          // to the 70% floor archetypes.ts itself documents for an
-          // automatically chosen device.
-          expect(
-            onBoardRatio(layer, board),
-            `${template.id}/${layer.id} onBoardRatio`,
-          ).toBeGreaterThanOrEqual(0.7)
-        }
-        // Decorative accent shapes ('carte'/'bord-coupe'/'mur') are allowed to
-        // bleed off the board by design — no containment assertion for them.
+        if (layer.type !== 'text') continue
+        // Text must never leave the board — an off-board headline is a lost
+        // visual, not a stylistic choice. Devices and decorative shapes are
+        // allowed to bleed by design (checked, and scoped, below).
+        expect(layer.x, `${template.id}/${layer.id} x`).toBeGreaterThanOrEqual(0)
+        expect(layer.y, `${template.id}/${layer.id} y`).toBeGreaterThanOrEqual(0)
+        expect(layer.x + layer.width, `${template.id}/${layer.id} width`).toBeLessThanOrEqual(
+          board.width,
+        )
+        expect(layer.y + layer.height, `${template.id}/${layer.id} height`).toBeLessThanOrEqual(
+          board.height,
+        )
       }
     }
   })
+
+  // Les mêmes règles que archetypes.ts, relues sur les calques réellement
+  // écrits (pas seulement l'ArchetypeLayout intermédiaire), pour les six
+  // archétypes. Le plancher de 90 % ne vaut que pour ceux que l'assignation
+  // automatique choisit (SAFE_ARCHETYPE_IDS) — 'bas-ancre' coupe l'appareil
+  // par le haut par construction, voir archetypes.ts.
+  it.each(CATALOG_TARGETS)(
+    'holds each generated template to the archetype quality bar for %s',
+    (target) => {
+      const board = getStoreTargetProfile(target).board
+      for (const style of DIRECTIONS) {
+        for (const archetypeId of ARCHETYPE_IDS) {
+          const id = `catalog-${target}-${style.id}-${archetypeId}`
+          const template = GENERATED.find((candidate) => candidate.id === id)
+          if (!template) throw new Error(`missing template ${id}`)
+          const spec = archetypeSpec(archetypeId)
+          const headline = template.layers.find(
+            (layer): layer is TextLayer => layer.type === 'text',
+          )
+          const device = template.layers.find(
+            (layer): layer is DeviceFrameLayer => layer.type === 'device-frame',
+          )
+          if (!headline) throw new Error(`no headline layer in ${id}`)
+
+          if (device && SAFE_ARCHETYPE_IDS.includes(archetypeId)) {
+            expect(onBoardRatio(device, board), `${id} onBoardRatio`).toBeGreaterThanOrEqual(0.9)
+          }
+
+          expect(tallestEmptyBandOf(template.layers, board), `${id} emptyBand`).toBeLessThan(
+            board.height / 4,
+          )
+
+          if (device && !spec.headline.overDevice) {
+            const apart =
+              headline.y + headline.height <= device.y || headline.y >= device.y + device.height
+            expect(apart, `${id} separation`).toBe(true)
+          }
+
+          const colors =
+            template.background.type === 'solid'
+              ? [template.background.color]
+              : template.background.stops.map((stop) => stop.color)
+          for (const color of colors) {
+            expect(
+              contrastRatio(color, headline.color),
+              `${id} contrast on ${color}`,
+            ).toBeGreaterThanOrEqual(4.5)
+          }
+        }
+      }
+    },
+  )
 })

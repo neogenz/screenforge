@@ -1,5 +1,5 @@
 import { getDefaultDeviceSize } from '@/assets/device-frames'
-import { getStoreTargetProfile } from '@/lib/dimensions'
+import { getStoreTargetProfile, STORE_TARGET_IDS, STORE_TARGET_PROFILES } from '@/lib/dimensions'
 import {
   ARCHETYPE_IDS,
   archetypeSpec,
@@ -24,12 +24,22 @@ import type { DeviceModel, Layer, ShapeLayer, StoreTargetId, TemplateDefinition 
 
 const CATALOG_HEADLINE = 'Titre accrocheur'
 
-const CATALOG_TARGETS: readonly StoreTargetId[] = [
-  'app-store-iphone',
-  'app-store-ipad-13',
-  'app-store-watch-series-10',
-  'google-play-phone',
-]
+// ponytail: one board per device family (iphone/ipad/watch/android-phone),
+// the shortest of each — mirrors how archetypes.test.ts's CASES picks a
+// board per family. templates.test.ts imports this same constant, so a
+// family added to dimensions.ts is picked up by both without a second
+// hand-kept list to drift out of sync.
+export const CATALOG_TARGETS: readonly StoreTargetId[] = (() => {
+  const shortestPerFamily = new Map<string, StoreTargetId>()
+  for (const id of STORE_TARGET_IDS) {
+    const profile = STORE_TARGET_PROFILES[id]
+    const current = shortestPerFamily.get(profile.family)
+    if (!current || profile.board.height < STORE_TARGET_PROFILES[current].board.height) {
+      shortestPerFamily.set(profile.family, id)
+    }
+  }
+  return [...shortestPerFamily.values()]
+})()
 
 function catalogShapeLayer(id: string, accent: PlanAccent, zIndex: number): ShapeLayer {
   return {
@@ -109,7 +119,14 @@ function catalogTemplate(
   // the decorative shapes and the device, which are allowed to bleed), so
   // clamp locally rather than touching the shared archetype geometry that the
   // campaign generator also relies on.
-  const headlineY = Math.min(layout.headline.y, Math.max(0, board.height - layout.headline.height))
+  // `layout.headline.y` is already an integer (composeArchetype rounds it);
+  // floor rather than round the ceiling term, or rounding a fractional
+  // board.height up (524.615 → 525) would put the clamp itself back over
+  // the edge it exists to stay inside of.
+  const headlineY = Math.min(
+    layout.headline.y,
+    Math.floor(Math.max(0, board.height - layout.headline.height)),
+  )
 
   layers.push(
     textLayer(

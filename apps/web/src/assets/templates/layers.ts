@@ -1,4 +1,4 @@
-import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
+import { DEFAULT_DEVICE_SHADOW_COLOR, DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import type { DeviceFrameLayer, DeviceModel, TextLayer } from '@/types'
 
@@ -68,7 +68,7 @@ export function deviceLayer(
     orientation: 'portrait',
     shadowEnabled: true,
     shadowBlur: 18,
-    shadowColor: 'rgba(0,0,0,0.22)',
+    shadowColor: DEFAULT_DEVICE_SHADOW_COLOR,
     shadowOffsetX: 0,
     shadowOffsetY: 10,
     ...geometry,
