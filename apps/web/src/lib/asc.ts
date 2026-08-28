@@ -6,6 +6,7 @@ import {
 import { INTERNAL_PNG_SIZE_TARGET } from '@/lib/export'
 import { sha256OfText } from '@/lib/hash'
 import type { Release, ReleaseFile } from '@/types'
+import { LOCALE_CATALOG } from '@/lib/locale-catalog'
 
 /**
  * Le lot, tel qu'App Store Connect l'attend — et ce qui l'empêche de partir.
@@ -61,47 +62,7 @@ export function ascDeviceType(release: Release): string {
  * pas ceux du magasin — et la seule façon de l'attraper avant l'envoi est de
  * comparer à la liste.
  */
-export const APP_STORE_LOCALES: readonly string[] = [
-  'ar-SA',
-  'ca',
-  'cs',
-  'da',
-  'de-DE',
-  'el',
-  'en-AU',
-  'en-CA',
-  'en-GB',
-  'en-US',
-  'es-ES',
-  'es-MX',
-  'fi',
-  'fr-CA',
-  'fr-FR',
-  'he',
-  'hi',
-  'hr',
-  'hu',
-  'id',
-  'it',
-  'ja',
-  'ko',
-  'ms',
-  'nl-NL',
-  'no',
-  'pl',
-  'pt-BR',
-  'pt-PT',
-  'ro',
-  'ru',
-  'sk',
-  'sv',
-  'th',
-  'tr',
-  'uk',
-  'vi',
-  'zh-Hans',
-  'zh-Hant',
-]
+export const APP_STORE_LOCALES: readonly string[] = LOCALE_CATALOG.map((entry) => entry.code)
 
 /**
  * La langue App Store la plus proche d'un code de projet.
@@ -128,6 +89,10 @@ export interface AscTarget {
   locale: string
   /** L'identifiant de la localisation de version, rendu par `asc localizations list`. */
   versionLocalization: string
+  /** Ce qui vient d'une lecture chez Apple plutôt que d'une saisie manuelle — absent sur le chemin manuel. */
+  appId?: string
+  appName?: string
+  versionId?: string
 }
 
 export const EMPTY_TARGET: AscTarget = {
