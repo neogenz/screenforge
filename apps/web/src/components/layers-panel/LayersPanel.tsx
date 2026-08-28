@@ -202,7 +202,7 @@ export function LayersPanel() {
 
   /* L'entrée du produit, et pas son deuxième geste : la cible arrive avec ses
      captures de simulateur, pas avec l'envie de poser un cadre vide. Le bouton
-     ne compose rien — il remplit « Générer les visuels », qui sait déjà
+     ne compose rien — il remplit « Composer la fiche », qui sait déjà
      transformer N captures en N planches complètes. */
   const capturesInput = useRef<HTMLInputElement>(null)
 

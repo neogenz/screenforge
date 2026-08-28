@@ -52,6 +52,8 @@ export interface CampaignBrief {
   /** Accroches vérifiées, une par ligne. L'URL ci-dessus reste une provenance. */
   productContext?: string
   direction: DirectionId
+  /** La langue des accroches, en code App Store (`fr-FR`). Absente vaut le français. */
+  language?: string
   /** La palette lue dans les captures, quand l'utilisateur l'a demandée. */
   palette?: Palette
   /**
@@ -598,74 +600,92 @@ export function planToolCalls(plan: CampaignPlan, brief: CampaignBrief): ToolCal
   ]
 
   for (const [index, screen] of plan.screens.entries()) {
-    const layout = planScreenLayout(plan, brief, index)
-    if (!layout) continue
+    const own = planScreenCalls(plan, brief, index)
+    if (own.length === 0) continue
+    calls.push({ tool: 'add_screen', args: { name: screen.name } }, ...own)
+  }
 
-    calls.push({ tool: 'add_screen', args: { name: screen.name } })
-    calls.push({ tool: 'set_background', args: { background: layout.background } })
+  return calls
+}
 
-    /* L'ordre est l'ordre de peinture : `applyToolCalls` empile les calques
-       dans l'ordre des appels. Fond, formes de profondeur, appareil, pastille
-       de lisibilité, logo, puis l'accroche — qui est toujours en dernier,
-       parce qu'une accroche recouverte est une planche perdue. */
-    for (const accent of layout.accentsBehind) calls.push(accentCall(accent))
+/**
+ * Les appels d'un seul visuel, sans l'écran qui les porte.
+ *
+ * Deux lecteurs : la campagne, qui ajoute l'écran devant chaque lot, et la
+ * recomposition, qui les rejoue sur un écran existant qu'elle vient de vider.
+ * Une seule origine pour l'ordre de peinture, donc.
+ */
+export function planScreenCalls(
+  plan: CampaignPlan,
+  brief: CampaignBrief,
+  index: number,
+): ToolCall[] {
+  const screen = plan.screens[index]
+  const layout = screen ? planScreenLayout(plan, brief, index) : undefined
+  if (!screen || !layout) return []
 
-    if (layout.device) {
-      calls.push({
-        tool: 'add_device',
-        args: {
-          deviceModel: plan.deviceModel,
-          x: layout.device.x,
-          y: layout.device.y,
-          width: layout.device.width,
-          height: layout.device.height,
-          rotation: layout.device.rotation,
-          ...(screen.slot ? { slot: screen.slot } : {}),
-          ...(layout.device.assetId && layout.device.screenshotSize
-            ? {
-                assetId: layout.device.assetId,
-                screenshotWidth: layout.device.screenshotSize.width,
-                screenshotHeight: layout.device.screenshotSize.height,
-              }
-            : {}),
-        },
-      })
-    }
+  const calls: ToolCall[] = [{ tool: 'set_background', args: { background: layout.background } }]
 
-    for (const accent of layout.accentsFront) calls.push(accentCall(accent))
+  /* L'ordre est l'ordre de peinture : `applyToolCalls` empile les calques
+     dans l'ordre des appels. Fond, formes de profondeur, appareil, pastille
+     de lisibilité, logo, puis l'accroche — qui est toujours en dernier,
+     parce qu'une accroche recouverte est une planche perdue. */
+  for (const accent of layout.accentsBehind) calls.push(accentCall(accent))
 
-    if (layout.logo) {
-      calls.push({
-        tool: 'add_image',
-        args: {
-          assetId: layout.logo.assetId,
-          originalWidth: layout.logo.size.width,
-          originalHeight: layout.logo.size.height,
-          name: `Logo ${plan.appName}`.slice(0, 60),
-          x: layout.logo.x,
-          y: layout.logo.y,
-          width: layout.logo.width,
-          height: layout.logo.height,
-        },
-      })
-    }
-
+  if (layout.device) {
     calls.push({
-      tool: 'add_text',
+      tool: 'add_device',
       args: {
-        content: layout.headline.text,
-        x: layout.headline.x,
-        y: layout.headline.y,
-        width: layout.headline.width,
-        height: layout.headline.height,
-        fontSize: layout.headline.fontSize,
-        fontWeight: layout.headline.fontWeight,
-        color: layout.headline.color,
-        textAlign: layout.headline.align,
+        deviceModel: plan.deviceModel,
+        x: layout.device.x,
+        y: layout.device.y,
+        width: layout.device.width,
+        height: layout.device.height,
+        rotation: layout.device.rotation,
+        ...(screen.slot ? { slot: screen.slot } : {}),
+        ...(layout.device.assetId && layout.device.screenshotSize
+          ? {
+              assetId: layout.device.assetId,
+              screenshotWidth: layout.device.screenshotSize.width,
+              screenshotHeight: layout.device.screenshotSize.height,
+            }
+          : {}),
       },
     })
   }
 
+  for (const accent of layout.accentsFront) calls.push(accentCall(accent))
+
+  if (layout.logo) {
+    calls.push({
+      tool: 'add_image',
+      args: {
+        assetId: layout.logo.assetId,
+        originalWidth: layout.logo.size.width,
+        originalHeight: layout.logo.size.height,
+        name: `Logo ${plan.appName}`.slice(0, 60),
+        x: layout.logo.x,
+        y: layout.logo.y,
+        width: layout.logo.width,
+        height: layout.logo.height,
+      },
+    })
+  }
+
+  calls.push({
+    tool: 'add_text',
+    args: {
+      content: layout.headline.text,
+      x: layout.headline.x,
+      y: layout.headline.y,
+      width: layout.headline.width,
+      height: layout.headline.height,
+      fontSize: layout.headline.fontSize,
+      fontWeight: layout.headline.fontWeight,
+      color: layout.headline.color,
+      textAlign: layout.headline.align,
+    },
+  })
   return calls
 }
 

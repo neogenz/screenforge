@@ -44,7 +44,7 @@ export default function CanvasEditor() {
    *
    * Rien n'est écrit au projet ici : la règle « rien n'est écrit pendant qu'un
    * geste court » vaut pour celui-ci comme pour un glisser de calque. Le dépôt
-   * remplit l'entrée de « Générer les visuels » et c'est la boîte qui décide,
+   * remplit l'entrée de « Composer la fiche » et c'est la boîte qui décide,
    * après relecture. Un fichier qui n'est pas une capture est ignoré sans un
    * mot : le dépôt d'un `.txt` sur une planche n'est pas une erreur à signaler,
    * c'est un geste qui ne vise pas cette cible.

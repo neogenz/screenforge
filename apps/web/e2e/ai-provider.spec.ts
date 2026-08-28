@@ -20,10 +20,10 @@ import { expectNoRawIcon, waitForApp } from './helpers'
  * est interceptée — aucune requête ne sort d'ici.
  */
 
-const DIALOG = 'Générer les visuels · App Store · iPhone'
+const DIALOG = 'Composer la fiche · App Store · iPhone'
 
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
+  await page.getByRole('button', { name: 'Composer la fiche' }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
 
@@ -249,4 +249,77 @@ test('une clé acceptée est reprise au rechargement, et s’oublie sur demande'
   await openCampaignDialog(page)
   await page.getByRole('button', { name: /Qui écrit les accroches/ }).click()
   await expect(page.getByLabel('Clé d’API Anthropic')).toHaveValue('')
+})
+
+/**
+ * Les accroches se relisent par le rédacteur branché, avant la pose.
+ *
+ * La faute vient du brief — c'est le cas réel : le modèle recopie le pitch tel
+ * quel — et la relecture la corrige dans le plan, où rien n'est encore posé.
+ * Ce qui part est vérifié : des textes numérotés, la langue de la fiche, et
+ * aucune image. Clé factice, API interceptée.
+ */
+test('les accroches se relisent par le rédacteur branché, avant la pose', async ({ page }) => {
+  const prompts: string[] = []
+  await page.route('https://api.anthropic.com/**', (route: Route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [{ id: 'claude-factice', display_name: 'Claude factice' }] }),
+      })
+    }
+    const body = JSON.parse(route.request().postData() ?? '{}') as {
+      messages?: { content: string }[]
+    }
+    const prompt = body.messages?.[0]?.content ?? ''
+    prompts.push(prompt)
+    const answer = prompt.includes('Corrige l’orthographe')
+      ? { texts: ['Le budget dans une poche'] }
+      : {
+          screens: [
+            {
+              name: 'Budget',
+              headline: 'Le buget dans une poche',
+              evidence: 'Le buget dans une poche',
+              slot: 'budget',
+            },
+          ],
+        }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(answer) }] }),
+    })
+  })
+
+  await waitForApp(page)
+  await openCampaignDialog(page)
+  await page.getByRole('button', { name: /Qui écrit les accroches/ }).click()
+  await page.getByRole('radio', { name: /clé Anthropic/ }).click()
+  await page.getByLabel('Clé d’API Anthropic').fill('sk-ant-cle-factice-relecture')
+  await page.getByRole('button', { name: 'Connecter' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Clé acceptée' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retour au brief' }).click()
+
+  await page.getByLabel('Nom de l’app').fill('Cadence')
+  await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le buget dans une poche')
+  await page.getByLabel('Langue des accroches').click()
+  await page.getByRole('option', { name: 'Français · fr-FR' }).click()
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '1', exact: true }).click()
+  await page.getByRole('button', { name: 'Proposer 1 visuel' }).click()
+
+  const headline = page.getByLabel('Accroche du visuel 1')
+  await expect(headline).toHaveValue('Le buget dans une poche')
+  expect(prompts[0]).toContain('Dans la langue « fr-FR »')
+
+  await page.getByRole('button', { name: 'Corriger l’orthographe' }).click()
+  await expect(headline).toHaveValue('Le budget dans une poche')
+  await expect(page.getByRole('status').filter({ hasText: '1 accroche corrigée' })).toBeVisible()
+  const proofread = prompts.find((prompt) => prompt.includes('Corrige l’orthographe')) ?? ''
+  expect(proofread).toContain('(fr-FR)')
+  expect(proofread).toContain('1. Le buget dans une poche')
+  expect(proofread).toContain('Application : Cadence')
+  expect(proofread).not.toMatch(/data:image|assetId|layerId/)
 })

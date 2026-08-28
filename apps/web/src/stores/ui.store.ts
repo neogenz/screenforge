@@ -43,7 +43,7 @@ interface UIState {
    *
    * Une passation, pas un second import : le dépôt sur la scène et le bouton de
    * l'écran vide n'assemblent rien eux-mêmes, ils remplissent l'entrée de
-   * « Générer les visuels », qui est déjà le seul chemin qui transforme N
+   * « Composer la fiche », qui est déjà le seul chemin qui transforme N
    * captures en N planches complètes.
    */
   pendingCaptures: File[]

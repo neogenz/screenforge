@@ -11,7 +11,7 @@ import {
   Languages,
   LayoutTemplate,
   LoaderCircle,
-  Megaphone,
+  GalleryHorizontal,
   MoreHorizontal,
   Moon,
   Package,
@@ -770,13 +770,14 @@ function useComposeActions(): SecondaryAction[] {
       : []),
     {
       id: 'campaign',
-      label: 'Générer les visuels de la fiche',
-      hint: 'Captures, brief et style vers des calques éditables',
-      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
-         du marketing, et la génération n'est intelligente que si l'utilisateur
-         a branché un modèle — une baguette la promettait dans tous les cas et
-         se lisait par ailleurs comme une retouche par IA du calque courant. */
-      icon: <Megaphone strokeWidth={1.75} aria-hidden />,
+      label: 'Composer la fiche',
+      hint: 'Pose les visuels de la fiche en calques : tout le lot, ou l’écran courant',
+      /* Une galerie de planches — ce que la boîte produit —, ni une baguette
+         magique ni un mégaphone. La baguette promettait une IA dans tous les
+         cas et se lisait comme une retouche du calque courant ; le mégaphone
+         disait « marketing » sans dire quoi, et « Générer les visuels » ne
+         disait pas si c'était un lot, un écran ou une retouche. */
+      icon: <GalleryHorizontal strokeWidth={1.75} aria-hidden />,
       expanded: showCampaignDialog,
       onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
     },
@@ -811,8 +812,8 @@ function useDeliverActions(): SecondaryAction[] {
     },
     {
       id: 'releases',
-      label: 'Ouvrir les releases',
-      hint: 'Releases figées et comparaison',
+      label: 'Ouvrir les versions figées',
+      hint: 'La photo datée de ce que vous livrez : à vérifier, comparer, reprendre, publier',
       icon: <Package strokeWidth={1.75} aria-hidden />,
       expanded: showReleaseDialog,
       onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
