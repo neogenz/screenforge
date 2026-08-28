@@ -21,7 +21,13 @@ import {
   localeName,
 } from '@/lib/locale-catalog'
 import { MAX_LOCALE_TEXT_LENGTH, MAX_PROJECT_LOCALES } from '@/lib/project-validation'
-import { MAX_TEXT_JOB_LENGTH, runTextJob, textWriterUnavailable } from '@/lib/ai/text'
+import {
+  mapPool,
+  MAX_TEXT_JOB_LENGTH,
+  runTextJob,
+  TEXT_CONCURRENCY,
+  textWriterUnavailable,
+} from '@/lib/ai/text'
 import { aiProvider } from '@/lib/ai/providers'
 import { AssistantSetup } from '@/components/campaign-dialog/AssistantSetup'
 import { useAssistant } from '@/components/campaign-dialog/use-assistant'
@@ -118,7 +124,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const [selectedCode, setSelectedCode] = useState(() => locales[0]?.code ?? '')
   const [pendingAddCode, setPendingAddCode] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  /* La tâche qui tourne, pour que seule sa roue tourne ; `busy` reste le nom
+     lu partout ailleurs. */
+  const [running, setRunning] = useState<'translate' | 'proofread' | 'all' | null>(null)
+  const busy = running !== null
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const locale = locales.find((entry) => entry.code === selectedCode) ?? locales[0]
@@ -149,13 +158,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const sourceCode = project.listing?.language ?? defaultSourceLanguage()
 
   function setSourceLanguage(language: string) {
-    useProjectStore.getState().updateListing({
-      appName: '',
-      pitch: '',
-      direction: 'sobre',
-      ...project.listing,
-      language,
-    })
+    useProjectStore.getState().updateListing({ language })
   }
 
   function addSelected() {
@@ -183,38 +186,52 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const writerStatus =
     provider.auth === 'none' ? null : assistant.connected ? 'Connecté' : 'À connecter'
 
-  async function translate() {
-    if (!locale) return
-    setError(null)
-    /* Un calque sans entrée compte comme non relu (`unreviewedCount`) : il est
-       donc candidat au même titre — sinon un calque ajouté après la langue
-       restait hors traduction sans recours. `applyTranslations` lui crée sa
-       variante à la reprise plutôt que de l'ignorer. */
+  /**
+   * Le seul chemin de traduction : les candidats d'une langue, la borne du
+   * rédacteur, l'appel, la projection en propositions — pour une langue comme
+   * pour toutes.
+   *
+   * Un calque sans entrée compte comme non relu (`unreviewedCount`) : il est
+   * donc candidat au même titre — sinon un calque ajouté après la langue
+   * restait hors traduction sans recours. `applyTranslations` lui crée sa
+   * variante à la reprise plutôt que de l'ignorer. Quand rien n'attend une
+   * relecture, tout est retraduit.
+   */
+  async function translateInto(target: LocaleVariant) {
+    const pending = unreviewedCount(project, target)
     const candidates = layers.filter((layer) => {
-      const variant = locale.texts[layer.id]
-      return !variant || unreviewed === 0 || !variant.reviewed
+      const variant = target.texts[layer.id]
+      return !variant || pending === 0 || !variant.reviewed
     })
     const eligible = candidates.filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
     const skipped = candidates.length - eligible.length
-    if (eligible.length === 0) {
-      setError(tooLongMessage(skipped, 'traduire'))
-      return
-    }
-    setBusy(true)
+    if (eligible.length === 0) return [target.code, {}, skipped] as const
+    const translated = await runTextJob(
+      {
+        kind: 'translate',
+        source: { code: sourceCode, name: localeName(sourceCode) },
+        target: { code: target.code, name: target.name, script: target.script },
+      },
+      eligible.map((layer) => layer.content),
+      { appName: project.listing?.appName, pitch: project.listing?.pitch },
+    )
+    const proposals = Object.fromEntries(
+      eligible.map((layer, index) => [layer.id, translated[index]]),
+    )
+    return [target.code, proposals, skipped] as const
+  }
+
+  async function translate() {
+    if (!locale) return
+    setError(null)
+    setRunning('translate')
     try {
-      const translated = await runTextJob(
-        {
-          kind: 'translate',
-          source: { code: sourceCode, name: localeName(sourceCode) },
-          target: { code: locale.code, name: locale.name, script: locale.script },
-        },
-        eligible.map((layer) => layer.content),
-        { appName: project.listing?.appName, pitch: project.listing?.pitch },
-      )
-      const proposals = Object.fromEntries(
-        eligible.map((layer, index) => [layer.id, translated[index]]),
-      )
-      const outcome = applyTranslations({ [locale.code]: proposals })
+      const [code, proposals, skipped] = await translateInto(locale)
+      if (Object.keys(proposals).length === 0) {
+        setError(tooLongMessage(skipped, 'traduire'))
+        return
+      }
+      const outcome = applyTranslations({ [code]: proposals })
       if (!outcome.committed) {
         setError('Aucune proposition n’a pu être reprise : la langue est restée inchangée.')
         return
@@ -226,41 +243,23 @@ function LocaleDialogContent({ project }: { project: Project }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La traduction a échoué.')
     } finally {
-      setBusy(false)
+      setRunning(null)
     }
   }
 
-  /** Comme `translate`, mais un appel par langue restant à traduire, en
-   * parallèle, repris en une seule transaction — tout ou rien, un seul pas
-   * d'annulation, comme toute écriture groupée de ce fichier. */
+  /** `translate` répété sur chaque langue restant à traduire, deux à la fois,
+   * repris en une seule transaction — tout ou rien, un seul pas d'annulation,
+   * comme toute écriture groupée de ce fichier. */
   async function translateAll() {
     const targets = pendingLocales
     if (targets.length === 0) return
     setError(null)
-    setBusy(true)
+    setRunning('all')
     try {
-      const results = await Promise.all(
-        targets.map(async (target) => {
-          const eligible = layers
-            .filter((layer) => !target.texts[layer.id]?.reviewed)
-            .filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
-          if (eligible.length === 0) return [target.code, {}] as const
-          const translated = await runTextJob(
-            {
-              kind: 'translate',
-              source: { code: sourceCode, name: localeName(sourceCode) },
-              target: { code: target.code, name: target.name, script: target.script },
-            },
-            eligible.map((layer) => layer.content),
-            { appName: project.listing?.appName, pitch: project.listing?.pitch },
-          )
-          return [
-            target.code,
-            Object.fromEntries(eligible.map((layer, index) => [layer.id, translated[index]])),
-          ] as const
-        }),
+      const results = await mapPool(targets, TEXT_CONCURRENCY, translateInto)
+      const outcome = applyTranslations(
+        Object.fromEntries(results.map(([code, proposals]) => [code, proposals])),
       )
-      const outcome = applyTranslations(Object.fromEntries(results))
       if (!outcome.committed) {
         setError('Aucune proposition n’a pu être reprise : aucune langue n’a changé.')
         return
@@ -272,7 +271,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La traduction a échoué.')
     } finally {
-      setBusy(false)
+      setRunning(null)
     }
   }
 
@@ -296,7 +295,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
       setError(tooLongMessage(skipped, 'relire'))
       return
     }
-    setBusy(true)
+    setRunning('proofread')
     try {
       const corrected = await runTextJob(
         { kind: 'proofread', language: { code: sourceCode, name: localeName(sourceCode) } },
@@ -317,7 +316,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La relecture a échoué.')
     } finally {
-      setBusy(false)
+      setRunning(null)
     }
   }
 
@@ -488,7 +487,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 <Button
                   variant="default"
                   onClick={() => void translate()}
-                  loading={busy}
+                  loading={running === 'translate'}
                   disabled={busy || Boolean(unavailable) || layers.length === 0}
                 >
                   <Languages aria-hidden />
@@ -499,7 +498,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                 <Button
                   variant="outline"
                   onClick={() => void proofread()}
-                  loading={busy}
+                  loading={running === 'proofread'}
                   disabled={busy || Boolean(unavailable) || layers.length === 0}
                 >
                   <SpellCheck aria-hidden />
@@ -509,7 +508,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   <Button
                     variant="outline"
                     onClick={() => void translateAll()}
-                    loading={busy}
+                    loading={running === 'all'}
                     disabled={busy || Boolean(unavailable) || pendingLocales.length === 0}
                   >
                     <Languages aria-hidden />

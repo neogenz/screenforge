@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Langues et rédacteur — un état par tâche, un seul chemin de traduction, requêtes bornées

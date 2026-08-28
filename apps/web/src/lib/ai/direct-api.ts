@@ -6,7 +6,7 @@ import {
   validateBriefGroundingCapacity,
   validateGeneratedPlan,
 } from '@/lib/ai/plan'
-import type { TextContext, TextLanguage } from '@/lib/ai/text'
+import { mapPool, TEXT_CONCURRENCY, type TextContext, type TextLanguage } from '@/lib/ai/text'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
@@ -515,21 +515,17 @@ async function completeTexts(
   texts: readonly string[],
   context?: TextContext,
 ): Promise<string[]> {
-  const answers = await Promise.all(
-    chunkByChars(texts).map(async (batch) => {
-      const prompt = textsPrompt(head, rules, batch, context)
-      const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
-        texts?: unknown
-      }
-      const out = Array.isArray(raw.texts) ? raw.texts : []
-      if (out.length !== batch.length || !out.every((text) => typeof text === 'string')) {
-        throw new Error(
-          'Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.',
-        )
-      }
-      return out as string[]
-    }),
-  )
+  const answers = await mapPool(chunkByChars(texts), TEXT_CONCURRENCY, async (batch) => {
+    const prompt = textsPrompt(head, rules, batch, context)
+    const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
+      texts?: unknown
+    }
+    const out = Array.isArray(raw.texts) ? raw.texts : []
+    if (out.length !== batch.length || !out.every((text) => typeof text === 'string')) {
+      throw new Error('Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.')
+    }
+    return out as string[]
+  })
   return answers.flat()
 }
 
@@ -537,7 +533,7 @@ export function translateViaApi(
   provider: ApiProviderId,
   key: string,
   model: string,
-  target: TextLanguage & { script: string },
+  target: TextLanguage,
   texts: readonly string[],
   options: { source?: TextLanguage; context?: TextContext } = {},
 ): Promise<string[]> {

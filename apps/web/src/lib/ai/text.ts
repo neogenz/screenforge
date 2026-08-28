@@ -33,6 +33,31 @@ export type TextJob =
 export const TEXT_BATCH = 100
 /** La borne du pont et des variantes de langue ; un calque plus long n'est pas envoyé. */
 export const MAX_TEXT_JOB_LENGTH = 400
+/** Requêtes payantes ouvertes à la fois — la règle de `use-export.ts`. */
+export const TEXT_CONCURRENCY = 2
+
+/**
+ * `fn` sur chaque élément, jamais plus de `limit` à la fois, résultats dans
+ * l'ordre d'entrée : deux travailleurs consomment un index partagé, comme les
+ * exports. Un 429 sur une requête n'emporte qu'un lot, et un lot n'ouvre pas
+ * trente connexions. Le premier rejet rejette l'ensemble.
+ */
+export async function mapPool<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array<R>(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      out[index] = await fn(items[index], index)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
 
 /**
  * Pourquoi rien ne peut être écrit maintenant, ou `null` quand un rédacteur répond.
@@ -77,25 +102,23 @@ export async function runTextJob(
   }
   const session = assistantSession()
   const provider = aiProvider(session.providerId)
-  const batches = await Promise.all(
-    chunked(texts).map((batch) => {
-      if (provider.transport === 'local-bridge') {
-        const token = bridgeToken('assistant') || session.secret
-        const engine = provider.engine ?? 'claude'
-        return job.kind === 'translate'
-          ? translateViaBridge(job.target, batch, token, engine, { source: job.source, context })
-          : proofreadViaBridge(job.language, batch, token, engine, context)
-      }
-      const id = session.providerId as ApiProviderId
-      const key = apiKey(id) || session.secret
+  const batches = await mapPool(chunked(texts), TEXT_CONCURRENCY, (batch) => {
+    if (provider.transport === 'local-bridge') {
+      const token = bridgeToken('assistant') || session.secret
+      const engine = provider.engine ?? 'claude'
       return job.kind === 'translate'
-        ? translateViaApi(id, key, session.model, job.target, batch, {
-            source: job.source,
-            context,
-          })
-        : proofreadViaApi(id, key, session.model, job.language, batch, context)
-    }),
-  )
+        ? translateViaBridge(job.target, batch, token, engine, { source: job.source, context })
+        : proofreadViaBridge(job.language, batch, token, engine, context)
+    }
+    const id = session.providerId as ApiProviderId
+    const key = apiKey(id) || session.secret
+    return job.kind === 'translate'
+      ? translateViaApi(id, key, session.model, job.target, batch, {
+          source: job.source,
+          context,
+        })
+      : proofreadViaApi(id, key, session.model, job.language, batch, context)
+  })
   const out = batches.flat()
   if (out.length !== texts.length) {
     throw new Error('Le rédacteur a rendu un nombre de textes inattendu : rien n’a été repris.')

@@ -18,7 +18,7 @@ import {
   wrappedLineCount,
   type TextMeasure,
 } from '@/lib/locale'
-import { isProject, MAX_PROJECT_LOCALES } from '@/lib/project-validation'
+import { isProject, MAX_LAYER_TEXT_LENGTH, MAX_PROJECT_LOCALES } from '@/lib/project-validation'
 import { useHistoryStore } from '@/stores/history.store'
 import { DEFAULT_GLOBALS, useProjectStore } from '@/stores/project.store'
 import type { LocaleVariant, Project, Screen, TextLayer } from '@/types'
@@ -354,5 +354,11 @@ describe('écriture', () => {
     const before = current()
     expect(applySourceTexts({ t1: 'Le rythme.' }).committed).toBe(false)
     expect(useProjectStore.getState().project).toBe(before)
+
+    // La borne est celle du calque : une correction de 401 caractères tient entière.
+    const long = 'a'.repeat(401)
+    expect(applySourceTexts({ t2: long }).committed).toBe(true)
+    expect((current().screens[0].layers[1] as TextLayer).content).toBe(long)
+    expect(MAX_LAYER_TEXT_LENGTH).toBeGreaterThanOrEqual(401)
   })
 })

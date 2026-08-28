@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { chunked, runTextJob, TEXT_BATCH, textWriterUnavailable } from '@/lib/ai/text'
+import {
+  chunked,
+  mapPool,
+  runTextJob,
+  TEXT_BATCH,
+  TEXT_CONCURRENCY,
+  textWriterUnavailable,
+} from '@/lib/ai/text'
 import { forgetAssistant, rememberAssistant, type AssistantConnection } from '@/lib/ai/session'
 import { setBridgeToken } from '@/lib/bridge-client'
 
@@ -31,8 +38,42 @@ function answering(reply: (body: Record<string, unknown>, url: string) => unknow
   return calls
 }
 
+/** Rend autant de textes que le prompt en numérote (`1. …`), corrigés si demandé. */
+function replyFor(body: Record<string, unknown>, corrected: string[] = []) {
+  const prompt = String((body.messages as { content: string }[])[0].content)
+  const count = prompt.split('\n').filter((line) => /^\d+\. /.test(line)).length
+  const texts = Array.from({ length: count }, (_, index) => corrected[index] ?? `texte ${index}`)
+  return { content: [{ type: 'text', text: `Voici : ${JSON.stringify({ texts })}` }] }
+}
+
 beforeEach(() => forgetAssistant())
 afterEach(() => vi.unstubAllGlobals())
+
+describe('mapPool', () => {
+  it('n’ouvre jamais plus de `limit` travaux et rend dans l’ordre', async () => {
+    let inFlight = 0
+    let peak = 0
+    const out = await mapPool([30, 5, 20, 1, 10], 2, async (delay, index) => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      inFlight -= 1
+      return `${index}:${delay}`
+    })
+    expect(out).toEqual(['0:30', '1:5', '2:20', '3:1', '4:10'])
+    expect(peak).toBe(2)
+    expect(await mapPool([], 2, async () => 'jamais')).toEqual([])
+  })
+
+  it('rejette entier au premier échec', async () => {
+    await expect(
+      mapPool([1, 2, 3], 2, async (item) => {
+        if (item === 2) throw new Error('quota')
+        return item
+      }),
+    ).rejects.toThrow('quota')
+  })
+})
 
 describe('runTextJob', () => {
   it('découpe sous la borne du pont et rend les textes dans l’ordre', () => {
@@ -87,6 +128,52 @@ describe('runTextJob', () => {
     expect(JSON.stringify(calls[0].body)).not.toMatch(/layerId|assetId|data:image/)
   })
 
+  it('tient deux requêtes en vol sur 250 textes, ordre gardé, et rejette entier', async () => {
+    rememberAssistant({ providerId: 'claude-bridge', secret: 'jeton', connection: READY })
+    setBridgeToken('assistant', 'jeton', 'claude')
+    let inFlight = 0
+    let peak = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        inFlight += 1
+        peak = Math.max(peak, inFlight)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        inFlight -= 1
+        const body = JSON.parse(String(init?.body ?? '{}')) as { texts: string[] }
+        return new Response(JSON.stringify({ texts: body.texts.map((text) => `[de] ${text}`) }), {
+          status: 200,
+        })
+      }),
+    )
+    const texts = Array.from({ length: 250 }, (_, index) => `Texte ${index}`)
+    const out = await runTextJob(
+      { kind: 'translate', target: { code: 'de-DE', name: 'Allemand', script: 'latin' } },
+      texts,
+    )
+    expect(out).toEqual(texts.map((text) => `[de] ${text}`))
+    expect(peak).toBe(TEXT_CONCURRENCY)
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3)
+
+    // La deuxième requête refuse : tout est refusé, rien n'est rendu en partie.
+    let calls = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        calls += 1
+        if (calls === 2) return new Response('{"error":"quota"}', { status: 429 })
+        const body = JSON.parse(String(init?.body ?? '{}')) as { texts: string[] }
+        return new Response(JSON.stringify({ texts: body.texts }), { status: 200 })
+      }),
+    )
+    await expect(
+      runTextJob(
+        { kind: 'translate', target: { code: 'de-DE', name: 'Allemand', script: 'latin' } },
+        texts,
+      ),
+    ).rejects.toThrow()
+  })
+
   it('refuse en bloc un lot rendu d’une autre longueur', async () => {
     rememberAssistant({ providerId: 'claude-bridge', secret: 'jeton', connection: READY })
     answering((body) => ({ texts: (body.texts as string[]).slice(1) }))
@@ -102,14 +189,7 @@ describe('runTextJob', () => {
       model: 'claude-test',
       connection: READY,
     })
-    const calls = answering((body) => ({
-      content: [
-        {
-          type: 'text',
-          text: `Voici : ${JSON.stringify({ texts: JSON.parse(String((body.messages as { content: string }[])[0].content.split('\n').filter((line: string) => /^\d+\. /.test(line)).length)) ? ['Le rythme', 'Chaque euro'] : [] })}`,
-        },
-      ],
-    }))
+    const calls = answering((body) => replyFor(body, ['Le rythme', 'Chaque euro']))
     const out = await runTextJob(
       { kind: 'proofread', language: { code: 'fr-FR', name: 'Français' } },
       ['Le rytme', 'Chaque euro'],

@@ -1,4 +1,12 @@
-import type { AscApp, AscLocalization, AscVersion, BridgePlan, Hello } from 'bridge'
+import type {
+  AscApp,
+  AscLocalization,
+  AscVersion,
+  BridgePlan,
+  Hello,
+  ProofreadRequest,
+  TranslateRequest,
+} from 'bridge'
 import type { TextContext, TextLanguage } from '@/lib/ai/text'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { automaticArchetype } from '@/lib/ai/archetypes'
@@ -326,10 +334,16 @@ export async function proofreadViaBridge(
   })
 }
 
+/* La forme du pont, moins le protocole que ce client pose lui-même ; `texts`
+   relu en lecture seule, puisque rien ici ne le modifie. */
+type BridgeTextBody = (
+  Omit<TranslateRequest, 'protocol' | 'texts'> | Omit<ProofreadRequest, 'protocol' | 'texts'>
+) & { texts: readonly string[] }
+
 async function textsViaBridge(
   path: '/translate' | '/proofread',
   token: string,
-  body: Record<string, unknown> & { texts: readonly string[] },
+  body: BridgeTextBody,
 ): Promise<string[]> {
   const answer = await call<{ texts: string[] }>(path, token, {
     method: 'POST',

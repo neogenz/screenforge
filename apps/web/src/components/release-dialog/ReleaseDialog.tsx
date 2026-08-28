@@ -216,7 +216,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
 
   function forget(release: Release) {
     if (busy) return
-    if (!removeRelease(release.id).committed) return
+    if (!removeRelease(release.id).committed) {
+      toast(`La version « ${release.name} » n’a pas pu être supprimée.`, 'error')
+      return
+    }
     setChecks(null)
     setSelectedId(undefined)
     toast(`Version « ${release.name} » supprimée.`, 'success')

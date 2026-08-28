@@ -4,6 +4,7 @@ import { ABORT, runEditorTransaction } from '@/lib/editor-transaction'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import {
   LOCALE_CODE,
+  MAX_LAYER_TEXT_LENGTH,
   MAX_LOCALE_NAME_LENGTH,
   MAX_LOCALE_TEXT_LENGTH,
   MAX_PROJECT_LOCALES,
@@ -437,7 +438,8 @@ export function applySourceTexts(proposals: Record<string, string>) {
     for (const layer of textLayersOf(draft)) {
       const value = proposals[layer.id]
       if (value === undefined || value === layer.content) continue
-      layer.content = value.slice(0, MAX_LOCALE_TEXT_LENGTH)
+      // La borne du calque, pas celle d'une variante : c'est un calque qu'on écrit.
+      layer.content = value.slice(0, MAX_LAYER_TEXT_LENGTH)
       applied += 1
     }
     if (applied === 0) return ABORT

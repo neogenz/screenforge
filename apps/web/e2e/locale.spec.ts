@@ -121,9 +121,11 @@ async function fakeWriterBridge(
       body: JSON.stringify({ models: [{ id: 'sonnet', displayName: 'Sonnet' }] }),
     }),
   )
-  await page.route(`${BRIDGE}/translate`, (route: Route) => {
+  await page.route(`${BRIDGE}/translate`, async (route: Route) => {
     const body = JSON.parse(route.request().postData() ?? '{}') as WriterCall
     translateCalls.push(body)
+    // Le temps de lire quel bouton tourne pendant la requête.
+    await new Promise((resolve) => setTimeout(resolve, 800))
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -261,8 +263,16 @@ test('le rédacteur branché traduit les textes non relus, puis relit l’origin
   const row = (index: number) => dialog.locator('ul > li').nth(index)
 
   await expect(translateButton).toBeEnabled()
+  const proofreadButton = dialog.getByRole('button', {
+    name: 'Corriger l’orthographe des textes d’origine',
+  })
   await translateButton.click()
+  // Une seule roue, celle de la tâche lancée ; l'autre bouton attend sans en porter.
+  await expect(translateButton).toHaveAttribute('data-loading', '')
+  await expect(proofreadButton).toBeDisabled()
+  await expect(proofreadButton).not.toHaveAttribute('data-loading')
   await expect(page.getByText('2 textes traduits en Allemand : à relire.')).toBeVisible()
+  await expect(translateButton).not.toHaveAttribute('data-loading')
 
   await expect(row(0).getByRole('textbox')).toHaveValue('[de] Bonjour')
   await expect(row(1).getByRole('textbox')).toHaveValue('[de] Au revoir')
