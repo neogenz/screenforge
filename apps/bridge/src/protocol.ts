@@ -16,7 +16,7 @@ import { z } from 'zod'
  * deviner aurait produit des champs manquants au milieu d'une génération.
  */
 
-export const PROTOCOL_VERSION = 6
+export const PROTOCOL_VERSION = 7
 
 /**
  * Codex reste absent tant que son protocole ne permet pas de désactiver tous les
@@ -105,6 +105,8 @@ export const briefSchema = z.object({
   /** Combien de visuels le modèle doit proposer. Le plan est borné au même dix. */
   screenCount: z.number().int().min(1).max(10).optional(),
   screenshots: z.array(screenshotSchema).max(10),
+  /** Langue des accroches, en code App Store Connect (`fr-FR`). Absente = français. */
+  language: z.string().max(16).optional(),
 })
 
 export type BridgeBrief = z.infer<typeof briefSchema>
@@ -181,6 +183,14 @@ export const PLAN_OUTPUT_SCHEMA = {
  * sait à quel calque chacun revient, ce qui vaut mieux qu'une clé opaque
  * traversant un tiers, et rend l'appel indépendant de la structure du projet.
  */
+/** Ce qu'un rédacteur peut savoir du produit sans en voir une image. */
+export const textContextSchema = z.object({
+  appName: z.string().max(60).optional(),
+  pitch: z.string().max(140).optional(),
+})
+
+const languageSchema = z.object({ code: z.string().max(16), name: z.string().max(40) })
+
 export const translateRequestSchema = z.object({
   protocol: z.number().int(),
   target: z.object({
@@ -188,12 +198,56 @@ export const translateRequestSchema = z.object({
     name: z.string().max(40),
     script: z.string().max(24),
   }),
+  /** La langue d'origine, quand le projet la déclare : traduire « de » sans dire depuis quoi laisse le modèle deviner. */
+  source: languageSchema.optional(),
+  context: textContextSchema.optional(),
   texts: z.array(z.string().max(400)).min(1).max(120),
   /** Le moteur à lancer. Absent = Claude, seul moteur confiné annoncé. */
   engine: engineSchema.optional(),
 })
 
 export type TranslateRequest = z.infer<typeof translateRequestSchema>
+
+/** Relire l'orthographe et la typographie d'un lot, sans le reformuler. */
+export const proofreadRequestSchema = z.object({
+  protocol: z.number().int(),
+  language: languageSchema,
+  context: textContextSchema.optional(),
+  texts: z.array(z.string().max(400)).min(1).max(120),
+  engine: engineSchema.optional(),
+})
+
+export type ProofreadRequest = z.infer<typeof proofreadRequestSchema>
+
+/**
+ * Ce que le pont relit de `asc` avant de le rendre : des identifiants et des
+ * libellés, jamais la réponse brute — elle porte des URL de pagination et des
+ * attributs sans intérêt pour choisir une destination.
+ */
+export const ascAppSchema = z.object({
+  id: z.string().max(64),
+  name: z.string().max(200),
+  bundleId: z.string().max(200),
+  primaryLocale: z.string().max(16).optional(),
+})
+export type AscApp = z.infer<typeof ascAppSchema>
+
+export const ascVersionSchema = z.object({
+  id: z.string().max(64),
+  versionString: z.string().max(32),
+  state: z.string().max(64),
+  platform: z.string().max(32),
+})
+export type AscVersion = z.infer<typeof ascVersionSchema>
+
+export const ascLocalizationSchema = z.object({
+  id: z.string().max(64),
+  locale: z.string().max(16),
+})
+export type AscLocalization = z.infer<typeof ascLocalizationSchema>
+
+/** Un identifiant Apple tel qu'on le passe à `asc` : jamais un drapeau déguisé. */
+export const ASC_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/
 
 export const translationSchema = z.object({ texts: z.array(z.string().max(400)) })
 

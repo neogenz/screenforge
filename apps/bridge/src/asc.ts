@@ -2,12 +2,18 @@ import { execFile } from 'node:child_process'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type {
-  AscPublishRequest,
-  AscPublishResult,
-  AscStepName,
-  AscStepStatus,
-  AscTarget,
+import {
+  ascAppSchema,
+  ascLocalizationSchema,
+  ascVersionSchema,
+  type AscApp,
+  type AscLocalization,
+  type AscPublishRequest,
+  type AscPublishResult,
+  type AscStepName,
+  type AscStepStatus,
+  type AscTarget,
+  type AscVersion,
 } from './protocol.ts'
 import { redactDiagnostic } from './redaction.ts'
 
@@ -329,4 +335,108 @@ export async function ascProbeOrUndefined(
   } catch {
     return undefined
   }
+}
+
+/* ------------------------------------------------------------- destinations */
+
+/**
+ * Ce que la page a besoin de lire chez Apple pour choisir où publier.
+ *
+ * Trois listes, en lecture seule, derrière le même jeton que la publication :
+ * les applications du compte, les versions d'une application, les
+ * localisations d'une version. Elles remplaçaient trois commandes à taper
+ * dans un terminal pour en recopier les identifiants — et un identifiant
+ * recopié à la main est exactement ce qui envoie un lot allemand dans la fiche
+ * française. Le pont relit la sortie et n'en garde que des identifiants et des
+ * libellés : ni URL de pagination, ni attribut non demandé, ni secret.
+ */
+const LIST_TIMEOUT_MS = 60_000
+
+async function listJson(run: AscRunner, args: string[]): Promise<Record<string, unknown>[]> {
+  const result = await run([...args, '--output', 'json'], LIST_TIMEOUT_MS)
+  if (result.timedOut) throw new AscFailedError('« asc » n’a pas répondu à temps.')
+  if (result.code !== 0) {
+    throw new AscFailedError(
+      redactDiagnostic(result.stderr || result.stdout, 400) ||
+        '« asc » a refusé la commande : est-il installé et connecté (asc auth login) ?',
+    )
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(result.stdout)
+  } catch {
+    throw new AscFailedError('« asc » n’a pas rendu de JSON lisible.')
+  }
+  const data = (parsed as { data?: unknown } | null)?.data
+  return Array.isArray(data)
+    ? data.filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && !!entry)
+    : []
+}
+
+function attributes(entry: Record<string, unknown>): Record<string, unknown> {
+  const raw = entry.attributes
+  return typeof raw === 'object' && raw ? (raw as Record<string, unknown>) : {}
+}
+
+function text(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback
+}
+
+export async function listApps(run: AscRunner): Promise<AscApp[]> {
+  const rows = await listJson(run, ['apps', 'list', '--limit', '200'])
+  return rows.flatMap((row) => {
+    const attrs = attributes(row)
+    const candidate = {
+      id: text(row.id),
+      name: text(attrs.name),
+      bundleId: text(attrs.bundleId),
+      ...(typeof attrs.primaryLocale === 'string' ? { primaryLocale: attrs.primaryLocale } : {}),
+    }
+    const parsed = ascAppSchema.safeParse(candidate)
+    return parsed.success ? [parsed.data] : []
+  })
+}
+
+export async function listVersions(run: AscRunner, appId: string): Promise<AscVersion[]> {
+  const rows = await listJson(run, [
+    'versions',
+    'list',
+    '--app',
+    appId,
+    '--platform',
+    'IOS',
+    '--limit',
+    '200',
+  ])
+  return rows.flatMap((row) => {
+    const attrs = attributes(row)
+    const parsed = ascVersionSchema.safeParse({
+      id: text(row.id),
+      versionString: text(attrs.versionString),
+      state: text(attrs.appVersionState, text(attrs.appStoreState)),
+      platform: text(attrs.platform, 'IOS'),
+    })
+    return parsed.success ? [parsed.data] : []
+  })
+}
+
+export async function listLocalizations(
+  run: AscRunner,
+  versionId: string,
+): Promise<AscLocalization[]> {
+  const rows = await listJson(run, [
+    'localizations',
+    'list',
+    '--version',
+    versionId,
+    '--limit',
+    '200',
+  ])
+  return rows.flatMap((row) => {
+    const parsed = ascLocalizationSchema.safeParse({
+      id: text(row.id),
+      locale: text(attributes(row).locale),
+    })
+    return parsed.success ? [parsed.data] : []
+  })
 }
