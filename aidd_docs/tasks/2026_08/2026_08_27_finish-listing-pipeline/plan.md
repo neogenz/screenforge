@@ -72,3 +72,17 @@ Verdict de la revue (`review.md`) : changements demandés — un bloquant, dix-s
 - Rédacteur par clé : ~6 000 caractères par appel, un lot plus gros était tronqué puis refusé entier ; vignettes des gabarits : les tracés se mettent à l'échelle sur leur propre boîte, comme sur la planche ; couverture des cibles dérivée des familles de `dimensions.ts` ; FAQ et CLAUDE.md alignés sur l'ordre réel et le nom réel de la boîte.
 
 Laissé en l'état, en connaissance de cause : le `as TranslateRequest & ProofreadRequest` du pont, la relecture de la session du module dans `runTextJob` (c'est le rédacteur), `evidence` non renvoyé par `onHeadline`, « Réécrire » retiré sans note, l'échec silencieux d'une suppression de version, les deux listes de directions, `ConfirmAction` frère de `StepDialog` dans la publication (Échap mesuré : ne ferme que la confirmation).
+
+### Seconde passe
+
+Re-vérification du même relecteur : plus aucun bloquant, deux points jugés rédhibitoires — la reprise après un 401 se défaisait elle-même (« Vérifier le pont » resélectionnait la première application, donc `edit` jetait le lot préparé), et l'essai à blanc réel chez Apple n'avait jamais été lancé. Repris :
+
+- `verifyToken` ne resélectionne une application que si la destination n'en désigne aucune dans la liste relue ; le lot préparé survit au nouveau jeton.
+- « Traduire toutes les langues » est désactivé quand aucune langue n'a rien à traduire ; une suppression de langue refusée par la transaction est dite.
+- Le rédacteur par clé lit `stop_reason` (Anthropic) et `finish_reason` (OpenRouter) et nomme une réponse coupée, au lieu de l'accuser d'un mauvais compte de textes (`direct-api.test.ts`).
+- Tout appel au pont traduit un port fermé en « injoignable », pas seulement l'envoi ; `expectNoRawIcon` couvre aussi l'état filigrané ; CLAUDE.md nomme l'emplacement réel du pictogramme.
+- **Essai à blanc réel** (spec temporaire, non commité, contre le pont sous `node src/main.ts` et `asc 0.45.4` avec l'identifiant Pulpe du trousseau) : lecture « Pulpe — app.pulpe.ios », version 1.4.2 · READY_FOR_DISTRIBUTION, localisation fr-FR `902d9331…` ; commande `asc screenshots upload --version-localization … --device-type APP_IPHONE_69 --path ./fr-FR/APP_IPHONE_69 --output json --dry-run` ; `upload · Essai à blanc terminé · 733 ms`, dossier temporaire supprimé, rien d'envoyé. Ce que l'essai a appris : toutes les versions du compte sont distribuées, la boîte en retenait une sans un mot, et Apple aurait refusé le lot à l'envoi. La boîte le dit maintenant sous la version (`asc-publish.spec.ts`, « une version déjà distribuée est nommée comme telle avant l'envoi »).
+
+Laissé en l'état : les quatre raisons de figer restent repliées dans `<details>` de `ReleaseDialog` (la définition, elle, est toujours visible) ; les deux étapes e2e plus faibles que leur intitulé (`campaign-journey.spec.ts` « borné à l'écran courant », `locale.spec.ts` « traduit le… ») ; la relecture de la session du module dans `runTextJob` ; le plafond par script du rédacteur par clé, tant qu'aucune cible non latine n'a échoué.
+
+Gate de cette passe : `pnpm test` racine (web 504, bridge 64, mcp 48, backend 209, typecheck et lint propres), e2e en deux tranches (119 + tranche 2 : `passed`, 1 ignoré), `asc-publish` 7, build et audits.
