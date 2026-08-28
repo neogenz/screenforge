@@ -513,7 +513,9 @@ function LocaleDialogContent({ project }: { project: Project }) {
                     disabled={busy || Boolean(unavailable) || pendingLocales.length === 0}
                   >
                     <Languages aria-hidden />
-                    Traduire toutes les langues
+                    {pendingLocales.length === 0
+                      ? 'Toutes les langues sont traduites'
+                      : 'Traduire toutes les langues'}
                   </Button>
                 )}
               </div>
