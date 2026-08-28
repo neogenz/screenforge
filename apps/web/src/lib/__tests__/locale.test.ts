@@ -273,18 +273,69 @@ describe('écriture', () => {
   it('reprend les traductions non relues, et ignore les calques inconnus', () => {
     addLocale('de', 'Allemand', 'latin')
     setLocaleText('de', 't1', 'Kurz', true)
-    const outcome = applyTranslations('de', { t1: 'Rhythmus', t2: 'Jeder Euro', inconnu: 'x' })
+    const outcome = applyTranslations({ de: { t1: 'Rhythmus', t2: 'Jeder Euro', inconnu: 'x' } })
     expect(outcome.committed && outcome.value).toBe(2)
     const locale = current().locales![0]
     expect(locale.texts.t1).toEqual({ value: 'Rhythmus', reviewed: false })
     expect(locale.texts.inconnu).toBeUndefined()
-    expect(unreviewedCount(locale)).toBe(2)
+    expect(unreviewedCount(current(), locale)).toBe(2)
   })
 
   it('refuse un lot dont aucun texte ne correspond', () => {
     addLocale('de', 'Allemand', 'latin')
     const before = current()
-    expect(applyTranslations('de', { inconnu: 'x' }).committed).toBe(false)
+    expect(applyTranslations({ de: { inconnu: 'x' } }).committed).toBe(false)
+    expect(useProjectStore.getState().project).toBe(before)
+  })
+
+  it('reprend un calque ajouté après la langue : compté, traduisible, sans perdre les autres', () => {
+    // Le pipeline même de cette branche : composer un lot, puis traduire —
+    // sauf que le calque neuf, lui, arrive après que la langue existe déjà.
+    addLocale('de', 'Allemand', 'latin')
+    setLocaleText('de', 't1', 'Rhythmus', true)
+    setLocaleText('de', 't2', 'Jeder Euro', true)
+    expect(unreviewedCount(current(), current().locales![0])).toBe(0)
+
+    const layers = current().screens[0].layers as TextLayer[]
+    useProjectStore.setState({
+      project: {
+        ...current(),
+        screens: [screen('s1', [...layers, textLayer('t3', 'Nouveau')])],
+      },
+    })
+
+    // Compté : le calque neuf rend la langue « à traduire » sans qu'on l'ait touchée.
+    const locale = current().locales![0]
+    expect(unreviewedCount(current(), locale)).toBe(1)
+    expect(locale.texts.t3).toBeUndefined()
+
+    // Traduisible : `applyTranslations` crée la variante manquante plutôt que
+    // de l'ignorer, sans toucher aux langues déjà relues.
+    const outcome = applyTranslations({ de: { t3: 'Neu' } })
+    expect(outcome.committed && outcome.value).toBe(1)
+    const after = current().locales![0]
+    expect(after.texts.t3).toEqual({ value: 'Neu', reviewed: false })
+    expect(after.texts.t1.reviewed).toBe(true)
+    // Traduit, mais toujours à relire — comme toute proposition automatique.
+    expect(unreviewedCount(current(), after)).toBe(1)
+  })
+
+  it('traduit plusieurs langues en une seule transaction, tout ou rien', () => {
+    addLocale('de', 'Allemand', 'latin')
+    addLocale('ja', 'Japonais', 'japanese')
+
+    const outcome = applyTranslations({
+      de: { t1: 'Rhythmus' },
+      ja: { t1: 'リズム', inconnu: 'x' },
+    })
+    expect(outcome.committed && outcome.value).toBe(2)
+    const locales = current().locales!
+    expect(locales.find((entry) => entry.code === 'de')!.texts.t1.value).toBe('Rhythmus')
+    expect(locales.find((entry) => entry.code === 'ja')!.texts.t1.value).toBe('リズム')
+
+    // Aucune langue connue dans le lot : rien n'est écrit, pas même en partie.
+    const before = current()
+    expect(applyTranslations({ inconnu: { t1: 'x' } }).committed).toBe(false)
     expect(useProjectStore.getState().project).toBe(before)
   })
 

@@ -147,7 +147,6 @@ test('un lot part seulement après avoir été rendu, et jamais en remplaçant',
   await dialog.getByRole('button', { name: 'Vérifier le pont' }).click()
   await expect(dialog.getByText('1 application lue chez Apple')).toBeVisible()
 
-  await expectNoRawIcon(page)
   await expectNoClippedControl(page)
 
   await dialog.getByRole('button', { name: 'Continuer' }).click()
@@ -170,6 +169,10 @@ test('un lot part seulement après avoir été rendu, et jamais en remplaçant',
 
   await dialog.getByRole('button', { name: 'Essayer à blanc' }).click()
   await expect(dialog.getByText(/Essai à blanc terminé/).first()).toBeVisible({ timeout: 30_000 })
+
+  // Preflight sans réserve et étapes de l'essai à blanc : c'est ici, pas à
+  // l'étape « Pont », que les icônes du résultat sont montées.
+  await expectNoRawIcon(page)
 
   expect(calls).toHaveLength(1)
   const sent = calls[0]
@@ -304,4 +307,37 @@ test('quand plusieurs versions sont figées, c’est celle qu’on désigne qui 
 
   expect(calls).toHaveLength(1)
   expect(calls[0].releaseId).toBe(frozen[0].id)
+})
+
+test('un envoi réel passe par une confirmation, et part sans essai ni remplacement', async ({
+  page,
+}) => {
+  const calls = await fakeBridge(page)
+  await waitForApp(page)
+  await addTextLayer(page)
+  await freeze(page, '1.4.0')
+
+  await page.getByRole('button', { name: 'Publier chez Apple' }).click()
+  const dialog = publishDialog(page)
+  await dialog.getByLabel('Jeton asc-publish').fill(TOKEN)
+  await dialog.getByRole('button', { name: 'Vérifier le pont' }).click()
+  await expect(dialog.getByText('1 application lue chez Apple')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
+  await dialog.getByRole('button', { name: 'Préparer le lot' }).click()
+  await expect(dialog.getByText(/Empreinte du lot/)).toBeVisible({ timeout: 30_000 })
+
+  // L'essai à blanc décoché, l'action primaire devient « Publier » et ne part
+  // qu'après confirmation : la seule chose entre un clic et Apple.
+  await dialog.getByRole('switch', { name: 'Essai à blanc' }).click()
+  await dialog.getByRole('button', { name: 'Publier', exact: true }).click()
+  const confirm = page.getByRole('alertdialog')
+  await expect(confirm).toBeVisible()
+  expect(calls).toHaveLength(0)
+  await confirm.getByRole('button', { name: 'Publier maintenant' }).click()
+
+  await expect.poll(() => calls.length).toBe(1)
+  expect(calls[0].dryRun).toBe(false)
+  expect(calls[0].replaceExisting).toBe(false)
+  expect(calls[0].releaseId).toBeTruthy()
 })

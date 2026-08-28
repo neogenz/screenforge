@@ -38,8 +38,8 @@ import {
   listAscLocalizations,
   listAscVersions,
   publishSteps,
+  publishUnauthorized,
   publishViaBridge,
-  setBridgeToken,
   type AscBridgeStatus,
   type BridgePublishResult,
   type BridgePublishStep,
@@ -55,6 +55,7 @@ import { DialogShell } from '@/components/patterns/dialog-shell'
 import { StepDialog } from '@/components/patterns/step-dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { SelectField } from '@/components/patterns/select-field'
 import {
   SetupCommand,
@@ -258,9 +259,10 @@ function PublishDialogContent({
   const [dryRun, setDryRun] = useState(true)
   const [steps, setSteps] = useState<BridgePublishStep[]>([])
   const [publishing, setPublishing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const busy = progress !== null || publishing
+  const busy = progress !== null || publishing || downloading
 
   /* Constaté à l'ouverture, sans jeton : `hello` répond que le pont tourne (ou
      non) avant que quiconque n'ait rien collé. Aucun `setState` synchrone ici
@@ -312,7 +314,6 @@ function PublishDialogContent({
     const trimmed = token.trim()
     if (!trimmed || !bridgeReady) return
     setAppsResult({ state: 'pending' })
-    setBridgeToken('asc-publish', trimmed)
     try {
       const apps = await listAscApps(trimmed)
       setAppsResult({ state: 'ready', data: apps })
@@ -430,10 +431,18 @@ function PublishDialogContent({
   }
 
   async function download() {
-    if (!bundle || !manifest) return
-    const zip = await bundleZip(manifest, bundle.files)
-    downloadBlob(zip, `${manifest.release.name || 'lot'}-${target.locale}.zip`)
-    toast('Lot téléchargé : décompressez-le puis lancez la commande du manifeste.', 'success')
+    if (!bundle || !manifest || busy) return
+    setDownloading(true)
+    setError(null)
+    try {
+      const zip = await bundleZip(manifest, bundle.files)
+      downloadBlob(zip, `${manifest.release.name || 'lot'}-${target.locale}.zip`)
+      toast('Lot téléchargé : décompressez-le puis lancez la commande du manifeste.', 'success')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Le téléchargement a échoué.')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   async function publish() {
@@ -471,6 +480,10 @@ function PublishDialogContent({
     } catch (cause) {
       setSteps(publishSteps(cause))
       setError(cause instanceof Error ? cause.message : 'La publication a échoué.')
+      // Un jeton refusé rouvre l'étape « Pont » : `SetupStep` remplace son champ
+      // par le résultat dès qu'il est « done », donc fermer la boîte était la
+      // seule sortie — celle-ci jette le lot déjà préparé.
+      if (publishUnauthorized(cause)) setAppsResult({ state: 'idle' })
     } finally {
       setPublishing(false)
     }
@@ -855,7 +868,7 @@ function PublishDialogContent({
                           finding.level === 'error' ? 'text-destructive' : 'text-warning',
                         )}
                       >
-                        <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+                        <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                         {finding.message}
                       </li>
                     ))}
@@ -864,7 +877,7 @@ function PublishDialogContent({
 
                 {findings.length === 0 && (
                   <p className="flex items-center gap-2 text-xs text-success">
-                    <ShieldCheck aria-hidden />
+                    <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
                     Preflight sans réserve : {targetSummary(target, release)}
                   </p>
                 )}
@@ -882,6 +895,7 @@ function PublishDialogContent({
                   <Button
                     variant="outline"
                     onClick={() => void download()}
+                    loading={downloading}
                     disabled={!usable || busy}
                   >
                     Télécharger le lot
@@ -897,10 +911,10 @@ function PublishDialogContent({
                 {drifted > 0 && (
                   <Alert variant="warning">
                     <AlertTriangle aria-hidden />
-                    <AlertTitle>Le lot a changé depuis son gel</AlertTitle>
+                    <AlertTitle>Le lot a changé depuis qu’il a été figé</AlertTitle>
                     <AlertDescription>
                       {drifted} planche{drifted > 1 ? 's' : ''} ne correspond
-                      {drifted > 1 ? 'ent' : ''} plus à la version gelée. Gelez un nouveau lot pour
+                      {drifted > 1 ? 'ent' : ''} plus à la version figée. Figez un nouveau lot pour
                       publier ce qui est sur la planche.
                     </AlertDescription>
                   </Alert>
@@ -924,8 +938,10 @@ function PublishDialogContent({
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        void navigator.clipboard?.writeText(commandLine(command))
-                        toast('Commande copiée.', 'success')
+                        navigator.clipboard
+                          ?.writeText(commandLine(command))
+                          .then(() => toast('Commande copiée.', 'success'))
+                          .catch(() => toast('La copie a échoué.', 'error'))
                       }}
                     >
                       <Copy aria-hidden />
@@ -935,7 +951,7 @@ function PublishDialogContent({
                 )}
 
                 <div className="flex flex-col gap-3 border-t pt-4">
-                  <label className="flex items-center justify-between gap-3 text-xs text-foreground">
+                  <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
                     Essai à blanc (rien n’est modifié chez Apple)
                     <Switch
                       checked={dryRun}
@@ -943,10 +959,10 @@ function PublishDialogContent({
                       aria-label="Essai à blanc"
                       disabled={busy}
                     />
-                  </label>
+                  </Label>
                   {/* Le seul drapeau destructeur de la boîte : décoché par défaut, et
                       dit en toutes lettres ce qu'il supprime. */}
-                  <label className="flex items-center justify-between gap-3 text-xs text-foreground">
+                  <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
                     Supprimer les captures déjà en ligne avant d’envoyer
                     <Switch
                       checked={replaceExisting}
@@ -954,7 +970,7 @@ function PublishDialogContent({
                       aria-label="Remplacer les captures existantes"
                       disabled={busy}
                     />
-                  </label>
+                  </Label>
 
                   {steps.length > 0 && (
                     <ul className="flex flex-col gap-1" aria-label="Étapes de la publication">
@@ -969,9 +985,9 @@ function PublishDialogContent({
                           )}
                         >
                           {publishStep.status === 'ok' ? (
-                            <Check aria-hidden />
+                            <Check className="size-3.5 shrink-0" aria-hidden />
                           ) : (
-                            <AlertCircle aria-hidden />
+                            <AlertCircle className="size-3.5 shrink-0" aria-hidden />
                           )}
                           {publishStep.name} · {publishStep.detail} · {publishStep.ms} ms
                         </li>

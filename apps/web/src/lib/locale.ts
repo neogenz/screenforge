@@ -309,8 +309,14 @@ export function localeBlocked(findings: readonly LocaleFinding[]): boolean {
   return findings.length > 0
 }
 
-export function unreviewedCount(locale: LocaleVariant): number {
-  return Object.values(locale.texts).filter((text) => !text.reviewed).length
+/**
+ * Compté sur les calques réels du projet, pas sur les entrées de la variante :
+ * un calque ajouté après la langue n'a pas encore d'entrée, et compte comme non
+ * relu au même titre — sinon il restait hors traduction en silence, sans que
+ * rien ne le signale ici. Un calque supprimé depuis, lui, sort du compte.
+ */
+export function unreviewedCount(project: Project | ProjectSnapshot, locale: LocaleVariant): number {
+  return textLayersOf(project).filter((layer) => !locale.texts[layer.id]?.reviewed).length
 }
 
 // ─── Création et écriture ────────────────────────────────────────────────────
@@ -389,22 +395,29 @@ export function setLocaleFont(code: string, fontFamily: string | undefined) {
 }
 
 /**
- * Reprend les textes proposés par un traducteur.
+ * Reprend les textes proposés par un traducteur, pour une ou plusieurs langues
+ * à la fois — `code` → `layerId` → texte.
  *
  * Tout le lot en une transaction, et tout arrive **non relu** : une proposition
- * automatique est une proposition, et l'écran de revue existe pour cela. Les
- * calques inconnus sont ignorés plutôt que créés — un traducteur ne décide pas
- * de la structure.
+ * automatique est une proposition, et l'écran de revue existe pour cela. Un
+ * identifiant est repris s'il désigne un vrai calque texte du projet, qu'une
+ * entrée existait déjà pour lui ou non — un calque ajouté après la langue crée
+ * ainsi sa variante ici plutôt que de rester hors traduction sans recours. Ce
+ * qui reste refusé, c'est un identifiant qui ne désigne aucun calque : un
+ * traducteur ne décide pas de la structure.
  */
-export function applyTranslations(code: string, proposals: Record<string, string>) {
+export function applyTranslations(entries: Record<string, Record<string, string>>) {
   return runEditorTransaction((draft) => {
-    const locale = draft.locales?.find((entry) => entry.code === code)
-    if (!locale) return ABORT
+    const layerIds = new Set(textLayersOf(draft).map((layer) => layer.id))
     let applied = 0
-    for (const [layerId, value] of Object.entries(proposals)) {
-      if (!(layerId in locale.texts)) continue
-      locale.texts[layerId] = { value: value.slice(0, MAX_LOCALE_TEXT_LENGTH), reviewed: false }
-      applied += 1
+    for (const [code, proposals] of Object.entries(entries)) {
+      const locale = draft.locales?.find((entry) => entry.code === code)
+      if (!locale) continue
+      for (const [layerId, value] of Object.entries(proposals)) {
+        if (!layerIds.has(layerId)) continue
+        locale.texts[layerId] = { value: value.slice(0, MAX_LOCALE_TEXT_LENGTH), reviewed: false }
+        applied += 1
+      }
     }
     if (applied === 0) return ABORT
     return applied

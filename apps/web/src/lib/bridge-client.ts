@@ -461,34 +461,45 @@ export async function publishViaBridge(
   request: BridgePublishRequest,
   token: string,
 ): Promise<BridgePublishResult> {
-  const response = await fetch(`${BRIDGE_URL}/asc/publish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      protocol: PROTOCOL,
-      releaseId: request.releaseId,
-      bundleHash: request.bundleHash,
-      target: {
-        versionLocalization: request.versionLocalization,
-        deviceType: request.deviceType,
-      },
-      files: request.files,
-      replaceExisting: request.replaceExisting,
-      dryRun: request.dryRun,
-    }),
-  })
-  const body = (await response.json().catch(() => ({}))) as BridgeFailure & {
-    steps?: BridgePublishStep[]
+  try {
+    const response = await fetch(`${BRIDGE_URL}/asc/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        protocol: PROTOCOL,
+        releaseId: request.releaseId,
+        bundleHash: request.bundleHash,
+        target: {
+          versionLocalization: request.versionLocalization,
+          deviceType: request.deviceType,
+        },
+        files: request.files,
+        replaceExisting: request.replaceExisting,
+        dryRun: request.dryRun,
+      }),
+    })
+    const body = (await response.json().catch(() => ({}))) as BridgeFailure & {
+      steps?: BridgePublishStep[]
+    }
+    if (!response.ok) {
+      const failure = new Error(messageFor(response.status, body))
+      Object.assign(failure, { steps: body.steps ?? [], status: response.status })
+      throw failure
+    }
+    return body as unknown as BridgePublishResult
+  } catch (cause) {
+    // ponytail: même mappage que `probeBridge`/`ascBridgeStatus` — un pont mort
+    // pendant l'envoi rendait « Failed to fetch » brut.
+    throw cause instanceof TypeError ? new Error(UNREACHABLE) : cause
   }
-  if (!response.ok) {
-    const failure = new Error(messageFor(response.status, body))
-    Object.assign(failure, { steps: body.steps ?? [] })
-    throw failure
-  }
-  return body as unknown as BridgePublishResult
 }
 
 /** Les étapes rattachées à un échec de publication, s'il en porte. */
 export function publishSteps(error: unknown): BridgePublishStep[] {
   return (error as { steps?: BridgePublishStep[] })?.steps ?? []
+}
+
+/** Vrai quand l'échec vient d'un jeton refusé : l'étape « pont » doit se rouvrir. */
+export function publishUnauthorized(error: unknown): boolean {
+  return (error as { status?: number })?.status === 401
 }

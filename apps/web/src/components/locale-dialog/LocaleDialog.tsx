@@ -32,6 +32,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
 import { Input } from '@/components/ui/input'
@@ -118,6 +119,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const [pendingAddCode, setPendingAddCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const locale = locales.find((entry) => entry.code === selectedCode) ?? locales[0]
 
@@ -174,7 +176,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
 
   const layers = textLayersOf(project)
   const blocked = locale ? localeBlocked(findings) : false
-  const unreviewed = locale ? unreviewedCount(locale) : 0
+  const unreviewed = locale ? unreviewedCount(project, locale) : 0
   const unavailable = textWriterUnavailable(assistant)
   const provider = aiProvider(assistant.providerId)
   const writerStatus =
@@ -183,14 +185,13 @@ function LocaleDialogContent({ project }: { project: Project }) {
   async function translate() {
     if (!locale) return
     setError(null)
-    /* Seuls les calques déjà présents dans `locale.texts` sont candidats :
-       `applyTranslations` ignore par contrat tout identifiant qu'elle ne
-       connaît pas déjà (« un traducteur ne décide pas de la structure »), donc
-       envoyer un calque ajouté après coup au rédacteur gaspillerait l'appel
-       pour une proposition qui serait rejetée au retour. */
+    /* Un calque sans entrée compte comme non relu (`unreviewedCount`) : il est
+       donc candidat au même titre — sinon un calque ajouté après la langue
+       restait hors traduction sans recours. `applyTranslations` lui crée sa
+       variante à la reprise plutôt que de l'ignorer. */
     const candidates = layers.filter((layer) => {
       const variant = locale.texts[layer.id]
-      return variant && (unreviewed === 0 || !variant.reviewed)
+      return !variant || unreviewed === 0 || !variant.reviewed
     })
     const eligible = candidates.filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
     const skipped = candidates.length - eligible.length
@@ -212,7 +213,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
       const proposals = Object.fromEntries(
         eligible.map((layer, index) => [layer.id, translated[index]]),
       )
-      const outcome = applyTranslations(locale.code, proposals)
+      const outcome = applyTranslations({ [locale.code]: proposals })
       if (!outcome.committed) {
         setError('Aucune proposition n’a pu être reprise : la langue est restée inchangée.')
         return
@@ -226,6 +227,61 @@ function LocaleDialogContent({ project }: { project: Project }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  /** Comme `translate`, mais un appel par langue restant à traduire, en
+   * parallèle, repris en une seule transaction — tout ou rien, un seul pas
+   * d'annulation, comme toute écriture groupée de ce fichier. */
+  async function translateAll() {
+    const targets = locales.filter((entry) => unreviewedCount(project, entry) > 0)
+    if (targets.length === 0) return
+    setError(null)
+    setBusy(true)
+    try {
+      const results = await Promise.all(
+        targets.map(async (target) => {
+          const eligible = layers
+            .filter((layer) => !target.texts[layer.id]?.reviewed)
+            .filter((layer) => layer.content.length <= MAX_TEXT_JOB_LENGTH)
+          if (eligible.length === 0) return [target.code, {}] as const
+          const translated = await runTextJob(
+            {
+              kind: 'translate',
+              source: { code: sourceCode, name: localeName(sourceCode) },
+              target: { code: target.code, name: target.name, script: target.script },
+            },
+            eligible.map((layer) => layer.content),
+            { appName: project.listing?.appName, pitch: project.listing?.pitch },
+          )
+          return [
+            target.code,
+            Object.fromEntries(eligible.map((layer, index) => [layer.id, translated[index]])),
+          ] as const
+        }),
+      )
+      const outcome = applyTranslations(Object.fromEntries(results))
+      if (!outcome.committed) {
+        setError('Aucune proposition n’a pu être reprise : aucune langue n’a changé.')
+        return
+      }
+      toast(
+        `${outcome.value} texte${outcome.value > 1 ? 's' : ''} traduit${outcome.value > 1 ? 's' : ''} sur ${targets.length} langue${targets.length > 1 ? 's' : ''}.`,
+        'success',
+      )
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La traduction a échoué.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Même geste que `removeRelease` dans `ReleaseDialog` : confirmé, toasté, le
+   * retour de la transaction lu plutôt qu'ignoré. */
+  function forgetLocale(target: LocaleVariant) {
+    if (busy) return
+    if (!removeLocale(target.code).committed) return
+    setSelectedCode('')
+    toast(`Langue « ${target.name} » supprimée.`, 'success')
   }
 
   async function proofread() {
@@ -392,14 +448,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                     })),
                   ]}
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    removeLocale(locale.code)
-                    setSelectedCode('')
-                  }}
-                  disabled={busy}
-                >
+                <Button variant="outline" onClick={() => setConfirmingDelete(true)} disabled={busy}>
                   <Trash2 aria-hidden />
                   Supprimer
                 </Button>
@@ -452,6 +501,17 @@ function LocaleDialogContent({ project }: { project: Project }) {
                   <SpellCheck aria-hidden />
                   Corriger l’orthographe des textes d’origine
                 </Button>
+                {locales.length > 1 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => void translateAll()}
+                    loading={busy}
+                    disabled={busy || Boolean(unavailable) || layers.length === 0}
+                  >
+                    <Languages aria-hidden />
+                    Traduire toutes les langues
+                  </Button>
+                )}
               </div>
               {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
 
@@ -488,6 +548,17 @@ function LocaleDialogContent({ project }: { project: Project }) {
           )}
         </DialogColumns>
       </div>
+
+      {locale && (
+        <ConfirmAction
+          open={confirmingDelete}
+          onOpenChange={setConfirmingDelete}
+          title={`Supprimer la langue « ${locale.name} » ?`}
+          description="Toutes ses traductions disparaissent. La mise en page, les captures et les autres langues ne sont pas touchées."
+          confirmLabel="Supprimer la langue"
+          onConfirm={() => forgetLocale(locale)}
+        />
+      )}
     </DialogShell>
   )
 }

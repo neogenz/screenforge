@@ -1,8 +1,4 @@
-import {
-  APP_STORE_PROFILE,
-  getStoreTargetProfile,
-  type AppStoreTargetProfile,
-} from '@/lib/dimensions'
+import { getStoreTargetProfile, type AppStoreTargetProfile } from '@/lib/dimensions'
 import { INTERNAL_PNG_SIZE_TARGET } from '@/lib/export'
 import { sha256OfText } from '@/lib/hash'
 import type { Release, ReleaseFile } from '@/types'
@@ -37,9 +33,6 @@ import { LOCALE_CATALOG } from '@/lib/locale-catalog'
  * pas supposé : `asc screenshots sizes --all`.
  */
 export const ASC_DISPLAY_TYPE = 'APP_IPHONE_69'
-
-/** Les dimensions qu'Apple accepte dans ce jeu, portrait et paysage. */
-export const ASC_ACCEPTED_SIZES: readonly (readonly [number, number])[] = [[1320, 2868]]
 
 function releaseProfile(release: Release): AppStoreTargetProfile {
   const profile = getStoreTargetProfile(release.snapshot.target)
@@ -324,7 +317,7 @@ export function preflight(
 
   if (release.watermarked) {
     error(
-      'Ce lot historique a été figé avec un filigrane : il ne peut pas être publié. Régénérez une nouvelle release propre.',
+      'Ce lot historique a été figé avec un filigrane : il ne peut pas être publié. Figez une nouvelle version sans filigrane.',
     )
   }
 
@@ -395,8 +388,6 @@ export function targetSummary(target: AscTarget, release?: Release): string | nu
  * `APP_STORE_TARGET` est lu ici pour que le libellé de taille affiché soit celui
  * des dimensions réellement rendues, et non une constante recopiée.
  */
-export const ASC_SIZE_LABEL = `${APP_STORE_PROFILE.output.size} — ${APP_STORE_PROFILE.output.portrait.width}×${APP_STORE_PROFILE.output.portrait.height}`
-
 export function ascSizeLabel(release: Release): string {
   const profile = releaseProfile(release)
   return `${profile.output.name} — ${profile.output.portrait.width}×${profile.output.portrait.height}`
