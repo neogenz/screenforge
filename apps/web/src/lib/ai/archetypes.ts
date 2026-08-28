@@ -61,7 +61,10 @@ const APPLE_GUTTER = 32
  * tenait deux lignes, et la troisième débordait. La revue des langues le
  * signalait, sur la langue d'origine, avant toute traduction.
  */
-const LINE_HEIGHT = 1.2
+export const LINE_HEIGHT = 1.2
+
+/** Ce qu'un appareil empilé laisse entre lui et l'accroche, dans les deux sens. */
+const HEADLINE_CLEARANCE = 16
 
 export type ArchetypeId =
   'plein-cadre' | 'bord-coupe' | 'carte' | 'bas-ancre' | 'texte-sur-appareil' | 'mur'
@@ -420,7 +423,9 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
        ne suffit pas. Sur le profil iPhone, ces bornes rendent exactement les
        nombres historiques. */
     const stacked = !spec.headline.overDevice && wantedY >= 0
-    const y = stacked ? Math.max(wantedY, headline.y + headline.height + 16) : wantedY
+    const y = stacked
+      ? Math.max(wantedY, headline.y + headline.height + HEADLINE_CLEARANCE)
+      : wantedY
     const footer = Math.min(72, board.height * 0.075)
     /* 'bas-ancre' ancre l'appareil au-dessus de la planche (wantedY < 0) pour
        couper son sommet par construction — mais son bas doit quand même
@@ -435,7 +440,7 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
       ? Infinity
       : stacked
         ? board.height - footer
-        : headline.y - 16
+        : headline.y - HEADLINE_CLEARANCE
     const availableHeight = Math.max(1, ceiling - y)
     const width = Number.isFinite(ceiling)
       ? Math.min(wantedWidth, Math.floor(availableHeight * deviceAspect))

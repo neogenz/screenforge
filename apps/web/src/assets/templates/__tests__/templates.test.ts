@@ -10,6 +10,7 @@ import {
 } from '@/lib/ai/archetypes'
 import { contrastRatio } from '@/lib/ai/palette'
 import { DIRECTIONS } from '@/lib/ai/plan'
+import { createShapeLayer } from '@/lib/layer-factories'
 import { getStoreTargetProfile } from '@/lib/dimensions'
 import { deviceModelFamily } from '@screenforge/project-format'
 import type { DeviceFrameLayer, TextLayer } from '@/types'
@@ -80,6 +81,39 @@ describe('generated catalogue (direction × archetype)', () => {
           templates.some((template) => template.id === id),
           id,
         ).toBe(true)
+      }
+    }
+  })
+
+  it('carries its direction as a field, equal to the segment of its id', () => {
+    for (const template of GENERATED) {
+      expect(
+        DIRECTIONS.map((style) => style.id),
+        template.id,
+      ).toContain(template.direction)
+      expect(template.id, template.id).toMatch(
+        new RegExp(`^catalog-${template.target}-${template.direction}-`),
+      )
+    }
+    // Un gabarit fait main n'en déclare pas : le sélecteur le range hors des groupes générés.
+    for (const template of HAND_WRITTEN) expect(template.direction, template.id).toBeUndefined()
+  })
+
+  it('gives every generated shape the defaults of createShapeLayer', () => {
+    for (const template of GENERATED) {
+      const board = getStoreTargetProfile(template.target ?? 'app-store-iphone').board
+      for (const layer of template.layers) {
+        if (layer.type !== 'shape') continue
+        const reference = createShapeLayer(layer.zIndex, layer.shapeType, board)
+        expect(
+          { name: layer.name, locked: layer.locked, visible: layer.visible, stroke: layer.stroke },
+          `${template.id}/${layer.id}`,
+        ).toEqual({
+          name: reference.name,
+          locked: reference.locked,
+          visible: reference.visible,
+          stroke: reference.stroke,
+        })
       }
     }
   })

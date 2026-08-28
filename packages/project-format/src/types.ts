@@ -420,6 +420,8 @@ export interface TemplateDefinition {
   description: string
   target?: StoreTargetId
   thumbnail?: string
+  /** La direction de couleur d'un gabarit généré ; absente sur un gabarit fait main. */
+  direction?: ListingDirection
   layers: Layer[]
   background: Background
 }

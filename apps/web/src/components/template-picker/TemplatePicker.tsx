@@ -27,13 +27,9 @@ function isGenerated(template: TemplateDefinition): boolean {
   return template.id.startsWith(CATALOG_PREFIX)
 }
 
-/** `catalog-${target}-${directionId}-${archetypeId}` — the direction is the one segment worth reading back out. */
+/** Un gabarit généré déclare sa direction ; un gabarit fait main n'en a pas. */
 function generatedDirection(template: TemplateDefinition): DirectionId | null {
-  if (!isGenerated(template)) return null
-  const match = DIRECTIONS.find((style) =>
-    template.id.startsWith(`${CATALOG_PREFIX}${template.target}-${style.id}-`),
-  )
-  return match?.id ?? null
+  return template.direction ?? null
 }
 
 type ApplyMode = 'current' | 'new'

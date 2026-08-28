@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Gabarits — la direction portée, les constantes des archétypes partagées

@@ -5,11 +5,12 @@ import {
   archetypeSpec,
   backgroundFor,
   composeArchetype,
+  LINE_HEIGHT,
   type ArchetypeId,
   type PlanAccent,
 } from '@/lib/ai/archetypes'
 import { DIRECTIONS } from '@/lib/ai/plan'
-import { shapeEntry } from '@/lib/vector-catalog'
+import { createShapeLayer } from '@/lib/layer-factories'
 import { deviceLayer, textLayer } from './layers'
 import type { DeviceModel, Layer, ShapeLayer, StoreTargetId, TemplateDefinition } from '@/types'
 
@@ -41,21 +42,23 @@ export const CATALOG_TARGETS: readonly StoreTargetId[] = (() => {
   return [...shortestPerFamily.values()]
 })()
 
-function catalogShapeLayer(id: string, accent: PlanAccent, zIndex: number): ShapeLayer {
+/* Les défauts d'une forme sont ceux de `createShapeLayer` ; le catalogue ne
+   pose que la géométrie et la couleur de l'accent. */
+function catalogShapeLayer(
+  id: string,
+  accent: PlanAccent,
+  zIndex: number,
+  board: { width: number; height: number },
+): ShapeLayer {
   return {
+    ...createShapeLayer(zIndex, accent.shape, board),
     id,
-    type: 'shape',
-    name: shapeEntry(accent.shape)?.label ?? 'Forme',
     x: accent.x,
     y: accent.y,
     width: accent.width,
     height: accent.height,
     rotation: accent.rotation,
     opacity: accent.opacity,
-    locked: false,
-    visible: true,
-    zIndex,
-    shapeType: accent.shape,
     fill: accent.color,
   }
 }
@@ -86,7 +89,7 @@ function catalogTemplate(
   let zIndex = 0
 
   for (const [index, accent] of layout.accentsBehind.entries()) {
-    layers.push(catalogShapeLayer(`${id}-behind-${index}`, accent, zIndex++))
+    layers.push(catalogShapeLayer(`${id}-behind-${index}`, accent, zIndex++, board))
   }
 
   if (layout.device) {
@@ -109,7 +112,7 @@ function catalogTemplate(
   }
 
   for (const [index, accent] of layout.accentsFront.entries()) {
-    layers.push(catalogShapeLayer(`${id}-front-${index}`, accent, zIndex++))
+    layers.push(catalogShapeLayer(`${id}-front-${index}`, accent, zIndex++, board))
   }
 
   // ponytail: composeArchetype sizes the headline box in fixed pixels tuned
@@ -145,7 +148,7 @@ function catalogTemplate(
         fontWeight: layout.headline.fontWeight,
         color: layout.headline.color,
         textAlign: layout.headline.align,
-        lineHeight: 1.2,
+        lineHeight: LINE_HEIGHT,
       },
     ),
   )
@@ -156,6 +159,7 @@ function catalogTemplate(
     target,
     name: spec.label,
     description: `Style ${style.label} · ${spec.label}`,
+    direction: style.id,
     background,
     layers,
   }
