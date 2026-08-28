@@ -256,6 +256,21 @@ export const TOP_BAR_TOOLS_WIDTH = 640
  */
 const TOP_BAR_STATUS_LABELS_WIDTH = 400
 /**
+ * Largeur à partir de laquelle chaque action de la rangée s'écrit d'un mot.
+ *
+ * Mesuré sur l'utilisateur : huit glyphes de 16px — une galerie « [|] », un
+ * engrenage, un bouclier — restaient illisibles sans survoler chacun. Les
+ * réglages ont quitté la rangée, et les six actions qui restent portent leur
+ * mot dès que la fenêtre le permet : « Modèles », « Composer la fiche »,
+ * « Captures », « Langues », « Versions figées », « Publier ». Sous ce seuil,
+ * l'icône seule et son infobulle ; sous `TOP_BAR_COMPACT_WIDTH`, le menu.
+ * Plancher mesuré comme les autres, en balayant les largeurs de 4 en 4 : la
+ * rangée écrite mesure 907px contre 487 en icônes, et 1216 est la première
+ * largeur où elle ne déborde pas et où la colonne d'identité ne recouvre pas
+ * les outils. Arrondi au palier standard immédiatement au-dessus.
+ */
+export const TOP_BAR_ACTION_LABELS_WIDTH = 1280
+/**
  * Largeur à partir de laquelle les témoins d'état s'écrivent au lieu de se
  * réduire à leur pictogramme.
  *
@@ -269,9 +284,12 @@ const TOP_BAR_STATUS_LABELS_WIDTH = 400
  * et le clic destiné à la bascule Calques était pris par du texte.
  *
  * Dérivé plutôt que choisi : les libellés apparaissent là où la rangée déployée
- * a de la place pour eux, donc au seuil de repli plus leur propre largeur.
+ * a de la place pour eux, donc au seuil de repli plus leur propre largeur. Le
+ * seuil de repli qui compte est celui des actions écrites, pas celui du menu :
+ * un mot permanent sur une action passe avant un mot transitoire sur un état,
+ * donc les témoins ne s'écrivent qu'au-dessus de la rangée écrite.
  */
-export const TOP_BAR_LABELS_MIN_WIDTH = TOP_BAR_COMPACT_WIDTH + TOP_BAR_STATUS_LABELS_WIDTH
+export const TOP_BAR_LABELS_MIN_WIDTH = TOP_BAR_ACTION_LABELS_WIDTH + TOP_BAR_STATUS_LABELS_WIDTH
 
 /** Gouttière que la boîte modale laisse à la fenêtre (`w-[calc(100%-2rem)]`). */
 export const DIALOG_VIEWPORT_GUTTER = 32

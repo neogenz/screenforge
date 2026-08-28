@@ -3,7 +3,7 @@ import {
   AlertCircle,
   Check,
   ChevronRight,
-  GalleryHorizontal,
+  Store,
   ImageUp,
   Paintbrush,
   RefreshCw,
@@ -612,7 +612,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
         loading={busy}
         disabled={(full && !recomposing) || !named}
       >
-        <GalleryHorizontal aria-hidden />
+        <Store aria-hidden />
         {recomposing
           ? 'Proposer une recomposition'
           : `Proposer ${screenCount} visuel${screenCount > 1 ? 's' : ''}`}

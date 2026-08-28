@@ -18,6 +18,7 @@ import { waitForApp } from './helpers'
  */
 import {
   DUAL_DRAWER_MIN_WIDTH,
+  TOP_BAR_ACTION_LABELS_WIDTH,
   TOP_BAR_COMPACT_WIDTH,
   TOP_BAR_LABELS_MIN_WIDTH,
   TOP_BAR_TOOLS_WIDTH,
@@ -36,6 +37,10 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
   await page.setViewportSize({ width: 1440, height: HEIGHT })
   await expect(page.getByLabel('Ouvrir les modèles')).toBeVisible()
   await expect(page.getByLabel('Publier chez Apple')).toBeVisible()
+  // Au large, chaque action porte son mot à côté du glyphe — mesuré sur
+  // l'utilisateur, huit glyphes nus ne se lisaient pas sans survoler chacun.
+  await expect(page.getByLabel('Composer la fiche')).toHaveText('Composer la fiche')
+  await expect(page.getByLabel('Publier chez Apple')).toHaveText('Publier')
   await expect(page.getByLabel('Ouvrir les autres actions')).toBeVisible()
   // Le thème et la palette ne sont plus sur la rangée : ils sont dans « … ».
   await expect(page.getByLabel('Changer de thème')).toHaveCount(0)
@@ -54,7 +59,6 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     'Basculer le panneau Propriétés',
     'filet',
     'Ouvrir les modèles',
-    'Ouvrir les réglages globaux',
     'Composer la fiche',
     'filet',
     'Actualiser les captures',
@@ -66,15 +70,45 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     'Ouvrir l’export',
   ])
 
-  // Et le menu porte les utilitaires, dans l'ordre annoncé.
+  // Et le menu porte les réglages puis les utilitaires, dans l'ordre annoncé :
+  // un engrenage et un bouclier n'ont pas le poids d'une action de livraison.
   await page.getByLabel('Ouvrir les autres actions').click()
   const utilitaires = page.getByRole('menu', { name: 'Autres actions' })
+  await expect(
+    utilitaires.getByRole('menuitem', { name: 'Ouvrir les réglages globaux' }),
+  ).toBeVisible()
+  await expect(page.getByLabel('Ouvrir les réglages globaux')).toHaveCount(0)
   await expect(utilitaires.getByRole('menuitem', { name: 'Connexion MCP' })).toBeVisible()
   await expect(utilitaires.getByRole('menuitem', { name: 'Changer de thème' })).toBeVisible()
   await expect(
     utilitaires.getByRole('menuitem', { name: 'Ouvrir la palette de commandes' }),
   ).toBeVisible()
   await page.keyboard.press('Escape')
+
+  /* Au seuil des mots : la largeur la plus étroite où les actions s'écrivent,
+     et il y a la place de les écrire. Juste dessous, la rangée reste déployée
+     mais se tait — les mots ne sont jamais tronqués, ils se retirent. */
+  await page.setViewportSize({ width: TOP_BAR_ACTION_LABELS_WIDTH, height: HEIGHT })
+  await expect(page.getByLabel('Publier chez Apple')).toHaveText('Publier')
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const rangée = document.querySelector('header')?.firstElementChild
+        const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
+        if (!rangée || !exporter) return null
+        return {
+          débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
+          horsFenêtre: Math.max(
+            0,
+            Math.round(exporter.getBoundingClientRect().right - window.innerWidth),
+          ),
+        }
+      }),
+    )
+    .toEqual({ débordement: 0, horsFenêtre: 0 })
+  await page.setViewportSize({ width: TOP_BAR_ACTION_LABELS_WIDTH - 40, height: HEIGHT })
+  await expect(page.getByLabel('Publier chez Apple')).toBeVisible()
+  await expect(page.getByLabel('Publier chez Apple')).toHaveText('')
 
   /* Au seuil exact : la largeur la plus étroite où la rangée est encore
      déployée, donc le seul endroit où un seuil calé sur un contenu périmé se
@@ -141,13 +175,14 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
     ),
   ).toEqual([
     'Ouvrir les modèles',
-    'Ouvrir les réglages globaux',
     'Composer la fiche',
     'filet',
     'Actualiser les captures',
     'Ouvrir les langues',
     'Ouvrir les versions figées',
     'Publier chez Apple',
+    'filet',
+    'Ouvrir les réglages globaux',
     'filet',
     'Connexion MCP',
     'Changer de thème',
