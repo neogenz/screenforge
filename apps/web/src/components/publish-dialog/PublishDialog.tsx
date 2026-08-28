@@ -323,11 +323,6 @@ function PublishDialogContent({
     : appsResult.state === 'ready'
       ? 'active'
       : 'waiting'
-  const pickedVersion =
-    versionsResult.state === 'ready'
-      ? versionsResult.data.find((version) => version.id === target.versionId)
-      : undefined
-  const pickedVersionLock = pickedVersion ? versionLock(pickedVersion.state) : null
   const pontProgress =
     (bridgeReady ? 1 : 0) + (appsResult.state === 'ready' ? 1 : 0) + (targetReady ? 1 : 0)
 
@@ -394,6 +389,7 @@ function PublishDialogContent({
     versionsResult.state === 'ready'
       ? versionsResult.data.find((version) => version.id === target.versionId)
       : undefined
+  const pickedVersionLock = selectedVersion ? versionLock(selectedVersion.state) : null
   const matchedLocalization =
     localizationsResult.state === 'ready' && target.versionLocalization
       ? localizationsResult.data.find((entry) => entry.id === target.versionLocalization)
