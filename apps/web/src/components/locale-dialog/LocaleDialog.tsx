@@ -177,6 +177,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
   const layers = textLayersOf(project)
   const blocked = locale ? localeBlocked(findings) : false
   const unreviewed = locale ? unreviewedCount(project, locale) : 0
+  const pendingLocales = locales.filter((entry) => unreviewedCount(project, entry) > 0)
   const unavailable = textWriterUnavailable(assistant)
   const provider = aiProvider(assistant.providerId)
   const writerStatus =
@@ -233,7 +234,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
    * parallèle, repris en une seule transaction — tout ou rien, un seul pas
    * d'annulation, comme toute écriture groupée de ce fichier. */
   async function translateAll() {
-    const targets = locales.filter((entry) => unreviewedCount(project, entry) > 0)
+    const targets = pendingLocales
     if (targets.length === 0) return
     setError(null)
     setBusy(true)
@@ -279,7 +280,10 @@ function LocaleDialogContent({ project }: { project: Project }) {
    * retour de la transaction lu plutôt qu'ignoré. */
   function forgetLocale(target: LocaleVariant) {
     if (busy) return
-    if (!removeLocale(target.code).committed) return
+    if (!removeLocale(target.code).committed) {
+      setError(`La langue « ${target.name} » n’a pas pu être supprimée.`)
+      return
+    }
     setSelectedCode('')
     toast(`Langue « ${target.name} » supprimée.`, 'success')
   }
@@ -506,7 +510,7 @@ function LocaleDialogContent({ project }: { project: Project }) {
                     variant="outline"
                     onClick={() => void translateAll()}
                     loading={busy}
-                    disabled={busy || Boolean(unavailable) || layers.length === 0}
+                    disabled={busy || Boolean(unavailable) || pendingLocales.length === 0}
                   >
                     <Languages aria-hidden />
                     Traduire toutes les langues
