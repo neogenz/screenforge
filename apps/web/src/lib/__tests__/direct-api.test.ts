@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiKey, connectApiProvider, extractJson, planViaApi, setApiKey } from '@/lib/ai/direct-api'
+import {
+  apiKey,
+  chunkByChars,
+  connectApiProvider,
+  extractJson,
+  planViaApi,
+  setApiKey,
+} from '@/lib/ai/direct-api'
 import { backgroundFor } from '@/lib/ai/archetypes'
 import { planScreenLayout } from '@/lib/ai/plan'
 import type { CampaignBrief } from '@/lib/ai/plan'
@@ -708,5 +715,18 @@ describe('plan via une API', () => {
     const plan = await planViaApi('openrouter', BRIEF, KEY, 'un/modele')
     expect(calls[0].url).toContain('openrouter.ai')
     expect(plan.screens[0].headline).toBe('Le rythme de vos journées')
+  })
+})
+
+describe('chunkByChars', () => {
+  it('coupe par caractères cumulés, jamais au milieu d’un texte, et garde l’ordre', () => {
+    const texts = ['aaaa', 'bbbb', 'cc', 'ddddd', 'e']
+    expect(chunkByChars(texts, 8)).toEqual([
+      ['aaaa', 'bbbb'],
+      ['cc', 'ddddd', 'e'],
+    ])
+    expect(chunkByChars(texts, 1)).toEqual(texts.map((text) => [text]))
+    expect(chunkByChars([], 8)).toEqual([])
+    expect(chunkByChars(texts, 100)).toEqual([texts])
   })
 })

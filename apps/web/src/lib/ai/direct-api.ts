@@ -473,21 +473,57 @@ function textsPrompt(
   ].join('\n')
 }
 
+/**
+ * Ce qu'un appel porte de texte. ponytail : ~6 000 caractères rendent dans les
+ * 4 096 jetons de sortie que tout modèle accepte ; un lot de cent textes de
+ * quatre cents caractères y était tronqué, puis refusé entier sous un message
+ * qui parlait de compte. Le pont n'a pas cette borne : il rend sans plafond.
+ */
+export const API_TEXT_CHARS = 6_000
+
+/** Découpe par caractères cumulés, jamais au milieu d'un texte, ordre gardé. */
+export function chunkByChars(texts: readonly string[], limit = API_TEXT_CHARS): string[][] {
+  const out: string[][] = []
+  let current: string[] = []
+  let size = 0
+  for (const text of texts) {
+    if (current.length > 0 && size + text.length > limit) {
+      out.push(current)
+      current = []
+      size = 0
+    }
+    current.push(text)
+    size += text.length
+  }
+  if (current.length > 0) out.push(current)
+  return out
+}
+
 async function completeTexts(
   provider: ApiProviderId,
   key: string,
   model: string,
-  prompt: string,
-  count: number,
+  head: string,
+  rules: string[],
+  texts: readonly string[],
+  context?: TextContext,
 ): Promise<string[]> {
-  const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
-    texts?: unknown
-  }
-  const texts = Array.isArray(raw.texts) ? raw.texts : []
-  if (texts.length !== count || !texts.every((text) => typeof text === 'string')) {
-    throw new Error('Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.')
-  }
-  return texts as string[]
+  const answers = await Promise.all(
+    chunkByChars(texts).map(async (batch) => {
+      const prompt = textsPrompt(head, rules, batch, context)
+      const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
+        texts?: unknown
+      }
+      const out = Array.isArray(raw.texts) ? raw.texts : []
+      if (out.length !== batch.length || !out.every((text) => typeof text === 'string')) {
+        throw new Error(
+          'Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.',
+        )
+      }
+      return out as string[]
+    }),
+  )
+  return answers.flat()
 }
 
 export function translateViaApi(
@@ -503,13 +539,10 @@ export function translateViaApi(
     provider,
     key,
     model,
-    textsPrompt(
-      `Traduis ${from}en ${target.name} (${target.code}) les accroches de captures App Store ci-dessous.`,
-      ['Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.'],
-      texts,
-      options.context,
-    ),
-    texts.length,
+    `Traduis ${from}en ${target.name} (${target.code}) les accroches de captures App Store ci-dessous.`,
+    ['Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.'],
+    texts,
+    options.context,
   )
 }
 
@@ -525,14 +558,11 @@ export function proofreadViaApi(
     provider,
     key,
     model,
-    textsPrompt(
-      `Corrige l’orthographe, la grammaire et la typographie des accroches ci-dessous, écrites en ${language.name} (${language.code}).`,
-      [
-        'Ne reformule pas, ne raccourcis pas, ne change ni le sens ni le ton : un texte déjà correct est rendu tel quel.',
-      ],
-      texts,
-      context,
-    ),
-    texts.length,
+    `Corrige l’orthographe, la grammaire et la typographie des accroches ci-dessous, écrites en ${language.name} (${language.code}).`,
+    [
+      'Ne reformule pas, ne raccourcis pas, ne change ni le sens ni le ton : un texte déjà correct est rendu tel quel.',
+    ],
+    texts,
+    context,
   )
 }
