@@ -1,6 +1,6 @@
 ---
 objective: "Refermer les 35 constats de la revue de PR #30 (6 avertissements, 29 mineurs) sans changer ce que l'interface promet, le compromis des témoins d'état restant tel quel."
-status: in-progress
+status: implemented
 ---
 
 # Plan: Corriger la revue de « Finir la chaîne fiche → langues → version figée → App Store Connect »
