@@ -229,7 +229,8 @@ export const DUAL_DRAWER_MIN_WIDTH =
  * dessus. Le plancher mesuré est 920, la première largeur où la colonne
  * d'identité ne peut plus céder et recouvre les outils. Arrondi au palier
  * standard immédiatement au-dessus. Replier entre 920 et 1024 est le prix
- * assumé de la marge.
+ * assumé de la marge. Rangée remesurée à 487 une fois les réglages descendus
+ * dans le menu « … » : 1024 garde une marge plus large, seuil inchangé.
  */
 export const TOP_BAR_COMPACT_WIDTH = 1024
 /**
@@ -293,7 +294,7 @@ export const TOP_BAR_LABELS_MIN_WIDTH = TOP_BAR_ACTION_LABELS_WIDTH + TOP_BAR_ST
 
 /** Gouttière que la boîte modale laisse à la fenêtre (`w-[calc(100%-2rem)]`). */
 export const DIALOG_VIEWPORT_GUTTER = 32
-/** Colonne de liste des boîtes qui en ont deux : Releases, Publier, Export. */
+/** Colonne de liste des boîtes qui en ont deux : Versions figées, Publier, Export. */
 export const DIALOG_SIDEBAR_WIDTH = 260
 /**
  * Largeur sous laquelle une boîte à deux colonnes empile les siennes.

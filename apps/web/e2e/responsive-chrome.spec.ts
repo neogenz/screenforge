@@ -95,7 +95,7 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
       page.evaluate(() => {
         const rangée = document.querySelector('header')?.firstElementChild
         const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
-        if (!rangée || !exporter) return null
+        if (!rangée || !exporter) throw new Error('en-tête ou « Ouvrir l’export » absent')
         return {
           débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
           horsFenêtre: Math.max(
@@ -106,6 +106,17 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
       }),
     )
     .toEqual({ débordement: 0, horsFenêtre: 0 })
+  /* Chaque mot écrit sur la rangée est contenu dans le nom prononcé (WCAG
+     2.5.3) : c'est ce que `SecondaryAction.short` promet, mesuré ici. */
+  const motsHorsNom = await page.evaluate(() =>
+    [...document.querySelectorAll('header [data-slot="toolbar-button"]')]
+      .map((bouton) => ({
+        nom: bouton.getAttribute('aria-label') ?? '',
+        mot: bouton.querySelector('span')?.textContent?.trim() ?? '',
+      }))
+      .filter(({ nom, mot }) => mot !== '' && !nom.includes(mot)),
+  )
+  expect(motsHorsNom).toEqual([])
   await page.setViewportSize({ width: TOP_BAR_ACTION_LABELS_WIDTH - 40, height: HEIGHT })
   await expect(page.getByLabel('Publier chez Apple')).toBeVisible()
   await expect(page.getByLabel('Publier chez Apple')).toHaveText('')
@@ -122,7 +133,7 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
       page.evaluate(() => {
         const rangée = document.querySelector('header')?.firstElementChild
         const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
-        if (!rangée || !exporter) return null
+        if (!rangée || !exporter) throw new Error('en-tête ou « Ouvrir l’export » absent')
         return {
           débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
           horsFenêtre: Math.max(
@@ -203,7 +214,7 @@ test('garde Exporter à l’écran et un seul tiroir quand la fenêtre se resser
       page.evaluate(() => {
         const rangée = document.querySelector('header')?.firstElementChild
         const exporter = document.querySelector('[aria-label="Ouvrir l’export"]')
-        if (!rangée || !exporter) return null
+        if (!rangée || !exporter) throw new Error('en-tête ou « Ouvrir l’export » absent')
         return {
           débordement: Math.max(0, rangée.scrollWidth - rangée.clientWidth),
           horsFenêtre: Math.max(
@@ -273,7 +284,7 @@ async function rangée(page: Page) {
 }
 
 for (const [saveStatus, syncStatus] of ÉTATS_LES_PLUS_LARGES) {
-  test(`« ${saveStatus} · ${syncStatus} » ne recouvre les outils à aucun des deux seuils`, async ({
+  test(`« ${saveStatus} · ${syncStatus} » ne recouvre les outils à aucun des trois seuils`, async ({
     page,
   }) => {
     await waitForApp(page)
@@ -288,6 +299,14 @@ for (const [saveStatus, syncStatus] of ÉTATS_LES_PLUS_LARGES) {
     // Au seuil de repli : la rangée est déployée et pleine, les libellés sont
     // repliés parce qu'il n'y a pas la place de les écrire.
     await page.setViewportSize({ width: TOP_BAR_COMPACT_WIDTH, height: HEIGHT })
+    await poser()
+    await expect
+      .poll(() => rangée(page))
+      .toEqual({ témoins: 2, libellésÉcrits: 0, débordement: 0, recouvrement: 0 })
+
+    // Au seuil des mots : les six actions s'écrivent, les témoins pas encore,
+    // et l'état le plus large tient quand même sans recouvrir.
+    await page.setViewportSize({ width: TOP_BAR_ACTION_LABELS_WIDTH, height: HEIGHT })
     await poser()
     await expect
       .poll(() => rangée(page))

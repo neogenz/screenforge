@@ -12,7 +12,7 @@
 
 - Convex functions a client can call: account (`users.me`), entitlement mirror (`mirror.myEntitlements`), project and asset sync (`projects`, `assets`), quota and wipe (`cloudData.myUsage`, `clearMyCloudData`), durable preferences (`settings`), sale (`polar`), account deletion (`accountDeletion.requestAccountDeletion`), and `auth.signIn`. Everything else — admission control, billing lifecycle, the PostHog person erasure, the preflight evaluation, the maintenance sweep — is `internalMutation`/`internalAction` and unreachable from any client.
 - Convex HTTP: asset and project-blob reads, the two upload routes, the Polar webhook, and the well-known auth routes that `auth.addHttpRoutes` installs.
-- Bridge: `/hello` (capabilities and engine probe), `/models`, `/plan`, `/translate`, `/asc/publish`, `/pair/revoke`.
+- Bridge: `/hello` (capabilities and engine probe), `/models`, `/plan`, `/translate`, `/proofread`, `/asc/publish`, `/pair/revoke`, and three read-only listings behind the `asc-publish` token — `GET /asc/apps`, `/asc/versions?app=`, `/asc/localizations?version=` — so the publish dialog offers the destination instead of asking for identifiers.
 - Relay: `/pair`, `/revoke`, `/events` (SSE, see `realtime.md`), `/result`, `/asset/:id`, `/state`.
 
 ## Contracts

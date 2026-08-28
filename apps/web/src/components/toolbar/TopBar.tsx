@@ -537,16 +537,12 @@ interface SecondaryAction {
   label: string
   /**
    * Le mot écrit à côté du glyphe sur la rangée, au large. Contenu dans
-   * `label`, pour que le nom prononcé soit celui qu'on lit (WCAG 2.5.3).
+   * `label`, pour que le nom prononcé soit celui qu'on lit (WCAG 2.5.3) —
+   * `responsive-chrome.spec.ts` le balaie sur chaque bouton de la rangée.
    */
   short?: string
   hint: string
   icon: React.ReactNode
-  /**
-   * Appliqué au bouton de la rangée, jamais à l'entrée de menu : replié, le
-   * même contenu retombe dans une fente d'icône que le menu dimensionne.
-   */
-  className?: string
   /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
   expanded?: boolean
   disabled?: boolean
@@ -709,11 +705,6 @@ function usePlanAction(): SecondaryAction | null {
     label: 'Voir les offres',
     hint: `Palier ${plan} — voir les offres`,
     icon: <BadgeIcon>{plan}</BadgeIcon>,
-    /* Le seul de la rangée qui porte un mot. Une case de 36 est taillée pour un
-       glyphe de 16 : « Gratuit » y mesurait 39,6 px de large, donc l'aplat de
-       survol passait *sous* son propre texte et le débordait des deux côtés. La
-       largeur suit le mot, la hauteur reste celle de la rangée. */
-    className: 'w-auto px-2',
     expanded: showPricingDialog,
     onSelect: () => useUIStore.getState().setShowPricingDialog(!showPricingDialog),
   }
@@ -988,7 +979,7 @@ function RowAction({ action, labelled }: { action: SecondaryAction; labelled: bo
          suffit pas : coss déclare `size-9 sm:size-8`, et tailwind-merge
          indexe ses conflits par variante — mesuré, la boîte restait à 32px
          sous un mot de 105. Une variante coss s'écrase deux fois. */
-      className={cn(word && 'w-auto sm:w-auto px-2', action.className)}
+      className={cn(word && 'w-auto sm:w-auto px-2')}
     >
       {action.icon}
       {word && <span className="text-xs font-medium">{word}</span>}
