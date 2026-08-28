@@ -20,7 +20,7 @@ flowchart LR
     Project --> Import["Project import"]
 ```
 
-- The top bar owns project identity, layer tools, workspace toggles, and export.
+- The top bar owns project identity, the creation tools, two ranks of actions — composer (Modèles, Composer la fiche, Captures) and livrer (Langues, Versions figées, Publier), written out above `TOP_BAR_ACTION_LABELS_WIDTH` — a « … » menu for settings and utilities, the workspace toggles, and export.
 - Its project chevron opens a dialog-like popover: the current project is never duplicated among the other projects, the catalogue filters by name, and choosing a project restores focus to the chevron. Rename returns focus to the only editable project-name field.
 - On the first eligible Cloud session, local projects created before sign-in remain local until the separate consent dialog names and uploads them. Deferring closes the dialog without creating Cloud acknowledgements; later local commits made during the authenticated Cloud session keep their ordinary automatic sync behavior.
 - The screen filmstrip changes the active artboard; Escape closes the nearest overlay before clearing selection.

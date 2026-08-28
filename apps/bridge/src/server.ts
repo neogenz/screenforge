@@ -1,4 +1,5 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import type { z, ZodType } from 'zod'
 import {
   AscAmbiguousError,
   AscFailedError,
@@ -6,6 +7,9 @@ import {
   ascProbeOrUndefined,
   createAscState,
   execRunner,
+  listApps,
+  listLocalizations,
+  listVersions,
   runPublish,
   stepsOf,
   type AscRunner,
@@ -28,8 +32,10 @@ import {
   originAllowed,
   planRequestSchema,
   planSchema,
+  proofreadRequestSchema,
   translateRequestSchema,
   translationSchema,
+  ASC_ID,
   PLAN_OUTPUT_SCHEMA,
   PROTOCOL_VERSION,
   TRANSLATION_OUTPUT_SCHEMA,
@@ -38,6 +44,7 @@ import {
   type BridgePlan,
   type EngineStatus,
   type Hello,
+  type ProofreadRequest,
   type TranslateRequest,
 } from './protocol.ts'
 import { redactDiagnostic } from './redaction.ts'
@@ -196,11 +203,22 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     }
   })
 
-  app.post('/translate', async (context) => {
+  /**
+   * Un lot de textes entre, un lot de textes sort, par position.
+   *
+   * Traduire et relire sont la même route sous deux prompts : la page rattache
+   * par position, donc le seul contrat qui compte est « autant de textes que
+   * reçus, dans le même ordre » — et il est vérifié ici, pas espéré.
+   */
+  const textTurn = async <S extends ZodType<{ protocol: number; texts: string[] }>>(
+    context: Context,
+    schema: S,
+    prompt: (request: z.infer<S>) => string,
+  ) => {
     if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
     }
-    const parsed = translateRequestSchema.safeParse(await context.req.json().catch(() => null))
+    const parsed = schema.safeParse(await context.req.json().catch(() => null))
     if (!parsed.success) {
       return context.json(fail('invalid-request', 'Requête refusée par le schéma du pont.'), 400)
     }
@@ -210,7 +228,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
 
     try {
       const answer = await state.assistantRun({
-        prompt: translatePrompt(parsed.data),
+        prompt: prompt(parsed.data),
         outputSchema: TRANSLATION_OUTPUT_SCHEMA,
       })
       const translation = translationSchema.safeParse(JSON.parse(answer))
@@ -227,6 +245,52 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
     } catch (error) {
       return context.json(engineFailure(error), 502)
     }
+  }
+
+  app.post('/translate', (context) => textTurn(context, translateRequestSchema, translatePrompt))
+  app.post('/proofread', (context) => textTurn(context, proofreadRequestSchema, proofreadPrompt))
+
+  /**
+   * Les destinations, lues chez Apple en lecture seule.
+   *
+   * Derrière le jeton de publication et non celui de l'assistant : lister les
+   * applications d'un compte est déjà une information sur ce compte, et c'est
+   * la capacité « envoyer chez Apple » que l'utilisateur a ouverte en collant
+   * ce jeton-là. Un identifiant de requête est vérifié contre `ASC_ID` avant de
+   * devenir un argument : `execFile` ne passe par aucun shell, mais une valeur
+   * commençant par un tiret serait lue comme un drapeau.
+   */
+  const ascListing = async (context: Context, read: () => Promise<unknown>) => {
+    if (!authorized('asc-publish', context.req.header('Authorization'))) {
+      return context.json(fail('unauthorized', 'Jeton de publication invalide.'), 401)
+    }
+    try {
+      return context.json({ items: await read() })
+    } catch (error) {
+      return context.json(
+        fail(
+          'asc-failed',
+          error instanceof AscFailedError ? error.message : 'Lecture chez Apple interrompue.',
+        ),
+        502,
+      )
+    }
+  }
+
+  app.get('/asc/apps', (context) => ascListing(context, () => listApps(state.ascRun)))
+  app.get('/asc/versions', (context) => {
+    const app = context.req.query('app') ?? ''
+    if (!ASC_ID.test(app)) {
+      return context.json(fail('invalid-request', 'Identifiant d’application manquant.'), 400)
+    }
+    return ascListing(context, () => listVersions(state.ascRun, app))
+  })
+  app.get('/asc/localizations', (context) => {
+    const version = context.req.query('version') ?? ''
+    if (!ASC_ID.test(version)) {
+      return context.json(fail('invalid-request', 'Identifiant de version manquant.'), 400)
+    }
+    return ascListing(context, () => listLocalizations(state.ascRun, version))
   })
 
   /**
@@ -491,7 +555,7 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief, sans screenshotIndex.',
     '',
     'Écriture des accroches :',
-    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
+    `— Une idée par visuel, jamais deux. Trois à sept mots. Dans la langue « ${brief.language ?? 'fr-FR'} ».`,
     '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
     '  enfin lisibles » et non « Tableau de bord ».',
     '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
@@ -534,11 +598,32 @@ function planPrompt(request: { brief: BridgeBrief; deviceModel: string }): strin
  * la boîte où elle est posée — la revue le signalera, mais autant ne pas le
  * provoquer.
  */
+function textContextLines(request: { context?: { appName?: string; pitch?: string } }): string[] {
+  const { appName, pitch } = request.context ?? {}
+  return [
+    ...(appName ? [`Application : ${appName}.`] : []),
+    ...(pitch ? [`Ce qu’elle fait : ${pitch}`] : []),
+  ]
+}
+
 function translatePrompt(request: TranslateRequest): string {
   return [
-    `Traduis en ${request.target.name} (${request.target.code}) les accroches de captures App Store ci-dessous.`,
+    `Traduis ${request.source ? `du ${request.source.name} (${request.source.code}) ` : ''}en ${request.target.name} (${request.target.code}) les accroches de captures App Store ci-dessous.`,
+    ...textContextLines(request),
     'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
     'Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.',
+    'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
+    '',
+    ...request.texts.map((text, index) => `${index + 1}. ${text}`),
+  ].join('\n')
+}
+
+function proofreadPrompt(request: ProofreadRequest): string {
+  return [
+    `Corrige l’orthographe, la grammaire et la typographie des accroches ci-dessous, écrites en ${request.language.name} (${request.language.code}).`,
+    ...textContextLines(request),
+    'Ne reformule pas, ne raccourcis pas, ne change ni le sens ni le ton : un texte déjà correct est rendu tel quel.',
+    'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
     'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
     '',
     ...request.texts.map((text, index) => `${index + 1}. ${text}`),

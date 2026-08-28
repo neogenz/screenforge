@@ -11,6 +11,8 @@
 - **Anthropic and OpenRouter** — optional bring-your-own-key AI providers called straight from the browser by `lib/ai/direct-api.ts`. The key is stored encrypted on the machine, outside projects.
 - **PostHog**, EU-hosted, for product analytics and diagnostics. Two independent consents (`analytics`, `diagnostic`) in `lib/analytics.ts`; the SDK initialises `opt_out_capturing_by_default`, so nothing is captured until someone opts in. Account deletion schedules `internal.posthog.deletePerson`, so erasure reaches the analytics store and not only the database.
 - **Apple App Store Connect** — reached only through the local `asc` CLI that `apps/bridge/src/asc.ts` spawns. The bridge holds no Apple credential: `asc` resolves its own from the system keychain, and the bridge adds no environment to the child.
+  Behind the `asc-publish` token the bridge (protocol 7) also answers three read-only listings — `GET /asc/apps`, `/asc/versions?app=`, `/asc/localizations?version=` — reduced to ids and labels, so the publish dialog offers the destination instead of asking for identifiers. `asc apps list`, `versions list --app --platform IOS`, `localizations list --version` are the commands behind them, `--output json`, 60 s timeout.
+- **Text jobs** — `POST /translate` and `POST /proofread` (assistant token) take numbered texts and return the same count in order; the page (`lib/ai/text.ts`) runs the same two jobs through an Anthropic or OpenRouter key when that is the session's writer. No layer id, no image, ever.
 
 ```mermaid
 flowchart LR

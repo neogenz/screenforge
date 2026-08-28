@@ -9,7 +9,14 @@ import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement
 import { SAFE_SLOT } from './slots.ts'
 import { isTextCharStyles } from './text-char-styles.ts'
 import { ICON_BOX, isDeviceModelId, isIconId, isShapeId } from './catalog-ids.ts'
-import type { Layer, Project, ScriptId, StoreTargetId } from './types.ts'
+import type {
+  Layer,
+  ListingDirection,
+  Project,
+  ProjectListing,
+  ScriptId,
+  StoreTargetId,
+} from './types.ts'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
 export const MAX_PROJECT_LAYERS = 500
@@ -353,6 +360,41 @@ function isLocaleVariant(value: unknown): boolean {
   )
 }
 
+/* Liée à l'union `ListingDirection` par `satisfies`, et à `DIRECTIONS` du
+   planificateur par un test : trois listes des mêmes quatre identifiants. */
+export const LISTING_DIRECTIONS = [
+  'sobre',
+  'contraste',
+  'chaleureux',
+  'nocturne',
+] as const satisfies readonly ListingDirection[]
+export const MAX_LISTING_NAME_LENGTH = 60
+export const MAX_LISTING_PITCH_LENGTH = 140
+export const MAX_LISTING_CONTEXT_LENGTH = 2400
+export const MAX_LISTING_URL_LENGTH = 2048
+
+export function isListing(value: unknown): value is ProjectListing {
+  if (!isRecord(value)) return false
+  /* Vide accepté : la fiche peut ne connaître que la langue avant le premier brief. */
+  if (typeof value.appName !== 'string' || value.appName.length > MAX_LISTING_NAME_LENGTH)
+    return false
+  if (typeof value.pitch !== 'string' || value.pitch.length > MAX_LISTING_PITCH_LENGTH) return false
+  if (
+    value.productContext !== undefined &&
+    (typeof value.productContext !== 'string' ||
+      value.productContext.length > MAX_LISTING_CONTEXT_LENGTH)
+  )
+    return false
+  if (
+    value.landingUrl !== undefined &&
+    (typeof value.landingUrl !== 'string' || value.landingUrl.length > MAX_LISTING_URL_LENGTH)
+  )
+    return false
+  if (!LISTING_DIRECTIONS.includes(value.direction as (typeof LISTING_DIRECTIONS)[number]))
+    return false
+  return typeof value.language === 'string' && LOCALE_CODE.test(value.language)
+}
+
 export function isProject(value: unknown): value is Project {
   if (!isRecord(value) || !isBoundedString(value.id, 128)) return false
   if (!isBoundedString(value.name) || !isBoundedString(value.activeScreenId, 128)) return false
@@ -374,6 +416,8 @@ export function isProject(value: unknown): value is Project {
     const codes = new Set(value.locales.map((locale) => (locale as { code: string }).code))
     if (codes.size !== value.locales.length) return false
   }
+
+  if (value.listing !== undefined && !isListing(value.listing)) return false
 
   return screenIds.has(value.activeScreenId)
 }

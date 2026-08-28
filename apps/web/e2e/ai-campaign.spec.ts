@@ -59,10 +59,10 @@ async function historyDepth(page: Page): Promise<number> {
   return page.evaluate(() => window.__sfStores?.useHistoryStore.getState().past.length ?? 0)
 }
 
-const DIALOG = /Générer les visuels ·/
+const DIALOG = /Composer la fiche ·/
 
 async function openCampaignDialog(page: Page) {
-  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
+  await page.getByRole('button', { name: 'Composer la fiche' }).click()
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible()
 }
 
@@ -71,7 +71,7 @@ test('borne et compose une campagne Google Play dans le vrai ratio', async ({ pa
   await openAndroidProject(page)
   await openCampaignDialog(page)
 
-  const dialog = page.getByRole('dialog', { name: 'Générer les visuels · Google Play · téléphone' })
+  const dialog = page.getByRole('dialog', { name: 'Composer la fiche · Google Play · téléphone' })
   await expect(dialog).toContainText('1080×1920 · portrait · 8 captures maximum')
   await dialog.getByLabel('Nom de l’app').fill('Cadence')
   await dialog.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
@@ -291,4 +291,59 @@ test('le restylage ne sort pas de l’écran courant', async ({ page }) => {
   expect(after[1].layers[0].color).toBe('#eef1ff')
   // Le premier écran n'a pas été touché : ni son fond, ni l'encre de son texte.
   expect(after[0]).toEqual(before[0])
+})
+
+test('le brief reste dans le projet, et l’écran courant se recompose sans tout ressaisir', async ({
+  page,
+}) => {
+  await waitForApp(page)
+  const before = await screens(page)
+  await openCampaignDialog(page)
+  await page.getByLabel('Nom de l’app').fill('Cadence')
+  await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
+  await page.getByLabel('Langue des accroches').click()
+  await page.getByRole('option', { name: 'Anglais (États-Unis) · en-US' }).click()
+  await page.getByLabel('Combien de visuels').click()
+  await page.getByRole('option', { name: '2', exact: true }).click()
+  await page.getByRole('button', { name: 'Proposer 2 visuels' }).click()
+  await page.getByRole('button', { name: 'Ajouter 2 visuels' }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
+  const added = await screens(page)
+  expect(added).toHaveLength(before.length + 2)
+
+  // Ce que la fiche sait de l'app est dans le projet : rien à ressaisir.
+  await openCampaignDialog(page)
+  await expect(page.getByLabel('Nom de l’app')).toHaveValue('Cadence')
+  await expect(page.getByLabel('Ce que fait l’app, en une phrase')).toHaveValue(
+    'Le budget dans une poche',
+  )
+  await expect(page.getByLabel('Langue des accroches')).toContainText('en-US')
+
+  // Recomposer l'écran courant : ses calques remplacés, aucun écran ajouté,
+  // les autres intacts — et un seul pas d'annulation pour le tout.
+  const activeId = await page.evaluate(
+    () => window.__sfStores?.useProjectStore.getState().project?.activeScreenId,
+  )
+  const depth = await historyDepth(page)
+  await page.getByRole('button', { name: 'L’écran courant' }).click()
+  await expect(page.getByLabel('Combien de visuels')).toBeHidden()
+  await page.getByRole('button', { name: 'Proposer une recomposition' }).click()
+  await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
+  await expect(
+    page.getByRole('tablist', { name: 'Visuels proposés' }).getByRole('tab'),
+  ).toHaveCount(1)
+  await page.getByRole('button', { name: /^Recomposer «/ }).click()
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeHidden()
+
+  const recomposed = await screens(page)
+  expect(recomposed).toHaveLength(added.length)
+  expect(recomposed.filter((screen) => screen.id !== activeId)).toEqual(
+    added.filter((screen) => screen.id !== activeId),
+  )
+  const target = recomposed.find((screen) => screen.id === activeId)
+  expect(target?.layers.at(-1)).toMatchObject({ type: 'text', content: 'Le budget dans une poche' })
+  expect(await historyDepth(page)).toBe(depth + 1)
+
+  await page.keyboard.press('Control+z')
+  await expect.poll(async () => JSON.stringify(await screens(page))).toBe(JSON.stringify(added))
 })

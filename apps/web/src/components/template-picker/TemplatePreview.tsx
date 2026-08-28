@@ -1,6 +1,6 @@
 import { generateDeviceFrameSVG, getDeviceFrame } from '@/assets/device-frames'
 import { resolveAsset } from '@/lib/assets'
-import { ICON_BOX, ICON_STROKE, iconEntry, shapeEntry, SHAPE_BOX } from '@/lib/vector-catalog'
+import { drawnBox, ICON_BOX, ICON_STROKE, iconEntry, shapeEntry } from '@/lib/vector-catalog'
 import { getStoreTargetProfile } from '@/lib/dimensions'
 import type {
   Background,
@@ -144,12 +144,16 @@ function TemplateLayer({
 
   if (layer.type === 'shape') {
     const fill = typeof layer.fill === 'string' ? layer.fill : `url(#${templateId}-${layer.id})`
-    const traced = shapeEntry(layer.shapeType)?.path
-    if (traced) {
+    const entry = shapeEntry(layer.shapeType)
+    if (entry?.path) {
+      // Le tracé se met à l'échelle sur sa propre boîte, comme Fabric le fait
+      // (`layer.width / object.width`) : sur les 100 unités du catalogue, la
+      // « Ligne » (100×12) devenait une dalle — PlanPreview lit la même boîte.
+      const [bx, by, bw, bh] = drawnBox(entry)
       return (
         <path
-          transform={`${transform} translate(${layer.x} ${layer.y}) scale(${layer.width / SHAPE_BOX} ${layer.height / SHAPE_BOX})`}
-          d={traced}
+          transform={`${transform} translate(${layer.x} ${layer.y}) scale(${layer.width / bw} ${layer.height / bh}) translate(${-bx} ${-by})`}
+          d={entry.path}
           fill={fill}
           stroke={layer.stroke}
           strokeWidth={layer.strokeWidth}

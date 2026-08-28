@@ -1,4 +1,13 @@
-import type { BridgePlan, Hello } from 'bridge'
+import type {
+  AscApp,
+  AscLocalization,
+  AscVersion,
+  BridgePlan,
+  Hello,
+  ProofreadRequest,
+  TranslateRequest,
+} from 'bridge'
+import type { TextContext, TextLanguage } from '@/lib/ai/text'
 import { AI_LIMITS } from '@/lib/ai/tools'
 import { automaticArchetype } from '@/lib/ai/archetypes'
 import { normalizeSlot } from '@/lib/slots'
@@ -28,7 +37,7 @@ import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
  * test de compatibilité de version compare les deux, et c'est le pont qui
  * tranche.
  */
-const PROTOCOL = 6
+const PROTOCOL = 7
 const BRIDGE_URL = 'http://127.0.0.1:4590'
 
 export type BridgeCapability = 'assistant' | 'asc-publish'
@@ -106,6 +115,8 @@ async function call<T>(path: string, token: string, init: RequestInit = {}): Pro
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+  }).catch((cause: unknown) => {
+    throw cause instanceof TypeError ? new Error(UNREACHABLE) : cause
   })
   const body = (await response.json().catch(() => ({}))) as BridgeFailure
   if (!response.ok) throw new Error(messageFor(response.status, body))
@@ -154,12 +165,7 @@ export async function probeBridge(): Promise<
   } catch (cause) {
     return {
       state: 'down',
-      message:
-        cause instanceof TypeError
-          ? UNREACHABLE
-          : cause instanceof Error
-            ? cause.message
-            : 'Le pont n’a pas répondu.',
+      message: cause instanceof Error ? cause.message : 'Le pont n’a pas répondu.',
     }
   }
 }
@@ -237,6 +243,7 @@ export async function planViaBridge(
           ? { productContext: brief.productContext.slice(0, AI_LIMITS.maxProductContextLength) }
           : {}),
         direction: brief.direction,
+        ...(brief.language ? { language: brief.language } : {}),
         screenCount: brief.screenCount,
         // Le libellé et la présence, jamais l'image ni son identifiant.
         screenshots: brief.screenshots.map((shot) => ({
@@ -296,22 +303,83 @@ export async function planViaBridge(
  * une accroche décalée d'un écran est pire qu'une traduction absente.
  */
 export async function translateViaBridge(
-  target: { code: string; name: string; script: string },
+  target: TextLanguage & { script: string },
   texts: readonly string[],
   token: string,
   engine: EngineId = 'claude',
+  options: { source?: TextLanguage; context?: TextContext } = {},
 ): Promise<string[]> {
-  const answer = await call<{ texts: string[] }>('/translate', token, {
-    method: 'POST',
-    body: JSON.stringify({ protocol: PROTOCOL, target, texts, engine }),
+  return textsViaBridge('/translate', token, {
+    target,
+    ...(options.source ? { source: options.source } : {}),
+    ...(options.context ? { context: options.context } : {}),
+    texts,
+    engine,
   })
-  if (answer.texts.length !== texts.length) {
+}
+
+/** Fait relire un lot dans sa propre langue : orthographe et typographie, jamais le sens. */
+export async function proofreadViaBridge(
+  language: TextLanguage,
+  texts: readonly string[],
+  token: string,
+  engine: EngineId = 'claude',
+  context?: TextContext,
+): Promise<string[]> {
+  return textsViaBridge('/proofread', token, {
+    language,
+    ...(context ? { context } : {}),
+    texts,
+    engine,
+  })
+}
+
+/* La forme du pont, moins le protocole que ce client pose lui-même ; `texts`
+   relu en lecture seule, puisque rien ici ne le modifie. */
+type BridgeTextBody = (
+  Omit<TranslateRequest, 'protocol' | 'texts'> | Omit<ProofreadRequest, 'protocol' | 'texts'>
+) & { texts: readonly string[] }
+
+async function textsViaBridge(
+  path: '/translate' | '/proofread',
+  token: string,
+  body: BridgeTextBody,
+): Promise<string[]> {
+  const answer = await call<{ texts: string[] }>(path, token, {
+    method: 'POST',
+    body: JSON.stringify({ protocol: PROTOCOL, ...body }),
+  })
+  if (answer.texts.length !== body.texts.length) {
     throw new Error('Le pont a rendu un nombre de textes inattendu : rien n’a été repris.')
   }
   return answer.texts
 }
 
 /* -------------------------------------------------------------- publication */
+
+/**
+ * Ce qu'Apple connaît du compte, lu par le pont : applications, versions d'une
+ * application, localisations d'une version. Trois lectures sans effet, derrière
+ * le jeton de publication — c'est le même geste que choisir la destination dans
+ * App Store Connect, sans en recopier les identifiants à la main.
+ */
+export function listAscApps(token: string): Promise<AscApp[]> {
+  return call<{ items: AscApp[] }>('/asc/apps', token).then((body) => body.items)
+}
+
+export function listAscVersions(appId: string, token: string): Promise<AscVersion[]> {
+  return call<{ items: AscVersion[] }>(
+    `/asc/versions?app=${encodeURIComponent(appId)}`,
+    token,
+  ).then((body) => body.items)
+}
+
+export function listAscLocalizations(versionId: string, token: string): Promise<AscLocalization[]> {
+  return call<{ items: AscLocalization[] }>(
+    `/asc/localizations?version=${encodeURIComponent(versionId)}`,
+    token,
+  ).then((body) => body.items)
+}
 
 export interface AscBridgeStatus {
   available: boolean
@@ -358,7 +426,7 @@ export async function ascBridgeStatus(): Promise<AscBridgeStatus> {
       available: false,
       reachable: false,
       flags: [],
-      message: cause instanceof TypeError ? UNREACHABLE : 'Le pont n’a pas répondu.',
+      message: cause instanceof Error ? cause.message : 'Le pont n’a pas répondu.',
     }
   }
 }
@@ -404,34 +472,45 @@ export async function publishViaBridge(
   request: BridgePublishRequest,
   token: string,
 ): Promise<BridgePublishResult> {
-  const response = await fetch(`${BRIDGE_URL}/asc/publish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      protocol: PROTOCOL,
-      releaseId: request.releaseId,
-      bundleHash: request.bundleHash,
-      target: {
-        versionLocalization: request.versionLocalization,
-        deviceType: request.deviceType,
-      },
-      files: request.files,
-      replaceExisting: request.replaceExisting,
-      dryRun: request.dryRun,
-    }),
-  })
-  const body = (await response.json().catch(() => ({}))) as BridgeFailure & {
-    steps?: BridgePublishStep[]
+  try {
+    const response = await fetch(`${BRIDGE_URL}/asc/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        protocol: PROTOCOL,
+        releaseId: request.releaseId,
+        bundleHash: request.bundleHash,
+        target: {
+          versionLocalization: request.versionLocalization,
+          deviceType: request.deviceType,
+        },
+        files: request.files,
+        replaceExisting: request.replaceExisting,
+        dryRun: request.dryRun,
+      }),
+    })
+    const body = (await response.json().catch(() => ({}))) as BridgeFailure & {
+      steps?: BridgePublishStep[]
+    }
+    if (!response.ok) {
+      const failure = new Error(messageFor(response.status, body))
+      Object.assign(failure, { steps: body.steps ?? [], status: response.status })
+      throw failure
+    }
+    return body as unknown as BridgePublishResult
+  } catch (cause) {
+    // ponytail: même mappage que `probeBridge`/`ascBridgeStatus` — un pont mort
+    // pendant l'envoi rendait « Failed to fetch » brut.
+    throw cause instanceof TypeError ? new Error(UNREACHABLE) : cause
   }
-  if (!response.ok) {
-    const failure = new Error(messageFor(response.status, body))
-    Object.assign(failure, { steps: body.steps ?? [] })
-    throw failure
-  }
-  return body as unknown as BridgePublishResult
 }
 
 /** Les étapes rattachées à un échec de publication, s'il en porte. */
 export function publishSteps(error: unknown): BridgePublishStep[] {
   return (error as { steps?: BridgePublishStep[] })?.steps ?? []
+}
+
+/** Vrai quand l'échec vient d'un jeton refusé : l'étape « pont » doit se rouvrir. */
+export function publishUnauthorized(error: unknown): boolean {
+  return (error as { status?: number })?.status === 401
 }

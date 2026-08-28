@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { TEMPLATES } from '@/assets/templates'
 import { TemplatePreview } from './TemplatePreview'
@@ -18,7 +18,19 @@ import { instantiateTemplate, type CustomTemplate } from '@/lib/custom-templates
 import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
 import { getStoreTargetProfile } from '@/lib/dimensions'
+import { DIRECTIONS, type DirectionId } from '@/lib/ai/plan'
 import type { StoreTargetId, TemplateDefinition } from '@/types'
+
+const CATALOG_PREFIX = 'catalog-'
+
+function isGenerated(template: TemplateDefinition): boolean {
+  return template.id.startsWith(CATALOG_PREFIX)
+}
+
+/** Un gabarit généré déclare sa direction ; un gabarit fait main n'en a pas. */
+function generatedDirection(template: TemplateDefinition): DirectionId | null {
+  return template.direction ?? null
+}
 
 type ApplyMode = 'current' | 'new'
 
@@ -40,6 +52,11 @@ function TemplatePickerContent() {
   const catalogue = TEMPLATES.filter(
     (template) => getStoreTargetProfile(template.target ?? 'app-store-iphone').family === family,
   )
+  const compositions = catalogue.filter((template) => !isGenerated(template))
+  const generatedByDirection = DIRECTIONS.map((style) => ({
+    style,
+    templates: catalogue.filter((template) => generatedDirection(template) === style.id),
+  })).filter((group) => group.templates.length > 0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   /* Le choix est gardé par identifiant et relu à chaque rendu : supprimer le
@@ -127,14 +144,32 @@ function TemplatePickerContent() {
         </section>
         <Separator />
         <section className="flex flex-col gap-1.5">
-          <h3 className="text-sm font-medium">Catalogue</h3>
+          <h3 className="text-sm font-medium">Compositions</h3>
           <Gallery
-            templates={catalogue}
+            templates={compositions}
             target={target}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
         </section>
+        {/* Un catalogue de 7 se lisait comme un pense-bête ; le produit croisé
+            direction × archétype en tient un vrai. Une section par direction,
+            plutôt qu'une galerie de 24 tuiles indistinctes : le style est ce
+            qui les regroupe pour l'œil. */}
+        {generatedByDirection.map(({ style, templates }) => (
+          <Fragment key={style.id}>
+            <Separator />
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-sm font-medium">Style {style.label}</h3>
+              <Gallery
+                templates={templates}
+                target={target}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            </section>
+          </Fragment>
+        ))}
       </div>
     </DialogShell>
   )

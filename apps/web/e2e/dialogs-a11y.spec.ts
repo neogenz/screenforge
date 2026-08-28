@@ -31,10 +31,10 @@ import { DIALOG_STACK_MIN_WIDTH } from '../src/lib/stage'
  */
 const DIALOGS = [
   ['Actualiser les captures', 'Actualiser les captures', 'rangée'],
-  ['Ouvrir les releases', 'Releases', 'rangée'],
-  ['Générer les visuels de la fiche', 'Générer les visuels · App Store · iPhone', 'rangée'],
+  ['Ouvrir les versions figées', 'Versions figées', 'rangée'],
+  ['Composer la fiche', 'Composer la fiche · App Store · iPhone', 'rangée'],
   ['Ouvrir les langues', 'Langues', 'rangée'],
-  ['Publier chez Apple', 'Publier chez Apple', 'rangée'],
+  ['Publier chez Apple', 'Publier sur App Store Connect', 'rangée'],
   ['Connexion MCP', 'Connexion MCP', 'menu'],
   ['Ouvrir l’export', 'Export officiel', 'rangée'],
 ] as const
@@ -133,8 +133,8 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
   await waitForApp(page)
   await addTextLayer(page)
 
-  await page.getByLabel('Générer les visuels de la fiche').click()
-  let dialog = page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' })
+  await page.getByLabel('Composer la fiche').click()
+  let dialog = page.getByRole('dialog', { name: 'Composer la fiche · App Store · iPhone' })
   await expectOneFocusRing(page, dialog.getByRole('radio', { name: 'Sobre' }))
   const assistance = dialog.getByRole('button', { name: /Qui écrit les accroches/ })
   await expectOneFocusRing(page, assistance)
@@ -150,27 +150,28 @@ test('les contrôles composites des dialogues partagent le focus citron', async 
 
   await page.getByLabel('Ouvrir les langues').click()
   dialog = page.getByRole('dialog', { name: 'Langues' })
-  await dialog.getByLabel('Code').fill('de')
-  await dialog.getByLabel('Nom').fill('Allemand')
+  await dialog.getByLabel('Langue à ajouter').click()
+  await page.getByRole('option', { name: 'Allemand · de-DE' }).click()
   await dialog.getByRole('button', { name: 'Ajouter' }).click()
-  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /de Allemand/ }))
+  await expectOneFocusRing(page, dialog.getByRole('radio', { name: /de-DE Allemand/ }))
   await expectOneFocusRing(page, dialog.getByRole('checkbox', { name: /comme relue/ }).last())
   await closeDialog(page, dialog)
 
-  await page.getByLabel('Ouvrir les releases').click()
-  dialog = page.getByRole('dialog', { name: 'Releases' })
-  await dialog.getByLabel('Nom de la release').fill('1.0.0')
-  await dialog.getByRole('button', { name: 'Figer une release' }).click()
-  await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await page.getByLabel('Ouvrir les versions figées').click()
+  dialog = page.getByRole('dialog', { name: 'Versions figées' })
+  await dialog.getByLabel('Nom de la version').fill('1.0.0')
+  await dialog.getByRole('button', { name: 'Figer la version' }).click()
+  await expect(page.getByText(/Version « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
   await closeDialog(page, dialog)
 
   await page.getByLabel('Publier chez Apple').click()
-  dialog = page.getByRole('dialog', { name: 'Publier chez Apple' })
-  // Un lot existe : la boîte s'ouvre sur l'envoi, le choix du lot est l'étape d'avant.
-  await dialog.getByRole('button', { name: 'Retour' }).click()
+  dialog = page.getByRole('dialog', { name: 'Publier sur App Store Connect' })
+  // Sans pont, la destination se saisit à la main : sa langue est le composite de la boîte.
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
   await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running'))
-  await expectOneFocusRing(page, dialog.locator('button[aria-current="true"]'))
+  await dialog.locator('summary').filter({ hasText: 'Saisir les identifiants' }).click()
+  await expectOneFocusRing(page, dialog.getByLabel('Langue App Store').last())
   await closeDialog(page, dialog)
 
   await page.getByLabel('Ouvrir l’export').click()
@@ -187,10 +188,10 @@ test('rien ne déborde de sa case dans une fenêtre de 375px', async ({ page }) 
 
   // Un lot figé : sans lui, deux des boîtes n'affichent que leur état vide, et
   // c'est justement leur colonne de contenu qui est à l'étroit.
-  await page.getByLabel('Ouvrir les releases').click()
-  await page.getByLabel('Nom de la release').fill('1.0.0')
-  await page.getByRole('button', { name: 'Figer une release' }).click()
-  await expect(page.getByText(/Release « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await page.getByLabel('Ouvrir les versions figées').click()
+  await page.getByLabel('Nom de la version').fill('1.0.0')
+  await page.getByRole('button', { name: 'Figer la version' }).click()
+  await expect(page.getByText(/Version « 1.0.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await page.keyboard.press('Escape')
 
   for (const [label, title, via] of DIALOGS) {
@@ -247,8 +248,8 @@ test('une radio-card ne peint qu’un seul indicateur de focus', async ({ page }
   await waitForApp(page)
   await addTextLayer(page)
 
-  await page.getByLabel('Générer les visuels de la fiche').click()
-  const dialog = page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' })
+  await page.getByLabel('Composer la fiche').click()
+  const dialog = page.getByRole('dialog', { name: 'Composer la fiche · App Store · iPhone' })
   const radio = dialog.getByRole('radio', { name: 'Sobre' })
   await radio.focus()
   /* L'input invisible couvre toute la carte : sans `outline-none` il peint le
@@ -309,7 +310,7 @@ test('un drawer fermé est inerte et démonté', async ({ page }) => {
    n'est pas la même opération dans les deux sens — les bordures changent de
    côté et l'ordre du DOM avec elles. */
 const BOÎTES_À_COLONNES = [
-  ['Ouvrir les releases', 'Releases'],
+  ['Ouvrir les versions figées', 'Versions figées'],
   ['Ouvrir l’export', 'Export officiel'],
 ] as const
 

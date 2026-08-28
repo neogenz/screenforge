@@ -571,7 +571,13 @@ export async function expectNoClippedControl(page: Page): Promise<void> {
     const ALLOWED = new Set<string>()
     const TOLERANCE = 1
 
-    return [...document.querySelectorAll('[data-slot="button"], [data-slot="menu-trigger"]')]
+    /* Le bouton de barre coss porte son propre slot, et c'est lui qui tenait
+       une boîte de 32px sous un mot de 105 sans que ce garde le voie. */
+    return [
+      ...document.querySelectorAll(
+        '[data-slot="button"], [data-slot="toolbar-button"], [data-slot="menu-trigger"]',
+      ),
+    ]
       .filter((element) => {
         const box = element.getBoundingClientRect()
         return box.width > 0 && box.height > 0

@@ -1,81 +1,9 @@
-import { DEFAULT_INK_COLOR } from '@/lib/content-defaults'
 import { APP_STORE_PROFILE, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
-import { POPULAR_FONTS } from '@/lib/fonts'
-import type {
-  DeviceFrameLayer,
-  DeviceModel,
-  ShapeLayer,
-  TemplateDefinition,
-  TextLayer,
-} from '@/types'
+import { CATALOG_TEMPLATES } from './catalog'
+import { deviceLayer, textLayer } from './layers'
+import type { ShapeLayer, TemplateDefinition } from '@/types'
 
 const { width: W, height: H } = APP_STORE_PROFILE.board
-
-function textLayer(
-  id: string,
-  name: string,
-  content: string,
-  geometry: Pick<TextLayer, 'x' | 'y' | 'width' | 'height' | 'zIndex'>,
-  style: Partial<
-    Pick<
-      TextLayer,
-      | 'fontSize'
-      | 'fontWeight'
-      | 'color'
-      | 'textAlign'
-      | 'lineHeight'
-      | 'letterSpacing'
-      | 'textTransform'
-    >
-  > = {},
-): TextLayer {
-  return {
-    id,
-    type: 'text',
-    name,
-    rotation: 0,
-    opacity: 1,
-    locked: false,
-    visible: true,
-    fontFamily: POPULAR_FONTS[0],
-    fontSize: 48,
-    fontWeight: 700,
-    color: DEFAULT_INK_COLOR,
-    textAlign: 'center',
-    lineHeight: 1.12,
-    letterSpacing: -0.5,
-    textTransform: 'none',
-    content,
-    ...geometry,
-    ...style,
-  }
-}
-
-function deviceLayer(
-  id: string,
-  name: string,
-  geometry: Pick<DeviceFrameLayer, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex'>,
-  color: DeviceFrameLayer['deviceColor'] = 'white-titanium',
-  model: DeviceModel = 'iphone-16-pro-max',
-): DeviceFrameLayer {
-  return {
-    id,
-    type: 'device-frame',
-    name,
-    opacity: 1,
-    locked: false,
-    visible: true,
-    deviceModel: model,
-    deviceColor: color,
-    orientation: 'portrait',
-    shadowEnabled: true,
-    shadowBlur: 18,
-    shadowColor: 'rgba(0,0,0,0.22)',
-    shadowOffsetX: 0,
-    shadowOffsetY: 10,
-    ...geometry,
-  }
-}
 
 const overlay: ShapeLayer = {
   id: 'full-bleed-overlay',
@@ -432,4 +360,5 @@ export const TEMPLATES: TemplateDefinition[] = [
   ...APP_STORE_TEMPLATES.filter((template) => template.target === 'app-store-iphone').map(
     androidVariant,
   ),
+  ...CATALOG_TEMPLATES,
 ]

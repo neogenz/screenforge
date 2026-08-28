@@ -238,7 +238,7 @@ export async function verifyRelease(
     return release.files.map((file) => ({
       path: file.path,
       status: 'failed',
-      detail: 'Lot historique filigrané : régénérez une release propre.',
+      detail: 'Lot historique filigrané : figez une nouvelle version sans filigrane.',
     }))
   }
   let rendered: ReleaseFile[]

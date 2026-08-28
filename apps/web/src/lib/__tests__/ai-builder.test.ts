@@ -9,6 +9,7 @@ import {
 import {
   planFromBrief,
   planScreenLayout,
+  planScreenCalls,
   planToolCalls,
   eligibleGroundingFacts,
   isCampaignPlan,
@@ -561,6 +562,22 @@ describe('le plan', () => {
       height: preview?.height,
       rotation: preview?.rotation,
     })
+  })
+
+  it('un lot est un add_screen puis les appels d’un visuel, rang par rang', () => {
+    /* Recomposer l'écran courant rejoue `planScreenCalls` sur un écran vidé :
+       s'il pouvait diverger de ce que le lot pose, la revue montrerait une
+       composition et la recomposition en poserait une autre. */
+    const plan = planFromBrief(brief)
+    const expected = plan.screens.flatMap((screen, index) => [
+      { tool: 'add_screen', args: { name: screen.name } },
+      ...planScreenCalls(plan, brief, index),
+    ])
+    expect(planToolCalls(plan, brief).slice(1)).toEqual(expected)
+    expect(planScreenCalls(plan, brief, 0)[0]?.tool).toBe('set_background')
+    const own = planScreenCalls(plan, brief, 0)
+    expect(own[own.length - 1]?.tool).toBe('add_text')
+    expect(planScreenCalls(plan, brief, plan.screens.length)).toEqual([])
   })
 
   it('ne rejoint le projet que par les outils', () => {

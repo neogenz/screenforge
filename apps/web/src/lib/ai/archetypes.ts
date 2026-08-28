@@ -61,7 +61,10 @@ const APPLE_GUTTER = 32
  * tenait deux lignes, et la troisième débordait. La revue des langues le
  * signalait, sur la langue d'origine, avant toute traduction.
  */
-const LINE_HEIGHT = 1.2
+export const LINE_HEIGHT = 1.2
+
+/** Ce qu'un appareil empilé laisse entre lui et l'accroche, dans les deux sens. */
+const HEADLINE_CLEARANCE = 16
 
 export type ArchetypeId =
   'plein-cadre' | 'bord-coupe' | 'carte' | 'bas-ancre' | 'texte-sur-appareil' | 'mur'
@@ -420,10 +423,26 @@ export function composeArchetype(id: ArchetypeId, context: ArchetypeContext): Ar
        ne suffit pas. Sur le profil iPhone, ces bornes rendent exactement les
        nombres historiques. */
     const stacked = !spec.headline.overDevice && wantedY >= 0
-    const y = stacked ? Math.max(wantedY, headline.y + headline.height + 16) : wantedY
+    const y = stacked
+      ? Math.max(wantedY, headline.y + headline.height + HEADLINE_CLEARANCE)
+      : wantedY
     const footer = Math.min(72, board.height * 0.075)
-    const availableHeight = Math.max(1, board.height - footer - y)
-    const width = stacked
+    /* 'bas-ancre' ancre l'appareil au-dessus de la planche (wantedY < 0) pour
+       couper son sommet par construction — mais son bas doit quand même
+       dégager l'accroche qu'il précède, comme la branche empilée dégage
+       l'accroche qu'elle suit. Sans ce plafond, un appareil large sur une
+       planche proportionnellement plus étroite (Google Play : 540 de large
+       pour 440 en iPhone) peignait 94 px d'accroche : invisible sur iPhone,
+       réel sur Android. `overDevice` reste la seule échappatoire : là le
+       chevauchement est voulu et protégé par la pastille (`accentsFront`
+       plus bas). */
+    const ceiling = spec.headline.overDevice
+      ? Infinity
+      : stacked
+        ? board.height - footer
+        : headline.y - HEADLINE_CLEARANCE
+    const availableHeight = Math.max(1, ceiling - y)
+    const width = Number.isFinite(ceiling)
       ? Math.min(wantedWidth, Math.floor(availableHeight * deviceAspect))
       : wantedWidth
     const wantedCenter = ((spec.deviceX ?? 0) + spec.deviceWidth / 2) * board.width

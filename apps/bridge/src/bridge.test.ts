@@ -87,6 +87,31 @@ function fakeAsc(
         timedOut: false,
       }
     }
+    if (args[1] === 'list') {
+      const data =
+        args[0] === 'apps'
+          ? [
+              {
+                id: '6758464920',
+                attributes: {
+                  name: 'Pulpe',
+                  bundleId: 'app.pulpe.ios',
+                  primaryLocale: 'fr-FR',
+                  sku: 'SECRET-SKU',
+                },
+              },
+            ]
+          : args[0] === 'versions'
+            ? [
+                {
+                  id: '0a1b2c3d-1111-2222-3333-444455556666',
+                  attributes: { versionString: '1.4.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+                  links: { next: 'https://api.appstoreconnect.apple.com/next?cursor=abc' },
+                },
+              ]
+            : [{ id: 'LOC-1', attributes: { locale: 'fr-FR' } }]
+      return { code: 0, stdout: JSON.stringify({ data }), stderr: '', timedOut: false }
+    }
     return (
       overrides.upload?.() ??
       Promise.resolve({ code: 0, stdout: '{"uploaded":1}', stderr: '', timedOut: false })
@@ -948,6 +973,29 @@ describe('protocole', () => {
     expect((await send({ protocol: 99, target, texts: ['x'] })).status).toBe(409)
   })
 
+  it('relit un lot par position, avec le même contrat de compte que la traduction', async () => {
+    const language = { code: 'fr-FR', name: 'Français' }
+    const body = (texts: string[]) =>
+      JSON.stringify({ protocol: PROTOCOL_VERSION, language, texts, context: { appName: 'Pulpe' } })
+    const good = harness(async () => JSON.stringify({ texts: ['Le rythme', 'Chaque euro'] }))
+    const answer = await good.call('/proofread', {
+      method: 'POST',
+      body: body(['Le rytme', 'Chaque euro']),
+    })
+    expect(answer.status).toBe(200)
+    expect(await answer.json()).toEqual({ texts: ['Le rythme', 'Chaque euro'] })
+
+    const short = harness(async () => JSON.stringify({ texts: ['Le rythme'] }))
+    const refused = await short.call('/proofread', {
+      method: 'POST',
+      body: body(['Le rytme', 'Chaque euro']),
+    })
+    expect(refused.status).toBe(502)
+    expect(
+      (await good.call('/proofread', { method: 'POST', body: body(['x']), token: null })).status,
+    ).toBe(401)
+  })
+
   it('ne laisse traverser aucune image, même offerte', () => {
     const parsed = briefSchema.parse({
       ...BRIEF,
@@ -1284,5 +1332,109 @@ describe('publication', () => {
     })
     expect(response.status).toBe(502)
     expect(await response.json()).toMatchObject({ error: 'asc-unavailable' })
+  })
+})
+
+describe('destinations', () => {
+  it('liste applications, versions et localisations derrière le jeton de publication', async () => {
+    const asc = fakeAsc()
+    const { state, call } = harness(undefined, asc)
+    expect((await call('/asc/apps')).status).toBe(401)
+    expect((await call('/asc/apps', { token: state.pairing.assistant.token })).status).toBe(401)
+
+    const apps = await call('/asc/apps', { capability: 'asc-publish' })
+    expect(apps.status).toBe(200)
+    const appsBody = await apps.json()
+    // Relu : identifiants et libellés seulement, jamais la réponse brute.
+    expect(appsBody).toEqual({
+      items: [
+        { id: '6758464920', name: 'Pulpe', bundleId: 'app.pulpe.ios', primaryLocale: 'fr-FR' },
+      ],
+    })
+    expect(JSON.stringify(appsBody)).not.toContain('SECRET-SKU')
+    expect(asc.calls.at(-1)).toEqual(['apps', 'list', '--limit', '200', '--output', 'json'])
+
+    const versions = await call('/asc/versions?app=6758464920', { capability: 'asc-publish' })
+    expect(await versions.json()).toEqual({
+      items: [
+        {
+          id: '0a1b2c3d-1111-2222-3333-444455556666',
+          versionString: '1.4.0',
+          state: 'PREPARE_FOR_SUBMISSION',
+          platform: 'IOS',
+        },
+      ],
+    })
+    expect(asc.calls.at(-1)?.slice(0, 4)).toEqual(['versions', 'list', '--app', '6758464920'])
+
+    const localizations = await call(
+      '/asc/localizations?version=0a1b2c3d-1111-2222-3333-444455556666',
+      { capability: 'asc-publish' },
+    )
+    expect(await localizations.json()).toEqual({ items: [{ id: 'LOC-1', locale: 'fr-FR' }] })
+  })
+
+  it('écarte une ligne hors schéma, la compte sur stderr, et n’en relit rien', async () => {
+    const asc = fakeAsc()
+    const twoRows: AscRunner = async (args, timeoutMs) => {
+      if (args[0] === 'apps' && args[1] === 'list') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            data: [
+              { attributes: { name: 'Sans identifiant', bundleId: 'app.sans.id' } },
+              { id: '42', attributes: { name: 'Cadence', bundleId: 'app.cadence.ios' } },
+            ],
+          }),
+          stderr: '',
+          timedOut: false,
+        }
+      }
+      return asc.run(args, timeoutMs)
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { call } = harness(undefined, { calls: asc.calls, run: twoRows })
+    const response = await call('/asc/apps', { capability: 'asc-publish' })
+    expect(await response.json()).toEqual({
+      items: [{ id: '42', name: 'Cadence', bundleId: 'app.cadence.ios' }],
+    })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith('asc apps : 1 ligne(s) écartée(s), hors schéma.')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('Sans identifiant')
+    warn.mockRestore()
+  })
+
+  it('refuse un identifiant qui ressemble à un drapeau ou manque', async () => {
+    const asc = fakeAsc()
+    const { call } = harness(undefined, asc)
+    expect((await call('/asc/versions', { capability: 'asc-publish' })).status).toBe(400)
+    expect((await call('/asc/versions?app=--replace', { capability: 'asc-publish' })).status).toBe(
+      400,
+    )
+    expect((await call('/asc/localizations?version=', { capability: 'asc-publish' })).status).toBe(
+      400,
+    )
+    expect(asc.calls.filter((args) => args[1] === 'list')).toHaveLength(0)
+  })
+
+  it('traduit un binaire absent ou muet en 502 lisible, sans chemin personnel', async () => {
+    const asc = fakeAsc()
+    const failing: AscRunner = async (args, timeoutMs) => {
+      if (args[1] === 'list') {
+        return {
+          code: 1,
+          stdout: '',
+          stderr: `Error: keychain profile at ${process.env.HOME}/Library/asc not found`,
+          timedOut: false,
+        }
+      }
+      return asc.run(args, timeoutMs)
+    }
+    const { call } = harness(undefined, { calls: asc.calls, run: failing })
+    const response = await call('/asc/apps', { capability: 'asc-publish' })
+    expect(response.status).toBe(502)
+    const body = (await response.json()) as { error: string; detail: string }
+    expect(body.error).toBe('asc-failed')
+    expect(body.detail).not.toContain(process.env.HOME ?? '/Users/')
   })
 })

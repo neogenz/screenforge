@@ -1,11 +1,8 @@
-import {
-  APP_STORE_PROFILE,
-  getStoreTargetProfile,
-  type AppStoreTargetProfile,
-} from '@/lib/dimensions'
+import { getStoreTargetProfile, type AppStoreTargetProfile } from '@/lib/dimensions'
 import { INTERNAL_PNG_SIZE_TARGET } from '@/lib/export'
 import { sha256OfText } from '@/lib/hash'
 import type { Release, ReleaseFile } from '@/types'
+import { LOCALE_CATALOG } from '@/lib/locale-catalog'
 
 /**
  * Le lot, tel qu'App Store Connect l'attend — et ce qui l'empêche de partir.
@@ -37,9 +34,6 @@ import type { Release, ReleaseFile } from '@/types'
  */
 export const ASC_DISPLAY_TYPE = 'APP_IPHONE_69'
 
-/** Les dimensions qu'Apple accepte dans ce jeu, portrait et paysage. */
-export const ASC_ACCEPTED_SIZES: readonly (readonly [number, number])[] = [[1320, 2868]]
-
 function releaseProfile(release: Release): AppStoreTargetProfile {
   const profile = getStoreTargetProfile(release.snapshot.target)
   if (profile.platform !== 'apple') {
@@ -61,47 +55,7 @@ export function ascDeviceType(release: Release): string {
  * pas ceux du magasin — et la seule façon de l'attraper avant l'envoi est de
  * comparer à la liste.
  */
-export const APP_STORE_LOCALES: readonly string[] = [
-  'ar-SA',
-  'ca',
-  'cs',
-  'da',
-  'de-DE',
-  'el',
-  'en-AU',
-  'en-CA',
-  'en-GB',
-  'en-US',
-  'es-ES',
-  'es-MX',
-  'fi',
-  'fr-CA',
-  'fr-FR',
-  'he',
-  'hi',
-  'hr',
-  'hu',
-  'id',
-  'it',
-  'ja',
-  'ko',
-  'ms',
-  'nl-NL',
-  'no',
-  'pl',
-  'pt-BR',
-  'pt-PT',
-  'ro',
-  'ru',
-  'sk',
-  'sv',
-  'th',
-  'tr',
-  'uk',
-  'vi',
-  'zh-Hans',
-  'zh-Hant',
-]
+export const APP_STORE_LOCALES: readonly string[] = LOCALE_CATALOG.map((entry) => entry.code)
 
 /**
  * La langue App Store la plus proche d'un code de projet.
@@ -128,6 +82,10 @@ export interface AscTarget {
   locale: string
   /** L'identifiant de la localisation de version, rendu par `asc localizations list`. */
   versionLocalization: string
+  /** Ce qui vient d'une lecture chez Apple plutôt que d'une saisie manuelle — absent sur le chemin manuel. */
+  appId?: string
+  appName?: string
+  versionId?: string
 }
 
 export const EMPTY_TARGET: AscTarget = {
@@ -359,7 +317,7 @@ export function preflight(
 
   if (release.watermarked) {
     error(
-      'Ce lot historique a été figé avec un filigrane : il ne peut pas être publié. Régénérez une nouvelle release propre.',
+      'Ce lot historique a été figé avec un filigrane : il ne peut pas être publié. Figez une nouvelle version sans filigrane.',
     )
   }
 
@@ -430,8 +388,6 @@ export function targetSummary(target: AscTarget, release?: Release): string | nu
  * `APP_STORE_TARGET` est lu ici pour que le libellé de taille affiché soit celui
  * des dimensions réellement rendues, et non une constante recopiée.
  */
-export const ASC_SIZE_LABEL = `${APP_STORE_PROFILE.output.size} — ${APP_STORE_PROFILE.output.portrait.width}×${APP_STORE_PROFILE.output.portrait.height}`
-
 export function ascSizeLabel(release: Release): string {
   const profile = releaseProfile(release)
   return `${profile.output.name} — ${profile.output.portrait.width}×${profile.output.portrait.height}`

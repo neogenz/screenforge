@@ -63,7 +63,7 @@ test('importer 3 captures depuis la planche vide crée 3 écrans', async ({ page
     .setInputFiles([capture('01.png', 400), capture('02.png', 400), capture('03.png', 400)])
 
   const dialog = page.getByRole('dialog', {
-    name: 'Générer les visuels · App Store · iPhone',
+    name: 'Composer la fiche · App Store · iPhone',
   })
   await expect(dialog).toBeVisible()
 

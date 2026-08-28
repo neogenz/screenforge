@@ -28,6 +28,7 @@ interface PublishCall {
   files: { name: string }[]
   replaceExisting: boolean
   dryRun: boolean
+  target: { versionLocalization: string }
 }
 
 interface ScreenState {
@@ -67,7 +68,7 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        protocol: 6,
+        protocol: 7,
         bridge: '0.1.0',
         engines: [],
         capabilities: { vision: false, structuredOutput: true, reasoning: true },
@@ -93,6 +94,29 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       }),
     })
   })
+  // Les listes que la boîte lit pour choisir sa destination : le pont les tire
+  // de « asc », ici elles sont canonnées.
+  const listing = (items: unknown[]) => (route: Route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items }) })
+  await page.route(
+    `${BRIDGE}/asc/apps`,
+    listing([
+      { id: 'APP-1', name: 'Cadence', bundleId: 'com.exemple.cadence', primaryLocale: 'fr-FR' },
+    ]),
+  )
+  await page.route(
+    `${BRIDGE}/asc/versions*`,
+    listing([
+      { id: 'VER-1', versionString: '1.4.0', state: 'PREPARE_FOR_SUBMISSION', platform: 'IOS' },
+    ]),
+  )
+  await page.route(
+    `${BRIDGE}/asc/localizations*`,
+    listing([
+      { id: 'LOC-1', locale: 'fr-FR' },
+      { id: 'LOC-1234', locale: 'de-DE' },
+    ]),
+  )
   return calls
 }
 
@@ -105,7 +129,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   await waitForApp(page)
 
   // 1) Créer la campagne : deux visuels générés, en calques réels.
-  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
+  await page.getByRole('button', { name: 'Composer la fiche' }).click()
   await page.getByLabel('Nom de l’app').fill('Cadence')
   await page.getByLabel('Ce que fait l’app, en une phrase').fill('Le budget dans une poche')
   await page.getByLabel('Combien de visuels').click()
@@ -114,7 +138,7 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Vérifiez la proposition' })).toBeVisible()
   await page.getByRole('button', { name: /^Ajouter \d+ visuels?$/ }).click()
   await expect(
-    page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' }),
+    page.getByRole('dialog', { name: 'Composer la fiche · App Store · iPhone' }),
   ).toBeHidden()
   await expect.poll(async () => (await screens(page)).length).toBeGreaterThan(1)
 
@@ -185,11 +209,11 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
 
   // 6) Retoucher un écran via le fournisseur : borné à l'écran courant.
   const beforeTouch = await screens(page)
-  await page.getByRole('button', { name: 'Générer les visuels de la fiche' }).click()
+  await page.getByRole('button', { name: 'Composer la fiche' }).click()
   await page.getByRole('radio', { name: 'Nocturne' }).click()
   await page.getByRole('button', { name: /^Appliquer à/ }).click()
   await expect(
-    page.getByRole('dialog', { name: 'Générer les visuels · App Store · iPhone' }),
+    page.getByRole('dialog', { name: 'Composer la fiche · App Store · iPhone' }),
   ).toBeHidden()
   const afterTouch = await screens(page)
   expect(afterTouch[0], 'la retouche a débordé sur un autre écran').toEqual(beforeTouch[0])
@@ -197,8 +221,8 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   // 7) Une langue, et le débordement qu'elle signale puis lève.
   await page.getByRole('button', { name: 'Ouvrir les langues' }).click()
   const locales = page.getByRole('dialog', { name: 'Langues' })
-  await locales.getByLabel('Code').fill('de')
-  await locales.getByLabel('Nom').fill('Allemand')
+  await locales.getByLabel('Langue à ajouter').click()
+  await page.getByRole('option', { name: 'Allemand · de-DE' }).click()
   await locales.getByRole('button', { name: 'Ajouter' }).click()
   const variant = locales.locator('li').last().getByRole('textbox')
   await variant.fill(
@@ -214,18 +238,18 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   expect(await screens(page)).toHaveLength(afterTouch.length)
 
   // 8) Figer un lot, dans cette langue, et le laisser immuable.
-  await page.getByRole('button', { name: 'Ouvrir les releases' }).click()
-  const releaseDialog = page.getByRole('dialog', { name: 'Releases' })
-  await releaseDialog.getByLabel('Nom de la release').fill('1.4.0')
-  await releaseDialog.getByLabel('Langue de la release').click()
+  await page.getByRole('button', { name: 'Ouvrir les versions figées' }).click()
+  const releaseDialog = page.getByRole('dialog', { name: 'Versions figées' })
+  await releaseDialog.getByLabel('Nom de la version').fill('1.4.0')
+  await releaseDialog.getByLabel('Langue de la version').click()
   await page.getByRole('option', { name: 'Allemand' }).click()
-  await releaseDialog.getByRole('button', { name: 'Figer une release' }).click()
-  await expect(page.getByText(/Release « 1.4.0 » figée/)).toBeVisible({ timeout: 120_000 })
+  await releaseDialog.getByRole('button', { name: 'Figer la version' }).click()
+  await expect(page.getByText(/Version « 1.4.0 » figée/)).toBeVisible({ timeout: 120_000 })
   await page.keyboard.press('Escape')
 
   const frozen = await releases(page)
   expect(frozen).toHaveLength(1)
-  expect(frozen[0].locale).toBe('de')
+  expect(frozen[0].locale).toBe('de-DE')
   const fingerprints = frozen[0].files.map((file) => file.sha256)
 
   // Le projet continue de vivre : la release ne bouge pas avec lui.
@@ -249,27 +273,35 @@ test('les dix étapes d’une campagne tiennent enchaînées', async ({ page }) 
   expect(validated.every((file) => file.width === 1320 && file.height === 2868)).toBe(true)
   await page.keyboard.press('Escape')
 
-  // 10) Preflight puis essai à blanc : le lot figé, jamais le projet vivant.
+  // 10) Pont, destination lue chez Apple, preflight puis essai à blanc : le lot
+  //     figé, jamais le projet vivant.
   await page.getByRole('button', { name: 'Publier chez Apple' }).click()
-  const publish = page.getByRole('dialog', { name: 'Publier chez Apple' })
-  await publish.getByLabel('Identifiant de l’application').fill('com.exemple.cadence')
-  await publish.getByLabel('Version', { exact: true }).fill('1.4.0')
-  await publish.getByLabel('Langue App Store').click()
-  await page.getByRole('option', { name: 'de-DE', exact: true }).click()
-  await publish.getByLabel('Identifiant de localisation de version').fill('LOC-1234')
-  await expect(publish.getByText(/Preflight sans réserve/)).toBeVisible()
-
+  const publish = page.getByRole('dialog', { name: 'Publier sur App Store Connect' })
+  await expect(publish.getByText(/asc 0\.45\.4-fake/)).toBeVisible()
   await publish.getByLabel('Jeton asc-publish').fill('jeton-de-test')
+  await publish.getByRole('button', { name: 'Vérifier le pont' }).click()
+  await expect(publish.getByText('1 application lue chez Apple')).toBeVisible()
+  await publish.getByRole('button', { name: 'Continuer' }).click()
+
+  // La langue du lot figé (de-DE) apparie sa localisation : rien n'est recopié.
+  await expect(publish.getByText('Cadence — com.exemple.cadence')).toBeVisible()
+  await expect(publish.getByText('1.4.0 · PREPARE_FOR_SUBMISSION')).toBeVisible()
+  await expect(publish.getByText(/Langue App Store : de-DE/)).toBeVisible()
+  await publish.getByRole('button', { name: 'Continuer' }).click()
+
+  await expect(publish.getByText(/Preflight sans réserve/)).toBeVisible()
   await publish.getByRole('button', { name: 'Préparer le lot' }).click()
   await expect(publish.getByText(/Empreinte du lot/)).toBeVisible({ timeout: 120_000 })
   await publish.getByRole('button', { name: 'Essayer à blanc' }).click()
   await expect(publish.getByText(/Essai à blanc terminé/).first()).toBeVisible({ timeout: 60_000 })
 
   expect(published).toHaveLength(1)
-  // Ce qui est parti est le lot figé à l'étape 8, pas les écrans d'aujourd'hui.
+  // Ce qui est parti est le lot figé à l'étape 8, pas les écrans d'aujourd'hui,
+  // vers la localisation lue chez Apple pour sa langue.
   expect(published[0].releaseId).toBe(frozen[0].id)
   expect(published[0].files).toHaveLength(fingerprints.length)
   expect(published[0].bundleHash).toMatch(/^[a-f0-9]{64}$/)
+  expect(published[0].target.versionLocalization).toBe('LOC-1234')
   // Rien de destructeur ne s'arme tout seul au bout de dix étapes.
   expect(published[0].replaceExisting).toBe(false)
   expect(published[0].dryRun).toBe(true)

@@ -4,7 +4,14 @@ import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
 import { nextTimestamp } from '@/lib/time'
 import { POPULAR_FONTS } from '@/lib/fonts'
 import { defaultScreenName } from '@/lib/screens'
-import type { GlobalSettings, Layer, Project, Screen, StoreTargetId } from '@/types'
+import { defaultSourceLanguage } from '@/lib/locale-catalog'
+import {
+  MAX_LISTING_CONTEXT_LENGTH,
+  MAX_LISTING_NAME_LENGTH,
+  MAX_LISTING_PITCH_LENGTH,
+  MAX_LISTING_URL_LENGTH,
+} from '@/lib/project-validation'
+import type { GlobalSettings, Layer, Project, ProjectListing, Screen, StoreTargetId } from '@/types'
 
 // Les réglages globaux l'emportent sur les fabriques de calques : tout défaut
 // posé ici est ce que l'utilisateur voit réellement en ajoutant un calque.
@@ -85,6 +92,13 @@ interface ProjectState {
   renameScreen: (id: string, name: string) => void
   reorderScreens: (ids: string[]) => void
   updateGlobals: (globals: Partial<GlobalSettings>) => void
+  /**
+   * Le brief de la fiche : une donnée du projet, sans pas d'annulation. Un
+   * correctif partiel, fusionné sur le brief courant ; le store pose les défauts
+   * et tronque aux bornes, puisqu'il est le seul écrivain et qu'`isProject`
+   * exige un listing valide à la transaction suivante.
+   */
+  updateListing: (patch: Partial<ProjectListing>) => void
   updateScreenBackground: (screenId: string, background: Screen['background']) => void
   saveScreenLayers: (screenId: string, layers: Screen['layers']) => void
   saveLayoutLayers: (layers: Layer[]) => void
@@ -221,6 +235,25 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           }
         : state,
     ),
+
+  updateListing: (patch) =>
+    set((state) => {
+      if (!state.project) return state
+      const merged = { ...state.project.listing, ...patch }
+      const listing: ProjectListing = {
+        appName: (merged.appName ?? '').slice(0, MAX_LISTING_NAME_LENGTH),
+        pitch: (merged.pitch ?? '').slice(0, MAX_LISTING_PITCH_LENGTH),
+        direction: merged.direction ?? 'sobre',
+        language: merged.language ?? defaultSourceLanguage(),
+      }
+      /* Vides, les champs facultatifs sont omis plutôt que stockés à '' : un
+         champ effacé dans la boîte efface le brief. */
+      if (merged.productContext) {
+        listing.productContext = merged.productContext.slice(0, MAX_LISTING_CONTEXT_LENGTH)
+      }
+      if (merged.landingUrl) listing.landingUrl = merged.landingUrl.slice(0, MAX_LISTING_URL_LENGTH)
+      return { project: withTimestamp(state.project, { listing }) }
+    }),
 
   updateScreenBackground: (screenId, background) =>
     set((state) =>

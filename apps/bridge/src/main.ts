@@ -39,11 +39,13 @@ serve(
     console.log(
       `\nJeton « assistant » (version ${state.pairing.assistant.version}) :\n${state.pairing.assistant.token}`,
     )
-    console.log('  → ScreenForge, « Qui écrit les accroches » : composer et traduire.\n')
+    console.log('  → ScreenForge, « Qui écrit les accroches » : composer, traduire et relire.\n')
     console.log(
       `Jeton « asc-publish » (version ${state.pairing['asc-publish'].version}) :\n${state.pairing['asc-publish'].token}`,
     )
-    console.log('  → ScreenForge, boîte « Publier » : téléverser un lot figé chez Apple.\n')
+    console.log(
+      '  → ScreenForge, boîte « Publier » : lire vos applications et versions, téléverser une version figée chez Apple.\n',
+    )
     console.log('Les deux meurent avec ce processus. N’en collez que ce dont vous avez besoin.')
   },
 )

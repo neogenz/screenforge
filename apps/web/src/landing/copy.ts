@@ -338,6 +338,14 @@ const en = {
         a: 'No key is needed: the default generator is a local builder, and an agent over MCP uses your existing login. To have a model write the headlines from inside the editor, use Claude Code on your machine, an Anthropic key, or an OpenRouter key with the model you pick. Keys are encrypted at rest on this computer.',
       },
       {
+        q: 'Can it translate my screenshots into other languages?',
+        a: 'Yes. Add a language from the App Store Connect list, and the writer you connected (Claude Code on your machine, an Anthropic or OpenRouter key) translates every text layer at once; each proposal stays “to review” until you tick it, and overflows are flagged before export. The same writer proofreads your source headlines. Nothing is sent without your click, and no image ever leaves.',
+      },
+      {
+        q: 'Can it upload straight to App Store Connect?',
+        a: 'Yes, through the local bridge and the asc CLI on your Mac. Freeze a version, pick the app, version and language the bridge reads from your account, run the preflight, try a dry run, then publish. ScreenForge never holds an Apple credential: asc keeps its own in your keychain.',
+      },
+      {
         q: 'Which devices can I frame?',
         a: 'Current iPhones plus original vector frames for iPad, Apple Watch and a generic Android phone. Apple product bezels are not bundled or redistributed: download them from Apple Design Resources under Apple’s licence, then import the PNG locally.',
       },
@@ -685,6 +693,14 @@ const fr: Copy = {
       {
         q: 'Faut-il une clé d’API ? Puis-je utiliser OpenRouter ?',
         a: 'Aucune clé n’est nécessaire : le générateur par défaut est local, et un agent par MCP utilise le compte que vous avez déjà. Pour qu’un modèle écrive les accroches depuis l’éditeur, utilisez Claude Code sur votre machine, une clé Anthropic, ou une clé OpenRouter avec le modèle de votre choix. Les clés sont chiffrées sur cet ordinateur.',
+      },
+      {
+        q: 'Peut-il traduire mes captures dans d’autres langues ?',
+        a: 'Oui. Ajoutez une langue depuis la liste d’App Store Connect, et le rédacteur branché (Claude Code sur votre machine, une clé Anthropic ou OpenRouter) traduit tous les calques de texte d’un coup ; chaque proposition reste « à relire » jusqu’à ce que vous la cochiez, et les débordements sont signalés avant l’export. Le même rédacteur relit l’orthographe de vos accroches d’origine. Rien ne part sans votre clic, et aucune image ne sort.',
+      },
+      {
+        q: 'Peut-il envoyer directement sur App Store Connect ?',
+        a: 'Oui, par le pont local et la commande asc sur votre Mac. Figez une version, choisissez l’application, la version et la langue que le pont lit dans votre compte, lancez le preflight, essayez à blanc, puis publiez. ScreenForge ne détient jamais d’identifiant Apple : asc garde les siens dans votre trousseau.',
       },
       {
         q: 'Quels appareils puis-je encadrer ?',

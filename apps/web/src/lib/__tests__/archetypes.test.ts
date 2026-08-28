@@ -156,8 +156,14 @@ describe('chaque composition', () => {
     }
   })
 
-  it('tient l’accroche hors de chaque appareil automatique et réserve le pied', () => {
-    for (const id of SAFE_ARCHETYPE_IDS) {
+  it('tient l’accroche hors de chaque appareil qui doit la dégager, et réserve le pied', () => {
+    // Boucle sur les six, pas seulement les trois « sûrs » de l'assignation
+    // automatique : c'est le seul test qui aurait attrapé 'bas-ancre'
+    // peignant 94 px d'accroche sur l'appareil (planche Google Play).
+    // 'texte-sur-appareil' chevauche par construction, protégé par sa
+    // pastille — vérifiée à part, plus bas.
+    for (const id of ARCHETYPE_IDS) {
+      if (archetypeSpec(id).headline.overDevice) continue
       for (const { model, aspect, board } of CASES) {
         const { headline, device } = layoutOf(id, PALETTES[0], 0, aspect, board)
         if (!device) continue

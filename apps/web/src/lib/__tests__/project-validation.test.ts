@@ -1,12 +1,14 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   isProject,
+  LISTING_DIRECTIONS,
   MAX_GRADIENT_STOPS,
   MAX_LAYER_TEXT_LENGTH,
   MAX_PROJECT_LAYERS,
   migrateProject,
 } from '@/lib/project-validation'
 import { APP_STORE_PROFILE, APP_STORE_PROFILES, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
+import { DIRECTIONS } from '@/lib/ai/plan'
 import type { DeviceFrameLayer, Layer, Project, Release, StoreTargetId } from '@/types'
 
 function deviceLayer(deviceModel: DeviceFrameLayer['deviceModel']): DeviceFrameLayer {
@@ -110,6 +112,21 @@ describe('project validation', () => {
 
   it('accepts a complete current project', () => {
     expect(isProject(project())).toBe(true)
+  })
+
+  it('borne le brief de la fiche quand il est là, et l’ignore quand il n’y est pas', () => {
+    const listing = {
+      appName: 'Cadence',
+      pitch: 'Le rythme de vos journées',
+      direction: 'sobre',
+      language: 'fr-FR',
+    }
+    expect(isProject({ ...project(), listing })).toBe(true)
+    expect(isProject({ ...project(), listing: { ...listing, direction: 'flashy' } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, language: 'FR' } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, pitch: 'x'.repeat(141) } })).toBe(false)
+    expect(isProject({ ...project(), listing: { ...listing, productContext: 'a' } })).toBe(true)
+    expect(isProject({ ...project(), listing: { ...listing, appName: '' } })).toBe(true)
     expect(APP_STORE_PROFILE).toMatchObject({
       board: { width: 440, height: 956 },
       output: { portrait: { width: 1320, height: 2868 } },
@@ -355,5 +372,10 @@ describe('project validation', () => {
 
     const unknown = { ...legacy, profileId: 'unknown' }
     expect(isProject(migrateProject(unknown))).toBe(false)
+  })
+
+  it('accepte exactement les directions que le planificateur sait peindre', () => {
+    // Une cinquième direction ajoutée à `DIRECTIONS` sans le validateur échoue ici.
+    expect([...LISTING_DIRECTIONS]).toEqual(DIRECTIONS.map((entry) => entry.id))
   })
 })

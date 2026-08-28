@@ -6,6 +6,7 @@ import {
   validateBriefGroundingCapacity,
   validateGeneratedPlan,
 } from '@/lib/ai/plan'
+import { mapPool, TEXT_CONCURRENCY, type TextContext, type TextLanguage } from '@/lib/ai/text'
 import type { CampaignBrief, CampaignPlan, PlannedScreen } from '@/lib/ai/plan'
 import type { ProviderId } from '@/lib/ai/providers'
 import { APP_STORE_PROFILE, getStoreTargetProfile } from '@/lib/dimensions'
@@ -297,7 +298,7 @@ function planPrompt(brief: CampaignBrief, count: number): string {
       : 'Aucune capture n’est fournie : compose les visuels sur le seul brief.',
     '',
     'Écriture des accroches :',
-    '— Une idée par visuel, jamais deux. Trois à sept mots. En français.',
+    `— Une idée par visuel, jamais deux. Trois à sept mots. Dans la langue « ${brief.language ?? 'fr-FR'} ».`,
     '— Le bénéfice pour la personne, pas le nom de l’écran : « Vos dépenses,',
     '  enfin lisibles » et non « Tableau de bord ».',
     '— Aucune redite d’un visuel à l’autre, aucune reprise du nom de',
@@ -329,45 +330,53 @@ function planPrompt(brief: CampaignBrief, count: number): string {
     .join('\n')
 }
 
+/**
+ * Une réponse coupée par la limite de sortie n'est pas une réponse fausse.
+ *
+ * Sans lire `stop_reason`, un lot tronqué ressortait comme « nombre de textes
+ * inattendu » ou comme un JSON illisible — deux messages qui accusent le
+ * modèle d'une erreur qu'il n'a pas faite.
+ */
+const TRUNCATED =
+  'Le fournisseur a coupé sa réponse avant la fin : rien n’a été repris. Réessayez, ou choisissez un modèle qui écrit plus long.'
+
 async function complete(
   provider: ApiProviderId,
   key: string,
   model: string,
   prompt: string,
+  maxTokens = 2048,
 ): Promise<string> {
   if (provider === 'anthropic') {
-    const body = await request<{ content?: { type?: string; text?: string }[] }>(
-      'anthropic',
-      '/messages',
-      key,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          model,
-          max_tokens: 2048,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      },
-    )
+    const body = await request<{
+      stop_reason?: string
+      content?: { type?: string; text?: string }[]
+    }>('anthropic', '/messages', key, {
+      method: 'POST',
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (body.stop_reason === 'max_tokens') throw new Error(TRUNCATED)
     const text = (body.content ?? []).find((part) => part.type === 'text')?.text
     if (!text) throw new Error('Le modèle n’a rien répondu.')
     return text
   }
 
-  const body = await request<{ choices?: { message?: { content?: string } }[] }>(
-    'openrouter',
-    '/chat/completions',
-    key,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        model,
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
-    },
-  )
+  const body = await request<{
+    choices?: { finish_reason?: string; message?: { content?: string } }[]
+  }>('openrouter', '/chat/completions', key, {
+    method: 'POST',
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+    }),
+  })
+  if (body.choices?.[0]?.finish_reason === 'length') throw new Error(TRUNCATED)
   const text = body.choices?.[0]?.message?.content
   if (!text) throw new Error('Le modèle n’a rien répondu.')
   return text
@@ -434,4 +443,129 @@ export async function planViaApi(
   const failure = validateGeneratedPlan(plan, brief)
   if (failure) throw new Error(`${failure} Rien n’a été repris.`)
   return plan
+}
+
+/* ------------------------------------------------------------ textes */
+
+/**
+ * Traduire et relire par un fournisseur direct.
+ *
+ * Même prose que les routes `/translate` et `/proofread` du pont, réécrite ici
+ * parce que l'onglet et le pont ne partagent aucun module exécutable : le
+ * contrat est le même — des textes numérotés, autant en retour, dans l'ordre —
+ * et il est revérifié au retour comme pour un plan.
+ */
+function contextLines(context?: TextContext): string[] {
+  return [
+    ...(context?.appName ? [`Application : ${context.appName}.`] : []),
+    ...(context?.pitch ? [`Ce qu’elle fait : ${context.pitch}`] : []),
+  ]
+}
+
+function textsPrompt(
+  head: string,
+  rules: readonly string[],
+  texts: readonly string[],
+  context?: TextContext,
+): string {
+  return [
+    head,
+    ...contextLines(context),
+    ...rules,
+    'Rends exactement autant de textes que tu en reçois, dans le même ordre.',
+    'Pas de guillemets ajoutés, pas de ponctuation finale ajoutée, aucune explication.',
+    'Rends uniquement cet objet JSON, sans texte autour et sans bloc de code : {"texts":["…"]}',
+    '',
+    ...texts.map((text, index) => `${index + 1}. ${text}`),
+  ].join('\n')
+}
+
+/**
+ * Ce qu'un appel porte de texte. ponytail : ~6 000 caractères rendent dans les
+ * 4 096 jetons de sortie que tout modèle accepte ; un lot de cent textes de
+ * quatre cents caractères y était tronqué, puis refusé entier sous un message
+ * qui parlait de compte. Le pont n'a pas cette borne : il rend sans plafond.
+ */
+export const API_TEXT_CHARS = 6_000
+
+/** Découpe par caractères cumulés, jamais au milieu d'un texte, ordre gardé. */
+export function chunkByChars(texts: readonly string[], limit = API_TEXT_CHARS): string[][] {
+  const out: string[][] = []
+  let current: string[] = []
+  let size = 0
+  for (const text of texts) {
+    if (current.length > 0 && size + text.length > limit) {
+      out.push(current)
+      current = []
+      size = 0
+    }
+    current.push(text)
+    size += text.length
+  }
+  if (current.length > 0) out.push(current)
+  return out
+}
+
+async function completeTexts(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  head: string,
+  rules: string[],
+  texts: readonly string[],
+  context?: TextContext,
+): Promise<string[]> {
+  const answers = await mapPool(chunkByChars(texts), TEXT_CONCURRENCY, async (batch) => {
+    const prompt = textsPrompt(head, rules, batch, context)
+    const raw = extractJson(await complete(provider, key, model, prompt, 4096)) as {
+      texts?: unknown
+    }
+    const out = Array.isArray(raw.texts) ? raw.texts : []
+    if (out.length !== batch.length || !out.every((text) => typeof text === 'string')) {
+      throw new Error('Le fournisseur a rendu un nombre de textes inattendu : rien n’a été repris.')
+    }
+    return out as string[]
+  })
+  return answers.flat()
+}
+
+export function translateViaApi(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  target: TextLanguage,
+  texts: readonly string[],
+  options: { source?: TextLanguage; context?: TextContext } = {},
+): Promise<string[]> {
+  const from = options.source ? `du ${options.source.name} (${options.source.code}) ` : ''
+  return completeTexts(
+    provider,
+    key,
+    model,
+    `Traduis ${from}en ${target.name} (${target.code}) les accroches de captures App Store ci-dessous.`,
+    ['Garde la longueur proche de l’original : ces textes sont posés dans des boîtes fixes.'],
+    texts,
+    options.context,
+  )
+}
+
+export function proofreadViaApi(
+  provider: ApiProviderId,
+  key: string,
+  model: string,
+  language: TextLanguage,
+  texts: readonly string[],
+  context?: TextContext,
+): Promise<string[]> {
+  return completeTexts(
+    provider,
+    key,
+    model,
+    `Corrige l’orthographe, la grammaire et la typographie des accroches ci-dessous, écrites en ${language.name} (${language.code}).`,
+    [
+      'Ne reformule pas, ne raccourcis pas, ne change ni le sens ni le ton : un texte déjà correct est rendu tel quel.',
+    ],
+    texts,
+    context,
+  )
 }

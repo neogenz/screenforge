@@ -11,7 +11,6 @@ import {
   Languages,
   LayoutTemplate,
   LoaderCircle,
-  Megaphone,
   MoreHorizontal,
   Moon,
   Package,
@@ -25,6 +24,7 @@ import {
   Smartphone,
   Square,
   Star,
+  Store,
   Sun,
   Tablet,
   TriangleAlert,
@@ -51,7 +51,12 @@ import { Island } from '@/components/patterns/island'
 import { InputPrimitive } from '@/components/ui/input'
 import { Dropdown } from '@/components/patterns/action-menu'
 import { belowWidth, useMediaQuery } from '@/hooks/use-media-query'
-import { TOP_BAR_COMPACT_WIDTH, TOP_BAR_LABELS_MIN_WIDTH, TOP_BAR_TOOLS_WIDTH } from '@/lib/stage'
+import {
+  TOP_BAR_ACTION_LABELS_WIDTH,
+  TOP_BAR_COMPACT_WIDTH,
+  TOP_BAR_LABELS_MIN_WIDTH,
+  TOP_BAR_TOOLS_WIDTH,
+} from '@/lib/stage'
 import { cn } from '@/lib/utils'
 import { billingConfigured } from '@/lib/account'
 import { analyticsConfigured } from '@/lib/analytics'
@@ -189,6 +194,8 @@ export function TopBar() {
   // habitable — voir `TOP_BAR_TOOLS_WIDTH`.
   const compactActions = useMediaQuery(belowWidth(TOP_BAR_COMPACT_WIDTH))
   const compactTools = useMediaQuery(belowWidth(TOP_BAR_TOOLS_WIDTH))
+  // Et un troisième, vers le haut : au large, chaque action porte son mot.
+  const labelledActions = !useMediaQuery(belowWidth(TOP_BAR_ACTION_LABELS_WIDTH))
   const storageUnavailable = useUIStore((s) => s.storageUnavailable)
 
   // La colonne du projet plancher à `0` et non à `min-content` : un champ en
@@ -212,7 +219,11 @@ export function TopBar() {
         {/* La colonne reste, vide : la grille en compte trois, et c'est elle qui
           garde le groupe central au milieu quand il revient. */}
         {compactTools ? <span /> : <ToolsSegment />}
-        <ActionsSegment compactActions={compactActions} compactTools={compactTools} />
+        <ActionsSegment
+          compactActions={compactActions}
+          compactTools={compactTools}
+          labelled={labelledActions}
+        />
       </Island>
       {/* Sous la barre, jamais dedans : la grille de l'îlot est mesurée au pixel
         près (`lib/stage.ts`), une bannière n'y a pas de colonne. Tient tant
@@ -524,13 +535,14 @@ interface SecondaryAction {
   id: string
   /** Nom accessible et libellé de menu : le même mot dans les deux formes. */
   label: string
+  /**
+   * Le mot écrit à côté du glyphe sur la rangée, au large. Contenu dans
+   * `label`, pour que le nom prononcé soit celui qu'on lit (WCAG 2.5.3) —
+   * `responsive-chrome.spec.ts` le balaie sur chaque bouton de la rangée.
+   */
+  short?: string
   hint: string
   icon: React.ReactNode
-  /**
-   * Appliqué au bouton de la rangée, jamais à l'entrée de menu : replié, le
-   * même contenu retombe dans une fente d'icône que le menu dimensionne.
-   */
-  className?: string
   /** Renseigné pour ce qui ouvre un dialogue, absent pour ce qui agit. */
   expanded?: boolean
   disabled?: boolean
@@ -693,11 +705,6 @@ function usePlanAction(): SecondaryAction | null {
     label: 'Voir les offres',
     hint: `Palier ${plan} — voir les offres`,
     icon: <BadgeIcon>{plan}</BadgeIcon>,
-    /* Le seul de la rangée qui porte un mot. Une case de 36 est taillée pour un
-       glyphe de 16 : « Gratuit » y mesurait 39,6 px de large, donc l'aplat de
-       survol passait *sous* son propre texte et le débordait des deux côtés. La
-       largeur suit le mot, la hauteur reste celle de la rangée. */
-    className: 'w-auto px-2',
     expanded: showPricingDialog,
     onSelect: () => useUIStore.getState().setShowPricingDialog(!showPricingDialog),
   }
@@ -724,59 +731,46 @@ function BadgeIcon({ children }: { children: string }) {
 }
 
 /**
- * Trois rangs, et non une liste.
+ * Deux rangs sur la rangée, et un menu qui porte le reste.
  *
  * Onze pictogrammes alignés sans respiration se lisaient comme un tiroir : rien
  * ne disait que « Publier chez Apple » et « Changer de thème » n'ont pas le même
- * poids. Les libellés ne réglaient pas ça — neuf mots ne tiennent pas sous
- * 1280px et doubleraient les infobulles — mais l'ordre et les filets, si.
+ * poids. L'ordre et les filets ont réglé la hiérarchie, pas la lecture. Mesuré
+ * sur l'utilisateur : huit glyphes de 16px — une galerie « [|] », un engrenage,
+ * un bouclier — restaient illisibles sans survoler chacun, et les réglages
+ * (globaux, confidentialité) tenaient la place d'actions de livraison. Donc six
+ * actions au lieu de huit, chacune écrite d'un mot dès que la fenêtre le permet
+ * (`TOP_BAR_ACTION_LABELS_WIDTH`), et les réglages dans « … », qu'on ouvre une
+ * fois par projet.
  *
  * Composer : ce qui pose des calques sur la planche.
  */
 function useComposeActions(): SecondaryAction[] {
   const showTemplatesPicker = useUIStore((s) => s.showTemplatesPicker)
-  const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
   const showCampaignDialog = useUIStore((s) => s.showCampaignDialog)
-  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
 
   return [
     {
       id: 'templates',
       label: 'Ouvrir les modèles',
+      short: 'Modèles',
       hint: 'Modèles de mise en page',
       icon: <LayoutTemplate strokeWidth={1.75} aria-hidden />,
       expanded: showTemplatesPicker,
       onSelect: () => useUIStore.getState().setShowTemplatesPicker(!showTemplatesPicker),
     },
     {
-      id: 'globals',
-      label: 'Ouvrir les réglages globaux',
-      hint: 'Réglages globaux du projet',
-      icon: <Settings strokeWidth={1.75} aria-hidden />,
-      expanded: showGlobalsEditor,
-      onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
-    },
-    ...(analyticsConfigured
-      ? [
-          {
-            id: 'privacy',
-            label: 'Préférences de confidentialité',
-            hint: 'Choisir les analytics et le diagnostic',
-            icon: <ShieldCheck strokeWidth={1.75} aria-hidden />,
-            expanded: showPrivacyDialog,
-            onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
-          },
-        ]
-      : []),
-    {
       id: 'campaign',
-      label: 'Générer les visuels de la fiche',
-      hint: 'Captures, brief et style vers des calques éditables',
-      /* Un mégaphone, pas une baguette magique. Les visuels de la fiche sont
-         du marketing, et la génération n'est intelligente que si l'utilisateur
-         a branché un modèle — une baguette la promettait dans tous les cas et
-         se lisait par ailleurs comme une retouche par IA du calque courant. */
-      icon: <Megaphone strokeWidth={1.75} aria-hidden />,
+      label: 'Composer la fiche',
+      short: 'Composer la fiche',
+      hint: 'Pose les visuels de la fiche en calques : tout le lot, ou l’écran courant',
+      /* La devanture du magasin — la page que ces visuels composent —, ni une
+         baguette magique, ni un mégaphone, ni la galerie « [|] » qui a suivi.
+         La baguette promettait une IA dans tous les cas et se lisait comme une
+         retouche du calque courant ; le mégaphone disait « marketing » sans
+         dire quoi ; la galerie, à 16px, était trois traits que personne n'a
+         lus comme une fiche. */
+      icon: <Store strokeWidth={1.75} aria-hidden />,
       expanded: showCampaignDialog,
       onSelect: () => useUIStore.getState().setShowCampaignDialog(!showCampaignDialog),
     },
@@ -796,6 +790,7 @@ function useDeliverActions(): SecondaryAction[] {
     {
       id: 'refresh',
       label: 'Actualiser les captures',
+      short: 'Captures',
       hint: 'Remplacer le lot de captures',
       icon: <RefreshCw strokeWidth={1.75} aria-hidden />,
       expanded: showRefreshDialog,
@@ -804,6 +799,7 @@ function useDeliverActions(): SecondaryAction[] {
     {
       id: 'locales',
       label: 'Ouvrir les langues',
+      short: 'Langues',
       hint: 'Variantes de langue et débordements',
       icon: <Languages strokeWidth={1.75} aria-hidden />,
       expanded: showLocaleDialog,
@@ -811,8 +807,9 @@ function useDeliverActions(): SecondaryAction[] {
     },
     {
       id: 'releases',
-      label: 'Ouvrir les releases',
-      hint: 'Releases figées et comparaison',
+      label: 'Ouvrir les versions figées',
+      short: 'Versions figées',
+      hint: 'La photo datée de ce que vous livrez : à vérifier, comparer, reprendre, publier',
       icon: <Package strokeWidth={1.75} aria-hidden />,
       expanded: showReleaseDialog,
       onSelect: () => useUIStore.getState().setShowReleaseDialog(!showReleaseDialog),
@@ -822,10 +819,45 @@ function useDeliverActions(): SecondaryAction[] {
           {
             id: 'publish',
             label: 'Publier chez Apple',
+            short: 'Publier',
             hint: 'Preflight, manifeste et commande asc',
             icon: <CloudUpload strokeWidth={1.75} aria-hidden />,
             expanded: showPublishDialog,
             onSelect: () => useUIStore.getState().setShowPublishDialog(!showPublishDialog),
+          },
+        ]
+      : []),
+  ]
+}
+
+/**
+ * Réglages : ce qu'on fixe une fois par projet, jamais entre deux livraisons.
+ *
+ * Ils vivaient sur la rangée, entre les modèles et la fiche, où un engrenage et
+ * un bouclier prenaient la place d'actions de livraison sans en avoir le poids.
+ */
+function useSettingsActions(): SecondaryAction[] {
+  const showGlobalsEditor = useUIStore((s) => s.showGlobalsEditor)
+  const showPrivacyDialog = useUIStore((s) => s.showPrivacyDialog)
+
+  return [
+    {
+      id: 'globals',
+      label: 'Ouvrir les réglages globaux',
+      hint: 'Réglages globaux du projet',
+      icon: <Settings strokeWidth={1.75} aria-hidden />,
+      expanded: showGlobalsEditor,
+      onSelect: () => useUIStore.getState().setShowGlobalsEditor(!showGlobalsEditor),
+    },
+    ...(analyticsConfigured
+      ? [
+          {
+            id: 'privacy',
+            label: 'Préférences de confidentialité',
+            hint: 'Choisir les analytics et le diagnostic',
+            icon: <ShieldCheck strokeWidth={1.75} aria-hidden />,
+            expanded: showPrivacyDialog,
+            onSelect: () => useUIStore.getState().setShowPrivacyDialog(!showPrivacyDialog),
           },
         ]
       : []),
@@ -933,7 +965,8 @@ function SecondaryActionsMenu({ groups }: { groups: SecondaryAction[][] }) {
   )
 }
 
-function RowAction({ action }: { action: SecondaryAction }) {
+function RowAction({ action, labelled }: { action: SecondaryAction; labelled: boolean }) {
+  const word = labelled ? action.short : undefined
   return (
     <ToolbarTool
       aria-label={action.label}
@@ -942,9 +975,14 @@ function RowAction({ action }: { action: SecondaryAction }) {
       aria-expanded={action.expanded}
       aria-haspopup={action.expanded === undefined ? undefined : 'dialog'}
       onClick={action.onSelect}
-      className={action.className}
+      /* Écrite, l'action prend la largeur de son mot. `w-auto` seul ne
+         suffit pas : coss déclare `size-9 sm:size-8`, et tailwind-merge
+         indexe ses conflits par variante — mesuré, la boîte restait à 32px
+         sous un mot de 105. Une variante coss s'écrase deux fois. */
+      className={cn(word && 'w-auto sm:w-auto px-2')}
     >
       {action.icon}
+      {word && <span className="text-xs font-medium">{word}</span>}
     </ToolbarTool>
   )
 }
@@ -952,22 +990,25 @@ function RowAction({ action }: { action: SecondaryAction }) {
 function ActionsSegment({
   compactActions,
   compactTools,
+  labelled,
 }: {
   compactActions: boolean
   compactTools: boolean
+  labelled: boolean
 }) {
   const layersOpen = useUIStore((s) => s.layersOpen)
   const propsOpen = useUIStore((s) => s.propsOpen)
   const compose = useComposeActions()
   const deliver = useDeliverActions()
+  const settings = useSettingsActions()
   const utilities = useUtilityActions()
   const tools = useToolActions()
   // Le CTA principal reste, ce sont ses voisins qui cèdent — et les outils
   // repliés arrivent en tête du menu, dans l'ordre de la rangée qu'ils quittent.
   const compact = compactActions || compactTools
   const folded = compact
-    ? [...(compactTools ? [tools] : []), compose, deliver, utilities]
-    : [utilities]
+    ? [...(compactTools ? [tools] : []), compose, deliver, settings, utilities]
+    : [settings, utilities]
 
   return (
     <ToolbarGroup className="justify-self-end">
@@ -998,11 +1039,11 @@ function ActionsSegment({
       {!compact && (
         <>
           {compose.map((action) => (
-            <RowAction key={action.id} action={action} />
+            <RowAction key={action.id} action={action} labelled={labelled} />
           ))}
           <Divider />
           {deliver.map((action) => (
-            <RowAction key={action.id} action={action} />
+            <RowAction key={action.id} action={action} labelled={labelled} />
           ))}
           <Divider />
         </>

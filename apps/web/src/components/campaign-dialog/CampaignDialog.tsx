@@ -3,16 +3,18 @@ import {
   AlertCircle,
   Check,
   ChevronRight,
+  Store,
   ImageUp,
-  Megaphone,
   Paintbrush,
   RefreshCw,
+  SpellCheck,
   Trash2,
 } from 'lucide-react'
 import { registerAsset } from '@/lib/assets'
 import {
   DIRECTIONS,
   isCampaignPlan,
+  planScreenCalls,
   planScreenLayout,
   planToolCalls,
   resolvePalette,
@@ -27,18 +29,18 @@ import { paletteFromScreenshots, type Palette } from '@/lib/ai/palette'
 import { PlanPreview } from '@/components/campaign-dialog/PlanPreview'
 import { commitAiRun, discardAiAssets, planCampaign } from '@/lib/ai/run'
 import { archetypeSpec, SAFE_ARCHETYPE_IDS, type ArchetypeId } from '@/lib/ai/archetypes'
-import { AI_LIMITS } from '@/lib/ai/tools'
-import { connectBridge, setBridgeToken } from '@/lib/bridge-client'
-import { connectApiProvider, setApiKey } from '@/lib/ai/direct-api'
-import { aiProvider, type ProviderId } from '@/lib/ai/providers'
+import { AI_LIMITS, type ToolCall } from '@/lib/ai/tools'
+import { runTextJob, textWriterUnavailable } from '@/lib/ai/text'
+import { aiProvider } from '@/lib/ai/providers'
 import { AssistantSetup } from '@/components/campaign-dialog/AssistantSetup'
+import { useAssistant } from '@/components/campaign-dialog/use-assistant'
+import { LOCALE_CATALOG, defaultSourceLanguage, localeName } from '@/lib/locale-catalog'
 import {
-  assistantSession,
-  rememberAssistant,
-  restoreAssistant,
-  type AssistantConnection,
-} from '@/lib/ai/session'
-import { forgetStoredSecret } from '@/lib/ai/key-store'
+  MAX_LISTING_CONTEXT_LENGTH,
+  MAX_LISTING_NAME_LENGTH,
+  MAX_LISTING_PITCH_LENGTH,
+  MAX_LISTING_URL_LENGTH,
+} from '@/lib/project-validation'
 import {
   imageImportErrorMessage,
   importImageFile,
@@ -55,12 +57,13 @@ import { AsyncPanel } from '@/components/patterns/async-panel'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { SelectField } from '@/components/patterns/select-field'
+import { Segmented } from '@/components/patterns/segmented'
 import { Textarea } from '@/components/ui/textarea'
 import { Hint } from '@/components/patterns/hint'
 import { getActiveScreen, useProjectStore } from '@/stores/project.store'
 import { useUIStore } from '@/stores/ui.store'
 import { toast } from '@/stores/toast.store'
-import type { Project } from '@/types'
+import type { DeviceFrameLayer, Project } from '@/types'
 import { getStoreTargetProfile } from '@/lib/dimensions'
 
 const NAME_FIELD_ID = 'sf-campaign-name'
@@ -68,13 +71,21 @@ const PITCH_FIELD_ID = 'sf-campaign-pitch'
 const URL_FIELD_ID = 'sf-campaign-url'
 const CONTEXT_FIELD_ID = 'sf-campaign-context'
 const COUNT_FIELD_ID = 'sf-campaign-count'
+const LANGUAGE_FIELD_ID = 'sf-campaign-language'
 const HEADLINE_FIELD_ID = 'sf-campaign-headline'
 
 /** Quatre visuels forment le lot promotionnel recommandé sur Google Play. */
 const DEFAULT_SCREEN_COUNT = 4
 
 /**
- * Générer les visuels de la fiche du store, puis les corriger comme le reste.
+ * Composer les visuels de la fiche du store, puis les corriger comme le reste.
+ *
+ * Deux portées, un même plan : ajouter un lot de visuels neufs, ou recomposer
+ * l'écran courant — ses calques remplacés par une composition fraîche, sa
+ * capture reprise, un seul pas d'annulation. Ce que la fiche sait de l'app
+ * (nom, phrase, arguments, style, langue) vit dans `project.listing` : saisi
+ * une fois, relu à chaque ouverture, et c'est ce qui rend le second passage
+ * court. Mesuré avant : chaque régénération faisait tout ressaisir.
  *
  * La boîte tient en deux temps : le brief, puis le plan. Le plan est relu avant
  * que quoi que ce soit ne soit posé — c'est la différence entre une génération
@@ -110,14 +121,20 @@ function CampaignDialogContent({ project }: { project: Project }) {
   const shotsInput = useRef<HTMLInputElement>(null)
   const logoInput = useRef<HTMLInputElement>(null)
 
-  /* Vide, jamais `project.name` : le nom du projet est « Projet sans titre »
-     tant que personne ne l'a changé, et le constructeur le recopiait tel quel
-     dans chaque accroche. Un nom d'app se saisit, il ne se devine pas. */
-  const [appName, setAppName] = useState('')
-  const [pitch, setPitch] = useState('')
-  const [landingUrl, setLandingUrl] = useState('')
-  const [productContext, setProductContext] = useState('')
-  const [direction, setDirection] = useState<DirectionId>('sobre')
+  /* Repris de la fiche du projet, et vide sinon — jamais `project.name` : le
+     nom du projet est « Projet sans titre » tant que personne ne l'a changé, et
+     le constructeur le recopiait tel quel dans chaque accroche. Un nom d'app se
+     saisit, une fois ; ensuite il est là. */
+  const listing = project.listing
+  const [appName, setAppName] = useState(listing?.appName ?? '')
+  const [pitch, setPitch] = useState(listing?.pitch ?? '')
+  const [landingUrl, setLandingUrl] = useState(listing?.landingUrl ?? '')
+  const [productContext, setProductContext] = useState(listing?.productContext ?? '')
+  const [direction, setDirection] = useState<DirectionId>(listing?.direction ?? 'sobre')
+  const [language, setLanguage] = useState(listing?.language ?? defaultSourceLanguage())
+  /* Ajouter un lot, ou recomposer l'écran courant : deux portées, une boîte. */
+  const [scope, setScope] = useState<'add' | 'current'>('add')
+  const [proofreading, setProofreading] = useState(false)
   /* La palette lue dans les captures et le fait de s'en servir sont deux états :
      l'utilisateur peut revenir à « Sobre » puis y retourner sans relire les
      pixels, et un nouveau lot de captures remplace la palette sans annuler le
@@ -141,46 +158,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
      squelette pendant l'attente et l'échec nommé si le fournisseur lâche. */
   const [composing, setComposing] = useState(false)
   const [composeFailed, setComposeFailed] = useState(false)
-  /*
-     L'appairage est repris de la session, pas reconstruit à chaque ouverture.
+  /* L'appairage est repris de la session, pas reconstruit à chaque ouverture :
+     voir `use-assistant.ts`, partagé avec la boîte des langues. */
+  const assistant = useAssistant()
+  const { providerId, secret, connection, model, connected } = assistant
 
-     Générer ferme la boîte : quand l'état vivait ici, chaque génération coûtait
-     de relancer le pont, recoller le jeton et rechoisir le modèle. Voir
-     `lib/ai/session.ts` pour ce que la session porte, et `lib/ai/key-store.ts`
-     pour ce qui survit à l'onglet — une clé d'API, scellée ; jamais le jeton du
-     pont, qui meurt avec son processus.
-  */
-  const [restored] = useState(assistantSession)
-  const [providerId, setProviderId] = useState<ProviderId>(restored.providerId)
-  const [secret, setSecret] = useState(restored.secret)
-  const [connection, setConnection] = useState<AssistantConnection>(restored.connection)
-  const [model, setModel] = useState(restored.model)
-
-  /* La lecture du disque est asynchrone et la boîte est chargée à la demande :
-     le module et le composant arrivent ensemble, donc la valeur initiale
-     ci-dessus est la meilleure hypothèse et celle-ci est la réponse. Elle ne
-     s'applique qu'à une session vierge — `restoreAssistant` le vérifie — donc
-     ce qui aurait été saisi entre-temps n'est pas écrasé. */
-  useEffect(() => {
-    let cancelled = false
-    void restoreAssistant().then((settled) => {
-      if (cancelled) return
-      setProviderId(settled.providerId)
-      setSecret(settled.secret)
-      setConnection(settled.connection)
-      setModel(settled.model)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  /* Une seule écriture, en effet, plutôt qu'un miroir dans chaque `setState` :
-     quatre points d'écriture auraient dérivé au premier oubli, et écrire pendant
-     le rendu ferait de la session un effet de bord du rendu. */
-  useEffect(() => {
-    rememberAssistant({ providerId, secret, connection, model })
-  }, [providerId, secret, connection, model])
   /* Ce que ce run a enregistré, pour pouvoir le rendre au néant s'il est
      abandonné. La ref plutôt que l'état : rien ne s'affiche à partir d'elle, et
      elle est lue dans un démontage. */
@@ -212,30 +194,52 @@ function CampaignDialogContent({ project }: { project: Project }) {
      gagner un écran pendant que la boîte est ouverte. */
   const room = Math.max(0, profile.maxScreens - project.screens.length)
   const full = room === 0
-  const screenCount = Math.max(1, Math.min(chosenCount, room))
+  const activeScreen = getActiveScreen(project)
+  const recomposing = scope === 'current' && activeScreen !== undefined
+  const screenCount = recomposing ? 1 : Math.max(1, Math.min(chosenCount, room))
   const named = appName.trim().length > 0
+
+  /* La capture déjà posée sur l'écran courant : recomposer ne la redemande pas.
+     Lue dans le calque appareil, avec sa taille naturelle — sans elle,
+     `add_device` n'aurait pas de quoi cadrer. */
+  const currentShot = useMemo<LoadedShot | undefined>(() => {
+    const device = activeScreen?.layers.find(
+      (layer): layer is DeviceFrameLayer =>
+        layer.type === 'device-frame' && Boolean(layer.screenshotAssetId),
+    )
+    return activeScreen && device?.screenshotAssetId && device.screenshotSize
+      ? { label: activeScreen.name, assetId: device.screenshotAssetId, size: device.screenshotSize }
+      : undefined
+  }, [activeScreen])
+
+  /* Un seul brief assemblé : le plan et la fiche du projet lisent les mêmes
+     champs, élagués de la même façon. */
+  const draft = useMemo(
+    () => ({
+      appName: appName.trim(),
+      pitch: pitch.trim(),
+      landingUrl: landingUrl.trim() || undefined,
+      productContext: productContext.trim() || undefined,
+      direction,
+      language,
+    }),
+    [appName, pitch, landingUrl, productContext, direction, language],
+  )
 
   const brief: CampaignBrief = useMemo(
     () => ({
       target: project.target,
-      appName: appName.trim(),
-      pitch,
-      landingUrl: landingUrl.trim() || undefined,
-      productContext: productContext.trim() || undefined,
-      direction,
+      ...draft,
       palette,
       screenCount,
       deviceModel: project.globals.deviceModel,
       board: profile.board,
-      screenshots: shots,
+      /* Recomposer prend une capture, celle qu'on dépose sinon celle en place. */
+      screenshots: recomposing ? (shots[0] ? [shots[0]] : currentShot ? [currentShot] : []) : shots,
       logo,
     }),
     [
-      appName,
-      pitch,
-      landingUrl,
-      productContext,
-      direction,
+      draft,
       palette,
       project.target,
       screenCount,
@@ -243,10 +247,17 @@ function CampaignDialogContent({ project }: { project: Project }) {
       profile.board,
       shots,
       logo,
+      recomposing,
+      currentShot,
     ],
   )
 
-  const activeScreen = getActiveScreen(project)
+  /* Le brief est une donnée du projet, pas de la boîte : ce que la fiche sait
+     de l'app se saisit une fois, et chaque ouverture repart de là. Écrit sans
+     pas d'annulation, comme le nom du projet — ce n'est pas un calque. */
+  function saveListing() {
+    useProjectStore.getState().updateListing(draft)
+  }
 
   async function loadShots(chosen: File[]) {
     if (chosen.length === 0) return
@@ -320,89 +331,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
     setPlan(null)
   }
 
-  /**
-   * Appaire, quel que soit le fournisseur — et sans jamais écrire le secret.
-   *
-   * Les deux familles se rejoignent sur un seul état : le pont rend un `hello`
-   * et une liste de modèles, une API rend son catalogue, et l'installation
-   * guidée affiche la même marche dans les deux cas. Ce qui reste différent est
-   * le seul fait qui compte pour l'utilisateur, et il est dans `providers.ts` :
-   * un jeton n'ouvre qu'un programme de sa machine, une clé est facturée.
-   */
-  async function connect() {
-    const trimmed = secret.trim()
-    setConnection({ state: 'checking' })
-
-    const engine = aiProvider(providerId).engine
-    if (engine) {
-      const status = await connectBridge(trimmed, engine)
-      if (status.state !== 'ready') {
-        setConnection({
-          state: 'error',
-          message: status.state === 'error' ? status.message : 'Le pont n’a pas répondu.',
-        })
-        return
-      }
-      /* Retenu pour la session, en mémoire de module : la boîte des langues
-         parle au même pont, et faire retaper le même secret par boîte serait
-         une cérémonie sans gain de sécurité. Il meurt au rechargement. */
-      setBridgeToken('assistant', trimmed, engine)
-      setModel(status.models[0]?.id ?? '')
-      setConnection({
-        state: 'ready',
-        models: status.models,
-        detail:
-          `Connecté · ${engine} ${status.hello.engines.find((one) => one.id === engine)?.version ?? ''} · jeton version ${status.hello.tokenVersions.assistant}`.trim(),
-      })
-      return
-    }
-
-    if (providerId === 'anthropic' || providerId === 'openrouter') {
-      const status = await connectApiProvider(providerId, trimmed)
-      if (status.state !== 'ready') {
-        setConnection({
-          state: 'error',
-          message: status.state === 'error' ? status.message : 'Clé refusée.',
-        })
-        return
-      }
-      setApiKey(providerId, trimmed)
-      /* Le premier modèle du catalogue n'est un défaut acceptable que sur une
-         liste courte. Sur les centaines d'OpenRouter, il serait arbitraire :
-         le champ reste vide, et l'étape 3 se coche quand l'utilisateur a
-         choisi. */
-      setModel(status.models.length > 40 ? '' : (status.models[0]?.id ?? ''))
-      setConnection({
-        state: 'ready',
-        models: status.models,
-        detail: `Clé acceptée · ${status.models.length} modèle${status.models.length > 1 ? 's' : ''} disponible${status.models.length > 1 ? 's' : ''}`,
-      })
-    }
-  }
-
-  const connected = connection.state === 'ready'
-
-  /* Changer de fournisseur remet l'appairage à zéro : un jeton de pont collé
-     dans le champ d'une clé Anthropic ne vaut rien, et un modèle choisi chez
-     l'un n'existe pas chez l'autre. */
-  function pickProvider(next: ProviderId) {
-    setProviderId(next)
-    setSecret('')
-    setModel('')
-    setConnection({ state: 'idle' })
-  }
-
-  /* Le seul chemin de sortie d'une clé enregistrée. Sans lui, la persistance
-     serait à sens unique : une clé collée une fois resterait sur cette machine
-     sans que rien dans l'interface ne sache la retirer. Le fournisseur et le
-     modèle restent choisis — ce sont des préférences, pas des secrets. */
-  function forgetSecret() {
-    setSecret('')
-    setConnection({ state: 'idle' })
-    void forgetStoredSecret(providerId)
-  }
-
   async function compose() {
+    saveListing()
     setBusy(true)
     setComposing(true)
     setComposeFailed(false)
@@ -527,24 +457,94 @@ function CampaignDialogContent({ project }: { project: Project }) {
       setError(`${layoutFailure} Corrigez l’accroche ou choisissez une autre mise en page.`)
       return
     }
-    const outcome = commitAiRun(planToolCalls(plan, brief), {
-      assetIds: registered.current,
-    })
+    saveListing()
+    /* Recomposer : vider l'écran puis rejouer les appels d'un visuel dessus,
+       dans la même transaction et bornés à cet écran — `context.screenId`
+       refuse tout ce qui en sortirait. La capture en place est autorisée par
+       son identifiant, comme un fichier déposé dans ce run. */
+    const outcome =
+      recomposing && activeScreen
+        ? commitAiRun(
+            [
+              ...activeScreen.layers.map((layer): ToolCall => ({
+                tool: 'delete_layer',
+                args: { layerId: layer.id },
+              })),
+              ...planScreenCalls(plan, brief, 0),
+            ],
+            {
+              screenId: activeScreen.id,
+              assetIds: [...registered.current, ...(currentShot ? [currentShot.assetId] : [])],
+            },
+          )
+        : commitAiRun(planToolCalls(plan, brief), { assetIds: registered.current })
     if (!outcome.committed) {
       setError(outcome.error ?? 'La génération a échoué : le projet est resté inchangé.')
       return
     }
     toast(
-      `${outcome.screenIds.length} visuel${outcome.screenIds.length > 1 ? 's' : ''} ajouté${
-        outcome.screenIds.length > 1 ? 's' : ''
-      }.`,
+      recomposing && activeScreen
+        ? `Écran « ${activeScreen.name} » recomposé. ⌘Z pour revenir.`
+        : `${outcome.screenIds.length} visuel${outcome.screenIds.length > 1 ? 's' : ''} ajouté${
+            outcome.screenIds.length > 1 ? 's' : ''
+          }.`,
       'success',
     )
     close()
   }
 
+  /**
+   * Relire les accroches du plan : orthographe et typographie, jamais le sens.
+   *
+   * Par le rédacteur de la session — celui qui vient d'écrire —, dans la langue
+   * choisie pour la fiche. Le plan est corrigé en place, avant la pose : rien
+   * n'est encore dans le projet, donc rien à annuler.
+   */
+  async function proofread() {
+    if (!plan) return
+    const headlines = plan.screens.map((screen) => screen.headline)
+    setProofreading(true)
+    setError(null)
+    try {
+      const corrected = await runTextJob(
+        { kind: 'proofread', language: { code: language, name: localeName(language) } },
+        headlines,
+        { appName: draft.appName, pitch: draft.pitch },
+      )
+      const changed = corrected.filter((text, index) => text !== headlines[index]).length
+      if (changed === 0) {
+        toast('Aucune faute trouvée dans les accroches.')
+        return
+      }
+      /* Le plan a pu bouger pendant la requête : une correction ne se pose que
+         sur l'accroche qu'elle a relue, jamais par position, et un lot qui n'a
+         plus le même nombre de planches n'en reçoit aucune. */
+      setPlan((current) => {
+        if (!current || current.screens.length !== headlines.length) return current
+        return {
+          ...current,
+          screens: current.screens.map((screen, index) => {
+            const text = corrected[index]
+            return text !== undefined && screen.headline === headlines[index]
+              ? { ...screen, headline: text.slice(0, AI_LIMITS.maxCampaignHeadlineLength) }
+              : screen
+          }),
+        }
+      })
+      toast(
+        `${changed} accroche${changed > 1 ? 's' : ''} corrigée${changed > 1 ? 's' : ''}.`,
+        'success',
+      )
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'La relecture a échoué.')
+    } finally {
+      setProofreading(false)
+    }
+  }
+
   function harmonize() {
     if (!activeScreen) return
+    saveListing()
     const calls = restyleCalls(activeScreen, resolvePalette(brief))
     /* Rien à repeindre : on le dit, et on ne ferme pas. Fermer sur un
        changement nul renvoyait l'utilisateur sur un écran identique en lui
@@ -599,9 +599,11 @@ function CampaignDialogContent({ project }: { project: Project }) {
   )
 
   const primaryAction = plan ? (
-    <Button variant="default" onClick={accept} disabled={busy}>
+    <Button variant="default" onClick={accept} disabled={busy || proofreading}>
       <Check aria-hidden />
-      Ajouter {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}
+      {recomposing && activeScreen
+        ? `Recomposer « ${activeScreen.name} »`
+        : `Ajouter ${plan.screens.length} visuel${plan.screens.length > 1 ? 's' : ''}`}
     </Button>
   ) : (
     <>
@@ -612,10 +614,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
         variant="default"
         onClick={() => void compose()}
         loading={busy}
-        disabled={full || !named}
+        disabled={(full && !recomposing) || !named}
       >
-        <Megaphone aria-hidden />
-        Proposer {screenCount} visuel{screenCount > 1 ? 's' : ''}
+        <Store aria-hidden />
+        {recomposing
+          ? 'Proposer une recomposition'
+          : `Proposer ${screenCount} visuel${screenCount > 1 ? 's' : ''}`}
       </Button>
     </>
   )
@@ -624,7 +628,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
     <StepDialog
       open
       onClose={busy ? () => undefined : close}
-      title={`Générer les visuels · ${profile.label}`}
+      title={`Composer la fiche · ${profile.label}`}
+      description="Pose les visuels de la fiche en calques ordinaires — tout un lot, ou l’écran courant seul. Ce que vous dites de l’app reste dans le projet."
       size="lg"
       minHeight={420}
       step={step}
@@ -634,7 +639,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
       showStepTitle={false}
       footerNote={
         plan
-          ? 'Rien n’est encore ajouté au projet.'
+          ? recomposing
+            ? 'Rien n’est encore changé sur l’écran.'
+            : 'Rien n’est encore ajouté au projet.'
           : assistantOpen
             ? 'Ce choix s’applique à toutes les accroches.'
             : providerId === 'local' || !connected
@@ -661,7 +668,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <Input
                         id={NAME_FIELD_ID}
                         value={appName}
-                        maxLength={60}
+                        maxLength={MAX_LISTING_NAME_LENGTH}
                         placeholder="Ex. : Sleep Tracker"
                         disabled={busy}
                         onChange={(event) => {
@@ -682,7 +689,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <Input
                         id={PITCH_FIELD_ID}
                         value={pitch}
-                        maxLength={AI_LIMITS.maxCampaignHeadlineLength}
+                        maxLength={MAX_LISTING_PITCH_LENGTH}
                         placeholder="Suivez votre budget chaque mois"
                         disabled={busy}
                         onChange={(event) => setPitch(event.target.value)}
@@ -709,7 +716,23 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <ImageUp aria-hidden />
                       {logo ? 'Logo ajouté' : 'Ajouter un logo…'}
                     </Button>
-                    {!full && (
+                    <SelectField
+                      id={LANGUAGE_FIELD_ID}
+                      aria-label="Langue des accroches"
+                      label="Langue"
+                      className="w-56"
+                      value={language}
+                      disabled={busy}
+                      onValueChange={(next) => {
+                        setLanguage(next)
+                        setPlan(null)
+                      }}
+                      items={LOCALE_CATALOG.map((entry) => ({
+                        value: entry.code,
+                        label: `${entry.name} · ${entry.code}`,
+                      }))}
+                    />
+                    {!full && !recomposing && (
                       <SelectField
                         id={COUNT_FIELD_ID}
                         aria-label="Combien de visuels"
@@ -754,12 +777,12 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     </details>
                   )}
 
-                  {full ? (
+                  {full && !recomposing ? (
                     <p role="status" className="text-xs text-muted-foreground">
                       Le projet contient déjà {profile.maxScreens} écrans. Supprimez-en un pour
-                      créer un nouveau lot.
+                      créer un nouveau lot, ou recomposez l’écran courant.
                     </p>
-                  ) : shots.length === 0 ? (
+                  ) : shots.length === 0 && !currentShot ? (
                     <p className="text-xs text-muted-foreground">
                       Sans capture, les appareils resteront vides.
                     </p>
@@ -798,6 +821,31 @@ function CampaignDialogContent({ project }: { project: Project }) {
                   />
                 </div>
               </CampaignSection>
+
+              {activeScreen && (
+                <CampaignSection title="Portée">
+                  <div className="grid gap-1.5">
+                    <Segmented<'add' | 'current'>
+                      ariaLabel="Portée de la proposition"
+                      value={scope}
+                      disabled={busy}
+                      onChange={(next) => {
+                        setScope(next)
+                        setPlan(null)
+                      }}
+                      options={[
+                        { value: 'add', label: 'De nouveaux visuels' },
+                        { value: 'current', label: 'L’écran courant' },
+                      ]}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {recomposing
+                        ? `Recompose « ${activeScreen.name} » : ses calques sont remplacés par une composition neuve, sa capture reprise. ⌘Z pour revenir.`
+                        : 'Ajoute des écrans au projet, sans toucher aux existants.'}
+                    </p>
+                  </div>
+                </CampaignSection>
+              )}
 
               <CampaignSection title="Direction">
                 <RadioGroup
@@ -856,7 +904,8 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       Appliquer à « {activeScreen.name} »
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Repeint « {activeScreen.name} » avec le style ci-dessus, sans ajouter d’écran.
+                      Repeint « {activeScreen.name} » avec le style ci-dessus, sans changer sa
+                      composition ni ses textes.
                     </p>
                   </div>
                 </CampaignSection>
@@ -887,16 +936,16 @@ function CampaignDialogContent({ project }: { project: Project }) {
               <AssistantSetup
                 providerId={providerId}
                 onProvider={(next) => {
-                  pickProvider(next)
+                  assistant.pickProvider(next)
                   setPlan(null)
                 }}
                 secret={secret}
-                onSecret={setSecret}
+                onSecret={assistant.setSecret}
                 connection={connection}
-                onConnect={() => void connect()}
-                onForget={forgetSecret}
+                onConnect={() => void assistant.connect()}
+                onForget={assistant.forgetSecret}
                 model={model}
-                onModel={setModel}
+                onModel={assistant.setModel}
                 busy={busy}
               />
               {/* La matière du rédacteur vit avec lui : ces champs n'existent que
@@ -911,7 +960,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       type="url"
                       inputMode="url"
                       value={landingUrl}
-                      maxLength={2048}
+                      maxLength={MAX_LISTING_URL_LENGTH}
                       placeholder="https://monapp.com"
                       disabled={busy}
                       onChange={(event) => {
@@ -927,7 +976,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     <Textarea
                       id={CONTEXT_FIELD_ID}
                       value={productContext}
-                      maxLength={AI_LIMITS.maxProductContextLength}
+                      maxLength={MAX_LISTING_CONTEXT_LENGTH}
                       rows={4}
                       placeholder={
                         'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
@@ -973,6 +1022,9 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     onDrop={dropScreen}
                     onRegenerate={connected ? (index) => void regenerate(index) : undefined}
                     regenerating={regenerating}
+                    onProofread={() => void proofread()}
+                    proofreading={proofreading}
+                    proofreadBlocked={textWriterUnavailable(assistant)}
                     busy={busy}
                   />
                 )}
@@ -1081,6 +1133,10 @@ interface PlanReviewProps {
   /** Absent tant qu'aucun modèle n'est branché : voir `regenerate`. */
   onRegenerate?: (index: number) => void
   regenerating: number | null
+  onProofread: () => void
+  proofreading: boolean
+  /** Pourquoi la relecture est fermée, ou `null` : voir `textWriterUnavailable`. */
+  proofreadBlocked: string | null
   busy: boolean
 }
 
@@ -1106,6 +1162,9 @@ function PlanReview({
   onDrop,
   onRegenerate,
   regenerating,
+  onProofread,
+  proofreading,
+  proofreadBlocked,
   busy,
 }: PlanReviewProps) {
   const current = plan.screens[focus]
@@ -1123,9 +1182,26 @@ function PlanReview({
         </span>
       </h3>
       <p className="mt-1 text-xs text-muted-foreground">
-        Corrigez les accroches avant d’ajouter les {plan.screens.length} visuel
-        {plan.screens.length > 1 ? 's' : ''}.
+        Corrigez les accroches avant de poser {plan.screens.length > 1 ? 'les' : 'le'}{' '}
+        {plan.screens.length} visuel{plan.screens.length > 1 ? 's' : ''}.
       </p>
+      {/* La relecture est fermée sans rédacteur, et dit pourquoi : un bouton
+          grisé sans raison est une panne pour qui le lit. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onProofread}
+          loading={proofreading}
+          disabled={busy || regenerating !== null || proofreadBlocked !== null}
+        >
+          <SpellCheck aria-hidden />
+          Corriger l’orthographe
+        </Button>
+        {proofreadBlocked && (
+          <span className="text-xs text-muted-foreground">{proofreadBlocked}</span>
+        )}
+      </div>
 
       {/* La bande sert à choisir, pas à juger : c'est l'aperçu en dessous qui
           montre. Elle porte quand même les compositions et non des numéros —
@@ -1198,7 +1274,7 @@ function PlanReview({
                 id={HEADLINE_FIELD_ID}
                 value={current.headline}
                 maxLength={AI_LIMITS.maxCampaignHeadlineLength}
-                disabled={busy || regenerating !== null}
+                disabled={busy || regenerating !== null || proofreading}
                 onChange={(event) => onHeadline(focus, event.target.value)}
               />
             </Field>
@@ -1241,7 +1317,7 @@ function PlanReview({
                   variant="outline"
                   onClick={() => onRegenerate(focus)}
                   loading={regenerating === focus}
-                  disabled={busy || regenerating !== null}
+                  disabled={busy || proofreading || regenerating !== null}
                 >
                   <RefreshCw aria-hidden />
                   Réécrire
@@ -1258,7 +1334,7 @@ function PlanReview({
                 <Button
                   variant="outline"
                   onClick={() => onDrop(focus)}
-                  disabled={busy || regenerating !== null}
+                  disabled={busy || proofreading || regenerating !== null}
                 >
                   <Trash2 aria-hidden />
                   Retirer
