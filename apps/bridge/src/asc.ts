@@ -382,19 +382,36 @@ function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
+// ponytail: pas de pagination, suivre links.next au-delà de 200 comptes/versions.
+const ASC_LIST_LIMIT = '200'
+
+/**
+ * Garde les lignes que le schéma accepte et compte les autres sur stderr —
+ * le compte seulement, jamais la ligne : une réponse `asc` porte des
+ * attributs que rien ici ne doit relire.
+ */
+function keptRows<T>(listing: string, parsed: { success: boolean; data?: T }[]): T[] {
+  const dropped = parsed.filter((entry) => !entry.success).length
+  if (dropped > 0) {
+    console.warn(`asc ${listing} : ${dropped} ligne(s) écartée(s), hors schéma.`)
+  }
+  return parsed.flatMap((entry) => (entry.success && entry.data !== undefined ? [entry.data] : []))
+}
+
 export async function listApps(run: AscRunner): Promise<AscApp[]> {
-  const rows = await listJson(run, ['apps', 'list', '--limit', '200'])
-  return rows.flatMap((row) => {
-    const attrs = attributes(row)
-    const candidate = {
-      id: text(row.id),
-      name: text(attrs.name),
-      bundleId: text(attrs.bundleId),
-      ...(typeof attrs.primaryLocale === 'string' ? { primaryLocale: attrs.primaryLocale } : {}),
-    }
-    const parsed = ascAppSchema.safeParse(candidate)
-    return parsed.success ? [parsed.data] : []
-  })
+  const rows = await listJson(run, ['apps', 'list', '--limit', ASC_LIST_LIMIT])
+  return keptRows(
+    'apps',
+    rows.map((row) => {
+      const attrs = attributes(row)
+      return ascAppSchema.safeParse({
+        id: text(row.id),
+        name: text(attrs.name),
+        bundleId: text(attrs.bundleId),
+        ...(typeof attrs.primaryLocale === 'string' ? { primaryLocale: attrs.primaryLocale } : {}),
+      })
+    }),
+  )
 }
 
 export async function listVersions(run: AscRunner, appId: string): Promise<AscVersion[]> {
@@ -406,18 +423,20 @@ export async function listVersions(run: AscRunner, appId: string): Promise<AscVe
     '--platform',
     'IOS',
     '--limit',
-    '200',
+    ASC_LIST_LIMIT,
   ])
-  return rows.flatMap((row) => {
-    const attrs = attributes(row)
-    const parsed = ascVersionSchema.safeParse({
-      id: text(row.id),
-      versionString: text(attrs.versionString),
-      state: text(attrs.appVersionState, text(attrs.appStoreState)),
-      platform: text(attrs.platform, 'IOS'),
-    })
-    return parsed.success ? [parsed.data] : []
-  })
+  return keptRows(
+    'versions',
+    rows.map((row) => {
+      const attrs = attributes(row)
+      return ascVersionSchema.safeParse({
+        id: text(row.id),
+        versionString: text(attrs.versionString),
+        state: text(attrs.appVersionState, text(attrs.appStoreState)),
+        platform: text(attrs.platform, 'IOS'),
+      })
+    }),
+  )
 }
 
 export async function listLocalizations(
@@ -430,13 +449,12 @@ export async function listLocalizations(
     '--version',
     versionId,
     '--limit',
-    '200',
+    ASC_LIST_LIMIT,
   ])
-  return rows.flatMap((row) => {
-    const parsed = ascLocalizationSchema.safeParse({
-      id: text(row.id),
-      locale: text(attributes(row).locale),
-    })
-    return parsed.success ? [parsed.data] : []
-  })
+  return keptRows(
+    'localizations',
+    rows.map((row) =>
+      ascLocalizationSchema.safeParse({ id: text(row.id), locale: text(attributes(row).locale) }),
+    ),
+  )
 }

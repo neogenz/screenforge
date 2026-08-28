@@ -1374,6 +1374,36 @@ describe('destinations', () => {
     expect(await localizations.json()).toEqual({ items: [{ id: 'LOC-1', locale: 'fr-FR' }] })
   })
 
+  it('écarte une ligne hors schéma, la compte sur stderr, et n’en relit rien', async () => {
+    const asc = fakeAsc()
+    const twoRows: AscRunner = async (args, timeoutMs) => {
+      if (args[0] === 'apps' && args[1] === 'list') {
+        return {
+          code: 0,
+          stdout: JSON.stringify({
+            data: [
+              { attributes: { name: 'Sans identifiant', bundleId: 'app.sans.id' } },
+              { id: '42', attributes: { name: 'Cadence', bundleId: 'app.cadence.ios' } },
+            ],
+          }),
+          stderr: '',
+          timedOut: false,
+        }
+      }
+      return asc.run(args, timeoutMs)
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { call } = harness(undefined, { calls: asc.calls, run: twoRows })
+    const response = await call('/asc/apps', { capability: 'asc-publish' })
+    expect(await response.json()).toEqual({
+      items: [{ id: '42', name: 'Cadence', bundleId: 'app.cadence.ios' }],
+    })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith('asc apps : 1 ligne(s) écartée(s), hors schéma.')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('Sans identifiant')
+    warn.mockRestore()
+  })
+
   it('refuse un identifiant qui ressemble à un drapeau ou manque', async () => {
     const asc = fakeAsc()
     const { call } = harness(undefined, asc)

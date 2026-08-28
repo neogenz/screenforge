@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import type { z, ZodType } from 'zod'
 import {
   AscAmbiguousError,
   AscFailedError,
@@ -209,10 +210,10 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
    * par position, donc le seul contrat qui compte est « autant de textes que
    * reçus, dans le même ordre » — et il est vérifié ici, pas espéré.
    */
-  const textTurn = async (
+  const textTurn = async <S extends ZodType<{ protocol: number; texts: string[] }>>(
     context: Context,
-    schema: typeof translateRequestSchema | typeof proofreadRequestSchema,
-    prompt: (request: TranslateRequest & ProofreadRequest) => string,
+    schema: S,
+    prompt: (request: z.infer<S>) => string,
   ) => {
     if (!authorized('assistant', context.req.header('Authorization'))) {
       return context.json(fail('unauthorized', 'Jeton d’appairage invalide.'), 401)
@@ -227,7 +228,7 @@ export function createServer(state: BridgeState, origins = allowedOrigins()) {
 
     try {
       const answer = await state.assistantRun({
-        prompt: prompt(parsed.data as TranslateRequest & ProofreadRequest),
+        prompt: prompt(parsed.data),
         outputSchema: TRANSLATION_OUTPUT_SCHEMA,
       })
       const translation = translationSchema.safeParse(JSON.parse(answer))

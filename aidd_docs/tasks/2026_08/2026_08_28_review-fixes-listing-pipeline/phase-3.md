@@ -1,5 +1,5 @@
 ---
-status: pending
+status: done
 ---
 
 # Instruction: Pont — `textTurn` typé par son schéma, listes `asc` bornées et bavardes

@@ -224,8 +224,9 @@ export type ProofreadRequest = z.infer<typeof proofreadRequestSchema>
  * libellés, jamais la réponse brute — elle porte des URL de pagination et des
  * attributs sans intérêt pour choisir une destination.
  */
+/* Un identifiant vide n'est pas une destination : la ligne est écartée. */
 export const ascAppSchema = z.object({
-  id: z.string().max(64),
+  id: z.string().min(1).max(64),
   name: z.string().max(200),
   bundleId: z.string().max(200),
   primaryLocale: z.string().max(16).optional(),
@@ -233,7 +234,7 @@ export const ascAppSchema = z.object({
 export type AscApp = z.infer<typeof ascAppSchema>
 
 export const ascVersionSchema = z.object({
-  id: z.string().max(64),
+  id: z.string().min(1).max(64),
   versionString: z.string().max(32),
   state: z.string().max(64),
   platform: z.string().max(32),
@@ -241,7 +242,7 @@ export const ascVersionSchema = z.object({
 export type AscVersion = z.infer<typeof ascVersionSchema>
 
 export const ascLocalizationSchema = z.object({
-  id: z.string().max(64),
+  id: z.string().min(1).max(64),
   locale: z.string().max(16),
 })
 export type AscLocalization = z.infer<typeof ascLocalizationSchema>
