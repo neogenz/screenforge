@@ -92,22 +92,44 @@ function failureMessage(cause: unknown): string {
 }
 
 /**
- * Une version qu'on peut encore modifier, avant celle qu'Apple a déjà traitée.
+ * Ce qu'Apple fera d'un lot envoyé sur une version dans cet état — `null`
+ * quand il l'accepte.
  *
- * Ni exhaustive ni maintenue depuis un catalogue : `asc` refuserait lui-même un
- * état qu'il ne connaît pas. Elle sert seulement à préférer, par défaut, la
- * version qui attend encore une capture plutôt que celle déjà en vente.
+ * Deux phrases parce que deux situations : une version distribuée ne se
+ * rouvre jamais, une version soumise se retire de la revue. Ni exhaustive ni
+ * maintenue depuis un catalogue : `asc` refuserait lui-même un état qu'il ne
+ * connaît pas. Mesuré sur un compte réel : toutes les versions étaient
+ * distribuées, la boîte en retenait une sans un mot, et Apple aurait refusé le
+ * lot à l'envoi — d'où l'alerte, à l'étape qui choisit et à celle qui envoie.
  */
-const NON_EDITABLE_VERSION_STATES = new Set([
+const RELEASED_VERSION_STATES = new Set([
   'READY_FOR_SALE',
   'READY_FOR_DISTRIBUTION',
   'REPLACED_WITH_NEW_VERSION',
   'REMOVED_FROM_SALE',
   'DEVELOPER_REMOVED_FROM_SALE',
 ])
+const SUBMITTED_VERSION_STATES = new Set([
+  'WAITING_FOR_REVIEW',
+  'IN_REVIEW',
+  'ACCEPTED',
+  'PENDING_DEVELOPER_RELEASE',
+  'PENDING_APPLE_RELEASE',
+  'PROCESSING_FOR_DISTRIBUTION',
+  'PROCESSING_FOR_APP_STORE',
+])
 
+function versionLock(state: string): string | null {
+  if (RELEASED_VERSION_STATES.has(state))
+    return 'Cette version est déjà distribuée : Apple n’y accepte plus de captures. Créez d’abord une nouvelle version dans App Store Connect.'
+  if (SUBMITTED_VERSION_STATES.has(state))
+    return 'Cette version est déjà soumise à Apple : ses captures sont verrouillées. Retirez-la de la revue, ou créez une nouvelle version dans App Store Connect.'
+  return null
+}
+
+/** La première version qu'Apple accepterait, sinon la première tout court. */
 function defaultVersion(versions: readonly AscVersion[]): AscVersion | undefined {
-  return versions.find((version) => !NON_EDITABLE_VERSION_STATES.has(version.state)) ?? versions[0]
+  return versions.find((version) => versionLock(version.state) === null) ?? versions[0]
 }
 
 function appsCountLabel(count: number): string {
@@ -301,14 +323,11 @@ function PublishDialogContent({
     : appsResult.state === 'ready'
       ? 'active'
       : 'waiting'
-  // Mesuré sur un compte réel : toutes les versions étaient distribuées, la boîte
-  // en retenait une sans un mot, et Apple aurait refusé le lot à l'envoi.
-  const pickedVersionReleased =
-    versionsResult.state === 'ready' &&
-    versionsResult.data.some(
-      (version) =>
-        version.id === target.versionId && NON_EDITABLE_VERSION_STATES.has(version.state),
-    )
+  const pickedVersion =
+    versionsResult.state === 'ready'
+      ? versionsResult.data.find((version) => version.id === target.versionId)
+      : undefined
+  const pickedVersionLock = pickedVersion ? versionLock(pickedVersion.state) : null
   const pontProgress =
     (bridgeReady ? 1 : 0) + (appsResult.state === 'ready' ? 1 : 0) + (targetReady ? 1 : 0)
 
@@ -724,10 +743,9 @@ function PublishDialogContent({
                         : []
                     }
                   />
-                  {pickedVersionReleased && (
+                  {pickedVersionLock && (
                     <p role="alert" className="text-xs text-warning">
-                      Cette version est déjà distribuée : Apple n’y accepte plus de captures. Créez
-                      d’abord une nouvelle version dans App Store Connect.
+                      {pickedVersionLock}
                     </p>
                   )}
                 </AsyncPanel>
@@ -891,7 +909,13 @@ function PublishDialogContent({
                   </ul>
                 )}
 
-                {findings.length === 0 && (
+                {pickedVersionLock && (
+                  <p role="alert" className="text-xs text-warning">
+                    {pickedVersionLock}
+                  </p>
+                )}
+
+                {findings.length === 0 && !pickedVersionLock && (
                   <p className="flex items-center gap-2 text-xs text-success">
                     <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
                     Preflight sans réserve : {targetSummary(target, release)}

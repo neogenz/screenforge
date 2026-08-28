@@ -157,12 +157,7 @@ export async function probeBridge(): Promise<
   } catch (cause) {
     return {
       state: 'down',
-      message:
-        cause instanceof TypeError
-          ? UNREACHABLE
-          : cause instanceof Error
-            ? cause.message
-            : 'Le pont n’a pas répondu.',
+      message: cause instanceof Error ? cause.message : 'Le pont n’a pas répondu.',
     }
   }
 }
@@ -417,7 +412,7 @@ export async function ascBridgeStatus(): Promise<AscBridgeStatus> {
       available: false,
       reachable: false,
       flags: [],
-      message: cause instanceof TypeError ? UNREACHABLE : 'Le pont n’a pas répondu.',
+      message: cause instanceof Error ? cause.message : 'Le pont n’a pas répondu.',
     }
   }
 }

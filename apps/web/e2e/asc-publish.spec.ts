@@ -80,6 +80,7 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
       contentType: 'application/json',
       body: JSON.stringify({
         items: [
+          { id: 'VER-2', versionString: '1.5.0', state: 'WAITING_FOR_REVIEW', platform: 'IOS' },
           { id: 'VER-0', versionString: '1.3.0', state: 'READY_FOR_DISTRIBUTION', platform: 'IOS' },
           { id: 'VER-1', versionString: '1.4.0', state: 'PREPARE_FOR_SUBMISSION', platform: 'IOS' },
         ],
@@ -221,6 +222,16 @@ test('une version déjà distribuée est nommée comme telle avant l’envoi', a
   await dialog.getByRole('combobox', { name: 'Version', exact: true }).click()
   await page.getByRole('option', { name: '1.3.0 · READY_FOR_DISTRIBUTION' }).click()
   await expect(dialog.getByRole('alert').filter({ hasText: /déjà distribuée/ })).toBeVisible()
+
+  // Une version en revue est verrouillée aussi, avec sa propre issue.
+  await dialog.getByRole('combobox', { name: 'Version', exact: true }).click()
+  await page.getByRole('option', { name: '1.5.0 · WAITING_FOR_REVIEW' }).click()
+  await expect(dialog.getByRole('alert').filter({ hasText: /déjà soumise/ })).toBeVisible()
+
+  // Et le dernier mot avant l'envoi n'est pas un « sans réserve » vert.
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
+  await expect(dialog.getByRole('alert').filter({ hasText: /déjà soumise/ })).toBeVisible()
+  await expect(dialog.getByText(/Preflight sans réserve/)).toHaveCount(0)
 })
 
 test('le chemin manuel reste complet sans lecture chez Apple', async ({ page }) => {
