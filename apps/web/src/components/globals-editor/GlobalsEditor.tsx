@@ -90,7 +90,7 @@ function GlobalsEditorContent({
               {profile.platform === 'apple' ? ` · ${profile.appStoreConnectType}` : ''}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Immuable pour préserver les coordonnées et les releases de ce projet.
+              Immuable pour préserver les coordonnées et les versions figées de ce projet.
             </p>
           </Card>
         </section>

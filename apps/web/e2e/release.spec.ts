@@ -25,8 +25,8 @@ async function releases(page: Page): Promise<ReleaseState[]> {
 }
 
 async function openReleaseDialog(page: Page) {
-  await page.getByRole('button', { name: 'Ouvrir les releases' }).click()
-  await expect(page.getByRole('dialog', { name: 'Releases' })).toBeVisible()
+  await page.getByRole('button', { name: 'Ouvrir les versions figées' }).click()
+  await expect(page.getByRole('dialog', { name: 'Versions figées' })).toBeVisible()
 }
 
 async function createIpadProject(page: Page): Promise<void> {
@@ -48,8 +48,8 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   await addTextLayer(page)
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom de la release').fill('1.0.0')
-  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await page.getByLabel('Nom de la version').fill('1.0.0')
+  await page.getByRole('button', { name: 'Figer la version' }).click()
 
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]
@@ -62,13 +62,13 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
   expect(frozen.files[0].sha256).toMatch(/^[a-f0-9]{64}$/)
 
   // Vérifier, c'est rejouer l'instantané et recomparer les empreintes.
-  await page.getByRole('button', { name: 'Vérifier' }).click()
+  await page.getByRole('button', { name: 'Vérifier le rendu' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText(/Le projet est exactement dans l’état figé/)).toBeVisible()
 
   // Échap plutôt qu'un clic : « Fermer » nomme aussi la croix de l'en-tête.
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: 'Releases' })).toBeHidden()
+  await expect(page.getByRole('dialog', { name: 'Versions figées' })).toBeHidden()
 
   /* Le projet continue de vivre : le texte se déplace. La release, elle, ne
      doit rien en savoir. */
@@ -87,7 +87,7 @@ test('fige un lot, le vérifie, et le laisse intact quand le projet bouge', asyn
 
   // Rejouée après la modification, la release se vérifie toujours : son
   // instantané iPad dicte son propre rendu.
-  await page.getByRole('button', { name: 'Vérifier' }).click()
+  await page.getByRole('button', { name: 'Vérifier le rendu' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })
 
@@ -95,8 +95,8 @@ test('fige et rejoue une release Google Play avec son profil', async ({ page }) 
   await waitForApp(page)
   await openAndroidProject(page)
   await openReleaseDialog(page)
-  await page.getByLabel('Nom de la release').fill('android-1')
-  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await page.getByLabel('Nom de la version').fill('android-1')
+  await page.getByRole('button', { name: 'Figer la version' }).click()
 
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]
@@ -105,18 +105,18 @@ test('fige et rejoue une release Google Play avec son profil', async ({ page }) 
   expect(frozen.files[0].path).toMatch(/^phone\/01_/)
   expect(frozen.files[0]).toMatchObject({ width: 1080, height: 1920 })
 
-  await page.getByRole('button', { name: 'Vérifier' }).click()
+  await page.getByRole('button', { name: 'Vérifier le rendu' }).click()
   await expect(page.getByText(/se rejouent à l’identique/)).toBeVisible({ timeout: 30_000 })
 })
 
 test('un lot figé survit au rechargement et se retire à la demande', async ({ page }) => {
   await waitForApp(page)
   await openReleaseDialog(page)
-  await page.getByLabel('Nom de la release').fill('2.0.0')
-  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await page.getByLabel('Nom de la version').fill('2.0.0')
+  await page.getByRole('button', { name: 'Figer la version' }).click()
   /* Le toast suit l'écriture durable : l'attendre, c'est attendre que le lot
      soit sur disque, sans dépendre du délai de l'autosave. */
-  await expect(page.getByText(/Release « 2\.0\.0 » figée/)).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText(/Version « 2\.0\.0 » figée/)).toBeVisible({ timeout: 30_000 })
   await expect.poll(async () => (await releases(page)).length).toBe(1)
 
   await page.reload({ waitUntil: 'networkidle' })
@@ -125,7 +125,8 @@ test('un lot figé survit au rechargement et se retire à la demande', async ({ 
   expect((await releases(page))[0].name).toBe('2.0.0')
 
   await openReleaseDialog(page)
-  await page.getByRole('button', { name: 'Retirer' }).click()
+  await page.getByRole('button', { name: 'Supprimer' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Supprimer la version' }).click()
   await expect.poll(async () => (await releases(page)).length).toBe(0)
 })
 
@@ -155,8 +156,8 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   expect(origin).not.toBeNull()
 
   await openReleaseDialog(page)
-  await page.getByLabel('Nom de la release').fill('3.0.0')
-  await page.getByRole('button', { name: 'Figer une release' }).click()
+  await page.getByLabel('Nom de la version').fill('3.0.0')
+  await page.getByRole('button', { name: 'Figer la version' }).click()
   await expect.poll(async () => (await releases(page)).length, { timeout: 30_000 }).toBe(1)
   const frozen = (await releases(page))[0]
   await page.keyboard.press('Escape')
@@ -166,7 +167,7 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   await expect.poll(() => textLayerX(page)).toBe(42)
 
   await openReleaseDialog(page)
-  await page.getByRole('button', { name: 'Reprendre' }).click()
+  await page.getByRole('button', { name: 'Revenir à cette version' }).click()
   await expect.poll(() => textLayerX(page)).toBe(origin)
 
   // Le lot est repris, pas suivi : ni son instantané ni ses empreintes ne
@@ -176,7 +177,7 @@ test('reprend le projet sur un lot figé, sans que le lot en soit changé', asyn
   expect(JSON.stringify(after.snapshot)).toBe(JSON.stringify(frozen.snapshot))
   expect(after.files[0].sha256).toBe(frozen.files[0].sha256)
   await expect(page.getByText(/Le projet est exactement dans l’état figé/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Reprendre' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Revenir à cette version' })).toBeDisabled()
 
   // Et le geste est annulable comme n'importe quelle autre écriture.
   await page.keyboard.press('Escape')

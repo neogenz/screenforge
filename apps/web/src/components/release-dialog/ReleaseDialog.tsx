@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { AsyncPanel, type AsyncState } from '@/components/patterns/async-panel'
+import { ConfirmAction } from '@/components/patterns/confirm-action'
 import { DialogShell } from '@/components/patterns/dialog-shell'
 import { DialogColumns } from '@/components/patterns/dialog-columns'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -52,7 +53,7 @@ const RELEASE_NAME_FIELD_ID = 'sf-release-name'
 /**
  * Les lots livrés, et ce qui a bougé depuis.
  *
- * Une campagne ne se juge pas planche par planche mais d'une release à
+ * Une campagne ne se juge pas planche par planche mais d'une version à
  * l'autre : ce qui a changé, ce qui n'aurait pas dû, ce qui doit repartir. La
  * boîte fige un lot (rendu complet, empreintes, instantané cloné), le vérifie
  * en le rejouant, et affiche le diff structurel entre l'instantané et le projet
@@ -85,7 +86,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
   const [selectedId, setSelectedId] = useState<string | undefined>(
     () => releases[releases.length - 1]?.id,
   )
-  /* Vide = la langue du projet. Une release porte la langue qu'elle a rendue :
+  /* Vide = la langue du projet. Une version porte la langue qu'elle a rendue :
      sans elle, publier consiste à viser une fiche allemande avec des planches
      dont rien ne dit ce qu'elles contiennent. */
   const [localeCode, setLocaleCode] = useState('')
@@ -101,6 +102,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
      calcule vraiment (un rendu réseau-bound) : lui seul porte un état
      d'échec distinct, retentable sans perdre le reste de la boîte. */
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const selected =
     releases.find((release) => release.id === selectedId) ?? releases[releases.length - 1]
@@ -173,22 +175,22 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       )
       const outcome = addRelease(release)
       if (!outcome.committed) {
-        setError(`Maximum de ${MAX_PROJECT_RELEASES} releases atteint pour ce projet.`)
+        setError(`Maximum de ${MAX_PROJECT_RELEASES} versions atteint pour ce projet.`)
         return
       }
       setSelectedId(release.id)
       setName('')
       /* Durable avant d'être annoncé. L'autosave attend deux secondes ; un
          rechargement dans cet intervalle effacerait un rendu que l'utilisateur
-         vient d'attendre, et une release perdue n'est pas une modification
+         vient d'attendre, et une version perdue n'est pas une modification
          perdue — c'est le fait daté sur lequel tout le reste s'appuie. */
       await saveCurrentProject()
       toast(
-        `Release « ${release.name} » figée : ${files.length} écran${files.length > 1 ? 's' : ''}.`,
+        `Version « ${release.name} » figée : ${files.length} écran${files.length > 1 ? 's' : ''}.`,
         'success',
       )
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Le rendu de la release a échoué.')
+      setError(cause instanceof Error ? cause.message : 'Le rendu de la version a échoué.')
     } finally {
       setProgress(null)
       setRunning(null)
@@ -217,7 +219,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
     if (!removeRelease(release.id).committed) return
     setChecks(null)
     setSelectedId(undefined)
-    toast(`Release « ${release.name} » retirée.`, 'success')
+    toast(`Version « ${release.name} » supprimée.`, 'success')
   }
 
   /* Reprendre, pas restaurer : le mot « restaurer » promet un retour dans le
@@ -228,18 +230,18 @@ function ReleaseDialogContent({ project }: { project: Project }) {
     if (busy) return
     const outcome = restoreRelease(release)
     if (!outcome.committed) {
-      setError('Cette release ne contient aucun écran : rien à reprendre.')
+      setError('Cette version ne contient aucun écran : rien à reprendre.')
       return
     }
     setError(null)
-    toast(`Projet repris sur « ${release.name} ». ⌘Z pour revenir.`, 'success')
+    toast(`Projet ramené à la version « ${release.name} ». ⌘Z pour revenir.`, 'success')
   }
 
   return (
     <DialogShell
       open
       onClose={busy ? () => undefined : close}
-      title="Releases"
+      title="Versions figées"
       size="lg"
       flush
       headerActions={
@@ -247,15 +249,15 @@ function ReleaseDialogContent({ project }: { project: Project }) {
            compte, et le lecteur d'écran en entend la phrase entière. */
         <span
           className="tabular-nums text-xs text-muted-foreground px-1"
-          aria-label={`${releases.length} release${releases.length > 1 ? 's' : ''} sur ${MAX_PROJECT_RELEASES}`}
+          aria-label={`${releases.length} version${releases.length > 1 ? 's' : ''} sur ${MAX_PROJECT_RELEASES}`}
         >
-          {releases.length} release{releases.length > 1 ? 's' : ''} sur {MAX_PROJECT_RELEASES}
+          {releases.length} version{releases.length > 1 ? 's' : ''} sur {MAX_PROJECT_RELEASES}
         </span>
       }
       footerNote={
         isApple
-          ? 'Un lot figé ne change plus : c’est lui que « Publier chez Apple » envoie, et lui que « Reprendre » ramène.'
-          : 'Un lot figé ne change plus : c’est lui que l’export reproduit, et lui que « Reprendre » ramène.'
+          ? 'Une version figée ne change plus : c’est elle que « Publier chez Apple » envoie, et elle que « Revenir » ramène.'
+          : 'Une version figée ne change plus : c’est elle que l’export reproduit, et elle que « Revenir » ramène.'
       }
       footer={
         <Button variant="ghost" onClick={close} disabled={busy}>
@@ -264,13 +266,13 @@ function ReleaseDialogContent({ project }: { project: Project }) {
       }
     >
       <DialogColumns
-        railLabel="Releases figées"
-        contentLabel="Détail de la release"
+        railLabel="Liste des versions"
+        contentLabel="Détail de la version"
         rail={
           <>
             <div className="flex flex-col gap-1.5">
               <Field className="gap-1.5">
-                <FieldLabel htmlFor={RELEASE_NAME_FIELD_ID}>Nom de la release</FieldLabel>
+                <FieldLabel htmlFor={RELEASE_NAME_FIELD_ID}>Nom de la version</FieldLabel>
                 <Input
                   id={RELEASE_NAME_FIELD_ID}
                   value={name}
@@ -281,7 +283,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 />
               </Field>
               <SelectField
-                aria-label="Langue de la release"
+                aria-label="Langue de la version"
                 label="Langue"
                 value={localeCode}
                 disabled={busy}
@@ -301,7 +303,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 disabled={busy || releases.length >= MAX_PROJECT_RELEASES}
               >
                 <Package aria-hidden />
-                Figer une release
+                Figer la version
               </Button>
               {/* Ce que le bouton produit, au moment de l'appuyer. Le rendu
                   complet prend plusieurs secondes : savoir ce qu'on attend
@@ -314,7 +316,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
             </div>
 
             {releases.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Aucune release figée pour l’instant.</p>
+              <p className="text-xs text-muted-foreground">Aucune version figée pour l’instant.</p>
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {[...releases].reverse().map((release) => {
@@ -340,7 +342,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                             {release.name}
                           </span>
                           {/* Dérivé du projet vivant, jamais du rendu propre à la
-                              release — c'est un diff structurel, pas ce que
+                              version — c'est un diff structurel, pas ce que
                               « Vérifier » répond. */}
                           <Badge variant={identical ? 'success' : 'outline'} size="sm">
                             {identical ? 'à jour' : 'dérivé'}
@@ -348,7 +350,9 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                         </div>
                         <span className="tabular-nums text-xs text-muted-foreground">
                           {formatDate(release.createdAt)} · {release.files.length} écrans
-                          {release.locale ? ` · ${release.locale}` : ''}
+                          {release.locale
+                            ? ` · ${project.locales?.find((entry) => entry.code === release.locale)?.name ?? release.locale}`
+                            : ''}
                         </span>
                       </Card>
                     </li>
@@ -359,6 +363,14 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           </>
         }
       >
+        {/* Toujours là, dans les deux états : ce qu'une version figée est ne change pas
+            selon qu'on en a déjà une ou non, donc elle n'a besoin d'être écrite qu'une fois,
+            au-dessus de tout le reste. */}
+        <p className="mb-4 text-xs text-muted-foreground">
+          Une version figée est la photo datée de ce que vous livrez : ses écrans rendus au pixel,
+          avec leurs empreintes. Le projet continue de bouger à côté ; la version, non.
+        </p>
+
         {progress && (
           <div className="mb-4" aria-live="polite">
             <div className="mb-2 flex items-center gap-2">
@@ -385,7 +397,7 @@ function ReleaseDialogContent({ project }: { project: Project }) {
         )}
 
         {!selected ? (
-          <WhyFreeze isApple={isApple} open />
+          <FreezeReasons isApple={isApple} />
         ) : (
           <div className="flex flex-col gap-4">
             <WhyFreeze isApple={isApple} />
@@ -412,8 +424,8 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 <Hint
                   content={
                     verdict === 'ok'
-                      ? 'Cette release vient de se rejouer à l’identique. Cliquez pour recommencer.'
-                      : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si cette release se rend encore à l’identique.'
+                      ? 'Cette version vient de se rejouer à l’identique. Cliquez pour recommencer.'
+                      : 'Rejoue l’instantané figé et recompare les empreintes, pour savoir si cette version se rend encore à l’identique.'
                   }
                 >
                   <Button
@@ -423,14 +435,18 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     disabled={busy}
                   >
                     {running !== 'verify' && <VerdictIcon verdict={verdict} />}
-                    {verdict === 'ok' ? 'Vérifié' : verdict === 'drift' ? 'A dérivé' : 'Vérifier'}
+                    {verdict === 'ok'
+                      ? 'Rendu vérifié'
+                      : verdict === 'drift'
+                        ? 'Rendu dérivé'
+                        : 'Vérifier le rendu'}
                   </Button>
                 </Hint>
                 <Hint
                   content={
                     diff?.identical
                       ? 'Le projet est déjà dans cet état.'
-                      : 'Ramène les écrans et les réglages du projet dans l’état de cette release. La release, elle, ne bouge pas.'
+                      : 'Ramène les écrans et les réglages du projet dans l’état de cette version. La version, elle, ne bouge pas.'
                   }
                 >
                   <Button
@@ -439,12 +455,12 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                     disabled={busy || diff?.identical}
                   >
                     <RotateCcw aria-hidden />
-                    Reprendre
+                    Revenir à cette version
                   </Button>
                 </Hint>
-                <Button variant="outline" onClick={() => forget(selected)} disabled={busy}>
+                <Button variant="outline" onClick={() => setConfirmingDelete(true)} disabled={busy}>
                   <Trash2 aria-hidden />
-                  Retirer
+                  Supprimer
                 </Button>
               </div>
             </div>
@@ -464,10 +480,10 @@ function ReleaseDialogContent({ project }: { project: Project }) {
                 l'intention de publier aujourd'hui. Le taire laissait croire à
                 une étape obligatoire dont personne ne voyait l'effet. */}
             <p className="text-xs text-muted-foreground">
-              «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} écrans de cette release
+              «&nbsp;Vérifier&nbsp;» refabrique les {selected.files.length} écrans de cette version
               et recompare leurs empreintes : c’est ce qui dit si une police disparue ou un cadre
               d’appareil remplacé l’a changé depuis. {isApple ? 'Publier' : 'Exporter'} refait ce
-              contrôle et refuse une release qui a dérivé — vérifier sert à l’apprendre avant.
+              contrôle et refuse une version qui a dérivé — vérifier sert à l’apprendre avant.
             </p>
 
             {/* `idle` : personne n'a encore cliqué « Vérifier » sur ce lot — rien
@@ -487,6 +503,17 @@ function ReleaseDialogContent({ project }: { project: Project }) {
           </div>
         )}
       </DialogColumns>
+
+      {selected && (
+        <ConfirmAction
+          open={confirmingDelete}
+          onOpenChange={setConfirmingDelete}
+          title={`Supprimer la version « ${selected.name} » ?`}
+          description="Ses empreintes et son instantané disparaissent du projet. Les PNG déjà exportés ou téléversés ne sont pas touchés."
+          confirmLabel="Supprimer la version"
+          onConfirm={() => forget(selected)}
+        />
+      )}
     </DialogShell>
   )
 }
@@ -514,33 +541,24 @@ function VerdictIcon({ verdict }: { verdict: Verdict }) {
 }
 
 /**
- * À quoi sert de figer, écrit une fois et lisible depuis les deux états.
+ * À quoi ça sert, replié dès qu'une version existe.
  *
- * La boîte montrait le geste (« Figer ») sans jamais montrer ce qu'il ouvrait :
- * le figement seul ressemble à une archive morte, et rien n'y disait que
- * publier consomme une release, ni qu'on peut y revenir. Les quatre lignes sont
- * les quatre choses qu'une release permet, dans l'ordre où on les rencontre.
+ * Ce qu'une version figée *est* vit maintenant au-dessus, toujours visible : cette boîte-ci ne
+ * porte plus que la raison d'être du geste, et seulement une fois qu'il y a déjà quelque chose à
+ * regarder à sa place (le nom, la date, les boutons Vérifier/Revenir). Un `details` natif plutôt
+ * qu'un état : refermé, il ne coûte qu'une ligne à qui sait déjà, et il n'a rien à resynchroniser
+ * quand on change de version.
  */
-/**
- * La même explication, à un seul endroit et repliable.
- *
- * Elle ne vivait que dans la branche vide, et la boîte sélectionne toujours une
- * release à l'ouverture : quiconque en avait déjà figé une ne l'a jamais lue,
- * ce qui est très exactement la question qu'on nous a reposée avec une capture
- * à l'appui. Un `details` natif plutôt qu'un état : refermé, il ne coûte qu'une
- * ligne à qui sait déjà, et il n'a rien à resynchroniser quand on change de
- * release. Ouvert tant qu'aucune release n'existe, replié ensuite.
- */
-function WhyFreeze({ open, isApple }: { open?: boolean; isApple: boolean }) {
+function WhyFreeze({ isApple }: { isApple: boolean }) {
   return (
-    <details className="group/why" {...(open ? { open: true } : {})}>
+    <details className="group/why">
       <summary className="flex list-none items-center gap-1.5 text-xs text-muted-foreground transition-colors duration-150 ease-out hover:text-foreground [&::-webkit-details-marker]:hidden">
         <ChevronRight
           strokeWidth={1.75}
           aria-hidden
           className="shrink-0 transition-transform duration-150 ease-out group-open/why:rotate-90"
         />
-        À quoi sert de figer une release
+        À quoi ça sert
       </summary>
       <div className="mt-3">
         <FreezeReasons isApple={isApple} />
@@ -549,38 +567,40 @@ function WhyFreeze({ open, isApple }: { open?: boolean; isApple: boolean }) {
   )
 }
 
+/**
+ * Les quatre choses qu'une version figée permet, dans l'ordre où on les rencontre.
+ *
+ * Sans version, ce sont les seules lignes de la colonne — visibles d'emblée, sans rien à déplier.
+ * Une fois qu'il y en a une, elles cèdent la place à Vérifier et au diff et se replient derrière
+ * `WhyFreeze`. Chaque intitulé reprend le mot du bouton ou de l'action qu'il annonce, pour rester
+ * reconnaissable une fois qu'on l'a lu ici.
+ */
 function FreezeReasons({ isApple }: { isApple: boolean }) {
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        Un projet bouge tous les jours ; une livraison en boutique, non. Une release est la photo
-        datée de ce que vous avez décidé de livrer — le projet continue de vivre à côté, sans jamais
-        la modifier.
-      </p>
-      <ul className="flex flex-col gap-2">
-        <ReasonLine>
-          <strong className="text-foreground">Livrer ce que vous avez relu.</strong>{' '}
-          {isApple ? '« Publier chez Apple »' : 'L’export Google Play'} part d’une release, jamais
-          du projet vivant : le lot reste celui que vous avez vu, même si vous avez déplacé un titre
-          entre-temps.
-        </ReasonLine>
-        <ReasonLine>
-          <strong className="text-foreground">Vérifier plus tard qu’elle tient.</strong> La release
-          est rejouée et ses empreintes recomparées. Une police qui ne se charge plus, un cadre
-          d’appareil remplacé : ça se voit avant l’envoi, pas après.
-        </ReasonLine>
-        <ReasonLine>
-          <strong className="text-foreground">Voir ce qui a bougé depuis.</strong> Écran par écran,
-          calque par calque, propriété par propriété — pour décider ce qui mérite une nouvelle
-          livraison.
-        </ReasonLine>
-        <ReasonLine>
-          <strong className="text-foreground">Y revenir.</strong> «&nbsp;Reprendre&nbsp;» ramène le
-          projet dans l’état de la release, en un seul pas d’annulation. Deux semaines d’essais se
-          défont sans compter les ⌘Z.
-        </ReasonLine>
-      </ul>
-    </div>
+    <ul className="flex flex-col gap-2">
+      <ReasonLine>
+        <strong className="text-foreground">
+          {isApple ? '« Publier chez Apple »' : 'L’export Google Play'} part d’une version figée,
+          jamais du projet vivant.
+        </strong>{' '}
+        Le lot reste celui que vous avez vu, même si vous avez déplacé un titre entre-temps.
+      </ReasonLine>
+      <ReasonLine>
+        <strong className="text-foreground">Vérifier le rendu.</strong> La version est rejouée et
+        ses empreintes recomparées. Une police qui ne se charge plus, un cadre d’appareil remplacé :
+        ça se voit avant l’envoi, pas après.
+      </ReasonLine>
+      <ReasonLine>
+        <strong className="text-foreground">Voir ce qui a bougé depuis.</strong> Écran par écran,
+        calque par calque, propriété par propriété — pour décider ce qui mérite une nouvelle
+        livraison.
+      </ReasonLine>
+      <ReasonLine>
+        <strong className="text-foreground">Revenir à cette version.</strong> Ramène le projet dans
+        l’état de la version, en un seul pas d’annulation. Deux semaines d’essais se défont sans
+        compter les ⌘Z.
+      </ReasonLine>
+    </ul>
   )
 }
 
@@ -601,7 +621,7 @@ function ReasonLine({ children }: { children: ReactNode }) {
 /**
  * Ce que la vérification a trouvé.
  *
- * Une release qui se rejoue à l'identique n'a rien à raconter — une ligne
+ * Une version qui se rejoue à l'identique n'a rien à raconter — une ligne
  * suffit. Ce qui mérite d'être lu est ce qui a changé, donc seules ces
  * planches-là sont listées.
  */
@@ -614,7 +634,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
       {broken.length === 0 ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
           <Check className="text-success" aria-hidden />
-          Les {results.length} écrans se rejouent à l’identique : cette release est encore publiable
+          Les {results.length} écrans se rejouent à l’identique : cette version est encore publiable
           telle quelle.
         </p>
       ) : (
@@ -637,7 +657,7 @@ function VerifyReport({ results }: { results: ReleaseCheck[] }) {
               faits : l'envoi est fermé pour ce lot, et un lot n'est jamais
               réparé — il est remplacé, puisque sa date est ce qu'il atteste. */}
           <p className="mt-2 text-xs text-muted-foreground">
-            Publier refusera cette release. Une release ne se répare pas : reprenez-la si vous
+            Publier refusera cette version. Une version ne se répare pas : reprenez-la si vous
             voulez retrouver cet état, puis figez-en une nouvelle.
           </p>
         </>
@@ -704,7 +724,7 @@ function DiffReport({ diff }: { diff: StructuralDiff }) {
 
   return (
     <div className="border-t pt-4">
-      <h3 className="text-sm font-medium">Depuis cette release</h3>
+      <h3 className="text-sm font-medium">Depuis cette version</h3>
       {diff.identical ? (
         <p className="mt-2 flex items-center gap-2 text-xs text-foreground">
           <History aria-hidden />
