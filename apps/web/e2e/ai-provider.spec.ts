@@ -261,7 +261,7 @@ test('une clé acceptée est reprise au rechargement, et s’oublie sur demande'
  */
 test('les accroches se relisent par le rédacteur branché, avant la pose', async ({ page }) => {
   const prompts: string[] = []
-  await page.route('https://api.anthropic.com/**', (route: Route) => {
+  await page.route('https://api.anthropic.com/**', async (route: Route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({
         status: 200,
@@ -274,7 +274,10 @@ test('les accroches se relisent par le rédacteur branché, avant la pose', asyn
     }
     const prompt = body.messages?.[0]?.content ?? ''
     prompts.push(prompt)
-    const answer = prompt.includes('Corrige l’orthographe')
+    const proofreading = prompt.includes('Corrige l’orthographe')
+    // Le temps de constater que la planche ne peut ni être retirée ni réécrite.
+    if (proofreading) await new Promise((resolve) => setTimeout(resolve, 800))
+    const answer = proofreading
       ? { texts: ['Le budget dans une poche'] }
       : {
           screens: [
@@ -314,8 +317,14 @@ test('les accroches se relisent par le rédacteur branché, avant la pose', asyn
   await expect(headline).toHaveValue('Le buget dans une poche')
   expect(prompts[0]).toContain('Dans la langue « fr-FR »')
 
+  // Pendant la relecture, une correction ne peut pas atterrir sur une autre
+  // planche : réécrire et retirer attendent le retour.
+  const rewrite = page.getByRole('button', { name: 'Réécrire' })
+  await expect(rewrite).toBeEnabled()
   await page.getByRole('button', { name: 'Corriger l’orthographe' }).click()
+  await expect(rewrite).toBeDisabled()
   await expect(headline).toHaveValue('Le budget dans une poche')
+  await expect(rewrite).toBeEnabled()
   await expect(page.getByRole('status').filter({ hasText: '1 accroche corrigée' })).toBeVisible()
   const proofread = prompts.find((prompt) => prompt.includes('Corrige l’orthographe')) ?? ''
   expect(proofread).toContain('(fr-FR)')

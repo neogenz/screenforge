@@ -9,7 +9,14 @@ import { MAX_SCREENSHOT_ZOOM, MIN_SCREENSHOT_ZOOM } from './screenshot-placement
 import { SAFE_SLOT } from './slots.ts'
 import { isTextCharStyles } from './text-char-styles.ts'
 import { ICON_BOX, isDeviceModelId, isIconId, isShapeId } from './catalog-ids.ts'
-import type { Layer, Project, ProjectListing, ScriptId, StoreTargetId } from './types.ts'
+import type {
+  Layer,
+  ListingDirection,
+  Project,
+  ProjectListing,
+  ScriptId,
+  StoreTargetId,
+} from './types.ts'
 
 const SAFE_ASSET_ID = /^[a-zA-Z0-9_-]{1,128}$/
 export const MAX_PROJECT_LAYERS = 500
@@ -353,7 +360,14 @@ function isLocaleVariant(value: unknown): boolean {
   )
 }
 
-export const LISTING_DIRECTIONS = ['sobre', 'contraste', 'chaleureux', 'nocturne'] as const
+/* Liée à l'union `ListingDirection` par `satisfies`, et à `DIRECTIONS` du
+   planificateur par un test : trois listes des mêmes quatre identifiants. */
+export const LISTING_DIRECTIONS = [
+  'sobre',
+  'contraste',
+  'chaleureux',
+  'nocturne',
+] as const satisfies readonly ListingDirection[]
 export const MAX_LISTING_NAME_LENGTH = 60
 export const MAX_LISTING_PITCH_LENGTH = 140
 export const MAX_LISTING_CONTEXT_LENGTH = 2400

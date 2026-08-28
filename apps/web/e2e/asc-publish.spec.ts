@@ -42,8 +42,32 @@ async function requireToken(route: Route): Promise<boolean> {
   return false
 }
 
+const PULPE = { id: '6758464920', name: 'Pulpe', bundleId: 'app.pulpe.ios', primaryLocale: 'fr-FR' }
+const CADENCE = {
+  id: '6758464999',
+  name: 'Cadence',
+  bundleId: 'app.cadence.ios',
+  primaryLocale: 'fr-FR',
+}
+const VERSIONS: Record<string, unknown[]> = {
+  [PULPE.id]: [
+    { id: 'VER-2', versionString: '1.5.0', state: 'WAITING_FOR_REVIEW', platform: 'IOS' },
+    { id: 'VER-0', versionString: '1.3.0', state: 'READY_FOR_DISTRIBUTION', platform: 'IOS' },
+    { id: 'VER-1', versionString: '1.4.0', state: 'PREPARE_FOR_SUBMISSION', platform: 'IOS' },
+  ],
+  [CADENCE.id]: [
+    { id: 'VER-C', versionString: '2.0.0', state: 'PREPARE_FOR_SUBMISSION', platform: 'IOS' },
+  ],
+}
+
+interface FakeBridgeOptions {
+  apps?: (typeof PULPE)[]
+  /** Les versions de cette app n'arrivent qu'une fois la promesse résolue. */
+  holdVersionsOf?: { appId: string; until: Promise<void> }
+}
+
 /** Le faux pont : il répond, il enregistre, il ne lance rien. */
-async function fakeBridge(page: Page): Promise<PublishCall[]> {
+async function fakeBridge(page: Page, options: FakeBridgeOptions = {}): Promise<PublishCall[]> {
   const calls: PublishCall[] = []
   await page.route(`${BRIDGE}/hello`, (route: Route) =>
     route.fulfill({
@@ -66,25 +90,17 @@ async function fakeBridge(page: Page): Promise<PublishCall[]> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        items: [
-          { id: '6758464920', name: 'Pulpe', bundleId: 'app.pulpe.ios', primaryLocale: 'fr-FR' },
-        ],
-      }),
+      body: JSON.stringify({ items: options.apps ?? [PULPE] }),
     })
   })
   await page.route(`${BRIDGE}/asc/versions*`, async (route: Route) => {
     if (!(await requireToken(route))) return
+    const appId = new URL(route.request().url()).searchParams.get('app') ?? ''
+    if (options.holdVersionsOf?.appId === appId) await options.holdVersionsOf.until
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        items: [
-          { id: 'VER-2', versionString: '1.5.0', state: 'WAITING_FOR_REVIEW', platform: 'IOS' },
-          { id: 'VER-0', versionString: '1.3.0', state: 'READY_FOR_DISTRIBUTION', platform: 'IOS' },
-          { id: 'VER-1', versionString: '1.4.0', state: 'PREPARE_FOR_SUBMISSION', platform: 'IOS' },
-        ],
-      }),
+      body: JSON.stringify({ items: VERSIONS[appId] ?? [] }),
     })
   })
   await page.route(`${BRIDGE}/asc/localizations*`, async (route: Route) => {
@@ -232,6 +248,49 @@ test('une version déjà distribuée est nommée comme telle avant l’envoi', a
   await dialog.getByRole('button', { name: 'Continuer' }).click()
   await expect(dialog.getByRole('alert').filter({ hasText: /déjà soumise/ })).toBeVisible()
   await expect(dialog.getByText(/Preflight sans réserve/)).toHaveCount(0)
+})
+
+/**
+ * Deux lectures en vol, et seule la dernière commande écrit : la liste de
+ * versions de l'app quittée arrive après le choix suivant et ne remplace ni la
+ * liste ni la version retenue.
+ */
+test('changer d’application pendant une lecture lente garde la liste de la dernière', async ({
+  page,
+}) => {
+  let releasePulpe!: () => void
+  const held = new Promise<void>((resolve) => {
+    releasePulpe = resolve
+  })
+  await fakeBridge(page, {
+    apps: [PULPE, CADENCE],
+    holdVersionsOf: { appId: PULPE.id, until: held },
+  })
+  await waitForApp(page)
+  await addTextLayer(page)
+  await freeze(page, '1.4.0')
+
+  await page.getByRole('button', { name: 'Publier chez Apple' }).click()
+  const dialog = publishDialog(page)
+  await dialog.getByLabel('Jeton asc-publish').fill(TOKEN)
+  await dialog.getByRole('button', { name: 'Vérifier le pont' }).click()
+  await expect(dialog.getByText('2 applications lues chez Apple')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Continuer' }).click()
+
+  // Pulpe est retenue d'office et ses versions tardent : on passe à Cadence avant.
+  await dialog.getByRole('combobox', { name: 'Application', exact: true }).click()
+  await page.getByRole('option', { name: 'Cadence — app.cadence.ios' }).click()
+  await expect(dialog.getByText('2.0.0 · PREPARE_FOR_SUBMISSION')).toBeVisible()
+
+  // La liste de Pulpe arrive maintenant, en retard : elle ne pose rien.
+  const late = page.waitForResponse((response) =>
+    response.url().includes(`/asc/versions?app=${PULPE.id}`),
+  )
+  releasePulpe()
+  await late
+  await expect(dialog.getByText('2.0.0 · PREPARE_FOR_SUBMISSION')).toBeVisible()
+  await expect(dialog.getByText('1.4.0 · PREPARE_FOR_SUBMISSION')).toHaveCount(0)
+  await expect(dialog.getByText('Cadence — app.cadence.ios')).toBeVisible()
 })
 
 test('le chemin manuel reste complet sans lecture chez Apple', async ({ page }) => {

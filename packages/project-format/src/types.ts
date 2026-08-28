@@ -212,7 +212,10 @@ export interface Project {
   releases?: Release[]
   /** Les variantes de langue. Voir `lib/locale.ts`. */
   locales?: LocaleVariant[]
-  /** Ce que la fiche sait du produit, saisi une fois. Voir `lib/listing.ts`. */
+  /**
+   * Ce que la fiche sait du produit, saisi une fois. Écrit par
+   * `stores/project.store.ts` (`updateListing`), lu par les boîtes fiche et langues.
+   */
   listing?: ProjectListing
 }
 

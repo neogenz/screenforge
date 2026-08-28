@@ -1,12 +1,14 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import {
   isProject,
+  LISTING_DIRECTIONS,
   MAX_GRADIENT_STOPS,
   MAX_LAYER_TEXT_LENGTH,
   MAX_PROJECT_LAYERS,
   migrateProject,
 } from '@/lib/project-validation'
 import { APP_STORE_PROFILE, APP_STORE_PROFILES, GOOGLE_PLAY_PROFILE } from '@/lib/dimensions'
+import { DIRECTIONS } from '@/lib/ai/plan'
 import type { DeviceFrameLayer, Layer, Project, Release, StoreTargetId } from '@/types'
 
 function deviceLayer(deviceModel: DeviceFrameLayer['deviceModel']): DeviceFrameLayer {
@@ -370,5 +372,10 @@ describe('project validation', () => {
 
     const unknown = { ...legacy, profileId: 'unknown' }
     expect(isProject(migrateProject(unknown))).toBe(false)
+  })
+
+  it('accepte exactement les directions que le planificateur sait peindre', () => {
+    // Une cinquième direction ajoutée à `DIRECTIONS` sans le validateur échoue ici.
+    expect([...LISTING_DIRECTIONS]).toEqual(DIRECTIONS.map((entry) => entry.id))
   })
 })

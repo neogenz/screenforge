@@ -36,6 +36,12 @@ import { AssistantSetup } from '@/components/campaign-dialog/AssistantSetup'
 import { useAssistant } from '@/components/campaign-dialog/use-assistant'
 import { LOCALE_CATALOG, defaultSourceLanguage, localeName } from '@/lib/locale-catalog'
 import {
+  MAX_LISTING_CONTEXT_LENGTH,
+  MAX_LISTING_NAME_LENGTH,
+  MAX_LISTING_PITCH_LENGTH,
+  MAX_LISTING_URL_LENGTH,
+} from '@/lib/project-validation'
+import {
   imageImportErrorMessage,
   importImageFile,
   CONTENT_IMAGE_TYPES,
@@ -206,15 +212,24 @@ function CampaignDialogContent({ project }: { project: Project }) {
       : undefined
   }, [activeScreen])
 
-  const brief: CampaignBrief = useMemo(
+  /* Un seul brief assemblé : le plan et la fiche du projet lisent les mêmes
+     champs, élagués de la même façon. */
+  const draft = useMemo(
     () => ({
-      target: project.target,
       appName: appName.trim(),
-      pitch,
+      pitch: pitch.trim(),
       landingUrl: landingUrl.trim() || undefined,
       productContext: productContext.trim() || undefined,
       direction,
       language,
+    }),
+    [appName, pitch, landingUrl, productContext, direction, language],
+  )
+
+  const brief: CampaignBrief = useMemo(
+    () => ({
+      target: project.target,
+      ...draft,
       palette,
       screenCount,
       deviceModel: project.globals.deviceModel,
@@ -224,12 +239,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
       logo,
     }),
     [
-      appName,
-      pitch,
-      landingUrl,
-      productContext,
-      direction,
-      language,
+      draft,
       palette,
       project.target,
       screenCount,
@@ -246,14 +256,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
      de l'app se saisit une fois, et chaque ouverture repart de là. Écrit sans
      pas d'annulation, comme le nom du projet — ce n'est pas un calque. */
   function saveListing() {
-    useProjectStore.getState().updateListing({
-      appName: appName.trim(),
-      pitch,
-      ...(productContext.trim() ? { productContext: productContext.trim() } : {}),
-      ...(landingUrl.trim() ? { landingUrl: landingUrl.trim() } : {}),
-      direction,
-      language,
-    })
+    useProjectStore.getState().updateListing(draft)
   }
 
   async function loadShots(chosen: File[]) {
@@ -506,27 +509,28 @@ function CampaignDialogContent({ project }: { project: Project }) {
       const corrected = await runTextJob(
         { kind: 'proofread', language: { code: language, name: localeName(language) } },
         headlines,
-        { appName: appName.trim(), pitch },
+        { appName: draft.appName, pitch: draft.pitch },
       )
       const changed = corrected.filter((text, index) => text !== headlines[index]).length
       if (changed === 0) {
         toast('Aucune faute trouvée dans les accroches.')
         return
       }
-      setPlan((current) =>
-        current
-          ? {
-              ...current,
-              screens: current.screens.map((screen, index) => ({
-                ...screen,
-                headline: (corrected[index] ?? screen.headline).slice(
-                  0,
-                  AI_LIMITS.maxCampaignHeadlineLength,
-                ),
-              })),
-            }
-          : current,
-      )
+      /* Le plan a pu bouger pendant la requête : une correction ne se pose que
+         sur l'accroche qu'elle a relue, jamais par position, et un lot qui n'a
+         plus le même nombre de planches n'en reçoit aucune. */
+      setPlan((current) => {
+        if (!current || current.screens.length !== headlines.length) return current
+        return {
+          ...current,
+          screens: current.screens.map((screen, index) => {
+            const text = corrected[index]
+            return text !== undefined && screen.headline === headlines[index]
+              ? { ...screen, headline: text.slice(0, AI_LIMITS.maxCampaignHeadlineLength) }
+              : screen
+          }),
+        }
+      })
       toast(
         `${changed} accroche${changed > 1 ? 's' : ''} corrigée${changed > 1 ? 's' : ''}.`,
         'success',
@@ -664,7 +668,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <Input
                         id={NAME_FIELD_ID}
                         value={appName}
-                        maxLength={60}
+                        maxLength={MAX_LISTING_NAME_LENGTH}
                         placeholder="Ex. : Sleep Tracker"
                         disabled={busy}
                         onChange={(event) => {
@@ -685,7 +689,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       <Input
                         id={PITCH_FIELD_ID}
                         value={pitch}
-                        maxLength={AI_LIMITS.maxCampaignHeadlineLength}
+                        maxLength={MAX_LISTING_PITCH_LENGTH}
                         placeholder="Suivez votre budget chaque mois"
                         disabled={busy}
                         onChange={(event) => setPitch(event.target.value)}
@@ -956,7 +960,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                       type="url"
                       inputMode="url"
                       value={landingUrl}
-                      maxLength={2048}
+                      maxLength={MAX_LISTING_URL_LENGTH}
                       placeholder="https://monapp.com"
                       disabled={busy}
                       onChange={(event) => {
@@ -972,7 +976,7 @@ function CampaignDialogContent({ project }: { project: Project }) {
                     <Textarea
                       id={CONTEXT_FIELD_ID}
                       value={productContext}
-                      maxLength={AI_LIMITS.maxProductContextLength}
+                      maxLength={MAX_LISTING_CONTEXT_LENGTH}
                       rows={4}
                       placeholder={
                         'Planifiez votre budget sur l’année\nAnticipez les grosses dépenses\nAucune connexion bancaire requise'
@@ -1313,7 +1317,7 @@ function PlanReview({
                   variant="outline"
                   onClick={() => onRegenerate(focus)}
                   loading={regenerating === focus}
-                  disabled={busy || regenerating !== null}
+                  disabled={busy || proofreading || regenerating !== null}
                 >
                   <RefreshCw aria-hidden />
                   Réécrire
@@ -1330,7 +1334,7 @@ function PlanReview({
                 <Button
                   variant="outline"
                   onClick={() => onDrop(focus)}
-                  disabled={busy || regenerating !== null}
+                  disabled={busy || proofreading || regenerating !== null}
                 >
                   <Trash2 aria-hidden />
                   Retirer

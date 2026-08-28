@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
@@ -271,7 +271,7 @@ function PublishDialogContent({
     ...EMPTY_TARGET,
     locale: guessAscLocale(release, project),
   }))
-  const [preparedBundle, setBundle] = useState<PreparedBundle | null>(null)
+  const [preparedBundle, setPreparedBundle] = useState<PreparedBundle | null>(null)
   // Préparé pour un autre lot, il ne vaut rien pour celui-ci : changer de version le rend nul.
   const bundle = preparedBundle?.releaseId === release.id ? preparedBundle : null
   const [progress, setProgress] = useState<RenderProgress | null>(null)
@@ -286,23 +286,34 @@ function PublishDialogContent({
 
   const busy = progress !== null || publishing || downloading
 
+  /* Une génération par lecture, et la dernière est la seule qui écrit : une
+     liste de versions lente pour l'app précédente, ou une sonde partie avant le
+     démontage, se résout après une commande plus récente et ne pose rien. Le
+     compteur est partagé par la sonde, `selectApp` et `selectVersion`, parce
+     qu'une seule destination est en cours à la fois. */
+  const requests = useRef(0)
+
   /* Constaté à l'ouverture, sans jeton : `hello` répond que le pont tourne (ou
      non) avant que quiconque n'ait rien collé. Aucun `setState` synchrone ici
      — seulement dans la résolution — pour ne jamais empiler un rendu sur un
      autre. */
-  useEffect(() => {
-    let cancelled = false
+  const probeBridge = useCallback(() => {
+    const seq = ++requests.current
     void ascBridgeStatus().then((status) => {
-      if (!cancelled) setBridge(status)
+      if (seq === requests.current) setBridge(status)
     })
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  useEffect(() => {
+    probeBridge()
+    return () => {
+      requests.current += 1
+    }
+  }, [probeBridge])
 
   function recheckBridge() {
     setBridge(null)
-    void ascBridgeStatus().then(setBridge)
+    probeBridge()
   }
 
   const bridgeReady = bridge !== null && bridge.reachable && bridge.available
@@ -328,7 +339,7 @@ function PublishDialogContent({
 
   function edit(patch: Partial<AscTarget>) {
     setTarget((previous) => ({ ...previous, ...patch }))
-    setBundle(null)
+    setPreparedBundle(null)
     setSteps([])
   }
 
@@ -348,6 +359,7 @@ function PublishDialogContent({
   }
 
   async function selectApp(app: AscApp) {
+    const seq = ++requests.current
     edit({
       appId: app.id,
       appName: app.name,
@@ -359,24 +371,29 @@ function PublishDialogContent({
     setLocalizationsResult({ state: 'idle' })
     try {
       const versions = await listAscVersions(app.id, token.trim())
+      if (seq !== requests.current) return
       setVersionsResult({ state: 'ready', data: versions })
       const pick = defaultVersion(versions)
       if (pick) void selectVersion(pick)
     } catch (cause) {
+      if (seq !== requests.current) return
       setVersionsResult({ state: 'failed', message: failureMessage(cause) })
     }
   }
 
   async function selectVersion(version: AscVersion) {
+    const seq = ++requests.current
     edit({ versionId: version.id, appVersion: version.versionString, versionLocalization: '' })
     setLocalizationsResult({ state: 'pending' })
     try {
       const localizations = await listAscLocalizations(version.id, token.trim())
+      if (seq !== requests.current) return
       setLocalizationsResult({ state: 'ready', data: localizations })
       const wanted = guessAscLocale(release, project)
       const found = localizations.find((entry) => entry.locale === wanted)
       if (found) edit({ locale: found.locale, versionLocalization: found.id })
     } catch (cause) {
+      if (seq !== requests.current) return
       setLocalizationsResult({ state: 'failed', message: failureMessage(cause) })
     }
   }
@@ -447,7 +464,12 @@ function PublishDialogContent({
         .filter((file) => expected.get(file.name) !== file.sha256)
         .map((file) => file.name)
       const hash = await bundleDigest(collected)
-      setBundle({ releaseId: release.id, bundleHash: hash, files: collected, drifted: drift })
+      setPreparedBundle({
+        releaseId: release.id,
+        bundleHash: hash,
+        files: collected,
+        drifted: drift,
+      })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Le rendu du lot a échoué.')
     } finally {
@@ -534,518 +556,514 @@ function PublishDialogContent({
     : ''
 
   return (
-    <>
-      <StepDialog
-        open
-        onClose={busy ? () => undefined : close}
-        title={DIALOG_TITLE}
-        description={DIALOG_DESCRIPTION}
-        size="lg"
-        minHeight={400}
-        step={step}
-        onStep={setStep}
-        backDisabled={busy}
-        action={
-          step < 2 ? (
-            <Button variant="default" onClick={() => setStep(step + 1)} disabled={busy}>
-              Continuer
-              <ChevronRight aria-hidden />
-            </Button>
-          ) : (
-            <Button
-              variant="default"
-              onClick={() => (dryRun ? void publish() : setConfirmOpen(true))}
-              loading={publishing}
-              disabled={!usable || !token.trim() || refused || busy}
-            >
-              <CloudUpload aria-hidden />
-              {dryRun ? 'Essayer à blanc' : 'Publier'}
-            </Button>
-          )
-        }
-        steps={[
-          {
-            id: 'pont',
-            title: 'Pont',
-            content: (
-              <SetupFlow>
-                <div className="flex flex-col gap-3 p-3">
-                  <SetupProgress label="Connexion au pont" value={pontProgress} max={3} />
+    <StepDialog
+      open
+      onClose={busy ? () => undefined : close}
+      title={DIALOG_TITLE}
+      description={DIALOG_DESCRIPTION}
+      size="lg"
+      minHeight={400}
+      step={step}
+      onStep={setStep}
+      backDisabled={busy}
+      action={
+        step < 2 ? (
+          <Button variant="default" onClick={() => setStep(step + 1)} disabled={busy}>
+            Continuer
+            <ChevronRight aria-hidden />
+          </Button>
+        ) : (
+          <Button
+            variant="default"
+            onClick={() => (dryRun ? void publish() : setConfirmOpen(true))}
+            loading={publishing}
+            disabled={!usable || !token.trim() || refused || busy}
+          >
+            <CloudUpload aria-hidden />
+            {dryRun ? 'Essayer à blanc' : 'Publier'}
+          </Button>
+        )
+      }
+      steps={[
+        {
+          id: 'pont',
+          title: 'Pont',
+          content: (
+            <SetupFlow>
+              <div className="flex flex-col gap-3 p-3">
+                <SetupProgress label="Connexion au pont" value={pontProgress} max={3} />
 
-                  <SetupStep
-                    rank={1}
-                    title="Le pont tourne, avec « asc » connecté"
-                    state={bridgeStepState}
-                    result={`asc ${bridge?.version ?? '?'}`}
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
-                    </p>
-                    <SetupCommand command={BRIDGE_COMMAND} />
-                    <p
-                      role={bridge ? 'alert' : 'status'}
-                      className={cn(
-                        'flex items-start gap-1.5 text-xs',
-                        bridge ? 'text-destructive' : 'text-muted-foreground',
-                      )}
-                    >
-                      {bridge && <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />}
-                      {bridge ? (bridge.message ?? 'Pont indisponible.') : 'Recherche du pont…'}
-                    </p>
-                    {bridge?.reachable && !bridge.available && (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Puis, dans le même terminal :
-                        </p>
-                        <SetupCommand command="asc auth login" />
-                      </>
-                    )}
-                    <div>
-                      <Button
-                        variant="outline"
-                        onClick={recheckBridge}
-                        loading={bridge === null}
-                        disabled={busy}
-                      >
-                        <RefreshCw aria-hidden />
-                        Vérifier
-                      </Button>
-                    </div>
-                  </SetupStep>
-
-                  <SetupStep
-                    rank={2}
-                    title="Collez le jeton « asc-publish » affiché par le pont"
-                    state={tokenStepState}
-                    result={
-                      appsResult.state === 'ready'
-                        ? appsCountLabel(appsResult.data.length)
-                        : undefined
-                    }
-                  >
-                    <div className="flex items-end gap-2">
-                      <Field className="min-w-0 flex-1 gap-1.5">
-                        <FieldLabel htmlFor={TOKEN_FIELD_ID}>Jeton asc-publish</FieldLabel>
-                        <Input
-                          id={TOKEN_FIELD_ID}
-                          type="password"
-                          autoComplete="off"
-                          value={token}
-                          disabled={busy || !bridgeReady}
-                          onChange={(event) => setToken(event.target.value)}
-                        />
-                      </Field>
-                      <Button
-                        variant="outline"
-                        onClick={() => void verifyToken()}
-                        loading={appsResult.state === 'pending'}
-                        disabled={busy || !bridgeReady || token.trim().length === 0}
-                      >
-                        <Plug aria-hidden />
-                        Vérifier le pont
-                      </Button>
-                    </div>
-                    {appsResult.state === 'failed' && (
-                      <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
-                        <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                        {appsResult.message}
-                      </p>
-                    )}
-                  </SetupStep>
-
-                  <SetupStep
-                    rank={3}
-                    title="Choisissez la destination"
-                    state={destinationStepState}
-                  />
-                </div>
-              </SetupFlow>
-            ),
-          },
-          {
-            id: 'destination',
-            title: 'Destination',
-            content: (
-              <div className="flex flex-col gap-4">
-                <AsyncPanel
-                  state={appsResult.state}
-                  idle={
-                    <p className="text-xs text-muted-foreground">
-                      Vérifiez le pont à l’étape précédente pour lire vos applications.
-                    </p>
-                  }
-                  skeleton={<Skeleton className="h-8.5 w-full" />}
-                  failedTitle="La lecture des applications a échoué"
-                  failedMessage={appsResult.state === 'failed' ? appsResult.message : undefined}
-                  onRetry={() => void verifyToken()}
+                <SetupStep
+                  rank={1}
+                  title="Le pont tourne, avec « asc » connecté"
+                  state={bridgeStepState}
+                  result={`asc ${bridge?.version ?? '?'}`}
                 >
-                  <SelectField
-                    id={APP_PICK_ID}
-                    aria-label="Application"
-                    label="Application"
-                    value={target.appId ?? ''}
-                    disabled={busy}
-                    onValueChange={(id) => {
-                      const app =
-                        appsResult.state === 'ready'
-                          ? appsResult.data.find((entry) => entry.id === id)
-                          : undefined
-                      if (app) void selectApp(app)
-                    }}
-                    items={
-                      appsResult.state === 'ready'
-                        ? appsResult.data.map((app) => ({
-                            value: app.id,
-                            label: `${app.name} — ${app.bundleId}`,
-                          }))
-                        : []
-                    }
-                  />
-                </AsyncPanel>
-
-                <AsyncPanel
-                  state={versionsResult.state}
-                  idle={
-                    <p className="text-xs text-muted-foreground">
-                      Choisissez d’abord une application.
-                    </p>
-                  }
-                  skeleton={<Skeleton className="h-8.5 w-full" />}
-                  failedTitle="La lecture des versions a échoué"
-                  failedMessage={
-                    versionsResult.state === 'failed' ? versionsResult.message : undefined
-                  }
-                  onRetry={() => selectedApp && void selectApp(selectedApp)}
-                >
-                  <SelectField
-                    id={VERSION_PICK_ID}
-                    aria-label="Version"
-                    label="Version"
-                    value={target.versionId ?? ''}
-                    disabled={busy}
-                    onValueChange={(id) => {
-                      const version =
-                        versionsResult.state === 'ready'
-                          ? versionsResult.data.find((entry) => entry.id === id)
-                          : undefined
-                      if (version) void selectVersion(version)
-                    }}
-                    items={
-                      versionsResult.state === 'ready'
-                        ? versionsResult.data.map((version) => ({
-                            value: version.id,
-                            label: `${version.versionString} · ${version.state}`,
-                          }))
-                        : []
-                    }
-                  />
-                  {pickedVersionLock && (
-                    <p role="alert" className="text-xs text-warning">
-                      {pickedVersionLock}
-                    </p>
-                  )}
-                </AsyncPanel>
-
-                <AsyncPanel
-                  state={localizationsResult.state}
-                  idle={
-                    <p className="text-xs text-muted-foreground">Choisissez d’abord une version.</p>
-                  }
-                  skeleton={<Skeleton className="h-8.5 w-full" />}
-                  failedTitle="La lecture des langues a échoué"
-                  failedMessage={
-                    localizationsResult.state === 'failed' ? localizationsResult.message : undefined
-                  }
-                  onRetry={() => selectedVersion && void selectVersion(selectedVersion)}
-                >
-                  {matchedLocalization ? (
-                    <p className="text-xs text-foreground">
-                      Langue App Store : {matchedLocalization.locale} — localisation{' '}
-                      {matchedLocalization.id.slice(0, 4)}…
-                    </p>
-                  ) : (
-                    <div className="flex flex-col gap-1.5">
-                      <SelectField
-                        id={LOCALIZATION_PICK_ID}
-                        aria-label="Langue App Store"
-                        label="Langue App Store"
-                        value={target.versionLocalization}
-                        disabled={busy}
-                        onValueChange={(id) => {
-                          const found =
-                            localizationsResult.state === 'ready'
-                              ? localizationsResult.data.find((entry) => entry.id === id)
-                              : undefined
-                          if (found) edit({ locale: found.locale, versionLocalization: found.id })
-                        }}
-                        items={
-                          localizationsResult.state === 'ready'
-                            ? localizationsResult.data.map((entry) => ({
-                                value: entry.id,
-                                label: entry.locale,
-                              }))
-                            : []
-                        }
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        La langue doit déjà exister sur cette version dans App Store Connect.
-                      </p>
-                    </div>
-                  )}
-                </AsyncPanel>
-
-                <details className="border-t pt-3 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
-                    Saisir les identifiants à la main
-                  </summary>
-                  <div className="mt-3 flex flex-col gap-2">
-                    <Field className="gap-1.5">
-                      <FieldLabel htmlFor={APP_FIELD_ID}>Identifiant de l’application</FieldLabel>
-                      <Input
-                        id={APP_FIELD_ID}
-                        placeholder="com.exemple.monapp"
-                        value={target.bundleId}
-                        disabled={busy}
-                        onChange={(event) =>
-                          edit({
-                            bundleId: event.target.value.trim(),
-                            appId: undefined,
-                            appName: undefined,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field className="gap-1.5">
-                      <FieldLabel htmlFor={VERSION_FIELD_ID}>Version</FieldLabel>
-                      <Input
-                        id={VERSION_FIELD_ID}
-                        placeholder="1.4.0"
-                        value={target.appVersion}
-                        disabled={busy}
-                        onChange={(event) =>
-                          edit({ appVersion: event.target.value.trim(), versionId: undefined })
-                        }
-                      />
-                    </Field>
-                    <SelectField
-                      aria-label="Langue App Store"
-                      label="Langue App Store"
-                      value={target.locale}
-                      disabled={busy}
-                      onValueChange={(locale) => edit({ locale })}
-                      items={APP_STORE_LOCALES.map((locale) => ({ value: locale, label: locale }))}
-                    />
-                    <Field className="gap-1.5">
-                      <FieldLabel htmlFor={LOCALIZATION_FIELD_ID}>
-                        Identifiant de localisation de version
-                      </FieldLabel>
-                      <Input
-                        id={LOCALIZATION_FIELD_ID}
-                        placeholder="0a1b2c3d-…"
-                        value={target.versionLocalization}
-                        disabled={busy}
-                        onChange={(event) =>
-                          edit({ versionLocalization: event.target.value.trim() })
-                        }
-                      />
-                    </Field>
-                    <p className="text-xs text-muted-foreground">
-                      Il se lit avec{' '}
-                      <code className="text-foreground">{commandLine(LOCALIZATION_HINT)}</code>.
-                    </p>
-                  </div>
-                </details>
-              </div>
-            ),
-          },
-          {
-            id: 'envoi',
-            title: 'Envoi',
-            content: (
-              <div className="flex flex-col gap-4">
-                {releases.length > 1 && (
-                  <SelectField
-                    id={RELEASE_PICK_ID}
-                    label="Version figée"
-                    aria-label="Version figée"
-                    value={release.id}
-                    disabled={busy}
-                    onValueChange={onPickRelease}
-                    items={releases.map((entry) => ({ value: entry.id, label: entry.name }))}
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Version figée : {release.name} · {release.files.length} planche
-                  {release.files.length > 1 ? 's' : ''} · {ascSizeLabel(release)}
-                  {release.watermarked ? ' · filigrane' : ''}
-                </p>
-
-                {localeMismatch && (
-                  <p role="alert" className="text-xs text-warning">
-                    Ce lot a été rendu en « {release.locale} » mais viserait la fiche «{' '}
-                    {target.locale} ».
+                  <p className="text-xs text-muted-foreground">
+                    Dans un terminal, depuis le dossier où vous avez cloné ScreenForge :
                   </p>
-                )}
+                  <SetupCommand command={BRIDGE_COMMAND} />
+                  <p
+                    role={bridge ? 'alert' : 'status'}
+                    className={cn(
+                      'flex items-start gap-1.5 text-xs',
+                      bridge ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    {bridge && <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />}
+                    {bridge ? (bridge.message ?? 'Pont indisponible.') : 'Recherche du pont…'}
+                  </p>
+                  {bridge?.reachable && !bridge.available && (
+                    <>
+                      <p className="text-xs text-muted-foreground">Puis, dans le même terminal :</p>
+                      <SetupCommand command="asc auth login" />
+                    </>
+                  )}
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={recheckBridge}
+                      loading={bridge === null}
+                      disabled={busy}
+                    >
+                      <RefreshCw aria-hidden />
+                      Vérifier
+                    </Button>
+                  </div>
+                </SetupStep>
 
-                {findings.length > 0 && (
-                  <ul className="flex flex-col gap-1" aria-label="Résultat du preflight">
-                    {findings.map((finding) => (
-                      <li
-                        key={finding.message}
-                        {...(finding.level === 'error' ? { role: 'alert' } : {})}
-                        className={cn(
-                          'flex items-start gap-2 text-xs',
-                          finding.level === 'error' ? 'text-destructive' : 'text-warning',
-                        )}
-                      >
-                        <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                        {finding.message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <SetupStep
+                  rank={2}
+                  title="Collez le jeton « asc-publish » affiché par le pont"
+                  state={tokenStepState}
+                  result={
+                    appsResult.state === 'ready'
+                      ? appsCountLabel(appsResult.data.length)
+                      : undefined
+                  }
+                >
+                  <div className="flex items-end gap-2">
+                    <Field className="min-w-0 flex-1 gap-1.5">
+                      <FieldLabel htmlFor={TOKEN_FIELD_ID}>Jeton asc-publish</FieldLabel>
+                      <Input
+                        id={TOKEN_FIELD_ID}
+                        type="password"
+                        autoComplete="off"
+                        value={token}
+                        disabled={busy || !bridgeReady}
+                        onChange={(event) => setToken(event.target.value)}
+                      />
+                    </Field>
+                    <Button
+                      variant="outline"
+                      onClick={() => void verifyToken()}
+                      loading={appsResult.state === 'pending'}
+                      disabled={busy || !bridgeReady || token.trim().length === 0}
+                    >
+                      <Plug aria-hidden />
+                      Vérifier le pont
+                    </Button>
+                  </div>
+                  {appsResult.state === 'failed' && (
+                    <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive">
+                      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                      {appsResult.message}
+                    </p>
+                  )}
+                </SetupStep>
 
+                <SetupStep
+                  rank={3}
+                  title="Choisissez la destination"
+                  state={destinationStepState}
+                />
+              </div>
+            </SetupFlow>
+          ),
+        },
+        {
+          id: 'destination',
+          title: 'Destination',
+          content: (
+            <div className="flex flex-col gap-4">
+              <AsyncPanel
+                state={appsResult.state}
+                idle={
+                  <p className="text-xs text-muted-foreground">
+                    Vérifiez le pont à l’étape précédente pour lire vos applications.
+                  </p>
+                }
+                skeleton={<Skeleton className="h-8.5 w-full" />}
+                failedTitle="La lecture des applications a échoué"
+                failedMessage={appsResult.state === 'failed' ? appsResult.message : undefined}
+                onRetry={() => void verifyToken()}
+              >
+                <SelectField
+                  id={APP_PICK_ID}
+                  aria-label="Application"
+                  label="Application"
+                  value={target.appId ?? ''}
+                  disabled={busy}
+                  onValueChange={(id) => {
+                    const app =
+                      appsResult.state === 'ready'
+                        ? appsResult.data.find((entry) => entry.id === id)
+                        : undefined
+                    if (app) void selectApp(app)
+                  }}
+                  items={
+                    appsResult.state === 'ready'
+                      ? appsResult.data.map((app) => ({
+                          value: app.id,
+                          label: `${app.name} — ${app.bundleId}`,
+                        }))
+                      : []
+                  }
+                />
+              </AsyncPanel>
+
+              <AsyncPanel
+                state={versionsResult.state}
+                idle={
+                  <p className="text-xs text-muted-foreground">
+                    Choisissez d’abord une application.
+                  </p>
+                }
+                skeleton={<Skeleton className="h-8.5 w-full" />}
+                failedTitle="La lecture des versions a échoué"
+                failedMessage={
+                  versionsResult.state === 'failed' ? versionsResult.message : undefined
+                }
+                onRetry={() => selectedApp && void selectApp(selectedApp)}
+              >
+                <SelectField
+                  id={VERSION_PICK_ID}
+                  aria-label="Version"
+                  label="Version"
+                  value={target.versionId ?? ''}
+                  disabled={busy}
+                  onValueChange={(id) => {
+                    const version =
+                      versionsResult.state === 'ready'
+                        ? versionsResult.data.find((entry) => entry.id === id)
+                        : undefined
+                    if (version) void selectVersion(version)
+                  }}
+                  items={
+                    versionsResult.state === 'ready'
+                      ? versionsResult.data.map((version) => ({
+                          value: version.id,
+                          label: `${version.versionString} · ${version.state}`,
+                        }))
+                      : []
+                  }
+                />
                 {pickedVersionLock && (
                   <p role="alert" className="text-xs text-warning">
                     {pickedVersionLock}
                   </p>
                 )}
+              </AsyncPanel>
 
-                {findings.length === 0 && !pickedVersionLock && (
-                  <p className="flex items-center gap-2 text-xs text-success">
-                    <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
-                    Preflight sans réserve : {targetSummary(target, release)}
+              <AsyncPanel
+                state={localizationsResult.state}
+                idle={
+                  <p className="text-xs text-muted-foreground">Choisissez d’abord une version.</p>
+                }
+                skeleton={<Skeleton className="h-8.5 w-full" />}
+                failedTitle="La lecture des langues a échoué"
+                failedMessage={
+                  localizationsResult.state === 'failed' ? localizationsResult.message : undefined
+                }
+                onRetry={() => selectedVersion && void selectVersion(selectedVersion)}
+              >
+                {matchedLocalization ? (
+                  <p className="text-xs text-foreground">
+                    Langue App Store : {matchedLocalization.locale} — localisation{' '}
+                    {matchedLocalization.id.slice(0, 4)}…
                   </p>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => void prepare()}
-                    loading={progress !== null}
-                    disabled={refused || busy}
-                  >
-                    <Package aria-hidden />
-                    Préparer le lot
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void download()}
-                    loading={downloading}
-                    disabled={!usable || busy}
-                  >
-                    Télécharger le lot
-                  </Button>
-                </div>
-
-                {progress && (
-                  <p role="status" className="tabular-nums text-xs text-muted-foreground">
-                    {progress.current}/{progress.total} · {progress.label}
-                  </p>
-                )}
-
-                {drifted > 0 && (
-                  <Alert variant="warning">
-                    <AlertTriangle aria-hidden />
-                    <AlertTitle>Le lot a changé depuis qu’il a été figé</AlertTitle>
-                    <AlertDescription>
-                      {drifted} planche{drifted > 1 ? 's' : ''} ne correspond
-                      {drifted > 1 ? 'ent' : ''} plus à la version figée. Figez un nouveau lot pour
-                      publier ce qui est sur la planche.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {error && (
-                  <p role="alert" className="text-xs text-destructive">
-                    {error}
-                  </p>
-                )}
-
-                {usable && bundle && (
-                  <div className="rounded-xl border bg-muted flex flex-col gap-2 p-4">
-                    <span className="text-xs text-muted-foreground">Commande à lancer</span>
-                    <code className="block break-all text-xs text-foreground">
-                      {commandLine(command)}
-                    </code>
-                    <p className="tabular-nums text-xs text-muted-foreground">
-                      Empreinte du lot : {bundle.bundleHash.slice(0, 16)}…
-                    </p>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        navigator.clipboard
-                          ?.writeText(commandLine(command))
-                          .then(() => toast('Commande copiée.', 'success'))
-                          .catch(() => toast('La copie a échoué.', 'error'))
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <SelectField
+                      id={LOCALIZATION_PICK_ID}
+                      aria-label="Langue App Store"
+                      label="Langue App Store"
+                      value={target.versionLocalization}
+                      disabled={busy}
+                      onValueChange={(id) => {
+                        const found =
+                          localizationsResult.state === 'ready'
+                            ? localizationsResult.data.find((entry) => entry.id === id)
+                            : undefined
+                        if (found) edit({ locale: found.locale, versionLocalization: found.id })
                       }}
-                    >
-                      <Copy aria-hidden />
-                      Copier
-                    </Button>
+                      items={
+                        localizationsResult.state === 'ready'
+                          ? localizationsResult.data.map((entry) => ({
+                              value: entry.id,
+                              label: entry.locale,
+                            }))
+                          : []
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      La langue doit déjà exister sur cette version dans App Store Connect.
+                    </p>
                   </div>
                 )}
+              </AsyncPanel>
 
-                <div className="flex flex-col gap-3 border-t pt-4">
-                  <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
-                    Essai à blanc (rien n’est modifié chez Apple)
-                    <Switch
-                      checked={dryRun}
-                      onCheckedChange={setDryRun}
-                      aria-label="Essai à blanc"
+              <details className="border-t pt-3 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none font-medium marker:text-muted-foreground hover:text-foreground">
+                  Saisir les identifiants à la main
+                </summary>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={APP_FIELD_ID}>Identifiant de l’application</FieldLabel>
+                    <Input
+                      id={APP_FIELD_ID}
+                      placeholder="com.exemple.monapp"
+                      value={target.bundleId}
                       disabled={busy}
+                      onChange={(event) =>
+                        edit({
+                          bundleId: event.target.value.trim(),
+                          appId: undefined,
+                          appName: undefined,
+                        })
+                      }
                     />
-                  </Label>
-                  {/* Le seul drapeau destructeur de la boîte : décoché par défaut, et
-                      dit en toutes lettres ce qu'il supprime. */}
-                  <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
-                    Supprimer les captures déjà en ligne avant d’envoyer
-                    <Switch
-                      checked={replaceExisting}
-                      onCheckedChange={setReplaceExisting}
-                      aria-label="Remplacer les captures existantes"
+                  </Field>
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={VERSION_FIELD_ID}>Version</FieldLabel>
+                    <Input
+                      id={VERSION_FIELD_ID}
+                      placeholder="1.4.0"
+                      value={target.appVersion}
                       disabled={busy}
+                      onChange={(event) =>
+                        edit({ appVersion: event.target.value.trim(), versionId: undefined })
+                      }
                     />
-                  </Label>
-
-                  {steps.length > 0 && (
-                    <ul className="flex flex-col gap-1" aria-label="Étapes de la publication">
-                      {steps.map((publishStep) => (
-                        <li
-                          key={publishStep.name}
-                          className={cn(
-                            'tabular-nums flex items-center gap-2 text-xs',
-                            publishStep.status === 'ok'
-                              ? 'text-muted-foreground'
-                              : 'text-destructive',
-                          )}
-                        >
-                          {publishStep.status === 'ok' ? (
-                            <Check className="size-3.5 shrink-0" aria-hidden />
-                          ) : (
-                            <AlertCircle className="size-3.5 shrink-0" aria-hidden />
-                          )}
-                          {publishStep.name} · {publishStep.detail} · {publishStep.ms} ms
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  </Field>
+                  <SelectField
+                    aria-label="Langue App Store"
+                    label="Langue App Store"
+                    value={target.locale}
+                    disabled={busy}
+                    onValueChange={(locale) => edit({ locale })}
+                    items={APP_STORE_LOCALES.map((locale) => ({ value: locale, label: locale }))}
+                  />
+                  <Field className="gap-1.5">
+                    <FieldLabel htmlFor={LOCALIZATION_FIELD_ID}>
+                      Identifiant de localisation de version
+                    </FieldLabel>
+                    <Input
+                      id={LOCALIZATION_FIELD_ID}
+                      placeholder="0a1b2c3d-…"
+                      value={target.versionLocalization}
+                      disabled={busy}
+                      onChange={(event) => edit({ versionLocalization: event.target.value.trim() })}
+                    />
+                  </Field>
+                  <p className="text-xs text-muted-foreground">
+                    Il se lit avec{' '}
+                    <code className="text-foreground">{commandLine(LOCALIZATION_HINT)}</code>.
+                  </p>
                 </div>
+              </details>
+            </div>
+          ),
+        },
+        {
+          id: 'envoi',
+          title: 'Envoi',
+          content: (
+            <div className="flex flex-col gap-4">
+              {releases.length > 1 && (
+                <SelectField
+                  id={RELEASE_PICK_ID}
+                  label="Version figée"
+                  aria-label="Version figée"
+                  value={release.id}
+                  disabled={busy}
+                  onValueChange={onPickRelease}
+                  items={releases.map((entry) => ({ value: entry.id, label: entry.name }))}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                Version figée : {release.name} · {release.files.length} planche
+                {release.files.length > 1 ? 's' : ''} · {ascSizeLabel(release)}
+                {release.watermarked ? ' · filigrane' : ''}
+              </p>
+
+              {localeMismatch && (
+                <p role="alert" className="text-xs text-warning">
+                  Ce lot a été rendu en « {release.locale} » mais viserait la fiche «{' '}
+                  {target.locale} ».
+                </p>
+              )}
+
+              {findings.length > 0 && (
+                <ul className="flex flex-col gap-1" aria-label="Résultat du preflight">
+                  {findings.map((finding) => (
+                    <li
+                      key={finding.message}
+                      {...(finding.level === 'error' ? { role: 'alert' } : {})}
+                      className={cn(
+                        'flex items-start gap-2 text-xs',
+                        finding.level === 'error' ? 'text-destructive' : 'text-warning',
+                      )}
+                    >
+                      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                      {finding.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {pickedVersionLock && (
+                <p role="alert" className="text-xs text-warning">
+                  {pickedVersionLock}
+                </p>
+              )}
+
+              {findings.length === 0 && !pickedVersionLock && (
+                <p className="flex items-center gap-2 text-xs text-success">
+                  <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
+                  Preflight sans réserve : {targetSummary(target, release)}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void prepare()}
+                  loading={progress !== null}
+                  disabled={refused || busy}
+                >
+                  <Package aria-hidden />
+                  Préparer le lot
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void download()}
+                  loading={downloading}
+                  disabled={!usable || busy}
+                >
+                  Télécharger le lot
+                </Button>
               </div>
-            ),
-          },
-        ]}
-      />
-      <ConfirmAction
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="Publier chez Apple"
-        description={confirmDescription}
-        confirmLabel="Publier maintenant"
-        destructive={replaceExisting}
-        onConfirm={() => void publish()}
-      />
-    </>
+
+              {progress && (
+                <p role="status" className="tabular-nums text-xs text-muted-foreground">
+                  {progress.current}/{progress.total} · {progress.label}
+                </p>
+              )}
+
+              {drifted > 0 && (
+                <Alert variant="warning">
+                  <AlertTriangle aria-hidden />
+                  <AlertTitle>Le lot a changé depuis qu’il a été figé</AlertTitle>
+                  <AlertDescription>
+                    {drifted} planche{drifted > 1 ? 's' : ''} ne correspond
+                    {drifted > 1 ? 'ent' : ''} plus à la version figée. Figez un nouveau lot pour
+                    publier ce qui est sur la planche.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+
+              {usable && bundle && (
+                <div className="rounded-xl border bg-muted flex flex-col gap-2 p-4">
+                  <span className="text-xs text-muted-foreground">Commande à lancer</span>
+                  <code className="block break-all text-xs text-foreground">
+                    {commandLine(command)}
+                  </code>
+                  <p className="tabular-nums text-xs text-muted-foreground">
+                    Empreinte du lot : {bundle.bundleHash.slice(0, 16)}…
+                  </p>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard
+                        ?.writeText(commandLine(command))
+                        .then(() => toast('Commande copiée.', 'success'))
+                        .catch(() => toast('La copie a échoué.', 'error'))
+                    }}
+                  >
+                    <Copy aria-hidden />
+                    Copier
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 border-t pt-4">
+                <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
+                  Essai à blanc (rien n’est modifié chez Apple)
+                  <Switch
+                    checked={dryRun}
+                    onCheckedChange={setDryRun}
+                    aria-label="Essai à blanc"
+                    disabled={busy}
+                  />
+                </Label>
+                {/* Le seul drapeau destructeur de la boîte : décoché par défaut, et
+                      dit en toutes lettres ce qu'il supprime. */}
+                <Label className="flex items-center justify-between gap-3 text-xs font-normal text-foreground sm:text-xs">
+                  Supprimer les captures déjà en ligne avant d’envoyer
+                  <Switch
+                    checked={replaceExisting}
+                    onCheckedChange={setReplaceExisting}
+                    aria-label="Remplacer les captures existantes"
+                    disabled={busy}
+                  />
+                </Label>
+
+                {steps.length > 0 && (
+                  <ul className="flex flex-col gap-1" aria-label="Étapes de la publication">
+                    {steps.map((publishStep) => (
+                      <li
+                        key={publishStep.name}
+                        className={cn(
+                          'tabular-nums flex items-center gap-2 text-xs',
+                          publishStep.status === 'ok'
+                            ? 'text-muted-foreground'
+                            : 'text-destructive',
+                        )}
+                      >
+                        {publishStep.status === 'ok' ? (
+                          <Check className="size-3.5 shrink-0" aria-hidden />
+                        ) : (
+                          <AlertCircle className="size-3.5 shrink-0" aria-hidden />
+                        )}
+                        {publishStep.name} · {publishStep.detail} · {publishStep.ms} ms
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {/* Dans l'arbre de la boîte, comme ReleaseDialog et LocaleDialog :
+                    Base UI suit les dialogues imbriqués par l'arbre React. */}
+              <ConfirmAction
+                open={confirmOpen}
+                onOpenChange={setConfirmOpen}
+                title="Publier chez Apple"
+                description={confirmDescription}
+                confirmLabel="Publier maintenant"
+                destructive={replaceExisting}
+                onConfirm={() => void publish()}
+              />
+            </div>
+          ),
+        },
+      ]}
+    />
   )
 }
 
