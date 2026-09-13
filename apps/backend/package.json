@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
-    "@types/node": "^24.13.3",
+    "@types/node": "^26.5.1",
     "convex-test": "^0.0.38",
     "jose": "^6.2.12",
     "standardwebhooks": "^1.1.1",
