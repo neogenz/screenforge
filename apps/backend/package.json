@@ -40,11 +40,11 @@
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@types/node": "^24.13.3",
-    "convex-test": "^0.0.38",
-    "jose": "^6.2.12",
+    "convex-test": "^0.0.64",
+    "jose": "^6.2.13",
     "standardwebhooks": "^1.1.1",
     "typescript": "^6.0.3",
-    "vite": "^8.3.0",
+    "vite": "^8.3.5",
     "vitest": "^4.1.11"
   }
 }
