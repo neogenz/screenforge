@@ -1,8 +1,6 @@
 import {
   ANDROID_DEVICE_MODEL_IDS,
-  IPAD_DEVICE_MODEL_IDS,
-  IPHONE_DEVICE_MODEL_IDS,
-  WATCH_DEVICE_MODEL_IDS,
+  DEVICE_MODEL_IDS_BY_FAMILY,
   type DeviceModelId,
 } from './catalog-ids.ts'
 import type {
@@ -60,6 +58,8 @@ function output(
 }
 
 export const APP_STORE_TARGET = output('iPhone 6.9 inch', '6.9"', 1320, 2868, ['iPhone 16 Pro Max'])
+/** Apple accepte aussi 2007 × 2853 ; 1398 × 2034 est la taille native des captures du Duo ouvert. */
+export const IPHONE_DUO_TARGET = output('iPhone Duo', 'Duo', 1398, 2034, ['iPhone Duo'])
 export const IPAD_13_TARGET = output('iPad 13 inch', '13"', 2064, 2752, ['iPad 13 inch'])
 export const WATCH_ULTRA_422_TARGET = output('Apple Watch Ultra 422 × 514', '422×514', 422, 514, [
   'Apple Watch Ultra',
@@ -88,15 +88,10 @@ function appleProfile(
   label: string,
   target: DisplayClass,
   zipFolder: string,
-  family: 'iphone' | 'ipad' | 'watch',
+  family: Exclude<DeviceFamily, 'android-phone'>,
   appStoreConnectType: string,
 ): AppStoreTargetProfile {
-  const deviceModels =
-    family === 'iphone'
-      ? IPHONE_DEVICE_MODEL_IDS
-      : family === 'ipad'
-        ? IPAD_DEVICE_MODEL_IDS
-        : WATCH_DEVICE_MODEL_IDS
+  const deviceModels = DEVICE_MODEL_IDS_BY_FAMILY[family]
   return {
     id,
     label,
@@ -127,6 +122,14 @@ export const APP_STORE_PROFILE = appleProfile(
 
 export const APP_STORE_PROFILES = [
   APP_STORE_PROFILE,
+  appleProfile(
+    'app-store-iphone-duo',
+    'App Store · iPhone Duo',
+    IPHONE_DUO_TARGET,
+    'iphone-duo',
+    'iphone-duo',
+    'APP_IPHONE_DUO',
+  ),
   appleProfile(
     'app-store-ipad-13',
     'App Store · iPad 13 pouces',
@@ -201,13 +204,14 @@ export const GOOGLE_PLAY_PROFILE: GooglePlayTargetProfile = {
 
 export const STORE_TARGET_PROFILES: Record<StoreTargetId, StoreTargetProfile> = {
   'app-store-iphone': APP_STORE_PROFILE,
-  'app-store-ipad-13': APP_STORE_PROFILES[1],
-  'app-store-watch-ultra-422x514': APP_STORE_PROFILES[2],
-  'app-store-watch-ultra-410x502': APP_STORE_PROFILES[3],
-  'app-store-watch-series-10': APP_STORE_PROFILES[4],
-  'app-store-watch-series-7': APP_STORE_PROFILES[5],
-  'app-store-watch-series-4': APP_STORE_PROFILES[6],
-  'app-store-watch-series-3': APP_STORE_PROFILES[7],
+  'app-store-iphone-duo': APP_STORE_PROFILES[1],
+  'app-store-ipad-13': APP_STORE_PROFILES[2],
+  'app-store-watch-ultra-422x514': APP_STORE_PROFILES[3],
+  'app-store-watch-ultra-410x502': APP_STORE_PROFILES[4],
+  'app-store-watch-series-10': APP_STORE_PROFILES[5],
+  'app-store-watch-series-7': APP_STORE_PROFILES[6],
+  'app-store-watch-series-4': APP_STORE_PROFILES[7],
+  'app-store-watch-series-3': APP_STORE_PROFILES[8],
   'google-play-phone': GOOGLE_PLAY_PROFILE,
 }
 

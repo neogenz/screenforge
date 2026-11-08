@@ -37,6 +37,8 @@ export const IPHONE_DEVICE_MODEL_IDS = [
   'iphone-16-pro',
 ] as const
 
+export const IPHONE_DUO_DEVICE_MODEL_IDS = ['iphone-duo'] as const
+
 /** Cadres génériques, sans marque ni ressource propriétaire Apple. */
 export const IPAD_DEVICE_MODEL_IDS = ['tablet-slate', 'tablet-studio'] as const
 export const WATCH_DEVICE_MODEL_IDS = ['watch-halo', 'watch-compact'] as const
@@ -44,6 +46,7 @@ export const ANDROID_DEVICE_MODEL_IDS = ['android-phone'] as const
 
 export const DEVICE_MODEL_IDS_BY_FAMILY = {
   iphone: IPHONE_DEVICE_MODEL_IDS,
+  'iphone-duo': IPHONE_DUO_DEVICE_MODEL_IDS,
   ipad: IPAD_DEVICE_MODEL_IDS,
   watch: WATCH_DEVICE_MODEL_IDS,
   'android-phone': ANDROID_DEVICE_MODEL_IDS,
@@ -51,6 +54,7 @@ export const DEVICE_MODEL_IDS_BY_FAMILY = {
 
 export const DEVICE_MODEL_IDS = [
   ...IPHONE_DEVICE_MODEL_IDS,
+  ...IPHONE_DUO_DEVICE_MODEL_IDS,
   ...IPAD_DEVICE_MODEL_IDS,
   ...WATCH_DEVICE_MODEL_IDS,
   ...ANDROID_DEVICE_MODEL_IDS,
@@ -71,6 +75,7 @@ export function deviceModelIdsForFamily(
 }
 
 export function deviceModelFamily(model: DeviceModelId): keyof typeof DEVICE_MODEL_IDS_BY_FAMILY {
+  if ((IPHONE_DUO_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'iphone-duo'
   if ((IPAD_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'ipad'
   if ((WATCH_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'watch'
   if ((ANDROID_DEVICE_MODEL_IDS as readonly string[]).includes(model)) return 'android-phone'

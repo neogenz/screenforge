@@ -112,3 +112,36 @@ test('crée des projets iPad et Watch, filtre leurs ressources et exporte une ca
   const image = decode(png)
   expect(image).toMatchObject({ width: 416, height: 496, depth: 8, channels: 3 })
 })
+
+test('crée un projet iPhone Duo avec son cadre et exporte à la taille Apple du Duo', async ({
+  page,
+}) => {
+  await waitForApp(page)
+  await createTargetProject(
+    page,
+    'Maquette Duo',
+    /App Store · iPhone Duo.*1398×2034/,
+    'app-store-iphone-duo',
+  )
+
+  await page.getByLabel('Ajouter un appareil').click()
+  await expect(page.getByRole('menuitem', { name: /iPhone Duo/ })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /iPhone 17|Tablette|Montre/ })).toHaveCount(0)
+  await page.getByRole('menuitem', { name: /iPhone Duo/ }).click()
+  await expect
+    .poll(() => activeDeviceState(page))
+    .toEqual([expect.objectContaining({ model: 'iphone-duo' })])
+
+  await page.getByLabel('Importer la capture de l’app').setInputFiles({
+    name: 'duo-capture.png',
+    mimeType: 'image/png',
+    buffer: makeSolidPng(1398, 2034, [34, 38, 42, 255]),
+  })
+  await expect
+    .poll(async () => (await activeDeviceState(page)).some((device) => device.hasScreenshot))
+    .toBe(true)
+
+  const { names, png } = await downloadFirstExportedPng(page)
+  expect(names).toEqual([expect.stringMatching(/^iphone-duo\/01_/)])
+  expect(decode(png)).toMatchObject({ width: 1398, height: 2034, depth: 8, channels: 3 })
+})

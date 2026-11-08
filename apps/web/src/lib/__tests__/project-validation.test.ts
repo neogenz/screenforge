@@ -77,10 +77,10 @@ function project(): Project {
 }
 
 describe('project validation', () => {
-  it('keeps the eight official profiles unique and at their exact logical ratio', () => {
-    expect(APP_STORE_PROFILES).toHaveLength(8)
-    expect(new Set(APP_STORE_PROFILES.map(({ id }) => id)).size).toBe(8)
-    expect(new Set(APP_STORE_PROFILES.map(({ zipFolder }) => zipFolder)).size).toBe(8)
+  it('keeps the nine official profiles unique and at their exact logical ratio', () => {
+    expect(APP_STORE_PROFILES).toHaveLength(9)
+    expect(new Set(APP_STORE_PROFILES.map(({ id }) => id)).size).toBe(9)
+    expect(new Set(APP_STORE_PROFILES.map(({ zipFolder }) => zipFolder)).size).toBe(9)
     for (const profile of APP_STORE_PROFILES) {
       expect(profile.board.width / profile.board.height).toBeCloseTo(
         profile.output.portrait.width / profile.output.portrait.height,
@@ -95,6 +95,7 @@ describe('project validation', () => {
       ]),
     ).toEqual([
       [1320, 2868, 'APP_IPHONE_69'],
+      [1398, 2034, 'APP_IPHONE_DUO'],
       [2064, 2752, 'APP_IPAD_PRO_3GEN_129'],
       [422, 514, 'APP_WATCH_ULTRA'],
       [410, 502, 'APP_WATCH_ULTRA'],

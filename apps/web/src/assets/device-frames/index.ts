@@ -158,6 +158,11 @@ export const DEVICE_FRAMES: DeviceFrameConfig[] = [
   frameConfig('iphone-16e', 'iPhone 16e', '6.1"', 170, 349, { x: 8.2, y: 8.2 }, IPHONE_16E_COLORS, {
     cutout: 'notch',
   }),
+  // Ouvert, à la proportion exacte de ses captures (1398 × 2034) : un cadre d'iPhone les rognerait.
+  frameConfig('iphone-duo', 'iPhone Duo', 'Duo', 290, 417, { x: 6, y: 6.25 }, PRO_17_COLORS, {
+    family: 'iphone-duo',
+    cutout: 'none',
+  }),
   frameConfig(
     'android-phone',
     'Téléphone Android',

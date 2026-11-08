@@ -364,6 +364,7 @@ export type DeviceModel = DeviceModelId
 
 export type StoreTargetId =
   | 'app-store-iphone'
+  | 'app-store-iphone-duo'
   | 'app-store-ipad-13'
   | 'app-store-watch-ultra-422x514'
   | 'app-store-watch-ultra-410x502'
@@ -375,7 +376,7 @@ export type StoreTargetId =
 
 export type DevicePlatform = 'apple' | 'android'
 
-export type DeviceFamily = 'iphone' | 'ipad' | 'watch' | 'android-phone'
+export type DeviceFamily = 'iphone' | 'iphone-duo' | 'ipad' | 'watch' | 'android-phone'
 
 export type DeviceColor =
   | 'cosmic-orange'
