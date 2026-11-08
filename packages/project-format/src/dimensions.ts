@@ -58,7 +58,7 @@ function output(
 }
 
 export const APP_STORE_TARGET = output('iPhone 6.9 inch', '6.9"', 1320, 2868, ['iPhone 16 Pro Max'])
-/** Apple accepte aussi 2007 × 2853 ; 1398 × 2034 est la taille native des captures du Duo ouvert. */
+/** L'écran extérieur du Duo, plié. Apple accepte aussi l'intérieur, déplié, en 2007 × 2853. */
 export const IPHONE_DUO_TARGET = output('iPhone Duo', 'Duo', 1398, 2034, ['iPhone Duo'])
 export const IPAD_13_TARGET = output('iPad 13 inch', '13"', 2064, 2752, ['iPad 13 inch'])
 export const WATCH_ULTRA_422_TARGET = output('Apple Watch Ultra 422 × 514', '422×514', 422, 514, [
